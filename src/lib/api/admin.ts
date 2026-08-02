@@ -22,10 +22,17 @@ export interface Role {
 export interface AdminUser {
   id: string;
   email: string;
-  firstName?: string;
-  lastName?: string;
-  role: string;
+  name: string;
+  role: 'master_admin' | 'sub_admin';
+  permissions: string[];
   roleId?: string;
+  createdAt: string;
+}
+
+export interface RejectionReason {
+  id: string;
+  context: 'kyc' | 'withdrawal';
+  label: string;
 }
 
 // None of these endpoints exist on the backend yet (docs/DECISIONS.md D-28).
@@ -54,6 +61,11 @@ export const adminApi = {
 
   async getAdminUsers(): Promise<AdminUser[]> {
     const { data } = await apiClient.get<AdminUser[]>('/admin/users');
+    return data;
+  },
+
+  async getRejectionReasons(context: 'kyc' | 'withdrawal'): Promise<RejectionReason[]> {
+    const { data } = await apiClient.get<RejectionReason[]>(`/admin/rejection-reasons?context=${context}`);
     return data;
   },
 };

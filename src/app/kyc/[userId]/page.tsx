@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import type { RejectionReason } from '@/lib/api/admin';
 import { buildKycDocUrl } from '@/lib/kyc-doc-url';
 
 interface KycDetail {
@@ -84,6 +85,8 @@ export default function KycDetailPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  const [reasons, setReasons] = useState<RejectionReason[]>([]);
+  const [selectedReasonId, setSelectedReasonId] = useState('');
   const [selectedRejectedFields, setSelectedRejectedFields] = useState<string[]>([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -124,15 +127,37 @@ export default function KycDetailPage() {
     return err?.response?.data?.message ?? fallback;
   };
 
+  // FR-ADM-03: reasons come from the configurable list; free text is the
+  // fallback and doubles as an optional note alongside a selected reason.
+  useEffect(() => {
+    if (!showRejectModal || reasons.length > 0) return;
+    api.admin.getRejectionReasons('kyc')
+      .then(setReasons)
+      .catch(() => setReasons([]));
+  }, [showRejectModal, reasons.length]);
+
   const approve = async () => {
     setActionLoading(true);
     setActionError('');
     try {
-      await api.patch(`/admin/kyc/${userId}/approve`);
-      setData((d) => (d ? { ...d, status: 'approved' } : d));
+      const r = await api.patch(`/admin/kyc/${userId}/approve`);
+      setData(r.data ?? null);
       setShowApproveConfirm(false);
     } catch (e: unknown) {
       setActionError(errorMessage(e, 'Failed to approve the submission. Please try again.'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const claim = async () => {
+    setActionLoading(true);
+    setActionError('');
+    try {
+      const r = await api.patch(`/admin/kyc/${userId}/claim`);
+      setData(r.data ?? null);
+    } catch (e: unknown) {
+      setActionError(errorMessage(e, 'Failed to claim the submission for review.'));
     } finally {
       setActionLoading(false);
     }
@@ -144,27 +169,22 @@ export default function KycDetailPage() {
     );
   };
 
+  const canConfirmReject = selectedReasonId !== '' || rejectReason.trim() !== '';
+
   const reject = async () => {
-    if (!rejectReason.trim()) return;
+    if (!canConfirmReject) return;
     setActionLoading(true);
     setActionError('');
     try {
-      await api.patch(`/admin/kyc/${userId}/reject`, {
-        reason: rejectReason.trim(),
+      const r = await api.patch(`/admin/kyc/${userId}/reject`, {
+        reasonId: selectedReasonId || undefined,
+        reason: rejectReason.trim() || undefined,
         rejectedFields: selectedRejectedFields,
       });
-      setData((d) =>
-        d
-          ? {
-              ...d,
-              status: 'rejected',
-              rejectionReason: rejectReason.trim(),
-              rejectedFields: selectedRejectedFields,
-            }
-          : d
-      );
+      setData(r.data ?? null);
       setShowRejectModal(false);
       setRejectReason('');
+      setSelectedReasonId('');
       setSelectedRejectedFields([]);
     } catch (e: unknown) {
       setActionError(errorMessage(e, 'Failed to reject the submission. Please try again.'));
@@ -278,6 +298,16 @@ export default function KycDetailPage() {
           {canReview && (
             <div className="action-card">
               <h3>Review Decision</h3>
+              {data.status === 'submitted' && (
+                <button
+                  className="btn-claim"
+                  onClick={claim}
+                  disabled={actionLoading}
+                  title="Marks this submission as under review by you, so another admin doesn't review it at the same time"
+                >
+                  Claim for review
+                </button>
+              )}
               <div className="action-btns">
                 <button
                   className="btn-approve"
@@ -353,8 +383,28 @@ export default function KycDetailPage() {
           >
             <h3 id="reject-modal-title">Reject KYC Submission</h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Select specific invalid fields and provide a reason for rejection.
+              Choose a rejection reason, flag the invalid fields, and optionally add a note.
+              The client is emailed the reason and can correct and resubmit.
             </p>
+
+            {reasons.length > 0 && (
+              <div className="space-y-1.5 mb-4">
+                <label htmlFor="kyc-reason-select" className="text-xs font-bold text-foreground">
+                  Rejection Reason <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  id="kyc-reason-select"
+                  className="reject-select"
+                  value={selectedReasonId}
+                  onChange={(e) => setSelectedReasonId(e.target.value)}
+                >
+                  <option value="">Select a reason…</option>
+                  {reasons.map((r) => (
+                    <option key={r.id} value={r.id}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1 mb-4">
               {FIELD_OPTIONS.map((grp) => (
@@ -388,7 +438,9 @@ export default function KycDetailPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Rejection Reason Note <span className="text-rose-500">*</span></label>
+              <label className="text-xs font-bold text-foreground">
+                {reasons.length > 0 ? 'Additional Note (optional)' : <>Rejection Reason <span className="text-rose-500">*</span></>}
+              </label>
               <textarea
                 className="reject-textarea"
                 placeholder="e.g. Passport image is blurry and date of birth has a typo..."
@@ -396,8 +448,8 @@ export default function KycDetailPage() {
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={3}
                 maxLength={500}
-                autoFocus
-                aria-required="true"
+                autoFocus={reasons.length === 0}
+                aria-required={reasons.length === 0}
               />
             </div>
 
@@ -410,7 +462,7 @@ export default function KycDetailPage() {
               <button
                 className="btn-reject-confirm"
                 onClick={reject}
-                disabled={!rejectReason.trim() || actionLoading}
+                disabled={!canConfirmReject || actionLoading}
                 aria-busy={actionLoading}
               >
                 {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
@@ -463,6 +515,18 @@ export default function KycDetailPage() {
         .docs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
         .action-btns { display: flex; gap: 12px; }
+        .btn-claim {
+          width: 100%; margin-bottom: 12px; background: var(--muted);
+          color: var(--primary); border: 1px solid var(--input); border-radius: 12px;
+          padding: 10px 16px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+        }
+        .btn-claim:hover { border-color: var(--ring); }
+        .btn-claim:disabled { opacity: 0.5; cursor: not-allowed; }
+        .reject-select {
+          width: 100%; background: var(--background); border: 1px solid var(--input);
+          border-radius: 10px; padding: 10px 12px; color: var(--foreground); font-size: 0.9rem; outline: none;
+        }
+        .reject-select:focus { border-color: #f87171; }
         .btn-approve {
           flex: 1; background: linear-gradient(135deg, #22c55e, #16a34a);
           color: white; border: none; border-radius: 12px; padding: 14px 20px;

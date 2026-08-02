@@ -1,16 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '@/lib/api';
+import type { Role } from '@/lib/api/admin';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function InviteAdminPage() {
   const [form, setForm] = useState({ email: '', name: '' });
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [roleId, setRoleId] = useState('');
   const [result, setResult] = useState<{ inviteUrl?: string; message?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // RBAC-07: the master admin assigns the role at invite time. If the roles
+  // endpoint is unavailable the selector hides and the backend default applies.
+  useEffect(() => {
+    api.admin.getRoles()
+      .then((r) => setRoles(r.filter((role) => !role.isSystem)))
+      .catch(() => setRoles([]));
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +31,7 @@ export default function InviteAdminPage() {
     if (!EMAIL_RE.test(email)) { setError('Enter a valid email address.'); return; }
     setError(''); setLoading(true);
     try {
-      const r = await api.post('/admin/invite', { name, email });
+      const r = await api.post('/admin/invite', { name, email, roleId: roleId || undefined });
       setResult(r.data);
       setCopied(false);
       setForm({ email: '', name: '' });
@@ -87,6 +98,24 @@ export default function InviteAdminPage() {
                 onChange={(e) => { setError(''); setForm((f) => ({ ...f, email: e.target.value })); }}
               />
             </div>
+            {roles.length > 0 && (
+              <div className="form-group">
+                <label htmlFor="invite-role">Role</label>
+                <select
+                  id="invite-role"
+                  className="form-input"
+                  value={roleId}
+                  onChange={(e) => setRoleId(e.target.value)}
+                >
+                  <option value="">Default (KYC review + client list)</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.permissions.length} permission{r.permissions.length === 1 ? '' : 's'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {error && <div className="error-msg" role="alert">{error}</div>}
             <button className="submit-btn" type="submit" disabled={loading} aria-busy={loading}>
               {loading ? 'Creating invite...' : '📨 Create Invite'}

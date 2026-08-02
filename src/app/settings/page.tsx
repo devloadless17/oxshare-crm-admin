@@ -237,7 +237,7 @@ export default function AdminSettingsPage() {
                 {adminUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4 font-semibold text-foreground">
-                      {user.firstName} {user.lastName}
+                      {user.name}
                     </td>
                     <td className="px-6 py-4 font-mono text-muted-foreground">{user.email}</td>
                     <td className="px-6 py-4">
