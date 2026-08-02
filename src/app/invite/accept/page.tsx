@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const params = useSearchParams();
   const router = useRouter();
   const token = params.get('token') ?? '';
@@ -115,5 +115,19 @@ export default function AcceptInvitePage() {
         .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
       `}</style>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#0a0f1e] text-slate-400 text-sm">
+          Loading invite parameters...
+        </div>
+      }
+    >
+      <AcceptInviteContent />
+    </Suspense>
   );
 }

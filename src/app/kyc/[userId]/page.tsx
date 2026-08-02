@@ -11,30 +11,58 @@ interface KycDetail {
   submittedAt?: string;
   reviewedAt?: string;
   rejectionReason?: string;
+  rejectedFields?: string[];
   user?: { email: string; firstName: string; lastName: string };
   personalInfo?: Record<string, string>;
   document?: { docType?: string; frontFilePath?: string; backFilePath?: string; frontFileName?: string; backFileName?: string };
   selfie?: { filePath?: string; fileName?: string };
-  addressProof?: { docType?: string; filePath?: string; fileName?: string };
+  addressProof?: { docType?: string; filePath?: string; fileName?: string; page2FilePath?: string };
 }
 
 function DocViewer({ filePath, label }: { filePath?: string; label: string }) {
-  if (!filePath) return <div className="doc-empty">Not uploaded</div>;
-  const isPdf = filePath.endsWith('.pdf');
-  const url = `http://localhost:3001/uploads/${filePath.replace('uploads/', '').replace('uploads\\', '')}`;
+  const isPdf = filePath?.toLowerCase().endsWith('.pdf');
+  const cleanPath = filePath ? filePath.replace(/\\/g, '/').replace(/^uploads\//, '').replace(/^\.\/uploads\//, '').replace(/^uploads\/kyc\//, '') : '';
+  const url = filePath ? `http://localhost:3001/uploads/kyc/${cleanPath}` : '';
+
   return (
-    <div className="doc-viewer">
-      <div className="doc-label">{label}</div>
-      {isPdf ? (
-        <a href={url} target="_blank" rel="noreferrer" className="doc-pdf-link">📄 View PDF</a>
+    <div className="flex flex-col gap-2 p-4 rounded-xl border border-border bg-card/60">
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+      {filePath ? (
+        isPdf ? (
+          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-blue-500 hover:underline font-semibold text-xs py-3">
+            📄 View Document PDF
+          </a>
+        ) : (
+          <a href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-border/80">
+            <img src={url} alt={label} className="w-full h-44 object-cover hover:opacity-90 transition-opacity cursor-pointer" />
+          </a>
+        )
       ) : (
-        <a href={url} target="_blank" rel="noreferrer">
-          <img src={url} alt={label} className="doc-img" />
-        </a>
+        <div className="text-xs italic text-muted-foreground/60 py-6 text-center border border-dashed border-border/50 rounded-lg">
+          Not uploaded
+        </div>
       )}
     </div>
   );
 }
+
+const FIELD_OPTIONS = [
+  { group: 'Personal Information', fields: [
+    { id: 'firstName', label: 'First Name' },
+    { id: 'lastName', label: 'Last Name' },
+    { id: 'dateOfBirth', label: 'Date of Birth' },
+    { id: 'phone', label: 'Phone Number' },
+    { id: 'nationality', label: 'Nationality' },
+    { id: 'country', label: 'Country' },
+    { id: 'address', label: 'Address' },
+  ]},
+  { group: 'Documents & Verification', fields: [
+    { id: 'doc_front', label: 'ID / Passport Photo' },
+    { id: 'doc_back', label: 'ID Back Side' },
+    { id: 'selfie', label: 'Selfie Photo' },
+    { id: 'address_proof', label: 'Proof of Address' },
+  ]},
+];
 
 export default function KycDetailPage() {
   const params = useParams();
@@ -44,6 +72,7 @@ export default function KycDetailPage() {
   const [data, setData] = useState<KycDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [rejectReason, setRejectReason] = useState('');
+  const [selectedRejectedFields, setSelectedRejectedFields] = useState<string[]>([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -61,13 +90,32 @@ export default function KycDetailPage() {
     setActionLoading(false);
   };
 
+  const toggleFieldSelection = (fieldId: string) => {
+    setSelectedRejectedFields((prev) =>
+      prev.includes(fieldId) ? prev.filter((f) => f !== fieldId) : [...prev, fieldId]
+    );
+  };
+
   const reject = async () => {
     if (!rejectReason.trim()) return;
     setActionLoading(true);
-    await api.patch(`/admin/kyc/${userId}/reject`, { reason: rejectReason });
-    setData((d) => d ? { ...d, status: 'rejected', rejectionReason: rejectReason } : d);
+    await api.patch(`/admin/kyc/${userId}/reject`, {
+      reason: rejectReason,
+      rejectedFields: selectedRejectedFields,
+    });
+    setData((d) =>
+      d
+        ? {
+            ...d,
+            status: 'rejected',
+            rejectionReason: rejectReason,
+            rejectedFields: selectedRejectedFields,
+          }
+        : d
+    );
     setShowRejectModal(false);
     setRejectReason('');
+    setSelectedRejectedFields([]);
     setActionLoading(false);
   };
 
@@ -80,6 +128,8 @@ export default function KycDetailPage() {
   if (!data) return <div className="detail-loading"><p>Submission not found.</p></div>;
 
   const canReview = data.status === 'submitted' || data.status === 'under_review';
+  const docType = data.document?.docType ?? 'passport';
+  const isPassport = docType === 'passport';
 
   return (
     <div className="detail-page">
@@ -102,16 +152,16 @@ export default function KycDetailPage() {
             {data.personalInfo ? Object.entries(data.personalInfo).map(([k, v]) => (
               <div key={k} className="info-row">
                 <span>{k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
-                <strong>{v}</strong>
+                <strong className={data.rejectedFields?.includes(k) ? 'text-rose-400 font-bold' : ''}>{v}</strong>
               </div>
             )) : <p className="not-submitted">Not submitted</p>}
           </div>
 
           <div className="info-card">
-            <h3>Document</h3>
+            <h3>Document Type</h3>
             <div className="info-row">
               <span>Type</span>
-              <strong>{data.document?.docType?.replace('_', ' ') ?? '—'}</strong>
+              <strong className="uppercase tracking-wider text-blue-400">{docType.replace('_', ' ')}</strong>
             </div>
           </div>
 
@@ -119,6 +169,18 @@ export default function KycDetailPage() {
             <div className="rejection-card">
               <h3>❌ Rejection Reason</h3>
               <p>{data.rejectionReason}</p>
+              {data.rejectedFields && data.rejectedFields.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-rose-500/20">
+                  <span className="text-xs font-bold text-rose-400 block mb-1">Flagged Fields for Correction:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.rejectedFields.map((f) => (
+                      <span key={f} className="text-[11px] font-mono bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-500/30">
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -132,12 +194,22 @@ export default function KycDetailPage() {
         {/* Right: Documents */}
         <div className="detail-right">
           <div className="docs-card">
-            <h3>Documents</h3>
+            <h3>Uploaded Files ({docType.toUpperCase()})</h3>
             <div className="docs-grid">
-              <DocViewer filePath={data.document?.frontFilePath} label="ID Front" />
-              <DocViewer filePath={data.document?.backFilePath} label="ID Back" />
-              <DocViewer filePath={data.selfie?.filePath} label="Selfie" />
-              <DocViewer filePath={data.addressProof?.filePath} label="Address Proof" />
+              {isPassport ? (
+                <>
+                  <DocViewer filePath={data.document?.frontFilePath} label="Passport (Photo & Signature Page)" />
+                  <DocViewer filePath={data.selfie?.filePath} label="Selfie Verification" />
+                  <DocViewer filePath={data.addressProof?.filePath} label="Proof of Address" />
+                </>
+              ) : (
+                <>
+                  <DocViewer filePath={data.document?.frontFilePath} label="ID Document (Front)" />
+                  <DocViewer filePath={data.document?.backFilePath} label="ID Document (Back)" />
+                  <DocViewer filePath={data.selfie?.filePath} label="Selfie Verification" />
+                  <DocViewer filePath={data.addressProof?.filePath} label="Proof of Address" />
+                </>
+              )}
             </div>
           </div>
 
@@ -173,14 +245,52 @@ export default function KycDetailPage() {
         <div className="modal-overlay" onClick={() => setShowRejectModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Reject KYC Submission</h3>
-            <p>Provide a clear reason. This will be shown to the user.</p>
-            <textarea
-              className="reject-textarea"
-              placeholder="e.g. Document image is blurry and unreadable..."
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={4}
-            />
+            <p className="text-xs text-muted-foreground mb-4">
+              Select specific invalid fields and provide a reason for rejection.
+            </p>
+
+            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1 mb-4">
+              {FIELD_OPTIONS.map((grp) => (
+                <div key={grp.group} className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-400 block">{grp.group}</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {grp.fields.map((f) => {
+                      const isChecked = selectedRejectedFields.includes(f.id);
+                      return (
+                        <label
+                          key={f.id}
+                          className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                            isChecked
+                              ? 'border-rose-500 bg-rose-500/10 text-rose-300 font-semibold'
+                              : 'border-border bg-card/40 text-muted-foreground hover:border-border/80'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleFieldSelection(f.id)}
+                            className="rounded border-input text-rose-600 focus:ring-rose-600"
+                          />
+                          <span>{f.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Rejection Reason Note <span className="text-rose-500">*</span></label>
+              <textarea
+                className="reject-textarea"
+                placeholder="e.g. Passport image is blurry and date of birth has a typo..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+
             <div className="modal-btns">
               <button className="btn-cancel" onClick={() => setShowRejectModal(false)}>Cancel</button>
               <button className="btn-reject-confirm" onClick={reject} disabled={!rejectReason.trim() || actionLoading}>
@@ -232,12 +342,6 @@ export default function KycDetailPage() {
         .rejection-card p { color: #fca5a5; font-size: 0.88rem; line-height: 1.6; }
 
         .docs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .doc-viewer { display: flex; flex-direction: column; gap: 8px; }
-        .doc-label { font-size: 0.75rem; font-weight: 600; color: #7c87b4; text-transform: uppercase; letter-spacing: 0.06em; }
-        .doc-img { width: 100%; border-radius: 10px; border: 1px solid rgba(99,130,255,0.2); cursor: pointer; transition: opacity 0.2s; }
-        .doc-img:hover { opacity: 0.85; }
-        .doc-pdf-link { color: #818cf8; text-decoration: none; font-size: 0.88rem; font-weight: 600; }
-        .doc-empty { color: #5a6280; font-size: 0.82rem; font-style: italic; }
 
         .action-btns { display: flex; gap: 12px; }
         .btn-approve {
@@ -258,10 +362,10 @@ export default function KycDetailPage() {
 
         /* Modal */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .modal { background: #1a1f3d; border: 1px solid rgba(99,130,255,0.25); border-radius: 20px; padding: 32px; max-width: 480px; width: 100%; animation: modalIn 0.25s ease both; }
+        .modal { background: #1a1f3d; border: 1px solid rgba(99,130,255,0.25); border-radius: 20px; padding: 32px; max-width: 520px; width: 100%; animation: modalIn 0.25s ease both; }
         @keyframes modalIn { from { transform: scale(0.95); opacity: 0; } }
         .modal h3 { font-size: 1.1rem; color: #e8eeff; margin-bottom: 8px; }
-        .modal p { color: #7c87b4; font-size: 0.88rem; margin-bottom: 20px; }
+        .modal p { color: #7c87b4; font-size: 0.88rem; }
         .reject-textarea { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(99,130,255,0.2); border-radius: 10px; padding: 12px 16px; color: #e8eeff; font-size: 0.9rem; resize: vertical; outline: none; font-family: inherit; }
         .reject-textarea:focus { border-color: #f87171; }
         .modal-btns { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
