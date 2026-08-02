@@ -33,6 +33,8 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   badge?: string | number;
+  /** Page not built yet — rendered as a disabled "Soon" entry instead of a link. */
+  comingSoon?: boolean;
 }
 
 interface NavSection {
@@ -47,16 +49,16 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { label: 'Clients', href: '/clients', icon: Users },
       { label: 'Partners / IBs', href: '/partners', icon: Building2 },
-      { label: 'Trading Accounts', href: '/trading-accounts', icon: LineChart },
+      { label: 'Trading Accounts', href: '/trading-accounts', icon: LineChart, comingSoon: true },
     ],
   },
   {
     title: 'FINANCIALS',
     items: [
       { label: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight, badge: '3' },
-      { label: 'Payouts', href: '/payouts', icon: Wallet },
-      { label: 'Ledger', href: '/ledger', icon: Receipt },
-      { label: 'Commission Plans', href: '/commission-plans', icon: Percent },
+      { label: 'Payouts', href: '/payouts', icon: Wallet, comingSoon: true },
+      { label: 'Ledger', href: '/ledger', icon: Receipt, comingSoon: true },
+      { label: 'Commission Plans', href: '/commission-plans', icon: Percent, comingSoon: true },
     ],
   },
   {
@@ -65,7 +67,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'KYC Review', href: '/kyc', icon: FileCheck, badge: '5' },
       { label: 'KYC Workflow Builder', href: '/kyc/builder', icon: Settings },
       { label: 'Roles & Permissions', href: '/roles', icon: ShieldCheck },
-      { label: 'Admin Users', href: '/admin-users', icon: Users },
+      { label: 'Admin Users', href: '/admin-users', icon: Users, comingSoon: true },
       { label: 'Settings', href: '/settings', icon: Settings },
     ],
   },
@@ -145,6 +147,27 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+
+                if (item.comingSoon) {
+                  return (
+                    <div
+                      key={item.href}
+                      title={collapsed ? `${item.label} — coming soon` : undefined}
+                      aria-disabled="true"
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 cursor-not-allowed select-none ${
+                        collapsed ? 'justify-center px-0' : ''
+                      }`}
+                    >
+                      <Icon className="h-5 w-5 shrink-0 text-slate-500" />
+                      {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                      {!collapsed && (
+                        <span className="ml-auto rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
+                          Soon
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
 
                 return (
                   <Link
