@@ -69,6 +69,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'KYC Workflow Builder', href: '/kyc/builder', icon: Settings },
       { label: 'Roles & Permissions', href: '/roles', icon: ShieldCheck },
       { label: 'Admin Users', href: '/admin-users', icon: Users, comingSoon: true },
+      { label: 'Audit Log', href: '/audit-log', icon: Activity },
       { label: 'Settings', href: '/settings', icon: Settings },
     ],
   },

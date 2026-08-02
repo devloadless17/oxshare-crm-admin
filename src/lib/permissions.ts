@@ -29,6 +29,7 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/roles', requirement: { masterOnly: true } },
   { prefix: '/settings', requirement: { masterOnly: true } },
   { prefix: '/admin-users', requirement: { masterOnly: true } },
+  { prefix: '/audit-log', requirement: { masterOnly: true } },
   { prefix: '/invite', requirement: { masterOnly: true } },
   { prefix: '/dashboard', requirement: null },
 ];

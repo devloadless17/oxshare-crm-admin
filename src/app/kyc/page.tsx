@@ -44,44 +44,62 @@ const FILTERS: Array<{ value: string; label: string }> = [
   { value: 'rejected', label: 'Rejected' },
 ];
 
+const PAGE_SIZE = 25;
+
+interface KycListResponse {
+  items: KycRow[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: Record<string, number>;
+}
+
 export default function AdminKycPage() {
   const { admin } = useAdmin();
-  const [submissions, setSubmissions] = useState<KycRow[]>([]);
+  const [rows, setRows] = useState<KycRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Fetch everything once and filter client-side, so tab counts stay correct
-  // regardless of the active filter. Revisit when the endpoint gets pagination.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Server-side filtering/search/pagination; counts come from the API over
+  // the full set, so tab counts stay correct while a filter is active.
   const load = useCallback(() => {
     setLoading(true);
     setLoadError('');
-    api.get('/admin/kyc')
-      .then((r) => setSubmissions(r.data))
+    const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+    if (filter) params.set('status', filter);
+    if (debouncedSearch) params.set('q', debouncedSearch);
+    api.get<KycListResponse>(`/admin/kyc?${params}`)
+      .then((r) => {
+        setRows(r.data.items ?? []);
+        setTotal(r.data.total ?? 0);
+        setCounts(r.data.counts ?? {});
+      })
       .catch(() => setLoadError('Failed to load submissions. Check your connection and try again.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [page, filter, debouncedSearch]);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = submissions.filter((s) => {
-    if (filter && s.status !== filter) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      s.user?.email?.toLowerCase().includes(q) ||
-      s.user?.firstName?.toLowerCase().includes(q) ||
-      s.user?.lastName?.toLowerCase().includes(q)
-    );
-  });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const filtered = rows;
 
   return (
     <div className="kyc-page">
       <div className="page-header">
         <div>
           <h1>KYC Submissions</h1>
-          <p>{submissions.length} total submissions</p>
+          <p>{counts['all'] ?? 0} total submissions</p>
         </div>
         {isMasterAdmin(admin) && (
           <Link href="/invite" className="invite-btn">+ Invite Admin</Link>
@@ -94,12 +112,12 @@ export default function AdminKycPage() {
             <button
               key={f.value}
               className={`filter-tab ${filter === f.value ? 'active' : ''}`}
-              onClick={() => setFilter(f.value)}
+              onClick={() => { setPage(1); setFilter(f.value); }}
               aria-pressed={filter === f.value}
             >
               {f.label}
               <span className="tab-count">
-                {f.value ? submissions.filter((s) => s.status === f.value).length : submissions.length}
+                {f.value ? counts[f.value] ?? 0 : counts['all'] ?? 0}
               </span>
             </button>
           ))}
@@ -109,7 +127,7 @@ export default function AdminKycPage() {
           placeholder="Search by name or email..."
           aria-label="Search submissions by name or email"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setPage(1); setSearch(e.target.value); }}
         />
       </div>
 
@@ -188,6 +206,13 @@ export default function AdminKycPage() {
               ))}
             </tbody>
           </table>
+          <div className="pager">
+            <span>{total} result{total === 1 ? '' : 's'} · page {page} of {totalPages}</span>
+            <div className="pager-btns">
+              <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Previous</button>
+              <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -234,6 +259,10 @@ export default function AdminKycPage() {
         .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
 
         .kyc-table-wrap { border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+        .pager { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--muted-foreground); }
+        .pager-btns { display: flex; gap: 8px; }
+        .pager-btns button { border: 1px solid var(--input); background: var(--card); color: var(--foreground); border-radius: 8px; padding: 6px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+        .pager-btns button:disabled { opacity: 0.4; cursor: not-allowed; }
         .kyc-table { width: 100%; border-collapse: collapse; }
         .kyc-table thead { background: var(--muted); }
         .kyc-table th { padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; }

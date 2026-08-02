@@ -60,12 +60,12 @@ export default function InviteAdminPage() {
       <div className="invite-card">
         <div className="invite-icon">✉️</div>
         <h2>Invite Admin</h2>
-        <p>Create an invitation link for a new admin. Share the link with them so they can set their password and activate their account. Links expire after 48 hours.</p>
+        <p>Invite a new admin: they receive an activation email, and you also get the link to share manually if needed. Invites expire after 48 hours.</p>
 
         {result ? (
           <div className="result-box" aria-live="polite">
             <div className="result-success">✓ Invite created!</div>
-            <p className="result-note">Share this invite link with the new admin:</p>
+            <p className="result-note">Invitation email sent. You can also share the link directly:</p>
             <div className="invite-link-box">
               <code>{result.inviteUrl}</code>
               <button className="copy-btn" onClick={copyLink}>{copied ? '✓ Copied' : 'Copy'}</button>

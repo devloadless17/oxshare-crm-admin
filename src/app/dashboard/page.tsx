@@ -15,25 +15,32 @@ interface KycRow {
   user?: { email: string; firstName?: string; lastName?: string };
 }
 
+interface KycListResponse {
+  items: KycRow[];
+  counts: Record<string, number>;
+}
+
 type LoadState = 'loading' | 'ready' | 'error';
 
 export default function AdminDashboardPage() {
-  const [kyc, setKyc] = useState<KycRow[]>([]);
+  const [reviewQueue, setReviewQueue] = useState<KycRow[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [loadState, setLoadState] = useState<LoadState>('loading');
 
   const load = useCallback(() => {
     setLoadState('loading');
-    api.get<KycRow[]>('/admin/kyc')
-      .then((r) => { setKyc(r.data ?? []); setLoadState('ready'); })
+    api.get<KycListResponse>('/admin/kyc?status=submitted&limit=5')
+      .then((r) => {
+        setReviewQueue(r.data.items ?? []);
+        setCounts(r.data.counts ?? {});
+        setLoadState('ready');
+      })
       .catch(() => setLoadState('error'));
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const pendingKyc = kyc.filter((k) => k.status === 'submitted' || k.status === 'under_review');
-  const reviewQueue = [...pendingKyc]
-    .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''))
-    .slice(0, 5);
+  const pendingKycCount = (counts['submitted'] ?? 0) + (counts['under_review'] ?? 0);
 
   const tiles = [
     {
@@ -41,7 +48,7 @@ export default function AdminDashboardPage() {
       icon: FileCheck,
       href: '/kyc',
       live: true,
-      value: loadState === 'ready' ? String(pendingKyc.length) : null,
+      value: loadState === 'ready' ? String(pendingKycCount) : null,
       sub: 'Submissions to review',
     },
     {
