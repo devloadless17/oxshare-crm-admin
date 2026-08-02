@@ -55,7 +55,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'FINANCIALS',
     items: [
-      { label: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight, badge: '3' },
+      { label: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
       { label: 'Payouts', href: '/payouts', icon: Wallet, comingSoon: true },
       { label: 'Ledger', href: '/ledger', icon: Receipt, comingSoon: true },
       { label: 'Commission Plans', href: '/commission-plans', icon: Percent, comingSoon: true },
@@ -64,7 +64,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'MANAGEMENT',
     items: [
-      { label: 'KYC Review', href: '/kyc', icon: FileCheck, badge: '5' },
+      { label: 'KYC Review', href: '/kyc', icon: FileCheck },
       { label: 'KYC Workflow Builder', href: '/kyc/builder', icon: Settings },
       { label: 'Roles & Permissions', href: '/roles', icon: ShieldCheck },
       { label: 'Admin Users', href: '/admin-users', icon: Users, comingSoon: true },
