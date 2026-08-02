@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from '../theme-toggle';
 import { useAdmin } from '@/context/AdminAuthContext';
+import { canAccess } from '@/lib/permissions';
 
 interface NavItem {
   label: string;
@@ -135,16 +136,21 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation — items filtered by the admin's permissions (RBAC-03 nav half) */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-          {NAV_SECTIONS.map((section) => (
+          {NAV_SECTIONS.map((section) => {
+            const visibleItems = admin
+              ? section.items.filter((item) => canAccess(admin, item.href))
+              : section.items;
+            if (visibleItems.length === 0) return null;
+            return (
             <div key={section.title} className="space-y-1">
               {!collapsed && (
                 <h3 className="px-3 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
                   {section.title}
                 </h3>
               )}
-              {section.items.map((item) => {
+              {visibleItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
 
@@ -197,7 +203,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Sidebar User Footer */}
@@ -285,8 +292,23 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page Content Container */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">{children}</main>
+        {/* Page Content Container — route half of RBAC-03; the API-side 403 is tracked in D-28 */}
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+          {admin && !canAccess(admin, pathname ?? '') ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center gap-3" role="alert">
+              <Shield className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+              <h2 className="text-lg font-bold text-foreground">Access denied</h2>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Your role does not include access to this section. Ask a master admin if you need it.
+              </p>
+              <Link href="/dashboard" className="text-sm font-semibold text-blue-500 hover:underline">
+                Back to dashboard
+              </Link>
+            </div>
+          ) : (
+            children
+          )}
+        </main>
       </div>
     </div>
   );

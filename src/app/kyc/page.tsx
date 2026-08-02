@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { isMasterAdmin } from '@/lib/permissions';
 
 type KycStatus = 'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
 
@@ -43,6 +45,7 @@ const FILTERS: Array<{ value: string; label: string }> = [
 ];
 
 export default function AdminKycPage() {
+  const { admin } = useAdmin();
   const [submissions, setSubmissions] = useState<KycRow[]>([]);
   const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(true);
@@ -80,7 +83,9 @@ export default function AdminKycPage() {
           <h1>KYC Submissions</h1>
           <p>{submissions.length} total submissions</p>
         </div>
-        <Link href="/invite" className="invite-btn">+ Invite Admin</Link>
+        {isMasterAdmin(admin) && (
+          <Link href="/invite" className="invite-btn">+ Invite Admin</Link>
+        )}
       </div>
 
       <div className="filters-bar">
