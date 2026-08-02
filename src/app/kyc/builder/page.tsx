@@ -53,6 +53,13 @@ export interface KycStepConfig {
   fields: KycFieldConfig[];
 }
 
+// FR-CORE-15 mandates the identity document, selfie, and proof-of-address steps for
+// every customer, and FR-IND-03 requires the profile step. These cannot be disabled,
+// deleted, or re-slugged from the builder — the client flow submits by slug and the
+// FSD's acceptance criteria depend on them (DECISIONS D-29).
+const MANDATORY_SLUGS: readonly string[] = ['personal', 'document', 'selfie', 'address'];
+const isMandatoryStep = (step: KycStepConfig) => MANDATORY_SLUGS.includes(step.slug);
+
 export default function KycBuilderPage() {
   const [steps, setSteps] = React.useState<KycStepConfig[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -136,6 +143,11 @@ export default function KycBuilderPage() {
 
   // Toggle step active state
   const toggleStepEnabled = (id: string) => {
+    const step = steps.find((s) => s.id === id);
+    if (step && isMandatoryStep(step) && step.enabled) {
+      setToast({ message: `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be disabled.`, type: 'error' });
+      return;
+    }
     setSteps((prev) =>
       prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)),
     );
@@ -214,6 +226,11 @@ export default function KycBuilderPage() {
 
   // Delete a step
   const deleteStep = (id: string) => {
+    const step = steps.find((s) => s.id === id);
+    if (step && isMandatoryStep(step)) {
+      setToast({ message: `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be deleted.`, type: 'error' });
+      return;
+    }
     if (!confirm('Are you sure you want to delete this step?')) return;
     const filtered = steps.filter((s) => s.id !== id);
     const reindexed = filtered.map((s, idx) => ({ ...s, stepNumber: idx + 1 }));
@@ -300,6 +317,14 @@ export default function KycBuilderPage() {
                         }`}>
                           {step.enabled ? 'Active' : 'Disabled'}
                         </span>
+                        {isMandatoryStep(step) && (
+                          <span
+                            className="rounded-md bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-500 border border-blue-500/20"
+                            title="Required by FR-CORE-15 — cannot be disabled or deleted"
+                          >
+                            Required
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate mt-0.5">{step.description}</p>
                     </div>
@@ -334,6 +359,8 @@ export default function KycBuilderPage() {
                       variant={step.enabled ? 'outline' : 'default'}
                       size="sm"
                       onClick={() => toggleStepEnabled(step.id)}
+                      disabled={isMandatoryStep(step) && step.enabled}
+                      title={isMandatoryStep(step) && step.enabled ? 'Required step — cannot be disabled' : undefined}
                       className="text-xs h-8 px-2.5"
                     >
                       {step.enabled ? 'Disable' : 'Enable'}
@@ -343,8 +370,9 @@ export default function KycBuilderPage() {
                     <button
                       type="button"
                       onClick={() => deleteStep(step.id)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors ml-1"
-                      title="Delete Step"
+                      disabled={isMandatoryStep(step)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors ml-1 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                      title={isMandatoryStep(step) ? 'Required step — cannot be deleted' : 'Delete Step'}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -373,9 +401,15 @@ export default function KycBuilderPage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs">URL Slug Identifier</Label>
+                        <Label className="text-xs">
+                          URL Slug Identifier
+                          {isMandatoryStep(step) && (
+                            <span className="ml-2 font-normal text-muted-foreground">(locked — the client flow submits by this slug)</span>
+                          )}
+                        </Label>
                         <Input
                           value={step.slug}
+                          disabled={isMandatoryStep(step)}
                           onChange={(e) => updateStepField(step.id, 'slug', e.target.value)}
                         />
                       </div>
