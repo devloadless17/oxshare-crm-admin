@@ -22,7 +22,7 @@ interface KycDetail {
 function DocViewer({ filePath, label }: { filePath?: string; label: string }) {
   const isPdf = filePath?.toLowerCase().endsWith('.pdf');
   const cleanPath = filePath ? filePath.replace(/\\/g, '/').replace(/^uploads\//, '').replace(/^\.\/uploads\//, '').replace(/^uploads\/kyc\//, '') : '';
-  const url = filePath ? `http://localhost:3001/uploads/kyc/${cleanPath}` : '';
+  const url = filePath ? `/api/uploads/kyc/${cleanPath}` : '';
 
   return (
     <div className="flex flex-col gap-2 p-4 rounded-xl border border-border bg-card/60">
