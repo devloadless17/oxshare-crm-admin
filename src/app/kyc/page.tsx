@@ -1,338 +1,249 @@
 'use client';
 
-import * as React from 'react';
-import {
-  FileCheck,
-  Plus,
-  Trash2,
-  Edit2,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  FileText,
-  Type,
-  List,
-  Calendar,
-  CheckSquare,
-  UploadCloud,
-  MoveUp,
-  MoveDown,
-  Loader2,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import api from '@/lib/api';
 
-interface KycField {
-  id: string;
-  fieldName: string;
-  label: string;
-  fieldType: 'text' | 'number' | 'select' | 'file' | 'date' | 'checkbox';
-  options?: string[];
-  isRequired: boolean;
-  isActive: boolean;
-  sortOrder: number;
+type KycStatus = 'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+
+interface KycRow {
+  userId: string;
+  status: KycStatus;
+  submittedAt?: string;
+  reviewedAt?: string;
+  user?: { email: string; firstName: string; lastName: string };
+  personalInfo?: { country?: string; nationality?: string };
 }
 
+const STATUS_COLORS: Record<KycStatus, string> = {
+  not_started: '#5a6280',
+  in_progress: '#f59e0b',
+  submitted: '#6382ff',
+  under_review: '#a78bfa',
+  approved: '#4ade80',
+  rejected: '#f87171',
+};
+
+const STATUS_LABELS: Record<KycStatus, string> = {
+  not_started: 'Not Started',
+  in_progress: 'In Progress',
+  submitted: 'Submitted',
+  under_review: 'Under Review',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+const FILTERS: Array<{ value: string; label: string }> = [
+  { value: '', label: 'All' },
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'under_review', label: 'Under Review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+];
+
 export default function AdminKycPage() {
-  const [activeTab, setActiveTab] = React.useState<'fields' | 'submissions'>('fields');
-  const [fields, setFields] = React.useState<KycField[]>([
-    {
-      id: '1',
-      fieldName: 'id_document',
-      label: 'Government Photo ID (Passport / National ID)',
-      fieldType: 'file',
-      isRequired: true,
-      isActive: true,
-      sortOrder: 1,
-    },
-    {
-      id: '2',
-      fieldName: 'proof_of_address',
-      label: 'Proof of Address (Utility Bill / Bank Statement)',
-      fieldType: 'file',
-      isRequired: true,
-      isActive: true,
-      sortOrder: 2,
-    },
-    {
-      id: '3',
-      fieldName: 'tax_id',
-      label: 'Tax Identification Number (TIN / SSN)',
-      fieldType: 'text',
-      isRequired: false,
-      isActive: true,
-      sortOrder: 3,
-    },
-    {
-      id: '4',
-      fieldName: 'country_residence',
-      label: 'Country of Residence',
-      fieldType: 'select',
-      options: ['United Arab Emirates', 'Saudi Arabia', 'Kuwait', 'Qatar', 'United Kingdom'],
-      isRequired: true,
-      isActive: true,
-      sortOrder: 4,
-    },
-  ]);
+  const [submissions, setSubmissions] = useState<KycRow[]>([]);
+  const [filter, setFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
-  const [showAddFieldModal, setShowAddFieldModal] = React.useState(false);
-  const [newLabel, setNewLabel] = React.useState('');
-  const [newFieldName, setNewFieldName] = React.useState('');
-  const [newFieldType, setNewFieldType] = React.useState<'text' | 'number' | 'select' | 'file' | 'date' | 'checkbox'>('text');
-  const [newOptions, setNewOptions] = React.useState('');
-  const [newIsRequired, setNewIsRequired] = React.useState(true);
+  useEffect(() => {
+    setLoading(true);
+    const params = filter ? `?status=${filter}` : '';
+    api.get(`/admin/kyc${params}`)
+      .then((r) => setSubmissions(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [filter]);
 
-  const handleAddField = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newLabel || !newFieldName) return;
-
-    const newField: KycField = {
-      id: Date.now().toString(),
-      fieldName: newFieldName.toLowerCase().replace(/\s+/g, '_'),
-      label: newLabel,
-      fieldType: newFieldType,
-      options: newFieldType === 'select' ? newOptions.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
-      isRequired: newIsRequired,
-      isActive: true,
-      sortOrder: fields.length + 1,
-    };
-
-    setFields([...fields, newField]);
-    setShowAddFieldModal(false);
-    setNewLabel('');
-    setNewFieldName('');
-    setNewOptions('');
-  };
-
-  const toggleFieldStatus = (id: string) => {
-    setFields(
-      fields.map((f) => (f.id === id ? { ...f, isActive: !f.isActive } : f)),
+  const filtered = submissions.filter((s) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      s.user?.email?.toLowerCase().includes(q) ||
+      s.user?.firstName?.toLowerCase().includes(q) ||
+      s.user?.lastName?.toLowerCase().includes(q)
     );
-  };
-
-  const deleteField = (id: string) => {
-    setFields(fields.filter((f) => f.id !== id));
-  };
+  });
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="kyc-page">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">KYC Verification Engine</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Dynamic KYC field builder & client verification queue
-          </p>
+          <h1>KYC Submissions</h1>
+          <p>{submissions.length} total submissions</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab('fields')}
-            className={`h-9 px-4 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'fields'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                : 'border border-input bg-card text-foreground hover:bg-muted'
-            }`}
-          >
-            Form Field Builder
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('submissions')}
-            className={`h-9 px-4 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'submissions'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                : 'border border-input bg-card text-foreground hover:bg-muted'
-            }`}
-          >
-            Verification Queue (3)
-          </button>
-        </div>
+        <Link href="/invite" className="invite-btn">+ Invite Admin</Link>
       </div>
 
-      {activeTab === 'fields' ? (
-        <div className="space-y-6">
-          {/* Dynamic Field Builder Header */}
-          <div className="flex items-center justify-between rounded-xl border border-border bg-card p-5 shadow-xs">
-            <div>
-              <h2 className="text-base font-semibold">Active Dynamic Fields</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Fields created here render dynamically on the Client Portal KYC form.
-              </p>
-            </div>
+      <div className="filters-bar">
+        <div className="filter-tabs">
+          {FILTERS.map((f) => (
             <button
-              type="button"
-              onClick={() => setShowAddFieldModal(true)}
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
+              key={f.value}
+              className={`filter-tab ${filter === f.value ? 'active' : ''}`}
+              onClick={() => setFilter(f.value)}
             >
-              <Plus className="h-4 w-4" />
-              Add Dynamic Field
+              {f.label}
+              <span className="tab-count">
+                {f.value ? submissions.filter((s) => s.status === f.value).length : submissions.length}
+              </span>
             </button>
-          </div>
+          ))}
+        </div>
+        <input
+          className="search-input"
+          placeholder="Search by name or email..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
 
-          {/* Fields Table */}
-          <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
-            <table className="w-full text-xs text-left">
-              <thead className="border-b border-border bg-muted/40 font-semibold text-muted-foreground uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-3">Order</th>
-                  <th className="px-6 py-3">Field Label</th>
-                  <th className="px-6 py-3">Variable Name</th>
-                  <th className="px-6 py-3">Input Type</th>
-                  <th className="px-6 py-3">Required</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {fields.map((field, idx) => (
-                  <tr key={field.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4 font-mono font-medium">{idx + 1}</td>
-                    <td className="px-6 py-4 font-semibold text-foreground">{field.label}</td>
-                    <td className="px-6 py-4 font-mono text-blue-500">{field.fieldName}</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 px-2 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                        {field.fieldType === 'file' && <UploadCloud className="h-3.5 w-3.5" />}
-                        {field.fieldType === 'text' && <Type className="h-3.5 w-3.5" />}
-                        {field.fieldType === 'select' && <List className="h-3.5 w-3.5" />}
-                        <span className="uppercase">{field.fieldType}</span>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {field.isRequired ? (
-                        <span className="rounded-md bg-rose-500/10 px-2 py-0.5 text-[11px] font-medium text-rose-500">Required</span>
-                      ) : (
-                        <span className="rounded-md bg-slate-500/10 px-2 py-0.5 text-[11px] font-medium text-slate-400">Optional</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        type="button"
-                        onClick={() => toggleFieldStatus(field.id)}
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
-                          field.isActive
-                            ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
-                            : 'bg-slate-500/10 text-slate-400 hover:bg-slate-500/20'
-                        }`}
-                      >
-                        {field.isActive ? 'Active' : 'Disabled'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => deleteField(field.id)}
-                        className="rounded-md p-1 text-slate-400 hover:bg-rose-500/20 hover:text-rose-400 transition-colors"
-                        title="Delete Field"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {loading ? (
+        <div className="loading-state">
+          <div className="spinner" />
+          <p>Loading submissions...</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">📋</div>
+          <p>No submissions {filter ? `with status "${STATUS_LABELS[filter as KycStatus]}"` : 'yet'}</p>
         </div>
       ) : (
-        /* Submissions Queue */
-        <div className="rounded-xl border border-border bg-card p-8 text-center shadow-xs">
-          <FileCheck className="mx-auto h-12 w-12 text-blue-500" />
-          <h3 className="mt-4 text-sm font-semibold">Verification Review Queue</h3>
-          <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
-            Client document submissions and field values stream here for instant Admin approval or rejection.
-          </p>
+        <div className="kyc-table-wrap">
+          <table className="kyc-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Country</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Reviewed</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((row) => (
+                <tr key={row.userId}>
+                  <td>
+                    <div className="user-cell">
+                      <div className="user-avatar">
+                        {(row.user?.firstName?.[0] ?? '?').toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="user-name">{row.user?.firstName} {row.user?.lastName}</div>
+                        <div className="user-email">{row.user?.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="country-cell">{row.personalInfo?.country ?? '—'}</td>
+                  <td>
+                    <span
+                      className="status-badge"
+                      style={{
+                        background: STATUS_COLORS[row.status] + '22',
+                        color: STATUS_COLORS[row.status],
+                        border: `1px solid ${STATUS_COLORS[row.status]}44`,
+                      }}
+                    >
+                      {STATUS_LABELS[row.status]}
+                    </span>
+                  </td>
+                  <td className="date-cell">
+                    {row.submittedAt ? new Date(row.submittedAt).toLocaleDateString() : '—'}
+                  </td>
+                  <td className="date-cell">
+                    {row.reviewedAt ? new Date(row.reviewedAt).toLocaleDateString() : '—'}
+                  </td>
+                  <td>
+                    <Link href={`/kyc/${row.userId}`} className="review-link">
+                      Review →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Add Field Modal */}
-      {showAddFieldModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold">Add Dynamic KYC Field</h3>
-            <form onSubmit={handleAddField} className="space-y-4 text-xs">
-              <div>
-                <label className="font-semibold">Field Label (User Facing)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Proof of Wealth (Bank Statement)"
-                  value={newLabel}
-                  onChange={(e) => {
-                    setNewLabel(e.target.value);
-                    setNewFieldName(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '_'));
-                  }}
-                  className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
-                />
-              </div>
+      <style jsx>{`
+        .kyc-page { padding: 32px; max-width: 1200px; margin: 0 auto; }
+        .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
+        h1 { font-size: 1.6rem; font-weight: 700; color: #e8eeff; margin-bottom: 4px; }
+        .page-header p { color: #7c87b4; font-size: 0.85rem; }
+        .invite-btn {
+          background: linear-gradient(135deg, #6382ff, #a78bfa);
+          color: white; text-decoration: none; border-radius: 50px;
+          padding: 10px 24px; font-size: 0.88rem; font-weight: 600;
+          white-space: nowrap;
+        }
 
-              <div>
-                <label className="font-semibold">Variable Name (Schema Key)</label>
-                <input
-                  type="text"
-                  required
-                  value={newFieldName}
-                  onChange={(e) => setNewFieldName(e.target.value)}
-                  className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 font-mono"
-                />
-              </div>
+        .filters-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .filter-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(99,130,255,0.15); border-radius: 12px; padding: 4px; }
+        .filter-tab {
+          padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
+          font-size: 0.82rem; font-weight: 500; color: #7c87b4;
+          background: transparent; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+        }
+        .filter-tab:hover { color: #c7d2fe; background: rgba(99,130,255,0.07); }
+        .filter-tab.active { background: rgba(99,130,255,0.15); color: #a5b4fc; }
+        .tab-count {
+          background: rgba(255,255,255,0.08); color: #5a6280;
+          border-radius: 10px; padding: 1px 6px; font-size: 0.72rem;
+        }
+        .filter-tab.active .tab-count { background: rgba(99,130,255,0.2); color: #818cf8; }
 
-              <div>
-                <label className="font-semibold">Field Type</label>
-                <select
-                  value={newFieldType}
-                  onChange={(e: any) => setNewFieldType(e.target.value)}
-                  className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
-                >
-                  <option value="file">File Upload (.pdf, .jpg, .png)</option>
-                  <option value="text">Text Input</option>
-                  <option value="select">Dropdown Select</option>
-                  <option value="number">Number</option>
-                  <option value="date">Date Picker</option>
-                  <option value="checkbox">Checkbox Confirmation</option>
-                </select>
-              </div>
+        .search-input {
+          flex: 1; min-width: 200px;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(99,130,255,0.2);
+          border-radius: 10px; padding: 10px 16px; color: #e8eeff; font-size: 0.88rem; outline: none;
+        }
+        .search-input:focus { border-color: #6382ff; }
 
-              {newFieldType === 'select' && (
-                <div>
-                  <label className="font-semibold">Dropdown Options (Comma Separated)</label>
-                  <input
-                    type="text"
-                    placeholder="Option 1, Option 2, Option 3"
-                    value={newOptions}
-                    onChange={(e) => setNewOptions(e.target.value)}
-                    className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
-                  />
-                </div>
-              )}
+        .loading-state, .empty-state { text-align: center; padding: 60px 20px; color: #7c87b4; }
+        .spinner {
+          width: 36px; height: 36px; margin: 0 auto 16px;
+          border: 3px solid rgba(99,130,255,0.2); border-top-color: #6382ff;
+          border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="req"
-                  checked={newIsRequired}
-                  onChange={(e) => setNewIsRequired(e.target.checked)}
-                />
-                <label htmlFor="req" className="font-semibold cursor-pointer">Mark as Required Field</label>
-              </div>
+        .kyc-table-wrap { border-radius: 16px; overflow: hidden; border: 1px solid rgba(99,130,255,0.15); }
+        .kyc-table { width: 100%; border-collapse: collapse; }
+        .kyc-table thead { background: rgba(99,130,255,0.07); }
+        .kyc-table th { padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: #7c87b4; letter-spacing: 0.08em; text-transform: uppercase; }
+        .kyc-table tbody tr { border-top: 1px solid rgba(99,130,255,0.08); transition: background 0.15s; }
+        .kyc-table tbody tr:hover { background: rgba(99,130,255,0.04); }
+        .kyc-table td { padding: 14px 16px; font-size: 0.88rem; color: #c7d2fe; }
 
-              <div className="flex justify-end gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddFieldModal(false)}
-                  className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="h-9 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500"
-                >
-                  Save Field
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+        .user-cell { display: flex; align-items: center; gap: 12px; }
+        .user-avatar {
+          width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+          background: linear-gradient(135deg, #6382ff, #a78bfa);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 0.85rem; font-weight: 700; color: white;
+        }
+        .user-name { font-weight: 600; color: #e8eeff; }
+        .user-email { font-size: 0.78rem; color: #7c87b4; margin-top: 2px; }
+        .country-cell { color: #9ba8d4; }
+        .date-cell { color: #7c87b4; font-size: 0.82rem; }
+
+        .status-badge {
+          display: inline-block; padding: 4px 12px; border-radius: 20px;
+          font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+        }
+        .review-link {
+          color: #818cf8; text-decoration: none; font-weight: 600; font-size: 0.85rem;
+          transition: color 0.15s;
+        }
+        .review-link:hover { color: #a5b4fc; }
+        @media (max-width: 768px) {
+          .kyc-page { padding: 16px; }
+          .filters-bar { flex-direction: column; align-items: stretch; }
+        }
+      `}</style>
     </div>
   );
 }
