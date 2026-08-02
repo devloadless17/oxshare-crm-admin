@@ -1,43 +1,22 @@
 import { apiClient } from './client';
+import type { components } from './types.gen';
 
-export interface PermissionItem {
-  key: string;
-  label: string;
-}
+// Types are ALIASES of the schemas generated from the backend's Swagger
+// (npm run gen:api-types, with the backend running). Never hand-write an
+// interface for an API response — regenerate instead; drift then becomes
+// a compile error (docs/API-CONTRACTS.md Part C).
+export type PermissionItem = components['schemas']['PermissionItemDto'];
+export type PermissionModule = components['schemas']['PermissionModuleDto'];
+export type Role = components['schemas']['RoleResponseDto'];
+export type AdminUser = components['schemas']['AdminProfileDto'];
+export type RejectionReason = components['schemas']['RejectionReasonResponseDto'];
+export type KycSubmission = components['schemas']['KycSubmissionDto'];
+export type KycListResponse = components['schemas']['KycListResponseDto'];
+export type ClientRow = components['schemas']['ClientRowDto'];
+export type ClientListResponse = components['schemas']['ClientListResponseDto'];
+export type AuditEntry = components['schemas']['AuditEntryDto'];
+export type AuditListResponse = components['schemas']['AuditListResponseDto'];
 
-export interface PermissionModule {
-  moduleName: string;
-  description: string;
-  permissions: PermissionItem[];
-}
-
-export interface Role {
-  id: string;
-  name: string;
-  description?: string;
-  permissions: string[];
-  isSystem: boolean;
-}
-
-export interface AdminUser {
-  id: string;
-  email: string;
-  name: string;
-  role: 'master_admin' | 'sub_admin';
-  permissions: string[];
-  roleId?: string;
-  createdAt: string;
-}
-
-export interface RejectionReason {
-  id: string;
-  context: 'kyc' | 'withdrawal';
-  label: string;
-}
-
-// None of these endpoints exist on the backend yet (docs/DECISIONS.md D-28).
-// Calls fail honestly instead of returning fabricated data — pages render a
-// BackendPending state on 404 so a mock is never mistaken for a feature (D-30).
 export const adminApi = {
   async getPermissions(): Promise<Record<string, PermissionModule>> {
     const { data } = await apiClient.get('/admin/permissions');
@@ -50,12 +29,12 @@ export const adminApi = {
   },
 
   async createRole(dto: { name: string; description?: string; permissions: string[] }) {
-    const { data } = await apiClient.post('/admin/roles', dto);
+    const { data } = await apiClient.post<Role>('/admin/roles', dto);
     return data;
   },
 
   async updateRole(id: string, dto: { name?: string; description?: string; permissions?: string[] }) {
-    const { data } = await apiClient.put(`/admin/roles/${id}`, dto);
+    const { data } = await apiClient.put<Role>(`/admin/roles/${id}`, dto);
     return data;
   },
 
