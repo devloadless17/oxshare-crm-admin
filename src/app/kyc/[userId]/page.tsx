@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -20,9 +20,12 @@ interface KycDetail {
 }
 
 function DocViewer({ filePath, label }: { filePath?: string; label: string }) {
+  const [imgFailed, setImgFailed] = useState(false);
   const isPdf = filePath?.toLowerCase().endsWith('.pdf');
-  const cleanPath = filePath ? filePath.replace(/\\/g, '/').replace(/^uploads\//, '').replace(/^\.\/uploads\//, '').replace(/^uploads\/kyc\//, '') : '';
-  const url = filePath ? `/api/uploads/kyc/${cleanPath}` : '';
+  // Backend stores paths like "./uploads/kyc/<file>" or "uploads/kyc/<file>";
+  // normalize to a root-relative path and serve through the /api proxy.
+  const rel = filePath ? filePath.replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\//, '') : '';
+  const url = rel ? (rel.startsWith('uploads/') ? `/api/${rel}` : `/api/uploads/kyc/${rel}`) : '';
 
   return (
     <div className="flex flex-col gap-2 p-4 rounded-xl border border-border bg-card/60">
@@ -32,9 +35,19 @@ function DocViewer({ filePath, label }: { filePath?: string; label: string }) {
           <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-blue-500 hover:underline font-semibold text-xs py-3">
             📄 View Document PDF
           </a>
+        ) : imgFailed ? (
+          <div className="text-xs text-rose-400 py-6 text-center border border-dashed border-rose-500/40 rounded-lg">
+            Could not load document.{' '}
+            <a href={url} target="_blank" rel="noreferrer" className="underline">Open directly</a>
+          </div>
         ) : (
           <a href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-border/80">
-            <img src={url} alt={label} className="w-full h-44 object-cover hover:opacity-90 transition-opacity cursor-pointer" />
+            <img
+              src={url}
+              alt={label}
+              onError={() => setImgFailed(true)}
+              className="w-full h-44 object-cover hover:opacity-90 transition-opacity cursor-pointer"
+            />
           </a>
         )
       ) : (
@@ -71,23 +84,60 @@ export default function KycDetailPage() {
 
   const [data, setData] = useState<KycDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [selectedRejectedFields, setSelectedRejectedFields] = useState<string[]>([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState('');
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setLoadError('');
     api.get(`/admin/kyc/${userId}`)
       .then((r) => setData(r.data))
-      .catch(() => {})
+      .catch((e: unknown) => {
+        const err = e as { response?: { status?: number } };
+        setLoadError(err?.response?.status === 404
+          ? 'Submission not found.'
+          : 'Failed to load the submission. Check your connection and try again.');
+      })
       .finally(() => setLoading(false));
   }, [userId]);
 
+  useEffect(() => { load(); }, [load]);
+
+  // Close whichever dialog is open on Escape
+  useEffect(() => {
+    if (!showRejectModal && !showApproveConfirm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !actionLoading) {
+        setShowRejectModal(false);
+        setShowApproveConfirm(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showRejectModal, showApproveConfirm, actionLoading]);
+
+  const errorMessage = (e: unknown, fallback: string) => {
+    const err = e as { response?: { data?: { message?: string } } };
+    return err?.response?.data?.message ?? fallback;
+  };
+
   const approve = async () => {
     setActionLoading(true);
-    await api.patch(`/admin/kyc/${userId}/approve`);
-    setData((d) => d ? { ...d, status: 'approved' } : d);
-    setActionLoading(false);
+    setActionError('');
+    try {
+      await api.patch(`/admin/kyc/${userId}/approve`);
+      setData((d) => (d ? { ...d, status: 'approved' } : d));
+      setShowApproveConfirm(false);
+    } catch (e: unknown) {
+      setActionError(errorMessage(e, 'Failed to approve the submission. Please try again.'));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const toggleFieldSelection = (fieldId: string) => {
@@ -99,33 +149,47 @@ export default function KycDetailPage() {
   const reject = async () => {
     if (!rejectReason.trim()) return;
     setActionLoading(true);
-    await api.patch(`/admin/kyc/${userId}/reject`, {
-      reason: rejectReason,
-      rejectedFields: selectedRejectedFields,
-    });
-    setData((d) =>
-      d
-        ? {
-            ...d,
-            status: 'rejected',
-            rejectionReason: rejectReason,
-            rejectedFields: selectedRejectedFields,
-          }
-        : d
-    );
-    setShowRejectModal(false);
-    setRejectReason('');
-    setSelectedRejectedFields([]);
-    setActionLoading(false);
+    setActionError('');
+    try {
+      await api.patch(`/admin/kyc/${userId}/reject`, {
+        reason: rejectReason.trim(),
+        rejectedFields: selectedRejectedFields,
+      });
+      setData((d) =>
+        d
+          ? {
+              ...d,
+              status: 'rejected',
+              rejectionReason: rejectReason.trim(),
+              rejectedFields: selectedRejectedFields,
+            }
+          : d
+      );
+      setShowRejectModal(false);
+      setRejectReason('');
+      setSelectedRejectedFields([]);
+    } catch (e: unknown) {
+      setActionError(errorMessage(e, 'Failed to reject the submission. Please try again.'));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (loading) return (
-    <div className="detail-loading">
+    <div className="detail-loading" role="status" aria-live="polite">
       <div className="spinner" />
       <p>Loading KYC submission...</p>
     </div>
   );
-  if (!data) return <div className="detail-loading"><p>Submission not found.</p></div>;
+  if (loadError || !data) return (
+    <div className="detail-loading">
+      <p>{loadError || 'Submission not found.'}</p>
+      <div className="flex gap-3">
+        <button type="button" onClick={load} className="text-sm font-semibold text-blue-400 hover:underline">Retry</button>
+        <Link href="/kyc" className="text-sm text-muted-foreground hover:underline">Back to KYC list</Link>
+      </div>
+    </div>
+  );
 
   const canReview = data.status === 'submitted' || data.status === 'under_review';
   const docType = data.document?.docType ?? 'passport';
@@ -152,7 +216,7 @@ export default function KycDetailPage() {
             {data.personalInfo ? Object.entries(data.personalInfo).map(([k, v]) => (
               <div key={k} className="info-row">
                 <span>{k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
-                <strong className={data.rejectedFields?.includes(k) ? 'text-rose-400 font-bold' : ''}>{v}</strong>
+                <strong className={data.status === 'rejected' && data.rejectedFields?.includes(k) ? 'text-rose-400 font-bold' : ''}>{v}</strong>
               </div>
             )) : <p className="not-submitted">Not submitted</p>}
           </div>
@@ -219,19 +283,24 @@ export default function KycDetailPage() {
               <div className="action-btns">
                 <button
                   className="btn-approve"
-                  onClick={approve}
+                  onClick={() => { setActionError(''); setShowApproveConfirm(true); }}
                   disabled={actionLoading}
+                  aria-label="Approve KYC submission"
                 >
-                  {actionLoading ? '...' : '✓ Approve KYC'}
+                  ✓ Approve KYC
                 </button>
                 <button
                   className="btn-reject"
-                  onClick={() => setShowRejectModal(true)}
+                  onClick={() => { setActionError(''); setShowRejectModal(true); }}
                   disabled={actionLoading}
+                  aria-label="Reject KYC submission"
                 >
                   ✕ Reject
                 </button>
               </div>
+              {actionError && !showRejectModal && !showApproveConfirm && (
+                <p className="mt-3 text-xs font-semibold text-rose-400" role="alert">{actionError}</p>
+              )}
             </div>
           )}
           {data.status === 'approved' && (
@@ -240,11 +309,51 @@ export default function KycDetailPage() {
         </div>
       </div>
 
+      {/* Approve Confirmation */}
+      {showApproveConfirm && (
+        <div className="modal-overlay" onClick={() => !actionLoading && setShowApproveConfirm(false)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="approve-confirm-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="approve-confirm-title">Approve KYC Submission</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              This advances {data.user?.firstName} {data.user?.lastName} to verification level 1 and
+              unlocks gated features. This cannot be undone from the admin panel.
+            </p>
+            {actionError && <p className="text-xs font-semibold text-rose-400 mb-3" role="alert">{actionError}</p>}
+            <div className="modal-btns">
+              <button className="btn-cancel" onClick={() => setShowApproveConfirm(false)} disabled={actionLoading}>
+                Cancel
+              </button>
+              <button className="btn-approve-confirm" onClick={approve} disabled={actionLoading} aria-busy={actionLoading}>
+                {actionLoading ? 'Approving...' : 'Confirm Approval'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reject Modal */}
       {showRejectModal && (
-        <div className="modal-overlay" onClick={() => setShowRejectModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Reject KYC Submission</h3>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            // Don't discard a typed reason on a stray backdrop click
+            if (!actionLoading && !rejectReason.trim()) setShowRejectModal(false);
+          }}
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reject-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="reject-modal-title">Reject KYC Submission</h3>
             <p className="text-xs text-muted-foreground mb-4">
               Select specific invalid fields and provide a reason for rejection.
             </p>
@@ -288,12 +397,24 @@ export default function KycDetailPage() {
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={3}
+                maxLength={500}
+                autoFocus
+                aria-required="true"
               />
             </div>
 
+            {actionError && <p className="mt-3 text-xs font-semibold text-rose-400" role="alert">{actionError}</p>}
+
             <div className="modal-btns">
-              <button className="btn-cancel" onClick={() => setShowRejectModal(false)}>Cancel</button>
-              <button className="btn-reject-confirm" onClick={reject} disabled={!rejectReason.trim() || actionLoading}>
+              <button className="btn-cancel" onClick={() => setShowRejectModal(false)} disabled={actionLoading}>
+                Cancel
+              </button>
+              <button
+                className="btn-reject-confirm"
+                onClick={reject}
+                disabled={!rejectReason.trim() || actionLoading}
+                aria-busy={actionLoading}
+              >
                 {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
               </button>
             </div>
@@ -372,6 +493,9 @@ export default function KycDetailPage() {
         .btn-cancel { background: rgba(255,255,255,0.06); color: #9ba8d4; border: 1px solid rgba(99,130,255,0.2); border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; cursor: pointer; }
         .btn-reject-confirm { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
         .btn-reject-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-approve-confirm { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+        .btn-approve-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
 
         @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } .docs-grid { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 600px) { .detail-page { padding: 16px; } .docs-grid { grid-template-columns: 1fr; } }
