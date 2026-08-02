@@ -1,17 +1,17 @@
 'use client';
 
 import React, { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 
 function AcceptInviteContent() {
   const params = useSearchParams();
-  const router = useRouter();
   const token = params.get('token') ?? '';
 
   const [invite, setInvite] = useState<{ email?: string; name?: string } | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [validating, setValidating] = useState(true);
@@ -23,13 +23,16 @@ function AcceptInviteContent() {
       .catch((e) => { setError(e?.response?.data?.message ?? 'Invalid or expired invite.'); setValidating(false); });
   }, [token]);
 
-  const submit = async () => {
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     setError(''); setLoading(true);
     try {
       await api.post('/admin/invite/accept', { token, password });
-      router.push('/dashboard');
+      // Full navigation instead of router.push so AdminAuthContext boots fresh
+      // with the new session; a client-side push renders the shell with admin: null.
+      window.location.assign('/dashboard');
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } };
       setError(err?.response?.data?.message ?? 'Failed to accept invite.');
@@ -58,20 +61,44 @@ function AcceptInviteContent() {
             <p>You've been invited to join OxShare Admin. Set your password to activate your account.</p>
             <div className="email-badge">{invite?.email}</div>
 
-            <div className="form">
+            <form className="form" onSubmit={submit}>
               <div className="form-group">
-                <label>New Password</label>
-                <input type="password" className="form-input" placeholder="Min. 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <label htmlFor="new-password">New Password</label>
+                <input
+                  id="new-password"
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="Min. 8 characters"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => { setError(''); setPassword(e.target.value); }}
+                />
               </div>
               <div className="form-group">
-                <label>Confirm Password</label>
-                <input type="password" className="form-input" placeholder="Repeat password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+                <label htmlFor="confirm-password">Confirm Password</label>
+                <input
+                  id="confirm-password"
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="Repeat password"
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => { setError(''); setConfirm(e.target.value); }}
+                />
               </div>
-              {error && <div className="error-msg">{error}</div>}
-              <button className="submit-btn" onClick={submit} disabled={loading}>
+              <button
+                type="button"
+                className="toggle-visibility"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? 'Hide passwords' : 'Show passwords'}
+              </button>
+              {error && <div className="error-msg" role="alert">{error}</div>}
+              <button className="submit-btn" type="submit" disabled={loading} aria-busy={loading}>
                 {loading ? 'Activating account...' : '🚀 Activate Account'}
               </button>
-            </div>
+            </form>
           </>
         )}
       </div>
@@ -105,6 +132,11 @@ function AcceptInviteContent() {
           border-radius: 10px; padding: 12px 16px; color: #e8eeff; font-size: 0.93rem; outline: none; width: 100%;
         }
         .form-input:focus { border-color: #6382ff; }
+        .toggle-visibility {
+          background: none; border: none; color: #818cf8; font-size: 0.8rem;
+          cursor: pointer; padding: 0; margin-bottom: 14px; text-align: left;
+        }
+        .toggle-visibility:hover { color: #a5b4fc; text-decoration: underline; }
         .error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 10px 14px; color: #fca5a5; font-size: 0.83rem; margin-bottom: 14px; }
         .submit-btn {
           width: 100%; background: linear-gradient(135deg, #6382ff, #a78bfa);

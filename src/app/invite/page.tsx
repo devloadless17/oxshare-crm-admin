@@ -3,24 +3,44 @@
 import { useState } from 'react';
 import api from '@/lib/api';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function InviteAdminPage() {
   const [form, setForm] = useState({ email: '', name: '' });
   const [result, setResult] = useState<{ inviteUrl?: string; message?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
-  const submit = async () => {
-    if (!form.email || !form.name) { setError('Both fields are required.'); return; }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = form.name.trim();
+    const email = form.email.trim().toLowerCase();
+    if (!email || !name) { setError('Both fields are required.'); return; }
+    if (!EMAIL_RE.test(email)) { setError('Enter a valid email address.'); return; }
     setError(''); setLoading(true);
     try {
-      const r = await api.post('/admin/invite', form);
+      const r = await api.post('/admin/invite', { name, email });
       setResult(r.data);
+      setCopied(false);
       setForm({ email: '', name: '' });
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } };
-      setError(err?.response?.data?.message ?? 'Failed to send invite.');
+      setError(err?.response?.data?.message ?? 'Failed to create the invite.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const copyLink = async () => {
+    const link = result?.inviteUrl ?? '';
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable (e.g. non-secure context) — let the admin select the text manually
+      setError('Could not copy automatically — select the link text and copy it manually.');
     }
   };
 
@@ -29,33 +49,49 @@ export default function InviteAdminPage() {
       <div className="invite-card">
         <div className="invite-icon">✉️</div>
         <h2>Invite Admin</h2>
-        <p>Send an invitation to a new admin. They'll receive a link to set their password and activate their account.</p>
+        <p>Create an invitation link for a new admin. Share the link with them so they can set their password and activate their account. Links expire after 48 hours.</p>
 
         {result ? (
-          <div className="result-box">
+          <div className="result-box" aria-live="polite">
             <div className="result-success">✓ Invite created!</div>
             <p className="result-note">Share this invite link with the new admin:</p>
             <div className="invite-link-box">
               <code>{result.inviteUrl}</code>
-              <button className="copy-btn" onClick={() => navigator.clipboard.writeText(result.inviteUrl ?? '')}>Copy</button>
+              <button className="copy-btn" onClick={copyLink}>{copied ? '✓ Copied' : 'Copy'}</button>
             </div>
-            <button className="btn-another" onClick={() => setResult(null)}>Send another invite</button>
+            {error && <div className="error-msg" role="alert">{error}</div>}
+            <button className="btn-another" onClick={() => { setResult(null); setError(''); }}>Send another invite</button>
           </div>
         ) : (
-          <div className="invite-form">
+          <form className="invite-form" onSubmit={submit}>
             <div className="form-group">
-              <label>Full Name</label>
-              <input className="form-input" placeholder="Jane Smith" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+              <label htmlFor="invite-name">Full Name</label>
+              <input
+                id="invite-name"
+                className="form-input"
+                placeholder="Jane Smith"
+                autoComplete="off"
+                value={form.name}
+                onChange={(e) => { setError(''); setForm((f) => ({ ...f, name: e.target.value })); }}
+              />
             </div>
             <div className="form-group">
-              <label>Email Address</label>
-              <input className="form-input" type="email" placeholder="jane@oxshare.com" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+              <label htmlFor="invite-email">Email Address</label>
+              <input
+                id="invite-email"
+                className="form-input"
+                type="email"
+                placeholder="jane@oxshare.com"
+                autoComplete="off"
+                value={form.email}
+                onChange={(e) => { setError(''); setForm((f) => ({ ...f, email: e.target.value })); }}
+              />
             </div>
-            {error && <div className="error-msg">{error}</div>}
-            <button className="submit-btn" onClick={submit} disabled={loading}>
-              {loading ? 'Sending...' : '📨 Send Invite'}
+            {error && <div className="error-msg" role="alert">{error}</div>}
+            <button className="submit-btn" type="submit" disabled={loading} aria-busy={loading}>
+              {loading ? 'Creating invite...' : '📨 Create Invite'}
             </button>
-          </div>
+          </form>
         )}
       </div>
 
