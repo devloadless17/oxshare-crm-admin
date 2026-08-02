@@ -62,7 +62,8 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'MANAGEMENT',
     items: [
       { label: 'KYC Review', href: '/kyc', icon: FileCheck, badge: '5' },
-      { label: 'Admin Users', href: '/admin-users', icon: ShieldCheck },
+      { label: 'Roles & Permissions', href: '/roles', icon: ShieldCheck },
+      { label: 'Admin Users', href: '/admin-users', icon: Users },
       { label: 'Settings', href: '/settings', icon: Settings },
     ],
   },
@@ -108,7 +109,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             </div>
             {!collapsed && (
               <div className="flex flex-col">
-                <span className="text-sm font-bold tracking-wider text-white">OXSHARE</span>
+                <span suppressHydrationWarning className="text-sm font-bold tracking-wider text-white">OXSHARE</span>
                 <span className="text-[10px] font-semibold tracking-widest text-blue-400 uppercase">
                   Admin Portal
                 </span>

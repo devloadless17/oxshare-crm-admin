@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Shield, Lock, Mail, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { api } from '@/lib/api';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -25,26 +26,12 @@ export default function AdminLoginPage() {
     setIsLoading(true);
 
     try {
-      // Attempt backend admin login call
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'}/admin/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      }).catch(() => null);
-
-      if (res && res.ok) {
-        const data = await res.json();
-        const token = data.access_token || data.token || 'demo_admin_token';
-        document.cookie = `admin_access_token=${token}; path=/; max-age=86400; SameSite=Lax`;
-      } else {
-        // Fallback demo token for local development
-        document.cookie = `admin_access_token=demo_admin_token_${Date.now()}; path=/; max-age=86400; SameSite=Lax`;
-      }
-
+      await api.auth.login({ email, password });
       router.push('/dashboard');
       router.refresh();
     } catch (err: any) {
-      setError(err.message || 'Sign in failed. Please try again.');
+      const msg = err?.response?.data?.message || err?.message || 'Sign in failed. Please try again.';
+      setError(Array.isArray(msg) ? msg.join(', ') : msg);
     } finally {
       setIsLoading(false);
     }
