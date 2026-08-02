@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* next-themes toggles a .dark class; without this, dark:* utilities follow the OS instead */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
