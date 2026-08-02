@@ -11,7 +11,7 @@ export const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach Admin 15-minute Access Token
+// Request Interceptor: Attach Admin Access Token
 apiClient.interceptors.request.use((config) => {
   const token = Cookies.get('admin_access_token');
   if (token) {
@@ -20,7 +20,7 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Response Interceptor: Auto-Refresh Access Token on 401 (excluding auth endpoints)
+// Response Interceptor: Auto-Redirect on 401 Unauthorized
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -28,30 +28,16 @@ apiClient.interceptors.response.use(
     const url = originalRequest?.url || '';
 
     const isAuthEndpoint =
-      url.includes('/identity/login') ||
-      url.includes('/identity/register') ||
-      url.includes('/identity/verify-email') ||
-      url.includes('/identity/refresh');
+      url.includes('/admin/auth/login') ||
+      url.includes('/admin/auth/logout') ||
+      url.includes('/admin/auth/me');
 
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
-      originalRequest._retry = true;
+    if (error.response?.status === 401 && !isAuthEndpoint) {
+      Cookies.remove('admin_access_token', { path: '/' });
+      Cookies.remove('admin_refresh_token', { path: '/' });
 
-      const refreshToken = Cookies.get('admin_refresh_token');
-      if (refreshToken) {
-        try {
-          const { data } = await axios.post(`${API_BASE_URL}/identity/refresh`, {
-            refreshToken,
-          });
-
-          if (data.access_token) {
-            Cookies.set('admin_access_token', data.access_token, { expires: 1 / 96, path: '/' });
-            originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
-            return apiClient(originalRequest);
-          }
-        } catch (refreshErr) {
-          Cookies.remove('admin_access_token', { path: '/' });
-          Cookies.remove('admin_refresh_token', { path: '/' });
-        }
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
       }
     }
 

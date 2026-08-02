@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { Input } from '@/components/ui/input';
 
 type KycStatus = 'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
 
@@ -91,8 +92,8 @@ export default function AdminKycPage() {
             </button>
           ))}
         </div>
-        <input
-          className="search-input"
+        <Input
+          className="max-w-xs"
           placeholder="Search by name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}

@@ -26,6 +26,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { ThemeToggle } from '../theme-toggle';
+import { useAdmin } from '@/context/AdminAuthContext';
 
 interface NavItem {
   label: string;
@@ -62,6 +63,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'MANAGEMENT',
     items: [
       { label: 'KYC Review', href: '/kyc', icon: FileCheck, badge: '5' },
+      { label: 'KYC Workflow Builder', href: '/kyc/builder', icon: Settings },
       { label: 'Roles & Permissions', href: '/roles', icon: ShieldCheck },
       { label: 'Admin Users', href: '/admin-users', icon: Users },
       { label: 'Settings', href: '/settings', icon: Settings },
@@ -71,7 +73,7 @@ const NAV_SECTIONS: NavSection[] = [
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { admin, logout } = useAdmin();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -79,11 +81,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
-
-  const handleLogout = async () => {
-    document.cookie = 'admin_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-    router.push('/login');
-  };
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -188,21 +185,21 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             }`}
           >
             <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">
-              M
+              {admin?.name ? admin.name[0].toUpperCase() : 'A'}
               <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-[#0f172a]" />
             </div>
 
             {!collapsed && (
               <div className="flex-1 overflow-hidden">
-                <p className="truncate text-xs font-semibold text-white">Master Admin</p>
-                <p className="truncate text-[11px] text-slate-400">admin@oxshare.com</p>
+                <p className="truncate text-xs font-semibold text-white">{admin?.name || 'Admin'}</p>
+                <p className="truncate text-[11px] text-slate-400">{admin?.email || ''}</p>
               </div>
             )}
 
             {!collapsed && (
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={logout}
                 title="Logout"
                 className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-rose-500/20 hover:text-rose-400 transition-colors"
               >
