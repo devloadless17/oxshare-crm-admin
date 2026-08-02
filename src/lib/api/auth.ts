@@ -8,12 +8,14 @@ export interface AdminLoginDto {
 
 export const authApi = {
   async login(dto: AdminLoginDto) {
-    const { data } = await apiClient.post('/identity/login', { ...dto, role: 'ADMIN' });
-    if (data.access_token) {
-      Cookies.set('admin_access_token', data.access_token, { expires: 1 / 96, path: '/' });
-      if (data.refresh_token) {
-        Cookies.set('admin_refresh_token', data.refresh_token, { expires: 30, path: '/' });
-      }
+    const { data } = await apiClient.post('/admin/auth/login', dto);
+    const token = data.accessToken || data.access_token;
+    if (token) {
+      Cookies.set('admin_access_token', token, { expires: 1, path: '/' });
+    }
+    const refresh = data.refreshToken || data.refresh_token;
+    if (refresh) {
+      Cookies.set('admin_refresh_token', refresh, { expires: 7, path: '/' });
     }
     return data;
   },

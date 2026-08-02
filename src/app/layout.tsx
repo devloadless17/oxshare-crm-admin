@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 
+import { AdminAuthProvider } from '@/context/AdminAuthContext';
+
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
@@ -27,7 +29,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased selection:bg-blue-600 selection:text-white`}>
         <ThemeProvider defaultTheme="dark" storageKey="oxshare-admin-theme">
-          {children}
+          <AdminAuthProvider>
+            {children}
+          </AdminAuthProvider>
         </ThemeProvider>
       </body>
     </html>
