@@ -17,51 +17,49 @@ import {
   Settings,
   Key,
 } from 'lucide-react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Role, PermissionModule, AdminUser } from '@/lib/api/admin';
+import { BackendPending } from '@/components/backend-pending';
+
+type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
+
+const isNotFound = (e: unknown) =>
+  (e as { response?: { status?: number } })?.response?.status === 404;
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = React.useState<'roles' | 'admins'>('roles');
   const [permissionsCatalog, setPermissionsCatalog] = React.useState<Record<string, PermissionModule>>({});
   const [roles, setRoles] = React.useState<Role[]>([]);
   const [adminUsers, setAdminUsers] = React.useState<AdminUser[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [loadState, setLoadState] = React.useState<LoadState>('loading');
 
   // Add Role State
   const [showAddRoleModal, setShowAddRoleModal] = React.useState(false);
   const [roleName, setRoleName] = React.useState('');
   const [roleDescription, setRoleDescription] = React.useState('');
   const [selectedPermissions, setSelectedPermissions] = React.useState<string[]>([]);
+  const [createError, setCreateError] = React.useState('');
+  const [creating, setCreating] = React.useState(false);
 
-  // Add Admin State
-  const [showAddAdminModal, setShowAddAdminModal] = React.useState(false);
-  const [adminFirstName, setAdminFirstName] = React.useState('');
-  const [adminLastName, setAdminLastName] = React.useState('');
-  const [adminEmail, setAdminEmail] = React.useState('');
-  const [adminPassword, setAdminPassword] = React.useState('');
-  const [adminRoleId, setAdminRoleId] = React.useState('');
-  const [adminMessage, setAdminMessage] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      try {
-        const [perms, rList, uList] = await Promise.all([
-          api.admin.getPermissions(),
-          api.admin.getRoles(),
-          api.admin.getAdminUsers(),
-        ]);
-        setPermissionsCatalog(perms);
-        setRoles(rList);
-        setAdminUsers(uList);
-      } catch (err) {
-        console.error('Failed to load settings data', err);
-      } finally {
-        setIsLoading(false);
-      }
+  const loadData = React.useCallback(async () => {
+    setLoadState('loading');
+    try {
+      const [perms, rList, uList] = await Promise.all([
+        api.admin.getPermissions(),
+        api.admin.getRoles(),
+        api.admin.getAdminUsers(),
+      ]);
+      setPermissionsCatalog(perms);
+      setRoles(rList);
+      setAdminUsers(uList);
+      setLoadState('ready');
+    } catch (err) {
+      setLoadState(isNotFound(err) ? 'unavailable' : 'error');
     }
-    loadData();
   }, []);
+
+  React.useEffect(() => { loadData(); }, [loadData]);
 
   const togglePermission = (permKey: string) => {
     if (selectedPermissions.includes(permKey)) {
@@ -73,70 +71,29 @@ export default function AdminSettingsPage() {
 
   const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roleName) return;
-
+    if (!roleName.trim()) return;
+    setCreating(true);
+    setCreateError('');
     try {
       const newRole = await api.admin.createRole({
-        name: roleName,
-        description: roleDescription,
+        name: roleName.trim(),
+        description: roleDescription.trim() || undefined,
         permissions: selectedPermissions,
       });
-
       setRoles([...roles, newRole]);
       setShowAddRoleModal(false);
       setRoleName('');
       setRoleDescription('');
       setSelectedPermissions([]);
-    } catch {
-      // Local fallback insert
-      const fallbackRole: Role = {
-        id: Date.now().toString(),
-        name: roleName,
-        description: roleDescription,
-        permissions: selectedPermissions,
-        isSystem: false,
-      };
-      setRoles([...roles, fallbackRole]);
-      setShowAddRoleModal(false);
-      setRoleName('');
-      setRoleDescription('');
-      setSelectedPermissions([]);
-    }
-  };
-
-  const handleAddAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAdminMessage(null);
-
-    try {
-      const res = await api.admin.addAdminUser({
-        email: adminEmail,
-        password: adminPassword,
-        firstName: adminFirstName,
-        lastName: adminLastName,
-        roleId: adminRoleId || undefined,
-      });
-
-      setAdminUsers([...adminUsers, {
-        id: Date.now().toString(),
-        email: adminEmail,
-        firstName: adminFirstName,
-        lastName: adminLastName,
-        role: 'ADMIN',
-        roleId: adminRoleId,
-      }]);
-
-      setAdminMessage('Admin user created successfully!');
-      setTimeout(() => {
-        setShowAddAdminModal(false);
-        setAdminEmail('');
-        setAdminPassword('');
-        setAdminFirstName('');
-        setAdminLastName('');
-        setAdminMessage(null);
-      }, 1000);
-    } catch (err: any) {
-      setAdminMessage(err?.response?.data?.message || 'Failed to create admin user.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setCreateError(
+        isNotFound(err)
+          ? 'The backend endpoint for creating roles (POST /admin/roles) is not implemented yet.'
+          : msg ?? 'Failed to create the role. Please try again.'
+      );
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -177,9 +134,23 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
+      {loadState === 'loading' ? (
+        <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <span className="sr-only">Loading settings</span>
+        </div>
+      ) : loadState === 'unavailable' ? (
+        <BackendPending endpoints={['GET /admin/permissions', 'GET /admin/roles', 'GET /admin/users']} />
+      ) : loadState === 'error' ? (
+        <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
+          <p className="text-sm text-muted-foreground">Failed to load settings. Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={loadData}
+            className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted"
+          >
+            Retry
+          </button>
         </div>
       ) : activeTab === 'roles' ? (
         /* Roles Tab */
@@ -243,14 +214,13 @@ export default function AdminSettingsPage() {
                 Create and manage back-office administrator accounts with assigned RBAC roles.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowAddAdminModal(true)}
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors cursor-pointer"
+            <Link
+              href="/invite"
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
             >
               <UserPlus className="h-4 w-4" />
-              Add New Admin User
-            </button>
+              Invite Admin
+            </Link>
           </div>
 
           <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
@@ -374,19 +344,28 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
 
+              {createError && (
+                <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-500" role="alert">
+                  {createError}
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setShowAddRoleModal(false)}
-                  className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted"
+                  disabled={creating}
+                  className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-9 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500"
+                  disabled={creating}
+                  aria-busy={creating}
+                  className="h-9 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 disabled:opacity-50"
                 >
-                  Save Dynamic Role
+                  {creating ? 'Saving...' : 'Save Dynamic Role'}
                 </button>
               </div>
             </form>
@@ -394,103 +373,6 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {/* Add Admin Modal */}
-      {showAddAdminModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold">Add New Admin User</h3>
-
-            {adminMessage && (
-              <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-500">
-                {adminMessage}
-              </div>
-            )}
-
-            <form onSubmit={handleAddAdmin} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-semibold">First Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={adminFirstName}
-                    onChange={(e) => setAdminFirstName(e.target.value)}
-                    placeholder="Sarah"
-                    className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
-                  />
-                </div>
-                <div>
-                  <label className="font-semibold">Last Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={adminLastName}
-                    onChange={(e) => setAdminLastName(e.target.value)}
-                    placeholder="Connor"
-                    className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="font-semibold">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={adminEmail}
-                  onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="admin@oxshare.com"
-                  className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold">Initial Password</label>
-                <input
-                  type="password"
-                  required
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold">Assign RBAC Role</label>
-                <select
-                  value={adminRoleId}
-                  onChange={(e) => setAdminRoleId(e.target.value)}
-                  className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
-                >
-                  <option value="">Select Role</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} ({r.permissions.length} permissions)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddAdminModal(false)}
-                  className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="h-9 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500"
-                >
-                  Create Admin User
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

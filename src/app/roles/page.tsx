@@ -12,36 +12,42 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Role, PermissionModule } from '@/lib/api/admin';
+import { BackendPending } from '@/components/backend-pending';
+
+type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
+
+const isNotFound = (e: unknown) =>
+  (e as { response?: { status?: number } })?.response?.status === 404;
 
 export default function AdminRolesPage() {
   const [permissionsCatalog, setPermissionsCatalog] = React.useState<Record<string, PermissionModule>>({});
   const [roles, setRoles] = React.useState<Role[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [loadState, setLoadState] = React.useState<LoadState>('loading');
 
   // Add Role State
   const [showAddRoleModal, setShowAddRoleModal] = React.useState(false);
   const [roleName, setRoleName] = React.useState('');
   const [roleDescription, setRoleDescription] = React.useState('');
   const [selectedPermissions, setSelectedPermissions] = React.useState<string[]>([]);
+  const [createError, setCreateError] = React.useState('');
+  const [creating, setCreating] = React.useState(false);
 
-  React.useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      try {
-        const [perms, rList] = await Promise.all([
-          api.admin.getPermissions(),
-          api.admin.getRoles(),
-        ]);
-        setPermissionsCatalog(perms);
-        setRoles(rList);
-      } catch (err) {
-        console.error('Failed to load roles data', err);
-      } finally {
-        setIsLoading(false);
-      }
+  const loadData = React.useCallback(async () => {
+    setLoadState('loading');
+    try {
+      const [perms, rList] = await Promise.all([
+        api.admin.getPermissions(),
+        api.admin.getRoles(),
+      ]);
+      setPermissionsCatalog(perms);
+      setRoles(rList);
+      setLoadState('ready');
+    } catch (err) {
+      setLoadState(isNotFound(err) ? 'unavailable' : 'error');
     }
-    loadData();
   }, []);
+
+  React.useEffect(() => { loadData(); }, [loadData]);
 
   const togglePermission = (permKey: string) => {
     if (selectedPermissions.includes(permKey)) {
@@ -53,34 +59,29 @@ export default function AdminRolesPage() {
 
   const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roleName) return;
-
+    if (!roleName.trim()) return;
+    setCreating(true);
+    setCreateError('');
     try {
       const newRole = await api.admin.createRole({
-        name: roleName,
-        description: roleDescription,
+        name: roleName.trim(),
+        description: roleDescription.trim() || undefined,
         permissions: selectedPermissions,
       });
-
       setRoles([...roles, newRole]);
       setShowAddRoleModal(false);
       setRoleName('');
       setRoleDescription('');
       setSelectedPermissions([]);
-    } catch {
-      // Local fallback insert
-      const fallbackRole: Role = {
-        id: Date.now().toString(),
-        name: roleName,
-        description: roleDescription,
-        permissions: selectedPermissions,
-        isSystem: false,
-      };
-      setRoles([...roles, fallbackRole]);
-      setShowAddRoleModal(false);
-      setRoleName('');
-      setRoleDescription('');
-      setSelectedPermissions([]);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setCreateError(
+        isNotFound(err)
+          ? 'The backend endpoint for creating roles (POST /admin/roles) is not implemented yet.'
+          : msg ?? 'Failed to create the role. Please try again.'
+      );
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -98,16 +99,31 @@ export default function AdminRolesPage() {
         <button
           type="button"
           onClick={() => setShowAddRoleModal(true)}
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white shadow-md shadow-blue-600/20 hover:bg-blue-500 transition-colors cursor-pointer"
+          disabled={loadState !== 'ready'}
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white shadow-md shadow-blue-600/20 hover:bg-blue-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="h-4 w-4" />
           Create Custom Role
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
+      {loadState === 'loading' ? (
+        <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <span className="sr-only">Loading roles</span>
+        </div>
+      ) : loadState === 'unavailable' ? (
+        <BackendPending endpoints={['GET /admin/permissions', 'GET /admin/roles', 'POST /admin/roles']} />
+      ) : loadState === 'error' ? (
+        <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
+          <p className="text-sm text-muted-foreground">Failed to load roles. Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={loadData}
+            className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted"
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,19 +244,28 @@ export default function AdminRolesPage() {
                 </div>
               </div>
 
+              {createError && (
+                <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-500" role="alert">
+                  {createError}
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setShowAddRoleModal(false)}
-                  className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted"
+                  disabled={creating}
+                  className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-9 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500"
+                  disabled={creating}
+                  aria-busy={creating}
+                  className="h-9 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 disabled:opacity-50"
                 >
-                  Save Dynamic Role
+                  {creating ? 'Saving...' : 'Save Dynamic Role'}
                 </button>
               </div>
             </form>
