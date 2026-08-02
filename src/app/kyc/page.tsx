@@ -134,12 +134,12 @@ export default function AdminKycPage() {
           <table className="kyc-table">
             <thead>
               <tr>
-                <th>User</th>
-                <th>Country</th>
-                <th>Status</th>
-                <th>Submitted</th>
-                <th>Reviewed</th>
-                <th>Action</th>
+                <th scope="col">User</th>
+                <th scope="col">Country</th>
+                <th scope="col">Status</th>
+                <th scope="col">Submitted</th>
+                <th scope="col">Reviewed</th>
+                <th scope="col">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -194,74 +194,74 @@ export default function AdminKycPage() {
       <style jsx>{`
         .kyc-page { padding: 32px; max-width: 1200px; margin: 0 auto; }
         .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
-        h1 { font-size: 1.6rem; font-weight: 700; color: #e8eeff; margin-bottom: 4px; }
-        .page-header p { color: #7c87b4; font-size: 0.85rem; }
+        h1 { font-size: 1.6rem; font-weight: 700; color: var(--foreground); margin-bottom: 4px; }
+        .page-header p { color: var(--muted-foreground); font-size: 0.85rem; }
         .invite-btn {
-          background: linear-gradient(135deg, #6382ff, #a78bfa);
+          background: linear-gradient(135deg, var(--ring), #a78bfa);
           color: white; text-decoration: none; border-radius: 50px;
           padding: 10px 24px; font-size: 0.88rem; font-weight: 600;
           white-space: nowrap;
         }
 
         .filters-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-        .filter-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(99,130,255,0.15); border-radius: 12px; padding: 4px; }
+        .filter-tabs { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 4px; }
         .filter-tab {
           padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
-          font-size: 0.82rem; font-weight: 500; color: #7c87b4;
+          font-size: 0.82rem; font-weight: 500; color: var(--muted-foreground);
           background: transparent; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
         }
-        .filter-tab:hover { color: #c7d2fe; background: rgba(99,130,255,0.07); }
-        .filter-tab.active { background: rgba(99,130,255,0.15); color: #a5b4fc; }
+        .filter-tab:hover { color: var(--foreground); background: var(--muted); }
+        .filter-tab.active { background: var(--muted); color: var(--primary); }
         .tab-count {
-          background: rgba(255,255,255,0.08); color: #5a6280;
+          background: var(--muted); color: var(--muted-foreground);
           border-radius: 10px; padding: 1px 6px; font-size: 0.72rem;
         }
-        .filter-tab.active .tab-count { background: rgba(99,130,255,0.2); color: #818cf8; }
+        .filter-tab.active .tab-count { background: var(--muted); color: var(--primary); }
 
-        .loading-state, .empty-state { text-align: center; padding: 60px 20px; color: #7c87b4; }
+        .loading-state, .empty-state { text-align: center; padding: 60px 20px; color: var(--muted-foreground); }
         .retry-btn {
-          margin-top: 12px; background: rgba(99,130,255,0.15); color: #a5b4fc;
+          margin-top: 12px; background: var(--muted); color: var(--primary);
           border: 1px solid rgba(99,130,255,0.3); border-radius: 50px;
           padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
         }
         .retry-btn:hover { background: rgba(99,130,255,0.25); }
         .spinner {
           width: 36px; height: 36px; margin: 0 auto 16px;
-          border: 3px solid rgba(99,130,255,0.2); border-top-color: #6382ff;
+          border: 3px solid var(--muted); border-top-color: var(--ring);
           border-radius: 50%; animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
 
-        .kyc-table-wrap { border-radius: 16px; overflow: hidden; border: 1px solid rgba(99,130,255,0.15); }
+        .kyc-table-wrap { border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
         .kyc-table { width: 100%; border-collapse: collapse; }
-        .kyc-table thead { background: rgba(99,130,255,0.07); }
-        .kyc-table th { padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: #7c87b4; letter-spacing: 0.08em; text-transform: uppercase; }
-        .kyc-table tbody tr { border-top: 1px solid rgba(99,130,255,0.08); transition: background 0.15s; }
-        .kyc-table tbody tr:hover { background: rgba(99,130,255,0.04); }
-        .kyc-table td { padding: 14px 16px; font-size: 0.88rem; color: #c7d2fe; }
+        .kyc-table thead { background: var(--muted); }
+        .kyc-table th { padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; }
+        .kyc-table tbody tr { border-top: 1px solid var(--border); transition: background 0.15s; }
+        .kyc-table tbody tr:hover { background: var(--muted); }
+        .kyc-table td { padding: 14px 16px; font-size: 0.88rem; color: var(--foreground); }
 
         .user-cell { display: flex; align-items: center; gap: 12px; }
         .user-avatar {
           width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
-          background: linear-gradient(135deg, #6382ff, #a78bfa);
+          background: linear-gradient(135deg, var(--ring), #a78bfa);
           display: flex; align-items: center; justify-content: center;
           font-size: 0.85rem; font-weight: 700; color: white;
         }
-        .user-name { font-weight: 600; color: #e8eeff; }
-        .user-email { font-size: 0.78rem; color: #7c87b4; margin-top: 2px; }
-        .country-cell { color: #9ba8d4; }
-        .date-cell { color: #7c87b4; font-size: 0.82rem; }
+        .user-name { font-weight: 600; color: var(--foreground); }
+        .user-email { font-size: 0.78rem; color: var(--muted-foreground); margin-top: 2px; }
+        .country-cell { color: var(--muted-foreground); }
+        .date-cell { color: var(--muted-foreground); font-size: 0.82rem; }
 
         .status-badge {
           display: inline-block; padding: 4px 12px; border-radius: 20px;
           font-size: 0.75rem; font-weight: 600; white-space: nowrap;
         }
         .review-link {
-          color: #818cf8; text-decoration: none; font-weight: 600; font-size: 0.85rem;
+          color: var(--primary); text-decoration: none; font-weight: 600; font-size: 0.85rem;
           transition: color 0.15s;
         }
-        .review-link:hover { color: #a5b4fc; }
+        .review-link:hover { color: var(--primary); }
         @media (max-width: 768px) {
           .kyc-page { padding: 16px; }
           .filters-bar { flex-direction: column; align-items: stretch; }

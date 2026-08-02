@@ -422,21 +422,21 @@ export default function KycDetailPage() {
 
       <style jsx>{`
         .detail-page { padding: 32px; max-width: 1200px; margin: 0 auto; }
-        .detail-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; gap: 16px; color: #7c87b4; }
-        .spinner { width: 36px; height: 36px; border: 3px solid rgba(99,130,255,0.2); border-top-color: #6382ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .detail-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; gap: 16px; color: var(--muted-foreground); }
+        .spinner { width: 36px; height: 36px; border: 3px solid var(--muted); border-top-color: var(--ring); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .back-link { color: #7c87b4; text-decoration: none; font-size: 0.85rem; display: inline-block; margin-bottom: 20px; }
-        .back-link:hover { color: #a5b4fc; }
+        .back-link { color: var(--muted-foreground); text-decoration: none; font-size: 0.85rem; display: inline-block; margin-bottom: 20px; }
+        .back-link:hover { color: var(--primary); }
         .detail-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
-        h1 { font-size: 1.5rem; font-weight: 700; color: #e8eeff; }
-        .detail-header p { color: #7c87b4; font-size: 0.88rem; margin-top: 4px; }
+        h1 { font-size: 1.5rem; font-weight: 700; color: var(--foreground); }
+        .detail-header p { color: var(--muted-foreground); font-size: 0.88rem; margin-top: 4px; }
 
         .status-pill {
           padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;
           text-transform: capitalize;
         }
-        .status-pill.status-submitted { background: rgba(99,130,255,0.15); color: #818cf8; }
+        .status-pill.status-submitted { background: var(--muted); color: var(--primary); }
         .status-pill.status-under_review { background: rgba(167,139,250,0.15); color: #a78bfa; }
         .status-pill.status-approved { background: rgba(74,222,128,0.15); color: #4ade80; }
         .status-pill.status-rejected { background: rgba(248,113,113,0.15); color: #f87171; }
@@ -447,15 +447,15 @@ export default function KycDetailPage() {
         .detail-right { display: flex; flex-direction: column; gap: 16px; }
 
         .info-card, .docs-card, .action-card, .timeline-card, .rejection-card {
-          background: rgba(255,255,255,0.03); border: 1px solid rgba(99,130,255,0.15);
+          background: var(--card); border: 1px solid var(--border);
           border-radius: 16px; padding: 20px 24px;
         }
-        h3 { font-size: 0.82rem; font-weight: 600; color: #7c87b4; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
-        .info-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.85rem; }
+        h3 { font-size: 0.82rem; font-weight: 600; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+        .info-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
         .info-row:last-child { border-bottom: none; }
-        .info-row span { color: #7c87b4; }
-        .info-row strong { color: #c7d2fe; text-align: right; max-width: 60%; text-transform: capitalize; }
-        .not-submitted { color: #5a6280; font-size: 0.85rem; }
+        .info-row span { color: var(--muted-foreground); }
+        .info-row strong { color: var(--foreground); text-align: right; max-width: 60%; text-transform: capitalize; }
+        .not-submitted { color: var(--muted-foreground); font-size: 0.85rem; }
         .rejection-card { border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.04); }
         .rejection-card h3 { color: #f87171; }
         .rejection-card p { color: #fca5a5; font-size: 0.88rem; line-height: 1.6; }
@@ -481,14 +481,14 @@ export default function KycDetailPage() {
 
         /* Modal */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .modal { background: #1a1f3d; border: 1px solid rgba(99,130,255,0.25); border-radius: 20px; padding: 32px; max-width: 520px; width: 100%; animation: modalIn 0.25s ease both; }
+        .modal { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 32px; max-width: 520px; width: 100%; animation: modalIn 0.25s ease both; }
         @keyframes modalIn { from { transform: scale(0.95); opacity: 0; } }
-        .modal h3 { font-size: 1.1rem; color: #e8eeff; margin-bottom: 8px; }
-        .modal p { color: #7c87b4; font-size: 0.88rem; }
-        .reject-textarea { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(99,130,255,0.2); border-radius: 10px; padding: 12px 16px; color: #e8eeff; font-size: 0.9rem; resize: vertical; outline: none; font-family: inherit; }
+        .modal h3 { font-size: 1.1rem; color: var(--foreground); margin-bottom: 8px; }
+        .modal p { color: var(--muted-foreground); font-size: 0.88rem; }
+        .reject-textarea { width: 100%; background: var(--background); border: 1px solid var(--input); border-radius: 10px; padding: 12px 16px; color: var(--foreground); font-size: 0.9rem; resize: vertical; outline: none; font-family: inherit; }
         .reject-textarea:focus { border-color: #f87171; }
         .modal-btns { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
-        .btn-cancel { background: rgba(255,255,255,0.06); color: #9ba8d4; border: 1px solid rgba(99,130,255,0.2); border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; cursor: pointer; }
+        .btn-cancel { background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--input); border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; cursor: pointer; }
         .btn-reject-confirm { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
         .btn-reject-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-approve-confirm { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }

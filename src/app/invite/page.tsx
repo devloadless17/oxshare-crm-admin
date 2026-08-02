@@ -98,24 +98,24 @@ export default function InviteAdminPage() {
       <style jsx>{`
         .invite-wrap { min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 32px; }
         .invite-card {
-          background: rgba(255,255,255,0.03); border: 1px solid rgba(99,130,255,0.2);
+          background: var(--card); border: 1px solid var(--input);
           border-radius: 24px; padding: 48px 40px; max-width: 480px; width: 100%; text-align: center;
         }
         .invite-icon { font-size: 3rem; margin-bottom: 20px; }
-        h2 { font-size: 1.5rem; font-weight: 700; color: #e8eeff; margin-bottom: 10px; }
-        p { color: #7c87b4; font-size: 0.9rem; line-height: 1.6; margin-bottom: 28px; }
+        h2 { font-size: 1.5rem; font-weight: 700; color: var(--foreground); margin-bottom: 10px; }
+        p { color: var(--muted-foreground); font-size: 0.9rem; line-height: 1.6; margin-bottom: 28px; }
 
         .invite-form { text-align: left; }
         .form-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
-        label { font-size: 0.82rem; font-weight: 500; color: #9ba8d4; }
+        label { font-size: 0.82rem; font-weight: 500; color: var(--muted-foreground); }
         .form-input {
-          background: rgba(255,255,255,0.04); border: 1px solid rgba(99,130,255,0.2);
-          border-radius: 10px; padding: 12px 16px; color: #e8eeff; font-size: 0.93rem; outline: none; width: 100%;
+          background: var(--background); border: 1px solid var(--input);
+          border-radius: 10px; padding: 12px 16px; color: var(--foreground); font-size: 0.93rem; outline: none; width: 100%;
         }
-        .form-input:focus { border-color: #6382ff; }
+        .form-input:focus { border-color: var(--ring); }
         .error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 10px 14px; color: #fca5a5; font-size: 0.83rem; margin-bottom: 14px; }
         .submit-btn {
-          width: 100%; background: linear-gradient(135deg, #6382ff, #a78bfa);
+          width: 100%; background: linear-gradient(135deg, var(--ring), #a78bfa);
           color: white; border: none; border-radius: 50px; padding: 14px;
           font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
         }
@@ -124,15 +124,15 @@ export default function InviteAdminPage() {
 
         .result-box { text-align: left; }
         .result-success { color: #4ade80; font-weight: 700; font-size: 1rem; margin-bottom: 12px; text-align: center; }
-        .result-note { font-size: 0.85rem; color: #9ba8d4; margin-bottom: 12px !important; }
+        .result-note { font-size: 0.85rem; color: var(--muted-foreground); margin-bottom: 12px !important; }
         .invite-link-box {
-          background: rgba(99,130,255,0.07); border: 1px solid rgba(99,130,255,0.2);
+          background: var(--muted); border: 1px solid var(--input);
           border-radius: 10px; padding: 12px 16px; display: flex; align-items: center;
           gap: 12px; margin-bottom: 20px; word-break: break-all;
         }
-        .invite-link-box code { flex: 1; color: #a5b4fc; font-size: 0.78rem; }
-        .copy-btn { background: rgba(99,130,255,0.2); color: #818cf8; border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
-        .btn-another { width: 100%; background: rgba(255,255,255,0.06); color: #9ba8d4; border: 1px solid rgba(99,130,255,0.2); border-radius: 50px; padding: 12px; font-size: 0.9rem; cursor: pointer; }
+        .invite-link-box code { flex: 1; color: var(--primary); font-size: 0.78rem; }
+        .copy-btn { background: var(--muted); color: var(--primary); border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+        .btn-another { width: 100%; background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--input); border-radius: 50px; padding: 12px; font-size: 0.9rem; cursor: pointer; }
       `}</style>
     </div>
   );

@@ -243,6 +243,8 @@ export default function KycBuilderPage() {
       {/* Toast Banner */}
       {toast && (
         <div
+          role="status"
+          aria-live="polite"
           className={`fixed top-20 right-8 z-50 flex items-center gap-3 rounded-xl border px-4 py-3 text-xs font-semibold shadow-2xl animate-in fade-in-0 slide-in-from-top-4 ${
             toast.type === 'success'
               ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
