@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Dashboard — BBCorp Admin' };
+export const metadata: Metadata = { title: 'Dashboard — OxShare Admin' };
 
 export default function AdminDashboardPage() {
   return (

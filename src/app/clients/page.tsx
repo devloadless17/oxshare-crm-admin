@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Clients — BBCorp Admin' };
+export const metadata: Metadata = { title: 'Clients — OxShare Admin' };
 
 export default function ClientsPage() {
   return (
