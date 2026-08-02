@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
@@ -46,18 +46,24 @@ export default function AdminKycPage() {
   const [submissions, setSubmissions] = useState<KycRow[]>([]);
   const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
+  // Fetch everything once and filter client-side, so tab counts stay correct
+  // regardless of the active filter. Revisit when the endpoint gets pagination.
+  const load = useCallback(() => {
     setLoading(true);
-    const params = filter ? `?status=${filter}` : '';
-    api.get(`/admin/kyc${params}`)
+    setLoadError('');
+    api.get('/admin/kyc')
       .then((r) => setSubmissions(r.data))
-      .catch(() => {})
+      .catch(() => setLoadError('Failed to load submissions. Check your connection and try again.'))
       .finally(() => setLoading(false));
-  }, [filter]);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const filtered = submissions.filter((s) => {
+    if (filter && s.status !== filter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -84,6 +90,7 @@ export default function AdminKycPage() {
               key={f.value}
               className={`filter-tab ${filter === f.value ? 'active' : ''}`}
               onClick={() => setFilter(f.value)}
+              aria-pressed={filter === f.value}
             >
               {f.label}
               <span className="tab-count">
@@ -95,15 +102,22 @@ export default function AdminKycPage() {
         <Input
           className="max-w-xs"
           placeholder="Search by name or email..."
+          aria-label="Search submissions by name or email"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
       {loading ? (
-        <div className="loading-state">
+        <div className="loading-state" role="status" aria-live="polite">
           <div className="spinner" />
           <p>Loading submissions...</p>
+        </div>
+      ) : loadError ? (
+        <div className="empty-state" role="alert">
+          <div className="empty-icon">⚠️</div>
+          <p>{loadError}</p>
+          <button type="button" onClick={load} className="retry-btn">Retry</button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
@@ -157,7 +171,11 @@ export default function AdminKycPage() {
                     {row.reviewedAt ? new Date(row.reviewedAt).toLocaleDateString() : '—'}
                   </td>
                   <td>
-                    <Link href={`/kyc/${row.userId}`} className="review-link">
+                    <Link
+                      href={`/kyc/${row.userId}`}
+                      className="review-link"
+                      aria-label={`Review KYC submission of ${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim()}
+                    >
                       Review →
                     </Link>
                   </td>
@@ -195,14 +213,13 @@ export default function AdminKycPage() {
         }
         .filter-tab.active .tab-count { background: rgba(99,130,255,0.2); color: #818cf8; }
 
-        .search-input {
-          flex: 1; min-width: 200px;
-          background: rgba(255,255,255,0.04); border: 1px solid rgba(99,130,255,0.2);
-          border-radius: 10px; padding: 10px 16px; color: #e8eeff; font-size: 0.88rem; outline: none;
-        }
-        .search-input:focus { border-color: #6382ff; }
-
         .loading-state, .empty-state { text-align: center; padding: 60px 20px; color: #7c87b4; }
+        .retry-btn {
+          margin-top: 12px; background: rgba(99,130,255,0.15); color: #a5b4fc;
+          border: 1px solid rgba(99,130,255,0.3); border-radius: 50px;
+          padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+        }
+        .retry-btn:hover { background: rgba(99,130,255,0.25); }
         .spinner {
           width: 36px; height: 36px; margin: 0 auto 16px;
           border: 3px solid rgba(99,130,255,0.2); border-top-color: #6382ff;
