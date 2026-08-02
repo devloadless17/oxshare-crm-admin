@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { buildKycDocUrl } from '@/lib/kyc-doc-url';
 
 interface KycDetail {
   userId: string;
@@ -22,10 +23,7 @@ interface KycDetail {
 function DocViewer({ filePath, label }: { filePath?: string; label: string }) {
   const [imgFailed, setImgFailed] = useState(false);
   const isPdf = filePath?.toLowerCase().endsWith('.pdf');
-  // Backend stores paths like "./uploads/kyc/<file>" or "uploads/kyc/<file>";
-  // normalize to a root-relative path and serve through the /api proxy.
-  const rel = filePath ? filePath.replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\//, '') : '';
-  const url = rel ? (rel.startsWith('uploads/') ? `/api/${rel}` : `/api/uploads/kyc/${rel}`) : '';
+  const url = buildKycDocUrl(filePath);
 
   return (
     <div className="flex flex-col gap-2 p-4 rounded-xl border border-border bg-card/60">
