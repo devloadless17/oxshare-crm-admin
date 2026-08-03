@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
+import { ChevronLeft } from 'lucide-react';
+import { Loader } from '@/components/ui/loader';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import Link from 'next/link';
 import api from '@/lib/api';
 import type { RejectionReason } from '@/lib/api/admin';
@@ -190,10 +193,7 @@ export default function KycDetailPage() {
   };
 
   if (loading) return (
-    <div className="detail-loading" role="status" aria-live="polite">
-      <div className="spinner" />
-      <p>Loading KYC submission...</p>
-    </div>
+    <Loader text="Loading KYC submission..." fullPage />
   );
   if (loadError || !data) return (
     <div className="detail-loading">
@@ -212,7 +212,10 @@ export default function KycDetailPage() {
   return (
     <div className="detail-page">
       <div className="detail-header">
-        <Link href="/kyc" className="back-link">← Back to KYC List</Link>
+        <Link href="/kyc" className="back-link inline-flex items-center gap-1">
+          <ChevronLeft className="h-4 w-4" />
+          <span>Back to KYC List</span>
+        </Link>
         <div className="detail-title-row">
           <div>
             <h1>{data.user?.firstName} {data.user?.lastName}</h1>
@@ -389,20 +392,22 @@ export default function KycDetailPage() {
 
             {reasons.length > 0 && (
               <div className="space-y-1.5 mb-4">
-                <label htmlFor="kyc-reason-select" className="text-xs font-bold text-foreground">
+                <label className="text-xs font-bold text-foreground">
                   Rejection Reason <span className="text-destructive">*</span>
                 </label>
-                <select
-                  id="kyc-reason-select"
-                  className="reject-select"
+                <Select
                   value={selectedReasonId}
-                  onChange={(e) => setSelectedReasonId(e.target.value)}
+                  onValueChange={(val) => setSelectedReasonId(val)}
                 >
-                  <option value="">Select a reason…</option>
-                  {reasons.map((r) => (
-                    <option key={r.id} value={r.id}>{r.label}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select a reason…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reasons.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -473,7 +478,7 @@ export default function KycDetailPage() {
       )}
 
       <style jsx>{`
-        .detail-page { padding: 32px; max-width: 1200px; margin: 0 auto; }
+        .detail-page { width: 100%; }
         .detail-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; gap: 16px; color: var(--muted-foreground); }
         .spinner { width: 36px; height: 36px; border: 3px solid var(--muted); border-top-color: var(--ring); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }

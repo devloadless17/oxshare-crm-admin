@@ -16,7 +16,7 @@ import type { AdminProfile } from '@/context/AdminAuthContext';
  * `assertPermissionKeysExist()` below now catches that class of drift at
  * runtime in development instead of leaving it invisible.
  *
- * Matching is normalized (colons → dots, lowercase) exactly like the
+ * Matching is normalized (colons to dots, lowercase) exactly like the
  * backend's PermissionsGuard.
  */
 export type RouteRequirement =

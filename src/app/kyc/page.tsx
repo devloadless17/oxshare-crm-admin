@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
+import { DataTable, EmptyState, type Column } from '@/components/data-table';
 
 type KycStatus = 'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
 
@@ -47,8 +49,6 @@ const FILTERS: Array<{ value: string; label: string }> = [
   { value: 'rejected', label: 'Rejected' },
 ];
 
-const PAGE_SIZE = 25;
-
 interface KycListResponse {
   items: KycRow[];
   total: number;
@@ -60,6 +60,7 @@ interface KycListResponse {
 export default function AdminKycPage() {
   const { admin } = useAdmin();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
 
@@ -68,9 +69,9 @@ export default function AdminKycPage() {
   // Server-side filtering/search/pagination; counts come from the API over
   // the full set, so tab counts stay correct while a filter is active.
   const query = useResource<KycListResponse>(
-    ['kyc', page, filter, debouncedSearch],
+    ['kyc', page, pageSize, filter, debouncedSearch],
     async (signal) => {
-      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
       if (filter) params.set('status', filter);
       if (debouncedSearch) params.set('q', debouncedSearch);
       return (await api.get<KycListResponse>(`/admin/kyc?${params}`, { signal })).data;
@@ -81,220 +82,156 @@ export default function AdminKycPage() {
   const total = query.data?.total ?? 0;
   const counts = query.data?.counts ?? {};
   const loading = query.status === 'loading';
-  const loadError =
-    query.status === 'error' || query.status === 'unavailable'
-      ? 'Failed to load submissions. Check your connection and try again.'
-      : '';
-  const load = query.refetch;
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const filtered = rows;
+  const columns: Column<KycRow>[] = [
+    {
+      header: 'User',
+      sortable: true,
+      sortKey: 'userId',
+      cell: (row) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-xs text-primary-foreground">
+            {(row.user?.firstName?.[0] ?? '?').toUpperCase()}
+          </div>
+          <div>
+            <div className="font-semibold text-foreground">
+              {[row.user?.firstName, row.user?.lastName].filter(Boolean).join(' ') || '—'}
+            </div>
+            <div className="text-xs text-muted-foreground">{row.user?.email}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Country',
+      sortable: true,
+      sortKey: 'country',
+      cell: (row) => (
+        <span className="text-muted-foreground">{row.personalInfo?.country ?? '—'}</span>
+      ),
+    },
+    {
+      header: 'Status',
+      sortable: true,
+      sortKey: 'status',
+      cell: (row) => (
+        <span
+          className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
+          style={{
+            background: `color-mix(in srgb, ${STATUS_COLORS[row.status]} 13%, transparent)`,
+            color: STATUS_COLORS[row.status],
+            border: `1px solid color-mix(in srgb, ${STATUS_COLORS[row.status]} 27%, transparent)`,
+          }}
+        >
+          {STATUS_LABELS[row.status]}
+        </span>
+      ),
+    },
+    {
+      header: 'Submitted',
+      sortable: true,
+      sortKey: 'submittedAt',
+      cell: (row) => (
+        <span className="text-xs text-muted-foreground">
+          {row.submittedAt ? new Date(row.submittedAt).toLocaleDateString() : '—'}
+        </span>
+      ),
+    },
+    {
+      header: 'Reviewed',
+      sortable: true,
+      sortKey: 'reviewedAt',
+      cell: (row) => (
+        <span className="text-xs text-muted-foreground">
+          {row.reviewedAt ? new Date(row.reviewedAt).toLocaleDateString() : '—'}
+        </span>
+      ),
+    },
+    {
+      header: 'Action',
+      align: 'right',
+      cell: (row) => (
+        <Link
+          href={`/kyc/${row.userId}`}
+          className="inline-flex items-center gap-1 font-semibold text-xs text-link hover:underline focus-outline rounded-sm"
+          aria-label={`Review KYC submission of ${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim()}
+        >
+          <span>Review</span>
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      ),
+    },
+  ];
 
   return (
-    <div className="kyc-page">
-      <div className="page-header">
+    <div className="w-full space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1>KYC Submissions</h1>
-          <p>{counts['all'] ?? 0} total submissions</p>
+          <h1 className="text-2xl font-bold tracking-tight">KYC Submissions</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {counts['all'] ?? 0} total submissions
+          </p>
         </div>
-        {hasPermission(admin, 'users.create') && (
-          <Link href="/invite" className="invite-btn">+ Invite Admin</Link>
-        )}
       </div>
 
-      <div className="filters-bar">
-        <div className="filter-tabs">
+      {/* Filters & Search */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+        <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
           {FILTERS.map((f) => (
             <button
               key={f.value}
-              className={`filter-tab ${filter === f.value ? 'active' : ''}`}
-              onClick={() => { setPage(1); setFilter(f.value); }}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus-outline ${
+                filter === f.value
+                  ? 'bg-primary/10 font-semibold text-link'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+              onClick={() => {
+                setPage(1);
+                setFilter(f.value);
+              }}
               aria-pressed={filter === f.value}
             >
-              {f.label}
-              <span className="tab-count">
+              <span>{f.label}</span>
+              <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
                 {f.value ? counts[f.value] ?? 0 : counts['all'] ?? 0}
               </span>
             </button>
           ))}
         </div>
+
         <Input
-          className="max-w-xs"
+          className="max-w-xs h-9"
           placeholder="Search by name or email..."
           aria-label="Search submissions by name or email"
           value={search}
-          onChange={(e) => { setPage(1); setSearch(e.target.value); }}
+          onChange={(e) => {
+            setPage(1);
+            setSearch(e.target.value);
+          }}
         />
       </div>
 
-      {loading ? (
-        <div className="loading-state" role="status" aria-live="polite">
-          <div className="spinner" />
-          <p>Loading submissions...</p>
-        </div>
-      ) : loadError ? (
-        <div className="empty-state" role="alert">
-          <div className="empty-icon">⚠️</div>
-          <p>{loadError}</p>
-          <button type="button" onClick={load} className="retry-btn">Retry</button>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">📋</div>
-          <p>No submissions {filter ? `with status "${STATUS_LABELS[filter as KycStatus]}"` : 'yet'}</p>
-        </div>
-      ) : (
-        <div className="kyc-table-wrap">
-          <table className="kyc-table">
-            <thead>
-              <tr>
-                <th scope="col">User</th>
-                <th scope="col">Country</th>
-                <th scope="col">Status</th>
-                <th scope="col">Submitted</th>
-                <th scope="col">Reviewed</th>
-                <th scope="col">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((row) => (
-                <tr key={row.userId}>
-                  <td>
-                    <div className="user-cell">
-                      <div className="user-avatar">
-                        {(row.user?.firstName?.[0] ?? '?').toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="user-name">{row.user?.firstName} {row.user?.lastName}</div>
-                        <div className="user-email">{row.user?.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="country-cell">{row.personalInfo?.country ?? '—'}</td>
-                  <td>
-                    <span
-                      className="status-badge"
-                      style={{
-                        background: `color-mix(in srgb, ${STATUS_COLORS[row.status]} 13%, transparent)`,
-                        color: STATUS_COLORS[row.status],
-                        border: `1px solid color-mix(in srgb, ${STATUS_COLORS[row.status]} 27%, transparent)`,
-                      }}
-                    >
-                      {STATUS_LABELS[row.status]}
-                    </span>
-                  </td>
-                  <td className="date-cell">
-                    {row.submittedAt ? new Date(row.submittedAt).toLocaleDateString() : '—'}
-                  </td>
-                  <td className="date-cell">
-                    {row.reviewedAt ? new Date(row.reviewedAt).toLocaleDateString() : '—'}
-                  </td>
-                  <td>
-                    <Link
-                      href={`/kyc/${row.userId}`}
-                      className="review-link"
-                      aria-label={`Review KYC submission of ${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim()}
-                    >
-                      Review →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="pager">
-            <span>{total} result{total === 1 ? '' : 's'} · page {page} of {totalPages}</span>
-            <div className="pager-btns">
-              <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Previous</button>
-              <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style jsx>{`
-        .kyc-page { padding: 32px; max-width: 1200px; margin: 0 auto; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
-        h1 { font-size: 1.6rem; font-weight: 700; color: var(--foreground); margin-bottom: 4px; }
-        .page-header p { color: var(--muted-foreground); font-size: 0.85rem; }
-        .invite-btn {
-          background: var(--primary);
-          color: var(--primary-foreground); text-decoration: none; border-radius: 50px;
-          padding: 10px 24px; font-size: 0.88rem; font-weight: 600;
-          white-space: nowrap;
-        }
-
-        .filters-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-        .filter-tabs { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 4px; }
-        .filter-tab {
-          padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
-          font-size: 0.82rem; font-weight: 500; color: var(--muted-foreground);
-          background: transparent; display: flex; align-items: center; gap: 6px;
-        }
-        .filter-tab:hover { color: var(--foreground); background: var(--muted); }
-        .filter-tab.active { background: var(--accent); color: var(--link); }
-        .tab-count {
-          background: var(--muted); color: var(--muted-foreground);
-          border-radius: 10px; padding: 1px 6px; font-size: 0.72rem;
-        }
-        .filter-tab.active .tab-count { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--link); }
-
-        .loading-state, .empty-state { text-align: center; padding: 60px 20px; color: var(--muted-foreground); }
-        .retry-btn {
-          margin-top: 12px; background: var(--muted); color: var(--link);
-          border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); border-radius: 50px;
-          padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-        }
-        .retry-btn:hover { background: var(--accent); }
-        .spinner {
-          width: 36px; height: 36px; margin: 0 auto 16px;
-          border: 3px solid var(--muted); border-top-color: var(--ring);
-          border-radius: 50%; animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
-
-        .kyc-table-wrap { border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
-        .pager { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--muted-foreground); }
-        .pager-btns { display: flex; gap: 8px; }
-        .pager-btns button { border: 1px solid var(--input); background: var(--card); color: var(--foreground); border-radius: 8px; padding: 6px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
-        .pager-btns button:disabled { opacity: 0.4; cursor: not-allowed; }
-        .kyc-table { width: 100%; border-collapse: collapse; }
-        .kyc-table thead { background: var(--muted); }
-        .kyc-table th { padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; }
-        .kyc-table tbody tr { border-top: 1px solid var(--border); transition: background 0.15s; }
-        .kyc-table tbody tr:hover { background: var(--muted); }
-        .kyc-table td { padding: 14px 16px; font-size: 0.88rem; color: var(--foreground); }
-
-        .user-cell { display: flex; align-items: center; gap: 12px; }
-        .user-avatar {
-          width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
-          background: var(--primary);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 0.85rem; font-weight: 700; color: var(--primary-foreground);
-        }
-        .user-name { font-weight: 600; color: var(--foreground); }
-        .user-email { font-size: 0.78rem; color: var(--muted-foreground); margin-top: 2px; }
-        .country-cell { color: var(--muted-foreground); }
-        .date-cell { color: var(--muted-foreground); font-size: 0.82rem; }
-
-        .status-badge {
-          display: inline-block; padding: 4px 12px; border-radius: 20px;
-          font-size: 0.75rem; font-weight: 600; white-space: nowrap;
-        }
-        .review-link {
-          color: var(--link); text-decoration: none; font-weight: 600; font-size: 0.85rem;
-        }
-        .review-link:hover { text-decoration: underline; }
-        .invite-btn:focus-visible, .filter-tab:focus-visible, .retry-btn:focus-visible,
-        .pager-btns button:focus-visible, .review-link:focus-visible {
-          outline: 2px solid var(--ring); outline-offset: 2px;
-        }
-        @media (max-width: 768px) {
-          .kyc-page { padding: 16px; }
-          .filters-bar { flex-direction: column; align-items: stretch; }
-        }
-      `}</style>
+      {/* DataTable */}
+      <DataTable
+        caption="KYC Submissions"
+        columns={columns}
+        rows={rows}
+        rowKey={(row) => row.userId}
+        selectable={true}
+        loading={loading}
+        loadingText="Loading KYC submissions..."
+        dimmed={query.isFetching}
+        empty={<EmptyState icon={FileCheck} message="No submissions match the current filters." />}
+        pagination={{
+          page,
+          pageSize,
+          total,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+          noun: ['submission', 'submissions'],
+        }}
+      />
     </div>
   );
 }

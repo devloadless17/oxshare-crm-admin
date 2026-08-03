@@ -10,6 +10,7 @@ import { hasPermission } from '@/lib/permissions';
 import { apiErrorMessage, useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Pagination } from '@/components/pagination';
 import { Modal } from '@/components/ui/modal';
 
@@ -115,6 +116,8 @@ export default function WithdrawalsPage() {
   const columns: Column<WithdrawalRow>[] = [
     {
       header: 'Client',
+      sortable: true,
+      sortKey: 'id',
       cell: (w) => (
         <>
           <div className="font-medium text-foreground">
@@ -127,6 +130,8 @@ export default function WithdrawalsPage() {
     {
       header: 'Amount',
       align: 'right',
+      sortable: true,
+      sortKey: 'amount',
       // Rendered verbatim — the API sends money as a string (§6.1).
       cell: (w) => (
         <>
@@ -137,6 +142,8 @@ export default function WithdrawalsPage() {
     },
     {
       header: 'Destination',
+      sortable: true,
+      sortKey: 'destination',
       cell: (w) => (
         <>
           <div
@@ -151,6 +158,8 @@ export default function WithdrawalsPage() {
     },
     {
       header: 'State',
+      sortable: true,
+      sortKey: 'state',
       cell: (w) => (
         <>
           <span
@@ -174,6 +183,8 @@ export default function WithdrawalsPage() {
     },
     {
       header: 'Requested',
+      sortable: true,
+      sortKey: 'requestedAt',
       cell: (w) => (w.requestedAt ? new Date(w.requestedAt).toLocaleString() : '—'),
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
@@ -324,6 +335,7 @@ export default function WithdrawalsPage() {
           columns={columns}
           rows={rows}
           rowKey={(w) => w.id}
+          selectable={true}
           dimmed={query.isFetching}
           empty={
             <EmptyState
@@ -331,18 +343,14 @@ export default function WithdrawalsPage() {
               message={filter ? 'No withdrawals in this state.' : 'No withdrawal requests yet.'}
             />
           }
+          pagination={{
+            page,
+            pageSize: PAGE_SIZE,
+            total,
+            onPageChange: setPage,
+            noun: ['request', 'requests'],
+          }}
         />
-        {rows.length > 0 && (
-          <div className="mt-6">
-            <Pagination
-              page={page}
-              total={total}
-              pageSize={PAGE_SIZE}
-              onPageChange={setPage}
-              noun={['request', 'requests']}
-            />
-          </div>
-        )}
       </AsyncBoundary>
 
       {/* Reject — reason from the configurable list (FR-ADM-03) */}
@@ -380,22 +388,24 @@ export default function WithdrawalsPage() {
       >
         {reasons.length > 0 && (
           <div>
-            <label htmlFor="wd-reason" className="text-xs font-semibold">
+            <label className="text-xs font-semibold">
               Rejection Reason
             </label>
-            <select
-              id="wd-reason"
+            <Select
               value={reasonId}
-              onChange={(e) => setReasonId(e.target.value)}
-              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm focus-outline"
+              onValueChange={(val) => setReasonId(val)}
             >
-              <option value="">Select a reason…</option>
-              {reasons.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="mt-1 h-9 w-full">
+                <SelectValue placeholder="Select a reason…" />
+              </SelectTrigger>
+              <SelectContent>
+                {reasons.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 

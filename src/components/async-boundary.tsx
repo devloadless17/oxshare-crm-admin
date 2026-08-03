@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { Loader } from '@/components/ui/loader';
 import { BackendPending } from '@/components/backend-pending';
 import type { ResourceStatus } from '@/hooks/use-resource';
 
@@ -28,10 +28,7 @@ export function AsyncBoundary({
 }) {
   if (status === 'loading') {
     return (
-      <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
-        <Loader2 className="h-8 w-8 animate-spin text-link" />
-        <span className="sr-only">{label}</span>
-      </div>
+      <Loader text={label} fullPage />
     );
   }
 

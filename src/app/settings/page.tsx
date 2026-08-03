@@ -9,6 +9,7 @@ import { Role, AdminUser } from '@/lib/api/admin';
 import { RoleCard } from '@/components/rbac/role-card';
 import { RoleFormModal, RoleFormValues } from '@/components/rbac/role-form-modal';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { apiErrorMessage, useResource } from '@/hooks/use-resource';
@@ -219,20 +220,20 @@ export default function AdminSettingsPage() {
                       <td className="px-6 py-4 font-mono text-muted-foreground">{user.email}</td>
                       <td className="px-6 py-4">
                         {reassignable ? (
-                          <select
+                          <Select
                             value={user.roleId ?? ''}
-                            onChange={(e) => handleAssignRole(user, e.target.value)}
+                            onValueChange={(val) => handleAssignRole(user, val)}
                             disabled={assigningId === user.id}
-                            aria-label={`Role for ${user.name}`}
-                            className="h-8 rounded-lg border border-input bg-background px-2 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
                           >
-                            <option value="" disabled>
-                              {user.roleId ? 'Change role…' : 'Custom permissions'}
-                            </option>
-                            {roles.filter((r) => !r.isSystem).map((r) => (
-                              <option key={r.id} value={r.id}>{r.name}</option>
-                            ))}
-                          </select>
+                            <SelectTrigger className="h-8 text-[11px] font-semibold w-40">
+                              <SelectValue placeholder={user.roleId ? 'Change role…' : 'Custom permissions'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {roles.filter((r) => !r.isSystem).map((r) => (
+                                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-link border border-primary/20">
                             <Key className="h-3 w-3" />

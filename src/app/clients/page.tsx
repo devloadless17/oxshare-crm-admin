@@ -11,7 +11,7 @@ import { apiErrorMessage, useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
-import { Pagination } from '@/components/pagination';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 // ADM-01: filterable client list (no profile view this phase) + ADM-14 country/labels.
 // Filtering, sorting and pagination all happen in SQL — the list is indexed on
@@ -84,13 +84,17 @@ export default function ClientsPage() {
   const columns: Column<ClientRow>[] = [
     {
       header: 'Name',
+      sortable: true,
+      sortKey: 'firstName',
       cell: (c) => [c.firstName, c.lastName].filter(Boolean).join(' ') || '—',
       cellClassName: 'font-medium text-foreground',
     },
-    { header: 'Email', cell: (c) => c.email, cellClassName: 'text-muted-foreground' },
-    { header: 'Type', cell: (c) => TYPE_LABELS[c.type] ?? c.type },
+    { header: 'Email', sortable: true, sortKey: 'email', cell: (c) => c.email, cellClassName: 'text-muted-foreground' },
+    { header: 'Type', sortable: true, sortKey: 'type', cell: (c) => TYPE_LABELS[c.type] ?? c.type },
     {
       header: 'Status',
+      sortable: true,
+      sortKey: 'status',
       cell: (c) => (
         <span
           className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[c.status] ?? ''}`}
@@ -101,6 +105,8 @@ export default function ClientsPage() {
     },
     {
       header: 'KYC Level',
+      sortable: true,
+      sortKey: 'verificationLevel',
       cell: (c) => (
         <span
           className={`text-xs font-semibold ${c.verificationLevel >= 1 ? 'text-success' : 'text-muted-foreground'}`}
@@ -109,9 +115,11 @@ export default function ClientsPage() {
         </span>
       ),
     },
-    { header: 'Country', cell: (c) => c.country ?? '—', cellClassName: 'text-muted-foreground' },
+    { header: 'Country', sortable: true, sortKey: 'country', cell: (c) => c.country ?? '—', cellClassName: 'text-muted-foreground' },
     {
       header: 'Created',
+      sortable: true,
+      sortKey: 'createdAt',
       cell: (c) => (c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'),
       cellClassName: 'text-muted-foreground',
     },
@@ -160,47 +168,58 @@ export default function ClientsPage() {
           }}
           className="flex h-9 w-72 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-outline"
         />
-        <select
-          aria-label="Filter by client type"
-          value={type}
-          onChange={(e) => {
+        <Select
+          value={type || 'all'}
+          onValueChange={(val) => {
             setPage(1);
-            setType(e.target.value);
+            setType(val === 'all' ? '' : val);
           }}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-outline"
         >
-          <option value="">All Types</option>
-          <option value="individual">Individual</option>
-          <option value="referral">Referral</option>
-          <option value="partner">Partner / IB</option>
-        </select>
-        <select
-          aria-label="Filter by status"
-          value={status}
-          onChange={(e) => {
+          <SelectTrigger className="h-9 w-38">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="individual">Individual</SelectItem>
+            <SelectItem value="referral">Referral</SelectItem>
+            <SelectItem value="partner">Partner / IB</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={status || 'all'}
+          onValueChange={(val) => {
             setPage(1);
-            setStatus(e.target.value);
+            setStatus(val === 'all' ? '' : val);
           }}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-outline"
         >
-          <option value="">All Statuses</option>
-          <option value="active">Active</option>
-          <option value="pending">Pending</option>
-          <option value="suspended">Suspended</option>
-        </select>
-        <select
-          aria-label="Filter by verification level"
-          value={level}
-          onChange={(e) => {
+          <SelectTrigger className="h-9 w-38">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="suspended">Suspended</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={level || 'all'}
+          onValueChange={(val) => {
             setPage(1);
-            setLevel(e.target.value);
+            setLevel(val === 'all' ? '' : val);
           }}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-outline"
         >
-          <option value="">All KYC Levels</option>
-          <option value="0">Level 0 — Unverified</option>
-          <option value="1">Level 1 — Verified</option>
-        </select>
+          <SelectTrigger className="h-9 w-46">
+            <SelectValue placeholder="All KYC Levels" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All KYC Levels</SelectItem>
+            <SelectItem value="0">Level 0 — Unverified</SelectItem>
+            <SelectItem value="1">Level 1 — Verified</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {setStatusMutation.isError && (
@@ -224,20 +243,17 @@ export default function ClientsPage() {
           columns={columns}
           rows={rows}
           rowKey={(c) => c.id}
+          selectable={true}
           dimmed={query.isFetching}
           empty={<EmptyState icon={Users} message="No clients match the current filters." />}
+          pagination={{
+            page,
+            pageSize: PAGE_SIZE,
+            total,
+            onPageChange: setPage,
+            noun: ['client', 'clients'],
+          }}
         />
-        {rows.length > 0 && (
-          <div className="mt-6">
-            <Pagination
-              page={page}
-              total={total}
-              pageSize={PAGE_SIZE}
-              onPageChange={setPage}
-              noun={['client', 'clients']}
-            />
-          </div>
-        )}
       </AsyncBoundary>
     </div>
   );

@@ -303,8 +303,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page Content Container — route half of RBAC-03; the API-side 403 is tracked in D-28 */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+        {/* Page Content Container — uniform small padding, edge-to-edge layout for all admin pages */}
+        <main className="flex-1 p-4 md:p-5 overflow-y-auto w-full max-w-full">
           {admin && !canAccess(admin, pathname ?? '') ? (
             <div className="flex flex-col items-center justify-center py-24 text-center gap-3" role="alert">
               <Shield className="h-10 w-10 text-muted-foreground" aria-hidden="true" />

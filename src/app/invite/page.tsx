@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import type { Role } from '@/lib/api/admin';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -101,19 +102,22 @@ export default function InviteAdminPage() {
             {roles.length > 0 && (
               <div className="form-group">
                 <label htmlFor="invite-role">Role</label>
-                <select
-                  id="invite-role"
-                  className="form-input"
-                  value={roleId}
-                  onChange={(e) => setRoleId(e.target.value)}
+                <Select
+                  value={roleId || 'default'}
+                  onValueChange={(val) => setRoleId(val === 'default' ? '' : val)}
                 >
-                  <option value="">Default (KYC review + client list)</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} ({r.permissions.length} permission{r.permissions.length === 1 ? '' : 's'})
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-10 w-full">
+                    <SelectValue placeholder="Default (KYC review + client list)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Default (KYC review + client list)</SelectItem>
+                    {roles.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name} ({r.permissions.length} permission{r.permissions.length === 1 ? '' : 's'})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             {error && <div className="error-msg" role="alert">{error}</div>}

@@ -9,7 +9,8 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { apiErrorMessage, useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
-import { EmptyState } from '@/components/data-table';
+import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 
 // ADM-10 (commission plans CRUD) + IB-06 (programs / tier ladder).
@@ -324,22 +325,42 @@ export default function CommissionPlansPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="plan-mode" className="font-semibold">Mode</label>
-                  <select id="plan-mode" value={form.mode}
-                    onChange={(e) => setForm({ ...form, mode: e.target.value })}
-                    className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 focus-outline">
-                    {MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
+                  <Select
+                    value={form.mode}
+                    onValueChange={(val) => setForm({ ...form, mode: val })}
+                  >
+                    <SelectTrigger className="mt-1 h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODES.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {MODES.find((m) => m.value === form.mode)?.hint}
                   </p>
                 </div>
                 <div>
                   <label htmlFor="plan-method" className="font-semibold">Commission method</label>
-                  <select id="plan-method" value={form.method}
-                    onChange={(e) => setForm({ ...form, method: e.target.value })}
-                    className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 focus-outline">
-                    {METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
+                  <Select
+                    value={form.method}
+                    onValueChange={(val) => setForm({ ...form, method: val })}
+                  >
+                    <SelectTrigger className="mt-1 h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {METHODS.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {METHODS.find((m) => m.value === form.method)?.hint}
                   </p>

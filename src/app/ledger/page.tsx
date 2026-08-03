@@ -7,6 +7,7 @@ import type { LedgerEntry, LedgerListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Pagination } from '@/components/pagination';
 
 // ADM-13: the ledger view, filterable for reconciliation.
@@ -130,22 +131,25 @@ export default function LedgerPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <select
-          aria-label="Filter by entry type"
-          value={entryType}
-          onChange={(e) => {
+        <Select
+          value={entryType || 'all'}
+          onValueChange={(val) => {
             setPage(1);
-            setEntryType(e.target.value);
+            setEntryType(val === 'all' ? '' : val);
           }}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-outline"
         >
-          <option value="">All Entry Types</option>
-          {ENTRY_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t[0].toUpperCase() + t.slice(1)}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-9 w-44">
+            <SelectValue placeholder="All Entry Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Entry Types</SelectItem>
+            {ENTRY_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>
+                {t[0].toUpperCase() + t.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <input
           type="search"
           aria-label="Filter by client user ID"

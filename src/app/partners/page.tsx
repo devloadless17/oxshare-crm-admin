@@ -9,6 +9,7 @@ import { hasPermission } from '@/lib/permissions';
 import { apiErrorMessage, useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 // ADM-11: partner / IB application management — full lifecycle, parent assignment.
 // IB-01: approval status gates the partner portal. Hierarchy is two levels max
@@ -73,6 +74,8 @@ export default function PartnersPage() {
   const columns: Column<PartnerRow>[] = [
     {
       header: 'Partner',
+      sortable: true,
+      sortKey: 'id',
       cell: (p) => (
         <>
           <div className="font-medium text-foreground">
@@ -84,6 +87,8 @@ export default function PartnersPage() {
     },
     {
       header: 'Status',
+      sortable: true,
+      sortKey: 'status',
       cell: (p) => (
         <span
           className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[p.status] ?? ''}`}
@@ -94,17 +99,23 @@ export default function PartnersPage() {
     },
     {
       header: 'Parent IB',
+      sortable: true,
+      sortKey: 'parentIb',
       cell: (p) => (p.parentIb ? p.parentIb.name : <span className="text-xs">— (L1)</span>),
       cellClassName: 'text-muted-foreground',
     },
-    { header: 'Program', cell: (p) => p.program ?? '—', cellClassName: 'text-muted-foreground' },
+    { header: 'Program', sortable: true, sortKey: 'program', cell: (p) => p.program ?? '—', cellClassName: 'text-muted-foreground' },
     {
       header: 'Referral Code',
+      sortable: true,
+      sortKey: 'referralCode',
       cell: (p) => p.referralCode ?? '—',
       cellClassName: 'font-mono text-xs text-muted-foreground',
     },
     {
       header: 'Applied',
+      sortable: true,
+      sortKey: 'createdAt',
       cell: (p) => (p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'),
       cellClassName: 'text-muted-foreground',
     },
@@ -158,18 +169,21 @@ export default function PartnersPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="flex h-9 w-72 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-outline"
         />
-        <select
-          aria-label="Filter by status"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-outline"
+        <Select
+          value={filter || 'all'}
+          onValueChange={(val) => setFilter(val === 'all' ? '' : val)}
         >
-          <option value="">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="suspended">Suspended</option>
-        </select>
+          <SelectTrigger className="h-9 w-38">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="suspended">Suspended</SelectItem>
+          </SelectContent>
+        </Select>
         {decide.isError && (
           <p className="text-xs font-semibold text-destructive" role="alert">
             {apiErrorMessage(decide.error, 'Failed to update the application.')}

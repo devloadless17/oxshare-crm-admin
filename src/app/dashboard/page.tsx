@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight, Building2, FileCheck, Loader2, Users } from 'lucide-react';
+import { ArrowUpRight, Building2, ChevronRight, FileCheck, Loader2, Users } from 'lucide-react';
+import { Loader } from '@/components/ui/loader';
 import api from '@/lib/api';
 import type { KycListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
@@ -93,14 +94,14 @@ export default function AdminDashboardPage() {
         <div className="rounded-lg border border-border bg-card shadow-sm">
           <div className="p-6 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold">KYC Review Queue</h2>
-            <Link href="/kyc" className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm">
-              View all →
+            <Link href="/kyc" className="inline-flex items-center gap-1 text-xs font-semibold text-link hover:underline focus-outline rounded-sm">
+              <span>View all</span>
+              <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
           {status === 'loading' ? (
             <div className="p-8 flex justify-center" role="status" aria-live="polite">
-              <Loader2 className="h-6 w-6 animate-spin text-link" />
-              <span className="sr-only">Loading KYC queue</span>
+              <Loader text="Loading KYC queue..." />
             </div>
           ) : status === 'error' || status === 'unavailable' ? (
             <div className="p-6 text-center space-y-2" role="alert">

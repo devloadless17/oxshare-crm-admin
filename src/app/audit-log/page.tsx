@@ -7,6 +7,7 @@ import type { AuditEntry, AuditListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Pagination } from '@/components/pagination';
 
 // D-21: append-only admin action log. Read-only view — there is deliberately
@@ -106,22 +107,25 @@ export default function AuditLogPage() {
       </div>
 
       <div className="flex items-center gap-3">
-        <select
-          aria-label="Filter by action"
-          value={action}
-          onChange={(e) => {
+        <Select
+          value={action || 'all'}
+          onValueChange={(val) => {
             setPage(1);
-            setAction(e.target.value);
+            setAction(val === 'all' ? '' : val);
           }}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-outline"
         >
-          <option value="">All Actions</option>
-          {ACTIONS.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-9 w-48">
+            <SelectValue placeholder="All Actions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Actions</SelectItem>
+            {ACTIONS.map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <AsyncBoundary
