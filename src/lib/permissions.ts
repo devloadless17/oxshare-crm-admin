@@ -2,13 +2,18 @@ import type { AdminProfile } from '@/context/AdminAuthContext';
 
 /**
  * Navigation/route gating for RBAC-03 ("navigation + routes enforced").
- * This is the UI half only — real enforcement must be the API returning 403
- * (ARCHITECTURE §8.8); that side is tracked in docs/DECISIONS.md D-28.
+ * This is the UI half only — real enforcement is the API returning 403
+ * (ARCHITECTURE §8.8), now live for every catalog action (D-28 resolved).
  *
- * Known permission keys today: '*' (master), 'kyc:review', 'clients:read'
- * (the two the backend grants invited sub-admins). Keys for pages whose
- * endpoints don't exist yet are our proposal — align with the backend
- * permission catalog when D-28 lands.
+ * Keys come from the backend permission catalog (config/permissions.json —
+ * served at GET /admin/permissions): kyc.*, users.*, roles.*, trading.*,
+ * withdrawals.*. Keys for pages whose backend modules don't exist yet
+ * (partners, payouts, ledger, commissions) are our proposal in the same
+ * dot style — align them with the catalog when those modules land.
+ *
+ * Matching is normalized (colons → dots, lowercase) exactly like the
+ * backend's PermissionsGuard, so tokens/data from before the key
+ * unification keep working.
  */
 export type RouteRequirement =
   | { permission: string }
@@ -17,22 +22,27 @@ export type RouteRequirement =
 
 // Order matters: more specific prefixes first (matched with startsWith).
 const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement }> = [
-  { prefix: '/kyc/builder', requirement: { masterOnly: true } }, // edits the KYC config itself
-  { prefix: '/kyc', requirement: { permission: 'kyc:review' } },
-  { prefix: '/clients', requirement: { permission: 'clients:read' } },
-  { prefix: '/partners', requirement: { permission: 'partners:read' } },
-  { prefix: '/withdrawals', requirement: { permission: 'withdrawals:review' } },
-  { prefix: '/trading-accounts', requirement: { permission: 'trading:read' } },
-  { prefix: '/payouts', requirement: { permission: 'payouts:review' } },
-  { prefix: '/ledger', requirement: { permission: 'ledger:read' } },
-  { prefix: '/commission-plans', requirement: { permission: 'commissions:manage' } },
-  { prefix: '/roles', requirement: { masterOnly: true } },
-  { prefix: '/settings', requirement: { masterOnly: true } },
-  { prefix: '/admin-users', requirement: { masterOnly: true } },
+  { prefix: '/kyc/builder', requirement: { permission: 'kyc.edit' } }, // edits the KYC config itself
+  { prefix: '/kyc', requirement: { permission: 'kyc.review' } },
+  { prefix: '/clients', requirement: { permission: 'users.view' } },
+  { prefix: '/partners', requirement: { permission: 'partners.view' } },
+  { prefix: '/withdrawals', requirement: { permission: 'withdrawals.view' } },
+  { prefix: '/trading-accounts', requirement: { permission: 'trading.view' } },
+  { prefix: '/payouts', requirement: { permission: 'payouts.review' } },
+  { prefix: '/ledger', requirement: { permission: 'ledger.view' } },
+  { prefix: '/commission-plans', requirement: { permission: 'commissions.manage' } },
+  { prefix: '/roles', requirement: { permission: 'roles.view' } },
+  { prefix: '/settings', requirement: { permission: 'users.view' } },
+  { prefix: '/admin-users', requirement: { permission: 'users.view' } },
   { prefix: '/audit-log', requirement: { masterOnly: true } },
-  { prefix: '/invite', requirement: { masterOnly: true } },
+  { prefix: '/invite', requirement: { permission: 'users.create' } },
   { prefix: '/dashboard', requirement: null },
 ];
+
+/** Same normalization as the backend guard: 'kyc:review' ≡ 'kyc.review'. */
+function normalizeKey(key: string): string {
+  return key.replace(/:/g, '.').toLowerCase();
+}
 
 export function isMasterAdmin(admin: AdminProfile | null): boolean {
   return admin?.role === 'master_admin';
@@ -40,7 +50,9 @@ export function isMasterAdmin(admin: AdminProfile | null): boolean {
 
 export function hasPermission(admin: AdminProfile | null, key: string): boolean {
   if (!admin) return false;
-  return admin.permissions.includes('*') || admin.permissions.includes(key);
+  if (admin.permissions.includes('*')) return true;
+  const wanted = normalizeKey(key);
+  return admin.permissions.some((p) => normalizeKey(p) === wanted);
 }
 
 export function canAccess(admin: AdminProfile | null, path: string): boolean {
