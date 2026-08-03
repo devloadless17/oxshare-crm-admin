@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import api from '@/lib/api';
+import { useResource } from '@/hooks/use-resource';
 import {
   Layers,
   Plus,
@@ -12,11 +13,6 @@ import {
   RotateCcw,
   CheckCircle2,
   AlertCircle,
-  FileText,
-  User,
-  Camera,
-  Home,
-  CheckSquare,
   Sparkles,
   ChevronDown,
   ChevronUp,
@@ -61,8 +57,9 @@ const MANDATORY_SLUGS: readonly string[] = ['personal', 'document', 'selfie', 'a
 const isMandatoryStep = (step: KycStepConfig) => MANDATORY_SLUGS.includes(step.slug);
 
 export default function KycBuilderPage() {
-  const [steps, setSteps] = React.useState<KycStepConfig[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  // The editor holds a draft. `null` means "no unsaved edits", so the server
+  // copy shows through — which is what makes Save and Reset simply drop it.
+  const [draft, setDraft] = React.useState<KycStepConfig[] | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [toast, setToast] = React.useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [expandedStep, setExpandedStep] = React.useState<string | null>(null);
@@ -72,25 +69,20 @@ export default function KycBuilderPage() {
   const [newStepTitle, setNewStepTitle] = React.useState('');
   const [newStepSlug, setNewStepSlug] = React.useState('');
   const [newStepDesc, setNewStepDesc] = React.useState('');
-  const [newStepIcon, setNewStepIcon] = React.useState('FileText');
+  const [newStepIcon] = React.useState('FileText');
 
-// Load configuration on mount
-  const fetchConfig = React.useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data } = await api.get('/admin/kyc-config');
-      setSteps(data);
-      if (data.length > 0) setExpandedStep(data[0].id);
-    } catch {
-      setToast({ message: 'Failed to load KYC step configuration.', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const query = useResource<KycStepConfig[]>(
+    ['kyc-config'],
+    async (signal) => (await api.get<KycStepConfig[]>('/admin/kyc-config', { signal })).data,
+  );
 
-  React.useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
+  const steps = draft ?? query.data ?? [];
+  const loading = query.status === 'loading';
+  const setSteps = (next: KycStepConfig[] | ((prev: KycStepConfig[]) => KycStepConfig[])) =>
+    setDraft((prev) => (typeof next === 'function' ? next(prev ?? query.data ?? []) : next));
+
+  // First step opens by default without an effect writing state on mount.
+  const expandedStepId = expandedStep === null && steps.length > 0 ? steps[0].id : expandedStep;
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -101,8 +93,9 @@ export default function KycBuilderPage() {
   const handleSaveAll = async () => {
     try {
       setSaving(true);
-      const { data } = await api.put('/admin/kyc-config', steps);
-      setSteps(data);
+      await api.put('/admin/kyc-config', steps);
+      setDraft(null);
+      await query.refetch();
       showNotification('KYC onboarding steps updated successfully!');
     } catch {
       showNotification('Error saving configuration.', 'error');
@@ -116,8 +109,9 @@ export default function KycBuilderPage() {
     if (!confirm('Are you sure you want to reset all KYC onboarding steps to defaults?')) return;
     try {
       setSaving(true);
-      const { data } = await api.post('/admin/kyc-config/reset');
-      setSteps(data);
+      await api.post('/admin/kyc-config/reset');
+      setDraft(null);
+      await query.refetch();
       showNotification('Reset to default KYC configuration.');
     } catch {
       showNotification('Failed to reset steps.', 'error');
@@ -295,7 +289,7 @@ export default function KycBuilderPage() {
       ) : (
         <div className="space-y-4">
           {steps.map((step, idx) => {
-            const isExpanded = expandedStep === step.id;
+            const isExpanded = expandedStepId === step.id;
             return (
               <div
                 key={step.id}

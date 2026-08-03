@@ -34,8 +34,12 @@ export default function AdminLoginPage() {
       await api.auth.login({ email, password });
       router.push('/dashboard');
       router.refresh();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Sign in failed. Please try again.';
+    } catch (err: unknown) {
+      const response = (err as { response?: { data?: { message?: string | string[] } } })?.response;
+      const msg =
+        response?.data?.message ??
+        (err as { message?: string })?.message ??
+        'Sign in failed. Please try again.';
       setError(Array.isArray(msg) ? msg.join(', ') : msg);
     } finally {
       setIsLoading(false);

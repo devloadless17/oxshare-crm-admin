@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, clearAdminSession, startProactiveRefresh } from './client';
 import Cookies from 'js-cookie';
 
 export interface AdminLoginDto {
@@ -9,22 +9,28 @@ export interface AdminLoginDto {
 export const authApi = {
   async login(dto: AdminLoginDto) {
     const { data } = await apiClient.post('/admin/auth/login', dto);
-    const token = data.accessToken || data.access_token;
-    if (token) {
-      Cookies.set('admin_access_token', token, { expires: 1, path: '/' });
+    if (data.accessToken) {
+      Cookies.set('admin_access_token', data.accessToken, { expires: 1 / 3, path: '/', sameSite: 'lax' });
     }
-    const refresh = data.refreshToken || data.refresh_token;
-    if (refresh) {
-      Cookies.set('admin_refresh_token', refresh, { expires: 7, path: '/' });
+    if (data.refreshToken) {
+      Cookies.set('admin_refresh_token', data.refreshToken, { expires: 30, path: '/', sameSite: 'lax' });
     }
+    startProactiveRefresh();
     return data;
   },
 
-  logout() {
-    Cookies.remove('admin_access_token', { path: '/' });
-    Cookies.remove('admin_refresh_token', { path: '/' });
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+  /**
+   * The only logout. Previously there were two halves that never met: this
+   * helper cleared cookies without telling the server (so the refresh token
+   * stayed valid for 30 days), and the auth context called the API without
+   * clearing cookies (so proxy.ts still saw a session and bounced the admin
+   * straight back in).
+   */
+  async logout() {
+    try {
+      await apiClient.post('/admin/auth/logout');
+    } finally {
+      clearAdminSession();
     }
   },
 };

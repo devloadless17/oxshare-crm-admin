@@ -1,44 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, Building2, FileCheck, Loader2, Users } from 'lucide-react';
 import api from '@/lib/api';
+import type { KycListResponse } from '@/lib/api/admin';
+import { useResource } from '@/hooks/use-resource';
 
 // The dashboard shows real data where an endpoint exists (KYC queue) and an
 // explicit pending marker where it does not — never invented numbers (D-30).
 // Missing sources are tracked in docs/DECISIONS.md (D-28, D-31).
-interface KycRow {
-  userId: string;
-  status: string;
-  submittedAt?: string;
-  user?: { email: string; firstName?: string; lastName?: string };
-}
-
-interface KycListResponse {
-  items: KycRow[];
-  counts: Record<string, number>;
-}
-
-type LoadState = 'loading' | 'ready' | 'error';
-
 export default function AdminDashboardPage() {
-  const [reviewQueue, setReviewQueue] = useState<KycRow[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const { status, data, refetch } = useResource<KycListResponse>(
+    ['dashboard', 'kyc-queue'],
+    async (signal) =>
+      (await api.get<KycListResponse>('/admin/kyc?status=submitted&limit=5', { signal })).data,
+  );
 
-  const load = useCallback(() => {
-    setLoadState('loading');
-    api.get<KycListResponse>('/admin/kyc?status=submitted&limit=5')
-      .then((r) => {
-        setReviewQueue(r.data.items ?? []);
-        setCounts(r.data.counts ?? {});
-        setLoadState('ready');
-      })
-      .catch(() => setLoadState('error'));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const reviewQueue = data?.items ?? [];
+  const counts = data?.counts ?? {};
 
   const pendingKycCount = (counts['submitted'] ?? 0) + (counts['under_review'] ?? 0);
 
@@ -48,7 +27,7 @@ export default function AdminDashboardPage() {
       icon: FileCheck,
       href: '/kyc',
       live: true,
-      value: loadState === 'ready' ? String(pendingKycCount) : null,
+      value: status === 'ready' ? String(pendingKycCount) : null,
       sub: 'Submissions to review',
     },
     {
@@ -99,7 +78,7 @@ export default function AdminDashboardPage() {
               </div>
               <p className="text-2xl font-bold mt-2">
                 {t.live
-                  ? (loadState === 'loading' ? <Loader2 className="h-6 w-6 animate-spin text-link" aria-label="Loading" /> : t.value ?? '—')
+                  ? (status === 'loading' ? <Loader2 className="h-6 w-6 animate-spin text-link" aria-label="Loading" /> : t.value ?? '—')
                   : <span className="text-muted-foreground" title={t.sub}>—</span>}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -118,15 +97,15 @@ export default function AdminDashboardPage() {
               View all →
             </Link>
           </div>
-          {loadState === 'loading' ? (
+          {status === 'loading' ? (
             <div className="p-8 flex justify-center" role="status" aria-live="polite">
               <Loader2 className="h-6 w-6 animate-spin text-link" />
               <span className="sr-only">Loading KYC queue</span>
             </div>
-          ) : loadState === 'error' ? (
+          ) : status === 'error' || status === 'unavailable' ? (
             <div className="p-6 text-center space-y-2" role="alert">
               <p className="text-sm text-muted-foreground">Failed to load the KYC queue.</p>
-              <button type="button" onClick={load} className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm">
+              <button type="button" onClick={refetch} className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm">
                 Retry
               </button>
             </div>

@@ -1,10 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import type { RejectionReason } from '@/lib/api/admin';
+import { useResource } from '@/hooks/use-resource';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { buildKycDocUrl } from '@/lib/kyc-doc-url';
 
 interface KycDetail {
@@ -41,6 +44,9 @@ function DocViewer({ filePath, label }: { filePath?: string; label: string }) {
           </div>
         ) : (
           <a href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-border/80">
+            {/* eslint-disable-next-line @next/next/no-img-element -- KYC documents are
+                served from the API origin behind auth; next/image would proxy them
+                through the optimizer and cache identity documents on disk. */}
             <img
               src={url}
               alt={label}
@@ -78,12 +84,8 @@ const FIELD_OPTIONS = [
 
 export default function KycDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const userId = params.userId as string;
 
-  const [data, setData] = useState<KycDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [reasons, setReasons] = useState<RejectionReason[]>([]);
   const [selectedReasonId, setSelectedReasonId] = useState('');
@@ -93,34 +95,28 @@ export default function KycDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  const load = useCallback(() => {
-    setLoading(true);
-    setLoadError('');
-    api.get(`/admin/kyc/${userId}`)
-      .then((r) => setData(r.data))
-      .catch((e: unknown) => {
-        const err = e as { response?: { status?: number } };
-        setLoadError(err?.response?.status === 404
-          ? 'Submission not found.'
-          : 'Failed to load the submission. Check your connection and try again.');
-      })
-      .finally(() => setLoading(false));
-  }, [userId]);
+  const queryClient = useQueryClient();
+  const query = useResource<KycDetail>(
+    ['kyc', userId],
+    async (signal) => (await api.get<KycDetail>(`/admin/kyc/${userId}`, { signal })).data,
+  );
 
-  useEffect(() => { load(); }, [load]);
+  const data = query.data ?? null;
+  const loading = query.status === 'loading';
+  const loadError =
+    query.status === 'unavailable'
+      ? 'Submission not found.'
+      : query.status === 'error'
+        ? 'Failed to load the submission. Check your connection and try again.'
+        : '';
+  const load = query.refetch;
 
-  // Close whichever dialog is open on Escape
-  useEffect(() => {
-    if (!showRejectModal && !showApproveConfirm) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !actionLoading) {
-        setShowRejectModal(false);
-        setShowApproveConfirm(false);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [showRejectModal, showApproveConfirm, actionLoading]);
+  // Escape, Tab cycling, and focus restore — these two dialogs keep their own
+  // markup (this page is styled-jsx, not Tailwind) but share the behaviour.
+  const approvePanelRef = useRef<HTMLDivElement>(null);
+  const rejectPanelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(approvePanelRef, showApproveConfirm, () => setShowApproveConfirm(false), !actionLoading);
+  useFocusTrap(rejectPanelRef, showRejectModal, () => setShowRejectModal(false), !actionLoading);
 
   const errorMessage = (e: unknown, fallback: string) => {
     const err = e as { response?: { data?: { message?: string } } };
@@ -140,8 +136,8 @@ export default function KycDetailPage() {
     setActionLoading(true);
     setActionError('');
     try {
-      const r = await api.patch(`/admin/kyc/${userId}/approve`);
-      setData(r.data ?? null);
+      await api.patch(`/admin/kyc/${userId}/approve`);
+      await queryClient.invalidateQueries({ queryKey: ['kyc'] });
       setShowApproveConfirm(false);
     } catch (e: unknown) {
       setActionError(errorMessage(e, 'Failed to approve the submission. Please try again.'));
@@ -154,8 +150,8 @@ export default function KycDetailPage() {
     setActionLoading(true);
     setActionError('');
     try {
-      const r = await api.patch(`/admin/kyc/${userId}/claim`);
-      setData(r.data ?? null);
+      await api.patch(`/admin/kyc/${userId}/claim`);
+      await queryClient.invalidateQueries({ queryKey: ['kyc'] });
     } catch (e: unknown) {
       setActionError(errorMessage(e, 'Failed to claim the submission for review.'));
     } finally {
@@ -176,12 +172,12 @@ export default function KycDetailPage() {
     setActionLoading(true);
     setActionError('');
     try {
-      const r = await api.patch(`/admin/kyc/${userId}/reject`, {
+      await api.patch(`/admin/kyc/${userId}/reject`, {
         reasonId: selectedReasonId || undefined,
         reason: rejectReason.trim() || undefined,
         rejectedFields: selectedRejectedFields,
       });
-      setData(r.data ?? null);
+      await queryClient.invalidateQueries({ queryKey: ['kyc'] });
       setShowRejectModal(false);
       setRejectReason('');
       setSelectedReasonId('');
@@ -341,10 +337,12 @@ export default function KycDetailPage() {
       {showApproveConfirm && (
         <div className="modal-overlay" onClick={() => !actionLoading && setShowApproveConfirm(false)}>
           <div
+            ref={approvePanelRef}
             className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="approve-confirm-title"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="approve-confirm-title">Approve KYC Submission</h3>
@@ -375,10 +373,12 @@ export default function KycDetailPage() {
           }}
         >
           <div
+            ref={rejectPanelRef}
             className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="reject-modal-title"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="reject-modal-title">Reject KYC Submission</h3>

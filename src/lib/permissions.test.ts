@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AdminProfile } from '@/context/AdminAuthContext';
-import { canAccess, hasPermission, isMasterAdmin } from './permissions';
+import { assertPermissionKeysExist, canAccess, hasPermission, isMasterAdmin } from './permissions';
 
 const master: AdminProfile = {
   id: 'm1',
@@ -53,7 +53,7 @@ describe('isMasterAdmin', () => {
 
 describe('canAccess', () => {
   it('master admin reaches every route', () => {
-    for (const path of ['/dashboard', '/clients', '/kyc', '/kyc/builder', '/roles', '/settings', '/invite', '/withdrawals', '/audit-log']) {
+    for (const path of ['/dashboard', '/clients', '/kyc', '/kyc/builder', '/settings', '/invite', '/withdrawals', '/audit-log']) {
       expect(canAccess(master, path)).toBe(true);
     }
   });
@@ -74,9 +74,8 @@ describe('canAccess', () => {
   });
 
   it('management sections follow their catalog permissions', () => {
-    expect(canAccess(subAdmin, '/roles')).toBe(false);
-    expect(canAccess({ ...subAdmin, permissions: ['roles.view'] }, '/roles')).toBe(true);
-    expect(canAccess(subAdmin, '/settings')).toBe(true); // users.view
+    expect(canAccess(subAdmin, '/settings')).toBe(false);
+    expect(canAccess({ ...subAdmin, permissions: ['roles.view'] }, '/settings')).toBe(true);
     expect(canAccess(subAdmin, '/invite')).toBe(false); // needs users.create
     expect(canAccess({ ...subAdmin, permissions: ['users.create'] }, '/invite')).toBe(true);
   });
@@ -93,5 +92,36 @@ describe('canAccess', () => {
 
   it('prefix matching does not leak across sibling routes', () => {
     expect(canAccess(subAdmin, '/invite/accept')).toBe(false); // under users.create-gated /invite
+  });
+});
+
+describe('assertPermissionKeysExist', () => {
+  // Every key the route table demands must exist in the backend catalog. A key
+  // that does not exist can never be granted, so the route silently becomes
+  // master-admin-only — which is exactly what happened to partners.view and
+  // payouts.review before they were added to permissions.json.
+  const CATALOG = [
+    'kyc.review', 'kyc.edit',
+    'users.view', 'users.create', 'users.edit', 'users.suspend',
+    'roles.view', 'roles.manage',
+    'trading.view',
+    'withdrawals.view', 'withdrawals.approve',
+    'partners.view', 'partners.manage',
+    'payouts.view', 'payouts.review',
+    'ledger.view',
+    'commissions.view', 'commissions.manage',
+  ];
+
+  it('reports nothing when every referenced key is in the catalog', () => {
+    expect(assertPermissionKeysExist(CATALOG)).toEqual([]);
+  });
+
+  it('names the keys the backend does not define', () => {
+    const orphans = assertPermissionKeysExist(CATALOG.filter((k) => k !== 'ledger.view'));
+    expect(orphans).toEqual(['ledger.view']);
+  });
+
+  it('normalizes colon-style catalog keys the same way the guard does', () => {
+    expect(assertPermissionKeysExist(CATALOG.map((k) => k.replace('.', ':')))).toEqual([]);
   });
 });

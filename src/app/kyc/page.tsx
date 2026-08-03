@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
+import { useResource } from '@/hooks/use-resource';
+import { useDebounced } from '@/hooks/use-debounced';
 
 type KycStatus = 'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
 
@@ -57,40 +59,33 @@ interface KycListResponse {
 
 export default function AdminKycPage() {
   const { admin } = useAdmin();
-  const [rows, setRows] = useState<KycRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [counts, setCounts] = useState<Record<string, number>>({});
   const [filter, setFilter] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
-    return () => clearTimeout(t);
-  }, [search]);
+  const debouncedSearch = useDebounced(search.trim());
 
   // Server-side filtering/search/pagination; counts come from the API over
   // the full set, so tab counts stay correct while a filter is active.
-  const load = useCallback(() => {
-    setLoading(true);
-    setLoadError('');
-    const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
-    if (filter) params.set('status', filter);
-    if (debouncedSearch) params.set('q', debouncedSearch);
-    api.get<KycListResponse>(`/admin/kyc?${params}`)
-      .then((r) => {
-        setRows(r.data.items ?? []);
-        setTotal(r.data.total ?? 0);
-        setCounts(r.data.counts ?? {});
-      })
-      .catch(() => setLoadError('Failed to load submissions. Check your connection and try again.'))
-      .finally(() => setLoading(false));
-  }, [page, filter, debouncedSearch]);
+  const query = useResource<KycListResponse>(
+    ['kyc', page, filter, debouncedSearch],
+    async (signal) => {
+      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      if (filter) params.set('status', filter);
+      if (debouncedSearch) params.set('q', debouncedSearch);
+      return (await api.get<KycListResponse>(`/admin/kyc?${params}`, { signal })).data;
+    },
+  );
 
-  useEffect(() => { load(); }, [load]);
+  const rows = query.data?.items ?? [];
+  const total = query.data?.total ?? 0;
+  const counts = query.data?.counts ?? {};
+  const loading = query.status === 'loading';
+  const loadError =
+    query.status === 'error' || query.status === 'unavailable'
+      ? 'Failed to load submissions. Check your connection and try again.'
+      : '';
+  const load = query.refetch;
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const filtered = rows;

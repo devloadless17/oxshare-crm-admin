@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 
 import { AdminAuthProvider } from '@/context/AdminAuthContext';
+import { QueryProvider } from '@/components/query-provider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -29,9 +30,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider defaultTheme="light" storageKey="oxshare-admin-theme">
-          <AdminAuthProvider>
-            {children}
-          </AdminAuthProvider>
+          <QueryProvider>
+            <AdminAuthProvider>{children}</AdminAuthProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

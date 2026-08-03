@@ -1,18 +1,16 @@
 'use client';
 
-import * as React from 'react';
 import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
+import { useHydrated } from '@/hooks/use-hydrated';
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
+  // The server cannot know the stored theme, so the toggle renders as a
+  // skeleton until hydration rather than flashing the wrong active state.
+  const hydrated = useHydrated();
 
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
+  if (!hydrated) {
     return (
       <div className="flex h-9 items-center gap-1 rounded-lg border border-border bg-muted/30 p-1">
         <div className="h-7 w-7 rounded-md bg-muted" />

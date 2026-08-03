@@ -1,27 +1,40 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
+import { apiErrorMessage } from '@/hooks/use-resource';
 
 function AcceptInviteContent() {
   const params = useSearchParams();
   const token = params.get('token') ?? '';
 
-  const [invite, setInvite] = useState<{ email?: string; name?: string } | null>(null);
+
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [validating, setValidating] = useState(true);
 
-  useEffect(() => {
-    if (!token) { setError('Invalid invite link.'); setValidating(false); return; }
-    api.get(`/admin/invite/validate?token=${token}`)
-      .then((r) => { setInvite(r.data); setValidating(false); })
-      .catch((e) => { setError(e?.response?.data?.message ?? 'Invalid or expired invite.'); setValidating(false); });
-  }, [token]);
+  // Validating the token is a fetch, not an effect that assigns state. The old
+  // version wrote the failure into the same `error` box the password form uses,
+  // so a bad token and a bad password were indistinguishable.
+  const validation = useQuery({
+    queryKey: ['invite', token],
+    queryFn: async () => (await api.get<{ email?: string; name?: string }>(`/admin/invite/validate?token=${token}`)).data,
+    enabled: token !== '',
+    retry: false,
+  });
+
+  const invite = validation.data ?? null;
+  const validating = token !== '' && validation.isPending;
+  const inviteError =
+    token === ''
+      ? 'Invalid invite link.'
+      : validation.isError
+        ? apiErrorMessage(validation.error, 'Invalid or expired invite.')
+        : '';
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,17 +61,17 @@ function AcceptInviteContent() {
             <div className="spinner" />
             <p>Validating invite...</p>
           </>
-        ) : error && !invite ? (
+        ) : inviteError ? (
           <>
             <div className="error-icon">⚠️</div>
             <h2>Invalid Invite</h2>
-            <p>{error}</p>
+            <p>{inviteError}</p>
           </>
         ) : (
           <>
             <div className="welcome-icon">👋</div>
             <h2>Welcome, {invite?.name}!</h2>
-            <p>You've been invited to join OXShare Admin. Set your password to activate your account.</p>
+            <p>You&apos;ve been invited to join OXShare Admin. Set your password to activate your account.</p>
             <div className="email-badge">{invite?.email}</div>
 
             <form className="form" onSubmit={submit}>

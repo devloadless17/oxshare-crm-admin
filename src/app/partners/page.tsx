@@ -1,13 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Building2, Loader2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Building2 } from 'lucide-react';
 import api from '@/lib/api';
-import { BackendPending } from '@/components/backend-pending';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
+import { apiErrorMessage, useResource } from '@/hooks/use-resource';
+import { AsyncBoundary } from '@/components/async-boundary';
+import { DataTable, EmptyState, type Column } from '@/components/data-table';
 
 // ADM-11: partner / IB application management — full lifecycle, parent assignment.
-// IB-01: approval status gates the partner portal. Endpoint contract assumed,
-// logged in docs/DECISIONS.md (D-31). Hierarchy is two levels max (L1 + L2).
+// IB-01: approval status gates the partner portal. Hierarchy is two levels max
+// (L1 + L2).
+//
+// This shape is hand-written because /admin/partners does not exist yet, so
+// there is nothing in types.gen.ts to alias. Replace it with the generated
+// alias the moment the endpoint lands (docs/DECISIONS.md D-31) — every other
+// screen already imports its types from the backend's Swagger.
 interface PartnerRow {
   id: string;
   user?: { email: string; firstName?: string; lastName?: string };
@@ -18,8 +28,6 @@ interface PartnerRow {
   createdAt: string;
 }
 
-type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
-
 const STATUS_STYLES: Record<PartnerRow['status'], string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
   approved: 'bg-success/10 text-success border-success/20',
@@ -28,52 +36,109 @@ const STATUS_STYLES: Record<PartnerRow['status'], string> = {
 };
 
 export default function PartnersPage() {
-  const [rows, setRows] = useState<PartnerRow[]>([]);
-  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const { admin } = useAdmin();
+  const canManage = hasPermission(admin, 'partners.manage');
+  const queryClient = useQueryClient();
+
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState('');
 
-  const load = useCallback(async () => {
-    setLoadState('loading');
-    try {
-      const { data } = await api.get<PartnerRow[]>('/admin/partners');
-      setRows(data ?? []);
-      setLoadState('ready');
-    } catch (e: unknown) {
-      const s = (e as { response?: { status?: number } })?.response?.status;
-      setLoadState(s === 404 ? 'unavailable' : 'error');
-    }
-  }, []);
+  const { status, data, isFetching, refetch } = useResource<PartnerRow[]>(
+    ['partners'],
+    async (signal) => (await api.get<PartnerRow[]>('/admin/partners', { signal })).data,
+  );
 
-  useEffect(() => { load(); }, [load]);
-
-  const act = async (row: PartnerRow, action: 'approve' | 'reject') => {
-    setActionLoading(true);
-    setActionError('');
-    try {
-      await api.patch(`/admin/partners/${row.id}/${action}`);
-      await load();
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setActionError(msg ?? `Failed to ${action} the application for ${row.user?.email ?? 'this partner'}.`);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const filtered = rows.filter((p) => {
-    if (filter && p.status !== filter) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      p.user?.email?.toLowerCase().includes(q) ||
-      p.user?.firstName?.toLowerCase().includes(q) ||
-      p.user?.lastName?.toLowerCase().includes(q) ||
-      p.referralCode?.toLowerCase().includes(q)
-    );
+  const decide = useMutation({
+    mutationFn: ({ row, action }: { row: PartnerRow; action: 'approve' | 'reject' }) =>
+      api.patch(`/admin/partners/${row.id}/${action}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['partners'] }),
   });
+
+  const rows = useMemo(() => data ?? [], [data]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((p) => {
+      if (filter && p.status !== filter) return false;
+      if (!q) return true;
+      return (
+        p.user?.email?.toLowerCase().includes(q) ||
+        p.user?.firstName?.toLowerCase().includes(q) ||
+        p.user?.lastName?.toLowerCase().includes(q) ||
+        p.referralCode?.toLowerCase().includes(q)
+      );
+    });
+  }, [rows, filter, search]);
+
+  const columns: Column<PartnerRow>[] = [
+    {
+      header: 'Partner',
+      cell: (p) => (
+        <>
+          <div className="font-medium text-foreground">
+            {[p.user?.firstName, p.user?.lastName].filter(Boolean).join(' ') || '—'}
+          </div>
+          <div className="text-xs text-muted-foreground">{p.user?.email}</div>
+        </>
+      ),
+    },
+    {
+      header: 'Status',
+      cell: (p) => (
+        <span
+          className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[p.status] ?? ''}`}
+        >
+          {p.status}
+        </span>
+      ),
+    },
+    {
+      header: 'Parent IB',
+      cell: (p) => (p.parentIb ? p.parentIb.name : <span className="text-xs">— (L1)</span>),
+      cellClassName: 'text-muted-foreground',
+    },
+    { header: 'Program', cell: (p) => p.program ?? '—', cellClassName: 'text-muted-foreground' },
+    {
+      header: 'Referral Code',
+      cell: (p) => p.referralCode ?? '—',
+      cellClassName: 'font-mono text-xs text-muted-foreground',
+    },
+    {
+      header: 'Applied',
+      cell: (p) => (p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'),
+      cellClassName: 'text-muted-foreground',
+    },
+    {
+      header: 'Actions',
+      // Approve/reject need partners.manage on the API. Rendering them to a
+      // read-only admin only produces a 403 they cannot act on.
+      cell: (p) =>
+        p.status !== 'pending' ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : !canManage ? (
+          <span className="text-xs text-muted-foreground">View only</span>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => decide.mutate({ row: p, action: 'approve' })}
+              disabled={decide.isPending}
+              className="h-8 px-3 rounded-md bg-success text-success-foreground text-xs font-semibold hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              onClick={() => decide.mutate({ row: p, action: 'reject' })}
+              disabled={decide.isPending}
+              className="h-8 px-3 rounded-md border border-destructive/40 text-destructive text-xs font-semibold hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
+            >
+              Reject
+            </button>
+          </div>
+        ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -91,13 +156,13 @@ export default function PartnersPage() {
           placeholder="Search by name, email, code..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex h-9 w-72 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-9 w-72 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-outline"
         />
         <select
           aria-label="Filter by status"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-outline"
         >
           <option value="">All Statuses</option>
           <option value="pending">Pending</option>
@@ -105,96 +170,38 @@ export default function PartnersPage() {
           <option value="rejected">Rejected</option>
           <option value="suspended">Suspended</option>
         </select>
-        {actionError && <p className="text-xs font-semibold text-destructive" role="alert">{actionError}</p>}
+        {decide.isError && (
+          <p className="text-xs font-semibold text-destructive" role="alert">
+            {apiErrorMessage(decide.error, 'Failed to update the application.')}
+          </p>
+        )}
       </div>
 
-      {loadState === 'loading' ? (
-        <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin text-link" />
-          <span className="sr-only">Loading partners</span>
-        </div>
-      ) : loadState === 'unavailable' ? (
-        <BackendPending
-          endpoints={['GET /admin/partners', 'PATCH /admin/partners/:id/approve', 'PATCH /admin/partners/:id/reject']}
+      <AsyncBoundary
+        status={status}
+        label="Loading partners"
+        endpoints={[
+          'GET /admin/partners',
+          'PATCH /admin/partners/:id/approve',
+          'PATCH /admin/partners/:id/reject',
+        ]}
+        onRetry={refetch}
+        errorMessage="Failed to load partners."
+      >
+        <DataTable
+          caption="Introducing-broker applications"
+          columns={columns}
+          rows={filtered}
+          rowKey={(p) => p.id}
+          dimmed={isFetching}
+          empty={
+            <EmptyState
+              icon={Building2}
+              message="No partner applications match the current filters."
+            />
+          }
         />
-      ) : loadState === 'error' ? (
-        <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
-          <p className="text-sm text-muted-foreground">Failed to load partners. Check your connection and try again.</p>
-          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
-            Retry
-          </button>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-12 text-center space-y-2">
-          <Building2 className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">No partner applications match the current filters.</p>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-border bg-card shadow-sm overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted/50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Partner</th>
-                <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Status</th>
-                <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Parent IB</th>
-                <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Program</th>
-                <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Referral Code</th>
-                <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Applied</th>
-                <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((p) => (
-                <tr key={p.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-foreground">
-                      {[p.user?.firstName, p.user?.lastName].filter(Boolean).join(' ') || '—'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">{p.user?.email}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[p.status] ?? ''}`}>
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground">
-                    {p.parentIb ? p.parentIb.name : <span className="text-xs">— (L1)</span>}
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground">{p.program ?? '—'}</td>
-                  <td className="px-6 py-4 font-mono text-xs text-muted-foreground">{p.referralCode ?? '—'}</td>
-                  <td className="px-6 py-4 text-muted-foreground">
-                    {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'}
-                  </td>
-                  <td className="px-6 py-4">
-                    {p.status === 'pending' ? (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => act(p, 'approve')}
-                          disabled={actionLoading}
-                          className="h-8 px-3 rounded-md bg-success text-success-foreground text-xs font-semibold hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => act(p, 'reject')}
-                          disabled={actionLoading}
-                          className="h-8 px-3 rounded-md border border-destructive/40 text-destructive text-xs font-semibold hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      </AsyncBoundary>
     </div>
   );
 }

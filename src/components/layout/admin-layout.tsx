@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -68,10 +68,9 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'KYC Review', href: '/kyc', icon: FileCheck },
       { label: 'KYC Workflow Builder', href: '/kyc/builder', icon: Settings },
-      { label: 'Roles & Permissions', href: '/roles', icon: ShieldCheck },
       { label: 'Admin Users', href: '/admin-users', icon: Users, comingSoon: true },
       { label: 'Audit Log', href: '/audit-log', icon: Activity },
-      { label: 'Settings', href: '/settings', icon: Settings },
+      { label: 'Roles & Settings', href: '/settings', icon: ShieldCheck },
     ],
   },
 ];
@@ -82,10 +81,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
-  // Close mobile sidebar on route change
-  React.useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  // The mobile drawer closes where it is opened from — on the click that
+  // navigates. Doing it in an effect keyed on `pathname` meant React ran a
+  // second render pass after every navigation just to flip a boolean.
+  const closeMobile = () => setMobileOpen(false);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -93,7 +92,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs lg:hidden"
-          onClick={() => setMobileOpen(false)}
+          onClick={closeMobile}
         />
       )}
 
@@ -105,7 +104,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       >
         {/* Sidebar Header */}
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden focus-outline rounded-md">
+          <Link
+            href="/dashboard"
+            onClick={closeMobile}
+            className="flex items-center gap-3 overflow-hidden focus-outline rounded-md"
+          >
             <Image
               src="/oxshare-mark.svg"
               alt="OXShare"
@@ -136,7 +139,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           {/* Mobile Close */}
           <button
             type="button"
-            onClick={() => setMobileOpen(false)}
+            onClick={closeMobile}
             className="flex lg:hidden h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline"
           >
             <X className="h-5 w-5" />
@@ -186,6 +189,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={closeMobile}
                     title={collapsed ? item.label : undefined}
                     className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium focus-outline ${
                       isActive

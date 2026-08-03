@@ -1,10 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Loader2, Percent, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, Percent, Plus } from 'lucide-react';
 import api from '@/lib/api';
 import type { IbProgram } from '@/lib/api/admin';
-import { BackendPending } from '@/components/backend-pending';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
+import { apiErrorMessage, useResource } from '@/hooks/use-resource';
+import { AsyncBoundary } from '@/components/async-boundary';
+import { EmptyState } from '@/components/data-table';
+import { Modal } from '@/components/ui/modal';
 
 // ADM-10 (commission plans CRUD) + IB-06 (programs / tier ladder).
 //
@@ -15,7 +21,6 @@ import { BackendPending } from '@/components/backend-pending';
 //
 // MONEY RULE §6.1: values are strings end to end. The form keeps them as typed
 // text and posts them verbatim — no Number(), no parseFloat.
-type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
 
 const MODES = [
   { value: 'commission', label: 'Commission only', hint: 'IBs earn; clients get no rebate' },
@@ -60,32 +65,61 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function CommissionPlansPage() {
-  const [plans, setPlans] = useState<IbProgram[]>([]);
-  const [loadState, setLoadState] = useState<LoadState>('loading');
+  // Mutations require commissions.manage on the API; viewing needs only
+  // commissions.view. Previously New/Edit/Activate rendered for both.
+  const { admin } = useAdmin();
+  const canManage = hasPermission(admin, 'commissions.manage');
+  const queryClient = useQueryClient();
+
   const [editing, setEditing] = useState<IbProgram | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState('');
 
-  const load = useCallback(async () => {
-    setLoadState('loading');
-    try {
-      const { data } = await api.get<IbProgram[]>('/admin/commission-plans');
-      setPlans(data ?? []);
-      setLoadState('ready');
-    } catch (e: unknown) {
-      const s = (e as { response?: { status?: number } })?.response?.status;
-      setLoadState(s === 404 ? 'unavailable' : 'error');
-    }
-  }, []);
+  const query = useResource<IbProgram[]>(
+    ['commission-plans'],
+    async (signal) => (await api.get<IbProgram[]>('/admin/commission-plans', { signal })).data,
+  );
+  const plans = query.data ?? [];
 
-  useEffect(() => { load(); }, [load]);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['commission-plans'] });
+
+  const savePlan = useMutation({
+    // Values are posted as the strings they were typed as (§6.1).
+    mutationFn: (state: FormState) => {
+      const payload = {
+        name: state.name.trim(),
+        description: state.description.trim() || undefined,
+        position: Number(state.position) || 1,
+        mode: state.mode,
+        method: state.method,
+        commissionValue: state.commissionValue.trim() || '0',
+        rebateValue: state.rebateValue.trim() || '0',
+        l1Share: state.l1Share.trim() || '0',
+        l2Share: state.l2Share.trim() || '0',
+        settlementWindowHours: Number(state.settlementWindowHours) || 0,
+        rebateOnClose: state.rebateOnClose,
+        selectable: state.selectable,
+      };
+      return editing
+        ? api.put(`/admin/commission-plans/${editing.id}`, payload)
+        : api.post('/admin/commission-plans', payload);
+    },
+    onSuccess: async () => {
+      setShowForm(false);
+      await invalidate();
+    },
+  });
+
+  const toggleActive = useMutation({
+    mutationFn: (plan: IbProgram) =>
+      api.patch(`/admin/commission-plans/${plan.id}/active`, { active: !plan.active }),
+    onSuccess: invalidate,
+  });
 
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setFormError('');
+    savePlan.reset();
     setShowForm(true);
   };
 
@@ -105,52 +139,8 @@ export default function CommissionPlansPage() {
       rebateOnClose: plan.rebateOnClose,
       selectable: plan.selectable,
     });
-    setFormError('');
+    savePlan.reset();
     setShowForm(true);
-  };
-
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setFormError('');
-    // Values are posted as the strings they were typed as (§6.1).
-    const payload = {
-      name: form.name.trim(),
-      description: form.description.trim() || undefined,
-      position: Number(form.position) || 1,
-      mode: form.mode,
-      method: form.method,
-      commissionValue: form.commissionValue.trim() || '0',
-      rebateValue: form.rebateValue.trim() || '0',
-      l1Share: form.l1Share.trim() || '0',
-      l2Share: form.l2Share.trim() || '0',
-      settlementWindowHours: Number(form.settlementWindowHours) || 0,
-      rebateOnClose: form.rebateOnClose,
-      selectable: form.selectable,
-    };
-    try {
-      if (editing) {
-        await api.put(`/admin/commission-plans/${editing.id}`, payload);
-      } else {
-        await api.post('/admin/commission-plans', payload);
-      }
-      setShowForm(false);
-      await load();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
-      setFormError(Array.isArray(msg) ? msg.join(' · ') : msg ?? 'Failed to save the plan.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleActive = async (plan: IbProgram) => {
-    try {
-      await api.patch(`/admin/commission-plans/${plan.id}/active`, { active: !plan.active });
-      await load();
-    } catch {
-      setFormError('Failed to change the plan status.');
-    }
   };
 
   const shareTotal = (Number(form.l1Share) || 0) + (Number(form.l2Share) || 0);
@@ -169,7 +159,8 @@ export default function CommissionPlansPage() {
         <button
           type="button"
           onClick={openCreate}
-          disabled={loadState !== 'ready'}
+          disabled={query.status !== 'ready' || !canManage}
+          title={canManage ? undefined : 'Requires the commissions.manage permission'}
           className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
         >
           <Plus className="h-4 w-4" />
@@ -177,36 +168,29 @@ export default function CommissionPlansPage() {
         </button>
       </div>
 
-      {loadState === 'loading' ? (
-        <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin text-link" />
-          <span className="sr-only">Loading commission plans</span>
-        </div>
-      ) : loadState === 'unavailable' ? (
-        <BackendPending
-          endpoints={[
-            'GET /admin/commission-plans',
-            'POST /admin/commission-plans',
-            'PUT /admin/commission-plans/:id',
-            'PATCH /admin/commission-plans/:id/active',
-          ]}
-        />
-      ) : loadState === 'error' ? (
-        <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
-          <p className="text-sm text-muted-foreground">Failed to load commission plans. Check your connection and try again.</p>
-          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
-            Retry
-          </button>
-        </div>
-      ) : plans.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-12 text-center space-y-3">
-          <Percent className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            No commission plans yet. Create the first one to define how IBs earn — the commission
-            engine reads these values, so nothing needs to be hardcoded.
-          </p>
-        </div>
-      ) : (
+      <AsyncBoundary
+        status={query.status}
+        label="Loading commission plans"
+        endpoints={[
+          'GET /admin/commission-plans',
+          'POST /admin/commission-plans',
+          'PUT /admin/commission-plans/:id',
+          'PATCH /admin/commission-plans/:id/active',
+        ]}
+        onRetry={query.refetch}
+        errorMessage="Failed to load commission plans."
+      >
+        {toggleActive.isError && (
+          <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
+            {apiErrorMessage(toggleActive.error, 'Failed to change the plan status.')}
+          </div>
+        )}
+        {plans.length === 0 ? (
+          <EmptyState
+            icon={Percent}
+            message="No commission plans yet. Create the first one to define how IBs earn — the commission engine reads these values, so nothing needs to be hardcoded."
+          />
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {plans.map((p) => (
             <div key={p.id} className={`rounded-xl border bg-card p-6 shadow-xs space-y-4 ${p.active ? 'border-border' : 'border-dashed border-border opacity-70'}`}>
@@ -277,31 +261,42 @@ export default function CommissionPlansPage() {
               )}
 
               <div className="flex gap-2 border-t border-border/60 pt-3">
-                <button type="button" onClick={() => openEdit(p)}
-                  className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
-                  Edit
-                </button>
-                <button type="button" onClick={() => toggleActive(p)}
-                  className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
-                  {p.active ? 'Deactivate' : 'Activate'}
-                </button>
+                {!canManage && (
+                  <span className="text-xs text-muted-foreground">View only</span>
+                )}
+                {canManage && (
+                  <>
+                    <button type="button" onClick={() => openEdit(p)}
+                      className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
+                      Edit
+                    </button>
+                    <button type="button" onClick={() => toggleActive.mutate(p)}
+                      className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
+                      {p.active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}
         </div>
-      )}
+        )}
+      </AsyncBoundary>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto"
-          onClick={() => !saving && setShowForm(false)}>
-          <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl"
-            role="dialog" aria-modal="true" aria-labelledby="plan-form-title"
-            onClick={(e) => e.stopPropagation()}>
-            <h3 id="plan-form-title" className="text-base font-bold border-b border-border pb-3">
-              {editing ? `Edit “${editing.name}”` : 'New Commission Plan'}
-            </h3>
-
-            <form onSubmit={save} className="space-y-5 text-xs pt-5">
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        size="lg"
+        labelledBy="plan-form-title"
+        title={editing ? `Edit “${editing.name}”` : 'New Commission Plan'}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            savePlan.mutate(form);
+          }}
+          className="space-y-5 text-xs pt-2"
+        >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
                   <label htmlFor="plan-name" className="font-semibold">Plan name</label>
@@ -438,26 +433,25 @@ export default function CommissionPlansPage() {
                 </div>
               )}
 
-              {formError && (
+              {savePlan.isError && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
-                  {formError}
+                  {apiErrorMessage(savePlan.error, 'Failed to save the plan.')}
                 </div>
               )}
 
               <div className="flex justify-end gap-2 pt-4 border-t border-border">
-                <button type="button" onClick={() => setShowForm(false)} disabled={saving}
+                <button type="button" onClick={() => setShowForm(false)} disabled={savePlan.isPending}
                   className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted disabled:opacity-50 focus-outline">
                   Cancel
                 </button>
-                <button type="submit" disabled={saving} aria-busy={saving}
+                <button type="submit" disabled={savePlan.isPending} aria-busy={savePlan.isPending}
                   className="h-9 px-4 rounded-lg bg-primary text-primary-foreground font-semibold hover:opacity-90 disabled:opacity-50 focus-outline">
-                  {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Plan'}
+                  {savePlan.isPending ? 'Saving…' : editing ? 'Save Changes' : 'Create Plan'}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+        </form>
+      </Modal>
+
     </div>
   );
 }

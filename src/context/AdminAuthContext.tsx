@@ -1,16 +1,17 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import api from '@/lib/api';
+import React, { createContext, useContext, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient, startProactiveRefresh } from '@/lib/api/client';
+import { authApi } from '@/lib/api/auth';
+import { adminApi } from '@/lib/api/admin';
+import { assertPermissionKeysExist } from '@/lib/permissions';
+import type { components } from '@/lib/api/types.gen';
 
-export interface AdminProfile {
-  id: string;
-  email: string;
-  name: string;
-  role: 'master_admin' | 'sub_admin';
-  permissions: string[];
-  createdAt: string;
-}
+// Generated from the backend's Swagger — never hand-written. A rename of
+// `permissions` becomes a compile error here instead of hasPermission()
+// silently returning false for everyone.
+export type AdminProfile = components['schemas']['AdminProfileDto'];
 
 interface AdminAuthContextType {
   admin: AdminProfile | null;
@@ -29,44 +30,51 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
 });
 
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
-  const [admin, setAdmin] = useState<AdminProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchAdmin = useCallback(async () => {
-    try {
-      const { data } = await api.get('/admin/auth/me');
-      setAdmin(data);
-    } catch {
-      setAdmin(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // A query, not useEffect + useState: an unauthenticated visitor gets one 401
+  // and stays settled, rather than a render pass driven by an effect.
+  const { data, isPending } = useQuery({
+    queryKey: ['admin', 'me'],
+    queryFn: async () => {
+      const res = await apiClient.get<AdminProfile>('/admin/auth/me');
+      startProactiveRefresh();
+      return res.data;
+    },
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
 
+  const admin = data ?? null;
+
+  const refetchAdmin = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'me'] });
+  }, [queryClient]);
+
+  // Dev-only: shout if any route in permissions.ts demands a key the backend
+  // does not define. Such a key can never be granted, so the route silently
+  // becomes master-admin-only with nothing anywhere to explain why.
   useEffect(() => {
-    fetchAdmin();
-  }, [fetchAdmin]);
+    if (process.env.NODE_ENV === 'production' || !admin) return;
+    adminApi
+      .getPermissions()
+      .then((catalog) =>
+        assertPermissionKeysExist(
+          Object.values(catalog).flatMap((m) => (m.permissions ?? []).map((p) => p.key)),
+        ),
+      )
+      .catch(() => undefined);
+  }, [admin]);
 
-  const logout = async () => {
-    try {
-      await api.post('/admin/auth/logout');
-    } catch {
-      // ignore
-    } finally {
-      setAdmin(null);
-      window.location.href = '/login';
-    }
-  };
+  const logout = useCallback(async () => {
+    await authApi.logout();
+    queryClient.clear();
+    window.location.href = '/login';
+  }, [queryClient]);
 
   return (
     <AdminAuthContext.Provider
-      value={{
-        admin,
-        isLoading,
-        isAuthenticated: !!admin,
-        refetchAdmin: fetchAdmin,
-        logout,
-      }}
+      value={{ admin, isLoading: isPending, isAuthenticated: !!admin, refetchAdmin, logout }}
     >
       {children}
     </AdminAuthContext.Provider>

@@ -1,10 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Receipt } from 'lucide-react';
+import { useState } from 'react';
+import { Receipt } from 'lucide-react';
 import api from '@/lib/api';
 import type { LedgerEntry, LedgerListResponse } from '@/lib/api/admin';
-import { BackendPending } from '@/components/backend-pending';
+import { useResource } from '@/hooks/use-resource';
+import { AsyncBoundary } from '@/components/async-boundary';
+import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { Pagination } from '@/components/pagination';
 
 // ADM-13: the ledger view, filterable for reconciliation.
 //
@@ -15,8 +18,6 @@ import { BackendPending } from '@/components/backend-pending';
 // MONEY RULE §6.1: amount and balanceAfter arrive as strings and are rendered
 // verbatim. No Number(), no arithmetic — a float looks right until the eighth
 // decimal place.
-type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
-
 const PAGE_SIZE = 50;
 
 const ENTRY_TYPES = ['deposit', 'withdrawal', 'commission', 'rebate', 'payout', 'adjustment'];
@@ -34,32 +35,89 @@ const TYPE_STYLES: Record<string, string> = {
 const isDebit = (amount: string) => amount.trim().startsWith('-');
 
 export default function LedgerPage() {
-  const [rows, setRows] = useState<LedgerEntry[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [entryType, setEntryType] = useState('');
   const [userId, setUserId] = useState('');
-  const [loadState, setLoadState] = useState<LoadState>('loading');
 
-  const load = useCallback(async () => {
-    setLoadState('loading');
-    try {
+  const trimmedUserId = userId.trim();
+  const { status, data, isFetching, refetch } = useResource<LedgerListResponse>(
+    ['ledger', page, entryType, trimmedUserId],
+    async (signal) => {
       const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
       if (entryType) params.set('entryType', entryType);
-      if (userId.trim()) params.set('userId', userId.trim());
-      const { data } = await api.get<LedgerListResponse>(`/admin/ledger?${params}`);
-      setRows(data.items ?? []);
-      setTotal(data.total ?? 0);
-      setLoadState('ready');
-    } catch (e: unknown) {
-      const s = (e as { response?: { status?: number } })?.response?.status;
-      setLoadState(s === 404 ? 'unavailable' : 'error');
-    }
-  }, [page, entryType, userId]);
+      if (trimmedUserId) params.set('userId', trimmedUserId);
+      const res = await api.get<LedgerListResponse>(`/admin/ledger?${params}`, { signal });
+      return res.data;
+    },
+  );
 
-  useEffect(() => { load(); }, [load]);
+  const rows = data?.items ?? [];
+  const total = data?.total ?? 0;
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const columns: Column<LedgerEntry>[] = [
+    {
+      header: 'When',
+      cell: (e) => new Date(e.createdAt).toLocaleString(),
+      cellClassName: 'text-muted-foreground whitespace-nowrap',
+    },
+    {
+      header: 'Type',
+      cell: (e) => (
+        <span
+          className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TYPE_STYLES[e.entryType] ?? ''}`}
+        >
+          {e.entryType}
+        </span>
+      ),
+    },
+    {
+      header: 'Amount',
+      align: 'right',
+      // Strings, rendered verbatim (§6.1).
+      cell: (e) => (
+        <span className={isDebit(e.amount) ? 'text-destructive' : 'text-success'}>
+          {e.amount} <span className="text-xs text-muted-foreground">{e.currency}</span>
+        </span>
+      ),
+      cellClassName: 'font-mono font-semibold whitespace-nowrap',
+    },
+    {
+      header: 'Balance After',
+      align: 'right',
+      cell: (e) => e.balanceAfter,
+      cellClassName: 'font-mono text-muted-foreground whitespace-nowrap',
+    },
+    {
+      header: 'Caused By',
+      cell: (e) => (
+        <>
+          <div className="text-xs text-foreground">{e.referenceType}</div>
+          <div
+            className="font-mono text-[11px] text-muted-foreground max-w-[180px] truncate"
+            title={e.referenceId}
+          >
+            {e.referenceId}
+          </div>
+        </>
+      ),
+    },
+    {
+      header: 'Client',
+      cell: (e) => (
+        <button
+          type="button"
+          onClick={() => {
+            setPage(1);
+            setUserId(e.userId);
+          }}
+          title="Filter this client's entries"
+          className="font-mono text-[11px] text-link hover:underline max-w-[160px] truncate block focus-outline"
+        >
+          {e.userId}
+        </button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -75,12 +133,17 @@ export default function LedgerPage() {
         <select
           aria-label="Filter by entry type"
           value={entryType}
-          onChange={(e) => { setPage(1); setEntryType(e.target.value); }}
+          onChange={(e) => {
+            setPage(1);
+            setEntryType(e.target.value);
+          }}
           className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-outline"
         >
           <option value="">All Entry Types</option>
           {ENTRY_TYPES.map((t) => (
-            <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>
+            <option key={t} value={t}>
+              {t[0].toUpperCase() + t.slice(1)}
+            </option>
           ))}
         </select>
         <input
@@ -88,102 +151,50 @@ export default function LedgerPage() {
           aria-label="Filter by client user ID"
           placeholder="Filter by user ID…"
           value={userId}
-          onChange={(e) => { setPage(1); setUserId(e.target.value); }}
+          onChange={(e) => {
+            setPage(1);
+            setUserId(e.target.value);
+          }}
           className="flex h-9 w-72 rounded-md border border-input bg-background px-3 py-1 text-sm font-mono shadow-sm placeholder:font-sans placeholder:text-muted-foreground focus-outline"
         />
       </div>
 
-      {loadState === 'loading' ? (
-        <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin text-link" />
-          <span className="sr-only">Loading ledger</span>
-        </div>
-      ) : loadState === 'unavailable' ? (
-        <BackendPending endpoints={['GET /admin/ledger?userId&walletId&entryType&page&limit']} />
-      ) : loadState === 'error' ? (
-        <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
-          <p className="text-sm text-muted-foreground">Failed to load the ledger. Check your connection and try again.</p>
-          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
-            Retry
-          </button>
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-12 text-center space-y-2">
-          <Receipt className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">
-            {entryType || userId ? 'No entries match these filters.' : 'No ledger entries yet.'}
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="rounded-lg border border-border bg-card shadow-sm overflow-x-auto">
-            <table className="w-full text-sm">
-              <caption className="sr-only">Append-only ledger entries</caption>
-              <thead className="border-b border-border bg-muted/50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">When</th>
-                  <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Type</th>
-                  <th scope="col" className="px-6 py-3 text-right font-medium text-muted-foreground">Amount</th>
-                  <th scope="col" className="px-6 py-3 text-right font-medium text-muted-foreground">Balance After</th>
-                  <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Caused By</th>
-                  <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Client</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map((e) => (
-                  <tr key={e.id} className="hover:bg-muted/30 transition-colors align-top">
-                    <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
-                      {new Date(e.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TYPE_STYLES[e.entryType] ?? ''}`}>
-                        {e.entryType}
-                      </span>
-                    </td>
-                    {/* Strings, rendered verbatim (§6.1) */}
-                    <td className={`px-6 py-4 text-right font-mono font-semibold whitespace-nowrap ${isDebit(e.amount) ? 'text-destructive' : 'text-success'}`}>
-                      {e.amount} <span className="text-xs text-muted-foreground">{e.currency}</span>
-                    </td>
-                    <td className="px-6 py-4 text-right font-mono text-muted-foreground whitespace-nowrap">
-                      {e.balanceAfter}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-xs text-foreground">{e.referenceType}</div>
-                      <div className="font-mono text-[11px] text-muted-foreground max-w-[180px] truncate" title={e.referenceId}>
-                        {e.referenceId}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        type="button"
-                        onClick={() => { setPage(1); setUserId(e.userId); }}
-                        title="Filter this client's entries"
-                        className="font-mono text-[11px] text-link hover:underline max-w-[160px] truncate block focus-outline"
-                      >
-                        {e.userId}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <AsyncBoundary
+        status={status}
+        label="Loading ledger"
+        endpoints={['GET /admin/ledger?userId&walletId&entryType&page&limit']}
+        onRetry={refetch}
+        errorMessage="Failed to load the ledger."
+      >
+        <DataTable
+          caption="Append-only ledger entries"
+          columns={columns}
+          rows={rows}
+          rowKey={(e) => e.id}
+          dimmed={isFetching}
+          empty={
+            <EmptyState
+              icon={Receipt}
+              message={
+                entryType || trimmedUserId
+                  ? 'No entries match these filters.'
+                  : 'No ledger entries yet.'
+              }
+            />
+          }
+        />
+        {rows.length > 0 && (
+          <div className="mt-6">
+            <Pagination
+              page={page}
+              total={total}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+              noun={['entry', 'entries']}
+            />
           </div>
-
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>{total} entr{total === 1 ? 'y' : 'ies'} · page {page} of {totalPages}</span>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-outline">
-                Previous
-              </button>
-              <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-outline">
-                Next
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+        )}
+      </AsyncBoundary>
     </div>
   );
 }

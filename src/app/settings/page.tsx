@@ -1,23 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, UserPlus, Loader2, Key } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, UserPlus, Key } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { Role, PermissionModule, AdminUser } from '@/lib/api/admin';
-import { BackendPending } from '@/components/backend-pending';
+import { Role, AdminUser } from '@/lib/api/admin';
 import { RoleCard } from '@/components/rbac/role-card';
 import { RoleFormModal, RoleFormValues } from '@/components/rbac/role-form-modal';
+import { AsyncBoundary } from '@/components/async-boundary';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
+import { apiErrorMessage, useResource } from '@/hooks/use-resource';
 
-type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
-
-const isNotFound = (e: unknown) =>
-  (e as { response?: { status?: number } })?.response?.status === 404;
-
-const apiMessage = (e: unknown, fallback: string) =>
-  (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
+// The single owner of roles and admin users. /roles used to be a second,
+// strictly smaller copy of the Roles tab; it now redirects here.
 
 export default function AdminSettingsPage() {
   const { admin } = useAdmin();
@@ -26,90 +23,70 @@ export default function AdminSettingsPage() {
   const canInvite = hasPermission(admin, 'users.create');
 
   const [activeTab, setActiveTab] = React.useState<'roles' | 'admins'>('roles');
-  const [permissionsCatalog, setPermissionsCatalog] = React.useState<Record<string, PermissionModule>>({});
-  const [roles, setRoles] = React.useState<Role[]>([]);
-  const [adminUsers, setAdminUsers] = React.useState<AdminUser[]>([]);
-  const [loadState, setLoadState] = React.useState<LoadState>('loading');
 
   // null = closed, 'create' = new role, Role = editing that role
   const [modal, setModal] = React.useState<'create' | Role | null>(null);
-  const [formError, setFormError] = React.useState('');
-  const [saving, setSaving] = React.useState(false);
-  const [deletingId, setDeletingId] = React.useState<string | null>(null);
-  const [banner, setBanner] = React.useState('');
 
-  // Per-row role reassignment on the Admins tab
-  const [assigningId, setAssigningId] = React.useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['settings', 'rbac'] });
 
-  const loadData = React.useCallback(async () => {
-    setLoadState('loading');
-    try {
-      const [perms, rList, uList] = await Promise.all([
-        api.admin.getPermissions(),
-        api.admin.getRoles(),
-        api.admin.getAdminUsers(),
-      ]);
-      setPermissionsCatalog(perms);
-      setRoles(rList);
-      setAdminUsers(uList);
-      setLoadState('ready');
-    } catch (err) {
-      setLoadState(isNotFound(err) ? 'unavailable' : 'error');
-    }
-  }, []);
+  const query = useResource(['settings', 'rbac'], async () => {
+    const [catalog, roles, adminUsers] = await Promise.all([
+      api.admin.getPermissions(),
+      api.admin.getRoles(),
+      api.admin.getAdminUsers(),
+    ]);
+    return { catalog, roles, adminUsers };
+  });
 
-  React.useEffect(() => { loadData(); }, [loadData]);
+  const permissionsCatalog = query.data?.catalog ?? {};
+  const roles = query.data?.roles ?? [];
+  const adminUsers = query.data?.adminUsers ?? [];
 
-  const closeModal = () => { setModal(null); setFormError(''); };
+  const saveRole = useMutation({
+    mutationFn: (values: RoleFormValues) =>
+      modal === 'create' ? api.admin.createRole(values) : api.admin.updateRole((modal as Role).id, values),
+    onSuccess: async () => {
+      setModal(null);
+      await invalidate();
+    },
+  });
 
-  const handleSubmitRole = async (values: RoleFormValues) => {
-    setSaving(true);
-    setFormError('');
-    try {
-      if (modal === 'create') {
-        const created = await api.admin.createRole(values);
-        setRoles((prev) => [...prev, created]);
-      } else if (modal) {
-        const updated = await api.admin.updateRole(modal.id, values);
-        setRoles((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-      }
-      closeModal();
-    } catch (err) {
-      setFormError(apiMessage(err, 'Failed to save the role. Please try again.'));
-    } finally {
-      setSaving(false);
-    }
+  const deleteRole = useMutation({
+    mutationFn: (role: Role) => api.admin.deleteRole(role.id),
+    onSuccess: invalidate,
+  });
+
+  const assignRole = useMutation({
+    mutationFn: ({ user, roleId }: { user: AdminUser; roleId: string }) =>
+      api.admin.updateAdminUser(user.id, { roleId }),
+    onSuccess: invalidate,
+  });
+
+  const closeModal = () => {
+    setModal(null);
+    saveRole.reset();
   };
 
-  const handleDeleteRole = async (role: Role) => {
+  const handleDeleteRole = (role: Role) => {
     if (!window.confirm(`Delete the role "${role.name}"? Admins must be reassigned first.`)) return;
-    setDeletingId(role.id);
-    setBanner('');
-    try {
-      await api.admin.deleteRole(role.id);
-      setRoles((prev) => prev.filter((r) => r.id !== role.id));
-    } catch (err) {
-      // 409 when the role is still assigned to admins or pending invites
-      setBanner(apiMessage(err, 'Failed to delete the role.'));
-    } finally {
-      setDeletingId(null);
-    }
+    deleteRole.mutate(role);
   };
 
-  const handleAssignRole = async (user: AdminUser, roleId: string) => {
+  const handleAssignRole = (user: AdminUser, roleId: string) => {
     if (!roleId || roleId === user.roleId) return;
-    setAssigningId(user.id);
-    setBanner('');
-    try {
-      const updated = await api.admin.updateAdminUser(user.id, { roleId });
-      setAdminUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    } catch (err) {
-      // 403 for self-changes or grants beyond the actor's own permissions
-      setBanner(apiMessage(err, 'Failed to change the admin’s role.'));
-    } finally {
-      setAssigningId(null);
-    }
+    assignRole.mutate({ user, roleId });
   };
+
+  // 409 when a role is still assigned; 403 for self-changes or over-grants.
+  const banner = deleteRole.isError
+    ? apiErrorMessage(deleteRole.error, 'Failed to delete the role.')
+    : assignRole.isError
+      ? apiErrorMessage(assignRole.error, 'Failed to change the admin\u2019s role.')
+      : '';
+
+  const deletingId = deleteRole.isPending ? deleteRole.variables?.id : null;
+  const assigningId = assignRole.isPending ? assignRole.variables?.user.id : null;
 
   return (
     <div className="space-y-6">
@@ -154,25 +131,14 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {loadState === 'loading' ? (
-        <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin text-link" />
-          <span className="sr-only">Loading settings</span>
-        </div>
-      ) : loadState === 'unavailable' ? (
-        <BackendPending endpoints={['GET /admin/permissions', 'GET /admin/roles', 'GET /admin/users']} />
-      ) : loadState === 'error' ? (
-        <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
-          <p className="text-sm text-muted-foreground">Failed to load settings. Check your connection and try again.</p>
-          <button
-            type="button"
-            onClick={loadData}
-            className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline"
-          >
-            Retry
-          </button>
-        </div>
-      ) : activeTab === 'roles' ? (
+      <AsyncBoundary
+        status={query.status}
+        label="Loading settings"
+        endpoints={['GET /admin/permissions', 'GET /admin/roles', 'GET /admin/users']}
+        onRetry={query.refetch}
+        errorMessage="Failed to load roles and admin users."
+      >
+        {activeTab === 'roles' ? (
         /* Roles Tab */
         <div className="space-y-6">
           <div className="flex items-center justify-between rounded-xl border border-border bg-card p-5 shadow-xs">
@@ -185,7 +151,7 @@ export default function AdminSettingsPage() {
             {canManageRoles && (
               <button
                 type="button"
-                onClick={() => setModal('create')}
+                onClick={() => { saveRole.reset(); setModal('create'); }}
                 className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary-hover cursor-pointer focus-outline"
               >
                 <Plus className="h-4 w-4" />
@@ -200,7 +166,7 @@ export default function AdminSettingsPage() {
                 key={role.id}
                 role={role}
                 canManage={canManageRoles}
-                onEdit={(r) => { setModal(r); setFormError(''); }}
+                onEdit={(r) => { saveRole.reset(); setModal(r); }}
                 onDelete={handleDeleteRole}
                 deleting={deletingId === role.id}
               />
@@ -286,17 +252,18 @@ export default function AdminSettingsPage() {
             </table>
           </div>
         </div>
-      )}
+        )}
+      </AsyncBoundary>
 
       {modal !== null && (
         <RoleFormModal
           title={modal === 'create' ? 'Create Dynamic RBAC Role' : `Edit Role — ${modal.name}`}
           initial={modal === 'create' ? undefined : modal}
           catalog={permissionsCatalog}
-          busy={saving}
-          error={formError}
+          busy={saveRole.isPending}
+          error={saveRole.isError ? apiErrorMessage(saveRole.error, 'Failed to save the role. Please try again.') : ''}
           submitLabel={modal === 'create' ? 'Save Dynamic Role' : 'Save Changes'}
-          onSubmit={handleSubmitRole}
+          onSubmit={(values) => saveRole.mutate(values)}
           onClose={closeModal}
         />
       )}
