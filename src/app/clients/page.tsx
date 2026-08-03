@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Users } from 'lucide-react';
 import api from '@/lib/api';
 import { BackendPending } from '@/components/backend-pending';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 
 // ADM-01: filterable client list (no profile view this phase) + ADM-14 country/labels.
 // Endpoint contract is assumed and logged in docs/DECISIONS.md (D-31) — the backend
@@ -44,7 +46,12 @@ const STATUS_STYLES: Record<ClientRow['status'], string> = {
 };
 
 export default function ClientsPage() {
+  const { admin } = useAdmin();
+  const canSuspend = hasPermission(admin, 'users.suspend');
+
   const [rows, setRows] = useState<ClientRow[]>([]);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loadState, setLoadState] = useState<LoadState>('loading');
@@ -72,6 +79,29 @@ export default function ClientsPage() {
   }, [page, search, type, status, level]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Suspension bites immediately server-side (live sessions die on the next
+  // request), so confirm before pulling the trigger.
+  const toggleStatus = async (c: ClientRow) => {
+    const next = c.status === 'suspended' ? 'active' : 'suspended';
+    if (
+      next === 'suspended' &&
+      !window.confirm(`Suspend ${c.email}? They will be logged out immediately and unable to log back in.`)
+    ) {
+      return;
+    }
+    setActingId(c.id);
+    setActionError('');
+    try {
+      const { data } = await api.patch<ClientRow>(`/admin/clients/${c.id}/status`, { status: next });
+      setRows((prev) => prev.map((r) => (r.id === c.id ? { ...r, status: data.status } : r)));
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setActionError(msg ?? `Failed to ${next === 'suspended' ? 'suspend' : 'reactivate'} the client.`);
+    } finally {
+      setActingId(null);
+    }
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -127,6 +157,12 @@ export default function ClientsPage() {
         </select>
       </div>
 
+      {actionError && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
+          {actionError}
+        </div>
+      )}
+
       {loadState === 'loading' ? (
         <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
           <Loader2 className="h-8 w-8 animate-spin text-link" />
@@ -159,6 +195,9 @@ export default function ClientsPage() {
                   <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">KYC Level</th>
                   <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Country</th>
                   <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Created</th>
+                  {canSuspend && (
+                    <th scope="col" className="px-6 py-3 text-left font-medium text-muted-foreground">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -183,6 +222,23 @@ export default function ClientsPage() {
                     <td className="px-6 py-4 text-muted-foreground">
                       {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'}
                     </td>
+                    {canSuspend && (
+                      <td className="px-6 py-4">
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(c)}
+                          disabled={actingId === c.id}
+                          aria-busy={actingId === c.id}
+                          className={`h-8 px-3 rounded-md border text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed focus-outline ${
+                            c.status === 'suspended'
+                              ? 'border-success/30 bg-success/10 text-success hover:bg-success/20'
+                              : 'border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20'
+                          }`}
+                        >
+                          {actingId === c.id ? 'Saving…' : c.status === 'suspended' ? 'Reactivate' : 'Suspend'}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
