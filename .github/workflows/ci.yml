@@ -24,9 +24,11 @@ jobs:
       - name: Type-check
         run: npm run type-check
 
+      # No continue-on-error: the audit found the backend's lint step green by
+      # construction because ESLint had no config and exited early. A gate that
+      # cannot fail is not a gate.
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Unit tests
         run: npm test
