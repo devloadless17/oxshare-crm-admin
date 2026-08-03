@@ -1,19 +1,38 @@
-import { apiClient, clearAdminSession, startProactiveRefresh } from './client';
-import Cookies from 'js-cookie';
+import { apiClient, clearAdminSession, setSessionCookies, startProactiveRefresh } from './client';
+import type { components } from './types.gen';
 
 export interface AdminLoginDto {
   email: string;
   password: string;
 }
 
+/**
+ * `POST /admin/auth/login`.
+ *
+ * The `admin` half is the generated schema, so a change to the sanitized admin
+ * shape is a compile error here. The two token fields are hand-declared because
+ * the endpoint carries no `@ApiOkResponse` — once the backend adds an
+ * `AdminAuthResponseDto`, replace this whole interface with an alias.
+ *
+ * Note the casing: this endpoint returns camelCase `accessToken`, while the
+ * client portal's `/auth/login` returns snake_case `access_token`. That
+ * divergence is known, frozen, and deliberately not "fixed" — renaming a live
+ * auth contract across three repos risks logging out every session for no
+ * functional gain (docs/API-CONTRACTS.md).
+ */
+export interface AdminLoginResponse {
+  admin: components['schemas']['AdminProfileDto'];
+  accessToken?: string;
+  refreshToken?: string;
+}
+
 export const authApi = {
   async login(dto: AdminLoginDto) {
-    const { data } = await apiClient.post('/admin/auth/login', dto);
+    const { data } = await apiClient.post<AdminLoginResponse>('/admin/auth/login', dto);
+    // One writer for session cookies, in client.ts. This used to repeat the
+    // lifetimes inline, so a change in one place silently diverged from the other.
     if (data.accessToken) {
-      Cookies.set('admin_access_token', data.accessToken, { expires: 1 / 3, path: '/', sameSite: 'lax' });
-    }
-    if (data.refreshToken) {
-      Cookies.set('admin_refresh_token', data.refreshToken, { expires: 30, path: '/', sameSite: 'lax' });
+      setSessionCookies(data.accessToken, data.refreshToken);
     }
     startProactiveRefresh();
     return data;

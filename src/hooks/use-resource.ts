@@ -1,5 +1,10 @@
 'use client';
 
+// TWIN FILE — an identical copy lives at the same path in oxshare-crm-client.
+// Behaviour changes belong in BOTH. Anything app-specific (cookie names,
+// token lifetimes, redirect paths, endpoint patterns) goes in the config block
+// at the top of the file, never inline — that is what keeps a diff between the
+// two copies a signal rather than noise.
 import { useQuery, type QueryKey } from '@tanstack/react-query';
 
 /**
@@ -60,10 +65,8 @@ export function useResource<T>(
   };
 }
 
-/** Message from an API error body, falling back to a caller-supplied default. */
-export function apiErrorMessage(error: unknown, fallback: string): string {
-  const message = (error as { response?: { data?: { message?: string | string[] } } })?.response?.data
-    ?.message;
-  if (Array.isArray(message)) return message.join(' · ');
-  return message ?? fallback;
-}
+/*
+ * apiErrorMessage moved to lib/api/errors.ts — an error formatter is not a
+ * fetching concern, and this file's copy silently dropped the `error.message`
+ * fallback. Import it from '@/lib/api/errors'.
+ */
