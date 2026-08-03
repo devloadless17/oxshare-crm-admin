@@ -276,15 +276,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/wallet/ping": {
+    "/wallet": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Health ping for wallet module */
-        get: operations["WalletController_ping"];
+        /** The signed-in client's wallets — balance, on_hold and available, all as strings */
+        get: operations["WalletController_myWallets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -293,15 +293,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/payments/ping": {
+    "/wallet/ledger": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Health ping for payments module */
-        get: operations["PaymentsController_ping"];
+        /** The signed-in client's own ledger entries */
+        get: operations["WalletController_myLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/withdrawals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request a withdrawal — requires KYC level 1; reserves the amount on hold */
+        post: operations["PaymentsController_requestWithdrawal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in client's own transactions */
+        get: operations["PaymentsController_myTransactions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -453,7 +487,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Serve a KYC document to its owner or a kyc:review admin */
+        /** Serve a KYC document to its owner or a kyc.review admin */
         get: operations["UploadsController_serveKycFile"];
         put?: never;
         post?: never;
@@ -540,7 +574,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Invite a new sub-admin with a role or explicit permissions (master admin only) */
+        /** Invite a new sub-admin with a role or explicit permissions (requires users.create) */
         post: operations["AdminController_invite"];
         delete?: never;
         options?: never;
@@ -684,6 +718,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/clients/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Suspend or reactivate a client account (requires users.suspend) */
+        patch: operations["AdminController_setClientStatus"];
+        trace?: never;
+    };
     "/admin/rejection-reasons": {
         parameters: {
             query?: never;
@@ -720,6 +771,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/withdrawals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Withdrawal requests with per-state counts (amounts are strings) */
+        get: operations["AdminController_listWithdrawals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/withdrawals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Approve a pending withdrawal — funds stay on hold until settlement */
+        patch: operations["AdminController_approveWithdrawal"];
+        trace?: never;
+    };
+    "/admin/withdrawals/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reject a pending withdrawal — releases the hold, emails the client */
+        patch: operations["AdminController_rejectWithdrawal"];
+        trace?: never;
+    };
+    "/admin/withdrawals/{id}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Mark an approved withdrawal paid — posts the debit and clears the hold */
+        patch: operations["AdminController_settleWithdrawal"];
+        trace?: never;
+    };
+    "/admin/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Append-only ledger, filterable for reconciliation */
+        get: operations["AdminController_listLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/permissions": {
         parameters: {
             query?: never;
@@ -727,7 +863,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Permission catalog grouped by module (master admin only) */
+        /** Permission catalog grouped by module (requires roles.view or users.view) */
         get: operations["AdminController_getPermissions"];
         put?: never;
         post?: never;
@@ -744,10 +880,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List RBAC roles (master admin only) */
+        /** List RBAC roles (requires roles.view or users.view) */
         get: operations["AdminController_listRoles"];
         put?: never;
-        /** Create a custom role (master admin only) */
+        /** Create a custom role (requires roles.manage) */
         post: operations["AdminController_createRole"];
         delete?: never;
         options?: never;
@@ -763,10 +899,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Update a custom role (master admin only) */
+        /** Update a custom role (requires roles.manage) */
         put: operations["AdminController_updateRole"];
         post?: never;
-        /** Delete a custom role (master admin only) */
+        /** Delete a custom role (requires roles.manage) */
         delete: operations["AdminController_deleteRole"];
         options?: never;
         head?: never;
@@ -780,7 +916,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List admin accounts (master admin only) */
+        /** List admin accounts (requires users.view) */
         get: operations["AdminController_listAdmins"];
         put?: never;
         post?: never;
@@ -803,7 +939,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update an admin’s name, role, or permissions (master admin only) */
+        /** Update an admin’s name, role, or permissions (requires users.edit) */
         patch: operations["AdminController_updateAdmin"];
         trace?: never;
     };
@@ -924,6 +1060,7 @@ export interface components {
             /** @example CLIENT */
             role?: string;
         };
+        RequestWithdrawalDto: Record<string, never>;
         PermissionItemDto: {
             key: string;
             label: string;
@@ -1035,6 +1172,7 @@ export interface components {
             page: number;
             limit: number;
         };
+        ClientStatusDto: Record<string, never>;
         RejectionReasonResponseDto: {
             id: string;
             /** @enum {string} */
@@ -1044,6 +1182,66 @@ export interface components {
             createdAt: string;
         };
         RejectionReasonDto: Record<string, never>;
+        WithdrawalUserDto: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+        };
+        WithdrawalRowDto: {
+            id: string;
+            /** @description Monetary value — always a string, never a number */
+            amount: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** @enum {string} */
+            state: "pending" | "approved" | "success" | "failure" | "rejected";
+            provider: string;
+            providerRef?: string | null;
+            destination?: string | null;
+            rejectionReason?: string | null;
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            reviewedAt?: string | null;
+            /** Format: date-time */
+            settledAt?: string | null;
+            user: components["schemas"]["WithdrawalUserDto"];
+        };
+        WithdrawalListResponseDto: {
+            items: components["schemas"]["WithdrawalRowDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            counts: {
+                [key: string]: number;
+            };
+        };
+        WithdrawalRejectDto: Record<string, never>;
+        SettleWithdrawalDto: Record<string, never>;
+        LedgerEntryDto: {
+            id: string;
+            walletId: string;
+            userId: string;
+            /** @description Signed monetary value as a string */
+            amount: string;
+            /** @description Running balance after this entry, as a string */
+            balanceAfter: string;
+            /** @enum {string} */
+            entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment";
+            referenceType: string;
+            referenceId: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        LedgerListResponseDto: {
+            items: components["schemas"]["LedgerEntryDto"][];
+            total: number;
+            page: number;
+            limit: number;
+        };
         RoleResponseDto: {
             id: string;
             name: string;
@@ -1384,7 +1582,7 @@ export interface operations {
             };
         };
     };
-    WalletController_ping: {
+    WalletController_myWallets: {
         parameters: {
             query?: never;
             header?: never;
@@ -1401,7 +1599,45 @@ export interface operations {
             };
         };
     };
-    PaymentsController_ping: {
+    WalletController_myLedger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PaymentsController_requestWithdrawal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestWithdrawalDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PaymentsController_myTransactions: {
         parameters: {
             query?: never;
             header?: never;
@@ -1854,6 +2090,29 @@ export interface operations {
             };
         };
     };
+    AdminController_setClientStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AdminController_listRejectionReasons: {
         parameters: {
             query: {
@@ -1936,6 +2195,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
+    AdminController_listWithdrawals: {
+        parameters: {
+            query: {
+                state: string;
+                page: string;
+                limit: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminController_approveWithdrawal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalRowDto"];
+                };
+            };
+        };
+    };
+    AdminController_rejectWithdrawal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WithdrawalRejectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalRowDto"];
+                };
+            };
+        };
+    };
+    AdminController_settleWithdrawal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleWithdrawalDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalRowDto"];
+                };
+            };
+        };
+    };
+    AdminController_listLedger: {
+        parameters: {
+            query: {
+                userId: string;
+                walletId: string;
+                entryType: string;
+                page: string;
+                limit: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerListResponseDto"];
                 };
             };
         };

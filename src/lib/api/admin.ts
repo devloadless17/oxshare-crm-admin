@@ -16,6 +16,10 @@ export type ClientRow = components['schemas']['ClientRowDto'];
 export type ClientListResponse = components['schemas']['ClientListResponseDto'];
 export type AuditEntry = components['schemas']['AuditEntryDto'];
 export type AuditListResponse = components['schemas']['AuditListResponseDto'];
+export type WithdrawalRow = components['schemas']['WithdrawalRowDto'];
+export type WithdrawalListResponse = components['schemas']['WithdrawalListResponseDto'];
+export type LedgerEntry = components['schemas']['LedgerEntryDto'];
+export type LedgerListResponse = components['schemas']['LedgerListResponseDto'];
 
 export const adminApi = {
   async getPermissions(): Promise<Record<string, PermissionModule>> {
