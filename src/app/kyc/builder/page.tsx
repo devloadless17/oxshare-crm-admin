@@ -3,6 +3,7 @@
 import * as React from 'react';
 import api from '@/lib/api';
 import { useResource } from '@/hooks/use-resource';
+import { apiErrorMessage } from '@/lib/api/errors';
 import {
   Layers,
   Plus,
@@ -61,7 +62,9 @@ export default function KycBuilderPage() {
   // copy shows through — which is what makes Save and Reset simply drop it.
   const [draft, setDraft] = React.useState<KycStepConfig[] | null>(null);
   const [saving, setSaving] = React.useState(false);
-  const [toast, setToast] = React.useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = React.useState<{ message: string; type: 'success' | 'error' } | null>(
+    null,
+  );
   const [expandedStep, setExpandedStep] = React.useState<string | null>(null);
 
   // New step modal state
@@ -82,23 +85,31 @@ export default function KycBuilderPage() {
     setDraft((prev) => (typeof next === 'function' ? next(prev ?? query.data ?? []) : next));
 
   // First step opens by default without an effect writing state on mount.
-  const expandedStepId = expandedStep === null && steps.length > 0 ? steps[0].id : expandedStep;
+  const expandedStepId =
+    expandedStep === null && steps.length > 0 ? (steps[0]?.id ?? null) : expandedStep;
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Save all step changes
+  // Save all step changes.
+  //
+  // The endpoint is asymmetric on purpose: GET /admin/kyc-config returns a bare
+  // array, PUT takes { steps }. Sending the bare array back is silently wrong —
+  // it deserialises to a KycConfigDto whose `steps` is undefined — so the wrap
+  // is load-bearing, not styling.
   const handleSaveAll = async () => {
     try {
       setSaving(true);
-      await api.put('/admin/kyc-config', steps);
+      await api.put('/admin/kyc-config', { steps });
       setDraft(null);
       await query.refetch();
       showNotification('KYC onboarding steps updated successfully!');
-    } catch {
-      showNotification('Error saving configuration.', 'error');
+    } catch (error) {
+      // Never swallow this. A blind `catch` here is what let the payload bug
+      // above survive: the request 400'd and the UI said "Error saving".
+      showNotification(apiErrorMessage(error, 'Error saving configuration.'), 'error');
     } finally {
       setSaving(false);
     }
@@ -126,9 +137,13 @@ export default function KycBuilderPage() {
     const targetIdx = direction === 'up' ? index - 1 : index + 1;
     if (targetIdx < 0 || targetIdx >= newSteps.length) return;
 
-    const temp = newSteps[index];
-    newSteps[index] = newSteps[targetIdx];
-    newSteps[targetIdx] = temp;
+    const moved = newSteps[index];
+    const displaced = newSteps[targetIdx];
+    // `index` was never bounds-checked, only `targetIdx` was. Guarding both is
+    // what makes the swap below total.
+    if (!moved || !displaced) return;
+    newSteps[index] = displaced;
+    newSteps[targetIdx] = moved;
 
     // Update step numbers
     const reindexed = newSteps.map((s, idx) => ({ ...s, stepNumber: idx + 1 }));
@@ -139,19 +154,18 @@ export default function KycBuilderPage() {
   const toggleStepEnabled = (id: string) => {
     const step = steps.find((s) => s.id === id);
     if (step && isMandatoryStep(step) && step.enabled) {
-      setToast({ message: `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be disabled.`, type: 'error' });
+      setToast({
+        message: `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be disabled.`,
+        type: 'error',
+      });
       return;
     }
-    setSteps((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)),
-    );
+    setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)));
   };
 
   // Update step field info
   const updateStepField = (stepId: string, fieldKey: keyof KycStepConfig, value: unknown) => {
-    setSteps((prev) =>
-      prev.map((s) => (s.id === stepId ? { ...s, [fieldKey]: value } : s)),
-    );
+    setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, [fieldKey]: value } : s)));
   };
 
   // Add field to a step
@@ -222,7 +236,10 @@ export default function KycBuilderPage() {
   const deleteStep = (id: string) => {
     const step = steps.find((s) => s.id === id);
     if (step && isMandatoryStep(step)) {
-      setToast({ message: `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be deleted.`, type: 'error' });
+      setToast({
+        message: `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be deleted.`,
+        type: 'error',
+      });
       return;
     }
     if (!confirm('Are you sure you want to delete this step?')) return;
@@ -245,7 +262,11 @@ export default function KycBuilderPage() {
               : 'border-destructive/30 bg-destructive/10 text-destructive'
           }`}
         >
-          {toast.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+          {toast.type === 'success' ? (
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+          ) : (
+            <AlertCircle className="h-4 w-4 shrink-0" />
+          )}
           <span>{toast.message}</span>
         </div>
       )}
@@ -257,22 +278,41 @@ export default function KycBuilderPage() {
             <Layers className="h-6 w-6" />
             <span className="text-xs font-bold uppercase tracking-wider">KYC Management</span>
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">KYC Onboarding Workflow Builder</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+            KYC Onboarding Workflow Builder
+          </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Customize, add, edit, or disable steps and fields for client identity verification onboarding.
+            Customize, add, edit, or disable steps and fields for client identity verification
+            onboarding.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={handleReset} disabled={saving} className="gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleReset()}
+            disabled={saving}
+            className="gap-2"
+          >
             <RotateCcw className="h-4 w-4" />
             <span>Reset Defaults</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowAddModal(true)} className="gap-2 border-primary/30 text-link hover:bg-primary/10">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddModal(true)}
+            className="gap-2 border-primary/30 text-link hover:bg-primary/10"
+          >
             <Plus className="h-4 w-4" />
             <span>Add Custom Step</span>
           </Button>
-          <Button size="sm" onClick={handleSaveAll} disabled={saving} className="gap-2 shadow-md shadow-primary/20">
+          <Button
+            size="sm"
+            onClick={() => void handleSaveAll()}
+            disabled={saving}
+            className="gap-2 shadow-md shadow-primary/20"
+          >
             <Save className="h-4 w-4" />
             <span>{saving ? 'Saving...' : 'Save All Changes'}</span>
           </Button>
@@ -283,7 +323,10 @@ export default function KycBuilderPage() {
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 w-full rounded-2xl border border-border bg-card/40 animate-pulse" />
+            <div
+              key={i}
+              className="h-28 w-full rounded-2xl border border-border bg-card/40 animate-pulse"
+            />
           ))}
         </div>
       ) : (
@@ -308,9 +351,13 @@ export default function KycBuilderPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-foreground truncate">{step.title}</h3>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                          step.enabled ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
-                        }`}>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                            step.enabled
+                              ? 'bg-success/10 text-success'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
                           {step.enabled ? 'Active' : 'Disabled'}
                         </span>
                         {isMandatoryStep(step) && (
@@ -322,7 +369,9 @@ export default function KycBuilderPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">{step.description}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {step.description}
+                      </p>
                     </div>
                   </div>
 
@@ -356,7 +405,11 @@ export default function KycBuilderPage() {
                       size="sm"
                       onClick={() => toggleStepEnabled(step.id)}
                       disabled={isMandatoryStep(step) && step.enabled}
-                      title={isMandatoryStep(step) && step.enabled ? 'Required step — cannot be disabled' : undefined}
+                      title={
+                        isMandatoryStep(step) && step.enabled
+                          ? 'Required step — cannot be disabled'
+                          : undefined
+                      }
                       className="text-xs h-8 px-2.5"
                     >
                       {step.enabled ? 'Disable' : 'Enable'}
@@ -368,7 +421,9 @@ export default function KycBuilderPage() {
                       onClick={() => deleteStep(step.id)}
                       disabled={isMandatoryStep(step)}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 ml-1 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent focus-outline"
-                      title={isMandatoryStep(step) ? 'Required step — cannot be deleted' : 'Delete Step'}
+                      title={
+                        isMandatoryStep(step) ? 'Required step — cannot be deleted' : 'Delete Step'
+                      }
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -379,7 +434,11 @@ export default function KycBuilderPage() {
                       onClick={() => setExpandedStep(isExpanded ? null : step.id)}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent ml-1 focus-outline"
                     >
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -400,7 +459,9 @@ export default function KycBuilderPage() {
                         <Label className="text-xs">
                           URL Slug Identifier
                           {isMandatoryStep(step) && (
-                            <span className="ml-2 font-normal text-muted-foreground">(locked — the client flow submits by this slug)</span>
+                            <span className="ml-2 font-normal text-muted-foreground">
+                              (locked — the client flow submits by this slug)
+                            </span>
                           )}
                         </Label>
                         <Input
@@ -422,8 +483,12 @@ export default function KycBuilderPage() {
                     <div className="space-y-4 pt-2 border-t border-border">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Form Fields ({step.fields.length})</h4>
-                          <p className="text-[11px] text-muted-foreground">Configure field labels, input types, and requirement flags.</p>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                            Form Fields ({step.fields.length})
+                          </h4>
+                          <p className="text-[11px] text-muted-foreground">
+                            Configure field labels, input types, and requirement flags.
+                          </p>
                         </div>
                         <Button
                           variant="outline"
@@ -439,7 +504,8 @@ export default function KycBuilderPage() {
                       {/* Fields Table / Grid */}
                       {step.fields.length === 0 ? (
                         <div className="py-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
-                          No custom fields added yet. Click &quot;Add Field&quot; to configure inputs.
+                          No custom fields added yet. Click &quot;Add Field&quot; to configure
+                          inputs.
                         </div>
                       ) : (
                         <div className="space-y-3">
@@ -453,7 +519,9 @@ export default function KycBuilderPage() {
                                   <Label className="text-[11px]">Field Label</Label>
                                   <Input
                                     value={f.label}
-                                    onChange={(e) => updateInnerField(step.id, f.id, { label: e.target.value })}
+                                    onChange={(e) =>
+                                      updateInnerField(step.id, f.id, { label: e.target.value })
+                                    }
                                     className="h-8 text-xs"
                                   />
                                 </div>
@@ -462,7 +530,9 @@ export default function KycBuilderPage() {
                                   <Label className="text-[11px]">Key Name</Label>
                                   <Input
                                     value={f.name}
-                                    onChange={(e) => updateInnerField(step.id, f.id, { name: e.target.value })}
+                                    onChange={(e) =>
+                                      updateInnerField(step.id, f.id, { name: e.target.value })
+                                    }
                                     className="h-8 text-xs font-mono"
                                   />
                                 </div>
@@ -471,7 +541,11 @@ export default function KycBuilderPage() {
                                   <Label className="text-[11px]">Input Type</Label>
                                   <Select
                                     value={f.type}
-                                    onValueChange={(val) => updateInnerField(step.id, f.id, { type: val as KycFieldConfig['type'] })}
+                                    onValueChange={(val) =>
+                                      updateInnerField(step.id, f.id, {
+                                        type: val as KycFieldConfig['type'],
+                                      })
+                                    }
                                   >
                                     <SelectTrigger className="h-8 text-xs">
                                       <SelectValue />
@@ -494,7 +568,11 @@ export default function KycBuilderPage() {
                                   <input
                                     type="checkbox"
                                     checked={f.required}
-                                    onChange={(e) => updateInnerField(step.id, f.id, { required: e.target.checked })}
+                                    onChange={(e) =>
+                                      updateInnerField(step.id, f.id, {
+                                        required: e.target.checked,
+                                      })
+                                    }
                                     className="rounded border-input accent-primary focus:ring-ring"
                                   />
                                   <span>Required</span>
@@ -536,7 +614,9 @@ export default function KycBuilderPage() {
 
             <form onSubmit={handleAddStepSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label>Step Title <span className="text-destructive">*</span></Label>
+                <Label>
+                  Step Title <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   required
                   placeholder="e.g., Employment & Tax Declaration"
@@ -567,9 +647,7 @@ export default function KycBuilderPage() {
                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  Add Step
-                </Button>
+                <Button type="submit">Add Step</Button>
               </div>
             </form>
           </div>
