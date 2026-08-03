@@ -1,5 +1,10 @@
 'use client';
 
+// TWIN FILE — an identical copy lives at the same path in oxshare-crm-client.
+// Behaviour changes belong in BOTH. Anything app-specific (cookie names,
+// token lifetimes, redirect paths, endpoint patterns) goes in the config block
+// at the top of the file, never inline — that is what keeps a diff between the
+// two copies a signal rather than noise.
 import { Loader2 } from 'lucide-react';
 import { BackendPending } from '@/components/backend-pending';
 import type { ResourceStatus } from '@/hooks/use-resource';
@@ -22,7 +27,14 @@ export function AsyncBoundary({
   label: string;
   /** Endpoints named in the not-implemented-yet state. */
   endpoints: string[];
-  onRetry: () => void;
+  /**
+   * `unknown`, not `void`: callers pass React Query's `refetch`, which returns a
+   * promise this component deliberately does not await. Typing it `() => void`
+   * made every `onRetry={refetch}` a no-misused-promises error and invited a
+   * `void` at seven call sites to silence it. Ignoring the result is the real
+   * contract, so the type says so once, here.
+   */
+  onRetry: () => unknown;
   errorMessage?: string;
   children: React.ReactNode;
 }) {
@@ -39,7 +51,10 @@ export function AsyncBoundary({
 
   if (status === 'error') {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
+      <div
+        className="rounded-xl border border-border bg-card p-8 text-center space-y-3"
+        role="alert"
+      >
         <p className="text-sm text-muted-foreground">
           {errorMessage ?? 'Something went wrong loading this page.'}
         </p>

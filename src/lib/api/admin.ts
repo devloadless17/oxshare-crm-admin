@@ -3,8 +3,8 @@ import type { components } from './types.gen';
 
 // Types are ALIASES of the schemas generated from the backend's Swagger
 // (npm run gen:api-types, with the backend running). Never hand-write an
-// interface for an API response — regenerate instead; drift then becomes
-// a compile error (docs/API-CONTRACTS.md Part C).
+// interface for an API request OR response — regenerate instead; drift then
+// becomes a compile error (docs/API-CONTRACTS.md Part C).
 export type PermissionItem = components['schemas']['PermissionItemDto'];
 export type PermissionModule = components['schemas']['PermissionModuleDto'];
 export type Role = components['schemas']['RoleResponseDto'];
@@ -22,9 +22,17 @@ export type LedgerEntry = components['schemas']['LedgerEntryDto'];
 export type LedgerListResponse = components['schemas']['LedgerListResponseDto'];
 export type IbProgram = components['schemas']['IbProgramDto'];
 
+// Request bodies, aliased too. These were hand-written until the backend moved
+// its inline controller DTOs into dto/ files with @ApiProperty — before that they
+// generated as `Record<string, never>` and there was nothing to alias, so the
+// "never hand-write an interface" rule above only covered responses in practice.
+export type CreateRoleRequest = components['schemas']['RoleDto'];
+export type UpdateRoleRequest = components['schemas']['UpdateRoleDto'];
+export type UpdateAdminRequest = components['schemas']['UpdateAdminDto'];
+
 export const adminApi = {
   async getPermissions(): Promise<Record<string, PermissionModule>> {
-    const { data } = await apiClient.get('/admin/permissions');
+    const { data } = await apiClient.get<Record<string, PermissionModule>>('/admin/permissions');
     return data;
   },
 
@@ -33,12 +41,12 @@ export const adminApi = {
     return data;
   },
 
-  async createRole(dto: { name: string; description?: string; permissions: string[] }) {
+  async createRole(dto: CreateRoleRequest) {
     const { data } = await apiClient.post<Role>('/admin/roles', dto);
     return data;
   },
 
-  async updateRole(id: string, dto: { name?: string; description?: string; permissions?: string[] }) {
+  async updateRole(id: string, dto: UpdateRoleRequest) {
     const { data } = await apiClient.put<Role>(`/admin/roles/${id}`, dto);
     return data;
   },
@@ -53,13 +61,15 @@ export const adminApi = {
     return data;
   },
 
-  async updateAdminUser(id: string, dto: { name?: string; roleId?: string; permissions?: string[] }) {
+  async updateAdminUser(id: string, dto: UpdateAdminRequest) {
     const { data } = await apiClient.patch<AdminUser>(`/admin/users/${id}`, dto);
     return data;
   },
 
   async getRejectionReasons(context: 'kyc' | 'withdrawal'): Promise<RejectionReason[]> {
-    const { data } = await apiClient.get<RejectionReason[]>(`/admin/rejection-reasons?context=${context}`);
+    const { data } = await apiClient.get<RejectionReason[]>(
+      `/admin/rejection-reasons?context=${context}`,
+    );
     return data;
   },
 };
