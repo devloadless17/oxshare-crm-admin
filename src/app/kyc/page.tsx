@@ -5,7 +5,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { useAdmin } from '@/context/AdminAuthContext';
-import { isMasterAdmin } from '@/lib/permissions';
+import { hasPermission } from '@/lib/permissions';
 
 type KycStatus = 'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
 
@@ -102,7 +102,7 @@ export default function AdminKycPage() {
           <h1>KYC Submissions</h1>
           <p>{counts['all'] ?? 0} total submissions</p>
         </div>
-        {isMasterAdmin(admin) && (
+        {hasPermission(admin, 'users.create') && (
           <Link href="/invite" className="invite-btn">+ Invite Admin</Link>
         )}
       </div>

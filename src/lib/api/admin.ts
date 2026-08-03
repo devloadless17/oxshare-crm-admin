@@ -38,8 +38,18 @@ export const adminApi = {
     return data;
   },
 
+  async deleteRole(id: string) {
+    const { data } = await apiClient.delete<{ message: string }>(`/admin/roles/${id}`);
+    return data;
+  },
+
   async getAdminUsers(): Promise<AdminUser[]> {
     const { data } = await apiClient.get<AdminUser[]>('/admin/users');
+    return data;
+  },
+
+  async updateAdminUser(id: string, dto: { name?: string; roleId?: string; permissions?: string[] }) {
+    const { data } = await apiClient.patch<AdminUser>(`/admin/users/${id}`, dto);
     return data;
   },
 
