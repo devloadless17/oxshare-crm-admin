@@ -7,7 +7,13 @@ import type { LedgerEntry, LedgerListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 import { Pagination } from '@/components/pagination';
 
 // ADM-13: the ledger view, filterable for reconciliation.
@@ -145,7 +151,7 @@ export default function LedgerPage() {
             <SelectItem value="all">All Entry Types</SelectItem>
             {ENTRY_TYPES.map((t) => (
               <SelectItem key={t} value={t}>
-                {t[0].toUpperCase() + t.slice(1)}
+                {t.charAt(0).toUpperCase() + t.slice(1)}
               </SelectItem>
             ))}
           </SelectContent>

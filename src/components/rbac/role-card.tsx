@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { Pencil, ShieldCheck, Trash2 } from 'lucide-react';
 import type { Role } from '@/lib/api/admin';
 
@@ -36,7 +35,9 @@ export function RoleCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">{role.description || 'No description provided'}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {role.description || 'No description provided'}
+          </p>
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
@@ -71,7 +72,10 @@ export function RoleCard({
         </span>
         <div className="flex flex-wrap gap-1.5">
           {role.permissions.map((p) => (
-            <span key={p} className="rounded-md bg-muted px-2 py-1 text-[11px] font-mono text-foreground border border-border/80">
+            <span
+              key={p}
+              className="rounded-md bg-muted px-2 py-1 text-[11px] font-mono text-foreground border border-border/80"
+            >
               {p}
             </span>
           ))}

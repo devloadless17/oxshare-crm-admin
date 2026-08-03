@@ -7,11 +7,18 @@ import api from '@/lib/api';
 import type { ClientListResponse, ClientRow } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
-import { apiErrorMessage, useResource } from '@/hooks/use-resource';
+import { useResource } from '@/hooks/use-resource';
+import { apiErrorMessage } from '@/lib/api/errors';
 import { useDebounced } from '@/hooks/use-debounced';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 
 // ADM-01: filterable client list (no profile view this phase) + ADM-14 country/labels.
 // Filtering, sorting and pagination all happen in SQL — the list is indexed on
@@ -89,7 +96,13 @@ export default function ClientsPage() {
       cell: (c) => [c.firstName, c.lastName].filter(Boolean).join(' ') || '—',
       cellClassName: 'font-medium text-foreground',
     },
-    { header: 'Email', sortable: true, sortKey: 'email', cell: (c) => c.email, cellClassName: 'text-muted-foreground' },
+    {
+      header: 'Email',
+      sortable: true,
+      sortKey: 'email',
+      cell: (c) => c.email,
+      cellClassName: 'text-muted-foreground',
+    },
     { header: 'Type', sortable: true, sortKey: 'type', cell: (c) => TYPE_LABELS[c.type] ?? c.type },
     {
       header: 'Status',
@@ -115,7 +128,13 @@ export default function ClientsPage() {
         </span>
       ),
     },
-    { header: 'Country', sortable: true, sortKey: 'country', cell: (c) => c.country ?? '—', cellClassName: 'text-muted-foreground' },
+    {
+      header: 'Country',
+      sortable: true,
+      sortKey: 'country',
+      cell: (c) => c.country ?? '—',
+      cellClassName: 'text-muted-foreground',
+    },
     {
       header: 'Created',
       sortable: true,
@@ -139,7 +158,11 @@ export default function ClientsPage() {
                     : 'border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20'
                 }`}
               >
-                {actingId === c.id ? 'Saving…' : c.status === 'suspended' ? 'Reactivate' : 'Suspend'}
+                {actingId === c.id
+                  ? 'Saving…'
+                  : c.status === 'suspended'
+                    ? 'Reactivate'
+                    : 'Suspend'}
               </button>
             ),
           },

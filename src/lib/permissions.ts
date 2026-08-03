@@ -19,10 +19,7 @@ import type { AdminProfile } from '@/context/AdminAuthContext';
  * Matching is normalized (colons to dots, lowercase) exactly like the
  * backend's PermissionsGuard.
  */
-export type RouteRequirement =
-  | { permission: string }
-  | { masterOnly: true }
-  | null; // any authenticated admin
+export type RouteRequirement = { permission: string } | { masterOnly: true } | null; // any authenticated admin
 
 // Order matters: more specific prefixes first (matched with startsWith).
 const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement }> = [
@@ -61,7 +58,9 @@ export function hasPermission(admin: AdminProfile | null, key: string): boolean 
 
 export function canAccess(admin: AdminProfile | null, path: string): boolean {
   if (!admin) return false;
-  const match = ROUTE_REQUIREMENTS.find((r) => path === r.prefix || path.startsWith(r.prefix + '/'));
+  const match = ROUTE_REQUIREMENTS.find(
+    (r) => path === r.prefix || path.startsWith(r.prefix + '/'),
+  );
   if (!match || match.requirement === null) return true;
   if ('masterOnly' in match.requirement) return isMasterAdmin(admin);
   return hasPermission(admin, match.requirement.permission);

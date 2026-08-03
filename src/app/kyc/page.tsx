@@ -5,13 +5,12 @@ import Link from 'next/link';
 import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
-import { useAdmin } from '@/context/AdminAuthContext';
-import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 
-type KycStatus = 'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+type KycStatus =
+  'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
 
 interface KycRow {
   userId: string;
@@ -58,7 +57,6 @@ interface KycListResponse {
 }
 
 export default function AdminKycPage() {
-  const { admin } = useAdmin();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [filter, setFilter] = useState('');
@@ -194,7 +192,7 @@ export default function AdminKycPage() {
             >
               <span>{f.label}</span>
               <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
-                {f.value ? counts[f.value] ?? 0 : counts['all'] ?? 0}
+                {f.value ? (counts[f.value] ?? 0) : (counts['all'] ?? 0)}
               </span>
             </button>
           ))}

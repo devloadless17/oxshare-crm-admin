@@ -6,10 +6,17 @@ import { Building2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
-import { apiErrorMessage, useResource } from '@/hooks/use-resource';
+import { useResource } from '@/hooks/use-resource';
+import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 
 // ADM-11: partner / IB application management — full lifecycle, parent assignment.
 // IB-01: approval status gates the partner portal. Hierarchy is two levels max
@@ -104,7 +111,13 @@ export default function PartnersPage() {
       cell: (p) => (p.parentIb ? p.parentIb.name : <span className="text-xs">— (L1)</span>),
       cellClassName: 'text-muted-foreground',
     },
-    { header: 'Program', sortable: true, sortKey: 'program', cell: (p) => p.program ?? '—', cellClassName: 'text-muted-foreground' },
+    {
+      header: 'Program',
+      sortable: true,
+      sortKey: 'program',
+      cell: (p) => p.program ?? '—',
+      cellClassName: 'text-muted-foreground',
+    },
     {
       header: 'Referral Code',
       sortable: true,

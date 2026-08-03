@@ -1,5 +1,9 @@
 'use client';
 
+// NEAR-TWIN of the same path in oxshare-crm-client: same props, same four branches.
+// Excluded from scripts/check-twins.sh because the loading state uses a
+// different component in each app. Keep the props and the branch behaviour in
+// step by hand.
 import { Loader } from '@/components/ui/loader';
 import { BackendPending } from '@/components/backend-pending';
 import type { ResourceStatus } from '@/hooks/use-resource';
@@ -22,21 +26,29 @@ export function AsyncBoundary({
   label: string;
   /** Endpoints named in the not-implemented-yet state. */
   endpoints: string[];
-  onRetry: () => void;
+  /**
+   * `unknown`, not `void`: callers pass React Query's `refetch`, which returns a
+   * promise this component deliberately does not await. Typing it `() => void`
+   * makes every `onRetry={refetch}` a no-misused-promises error and invites a
+   * `void` at seven call sites to silence it. Ignoring the result is the real
+   * contract, so the type says so once, here.
+   */
+  onRetry: () => unknown;
   errorMessage?: string;
   children: React.ReactNode;
 }) {
   if (status === 'loading') {
-    return (
-      <Loader text={label} fullPage />
-    );
+    return <Loader text={label} fullPage />;
   }
 
   if (status === 'unavailable') return <BackendPending endpoints={endpoints} />;
 
   if (status === 'error') {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
+      <div
+        className="rounded-xl border border-border bg-card p-8 text-center space-y-3"
+        role="alert"
+      >
         <p className="text-sm text-muted-foreground">
           {errorMessage ?? 'Something went wrong loading this page.'}
         </p>

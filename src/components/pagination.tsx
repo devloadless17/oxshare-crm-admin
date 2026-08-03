@@ -1,14 +1,14 @@
 'use client';
 
-import * as React from 'react';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 
 export function Pagination({
   page,
@@ -63,13 +63,16 @@ export function Pagination({
         <span>
           Showing <strong className="font-semibold text-foreground">{startItem}</strong> to{' '}
           <strong className="font-semibold text-foreground">{endItem}</strong> of{' '}
-          <strong className="font-semibold text-foreground">{total}</strong> {total === 1 ? noun[0] : noun[1]}
+          <strong className="font-semibold text-foreground">{total}</strong>{' '}
+          {total === 1 ? noun[0] : noun[1]}
         </span>
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">Rows per page:</span>
           {(() => {
-            const sizeOptions = Array.from(new Set([10, 25, 50, 100, pageSize])).sort((a, b) => a - b);
+            const sizeOptions = Array.from(new Set([10, 25, 50, 100, pageSize])).sort(
+              (a, b) => a - b,
+            );
             return (
               <Select
                 value={String(pageSize)}

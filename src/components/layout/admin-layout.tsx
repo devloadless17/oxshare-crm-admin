@@ -119,7 +119,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             />
             {!collapsed && (
               <div className="flex flex-col">
-                <span suppressHydrationWarning className="text-sm font-semibold tracking-wider text-foreground">OXShare</span>
+                <span
+                  suppressHydrationWarning
+                  className="text-sm font-semibold tracking-wider text-foreground"
+                >
+                  OXShare
+                </span>
                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                   Admin Portal
                 </span>
@@ -154,66 +159,66 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               : section.items;
             if (visibleItems.length === 0) return null;
             return (
-            <div key={section.title} className="space-y-1">
-              {!collapsed && (
-                <h3 className="px-3 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
-                  {section.title}
-                </h3>
-              )}
-              {visibleItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+              <div key={section.title} className="space-y-1">
+                {!collapsed && (
+                  <h3 className="px-3 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+                    {section.title}
+                  </h3>
+                )}
+                {visibleItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
 
-                if (item.comingSoon) {
+                  if (item.comingSoon) {
+                    return (
+                      <div
+                        key={item.href}
+                        title={collapsed ? `${item.label} — coming soon` : undefined}
+                        aria-disabled="true"
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground/60 cursor-not-allowed select-none ${
+                          collapsed ? 'justify-center px-0' : ''
+                        }`}
+                      >
+                        <Icon className="h-5 w-5 shrink-0 text-muted-foreground/60" />
+                        {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                        {!collapsed && (
+                          <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                            Soon
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div
+                    <Link
                       key={item.href}
-                      title={collapsed ? `${item.label} — coming soon` : undefined}
-                      aria-disabled="true"
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground/60 cursor-not-allowed select-none ${
-                        collapsed ? 'justify-center px-0' : ''
-                      }`}
+                      href={item.href}
+                      onClick={closeMobile}
+                      title={collapsed ? item.label : undefined}
+                      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium focus-outline ${
+                        isActive
+                          ? 'bg-primary/10 font-semibold text-link'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      } ${collapsed ? 'justify-center px-0' : ''}`}
                     >
-                      <Icon className="h-5 w-5 shrink-0 text-muted-foreground/60" />
+                      <Icon
+                        className={`h-5 w-5 shrink-0 transition-transform group-hover:scale-110 ${
+                          isActive
+                            ? 'text-link'
+                            : 'text-muted-foreground group-hover:text-foreground'
+                        }`}
+                      />
                       {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-                      {!collapsed && (
-                        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                          Soon
+                      {!collapsed && item.badge && (
+                        <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-link">
+                          {item.badge}
                         </span>
                       )}
-                    </div>
+                    </Link>
                   );
-                }
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={closeMobile}
-                    title={collapsed ? item.label : undefined}
-                    className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium focus-outline ${
-                      isActive
-                        ? 'bg-primary/10 font-semibold text-link'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    } ${collapsed ? 'justify-center px-0' : ''}`}
-                  >
-                    <Icon
-                      className={`h-5 w-5 shrink-0 transition-transform group-hover:scale-110 ${
-                        isActive ? 'text-link' : 'text-muted-foreground group-hover:text-foreground'
-                      }`}
-                    />
-                    {!collapsed && (
-                      <span className="flex-1 truncate">{item.label}</span>
-                    )}
-                    {!collapsed && item.badge && (
-                      <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-link">
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
+                })}
+              </div>
             );
           })}
         </nav>
@@ -226,13 +231,15 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             }`}
           >
             <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-sm">
-              {admin?.name ? admin.name[0].toUpperCase() : 'A'}
+              {admin?.name ? admin.name.charAt(0).toUpperCase() : 'A'}
               <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-card" />
             </div>
 
             {!collapsed && (
               <div className="flex-1 overflow-hidden">
-                <p className="truncate text-xs font-semibold text-foreground">{admin?.name || 'Admin'}</p>
+                <p className="truncate text-xs font-semibold text-foreground">
+                  {admin?.name || 'Admin'}
+                </p>
                 <p className="truncate text-[11px] text-muted-foreground">{admin?.email || ''}</p>
               </div>
             )}
@@ -240,7 +247,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             {!collapsed && (
               <button
                 type="button"
-                onClick={logout}
+                onClick={() => void logout()}
                 title="Logout"
                 className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-outline"
               >
@@ -306,13 +313,20 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         {/* Page Content Container — uniform small padding, edge-to-edge layout for all admin pages */}
         <main className="flex-1 p-4 md:p-5 overflow-y-auto w-full max-w-full">
           {admin && !canAccess(admin, pathname ?? '') ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center gap-3" role="alert">
+            <div
+              className="flex flex-col items-center justify-center py-24 text-center gap-3"
+              role="alert"
+            >
               <Shield className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
               <h2 className="text-lg font-bold text-foreground">Access denied</h2>
               <p className="text-sm text-muted-foreground max-w-sm">
-                Your role does not include access to this section. Ask a master admin if you need it.
+                Your role does not include access to this section. Ask a master admin if you need
+                it.
               </p>
-              <Link href="/dashboard" className="text-sm font-semibold text-link hover:underline focus-outline rounded-sm">
+              <Link
+                href="/dashboard"
+                className="text-sm font-semibold text-link hover:underline focus-outline rounded-sm"
+              >
                 Back to dashboard
               </Link>
             </div>

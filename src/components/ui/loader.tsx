@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { Loader2 } from 'lucide-react';
 
 export interface LoaderProps {
@@ -14,13 +13,6 @@ export interface LoaderProps {
   className?: string;
 }
 
-const sizeClasses = {
-  sm: 'h-4 w-4 border-2',
-  md: 'h-6 w-6 border-2',
-  lg: 'h-10 w-10 border-3',
-  xl: 'h-14 w-14 border-4',
-};
-
 const iconSizes = {
   sm: 'h-4 w-4',
   md: 'h-6 w-6',
@@ -28,12 +20,7 @@ const iconSizes = {
   xl: 'h-14 w-14',
 };
 
-export function Loader({
-  size = 'md',
-  text,
-  fullPage = false,
-  className = '',
-}: LoaderProps) {
+export function Loader({ size = 'md', text, fullPage = false, className = '' }: LoaderProps) {
   const content = (
     <div className={`flex flex-col items-center justify-center gap-3 text-center ${className}`}>
       <div className="relative flex items-center justify-center">

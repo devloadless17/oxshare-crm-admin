@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import type { Role } from '@/lib/api/admin';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -19,7 +25,8 @@ export default function InviteAdminPage() {
   // RBAC-07: the master admin assigns the role at invite time. If the roles
   // endpoint is unavailable the selector hides and the backend default applies.
   useEffect(() => {
-    api.admin.getRoles()
+    api.admin
+      .getRoles()
       .then((r) => setRoles(r.filter((role) => !role.isSystem)))
       .catch(() => setRoles([]));
   }, []);
@@ -28,11 +35,22 @@ export default function InviteAdminPage() {
     e.preventDefault();
     const name = form.name.trim();
     const email = form.email.trim().toLowerCase();
-    if (!email || !name) { setError('Both fields are required.'); return; }
-    if (!EMAIL_RE.test(email)) { setError('Enter a valid email address.'); return; }
-    setError(''); setLoading(true);
+    if (!email || !name) {
+      setError('Both fields are required.');
+      return;
+    }
+    if (!EMAIL_RE.test(email)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    setError('');
+    setLoading(true);
     try {
-      const r = await api.post('/admin/invite', { name, email, roleId: roleId || undefined });
+      const r = await api.post<{ inviteUrl?: string; message?: string }>('/admin/invite', {
+        name,
+        email,
+        roleId: roleId || undefined,
+      });
       setResult(r.data);
       setCopied(false);
       setForm({ email: '', name: '' });
@@ -61,21 +79,40 @@ export default function InviteAdminPage() {
       <div className="invite-card">
         <div className="invite-icon">✉️</div>
         <h2>Invite Admin</h2>
-        <p>Invite a new admin: they receive an activation email, and you also get the link to share manually if needed. Invites expire after 48 hours.</p>
+        <p>
+          Invite a new admin: they receive an activation email, and you also get the link to share
+          manually if needed. Invites expire after 48 hours.
+        </p>
 
         {result ? (
           <div className="result-box" aria-live="polite">
             <div className="result-success">✓ Invite created!</div>
-            <p className="result-note">Invitation email sent. You can also share the link directly:</p>
+            <p className="result-note">
+              Invitation email sent. You can also share the link directly:
+            </p>
             <div className="invite-link-box">
               <code>{result.inviteUrl}</code>
-              <button className="copy-btn" onClick={copyLink}>{copied ? '✓ Copied' : 'Copy'}</button>
+              <button className="copy-btn" onClick={() => void copyLink()}>
+                {copied ? '✓ Copied' : 'Copy'}
+              </button>
             </div>
-            {error && <div className="error-msg" role="alert">{error}</div>}
-            <button className="btn-another" onClick={() => { setResult(null); setError(''); }}>Send another invite</button>
+            {error && (
+              <div className="error-msg" role="alert">
+                {error}
+              </div>
+            )}
+            <button
+              className="btn-another"
+              onClick={() => {
+                setResult(null);
+                setError('');
+              }}
+            >
+              Send another invite
+            </button>
           </div>
         ) : (
-          <form className="invite-form" onSubmit={submit}>
+          <form className="invite-form" onSubmit={(e) => void submit(e)}>
             <div className="form-group">
               <label htmlFor="invite-name">Full Name</label>
               <input
@@ -84,7 +121,10 @@ export default function InviteAdminPage() {
                 placeholder="Jane Smith"
                 autoComplete="off"
                 value={form.name}
-                onChange={(e) => { setError(''); setForm((f) => ({ ...f, name: e.target.value })); }}
+                onChange={(e) => {
+                  setError('');
+                  setForm((f) => ({ ...f, name: e.target.value }));
+                }}
               />
             </div>
             <div className="form-group">
@@ -96,7 +136,10 @@ export default function InviteAdminPage() {
                 placeholder="jane@oxshare.com"
                 autoComplete="off"
                 value={form.email}
-                onChange={(e) => { setError(''); setForm((f) => ({ ...f, email: e.target.value })); }}
+                onChange={(e) => {
+                  setError('');
+                  setForm((f) => ({ ...f, email: e.target.value }));
+                }}
               />
             </div>
             {roles.length > 0 && (
@@ -113,14 +156,19 @@ export default function InviteAdminPage() {
                     <SelectItem value="default">Default (KYC review + client list)</SelectItem>
                     {roles.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
-                        {r.name} ({r.permissions.length} permission{r.permissions.length === 1 ? '' : 's'})
+                        {r.name} ({r.permissions.length} permission
+                        {r.permissions.length === 1 ? '' : 's'})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             )}
-            {error && <div className="error-msg" role="alert">{error}</div>}
+            {error && (
+              <div className="error-msg" role="alert">
+                {error}
+              </div>
+            )}
             <button className="submit-btn" type="submit" disabled={loading} aria-busy={loading}>
               {loading ? 'Creating invite...' : '📨 Create Invite'}
             </button>
@@ -129,47 +177,159 @@ export default function InviteAdminPage() {
       </div>
 
       <style jsx>{`
-        .invite-wrap { min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 32px; }
+        .invite-wrap {
+          min-height: 80vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+        }
         .invite-card {
-          background: var(--card); border: 1px solid var(--input);
-          border-radius: 24px; padding: 48px 40px; max-width: 480px; width: 100%; text-align: center;
+          background: var(--card);
+          border: 1px solid var(--input);
+          border-radius: 24px;
+          padding: 48px 40px;
+          max-width: 480px;
+          width: 100%;
+          text-align: center;
         }
-        .invite-icon { font-size: 3rem; margin-bottom: 20px; }
-        h2 { font-size: 1.5rem; font-weight: 700; color: var(--foreground); margin-bottom: 10px; }
-        p { color: var(--muted-foreground); font-size: 0.9rem; line-height: 1.6; margin-bottom: 28px; }
+        .invite-icon {
+          font-size: 3rem;
+          margin-bottom: 20px;
+        }
+        h2 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--foreground);
+          margin-bottom: 10px;
+        }
+        p {
+          color: var(--muted-foreground);
+          font-size: 0.9rem;
+          line-height: 1.6;
+          margin-bottom: 28px;
+        }
 
-        .invite-form { text-align: left; }
-        .form-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
-        label { font-size: 0.82rem; font-weight: 500; color: var(--muted-foreground); }
+        .invite-form {
+          text-align: left;
+        }
+        .form-group {
+          margin-bottom: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        label {
+          font-size: 0.82rem;
+          font-weight: 500;
+          color: var(--muted-foreground);
+        }
         .form-input {
-          background: var(--background); border: 1px solid var(--input);
-          border-radius: 10px; padding: 12px 16px; color: var(--foreground); font-size: 0.93rem; outline: none; width: 100%;
+          background: var(--background);
+          border: 1px solid var(--input);
+          border-radius: 10px;
+          padding: 12px 16px;
+          color: var(--foreground);
+          font-size: 0.93rem;
+          outline: none;
+          width: 100%;
         }
-        .form-input:focus { border-color: var(--ring); }
-        .form-input::placeholder { color: var(--muted-foreground); }
-        .submit-btn:focus-visible, .copy-btn:focus-visible, .btn-another:focus-visible, .invite-link-box button:focus-visible {
-          outline: 2px solid var(--ring); outline-offset: 2px;
+        .form-input:focus {
+          border-color: var(--ring);
         }
-        .error-msg { background: color-mix(in srgb, var(--destructive) 10%, transparent); border: 1px solid color-mix(in srgb, var(--destructive) 25%, transparent); border-radius: 10px; padding: 10px 14px; color: var(--destructive); font-size: 0.83rem; margin-bottom: 14px; }
+        .form-input::placeholder {
+          color: var(--muted-foreground);
+        }
+        .submit-btn:focus-visible,
+        .copy-btn:focus-visible,
+        .btn-another:focus-visible,
+        .invite-link-box button:focus-visible {
+          outline: 2px solid var(--ring);
+          outline-offset: 2px;
+        }
+        .error-msg {
+          background: color-mix(in srgb, var(--destructive) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--destructive) 25%, transparent);
+          border-radius: 10px;
+          padding: 10px 14px;
+          color: var(--destructive);
+          font-size: 0.83rem;
+          margin-bottom: 14px;
+        }
         .submit-btn {
-          width: 100%; background: var(--primary);
-          color: var(--primary-foreground); border: none; border-radius: 50px; padding: 14px;
-          font-size: 0.95rem; font-weight: 700; cursor: pointer;
+          width: 100%;
+          background: var(--primary);
+          color: var(--primary-foreground);
+          border: none;
+          border-radius: 50px;
+          padding: 14px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          cursor: pointer;
         }
-        .submit-btn:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 35%, transparent); }
-        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .submit-btn:hover {
+          background: var(--primary-hover);
+          transform: translateY(-1px);
+          box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 35%, transparent);
+        }
+        .submit-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+        }
 
-        .result-box { text-align: left; }
-        .result-success { color: var(--success); font-weight: 700; font-size: 1rem; margin-bottom: 12px; text-align: center; }
-        .result-note { font-size: 0.85rem; color: var(--muted-foreground); margin-bottom: 12px !important; }
-        .invite-link-box {
-          background: var(--muted); border: 1px solid var(--input);
-          border-radius: 10px; padding: 12px 16px; display: flex; align-items: center;
-          gap: 12px; margin-bottom: 20px; word-break: break-all;
+        .result-box {
+          text-align: left;
         }
-        .invite-link-box code { flex: 1; color: var(--link); font-size: 0.78rem; }
-        .copy-btn { background: var(--muted); color: var(--link); border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
-        .btn-another { width: 100%; background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--input); border-radius: 50px; padding: 12px; font-size: 0.9rem; cursor: pointer; }
+        .result-success {
+          color: var(--success);
+          font-weight: 700;
+          font-size: 1rem;
+          margin-bottom: 12px;
+          text-align: center;
+        }
+        .result-note {
+          font-size: 0.85rem;
+          color: var(--muted-foreground);
+          margin-bottom: 12px !important;
+        }
+        .invite-link-box {
+          background: var(--muted);
+          border: 1px solid var(--input);
+          border-radius: 10px;
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 20px;
+          word-break: break-all;
+        }
+        .invite-link-box code {
+          flex: 1;
+          color: var(--link);
+          font-size: 0.78rem;
+        }
+        .copy-btn {
+          background: var(--muted);
+          color: var(--link);
+          border: none;
+          border-radius: 8px;
+          padding: 6px 14px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .btn-another {
+          width: 100%;
+          background: var(--muted);
+          color: var(--muted-foreground);
+          border: 1px solid var(--input);
+          border-radius: 50px;
+          padding: 12px;
+          font-size: 0.9rem;
+          cursor: pointer;
+        }
       `}</style>
     </div>
   );

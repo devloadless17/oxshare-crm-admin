@@ -7,11 +7,17 @@ import api from '@/lib/api';
 import type { RejectionReason, WithdrawalListResponse, WithdrawalRow } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
-import { apiErrorMessage, useResource } from '@/hooks/use-resource';
+import { useResource } from '@/hooks/use-resource';
+import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Pagination } from '@/components/pagination';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 
 // ADM-03 / §8.4 withdrawal review.
@@ -25,7 +31,10 @@ const STATE_META: Record<string, { label: string; classes: string }> = {
   pending: { label: 'Pending', classes: 'bg-warning/10 text-warning border-warning/20' },
   approved: { label: 'Approved', classes: 'bg-info/10 text-info border-info/20' },
   success: { label: 'Paid', classes: 'bg-success/10 text-success border-success/20' },
-  rejected: { label: 'Rejected', classes: 'bg-destructive/10 text-destructive border-destructive/20' },
+  rejected: {
+    label: 'Rejected',
+    classes: 'bg-destructive/10 text-destructive border-destructive/20',
+  },
   failure: { label: 'Failed', classes: 'bg-destructive/10 text-destructive border-destructive/20' },
 };
 
@@ -306,7 +315,9 @@ export default function WithdrawalsPage() {
                 }`}
               >
                 {f.label}
-                <span className="ml-1.5 opacity-70">{f.value ? (counts[f.value] ?? 0) : total}</span>
+                <span className="ml-1.5 opacity-70">
+                  {f.value ? (counts[f.value] ?? 0) : total}
+                </span>
               </button>
             ))}
           </div>
@@ -388,13 +399,8 @@ export default function WithdrawalsPage() {
       >
         {reasons.length > 0 && (
           <div>
-            <label className="text-xs font-semibold">
-              Rejection Reason
-            </label>
-            <Select
-              value={reasonId}
-              onValueChange={(val) => setReasonId(val)}
-            >
+            <label className="text-xs font-semibold">Rejection Reason</label>
+            <Select value={reasonId} onValueChange={(val) => setReasonId(val)}>
               <SelectTrigger className="mt-1 h-9 w-full">
                 <SelectValue placeholder="Select a reason…" />
               </SelectTrigger>

@@ -39,10 +39,11 @@ export function useFocusTrap(
       const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
         (el) => el.offsetParent !== null,
       );
-      if (focusable.length === 0) return;
-
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      // Replaces a bare `length === 0` check: this also narrows both reads, so
+      // the two .focus() calls below need no assertion.
+      if (!first || !last) return;
       const active = document.activeElement;
 
       if (event.shiftKey && (active === first || !panel.contains(active))) {

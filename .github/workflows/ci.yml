@@ -24,6 +24,12 @@ jobs:
       - name: Type-check
         run: npm run type-check
 
+      # Formatting is a gate, not a preference: the two frontends keep several
+      # deliberately identical "twin" files, and unformatted code makes a real
+      # behavioural diff between them impossible to spot.
+      - name: Format check
+        run: npm run format:check
+
       # No continue-on-error: the audit found the backend's lint step green by
       # construction because ESLint had no config and exited early. A gate that
       # cannot fail is not a gate.

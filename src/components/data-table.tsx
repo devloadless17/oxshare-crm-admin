@@ -5,8 +5,6 @@ import { type ReactNode } from 'react';
 import {
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
   ChevronsUpDown,
   CheckSquare,
   Square,
@@ -124,9 +122,12 @@ export function DataTable<T>({
   // Client-side sorting fallback if uncontrolled
   const sortedRows = React.useMemo(() => {
     if (!sortCol || onSortChange) return rows;
-    return [...rows].sort((a: any, b: any) => {
-      const valA = a[sortCol] ?? '';
-      const valB = b[sortCol] ?? '';
+    return [...rows].sort((a: T, b: T) => {
+      // sortCol is a runtime column key, so the read is indexed rather than typed.
+      // Narrowing to Record<string, unknown> keeps that honest without `any`,
+      // which would switch off checking for the whole comparator.
+      const valA = (a as Record<string, unknown>)[sortCol] ?? '';
+      const valB = (b as Record<string, unknown>)[sortCol] ?? '';
       if (valA < valB) return sortDir === 'asc' ? -1 : 1;
       if (valA > valB) return sortDir === 'asc' ? 1 : -1;
       return 0;
@@ -240,7 +241,11 @@ export function DataTable<T>({
                     key={idx}
                     scope="col"
                     className={`px-4 py-3 font-semibold ${
-                      c.align === 'right' ? 'text-right' : c.align === 'center' ? 'text-center' : 'text-left'
+                      c.align === 'right'
+                        ? 'text-right'
+                        : c.align === 'center'
+                          ? 'text-center'
+                          : 'text-left'
                     } ${c.headerClassName ?? ''}`}
                   >
                     {isSortable && sortKey ? (
@@ -279,9 +284,7 @@ export function DataTable<T>({
                 <React.Fragment key={key}>
                   <tr
                     className={`group transition-colors ${
-                      isSelected
-                        ? 'bg-primary/5 hover:bg-primary/10'
-                        : 'hover:bg-muted/40'
+                      isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/40'
                     }`}
                   >
                     {/* Expand Toggle Cell */}
@@ -327,8 +330,8 @@ export function DataTable<T>({
                           c.align === 'right'
                             ? 'text-right'
                             : c.align === 'center'
-                            ? 'text-center'
-                            : 'text-left'
+                              ? 'text-center'
+                              : 'text-left'
                         } ${c.cellClassName ?? ''}`}
                       >
                         {c.cell(row)}

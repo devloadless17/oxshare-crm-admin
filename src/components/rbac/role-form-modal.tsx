@@ -40,9 +40,7 @@ export function RoleFormModal({
   const [permissions, setPermissions] = React.useState<string[]>(initial?.permissions ?? []);
 
   const toggle = (key: string) =>
-    setPermissions((prev) =>
-      prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key],
-    );
+    setPermissions((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +70,9 @@ export function RoleFormModal({
         <form onSubmit={handleSubmit} className="space-y-5 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="font-semibold" htmlFor="role-name">Role Name</label>
+              <label className="font-semibold" htmlFor="role-name">
+                Role Name
+              </label>
               <input
                 id="role-name"
                 type="text"
@@ -84,7 +84,9 @@ export function RoleFormModal({
               />
             </div>
             <div>
-              <label className="font-semibold" htmlFor="role-description">Description</label>
+              <label className="font-semibold" htmlFor="role-description">
+                Description
+              </label>
               <input
                 id="role-description"
                 type="text"
@@ -99,12 +101,16 @@ export function RoleFormModal({
           {/* Per-action checkbox matrix from the backend catalog */}
           <div className="space-y-4 pt-2">
             <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">
-              Permission Matrix ({permissions.length} action{permissions.length === 1 ? '' : 's'} granted)
+              Permission Matrix ({permissions.length} action{permissions.length === 1 ? '' : 's'}{' '}
+              granted)
             </h4>
 
             <div className="space-y-4">
               {Object.entries(catalog).map(([modKey, mod]) => (
-                <div key={modKey} className="rounded-lg border border-border bg-muted/20 p-4 space-y-2">
+                <div
+                  key={modKey}
+                  className="rounded-lg border border-border bg-muted/20 p-4 space-y-2"
+                >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-foreground text-xs">{mod.moduleName}</span>
                     <span className="text-[11px] text-muted-foreground">{mod.description}</span>
@@ -131,7 +137,9 @@ export function RoleFormModal({
                             <Square className="h-4 w-4 shrink-0" />
                           )}
                           <div>
-                            <p className="font-semibold text-[11px] leading-tight text-foreground">{p.label}</p>
+                            <p className="font-semibold text-[11px] leading-tight text-foreground">
+                              {p.label}
+                            </p>
                             <p className="font-mono text-[10px] text-muted-foreground">{p.key}</p>
                           </div>
                         </button>
@@ -144,7 +152,10 @@ export function RoleFormModal({
           </div>
 
           {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
+            <div
+              className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+              role="alert"
+            >
               {error}
             </div>
           )}

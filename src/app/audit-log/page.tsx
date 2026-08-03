@@ -7,14 +7,20 @@ import type { AuditEntry, AuditListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 import { Pagination } from '@/components/pagination';
 
 // D-21: append-only admin action log. Read-only view — there is deliberately
 // no edit or delete anywhere in this flow.
 const PAGE_SIZE = 25;
 
-const ACTIONS = [
+const ACTIONS: readonly (readonly [string, string])[] = [
   ['kyc.approve', 'KYC Approve'],
   ['kyc.reject', 'KYC Reject'],
   ['kyc.claim', 'KYC Claim'],
