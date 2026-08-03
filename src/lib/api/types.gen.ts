@@ -856,6 +856,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/commission-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** IB programs / commission plans, ordered by ladder position */
+        get: operations["AdminController_listPrograms"];
+        put?: never;
+        /** Create a commission plan (validated: shares ≤ 100%, mode/value coherence) */
+        post: operations["AdminController_createProgram"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/commission-plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a commission plan — audited with before/after values */
+        put: operations["AdminController_updateProgram"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/commission-plans/{id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Activate or deactivate a plan — plans are never deleted, accruals reference them */
+        patch: operations["AdminController_setProgramActive"];
+        trace?: never;
+    };
     "/admin/permissions": {
         parameters: {
             query?: never;
@@ -1242,6 +1294,36 @@ export interface components {
             page: number;
             limit: number;
         };
+        IbProgramDto: {
+            id: string;
+            name: string;
+            description?: string | null;
+            position: number;
+            /** @enum {string} */
+            mode: "commission" | "rebate" | "hybrid";
+            /** @enum {string} */
+            method: "spread_share" | "per_lot" | "fixed_per_deal";
+            /** @description Percentage or money depending on method — always a string */
+            commissionValue: string;
+            /** @description Client rebate value — always a string */
+            rebateValue: string;
+            /** @description L1 share of the commission pool, percent as a string */
+            l1Share: string;
+            /** @description L2 share of the commission pool, percent as a string */
+            l2Share: string;
+            /** @description Hours accruals wait before confirming (§12.6) */
+            settlementWindowHours: number;
+            /** @description Credit the client rebate on deal close instead of after the window (§12.8) */
+            rebateOnClose: boolean;
+            selectable: boolean;
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ProgramDto: Record<string, never>;
+        ProgramActiveDto: Record<string, never>;
         RoleResponseDto: {
             id: string;
             name: string;
@@ -2314,6 +2396,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LedgerListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminController_listPrograms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"][];
+                };
+            };
+        };
+    };
+    AdminController_createProgram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"];
+                };
+            };
+        };
+    };
+    AdminController_updateProgram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"];
+                };
+            };
+        };
+    };
+    AdminController_setProgramActive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramActiveDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"];
                 };
             };
         };

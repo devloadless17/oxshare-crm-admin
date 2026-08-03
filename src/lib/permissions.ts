@@ -30,7 +30,7 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/trading-accounts', requirement: { permission: 'trading.view' } },
   { prefix: '/payouts', requirement: { permission: 'payouts.review' } },
   { prefix: '/ledger', requirement: { permission: 'ledger.view' } },
-  { prefix: '/commission-plans', requirement: { permission: 'commissions.manage' } },
+  { prefix: '/commission-plans', requirement: { permission: 'commissions.view' } },
   { prefix: '/roles', requirement: { permission: 'roles.view' } },
   { prefix: '/settings', requirement: { permission: 'users.view' } },
   { prefix: '/admin-users', requirement: { permission: 'users.view' } },

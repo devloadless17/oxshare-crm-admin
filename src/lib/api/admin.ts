@@ -20,6 +20,7 @@ export type WithdrawalRow = components['schemas']['WithdrawalRowDto'];
 export type WithdrawalListResponse = components['schemas']['WithdrawalListResponseDto'];
 export type LedgerEntry = components['schemas']['LedgerEntryDto'];
 export type LedgerListResponse = components['schemas']['LedgerListResponseDto'];
+export type IbProgram = components['schemas']['IbProgramDto'];
 
 export const adminApi = {
   async getPermissions(): Promise<Record<string, PermissionModule>> {

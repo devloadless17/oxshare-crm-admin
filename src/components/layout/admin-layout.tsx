@@ -60,7 +60,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
       { label: 'Payouts', href: '/payouts', icon: Wallet, comingSoon: true },
       { label: 'Ledger', href: '/ledger', icon: Receipt },
-      { label: 'Commission Plans', href: '/commission-plans', icon: Percent, comingSoon: true },
+      { label: 'Commission Plans', href: '/commission-plans', icon: Percent },
     ],
   },
   {
