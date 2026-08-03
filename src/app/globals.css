@@ -3,7 +3,28 @@
 /* next-themes toggles a .dark class; without this, dark:* utilities follow the OS instead */
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
+/* ---------------------------------------------------------------------------
+ * OXShare theme system
+ *
+ * Two layers:
+ *   1. Primitives (--ox-*): the raw brand palette. Never referenced by
+ *      components — only by the semantic layer below.
+ *   2. Semantic tokens (--background, --primary, ...): what components use,
+ *      via the Tailwind utilities mapped in @theme. Light values live on
+ *      :root, dark overrides on .dark — changing a colour means editing
+ *      exactly one place in this file.
+ *
+ * Contrast rules (do not "fix" these to white-on-amber):
+ *   - #FFA800 is a light amber. White text on it is 1.9:1 and illegible;
+ *     amber fills always carry near-black text (--primary-foreground).
+ *   - Amber as *text* on a light surface also fails, so links/focus use a
+ *     deep amber (#B45309, 5.0:1 AA) in light mode and the bright amber
+ *     only on dark surfaces, where it reads at 9.8:1.
+ *   - The logo's orange (#FF6600) is NOT the UI accent. It exists only for
+ *     the brand mark (--brand).
+ * ------------------------------------------------------------------------- */
+
+@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -11,6 +32,7 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -20,66 +42,177 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-link: var(--link);
+  --color-brand: var(--brand);
+
+  /* Crisp, dense radii — panels never go rounder than 10px */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.625rem;
+}
+
+:root {
+  color-scheme: light;
+
+  /* primitives */
+  --ox-amber: #ffa800; /* UI accent (fill) */
+  --ox-amber-deep: #b45309; /* accent as text / focus on light surfaces */
+  --ox-orange: #ff6600; /* logo mark only */
+  --ox-ink: #1a0f05; /* text on amber fills */
+
+  /* surfaces — elevation is a step up this ladder, not a shadow */
+  --background: #f0f0f0;
+  --foreground: #1a1a1e;
+  --card: #ffffff;
+  --card-foreground: #1a1a1e;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1e;
+
+  /* brand accent */
+  --primary: var(--ox-amber);
+  --primary-hover: #e89600;
+  --primary-foreground: var(--ox-ink);
+  --link: var(--ox-amber-deep);
+  --ring: var(--ox-amber-deep);
+  --brand: var(--ox-orange);
+
+  /* supporting */
+  --secondary: #f8f8f8;
+  --secondary-foreground: #1a1a1e;
+  --muted: #ececec;
+  /* 4.5:1+ even on the darkest light-mode surface (--muted) */
+  --muted-foreground: #616167;
+  --accent: #fff3dc; /* soft amber tint: hover / selected rows */
+  --accent-foreground: #1a1a1e;
+  --border: #e2e2e2;
+  --input: #cacaca;
+
+  /* state */
+  --destructive: #d92d20;
+  --destructive-foreground: #ffffff;
+  /* deep enough that text-success clears AA (4.5:1) on white/tinted badges */
+  --success: #047857;
+  --success-foreground: #ffffff;
+  --warning: #b54708;
+  --warning-foreground: #ffffff;
+  --info: #175cd3;
+  --info-foreground: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #121214;
+  --foreground: #f4f4f6;
+  --card: #1c1c1f;
+  --card-foreground: #f4f4f6;
+  --popover: #26262a;
+  --popover-foreground: #f4f4f6;
+
+  --primary: var(--ox-amber);
+  --primary-hover: #ffb933;
+  --primary-foreground: var(--ox-ink);
+  --link: var(--ox-amber); /* on dark, the amber itself clears AA as text */
+  --ring: var(--ox-amber);
+  --brand: var(--ox-orange);
+
+  --secondary: #26262a;
+  --secondary-foreground: #f4f4f6;
+  --muted: #202024;
+  --muted-foreground: #a0a0a8;
+  --accent: #2e2715; /* amber tint over the dark surface */
+  --accent-foreground: #f4f4f6;
+  --border: #2d2d32;
+  --input: #3e3e44;
+
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+  --success: #2ed47a;
+  --success-foreground: #04220f;
+  --warning: #f5a524;
+  --warning-foreground: #1a0f05;
+  --info: #5b9dff;
+  --info-foreground: #071a38;
 }
 
 @layer base {
   * {
     border-color: var(--border);
   }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--primary) 28%, transparent);
+    color: var(--foreground);
+  }
+
+  /* Every interactive element eases its color changes — hover, focus and
+     theme switches feel soft by default, without per-component wiring.
+     Layout properties are deliberately excluded: only paint transitions. */
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"] {
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      opacity 150ms ease,
+      transform 150ms ease;
+  }
+
+  /* Soft pressed feedback on real buttons */
+  button:active:not(:disabled),
+  [role="button"]:active:not([aria-disabled="true"]) {
+    transform: scale(0.985);
+  }
+
+  /* Smooth page-level scrolling and anchor jumps */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  :focus-visible {
+    outline: none;
+  }
 }
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #1e3a8a;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #cbd5e1;
-  --ring: #2563eb;
-}
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 
-.dark {
-  --background: #070a12;
-  --foreground: #f8fafc;
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #162032;
-  --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
-  --destructive: #991b1b;
-  --destructive-foreground: #ffffff;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #3b82f6;
-}
-
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  /* Hard, instant, high-contrast focus indicator */
+  .focus-outline:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
 /* Custom Scrollbars */
@@ -91,9 +224,20 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
+  background: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
+  background: color-mix(in srgb, var(--muted-foreground) 50%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

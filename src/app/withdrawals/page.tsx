@@ -29,10 +29,10 @@ interface RejectionReason {
 type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
 
 const STATUS_META: Record<WithdrawalRow['status'], { label: string; classes: string }> = {
-  pending: { label: 'Pending', classes: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
-  approved: { label: 'Approved', classes: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
-  rejected: { label: 'Rejected', classes: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' },
-  paid: { label: 'Paid', classes: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+  pending: { label: 'Pending', classes: 'bg-warning/10 text-warning border-warning/20' },
+  approved: { label: 'Approved', classes: 'bg-info/10 text-info border-info/20' },
+  rejected: { label: 'Rejected', classes: 'bg-destructive/10 text-destructive border-destructive/20' },
+  paid: { label: 'Paid', classes: 'bg-success/10 text-success border-success/20' },
 };
 
 export default function WithdrawalsPage() {
@@ -129,7 +129,7 @@ export default function WithdrawalsPage() {
               <p className="text-xs text-muted-foreground font-medium">Pending Requests</p>
               <p className="text-2xl font-bold mt-1">{pendingCount}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10 text-warning">
               <Clock className="h-5 w-5" aria-hidden="true" />
             </div>
           </div>
@@ -138,7 +138,7 @@ export default function WithdrawalsPage() {
               <p className="text-xs text-muted-foreground font-medium">Approved / Paid</p>
               <p className="text-2xl font-bold mt-1">{paidCount}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 text-success">
               <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
             </div>
           </div>
@@ -147,7 +147,7 @@ export default function WithdrawalsPage() {
               <p className="text-xs text-muted-foreground font-medium">Rejected</p>
               <p className="text-2xl font-bold mt-1">{rejectedCount}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
               <XCircle className="h-5 w-5" aria-hidden="true" />
             </div>
           </div>
@@ -168,13 +168,13 @@ export default function WithdrawalsPage() {
             <option value="rejected">Rejected</option>
             <option value="paid">Paid</option>
           </select>
-          {actionError && <p className="text-xs font-semibold text-rose-500" role="alert">{actionError}</p>}
+          {actionError && <p className="text-xs font-semibold text-destructive" role="alert">{actionError}</p>}
         </div>
       )}
 
       {loadState === 'loading' ? (
         <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-link" />
           <span className="sr-only">Loading withdrawal requests</span>
         </div>
       ) : loadState === 'unavailable' ? (
@@ -189,7 +189,7 @@ export default function WithdrawalsPage() {
       ) : loadState === 'error' ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
           <p className="text-sm text-muted-foreground">Failed to load withdrawal requests. Check your connection and try again.</p>
-          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted">
+          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
             Retry
           </button>
         </div>
@@ -246,7 +246,7 @@ export default function WithdrawalsPage() {
                           type="button"
                           onClick={() => approve(w)}
                           disabled={actionLoading}
-                          className="h-8 px-3 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 disabled:opacity-50"
+                          className="h-8 px-3 rounded-md bg-success text-success-foreground text-xs font-semibold hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
                         >
                           Approve
                         </button>
@@ -254,7 +254,7 @@ export default function WithdrawalsPage() {
                           type="button"
                           onClick={() => { setActionError(''); setRejectTarget(w); }}
                           disabled={actionLoading}
-                          className="h-8 px-3 rounded-md border border-rose-500/40 text-rose-500 text-xs font-semibold hover:bg-rose-500/10 disabled:opacity-50"
+                          className="h-8 px-3 rounded-md border border-destructive/40 text-destructive text-xs font-semibold hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
                         >
                           Reject
                         </button>
@@ -326,14 +326,14 @@ export default function WithdrawalsPage() {
               </div>
             )}
 
-            {actionError && <p className="text-xs font-semibold text-rose-500" role="alert">{actionError}</p>}
+            {actionError && <p className="text-xs font-semibold text-destructive" role="alert">{actionError}</p>}
 
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setRejectTarget(null)}
                 disabled={actionLoading}
-                className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-medium hover:bg-muted disabled:opacity-50"
+                className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-medium hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
               >
                 Cancel
               </button>
@@ -342,7 +342,7 @@ export default function WithdrawalsPage() {
                 onClick={reject}
                 disabled={actionLoading || (reasons.length > 0 ? !reasonId : !reasonText.trim())}
                 aria-busy={actionLoading}
-                className="h-9 px-4 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-500 disabled:opacity-50"
+                className="h-9 px-4 rounded-lg bg-destructive text-destructive-foreground text-xs font-semibold hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
               >
                 {actionLoading ? 'Rejecting…' : 'Confirm Rejection'}
               </button>

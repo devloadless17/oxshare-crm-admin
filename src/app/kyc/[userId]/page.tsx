@@ -31,11 +31,11 @@ function DocViewer({ filePath, label }: { filePath?: string; label: string }) {
       <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
       {filePath ? (
         isPdf ? (
-          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-blue-500 hover:underline font-semibold text-xs py-3">
+          <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-link hover:underline font-semibold text-xs py-3">
             📄 View Document PDF
           </a>
         ) : imgFailed ? (
-          <div className="text-xs text-rose-400 py-6 text-center border border-dashed border-rose-500/40 rounded-lg">
+          <div className="text-xs text-destructive py-6 text-center border border-dashed border-destructive/40 rounded-lg">
             Could not load document.{' '}
             <a href={url} target="_blank" rel="noreferrer" className="underline">Open directly</a>
           </div>
@@ -50,7 +50,7 @@ function DocViewer({ filePath, label }: { filePath?: string; label: string }) {
           </a>
         )
       ) : (
-        <div className="text-xs italic text-muted-foreground/60 py-6 text-center border border-dashed border-border/50 rounded-lg">
+        <div className="text-xs italic text-muted-foreground py-6 text-center border border-dashed border-border/50 rounded-lg">
           Not uploaded
         </div>
       )}
@@ -203,7 +203,7 @@ export default function KycDetailPage() {
     <div className="detail-loading">
       <p>{loadError || 'Submission not found.'}</p>
       <div className="flex gap-3">
-        <button type="button" onClick={load} className="text-sm font-semibold text-blue-400 hover:underline">Retry</button>
+        <button type="button" onClick={load} className="text-sm font-semibold text-link hover:underline">Retry</button>
         <Link href="/kyc" className="text-sm text-muted-foreground hover:underline">Back to KYC list</Link>
       </div>
     </div>
@@ -234,7 +234,7 @@ export default function KycDetailPage() {
             {data.personalInfo ? Object.entries(data.personalInfo).map(([k, v]) => (
               <div key={k} className="info-row">
                 <span>{k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
-                <strong className={data.status === 'rejected' && data.rejectedFields?.includes(k) ? 'text-rose-400 font-bold' : ''}>{v}</strong>
+                <strong className={data.status === 'rejected' && data.rejectedFields?.includes(k) ? 'text-destructive font-bold' : ''}>{v}</strong>
               </div>
             )) : <p className="not-submitted">Not submitted</p>}
           </div>
@@ -243,7 +243,7 @@ export default function KycDetailPage() {
             <h3>Document Type</h3>
             <div className="info-row">
               <span>Type</span>
-              <strong className="uppercase tracking-wider text-blue-400">{docType.replace('_', ' ')}</strong>
+              <strong className="uppercase tracking-wider text-link">{docType.replace('_', ' ')}</strong>
             </div>
           </div>
 
@@ -252,11 +252,11 @@ export default function KycDetailPage() {
               <h3>❌ Rejection Reason</h3>
               <p>{data.rejectionReason}</p>
               {data.rejectedFields && data.rejectedFields.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-rose-500/20">
-                  <span className="text-xs font-bold text-rose-400 block mb-1">Flagged Fields for Correction:</span>
+                <div className="mt-3 pt-3 border-t border-destructive/20">
+                  <span className="text-xs font-bold text-destructive block mb-1">Flagged Fields for Correction:</span>
                   <div className="flex flex-wrap gap-1.5">
                     {data.rejectedFields.map((f) => (
-                      <span key={f} className="text-[11px] font-mono bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-500/30">
+                      <span key={f} className="text-[11px] font-mono bg-destructive/15 text-destructive px-2 py-0.5 rounded border border-destructive/30">
                         {f}
                       </span>
                     ))}
@@ -327,7 +327,7 @@ export default function KycDetailPage() {
                 </button>
               </div>
               {actionError && !showRejectModal && !showApproveConfirm && (
-                <p className="mt-3 text-xs font-semibold text-rose-400" role="alert">{actionError}</p>
+                <p className="mt-3 text-xs font-semibold text-destructive" role="alert">{actionError}</p>
               )}
             </div>
           )}
@@ -352,7 +352,7 @@ export default function KycDetailPage() {
               This advances {data.user?.firstName} {data.user?.lastName} to verification level 1 and
               unlocks gated features. This cannot be undone from the admin panel.
             </p>
-            {actionError && <p className="text-xs font-semibold text-rose-400 mb-3" role="alert">{actionError}</p>}
+            {actionError && <p className="text-xs font-semibold text-destructive mb-3" role="alert">{actionError}</p>}
             <div className="modal-btns">
               <button className="btn-cancel" onClick={() => setShowApproveConfirm(false)} disabled={actionLoading}>
                 Cancel
@@ -390,7 +390,7 @@ export default function KycDetailPage() {
             {reasons.length > 0 && (
               <div className="space-y-1.5 mb-4">
                 <label htmlFor="kyc-reason-select" className="text-xs font-bold text-foreground">
-                  Rejection Reason <span className="text-rose-500">*</span>
+                  Rejection Reason <span className="text-destructive">*</span>
                 </label>
                 <select
                   id="kyc-reason-select"
@@ -409,7 +409,7 @@ export default function KycDetailPage() {
             <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1 mb-4">
               {FIELD_OPTIONS.map((grp) => (
                 <div key={grp.group} className="space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-400 block">{grp.group}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-destructive block">{grp.group}</span>
                   <div className="grid grid-cols-2 gap-2">
                     {grp.fields.map((f) => {
                       const isChecked = selectedRejectedFields.includes(f.id);
@@ -418,7 +418,7 @@ export default function KycDetailPage() {
                           key={f.id}
                           className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
                             isChecked
-                              ? 'border-rose-500 bg-rose-500/10 text-rose-300 font-semibold'
+                              ? 'border-destructive bg-destructive/10 text-destructive font-semibold'
                               : 'border-border bg-card/40 text-muted-foreground hover:border-border/80'
                           }`}
                         >
@@ -426,7 +426,7 @@ export default function KycDetailPage() {
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => toggleFieldSelection(f.id)}
-                            className="rounded border-input text-rose-600 focus:ring-rose-600"
+                            className="rounded border-input accent-destructive focus:ring-destructive"
                           />
                           <span>{f.label}</span>
                         </label>
@@ -439,7 +439,7 @@ export default function KycDetailPage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-foreground">
-                {reasons.length > 0 ? 'Additional Note (optional)' : <>Rejection Reason <span className="text-rose-500">*</span></>}
+                {reasons.length > 0 ? 'Additional Note (optional)' : <>Rejection Reason <span className="text-destructive">*</span></>}
               </label>
               <textarea
                 className="reject-textarea"
@@ -453,7 +453,7 @@ export default function KycDetailPage() {
               />
             </div>
 
-            {actionError && <p className="mt-3 text-xs font-semibold text-rose-400" role="alert">{actionError}</p>}
+            {actionError && <p className="mt-3 text-xs font-semibold text-destructive" role="alert">{actionError}</p>}
 
             <div className="modal-btns">
               <button className="btn-cancel" onClick={() => setShowRejectModal(false)} disabled={actionLoading}>
@@ -479,7 +479,7 @@ export default function KycDetailPage() {
         @keyframes spin { to { transform: rotate(360deg); } }
 
         .back-link { color: var(--muted-foreground); text-decoration: none; font-size: 0.85rem; display: inline-block; margin-bottom: 20px; }
-        .back-link:hover { color: var(--primary); }
+        .back-link:hover { color: var(--link); }
         .detail-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
         h1 { font-size: 1.5rem; font-weight: 700; color: var(--foreground); }
         .detail-header p { color: var(--muted-foreground); font-size: 0.88rem; margin-top: 4px; }
@@ -488,11 +488,11 @@ export default function KycDetailPage() {
           padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;
           text-transform: capitalize;
         }
-        .status-pill.status-submitted { background: var(--muted); color: var(--primary); }
-        .status-pill.status-under_review { background: rgba(167,139,250,0.15); color: #a78bfa; }
-        .status-pill.status-approved { background: rgba(74,222,128,0.15); color: #4ade80; }
-        .status-pill.status-rejected { background: rgba(248,113,113,0.15); color: #f87171; }
-        .status-pill.status-in_progress { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .status-pill.status-submitted { background: var(--muted); color: var(--link); }
+        .status-pill.status-under_review { background: color-mix(in srgb, var(--info) 15%, transparent); color: var(--info); }
+        .status-pill.status-approved { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+        .status-pill.status-rejected { background: color-mix(in srgb, var(--destructive) 15%, transparent); color: var(--destructive); }
+        .status-pill.status-in_progress { background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); }
 
         .detail-grid { display: grid; grid-template-columns: 340px 1fr; gap: 24px; }
         .detail-left { display: flex; flex-direction: column; gap: 16px; }
@@ -508,16 +508,16 @@ export default function KycDetailPage() {
         .info-row span { color: var(--muted-foreground); }
         .info-row strong { color: var(--foreground); text-align: right; max-width: 60%; text-transform: capitalize; }
         .not-submitted { color: var(--muted-foreground); font-size: 0.85rem; }
-        .rejection-card { border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.04); }
-        .rejection-card h3 { color: #f87171; }
-        .rejection-card p { color: #fca5a5; font-size: 0.88rem; line-height: 1.6; }
+        .rejection-card { border-color: color-mix(in srgb, var(--destructive) 25%, transparent); background: color-mix(in srgb, var(--destructive) 5%, transparent); }
+        .rejection-card h3 { color: var(--destructive); }
+        .rejection-card p { color: var(--destructive); font-size: 0.88rem; line-height: 1.6; }
 
         .docs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
         .action-btns { display: flex; gap: 12px; }
         .btn-claim {
           width: 100%; margin-bottom: 12px; background: var(--muted);
-          color: var(--primary); border: 1px solid var(--input); border-radius: 12px;
+          color: var(--link); border: 1px solid var(--input); border-radius: 12px;
           padding: 10px 16px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
         }
         .btn-claim:hover { border-color: var(--ring); }
@@ -526,22 +526,22 @@ export default function KycDetailPage() {
           width: 100%; background: var(--background); border: 1px solid var(--input);
           border-radius: 10px; padding: 10px 12px; color: var(--foreground); font-size: 0.9rem; outline: none;
         }
-        .reject-select:focus { border-color: #f87171; }
+        .reject-select:focus { border-color: var(--destructive); }
         .btn-approve {
-          flex: 1; background: linear-gradient(135deg, #22c55e, #16a34a);
-          color: white; border: none; border-radius: 12px; padding: 14px 20px;
-          font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: all 0.2s;
+          flex: 1; background: var(--success);
+          color: var(--success-foreground); border: none; border-radius: 12px; padding: 14px 20px;
+          font-weight: 700; font-size: 0.95rem; cursor: pointer;
         }
-        .btn-approve:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(34,197,94,0.35); }
+        .btn-approve:hover { transform: translateY(-1px); box-shadow: 0 6px 20px color-mix(in srgb, var(--success) 35%, transparent); }
         .btn-approve:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .btn-reject {
-          padding: 14px 20px; background: rgba(239,68,68,0.1); color: #f87171;
-          border: 1px solid rgba(239,68,68,0.25); border-radius: 12px;
-          font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s;
+          padding: 14px 20px; background: color-mix(in srgb, var(--destructive) 10%, transparent); color: var(--destructive);
+          border: 1px solid color-mix(in srgb, var(--destructive) 25%, transparent); border-radius: 12px;
+          font-weight: 600; font-size: 0.95rem; cursor: pointer;
         }
-        .btn-reject:hover { background: rgba(239,68,68,0.2); }
+        .btn-reject:hover { background: color-mix(in srgb, var(--destructive) 20%, transparent); }
         .btn-reject:disabled { opacity: 0.5; cursor: not-allowed; }
-        .approved-banner { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 12px; padding: 16px 20px; color: #4ade80; font-size: 0.88rem; font-weight: 600; }
+        .approved-banner { background: color-mix(in srgb, var(--success) 8%, transparent); border: 1px solid color-mix(in srgb, var(--success) 20%, transparent); border-radius: 12px; padding: 16px 20px; color: var(--success); font-size: 0.88rem; font-weight: 600; }
 
         /* Modal */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -550,12 +550,18 @@ export default function KycDetailPage() {
         .modal h3 { font-size: 1.1rem; color: var(--foreground); margin-bottom: 8px; }
         .modal p { color: var(--muted-foreground); font-size: 0.88rem; }
         .reject-textarea { width: 100%; background: var(--background); border: 1px solid var(--input); border-radius: 10px; padding: 12px 16px; color: var(--foreground); font-size: 0.9rem; resize: vertical; outline: none; font-family: inherit; }
-        .reject-textarea:focus { border-color: #f87171; }
+        .reject-textarea:focus { border-color: var(--destructive); }
+        .reject-textarea::placeholder { color: var(--muted-foreground); }
+        .back-link:focus-visible, .btn-claim:focus-visible, .btn-approve:focus-visible,
+        .btn-reject:focus-visible, .btn-cancel:focus-visible,
+        .btn-approve-confirm:focus-visible, .btn-reject-confirm:focus-visible {
+          outline: 2px solid var(--ring); outline-offset: 2px;
+        }
         .modal-btns { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
         .btn-cancel { background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--input); border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; cursor: pointer; }
-        .btn-reject-confirm { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+        .btn-reject-confirm { background: var(--destructive); color: var(--destructive-foreground); border: none; border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
         .btn-reject-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-approve-confirm { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; border: none; border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+        .btn-approve-confirm { background: var(--success); color: var(--success-foreground); border: none; border-radius: 50px; padding: 10px 24px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
         .btn-approve-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
 

@@ -18,13 +18,14 @@ interface KycRow {
   personalInfo?: { country?: string; nationality?: string };
 }
 
+// Semantic tokens from globals.css — resolved at render, so they flip with the theme.
 const STATUS_COLORS: Record<KycStatus, string> = {
-  not_started: '#5a6280',
-  in_progress: '#f59e0b',
-  submitted: '#6382ff',
-  under_review: '#a78bfa',
-  approved: '#4ade80',
-  rejected: '#f87171',
+  not_started: 'var(--muted-foreground)',
+  in_progress: 'var(--warning)',
+  submitted: 'var(--link)',
+  under_review: 'var(--info)',
+  approved: 'var(--success)',
+  rejected: 'var(--destructive)',
 };
 
 const STATUS_LABELS: Record<KycStatus, string> = {
@@ -179,9 +180,9 @@ export default function AdminKycPage() {
                     <span
                       className="status-badge"
                       style={{
-                        background: STATUS_COLORS[row.status] + '22',
+                        background: `color-mix(in srgb, ${STATUS_COLORS[row.status]} 13%, transparent)`,
                         color: STATUS_COLORS[row.status],
-                        border: `1px solid ${STATUS_COLORS[row.status]}44`,
+                        border: `1px solid color-mix(in srgb, ${STATUS_COLORS[row.status]} 27%, transparent)`,
                       }}
                     >
                       {STATUS_LABELS[row.status]}
@@ -222,8 +223,8 @@ export default function AdminKycPage() {
         h1 { font-size: 1.6rem; font-weight: 700; color: var(--foreground); margin-bottom: 4px; }
         .page-header p { color: var(--muted-foreground); font-size: 0.85rem; }
         .invite-btn {
-          background: linear-gradient(135deg, var(--ring), #a78bfa);
-          color: white; text-decoration: none; border-radius: 50px;
+          background: var(--primary);
+          color: var(--primary-foreground); text-decoration: none; border-radius: 50px;
           padding: 10px 24px; font-size: 0.88rem; font-weight: 600;
           white-space: nowrap;
         }
@@ -233,23 +234,23 @@ export default function AdminKycPage() {
         .filter-tab {
           padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
           font-size: 0.82rem; font-weight: 500; color: var(--muted-foreground);
-          background: transparent; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+          background: transparent; display: flex; align-items: center; gap: 6px;
         }
         .filter-tab:hover { color: var(--foreground); background: var(--muted); }
-        .filter-tab.active { background: var(--muted); color: var(--primary); }
+        .filter-tab.active { background: var(--accent); color: var(--link); }
         .tab-count {
           background: var(--muted); color: var(--muted-foreground);
           border-radius: 10px; padding: 1px 6px; font-size: 0.72rem;
         }
-        .filter-tab.active .tab-count { background: var(--muted); color: var(--primary); }
+        .filter-tab.active .tab-count { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--link); }
 
         .loading-state, .empty-state { text-align: center; padding: 60px 20px; color: var(--muted-foreground); }
         .retry-btn {
-          margin-top: 12px; background: var(--muted); color: var(--primary);
-          border: 1px solid rgba(99,130,255,0.3); border-radius: 50px;
+          margin-top: 12px; background: var(--muted); color: var(--link);
+          border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); border-radius: 50px;
           padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
         }
-        .retry-btn:hover { background: rgba(99,130,255,0.25); }
+        .retry-btn:hover { background: var(--accent); }
         .spinner {
           width: 36px; height: 36px; margin: 0 auto 16px;
           border: 3px solid var(--muted); border-top-color: var(--ring);
@@ -273,9 +274,9 @@ export default function AdminKycPage() {
         .user-cell { display: flex; align-items: center; gap: 12px; }
         .user-avatar {
           width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
-          background: linear-gradient(135deg, var(--ring), #a78bfa);
+          background: var(--primary);
           display: flex; align-items: center; justify-content: center;
-          font-size: 0.85rem; font-weight: 700; color: white;
+          font-size: 0.85rem; font-weight: 700; color: var(--primary-foreground);
         }
         .user-name { font-weight: 600; color: var(--foreground); }
         .user-email { font-size: 0.78rem; color: var(--muted-foreground); margin-top: 2px; }
@@ -287,10 +288,13 @@ export default function AdminKycPage() {
           font-size: 0.75rem; font-weight: 600; white-space: nowrap;
         }
         .review-link {
-          color: var(--primary); text-decoration: none; font-weight: 600; font-size: 0.85rem;
-          transition: color 0.15s;
+          color: var(--link); text-decoration: none; font-weight: 600; font-size: 0.85rem;
         }
-        .review-link:hover { color: var(--primary); }
+        .review-link:hover { text-decoration: underline; }
+        .invite-btn:focus-visible, .filter-tab:focus-visible, .retry-btn:focus-visible,
+        .pager-btns button:focus-visible, .review-link:focus-visible {
+          outline: 2px solid var(--ring); outline-offset: 2px;
+        }
         @media (max-width: 768px) {
           .kyc-page { padding: 16px; }
           .filters-bar { flex-direction: column; align-items: stretch; }

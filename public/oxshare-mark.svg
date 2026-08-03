@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 722 663" width="722" height="663" fill="none" role="img" aria-label="OXShare">
+  <path d="M78 79 L252 253" stroke="#FF6600" stroke-width="51" stroke-linecap="round"/>
+  <path d="M250 473 L118 605" stroke="#FF6600" stroke-width="44" stroke-linecap="round"/>
+  <circle cx="356" cy="359" r="131" stroke="#FF6600" stroke-width="56"/>
+  <circle cx="78" cy="79" r="79" fill="#FF6600"/>
+  <circle cx="118" cy="605" r="61" fill="#FF6600"/>
+  <path d="M563 288 L700 496 M700 288 L563 496" stroke="#FF6600" stroke-width="45" stroke-linecap="round"/>
+</svg>

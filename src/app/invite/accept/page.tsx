@@ -58,7 +58,7 @@ function AcceptInviteContent() {
           <>
             <div className="welcome-icon">👋</div>
             <h2>Welcome, {invite?.name}!</h2>
-            <p>You've been invited to join OxShare Admin. Set your password to activate your account.</p>
+            <p>You've been invited to join OXShare Admin. Set your password to activate your account.</p>
             <div className="email-badge">{invite?.email}</div>
 
             <form className="form" onSubmit={submit}>
@@ -106,44 +106,48 @@ function AcceptInviteContent() {
       <style jsx>{`
         .accept-wrap {
           min-height: 100vh; display: flex; align-items: center; justify-content: center;
-          background: radial-gradient(ellipse at 30% 0%, #0f2027 0%, #0a0f1e 60%); padding: 20px;
+          background: var(--background); padding: 20px;
         }
         .accept-card {
-          background: rgba(255,255,255,0.03); border: 1px solid rgba(99,130,255,0.2);
+          background: var(--card); border: 1px solid var(--border);
           border-radius: 24px; padding: 48px 40px; max-width: 440px; width: 100%; text-align: center;
           animation: fadeIn 0.4s ease both;
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } }
-        .spinner { width: 40px; height: 40px; margin: 0 auto 20px; border: 3px solid rgba(99,130,255,0.2); border-top-color: #6382ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .spinner { width: 40px; height: 40px; margin: 0 auto 20px; border: 3px solid var(--muted); border-top-color: var(--ring); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .error-icon, .welcome-icon { font-size: 3rem; margin-bottom: 16px; }
-        h2 { font-size: 1.5rem; font-weight: 700; color: #e8eeff; margin-bottom: 10px; }
-        p { color: #7c87b4; font-size: 0.9rem; line-height: 1.6; margin-bottom: 0; }
+        h2 { font-size: 1.5rem; font-weight: 700; color: var(--foreground); margin-bottom: 10px; }
+        p { color: var(--muted-foreground); font-size: 0.9rem; line-height: 1.6; margin-bottom: 0; }
         .email-badge {
           display: inline-block; margin: 20px 0;
-          background: rgba(99,130,255,0.1); border: 1px solid rgba(99,130,255,0.2);
-          border-radius: 20px; padding: 6px 18px; color: #818cf8; font-size: 0.85rem; font-weight: 600;
+          background: color-mix(in srgb, var(--primary) 10%, transparent); border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+          border-radius: 20px; padding: 6px 18px; color: var(--link); font-size: 0.85rem; font-weight: 600;
         }
         .form { text-align: left; }
         .form-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
-        label { font-size: 0.82rem; font-weight: 500; color: #9ba8d4; }
+        label { font-size: 0.82rem; font-weight: 500; color: var(--muted-foreground); }
         .form-input {
-          background: rgba(255,255,255,0.04); border: 1px solid rgba(99,130,255,0.2);
-          border-radius: 10px; padding: 12px 16px; color: #e8eeff; font-size: 0.93rem; outline: none; width: 100%;
+          background: var(--background); border: 1px solid var(--input);
+          border-radius: 10px; padding: 12px 16px; color: var(--foreground); font-size: 0.93rem; outline: none; width: 100%;
         }
-        .form-input:focus { border-color: #6382ff; }
+        .form-input:focus { border-color: var(--ring); }
+        .form-input::placeholder { color: var(--muted-foreground); }
+        .submit-btn:focus-visible, .toggle-visibility:focus-visible {
+          outline: 2px solid var(--ring); outline-offset: 2px;
+        }
         .toggle-visibility {
-          background: none; border: none; color: #818cf8; font-size: 0.8rem;
+          background: none; border: none; color: var(--link); font-size: 0.8rem;
           cursor: pointer; padding: 0; margin-bottom: 14px; text-align: left;
         }
-        .toggle-visibility:hover { color: #a5b4fc; text-decoration: underline; }
-        .error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 10px 14px; color: #fca5a5; font-size: 0.83rem; margin-bottom: 14px; }
+        .toggle-visibility:hover { text-decoration: underline; }
+        .error-msg { background: color-mix(in srgb, var(--destructive) 10%, transparent); border: 1px solid color-mix(in srgb, var(--destructive) 25%, transparent); border-radius: 10px; padding: 10px 14px; color: var(--destructive); font-size: 0.83rem; margin-bottom: 14px; }
         .submit-btn {
-          width: 100%; background: linear-gradient(135deg, #6382ff, #a78bfa);
-          color: white; border: none; border-radius: 50px; padding: 14px;
-          font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-top: 4px;
+          width: 100%; background: var(--primary);
+          color: var(--primary-foreground); border: none; border-radius: 50px; padding: 14px;
+          font-size: 0.95rem; font-weight: 700; cursor: pointer; margin-top: 4px;
         }
-        .submit-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,130,255,0.35); }
+        .submit-btn:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 35%, transparent); }
         .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
       `}</style>
     </div>
@@ -154,7 +158,7 @@ export default function AcceptInvitePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#0a0f1e] text-slate-400 text-sm">
+        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground text-sm">
           Loading invite parameters...
         </div>
       }

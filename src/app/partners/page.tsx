@@ -21,10 +21,10 @@ interface PartnerRow {
 type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
 
 const STATUS_STYLES: Record<PartnerRow['status'], string> = {
-  pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-  approved: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  rejected: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-  suspended: 'bg-slate-500/10 text-slate-500 border-slate-500/20',
+  pending: 'bg-warning/10 text-warning border-warning/20',
+  approved: 'bg-success/10 text-success border-success/20',
+  rejected: 'bg-destructive/10 text-destructive border-destructive/20',
+  suspended: 'bg-muted text-muted-foreground border-border',
 };
 
 export default function PartnersPage() {
@@ -105,12 +105,12 @@ export default function PartnersPage() {
           <option value="rejected">Rejected</option>
           <option value="suspended">Suspended</option>
         </select>
-        {actionError && <p className="text-xs font-semibold text-rose-500" role="alert">{actionError}</p>}
+        {actionError && <p className="text-xs font-semibold text-destructive" role="alert">{actionError}</p>}
       </div>
 
       {loadState === 'loading' ? (
         <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-link" />
           <span className="sr-only">Loading partners</span>
         </div>
       ) : loadState === 'unavailable' ? (
@@ -120,7 +120,7 @@ export default function PartnersPage() {
       ) : loadState === 'error' ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
           <p className="text-sm text-muted-foreground">Failed to load partners. Check your connection and try again.</p>
-          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted">
+          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
             Retry
           </button>
         </div>
@@ -172,7 +172,7 @@ export default function PartnersPage() {
                           type="button"
                           onClick={() => act(p, 'approve')}
                           disabled={actionLoading}
-                          className="h-8 px-3 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 disabled:opacity-50"
+                          className="h-8 px-3 rounded-md bg-success text-success-foreground text-xs font-semibold hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
                         >
                           Approve
                         </button>
@@ -180,7 +180,7 @@ export default function PartnersPage() {
                           type="button"
                           onClick={() => act(p, 'reject')}
                           disabled={actionLoading}
-                          className="h-8 px-3 rounded-md border border-rose-500/40 text-rose-500 text-xs font-semibold hover:bg-rose-500/10 disabled:opacity-50"
+                          className="h-8 px-3 rounded-md border border-destructive/40 text-destructive text-xs font-semibold hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
                         >
                           Reject
                         </button>

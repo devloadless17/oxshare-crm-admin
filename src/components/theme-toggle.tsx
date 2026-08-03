@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -17,7 +17,6 @@ export function ThemeToggle() {
       <div className="flex h-9 items-center gap-1 rounded-lg border border-border bg-muted/30 p-1">
         <div className="h-7 w-7 rounded-md bg-muted" />
         <div className="h-7 w-7 rounded-md bg-muted" />
-        <div className="h-7 w-7 rounded-md bg-muted" />
       </div>
     );
   }
@@ -27,9 +26,9 @@ export function ThemeToggle() {
       <button
         type="button"
         onClick={() => setTheme('light')}
-        className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium transition-all ${
+        className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium focus-outline ${
           theme === 'light'
-            ? 'bg-background text-blue-600 dark:text-blue-400 shadow-xs'
+            ? 'bg-background text-link shadow-xs'
             : 'text-muted-foreground hover:text-foreground'
         }`}
         title="Light Mode"
@@ -39,26 +38,14 @@ export function ThemeToggle() {
       <button
         type="button"
         onClick={() => setTheme('dark')}
-        className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium transition-all ${
+        className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium focus-outline ${
           theme === 'dark'
-            ? 'bg-background text-blue-600 dark:text-blue-400 shadow-xs'
+            ? 'bg-background text-link shadow-xs'
             : 'text-muted-foreground hover:text-foreground'
         }`}
         title="Dark Mode"
       >
         <Moon className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={() => setTheme('system')}
-        className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium transition-all ${
-          theme === 'system'
-            ? 'bg-background text-blue-600 dark:text-blue-400 shadow-xs'
-            : 'text-muted-foreground hover:text-foreground'
-        }`}
-        title="System Theme"
-      >
-        <Monitor className="h-4 w-4" />
       </button>
     </div>
   );

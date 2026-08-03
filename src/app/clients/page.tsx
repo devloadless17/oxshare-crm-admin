@@ -38,9 +38,9 @@ const TYPE_LABELS: Record<ClientRow['type'], string> = {
 };
 
 const STATUS_STYLES: Record<ClientRow['status'], string> = {
-  active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-  suspended: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+  active: 'bg-success/10 text-success border-success/20',
+  pending: 'bg-warning/10 text-warning border-warning/20',
+  suspended: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
 export default function ClientsPage() {
@@ -129,7 +129,7 @@ export default function ClientsPage() {
 
       {loadState === 'loading' ? (
         <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-link" />
           <span className="sr-only">Loading clients</span>
         </div>
       ) : loadState === 'unavailable' ? (
@@ -137,7 +137,7 @@ export default function ClientsPage() {
       ) : loadState === 'error' ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
           <p className="text-sm text-muted-foreground">Failed to load clients. Check your connection and try again.</p>
-          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted">
+          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
             Retry
           </button>
         </div>
@@ -175,7 +175,7 @@ export default function ClientsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`text-xs font-semibold ${c.verificationLevel >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                      <span className={`text-xs font-semibold ${c.verificationLevel >= 1 ? 'text-success' : 'text-muted-foreground'}`}>
                         {c.verificationLevel >= 1 ? 'L1 · Verified' : 'L0 · Unverified'}
                       </span>
                     </td>
@@ -196,7 +196,7 @@ export default function ClientsPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
               >
                 Previous
               </button>
@@ -204,7 +204,7 @@ export default function ClientsPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
               >
                 Next
               </button>

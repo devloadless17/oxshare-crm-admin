@@ -91,7 +91,7 @@ export default function AdminDashboardPage() {
             <Link
               key={t.label}
               href={t.href}
-              className="rounded-lg border border-border bg-card p-6 shadow-sm hover:bg-muted/30 transition-colors block"
+              className="rounded-lg border border-border bg-card p-6 shadow-sm hover:bg-accent/40 block focus-outline"
             >
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-muted-foreground">{t.label}</p>
@@ -99,7 +99,7 @@ export default function AdminDashboardPage() {
               </div>
               <p className="text-2xl font-bold mt-2">
                 {t.live
-                  ? (loadState === 'loading' ? <Loader2 className="h-6 w-6 animate-spin text-blue-500" aria-label="Loading" /> : t.value ?? '—')
+                  ? (loadState === 'loading' ? <Loader2 className="h-6 w-6 animate-spin text-link" aria-label="Loading" /> : t.value ?? '—')
                   : <span className="text-muted-foreground" title={t.sub}>—</span>}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -114,19 +114,19 @@ export default function AdminDashboardPage() {
         <div className="rounded-lg border border-border bg-card shadow-sm">
           <div className="p-6 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold">KYC Review Queue</h2>
-            <Link href="/kyc" className="text-xs font-semibold text-blue-500 hover:underline">
+            <Link href="/kyc" className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm">
               View all →
             </Link>
           </div>
           {loadState === 'loading' ? (
             <div className="p-8 flex justify-center" role="status" aria-live="polite">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+              <Loader2 className="h-6 w-6 animate-spin text-link" />
               <span className="sr-only">Loading KYC queue</span>
             </div>
           ) : loadState === 'error' ? (
             <div className="p-6 text-center space-y-2" role="alert">
               <p className="text-sm text-muted-foreground">Failed to load the KYC queue.</p>
-              <button type="button" onClick={load} className="text-xs font-semibold text-blue-500 hover:underline">
+              <button type="button" onClick={load} className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm">
                 Retry
               </button>
             </div>
@@ -136,7 +136,7 @@ export default function AdminDashboardPage() {
             <ul className="divide-y divide-border">
               {reviewQueue.map((k) => (
                 <li key={k.userId}>
-                  <Link href={`/kyc/${k.userId}`} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
+                  <Link href={`/kyc/${k.userId}`} className="flex items-center justify-between p-4 hover:bg-accent/40 focus-outline">
                     <div>
                       <p className="text-sm font-medium text-foreground">
                         {[k.user?.firstName, k.user?.lastName].filter(Boolean).join(' ') || k.user?.email || k.userId}

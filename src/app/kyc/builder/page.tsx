@@ -247,8 +247,8 @@ export default function KycBuilderPage() {
           aria-live="polite"
           className={`fixed top-20 right-8 z-50 flex items-center gap-3 rounded-xl border px-4 py-3 text-xs font-semibold shadow-2xl animate-in fade-in-0 slide-in-from-top-4 ${
             toast.type === 'success'
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-              : 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+              ? 'border-success/30 bg-success/10 text-success'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
           }`}
         >
           {toast.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
@@ -259,7 +259,7 @@ export default function KycBuilderPage() {
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         <div>
-          <div className="flex items-center gap-2.5 text-blue-600 dark:text-blue-400 mb-1">
+          <div className="flex items-center gap-2.5 text-link mb-1">
             <Layers className="h-6 w-6" />
             <span className="text-xs font-bold uppercase tracking-wider">KYC Management</span>
           </div>
@@ -274,11 +274,11 @@ export default function KycBuilderPage() {
             <RotateCcw className="h-4 w-4" />
             <span>Reset Defaults</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowAddModal(true)} className="gap-2 border-blue-500/30 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40">
+          <Button variant="outline" size="sm" onClick={() => setShowAddModal(true)} className="gap-2 border-primary/30 text-link hover:bg-primary/10">
             <Plus className="h-4 w-4" />
             <span>Add Custom Step</span>
           </Button>
-          <Button size="sm" onClick={handleSaveAll} disabled={saving} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20">
+          <Button size="sm" onClick={handleSaveAll} disabled={saving} className="gap-2 shadow-md shadow-primary/20">
             <Save className="h-4 w-4" />
             <span>{saving ? 'Saving...' : 'Save All Changes'}</span>
           </Button>
@@ -308,20 +308,20 @@ export default function KycBuilderPage() {
                 {/* Step Card Header */}
                 <div className="flex items-center justify-between p-4 md:p-5 gap-4">
                   <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 font-bold text-sm">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-link font-bold text-sm">
                       {step.stepNumber}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-foreground truncate">{step.title}</h3>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                          step.enabled ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-muted text-muted-foreground'
+                          step.enabled ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
                         }`}>
                           {step.enabled ? 'Active' : 'Disabled'}
                         </span>
                         {isMandatoryStep(step) && (
                           <span
-                            className="rounded-md bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-500 border border-blue-500/20"
+                            className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link border border-primary/20"
                             title="Required by FR-CORE-15 — cannot be disabled or deleted"
                           >
                             Required
@@ -339,7 +339,7 @@ export default function KycBuilderPage() {
                       type="button"
                       disabled={idx === 0}
                       onClick={() => moveStep(idx, 'up')}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent disabled:opacity-30 transition-colors"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed focus-outline"
                       title="Move Step Up"
                     >
                       <ArrowUp className="h-4 w-4" />
@@ -350,7 +350,7 @@ export default function KycBuilderPage() {
                       type="button"
                       disabled={idx === steps.length - 1}
                       onClick={() => moveStep(idx, 'down')}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent disabled:opacity-30 transition-colors"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed focus-outline"
                       title="Move Step Down"
                     >
                       <ArrowDown className="h-4 w-4" />
@@ -373,7 +373,7 @@ export default function KycBuilderPage() {
                       type="button"
                       onClick={() => deleteStep(step.id)}
                       disabled={isMandatoryStep(step)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors ml-1 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 ml-1 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent focus-outline"
                       title={isMandatoryStep(step) ? 'Required step — cannot be deleted' : 'Delete Step'}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -383,7 +383,7 @@ export default function KycBuilderPage() {
                     <button
                       type="button"
                       onClick={() => setExpandedStep(isExpanded ? null : step.id)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent transition-colors ml-1"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent ml-1 focus-outline"
                     >
                       {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </button>
@@ -435,7 +435,7 @@ export default function KycBuilderPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => addFieldToStep(step.id)}
-                          className="gap-1.5 text-blue-600 border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-950/30 h-8 text-xs"
+                          className="gap-1.5 text-link border-primary/30 hover:bg-primary/10 h-8 text-xs"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           <span>Add Field</span>
@@ -501,7 +501,7 @@ export default function KycBuilderPage() {
                                     type="checkbox"
                                     checked={f.required}
                                     onChange={(e) => updateInnerField(step.id, f.id, { required: e.target.checked })}
-                                    className="rounded border-input text-blue-600 focus:ring-blue-600"
+                                    className="rounded border-input accent-primary focus:ring-ring"
                                   />
                                   <span>Required</span>
                                 </label>
@@ -509,7 +509,7 @@ export default function KycBuilderPage() {
                                 <button
                                   type="button"
                                   onClick={() => removeFieldFromStep(step.id, f.id)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-md text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                  className="flex h-7 w-7 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 focus-outline"
                                   title="Remove Field"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
@@ -532,7 +532,7 @@ export default function KycBuilderPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150">
-            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
+            <div className="flex items-center gap-2 text-link mb-1">
               <Sparkles className="h-5 w-5" />
               <h3 className="text-lg font-bold text-foreground">Add Custom Onboarding Step</h3>
             </div>
@@ -542,7 +542,7 @@ export default function KycBuilderPage() {
 
             <form onSubmit={handleAddStepSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label>Step Title <span className="text-rose-500">*</span></Label>
+                <Label>Step Title <span className="text-destructive">*</span></Label>
                 <Input
                   required
                   placeholder="e.g., Employment & Tax Declaration"
@@ -573,7 +573,7 @@ export default function KycBuilderPage() {
                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button type="submit">
                   Add Step
                 </Button>
               </div>

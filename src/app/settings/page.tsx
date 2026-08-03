@@ -112,9 +112,9 @@ export default function AdminSettingsPage() {
           <button
             type="button"
             onClick={() => setActiveTab('roles')}
-            className={`h-9 px-4 rounded-lg text-xs font-semibold transition-all ${
+            className={`h-9 px-4 rounded-lg text-xs font-semibold focus-outline ${
               activeTab === 'roles'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
                 : 'border border-input bg-card text-foreground hover:bg-muted'
             }`}
           >
@@ -123,9 +123,9 @@ export default function AdminSettingsPage() {
           <button
             type="button"
             onClick={() => setActiveTab('admins')}
-            className={`h-9 px-4 rounded-lg text-xs font-semibold transition-all ${
+            className={`h-9 px-4 rounded-lg text-xs font-semibold focus-outline ${
               activeTab === 'admins'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
                 : 'border border-input bg-card text-foreground hover:bg-muted'
             }`}
           >
@@ -136,7 +136,7 @@ export default function AdminSettingsPage() {
 
       {loadState === 'loading' ? (
         <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-link" />
           <span className="sr-only">Loading settings</span>
         </div>
       ) : loadState === 'unavailable' ? (
@@ -147,7 +147,7 @@ export default function AdminSettingsPage() {
           <button
             type="button"
             onClick={loadData}
-            className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted"
+            className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline"
           >
             Retry
           </button>
@@ -165,7 +165,7 @@ export default function AdminSettingsPage() {
             <button
               type="button"
               onClick={() => setShowAddRoleModal(true)}
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors cursor-pointer"
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary-hover cursor-pointer focus-outline"
             >
               <Plus className="h-4 w-4" />
               Create Custom Role
@@ -180,14 +180,14 @@ export default function AdminSettingsPage() {
                     <div className="flex items-center gap-2">
                       <h3 className="text-base font-bold text-foreground">{role.name}</h3>
                       {role.isSystem && (
-                        <span className="rounded-md bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-500 border border-blue-500/20">
+                        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link border border-primary/20">
                           System Role
                         </span>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{role.description || 'No description provided'}</p>
                   </div>
-                  <ShieldCheck className="h-5 w-5 text-blue-500" />
+                  <ShieldCheck className="h-5 w-5 text-link" />
                 </div>
 
                 <div className="space-y-2 border-t border-border/60 pt-3">
@@ -216,7 +216,7 @@ export default function AdminSettingsPage() {
             </div>
             <Link
               href="/invite"
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white shadow-xs hover:bg-blue-500 transition-colors"
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary-hover focus-outline"
             >
               <UserPlus className="h-4 w-4" />
               Invite Admin
@@ -241,13 +241,13 @@ export default function AdminSettingsPage() {
                     </td>
                     <td className="px-6 py-4 font-mono text-muted-foreground">{user.email}</td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/10 px-2 py-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-link border border-primary/20">
                         <Key className="h-3 w-3" />
                         {roles.find((r) => r.id === user.roleId)?.name || user.role}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-500">
+                      <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success">
                         Active
                       </span>
                     </td>
@@ -268,7 +268,7 @@ export default function AdminSettingsPage() {
               <button
                 type="button"
                 onClick={() => setShowAddRoleModal(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground focus-outline rounded-sm"
               >
                 ✕
               </button>
@@ -317,17 +317,19 @@ export default function AdminSettingsPage() {
                         {mod.permissions.map((p) => {
                           const isChecked = selectedPermissions.includes(p.key);
                           return (
-                            <div
+                            <button
+                              type="button"
                               key={p.key}
                               onClick={() => togglePermission(p.key)}
-                              className={`flex items-center gap-2.5 rounded-lg border p-2.5 cursor-pointer transition-all ${
+                              aria-pressed={isChecked}
+                              className={`flex w-full items-center gap-2.5 rounded-lg border p-2.5 text-left cursor-pointer focus-outline ${
                                 isChecked
-                                  ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                  ? 'border-ring bg-primary/10 text-link'
                                   : 'border-border bg-card text-muted-foreground hover:bg-muted'
                               }`}
                             >
                               {isChecked ? (
-                                <CheckSquare className="h-4 w-4 text-blue-500 shrink-0" />
+                                <CheckSquare className="h-4 w-4 text-link shrink-0" />
                               ) : (
                                 <Square className="h-4 w-4 shrink-0" />
                               )}
@@ -335,7 +337,7 @@ export default function AdminSettingsPage() {
                                 <p className="font-semibold text-[11px] leading-tight text-foreground">{p.label}</p>
                                 <p className="font-mono text-[10px] text-muted-foreground">{p.key}</p>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -345,7 +347,7 @@ export default function AdminSettingsPage() {
               </div>
 
               {createError && (
-                <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-500" role="alert">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive" role="alert">
                   {createError}
                 </div>
               )}
@@ -355,7 +357,7 @@ export default function AdminSettingsPage() {
                   type="button"
                   onClick={() => setShowAddRoleModal(false)}
                   disabled={creating}
-                  className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted disabled:opacity-50"
+                  className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
                 >
                   Cancel
                 </button>
@@ -363,7 +365,7 @@ export default function AdminSettingsPage() {
                   type="submit"
                   disabled={creating}
                   aria-busy={creating}
-                  className="h-9 px-4 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 disabled:opacity-50"
+                  className="h-9 px-4 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
                 >
                   {creating ? 'Saving...' : 'Save Dynamic Role'}
                 </button>

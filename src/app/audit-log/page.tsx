@@ -30,11 +30,11 @@ type LoadState = 'loading' | 'ready' | 'unavailable' | 'error';
 const PAGE_SIZE = 25;
 
 const ACTION_STYLES: Record<string, string> = {
-  'kyc.approve': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  'kyc.reject': 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-  'kyc.claim': 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
-  'admin.invite': 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-  'admin.update': 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+  'kyc.approve': 'bg-success/10 text-success border-success/20',
+  'kyc.reject': 'bg-destructive/10 text-destructive border-destructive/20',
+  'kyc.claim': 'bg-primary/10 text-link border-primary/20',
+  'admin.invite': 'bg-info/10 text-info border-info/20',
+  'admin.update': 'bg-warning/10 text-warning border-warning/20',
 };
 
 export default function AuditLogPage() {
@@ -94,7 +94,7 @@ export default function AuditLogPage() {
 
       {loadState === 'loading' ? (
         <div className="flex items-center justify-center py-16" role="status" aria-live="polite">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-link" />
           <span className="sr-only">Loading audit log</span>
         </div>
       ) : loadState === 'unavailable' ? (
@@ -102,7 +102,7 @@ export default function AuditLogPage() {
       ) : loadState === 'error' ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center space-y-3" role="alert">
           <p className="text-sm text-muted-foreground">Failed to load the audit log. Check your connection and try again.</p>
-          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted">
+          <button type="button" onClick={load} className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline">
             Retry
           </button>
         </div>
@@ -140,7 +140,7 @@ export default function AuditLogPage() {
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">
                       <div className="text-xs">{e.subjectType}</div>
-                      <div className="font-mono text-[11px] text-muted-foreground/70 max-w-[160px] truncate" title={e.subjectId}>
+                      <div className="font-mono text-[11px] text-muted-foreground max-w-[160px] truncate" title={e.subjectId}>
                         {e.subjectId}
                       </div>
                     </td>
@@ -166,7 +166,7 @@ export default function AuditLogPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
               >
                 Previous
               </button>
@@ -174,7 +174,7 @@ export default function AuditLogPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-8 px-3 rounded-md border border-input bg-card text-xs font-semibold hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
               >
                 Next
               </button>

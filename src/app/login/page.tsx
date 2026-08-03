@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Lock, Mail, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import Image from 'next/image';
+import { Lock, Mail, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { api } from '@/lib/api';
 
@@ -51,17 +52,24 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="flex flex-col items-center space-y-2 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/30">
-            <Shield className="h-6 w-6" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">OXSHARE Admin</h1>
+          <Image
+            src="/oxshare-mark.svg"
+            alt="OXShare"
+            width={44}
+            height={40}
+            className="h-11 w-11 object-contain"
+            priority
+          />
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            OXShare <span className="text-muted-foreground">Admin</span>
+          </h1>
           <p className="text-xs text-muted-foreground">Authorized back-office management login</p>
         </div>
 
         {/* Login Form Card */}
-        <div className="rounded-xl border border-border bg-card p-6 md:p-8 shadow-xl shadow-black/5 space-y-5">
+        <div className="rounded-xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-5">
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-400">
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -100,7 +108,7 @@ export default function AdminLoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground focus-outline rounded-sm"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>

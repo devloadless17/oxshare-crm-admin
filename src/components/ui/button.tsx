@@ -4,17 +4,17 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer active:scale-[0.98]',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer',
   {
     variants: {
       variant: {
-        default: 'bg-blue-600 text-white shadow-md shadow-blue-600/25 hover:bg-blue-500',
-        destructive: 'bg-rose-600 text-white shadow-md shadow-rose-600/25 hover:bg-rose-500',
+        default: 'bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:bg-primary-hover',
+        destructive: 'bg-destructive text-destructive-foreground shadow-sm shadow-destructive/20 hover:bg-destructive/90',
         outline: 'border border-input bg-background hover:bg-muted hover:text-foreground',
         secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
         ghost: 'hover:bg-muted hover:text-foreground',
-        link: 'text-blue-600 underline-offset-4 hover:underline dark:text-blue-400',
-        success: 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 hover:bg-emerald-500',
+        link: 'text-link underline-offset-4 hover:underline',
+        success: 'bg-success text-success-foreground shadow-sm shadow-success/20 hover:bg-success/90',
       },
       size: {
         default: 'h-10 px-4 py-2',

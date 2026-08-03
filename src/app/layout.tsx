@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'OxShare Admin Portal',
-  description: 'Back-office administration panel.',
+  title: 'OXShare Admin',
+  description: 'OXShare CRM back-office administration.',
 };
 
 export default function RootLayout({
@@ -27,8 +27,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased selection:bg-blue-600 selection:text-white`}>
-        <ThemeProvider defaultTheme="dark" storageKey="oxshare-admin-theme">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ThemeProvider defaultTheme="light" storageKey="oxshare-admin-theme">
           <AdminAuthProvider>
             {children}
           </AdminAuthProvider>

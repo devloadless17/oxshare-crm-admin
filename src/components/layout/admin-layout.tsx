@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -98,20 +99,25 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-[#1e293b] bg-[#0f172a] text-[#f8fafc] transition-all duration-300 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-border bg-card text-card-foreground transition-all duration-300 ${
           collapsed ? 'w-20' : 'w-64'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Sidebar Header */}
-        <div className="flex h-16 items-center justify-between border-b border-[#1e293b] px-4">
-          <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md shadow-blue-500/20">
-              <Shield className="h-5 w-5" />
-            </div>
+        <div className="flex h-16 items-center justify-between border-b border-border px-4">
+          <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden focus-outline rounded-md">
+            <Image
+              src="/oxshare-mark.svg"
+              alt="OXShare"
+              width={28}
+              height={26}
+              className="h-7 w-7 shrink-0 object-contain"
+              priority
+            />
             {!collapsed && (
               <div className="flex flex-col">
-                <span suppressHydrationWarning className="text-sm font-bold tracking-wider text-white">OXSHARE</span>
-                <span className="text-[10px] font-semibold tracking-widest text-blue-400 uppercase">
+                <span suppressHydrationWarning className="text-sm font-semibold tracking-wider text-foreground">OXShare</span>
+                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                   Admin Portal
                 </span>
               </div>
@@ -122,7 +128,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-[#1e293b] hover:text-white transition-colors"
+            className="hidden lg:flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline"
           >
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
@@ -131,7 +137,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="flex lg:hidden h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-[#1e293b] hover:text-white"
+            className="flex lg:hidden h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline"
           >
             <X className="h-5 w-5" />
           </button>
@@ -147,7 +153,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             return (
             <div key={section.title} className="space-y-1">
               {!collapsed && (
-                <h3 className="px-3 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                <h3 className="px-3 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
                   {section.title}
                 </h3>
               )}
@@ -161,14 +167,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       title={collapsed ? `${item.label} — coming soon` : undefined}
                       aria-disabled="true"
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 cursor-not-allowed select-none ${
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground/60 cursor-not-allowed select-none ${
                         collapsed ? 'justify-center px-0' : ''
                       }`}
                     >
-                      <Icon className="h-5 w-5 shrink-0 text-slate-500" />
+                      <Icon className="h-5 w-5 shrink-0 text-muted-foreground/60" />
                       {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
                       {!collapsed && (
-                        <span className="ml-auto rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
+                        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                           Soon
                         </span>
                       )}
@@ -181,22 +187,22 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                     key={item.href}
                     href={item.href}
                     title={collapsed ? item.label : undefined}
-                    className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                    className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium focus-outline ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                        : 'text-slate-300 hover:bg-[#1e293b] hover:text-white'
+                        ? 'bg-primary/10 font-semibold text-link'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     } ${collapsed ? 'justify-center px-0' : ''}`}
                   >
                     <Icon
                       className={`h-5 w-5 shrink-0 transition-transform group-hover:scale-110 ${
-                        isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'
+                        isActive ? 'text-link' : 'text-muted-foreground group-hover:text-foreground'
                       }`}
                     />
                     {!collapsed && (
                       <span className="flex-1 truncate">{item.label}</span>
                     )}
                     {!collapsed && item.badge && (
-                      <span className="ml-auto rounded-full bg-blue-500/20 px-2 py-0.5 text-[11px] font-semibold text-blue-300">
+                      <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-link">
                         {item.badge}
                       </span>
                     )}
@@ -209,21 +215,21 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Sidebar User Footer */}
-        <div className="border-t border-[#1e293b] p-3">
+        <div className="border-t border-border p-3">
           <div
-            className={`flex items-center gap-3 rounded-lg bg-[#162032] p-2.5 ${
+            className={`flex items-center gap-3 rounded-lg bg-muted p-2.5 ${
               collapsed ? 'justify-center p-2' : ''
             }`}
           >
-            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-sm">
+            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-sm">
               {admin?.name ? admin.name[0].toUpperCase() : 'A'}
-              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-[#0f172a]" />
+              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-card" />
             </div>
 
             {!collapsed && (
               <div className="flex-1 overflow-hidden">
-                <p className="truncate text-xs font-semibold text-white">{admin?.name || 'Admin'}</p>
-                <p className="truncate text-[11px] text-slate-400">{admin?.email || ''}</p>
+                <p className="truncate text-xs font-semibold text-foreground">{admin?.name || 'Admin'}</p>
+                <p className="truncate text-[11px] text-muted-foreground">{admin?.email || ''}</p>
               </div>
             )}
 
@@ -232,7 +238,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={logout}
                 title="Logout"
-                className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-rose-500/20 hover:text-rose-400 transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-outline"
               >
                 <LogOut className="h-4 w-4" />
               </button>
@@ -254,7 +260,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="flex lg:hidden h-9 w-9 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted"
+              className="flex lg:hidden h-9 w-9 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted focus-outline"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -265,7 +271,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <input
                 type="search"
                 placeholder="Search clients, deals, IBs... (⌘K)"
-                className="h-9 w-full rounded-lg border border-input bg-muted/30 pl-9 pr-4 text-xs focus:bg-background focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                className="h-9 w-full rounded-lg border border-input bg-muted/30 pl-9 pr-4 text-xs focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
           </div>
@@ -273,7 +279,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           {/* Right Controls */}
           <div className="flex items-center gap-3">
             {/* System Live Status */}
-            <div className="hidden md:flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+            <div className="hidden md:flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-[11px] font-medium text-success">
               <Activity className="h-3.5 w-3.5 animate-pulse" />
               <span>System Operational</span>
             </div>
@@ -281,11 +287,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             {/* Notifications */}
             <button
               type="button"
-              className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+              className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground hover:bg-muted focus-outline"
               title="Notifications"
             >
               <Bell className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-blue-600" />
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
             </button>
 
             {/* Theme Switcher Toggle */}
@@ -302,7 +308,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <p className="text-sm text-muted-foreground max-w-sm">
                 Your role does not include access to this section. Ask a master admin if you need it.
               </p>
-              <Link href="/dashboard" className="text-sm font-semibold text-blue-500 hover:underline">
+              <Link href="/dashboard" className="text-sm font-semibold text-link hover:underline focus-outline rounded-sm">
                 Back to dashboard
               </Link>
             </div>

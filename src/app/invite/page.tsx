@@ -142,25 +142,29 @@ export default function InviteAdminPage() {
           border-radius: 10px; padding: 12px 16px; color: var(--foreground); font-size: 0.93rem; outline: none; width: 100%;
         }
         .form-input:focus { border-color: var(--ring); }
-        .error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 10px 14px; color: #fca5a5; font-size: 0.83rem; margin-bottom: 14px; }
-        .submit-btn {
-          width: 100%; background: linear-gradient(135deg, var(--ring), #a78bfa);
-          color: white; border: none; border-radius: 50px; padding: 14px;
-          font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+        .form-input::placeholder { color: var(--muted-foreground); }
+        .submit-btn:focus-visible, .copy-btn:focus-visible, .btn-another:focus-visible, .invite-link-box button:focus-visible {
+          outline: 2px solid var(--ring); outline-offset: 2px;
         }
-        .submit-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,130,255,0.35); }
+        .error-msg { background: color-mix(in srgb, var(--destructive) 10%, transparent); border: 1px solid color-mix(in srgb, var(--destructive) 25%, transparent); border-radius: 10px; padding: 10px 14px; color: var(--destructive); font-size: 0.83rem; margin-bottom: 14px; }
+        .submit-btn {
+          width: 100%; background: var(--primary);
+          color: var(--primary-foreground); border: none; border-radius: 50px; padding: 14px;
+          font-size: 0.95rem; font-weight: 700; cursor: pointer;
+        }
+        .submit-btn:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 35%, transparent); }
         .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
         .result-box { text-align: left; }
-        .result-success { color: #4ade80; font-weight: 700; font-size: 1rem; margin-bottom: 12px; text-align: center; }
+        .result-success { color: var(--success); font-weight: 700; font-size: 1rem; margin-bottom: 12px; text-align: center; }
         .result-note { font-size: 0.85rem; color: var(--muted-foreground); margin-bottom: 12px !important; }
         .invite-link-box {
           background: var(--muted); border: 1px solid var(--input);
           border-radius: 10px; padding: 12px 16px; display: flex; align-items: center;
           gap: 12px; margin-bottom: 20px; word-break: break-all;
         }
-        .invite-link-box code { flex: 1; color: var(--primary); font-size: 0.78rem; }
-        .copy-btn { background: var(--muted); color: var(--primary); border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+        .invite-link-box code { flex: 1; color: var(--link); font-size: 0.78rem; }
+        .copy-btn { background: var(--muted); color: var(--link); border: none; border-radius: 8px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; flex-shrink: 0; }
         .btn-another { width: 100%; background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--input); border-radius: 50px; padding: 12px; font-size: 0.9rem; cursor: pointer; }
       `}</style>
     </div>
