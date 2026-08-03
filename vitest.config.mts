@@ -6,6 +6,8 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, 'src') },
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    // .tsx too: the previous glob was .test.ts only, so a component test could
+    // be written, committed, and silently never run.
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
 });

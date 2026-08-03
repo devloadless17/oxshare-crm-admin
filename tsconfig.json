@@ -5,6 +5,16 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    /* Beyond `strict`, matching oxshare-crm-backend's tsconfig so all three
+       repos hold the same bar. noUncheckedIndexedAccess is the substantive one:
+       arr[i] and obj[key] are typed as possibly-undefined, which is the truth.
+       Where the access is provably safe, guard it or use charAt — a reflexive
+       `!` would defeat the point of turning the flag on. */
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
