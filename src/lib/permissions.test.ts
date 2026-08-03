@@ -53,7 +53,16 @@ describe('isMasterAdmin', () => {
 
 describe('canAccess', () => {
   it('master admin reaches every route', () => {
-    for (const path of ['/dashboard', '/clients', '/kyc', '/kyc/builder', '/settings', '/invite', '/withdrawals', '/audit-log']) {
+    for (const path of [
+      '/dashboard',
+      '/clients',
+      '/kyc',
+      '/kyc/builder',
+      '/settings',
+      '/invite',
+      '/withdrawals',
+      '/audit-log',
+    ]) {
       expect(canAccess(master, path)).toBe(true);
     }
   });
@@ -82,7 +91,9 @@ describe('canAccess', () => {
 
   it('audit log stays master-only (no catalog key advertises it)', () => {
     expect(canAccess(subAdmin, '/audit-log')).toBe(false);
-    expect(canAccess({ ...subAdmin, permissions: ['users.view', 'roles.view'] }, '/audit-log')).toBe(false);
+    expect(
+      canAccess({ ...subAdmin, permissions: ['users.view', 'roles.view'] }, '/audit-log'),
+    ).toBe(false);
   });
 
   it('unknown routes default to accessible for any authenticated admin', () => {
@@ -101,15 +112,24 @@ describe('assertPermissionKeysExist', () => {
   // master-admin-only — which is exactly what happened to partners.view and
   // payouts.review before they were added to permissions.json.
   const CATALOG = [
-    'kyc.review', 'kyc.edit',
-    'users.view', 'users.create', 'users.edit', 'users.suspend',
-    'roles.view', 'roles.manage',
+    'kyc.review',
+    'kyc.edit',
+    'users.view',
+    'users.create',
+    'users.edit',
+    'users.suspend',
+    'roles.view',
+    'roles.manage',
     'trading.view',
-    'withdrawals.view', 'withdrawals.approve',
-    'partners.view', 'partners.manage',
-    'payouts.view', 'payouts.review',
+    'withdrawals.view',
+    'withdrawals.approve',
+    'partners.view',
+    'partners.manage',
+    'payouts.view',
+    'payouts.review',
     'ledger.view',
-    'commissions.view', 'commissions.manage',
+    'commissions.view',
+    'commissions.manage',
   ];
 
   it('reports nothing when every referenced key is in the catalog', () => {

@@ -9,7 +9,8 @@ import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
 
-type KycStatus = 'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+type KycStatus =
+  'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
 
 interface KycRow {
   userId: string;
@@ -98,7 +99,9 @@ export default function AdminKycPage() {
           <p>{counts['all'] ?? 0} total submissions</p>
         </div>
         {hasPermission(admin, 'users.create') && (
-          <Link href="/invite" className="invite-btn">+ Invite Admin</Link>
+          <Link href="/invite" className="invite-btn">
+            + Invite Admin
+          </Link>
         )}
       </div>
 
@@ -108,12 +111,15 @@ export default function AdminKycPage() {
             <button
               key={f.value}
               className={`filter-tab ${filter === f.value ? 'active' : ''}`}
-              onClick={() => { setPage(1); setFilter(f.value); }}
+              onClick={() => {
+                setPage(1);
+                setFilter(f.value);
+              }}
               aria-pressed={filter === f.value}
             >
               {f.label}
               <span className="tab-count">
-                {f.value ? counts[f.value] ?? 0 : counts['all'] ?? 0}
+                {f.value ? (counts[f.value] ?? 0) : (counts['all'] ?? 0)}
               </span>
             </button>
           ))}
@@ -123,7 +129,10 @@ export default function AdminKycPage() {
           placeholder="Search by name or email..."
           aria-label="Search submissions by name or email"
           value={search}
-          onChange={(e) => { setPage(1); setSearch(e.target.value); }}
+          onChange={(e) => {
+            setPage(1);
+            setSearch(e.target.value);
+          }}
         />
       </div>
 
@@ -136,12 +145,16 @@ export default function AdminKycPage() {
         <div className="empty-state" role="alert">
           <div className="empty-icon">⚠️</div>
           <p>{loadError}</p>
-          <button type="button" onClick={load} className="retry-btn">Retry</button>
+          <button type="button" onClick={() => void load()} className="retry-btn">
+            Retry
+          </button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📋</div>
-          <p>No submissions {filter ? `with status "${STATUS_LABELS[filter as KycStatus]}"` : 'yet'}</p>
+          <p>
+            No submissions {filter ? `with status "${STATUS_LABELS[filter as KycStatus]}"` : 'yet'}
+          </p>
         </div>
       ) : (
         <div className="kyc-table-wrap">
@@ -165,7 +178,9 @@ export default function AdminKycPage() {
                         {(row.user?.firstName?.[0] ?? '?').toUpperCase()}
                       </div>
                       <div>
-                        <div className="user-name">{row.user?.firstName} {row.user?.lastName}</div>
+                        <div className="user-name">
+                          {row.user?.firstName} {row.user?.lastName}
+                        </div>
                         <div className="user-email">{row.user?.email}</div>
                       </div>
                     </div>
@@ -203,96 +218,278 @@ export default function AdminKycPage() {
             </tbody>
           </table>
           <div className="pager">
-            <span>{total} result{total === 1 ? '' : 's'} · page {page} of {totalPages}</span>
+            <span>
+              {total} result{total === 1 ? '' : 's'} · page {page} of {totalPages}
+            </span>
             <div className="pager-btns">
-              <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Previous</button>
-              <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>
       )}
 
       <style jsx>{`
-        .kyc-page { padding: 32px; max-width: 1200px; margin: 0 auto; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
-        h1 { font-size: 1.6rem; font-weight: 700; color: var(--foreground); margin-bottom: 4px; }
-        .page-header p { color: var(--muted-foreground); font-size: 0.85rem; }
+        .kyc-page {
+          padding: 32px;
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+        .page-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          margin-bottom: 28px;
+        }
+        h1 {
+          font-size: 1.6rem;
+          font-weight: 700;
+          color: var(--foreground);
+          margin-bottom: 4px;
+        }
+        .page-header p {
+          color: var(--muted-foreground);
+          font-size: 0.85rem;
+        }
         .invite-btn {
           background: var(--primary);
-          color: var(--primary-foreground); text-decoration: none; border-radius: 50px;
-          padding: 10px 24px; font-size: 0.88rem; font-weight: 600;
+          color: var(--primary-foreground);
+          text-decoration: none;
+          border-radius: 50px;
+          padding: 10px 24px;
+          font-size: 0.88rem;
+          font-weight: 600;
           white-space: nowrap;
         }
 
-        .filters-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-        .filter-tabs { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 4px; }
+        .filters-bar {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+        }
+        .filter-tabs {
+          display: flex;
+          gap: 4px;
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 4px;
+        }
         .filter-tab {
-          padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
-          font-size: 0.82rem; font-weight: 500; color: var(--muted-foreground);
-          background: transparent; display: flex; align-items: center; gap: 6px;
+          padding: 7px 14px;
+          border-radius: 8px;
+          border: none;
+          cursor: pointer;
+          font-size: 0.82rem;
+          font-weight: 500;
+          color: var(--muted-foreground);
+          background: transparent;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
-        .filter-tab:hover { color: var(--foreground); background: var(--muted); }
-        .filter-tab.active { background: var(--accent); color: var(--link); }
+        .filter-tab:hover {
+          color: var(--foreground);
+          background: var(--muted);
+        }
+        .filter-tab.active {
+          background: var(--accent);
+          color: var(--link);
+        }
         .tab-count {
-          background: var(--muted); color: var(--muted-foreground);
-          border-radius: 10px; padding: 1px 6px; font-size: 0.72rem;
+          background: var(--muted);
+          color: var(--muted-foreground);
+          border-radius: 10px;
+          padding: 1px 6px;
+          font-size: 0.72rem;
         }
-        .filter-tab.active .tab-count { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--link); }
+        .filter-tab.active .tab-count {
+          background: color-mix(in srgb, var(--primary) 18%, transparent);
+          color: var(--link);
+        }
 
-        .loading-state, .empty-state { text-align: center; padding: 60px 20px; color: var(--muted-foreground); }
+        .loading-state,
+        .empty-state {
+          text-align: center;
+          padding: 60px 20px;
+          color: var(--muted-foreground);
+        }
         .retry-btn {
-          margin-top: 12px; background: var(--muted); color: var(--link);
-          border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); border-radius: 50px;
-          padding: 8px 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+          margin-top: 12px;
+          background: var(--muted);
+          color: var(--link);
+          border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+          border-radius: 50px;
+          padding: 8px 20px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
         }
-        .retry-btn:hover { background: var(--accent); }
+        .retry-btn:hover {
+          background: var(--accent);
+        }
         .spinner {
-          width: 36px; height: 36px; margin: 0 auto 16px;
-          border: 3px solid var(--muted); border-top-color: var(--ring);
-          border-radius: 50%; animation: spin 0.8s linear infinite;
+          width: 36px;
+          height: 36px;
+          margin: 0 auto 16px;
+          border: 3px solid var(--muted);
+          border-top-color: var(--ring);
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .empty-icon {
+          font-size: 2.5rem;
+          margin-bottom: 12px;
+        }
 
-        .kyc-table-wrap { border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
-        .pager { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--muted-foreground); }
-        .pager-btns { display: flex; gap: 8px; }
-        .pager-btns button { border: 1px solid var(--input); background: var(--card); color: var(--foreground); border-radius: 8px; padding: 6px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
-        .pager-btns button:disabled { opacity: 0.4; cursor: not-allowed; }
-        .kyc-table { width: 100%; border-collapse: collapse; }
-        .kyc-table thead { background: var(--muted); }
-        .kyc-table th { padding: 12px 16px; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); letter-spacing: 0.08em; text-transform: uppercase; }
-        .kyc-table tbody tr { border-top: 1px solid var(--border); transition: background 0.15s; }
-        .kyc-table tbody tr:hover { background: var(--muted); }
-        .kyc-table td { padding: 14px 16px; font-size: 0.88rem; color: var(--foreground); }
+        .kyc-table-wrap {
+          border-radius: 16px;
+          overflow: hidden;
+          border: 1px solid var(--border);
+        }
+        .pager {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          border-top: 1px solid var(--border);
+          font-size: 0.82rem;
+          color: var(--muted-foreground);
+        }
+        .pager-btns {
+          display: flex;
+          gap: 8px;
+        }
+        .pager-btns button {
+          border: 1px solid var(--input);
+          background: var(--card);
+          color: var(--foreground);
+          border-radius: 8px;
+          padding: 6px 14px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .pager-btns button:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .kyc-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .kyc-table thead {
+          background: var(--muted);
+        }
+        .kyc-table th {
+          padding: 12px 16px;
+          text-align: left;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--muted-foreground);
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .kyc-table tbody tr {
+          border-top: 1px solid var(--border);
+          transition: background 0.15s;
+        }
+        .kyc-table tbody tr:hover {
+          background: var(--muted);
+        }
+        .kyc-table td {
+          padding: 14px 16px;
+          font-size: 0.88rem;
+          color: var(--foreground);
+        }
 
-        .user-cell { display: flex; align-items: center; gap: 12px; }
+        .user-cell {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
         .user-avatar {
-          width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          flex-shrink: 0;
           background: var(--primary);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 0.85rem; font-weight: 700; color: var(--primary-foreground);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--primary-foreground);
         }
-        .user-name { font-weight: 600; color: var(--foreground); }
-        .user-email { font-size: 0.78rem; color: var(--muted-foreground); margin-top: 2px; }
-        .country-cell { color: var(--muted-foreground); }
-        .date-cell { color: var(--muted-foreground); font-size: 0.82rem; }
+        .user-name {
+          font-weight: 600;
+          color: var(--foreground);
+        }
+        .user-email {
+          font-size: 0.78rem;
+          color: var(--muted-foreground);
+          margin-top: 2px;
+        }
+        .country-cell {
+          color: var(--muted-foreground);
+        }
+        .date-cell {
+          color: var(--muted-foreground);
+          font-size: 0.82rem;
+        }
 
         .status-badge {
-          display: inline-block; padding: 4px 12px; border-radius: 20px;
-          font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+          display: inline-block;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          white-space: nowrap;
         }
         .review-link {
-          color: var(--link); text-decoration: none; font-weight: 600; font-size: 0.85rem;
+          color: var(--link);
+          text-decoration: none;
+          font-weight: 600;
+          font-size: 0.85rem;
         }
-        .review-link:hover { text-decoration: underline; }
-        .invite-btn:focus-visible, .filter-tab:focus-visible, .retry-btn:focus-visible,
-        .pager-btns button:focus-visible, .review-link:focus-visible {
-          outline: 2px solid var(--ring); outline-offset: 2px;
+        .review-link:hover {
+          text-decoration: underline;
+        }
+        .invite-btn:focus-visible,
+        .filter-tab:focus-visible,
+        .retry-btn:focus-visible,
+        .pager-btns button:focus-visible,
+        .review-link:focus-visible {
+          outline: 2px solid var(--ring);
+          outline-offset: 2px;
         }
         @media (max-width: 768px) {
-          .kyc-page { padding: 16px; }
-          .filters-bar { flex-direction: column; align-items: stretch; }
+          .kyc-page {
+            padding: 16px;
+          }
+          .filters-bar {
+            flex-direction: column;
+            align-items: stretch;
+          }
         }
       `}</style>
     </div>

@@ -7,7 +7,8 @@ import api from '@/lib/api';
 import type { ClientListResponse, ClientRow } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
-import { apiErrorMessage, useResource } from '@/hooks/use-resource';
+import { useResource } from '@/hooks/use-resource';
+import { apiErrorMessage } from '@/lib/api/errors';
 import { useDebounced } from '@/hooks/use-debounced';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
@@ -131,7 +132,11 @@ export default function ClientsPage() {
                     : 'border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20'
                 }`}
               >
-                {actingId === c.id ? 'Saving…' : c.status === 'suspended' ? 'Reactivate' : 'Suspend'}
+                {actingId === c.id
+                  ? 'Saving…'
+                  : c.status === 'suspended'
+                    ? 'Reactivate'
+                    : 'Suspend'}
               </button>
             ),
           },

@@ -6,7 +6,8 @@ import { Building2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
-import { apiErrorMessage, useResource } from '@/hooks/use-resource';
+import { useResource } from '@/hooks/use-resource';
+import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 

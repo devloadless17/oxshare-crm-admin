@@ -77,9 +77,17 @@ export default function AdminDashboardPage() {
                 <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               </div>
               <p className="text-2xl font-bold mt-2">
-                {t.live
-                  ? (status === 'loading' ? <Loader2 className="h-6 w-6 animate-spin text-link" aria-label="Loading" /> : t.value ?? '—')
-                  : <span className="text-muted-foreground" title={t.sub}>—</span>}
+                {t.live ? (
+                  status === 'loading' ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-link" aria-label="Loading" />
+                  ) : (
+                    (t.value ?? '—')
+                  )
+                ) : (
+                  <span className="text-muted-foreground" title={t.sub}>
+                    —
+                  </span>
+                )}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {t.live ? t.sub : <span className="italic">{t.sub}</span>}
@@ -93,7 +101,10 @@ export default function AdminDashboardPage() {
         <div className="rounded-lg border border-border bg-card shadow-sm">
           <div className="p-6 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold">KYC Review Queue</h2>
-            <Link href="/kyc" className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm">
+            <Link
+              href="/kyc"
+              className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm"
+            >
               View all →
             </Link>
           </div>
@@ -105,20 +116,31 @@ export default function AdminDashboardPage() {
           ) : status === 'error' || status === 'unavailable' ? (
             <div className="p-6 text-center space-y-2" role="alert">
               <p className="text-sm text-muted-foreground">Failed to load the KYC queue.</p>
-              <button type="button" onClick={refetch} className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm">
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm"
+              >
                 Retry
               </button>
             </div>
           ) : reviewQueue.length === 0 ? (
-            <div className="p-6 text-center text-muted-foreground text-sm">No submissions waiting for review.</div>
+            <div className="p-6 text-center text-muted-foreground text-sm">
+              No submissions waiting for review.
+            </div>
           ) : (
             <ul className="divide-y divide-border">
               {reviewQueue.map((k) => (
                 <li key={k.userId}>
-                  <Link href={`/kyc/${k.userId}`} className="flex items-center justify-between p-4 hover:bg-accent/40 focus-outline">
+                  <Link
+                    href={`/kyc/${k.userId}`}
+                    className="flex items-center justify-between p-4 hover:bg-accent/40 focus-outline"
+                  >
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        {[k.user?.firstName, k.user?.lastName].filter(Boolean).join(' ') || k.user?.email || k.userId}
+                        {[k.user?.firstName, k.user?.lastName].filter(Boolean).join(' ') ||
+                          k.user?.email ||
+                          k.userId}
                       </p>
                       <p className="text-xs text-muted-foreground">{k.user?.email}</p>
                     </div>
@@ -133,7 +155,9 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="rounded-lg border border-border bg-card shadow-sm">
-          <div className="p-6 border-b border-border"><h2 className="font-semibold">Coming Online</h2></div>
+          <div className="p-6 border-b border-border">
+            <h2 className="font-semibold">Coming Online</h2>
+          </div>
           <div className="p-6 text-sm text-muted-foreground space-y-2">
             <p>
               Client, partner, and withdrawal metrics activate automatically once their backend

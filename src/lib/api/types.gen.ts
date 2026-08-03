@@ -132,7 +132,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login — sets httpOnly JWT cookies */
+        /** Login — also sets the JWT cookies (deliberately readable by JS, not httpOnly) */
         post: operations["AuthController_login[0]"];
         delete?: never;
         options?: never;
@@ -149,7 +149,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login — sets httpOnly JWT cookies */
+        /** Login — also sets the JWT cookies (deliberately readable by JS, not httpOnly) */
         post: operations["AuthController_login[1]"];
         delete?: never;
         options?: never;
@@ -276,6 +276,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/partners/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health ping for partners module */
+        get: operations["PartnersController_ping"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/wallet": {
         parameters: {
             query?: never;
@@ -336,23 +353,6 @@ export interface paths {
         };
         /** The signed-in client's own transactions */
         get: operations["PaymentsController_myTransactions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/partners/ping": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health ping for partners module */
-        get: operations["PartnersController_ping"];
         put?: never;
         post?: never;
         delete?: never;
@@ -457,23 +457,6 @@ export interface paths {
         put?: never;
         /** Reset KYC submission for current user */
         post: operations["KycController_reset"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/kyc/reset-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reset all KYC submissions and clear uploaded files */
-        post: operations["KycController_resetAll"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1100,6 +1083,43 @@ export interface components {
             /** @example +1234567890 */
             phone?: string;
         };
+        UserProfileDto: {
+            id: string;
+            /** @example client@oxshare.com */
+            email: string;
+            /** @example John */
+            firstName: string;
+            /** @example Doe */
+            lastName: string;
+            /** @enum {string} */
+            type: "individual" | "corporate";
+            /** @enum {string} */
+            status: "active" | "suspended";
+            /**
+             * @description KYC tier. 0 = unverified, 1 = approved.
+             * @example 1
+             */
+            verificationLevel: number;
+            emailVerified: boolean;
+            /** @example United Arab Emirates */
+            country?: string;
+            /** @example +971501234567 */
+            phone?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AuthTokensResponseDto: {
+            /** @description JWT. Also set as a readable cookie. */
+            access_token: string;
+            refresh_token: string;
+            user: components["schemas"]["UserProfileDto"];
+            /** @description Mirrors user.emailVerified; kept for older portal builds. */
+            emailVerified: boolean;
+        };
+        MessageResponseDto: {
+            /** @example Logged out. */
+            message: string;
+        };
         ResendVerificationDto: {
             /** @example john@example.com */
             email: string;
@@ -1112,7 +1132,181 @@ export interface components {
             /** @example CLIENT */
             role?: string;
         };
-        RequestWithdrawalDto: Record<string, never>;
+        WalletDto: {
+            id: string;
+            userId: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /**
+             * @description Decimal string (§6.1).
+             * @example 700.00000000
+             */
+            balance: string;
+            /**
+             * @description Reserved against pending withdrawals.
+             * @example 0.00000000
+             */
+            onHold: string;
+            /**
+             * @description balance − onHold, computed server-side so both sides agree.
+             * @example 700.00000000
+             */
+            available: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        LedgerEntryDto: {
+            id: string;
+            walletId: string;
+            userId: string;
+            /** @description Signed monetary value as a string */
+            amount: string;
+            /** @description Running balance after this entry, as a string */
+            balanceAfter: string;
+            /** @enum {string} */
+            entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment";
+            referenceType: string;
+            referenceId: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        LedgerListResponseDto: {
+            items: components["schemas"]["LedgerEntryDto"][];
+            /** @description Total matching entries, ignoring pagination. */
+            total: number;
+            page: number;
+            limit: number;
+        };
+        RequestWithdrawalDto: {
+            /** @example 300.00000000 */
+            amount: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** @description Payout target, e.g. an IBAN or a USDT address. */
+            destination: string;
+            /** @enum {string} */
+            provider: "whish" | "usdt";
+        };
+        TransactionDto: {
+            id: string;
+            userId: string;
+            walletId: string;
+            /** @enum {string} */
+            direction: "deposit" | "withdrawal";
+            /**
+             * @description Decimal string (§6.1).
+             * @example 300.00000000
+             */
+            amount: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** @enum {string} */
+            state: "pending" | "approved" | "rejected" | "success" | "failed";
+            /** @enum {string} */
+            provider?: "whish" | "usdt";
+            /** @description The provider's own reference. Backs UNIQUE(provider, provider_ref), which is what makes settlement idempotent in the database (§6.3). */
+            providerRef?: Record<string, never>;
+            destination?: Record<string, never>;
+            rejectionReason?: Record<string, never>;
+            reviewedBy?: Record<string, never>;
+            reviewedAt?: Record<string, never>;
+            settledAt?: Record<string, never>;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        KycFieldConfigDto: {
+            /** @example f-1 */
+            id: string;
+            /**
+             * @description Machine name the portal submits.
+             * @example firstName
+             */
+            name: string;
+            /** @example First Name */
+            label: string;
+            /** @enum {string} */
+            type: "text" | "date" | "phone" | "select" | "file" | "camera" | "checkbox";
+            required: boolean;
+            /** @description Choices, for type: select. */
+            options?: string[];
+            /** @example As on your ID */
+            hint?: string;
+        };
+        KycStepConfigDto: {
+            /** @example step-1 */
+            id: string;
+            /** @example 1 */
+            stepNumber: number;
+            /**
+             * @description Submitted as the `step` key on POST /kyc/step.
+             * @example personal
+             */
+            slug: string;
+            /** @example Personal Information */
+            title: string;
+            description?: string;
+            /**
+             * @description lucide icon name.
+             * @example User
+             */
+            icon?: string;
+            enabled: boolean;
+            fields: components["schemas"]["KycFieldConfigDto"][];
+        };
+        KycDocumentStateDto: {
+            /** @example passport */
+            docType?: string;
+            frontFilePath?: string;
+            frontFileName?: string;
+            backFilePath?: string;
+            backFileName?: string;
+        };
+        KycFileStateDto: {
+            filePath?: string;
+            fileName?: string;
+            /** @example utility_bill */
+            docType?: string;
+            /** @description Second page, for multi-page address proof. */
+            page2FilePath?: string;
+        };
+        KycStatusDto: {
+            userId: string;
+            /** @enum {string} */
+            status: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
+            /** @description Free-form key/value bag whose keys come from the step configuration. */
+            personalInfo?: {
+                [key: string]: unknown;
+            };
+            document?: components["schemas"]["KycDocumentStateDto"];
+            selfie?: components["schemas"]["KycFileStateDto"];
+            addressProof?: components["schemas"]["KycFileStateDto"];
+            /** @description Set when status is rejected. */
+            rejectionReason?: string;
+            /** @description Field names the client must re-submit. */
+            rejectedFields?: string[];
+            /** Format: date-time */
+            submittedAt?: string;
+            reviewedBy?: string;
+            /** Format: date-time */
+            reviewedAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SaveKycStepDto: {
+            /** @example personal */
+            step: string;
+            /**
+             * @example {
+             *       "firstName": "John",
+             *       "lastName": "Doe"
+             *     }
+             */
+            data: {
+                [key: string]: unknown;
+            };
+        };
         PermissionItemDto: {
             key: string;
             label: string;
@@ -1122,7 +1316,12 @@ export interface components {
             description: string;
             permissions: components["schemas"]["PermissionItemDto"][];
         };
-        AdminLoginDto: Record<string, never>;
+        AdminLoginDto: {
+            /** @example admin@oxshare.com */
+            email: string;
+            /** @example admin123 */
+            password: string;
+        };
         AdminProfileDto: {
             id: string;
             email: string;
@@ -1139,17 +1338,27 @@ export interface components {
             accessToken: string;
             refreshToken: string;
         };
-        MessageResponseDto: {
-            message: string;
+        InviteDto: {
+            /** @example new.admin@oxshare.com */
+            email: string;
+            /** @example Jane Doe */
+            name: string;
+            /** @description Existing role id to assign on acceptance. */
+            roleId?: string;
+            /** @description Explicit permission keys, when not assigning a role. */
+            permissions?: string[];
         };
-        InviteDto: Record<string, never>;
         InviteResponseDto: {
             message: string;
             /** @description Dev only — removed in production */
             token: string;
             inviteUrl: string;
         };
-        AcceptInviteDto: Record<string, never>;
+        AcceptInviteDto: {
+            /** @description Single-use token from the invitation email. */
+            token: string;
+            password: string;
+        };
         KycDocumentDto: {
             docType?: string;
             frontFilePath?: string;
@@ -1202,7 +1411,14 @@ export interface components {
                 [key: string]: number;
             };
         };
-        RejectDto: Record<string, never>;
+        RejectDto: {
+            /** @description Free-text reason, when not using a configured reasonId. */
+            reason?: string;
+            /** @description Id of a configured rejection reason. */
+            reasonId?: string;
+            /** @description Field names the client must re-submit, e.g. ["doc_front"]. */
+            rejectedFields?: string[];
+        };
         ClientRowDto: {
             id: string;
             email: string;
@@ -1224,7 +1440,13 @@ export interface components {
             page: number;
             limit: number;
         };
-        ClientStatusDto: Record<string, never>;
+        ClientStatusDto: {
+            /**
+             * @description Suspending blocks sign-in but preserves the client and their ledger history.
+             * @enum {string}
+             */
+            status: "active" | "suspended";
+        };
         RejectionReasonResponseDto: {
             id: string;
             /** @enum {string} */
@@ -1233,7 +1455,12 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
-        RejectionReasonDto: Record<string, never>;
+        RejectionReasonDto: {
+            /** @enum {string} */
+            context: "kyc" | "withdrawal";
+            /** @example Document expired */
+            label: string;
+        };
         WithdrawalUserDto: {
             id: string;
             email: string;
@@ -1269,30 +1496,15 @@ export interface components {
                 [key: string]: number;
             };
         };
-        WithdrawalRejectDto: Record<string, never>;
-        SettleWithdrawalDto: Record<string, never>;
-        LedgerEntryDto: {
-            id: string;
-            walletId: string;
-            userId: string;
-            /** @description Signed monetary value as a string */
-            amount: string;
-            /** @description Running balance after this entry, as a string */
-            balanceAfter: string;
-            /** @enum {string} */
-            entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment";
-            referenceType: string;
-            referenceId: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
-            /** Format: date-time */
-            createdAt: string;
+        WithdrawalRejectDto: {
+            /** @description Free-text reason, when not using a configured reasonId. */
+            reason?: string;
+            /** @description Id of a configured rejection reason. */
+            reasonId?: string;
         };
-        LedgerListResponseDto: {
-            items: components["schemas"]["LedgerEntryDto"][];
-            total: number;
-            page: number;
-            limit: number;
+        SettleWithdrawalDto: {
+            /** @example wise-tx-9f3a1c */
+            providerRef: string;
         };
         IbProgramDto: {
             id: string;
@@ -1322,8 +1534,44 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
-        ProgramDto: Record<string, never>;
-        ProgramActiveDto: Record<string, never>;
+        ProgramDto: {
+            /** @example Standard IB */
+            name: string;
+            description?: string;
+            /** @description Display order in the plan list. */
+            position?: number;
+            /** @enum {string} */
+            mode: "commission" | "rebate" | "hybrid";
+            /** @enum {string} */
+            method: "spread_share" | "per_lot" | "fixed_per_deal";
+            /**
+             * @description Money/percent as a decimal string (§6.1) — never a number.
+             * @example 12.50000000
+             */
+            commissionValue: string;
+            /** @example 2.00000000 */
+            rebateValue?: string;
+            /**
+             * @description Level-1 IB share, percent as a decimal string.
+             * @example 70.00000000
+             */
+            l1Share: string;
+            /**
+             * @description Level-2 IB share. Resolution stops at L2 — there is no L3.
+             * @example 30.00000000
+             */
+            l2Share: string;
+            /** @description Hours an accrual is held before it can be confirmed. */
+            settlementWindowHours?: number;
+            /** @description Pay the rebate on position close rather than on open. */
+            rebateOnClose?: boolean;
+            /** @description Offer this plan to IBs for self-selection. */
+            selectable?: boolean;
+            active?: boolean;
+        };
+        ProgramActiveDto: {
+            active: boolean;
+        };
         RoleResponseDto: {
             id: string;
             name: string;
@@ -1333,9 +1581,31 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
-        RoleDto: Record<string, never>;
-        UpdateRoleDto: Record<string, never>;
-        UpdateAdminDto: Record<string, never>;
+        RoleDto: {
+            /** @example KYC Reviewer */
+            name: string;
+            description?: string;
+            /**
+             * @description Permission keys from GET /admin/permissions.
+             * @example [
+             *       "kyc.view",
+             *       "kyc.review"
+             *     ]
+             */
+            permissions: string[];
+        };
+        UpdateRoleDto: {
+            name?: string;
+            description?: string;
+            permissions?: string[];
+        };
+        UpdateAdminDto: {
+            name?: string;
+            /** @description Reassign to an existing role. */
+            roleId?: string;
+            /** @description Direct permission grants. */
+            permissions?: string[];
+        };
         AuditEntryDto: {
             id: string;
             actorId: string;
@@ -1354,6 +1624,43 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+        };
+        KycFieldDto: {
+            id: string;
+            /**
+             * @description Machine name submitted by the portal.
+             * @example firstName
+             */
+            name: string;
+            /** @example First Name */
+            label: string;
+            /** @enum {string} */
+            type: "text" | "date" | "phone" | "select" | "file" | "camera" | "checkbox";
+            required: boolean;
+            /** @description Choices, for type: select. */
+            options?: string[];
+            /** @example As shown on your ID */
+            hint?: string;
+        };
+        KycStepDto: {
+            id?: string;
+            /** @description Server-assigned ordering; ignored on create. */
+            stepNumber?: number;
+            /** @example personal */
+            slug: string;
+            /** @example Personal Information */
+            title: string;
+            description?: string;
+            /**
+             * @description lucide icon name.
+             * @example User
+             */
+            icon?: string;
+            enabled?: boolean;
+            fields: components["schemas"]["KycFieldDto"][];
+        };
+        KycConfigDto: {
+            steps: components["schemas"]["KycStepDto"][];
         };
     };
     responses: never;
@@ -1398,7 +1705,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                };
             };
         };
     };
@@ -1419,7 +1728,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                };
             };
         };
     };
@@ -1438,7 +1749,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
             };
         };
     };
@@ -1457,7 +1770,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
             };
         };
     };
@@ -1478,7 +1793,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
             };
         };
     };
@@ -1499,7 +1816,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
             };
         };
     };
@@ -1520,7 +1839,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                };
             };
         };
     };
@@ -1541,7 +1862,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                };
             };
         };
     };
@@ -1558,7 +1881,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                };
             };
         };
     };
@@ -1575,7 +1900,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                };
             };
         };
     };
@@ -1592,7 +1919,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
             };
         };
     };
@@ -1609,7 +1938,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
             };
         };
     };
@@ -1626,7 +1957,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["UserProfileDto"];
+                };
             };
         };
     };
@@ -1643,83 +1976,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["UserProfileDto"];
+                };
             };
         };
     };
     TradingController_ping: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    WalletController_myWallets: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    WalletController_myLedger: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PaymentsController_requestWithdrawal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RequestWithdrawalDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PaymentsController_myTransactions: {
         parameters: {
             query?: never;
             header?: never;
@@ -1753,6 +2016,86 @@ export interface operations {
             };
         };
     };
+    WalletController_myWallets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletDto"][];
+                };
+            };
+        };
+    };
+    WalletController_myLedger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerListResponseDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_requestWithdrawal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestWithdrawalDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_myTransactions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionDto"][];
+                };
+            };
+        };
+    };
     KycController_getConfig: {
         parameters: {
             query?: never;
@@ -1766,7 +2109,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["KycStepConfigDto"][];
+                };
             };
         };
     };
@@ -1783,7 +2128,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["KycStatusDto"];
+                };
             };
         };
     };
@@ -1794,7 +2141,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveKycStepDto"];
+            };
+        };
         responses: {
             201: {
                 headers: {
@@ -1811,7 +2162,16 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @example doc_front */
+                    field: string;
+                };
+            };
+        };
         responses: {
             201: {
                 headers: {
@@ -1839,23 +2199,6 @@ export interface operations {
         };
     };
     KycController_reset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    KycController_resetAll: {
         parameters: {
             query?: never;
             header?: never;
@@ -2695,7 +3038,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": string[];
+                "application/json": components["schemas"]["KycConfigDto"];
             };
         };
         responses: {
@@ -2714,7 +3057,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KycStepDto"];
+            };
+        };
         responses: {
             201: {
                 headers: {
@@ -2733,7 +3080,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KycStepDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

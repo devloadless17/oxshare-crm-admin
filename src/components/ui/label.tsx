@@ -1,5 +1,10 @@
 'use client';
 
+// TWIN FILE — an identical copy lives at the same path in oxshare-crm-client.
+// Behaviour changes belong in BOTH. Anything app-specific (cookie names,
+// token lifetimes, redirect paths, endpoint patterns) goes in the config block
+// at the top of the file, never inline — that is what keeps a diff between the
+// two copies a signal rather than noise.
 import * as React from 'react';
 import * as LabelPrimitive from '@radix-ui/react-label';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -11,14 +16,9 @@ const labelVariants = cva(
 
 const Label = React.forwardRef<
   React.ElementRef<typeof LabelPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> &
-    VariantProps<typeof labelVariants>
+  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> & VariantProps<typeof labelVariants>
 >(({ className, ...props }, ref) => (
-  <LabelPrimitive.Root
-    ref={ref}
-    className={cn(labelVariants(), className)}
-    {...props}
-  />
+  <LabelPrimitive.Root ref={ref} className={cn(labelVariants(), className)} {...props} />
 ));
 Label.displayName = LabelPrimitive.Root.displayName;
 

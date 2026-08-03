@@ -79,7 +79,7 @@ export default function AdminLoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Admin Email</Label>
               <div className="relative">
