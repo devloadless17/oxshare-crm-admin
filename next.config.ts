@@ -84,14 +84,27 @@ const nextConfig: NextConfig = {
    *
    * Read from the environment with the dev value as the fallback, so nothing
    * changes locally and a deploy is a variable rather than a diff. The `/api`
-   * prefix is stripped here, which is why `baseURL` stays `/api` in the client
-   * and why the backend serves bare paths with no `/api` and no `/v1`.
+   * prefix is stripped here and `/v1` is added, which is why `baseURL` stays
+   * `/api` in the client: the app never spells the version, and the API never
+   * sees `/api`.
    */
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.API_ORIGIN ?? 'http://localhost:3001'}/:path*`,
+        // The `/v1` lives HERE and only here — PLATFORM-CONVENTIONS R-2.1.
+        //
+        // The API is versioned; this app's axios `baseURL` is still `/api` and
+        // no application code knows about the segment. That is deliberate: the
+        // root CLAUDE.md instruction "never reintroduce /v1 into a frontend base
+        // URL" came from a real incident where the frontends called /api/v1/...
+        // against a backend serving bare paths and every request 404'd. Putting
+        // the version on the destination rather than the base URL keeps that
+        // instruction literally true while the API gains what R-2.1 asks for.
+        //
+        // /health stays unversioned on the API, so anything probing it must not
+        // go through this rewrite.
+        destination: `${process.env.API_ORIGIN ?? 'http://localhost:3001'}/v1/:path*`,
       },
     ];
   },

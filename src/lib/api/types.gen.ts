@@ -41,7 +41,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/register": {
+    "/v1/auth/register": {
         parameters: {
             query?: never;
             header?: never;
@@ -58,7 +58,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/identity/register": {
+    "/v1/identity/register": {
         parameters: {
             query?: never;
             header?: never;
@@ -75,7 +75,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/verify-email": {
+    "/v1/auth/verify-email": {
         parameters: {
             query?: never;
             header?: never;
@@ -92,7 +92,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/identity/verify-email": {
+    "/v1/identity/verify-email": {
         parameters: {
             query?: never;
             header?: never;
@@ -109,7 +109,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/resend-verification": {
+    "/v1/auth/resend-verification": {
         parameters: {
             query?: never;
             header?: never;
@@ -126,7 +126,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/identity/resend-verification": {
+    "/v1/identity/resend-verification": {
         parameters: {
             query?: never;
             header?: never;
@@ -143,7 +143,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/login": {
+    "/v1/auth/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -160,7 +160,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/identity/login": {
+    "/v1/identity/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -177,7 +177,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/refresh": {
+    "/v1/auth/refresh": {
         parameters: {
             query?: never;
             header?: never;
@@ -194,7 +194,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/identity/refresh": {
+    "/v1/identity/refresh": {
         parameters: {
             query?: never;
             header?: never;
@@ -211,7 +211,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/logout": {
+    "/v1/auth/logout": {
         parameters: {
             query?: never;
             header?: never;
@@ -228,7 +228,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/identity/logout": {
+    "/v1/identity/logout": {
         parameters: {
             query?: never;
             header?: never;
@@ -245,7 +245,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/me": {
+    "/v1/auth/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -262,7 +262,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/identity/me": {
+    "/v1/identity/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -279,7 +279,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/trading/ping": {
+    "/v1/trading/ping": {
         parameters: {
             query?: never;
             header?: never;
@@ -296,7 +296,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/partners/ping": {
+    "/v1/partners/ping": {
         parameters: {
             query?: never;
             header?: never;
@@ -313,7 +313,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/wallet": {
+    "/v1/wallet": {
         parameters: {
             query?: never;
             header?: never;
@@ -330,7 +330,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/wallet/ledger": {
+    "/v1/wallet/ledger": {
         parameters: {
             query?: never;
             header?: never;
@@ -347,7 +347,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/payments/withdrawals": {
+    "/v1/payments/withdrawals": {
         parameters: {
             query?: never;
             header?: never;
@@ -364,7 +364,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/payments/transactions": {
+    "/v1/payments/transactions": {
         parameters: {
             query?: never;
             header?: never;
@@ -381,7 +381,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/kyc/config": {
+    "/v1/kyc/config": {
         parameters: {
             query?: never;
             header?: never;
@@ -398,7 +398,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/kyc/status": {
+    "/v1/kyc/status": {
         parameters: {
             query?: never;
             header?: never;
@@ -415,7 +415,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/kyc/step": {
+    "/v1/kyc/step": {
         parameters: {
             query?: never;
             header?: never;
@@ -432,7 +432,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/kyc/upload": {
+    "/v1/kyc/upload": {
         parameters: {
             query?: never;
             header?: never;
@@ -449,7 +449,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/kyc/submit": {
+    "/v1/kyc/submit": {
         parameters: {
             query?: never;
             header?: never;
@@ -466,7 +466,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/kyc/reset": {
+    "/v1/kyc/reset": {
         parameters: {
             query?: never;
             header?: never;
@@ -483,7 +483,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/uploads/kyc/{file}": {
+    "/v1/uploads/kyc/{file}": {
         parameters: {
             query?: never;
             header?: never;
@@ -500,7 +500,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/auth/login": {
+    "/v1/admin/auth/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -517,7 +517,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/auth/refresh": {
+    "/v1/admin/auth/refresh": {
         parameters: {
             query?: never;
             header?: never;
@@ -534,7 +534,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/auth/logout": {
+    "/v1/admin/auth/logout": {
         parameters: {
             query?: never;
             header?: never;
@@ -551,7 +551,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/auth/me": {
+    "/v1/admin/auth/me": {
         parameters: {
             query?: never;
             header?: never;
@@ -568,7 +568,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/invite": {
+    "/v1/admin/invite": {
         parameters: {
             query?: never;
             header?: never;
@@ -585,7 +585,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/invite/validate": {
+    "/v1/admin/invite/validate": {
         parameters: {
             query?: never;
             header?: never;
@@ -602,7 +602,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/invite/accept": {
+    "/v1/admin/invite/accept": {
         parameters: {
             query?: never;
             header?: never;
@@ -619,7 +619,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/clients": {
+    "/v1/admin/clients": {
         parameters: {
             query?: never;
             header?: never;
@@ -636,7 +636,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/clients/{id}/status": {
+    "/v1/admin/clients/{id}/status": {
         parameters: {
             query?: never;
             header?: never;
@@ -653,7 +653,7 @@ export interface paths {
         patch: operations["AdminClientsController_setClientStatus"];
         trace?: never;
     };
-    "/admin/kyc": {
+    "/v1/admin/kyc": {
         parameters: {
             query?: never;
             header?: never;
@@ -670,7 +670,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/kyc/{userId}": {
+    "/v1/admin/kyc/{userId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -687,7 +687,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/kyc/{userId}/claim": {
+    "/v1/admin/kyc/{userId}/claim": {
         parameters: {
             query?: never;
             header?: never;
@@ -704,7 +704,7 @@ export interface paths {
         patch: operations["AdminComplianceController_claimKyc"];
         trace?: never;
     };
-    "/admin/kyc/{userId}/approve": {
+    "/v1/admin/kyc/{userId}/approve": {
         parameters: {
             query?: never;
             header?: never;
@@ -721,7 +721,7 @@ export interface paths {
         patch: operations["AdminComplianceController_approveKyc"];
         trace?: never;
     };
-    "/admin/kyc/{userId}/reject": {
+    "/v1/admin/kyc/{userId}/reject": {
         parameters: {
             query?: never;
             header?: never;
@@ -738,7 +738,7 @@ export interface paths {
         patch: operations["AdminComplianceController_rejectKyc"];
         trace?: never;
     };
-    "/admin/rejection-reasons": {
+    "/v1/admin/rejection-reasons": {
         parameters: {
             query?: never;
             header?: never;
@@ -756,7 +756,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/rejection-reasons/{id}": {
+    "/v1/admin/rejection-reasons/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -774,7 +774,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/kyc-config": {
+    "/v1/admin/kyc-config": {
         parameters: {
             query?: never;
             header?: never;
@@ -792,7 +792,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/kyc-config/steps": {
+    "/v1/admin/kyc-config/steps": {
         parameters: {
             query?: never;
             header?: never;
@@ -809,7 +809,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/kyc-config/steps/{id}": {
+    "/v1/admin/kyc-config/steps/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -827,7 +827,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/kyc-config/reset": {
+    "/v1/admin/kyc-config/reset": {
         parameters: {
             query?: never;
             header?: never;
@@ -844,7 +844,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/withdrawals": {
+    "/v1/admin/withdrawals": {
         parameters: {
             query?: never;
             header?: never;
@@ -861,7 +861,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/withdrawals/{id}/approve": {
+    "/v1/admin/withdrawals/{id}/approve": {
         parameters: {
             query?: never;
             header?: never;
@@ -878,7 +878,7 @@ export interface paths {
         patch: operations["AdminMoneyController_approveWithdrawal"];
         trace?: never;
     };
-    "/admin/withdrawals/{id}/reject": {
+    "/v1/admin/withdrawals/{id}/reject": {
         parameters: {
             query?: never;
             header?: never;
@@ -895,7 +895,7 @@ export interface paths {
         patch: operations["AdminMoneyController_rejectWithdrawal"];
         trace?: never;
     };
-    "/admin/withdrawals/{id}/settle": {
+    "/v1/admin/withdrawals/{id}/settle": {
         parameters: {
             query?: never;
             header?: never;
@@ -912,7 +912,7 @@ export interface paths {
         patch: operations["AdminMoneyController_settleWithdrawal"];
         trace?: never;
     };
-    "/admin/reconciliation": {
+    "/v1/admin/reconciliation": {
         parameters: {
             query?: never;
             header?: never;
@@ -932,7 +932,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/ledger": {
+    "/v1/admin/ledger": {
         parameters: {
             query?: never;
             header?: never;
@@ -949,7 +949,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/commission-plans": {
+    "/v1/admin/commission-plans": {
         parameters: {
             query?: never;
             header?: never;
@@ -967,7 +967,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/commission-plans/{id}": {
+    "/v1/admin/commission-plans/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -984,7 +984,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/commission-plans/{id}/active": {
+    "/v1/admin/commission-plans/{id}/active": {
         parameters: {
             query?: never;
             header?: never;
@@ -1001,7 +1001,7 @@ export interface paths {
         patch: operations["AdminMoneyController_setProgramActive"];
         trace?: never;
     };
-    "/admin/permissions": {
+    "/v1/admin/permissions": {
         parameters: {
             query?: never;
             header?: never;
@@ -1018,7 +1018,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/roles": {
+    "/v1/admin/roles": {
         parameters: {
             query?: never;
             header?: never;
@@ -1036,7 +1036,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/roles/{id}": {
+    "/v1/admin/roles/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1054,7 +1054,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/users": {
+    "/v1/admin/users": {
         parameters: {
             query?: never;
             header?: never;
@@ -1071,7 +1071,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/users/{id}": {
+    "/v1/admin/users/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1088,7 +1088,7 @@ export interface paths {
         patch: operations["AdminRbacController_updateAdmin"];
         trace?: never;
     };
-    "/admin/audit-log": {
+    "/v1/admin/audit-log": {
         parameters: {
             query?: never;
             header?: never;
