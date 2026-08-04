@@ -2867,6 +2867,7 @@ export interface operations {
                 state: string;
                 page: string;
                 limit: string;
+                cursor: string;
             };
             header?: never;
             path?: never;
@@ -2980,6 +2981,7 @@ export interface operations {
                 entryType: string;
                 page: string;
                 limit: string;
+                cursor: string;
             };
             header?: never;
             path?: never;
@@ -3247,6 +3249,7 @@ export interface operations {
             query: {
                 page: string;
                 limit: string;
+                cursor: string;
                 action: string;
                 subjectType: string;
             };
