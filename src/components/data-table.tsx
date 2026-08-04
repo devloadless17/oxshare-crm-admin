@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Decimal from 'decimal.js';
 import { type ReactNode } from 'react';
 import {
   ChevronDown,
@@ -13,6 +14,81 @@ import {
 import { Loader } from './ui/loader';
 import { Pagination } from './pagination';
 
+/**
+ * How a column's values are ordered. `text` unless a column says otherwise.
+ *
+ * `money` exists because the default was WRONG for it, not as a nicety — see
+ * `compareValues`.
+ */
+export type SortType = 'text' | 'money' | 'number' | 'date';
+
+/**
+ * Order two cell values.
+ *
+ * The comparator this replaces was `if (valA < valB)` on `unknown`, which for
+ * strings is a LEXICOGRAPHIC comparison. Amounts arrive from the API as
+ * fixed-8dp decimal strings (ARCHITECTURE §6.1), so on the withdrawals queue
+ * that made `'100.00000000' < '9.00000000'` true: sorting by amount descending
+ * put 9.00 above 100.00, on the screen an admin uses to triage payouts, with
+ * nothing in the UI suggesting the order was wrong.
+ *
+ * decimal.js rather than Number(): a monetary string must never be coerced to a
+ * float (§6.1), and the lint rules on the money screens ban exactly that. The
+ * comparison is on Decimal all the way through.
+ */
+function asText(value: unknown): string {
+  // `String(unknown)` yields '[object Object]' for anything non-primitive, which
+  // sorts every such row into one indistinguishable clump. Cell values are
+  // primitives in practice; this makes that assumption explicit instead of
+  // silently producing a wrong order for the case where it does not hold.
+  return typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    typeof value === 'bigint'
+    ? String(value)
+    : '';
+}
+
+export function compareValues(a: unknown, b: unknown, type: SortType): number {
+  // Missing values sort last in ascending order, whichever the type — an empty
+  // cell is not "smaller", it is unknown, and burying it is the useful default.
+  const aMissing = a === null || a === undefined || a === '';
+  const bMissing = b === null || b === undefined || b === '';
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+
+  if (type === 'money') {
+    try {
+      const da = new Decimal(asText(a));
+      const db = new Decimal(asText(b));
+      return da.comparedTo(db);
+    } catch {
+      // An unparseable amount is a data problem, not a reason to throw inside a
+      // render. Fall through to text so the table still draws.
+      return asText(a).localeCompare(asText(b));
+    }
+  }
+
+  if (type === 'number') {
+    const na = Number(a);
+    const nb = Number(b);
+    if (Number.isNaN(na) || Number.isNaN(nb)) return asText(a).localeCompare(asText(b));
+    return na === nb ? 0 : na < nb ? -1 : 1;
+  }
+
+  if (type === 'date') {
+    const ta = new Date(asText(a)).getTime();
+    const tb = new Date(asText(b)).getTime();
+    if (Number.isNaN(ta) || Number.isNaN(tb)) return asText(a).localeCompare(asText(b));
+    return ta === tb ? 0 : ta < tb ? -1 : 1;
+  }
+
+  // localeCompare, not `<`: `<` on strings orders by code unit, so 'Z' sorts
+  // before 'a' and accented letters land in a group of their own.
+  return asText(a).localeCompare(asText(b));
+}
+
 export interface Column<T> {
   header: string;
   cell: (row: T) => ReactNode;
@@ -22,6 +98,14 @@ export interface Column<T> {
   /** Key used for sorting. If true, header is sortable by row property matching index or header */
   sortable?: boolean;
   sortKey?: string;
+  /**
+   * How this column's values compare. Defaults to `text`.
+   *
+   * `money` is not decoration: amounts are decimal STRINGS, and the default
+   * text comparison sorted '100.00000000' below '9.00000000'. Any column
+   * rendering an amount must declare it.
+   */
+  sortType?: SortType;
 }
 
 export interface DataTableProps<T> {
@@ -119,20 +203,39 @@ export function DataTable<T>({
     }
   };
 
-  // Client-side sorting fallback if uncontrolled
+  /*
+   * Client-side sorting fallback, used only when the caller passes no
+   * onSortChange. See `compareValues` for why it does not use `<`.
+   *
+   * SCOPE, stated because it is not obvious from the UI: this sorts the rows
+   * currently HELD, which for a paginated table is one page. "The largest
+   * withdrawal" is therefore the largest of 25 unless the endpoint sorts. No
+   * list endpoint accepts a sort parameter today (PLATFORM-CONVENTIONS R-2.5),
+   * so callers that need a true ordering must not mark a column sortable — and
+   * `sortScopeNote` below is what tells the operator which they are looking at.
+   */
+  // Column key -> how to compare it, taken from the column definitions so a
+  // caller declares the type once, next to the cell that renders it.
+  const sortTypes = React.useMemo(() => {
+    const map: Record<string, SortType> = {};
+    for (const c of columns) {
+      const key = c.sortKey ?? (typeof c.header === 'string' ? c.header : undefined);
+      if (key) map[key] = c.sortType ?? 'text';
+    }
+    return map;
+  }, [columns]);
+
   const sortedRows = React.useMemo(() => {
     if (!sortCol || onSortChange) return rows;
+    const type = sortTypes[sortCol] ?? 'text';
     return [...rows].sort((a: T, b: T) => {
       // sortCol is a runtime column key, so the read is indexed rather than typed.
-      // Narrowing to Record<string, unknown> keeps that honest without `any`,
-      // which would switch off checking for the whole comparator.
-      const valA = (a as Record<string, unknown>)[sortCol] ?? '';
-      const valB = (b as Record<string, unknown>)[sortCol] ?? '';
-      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
+      const valA = (a as Record<string, unknown>)[sortCol];
+      const valB = (b as Record<string, unknown>)[sortCol];
+      const result = compareValues(valA, valB, type);
+      return sortDir === 'asc' ? result : -result;
     });
-  }, [rows, sortCol, sortDir, onSortChange]);
+  }, [rows, sortCol, sortDir, onSortChange, sortTypes]);
 
   const allKeys = React.useMemo(() => rows.map(rowKey), [rows, rowKey]);
   const isAllSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeys.includes(k));

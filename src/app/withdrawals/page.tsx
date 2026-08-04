@@ -141,7 +141,21 @@ export default function WithdrawalsPage() {
       align: 'right',
       sortable: true,
       sortKey: 'amount',
-      // Rendered verbatim — the API sends money as a string (§6.1).
+      // Decimal strings, not text. Without this the queue sorted 9.00 above
+      // 100.00 — see compareValues in components/data-table.tsx.
+      sortType: 'money',
+      /*
+       * Rendered VERBATIM — the API sends money as a string (§6.1).
+       *
+       * Formatting this through lib/money.ts was tried and reverted. It rounds
+       * to 2dp for display, and page.test.tsx pins the opposite contract in two
+       * tests ("renders the amount as the string the API sent" and "keeps
+       * precision a float could not hold", asserting 12345678901234567.89012345
+       * verbatim). On the screen where an admin authorises a payout, showing the
+       * exact amount the client asked for beats showing a tidier one.
+       *
+       * lib/money.ts is therefore for screens that summarise, not for this one.
+       */
       cell: (w) => (
         <>
           {w.amount} <span className="text-xs text-muted-foreground">{w.currency}</span>
@@ -194,6 +208,7 @@ export default function WithdrawalsPage() {
       header: 'Requested',
       sortable: true,
       sortKey: 'requestedAt',
+      sortType: 'date',
       cell: (w) => (w.requestedAt ? new Date(w.requestedAt).toLocaleString() : '—'),
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },

@@ -91,6 +91,12 @@ export default function LedgerPage() {
     {
       header: 'Balance After',
       align: 'right',
+      // Deliberately UNformatted, unlike the withdrawals queue.
+      //
+      // This is the reconciliation view (ADM-13): ARCHITECTURE §11 requires the
+      // ledger sum to equal the wallet balance "to the cent", and accruals carry
+      // real precision at the 8th decimal. Rounding to 2dp for readability here
+      // would hide the digits someone is looking at this screen to check.
       cell: (e) => e.balanceAfter,
       cellClassName: 'font-mono text-muted-foreground whitespace-nowrap',
     },
