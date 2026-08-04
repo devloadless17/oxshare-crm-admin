@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { t } from '@/lib/i18n';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function AdminLoginPage() {
     setError(null);
 
     if (!email || !password) {
-      setError('Please fill in both email and password.');
+      setError(t('login.missingFields'));
       return;
     }
 
@@ -38,7 +39,7 @@ export default function AdminLoginPage() {
     } catch (err: unknown) {
       // This was a line-for-line reimplementation of apiErrorMessage, array join
       // included. One copy, in lib/api/errors.ts.
-      setError(apiErrorMessage(err, 'Sign in failed. Please try again.'));
+      setError(apiErrorMessage(err, t('login.failed')));
     } finally {
       setIsLoading(false);
     }
@@ -56,16 +57,16 @@ export default function AdminLoginPage() {
         <div className="flex flex-col items-center space-y-2 text-center">
           <Image
             src="/oxshare-mark.svg"
-            alt="OXShare"
+            alt={t('app.name')}
             width={44}
             height={40}
             className="h-11 w-11 object-contain"
             priority
           />
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            OXShare <span className="text-muted-foreground">Admin</span>
+            {t('app.name')} <span className="text-muted-foreground">{t('app.adminSuffix')}</span>
           </h1>
-          <p className="text-xs text-muted-foreground">Authorized back-office management login</p>
+          <p className="text-xs text-muted-foreground">{t('login.subtitle')}</p>
         </div>
 
         {/* Login Form Card */}
@@ -79,7 +80,7 @@ export default function AdminLoginPage() {
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Admin Email</Label>
+              <Label htmlFor="email">{t('login.email')}</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -95,7 +96,7 @@ export default function AdminLoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('login.password')}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -121,10 +122,10 @@ export default function AdminLoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Authenticating...</span>
+                  <span>{t('login.submitting')}</span>
                 </>
               ) : (
-                <span>Sign in to Admin</span>
+                <span>{t('login.submit')}</span>
               )}
             </Button>
           </form>

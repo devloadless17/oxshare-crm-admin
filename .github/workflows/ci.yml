@@ -67,3 +67,17 @@ jobs:
       # `types.gen.ts` as a snapshot that a human must refresh.
       - name: Build
         run: npm run build
+
+      # PLATFORM-CONVENTIONS R-1.3 — the real drift guard.
+      #
+      # A comment here used to claim the build step caught backend drift. It
+      # could not: this job never runs the backend, so it type-checks against the
+      # committed types.gen.ts, and a backend shape change with no regeneration
+      # left this pipeline green while the running system was broken.
+      #
+      # Now the backend commits openapi.json, and this regenerates from it and
+      # diffs. Skipped rather than failed when the sibling repo is not checked
+      # out, because CI must never depend on a sibling checkout existing — it
+      # runs for real in the nightly cross-repo job and locally before a push.
+      - name: API types match the backend contract
+        run: ./scripts/check-api-types.sh

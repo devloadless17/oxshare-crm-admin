@@ -30,9 +30,11 @@ import {
 import { ThemeToggle } from '../theme-toggle';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { canAccess } from '@/lib/permissions';
+import { t, type MessageKey } from '@/lib/i18n';
 
 interface NavItem {
-  label: string;
+  /** A message key, not a string — resolved through t() at render time. */
+  label: MessageKey;
   href: string;
   icon: React.ElementType;
   badge?: string | number;
@@ -41,37 +43,42 @@ interface NavItem {
 }
 
 interface NavSection {
-  title: string;
+  title: MessageKey;
   items: NavItem[];
 }
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: 'MAIN',
+    title: 'nav.section.main',
     items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Clients', href: '/clients', icon: Users },
-      { label: 'Partners / IBs', href: '/partners', icon: Building2 },
-      { label: 'Trading Accounts', href: '/trading-accounts', icon: LineChart, comingSoon: true },
+      { label: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'nav.clients', href: '/clients', icon: Users },
+      { label: 'nav.partners', href: '/partners', icon: Building2 },
+      {
+        label: 'nav.tradingAccounts',
+        href: '/trading-accounts',
+        icon: LineChart,
+        comingSoon: true,
+      },
     ],
   },
   {
-    title: 'FINANCIALS',
+    title: 'nav.section.financials',
     items: [
-      { label: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
-      { label: 'Payouts', href: '/payouts', icon: Wallet, comingSoon: true },
-      { label: 'Ledger', href: '/ledger', icon: Receipt },
-      { label: 'Commission Plans', href: '/commission-plans', icon: Percent },
+      { label: 'nav.withdrawals', href: '/withdrawals', icon: ArrowUpRight },
+      { label: 'nav.payouts', href: '/payouts', icon: Wallet, comingSoon: true },
+      { label: 'nav.ledger', href: '/ledger', icon: Receipt },
+      { label: 'nav.commissionPlans', href: '/commission-plans', icon: Percent },
     ],
   },
   {
-    title: 'MANAGEMENT',
+    title: 'nav.section.management',
     items: [
-      { label: 'KYC Review', href: '/kyc', icon: FileCheck },
-      { label: 'KYC Workflow Builder', href: '/kyc/builder', icon: Settings },
-      { label: 'Admin Users', href: '/admin-users', icon: Users, comingSoon: true },
-      { label: 'Audit Log', href: '/audit-log', icon: Activity },
-      { label: 'Roles & Settings', href: '/settings', icon: ShieldCheck },
+      { label: 'nav.kyc', href: '/kyc', icon: FileCheck },
+      { label: 'nav.kycBuilder', href: '/kyc/builder', icon: Settings },
+      { label: 'nav.adminUsers', href: '/admin-users', icon: Users, comingSoon: true },
+      { label: 'nav.auditLog', href: '/audit-log', icon: Activity },
+      { label: 'nav.settings', href: '/settings', icon: ShieldCheck },
     ],
   },
 ];
@@ -112,7 +119,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           >
             <Image
               src="/oxshare-mark.svg"
-              alt="OXShare"
+              alt={t('app.name')}
               width={28}
               height={26}
               className="h-7 w-7 shrink-0 object-contain"
@@ -124,10 +131,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   suppressHydrationWarning
                   className="text-sm font-semibold tracking-wider text-foreground"
                 >
-                  OXShare
+                  {t('app.name')}
                 </span>
                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                  Admin Portal
+                  {t('app.adminName')}
                 </span>
               </div>
             )}
@@ -172,10 +179,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               : [];
             if (visibleItems.length === 0) return null;
             return (
-              <div key={section.title} className="space-y-1">
+              <div key={t(section.title)} className="space-y-1">
                 {!collapsed && (
                   <h3 className="px-3 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
-                    {section.title}
+                    {t(section.title)}
                   </h3>
                 )}
                 {visibleItems.map((item) => {
@@ -186,17 +193,19 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                     return (
                       <div
                         key={item.href}
-                        title={collapsed ? `${item.label} — coming soon` : undefined}
+                        title={
+                          collapsed ? t('nav.comingSoonTitle', { label: t(item.label) }) : undefined
+                        }
                         aria-disabled="true"
                         className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground/60 cursor-not-allowed select-none ${
                           collapsed ? 'justify-center px-0' : ''
                         }`}
                       >
                         <Icon className="h-5 w-5 shrink-0 text-muted-foreground/60" />
-                        {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                        {!collapsed && <span className="flex-1 truncate">{t(item.label)}</span>}
                         {!collapsed && (
                           <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                            Soon
+                            {t('nav.comingSoon')}
                           </span>
                         )}
                       </div>
@@ -208,7 +217,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       href={item.href}
                       onClick={closeMobile}
-                      title={collapsed ? item.label : undefined}
+                      title={collapsed ? t(item.label) : undefined}
                       className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium focus-outline ${
                         isActive
                           ? 'bg-primary/10 font-semibold text-link'
@@ -222,7 +231,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                             : 'text-muted-foreground group-hover:text-foreground'
                         }`}
                       />
-                      {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                      {!collapsed && <span className="flex-1 truncate">{t(item.label)}</span>}
                       {!collapsed && item.badge && (
                         <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-link">
                           {item.badge}
@@ -261,7 +270,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={() => void logout()}
-                title="Logout"
+                title={t('nav.logout')}
                 className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-outline"
               >
                 <LogOut className="h-4 w-4" />
@@ -294,7 +303,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
                 type="search"
-                placeholder="Search clients, deals, IBs... (⌘K)"
+                placeholder={t('nav.searchPlaceholder')}
                 className="h-9 w-full rounded-lg border border-input bg-muted/30 pl-9 pr-4 text-xs focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
@@ -312,7 +321,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground hover:bg-muted focus-outline"
-              title="Notifications"
+              title={t('nav.notifications')}
             >
               <Bell className="h-4 w-4" />
               <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
@@ -336,7 +345,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           {isLoading ? (
             <div className="flex items-center justify-center py-24" role="status">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
-              <span className="sr-only">Loading your session</span>
+              <span className="sr-only">{t('session.loading')}</span>
             </div>
           ) : admin && !canAccess(admin, pathname ?? '') ? (
             <div
@@ -344,16 +353,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               role="alert"
             >
               <Shield className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
-              <h2 className="text-lg font-bold text-foreground">Access denied</h2>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                Your role does not include access to this section. Ask a master admin if you need
-                it.
-              </p>
+              <h2 className="text-lg font-bold text-foreground">{t('session.deniedTitle')}</h2>
+              <p className="text-sm text-muted-foreground max-w-sm">{t('session.deniedBody')}</p>
               <Link
                 href="/dashboard"
                 className="text-sm font-semibold text-link hover:underline focus-outline rounded-sm"
               >
-                Back to dashboard
+                {t('session.backToDashboard')}
               </Link>
             </div>
           ) : (

@@ -912,6 +912,26 @@ export interface paths {
         patch: operations["AdminMoneyController_settleWithdrawal"];
         trace?: never;
     };
+    "/admin/reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run reconciliation now and return the report (§12.2)
+         * @description The same check the hourly job runs: every wallet balance against the sum of its own ledger, and every confirmed accrual against the entry that should have credited it. Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed.
+         */
+        get: operations["AdminMoneyController_reconcile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/ledger": {
         parameters: {
             query?: never;
@@ -2151,7 +2171,10 @@ export interface operations {
     PaymentsController_requestWithdrawal: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description A unique value per intended withdrawal, reused only when retrying that same one. Without it a double-clicked button creates two withdrawals and places two holds (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2927,6 +2950,23 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WithdrawalRowDto"];
                 };
+            };
+        };
+    };
+    AdminMoneyController_reconcile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

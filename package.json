@@ -15,7 +15,9 @@
     "gen:api-types": "openapi-typescript http://localhost:3001/api/docs-json -o src/lib/api/types.gen.ts",
     "prepare": "husky",
     "check:twins": "./scripts/check-twins.sh",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "gen:api-types:contract": "openapi-typescript ../oxshare-crm-backend/openapi.json -o src/lib/api/types.gen.ts",
+    "check:api-types": "./scripts/check-api-types.sh"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.1",
