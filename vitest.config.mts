@@ -36,14 +36,14 @@ export default defineConfig({
        *
        * These may only ever go up. `npm run test:coverage` prints the figures.
        */
-      // Raised again after the KYC builder and withdrawal queue gained tests.
-      // Measured 2026-08-04: statements 37.6, functions 29.5, lines 38.4,
-      // branches 35.3. Set a couple of points under.
+      // Raised again after the RBAC settings screen gained tests. Measured
+      // 2026-08-04: statements 41.0, branches 38.0, functions 31.8, lines 41.7.
+      // Set a couple of points under.
       thresholds: {
-        lines: 36,
-        functions: 27,
-        branches: 33,
-        statements: 35,
+        lines: 40,
+        functions: 30,
+        branches: 36,
+        statements: 39,
       },
     },
   },
