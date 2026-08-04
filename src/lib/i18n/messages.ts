@@ -118,6 +118,65 @@ export const messages = {
   'withdrawals.settle': 'Mark paid',
   'withdrawals.approveFailed': 'Failed to approve the withdrawal.',
 
+  'withdrawals.heading': 'Withdrawal Requests',
+  'withdrawals.subtitle':
+    'Review client withdrawals — approve, reject with a reason, or mark paid once the provider confirms',
+  'withdrawals.moneyNote': 'Every money movement is recorded in the audit log.',
+  'withdrawals.required': '*',
+  'withdrawals.colActions': 'Actions',
+  'withdrawals.viewOnly': 'View only',
+  'withdrawals.markPaid': 'Mark Paid',
+  'withdrawals.rejectionReason': 'Rejection Reason',
+  'withdrawals.selectReason': 'Select a reason…',
+  'withdrawals.reasonPlaceholder': 'e.g. Beneficiary name does not match the account holder…',
+  'withdrawals.providerRef': 'Provider reference',
+  'withdrawals.providerRefPlaceholder': 'e.g. whish-payout-9911',
+  'withdrawals.tabPending': 'Pending Review',
+  'withdrawals.tabApproved': 'Approved / Paid',
+  'withdrawals.tabRejected': 'Rejected / Failed',
+
+  // ── Ledger (ADM-13) ───────────────────────────────────────────────────────
+  'ledger.title': 'Ledger',
+  'ledger.subtitle':
+    'Every money movement, append-only. Each row records the running balance it produced — corrections are new compensating entries, never edits.',
+  'ledger.allTypes': 'All Entry Types',
+  'ledger.filterUser': 'Filter by user ID…',
+  'ledger.colWhen': 'When',
+  'ledger.colType': 'Type',
+  'ledger.colAmount': 'Amount',
+  'ledger.colBalanceAfter': 'Balance After',
+  'ledger.colCausedBy': 'Caused By',
+  'ledger.colClient': 'Client',
+
+  // ── Audit log (D-21) ──────────────────────────────────────────────────────
+  'audit.title': 'Audit Log',
+  'audit.subtitle': 'Append-only record of every admin action — who did what, to what, and when',
+  'audit.allActions': 'All Actions',
+  'audit.colWhen': 'When',
+  'audit.colActor': 'Actor',
+  'audit.colAction': 'Action',
+  'audit.colSubject': 'Subject',
+  'audit.colDetails': 'Details',
+
+  // ── KYC review dialogs ────────────────────────────────────────────────────
+  'kyc.approveTitle': 'Approve KYC Submission',
+  'kyc.approveBody':
+    'This advances {client} to verification level 1 and unlocks gated features. This cannot be undone from the admin panel.',
+  'kyc.rejectBody':
+    'Choose a rejection reason, flag the invalid fields, and optionally add a note. The client is emailed the reason and can correct and resubmit.',
+  'kyc.rejectTitle': 'Reject KYC Submission',
+  'kyc.rejectionReason': 'Rejection Reason',
+  'kyc.selectReason': 'Select a reason…',
+  'kyc.rejectPlaceholder': 'e.g. Passport image is blurry and date of birth has a typo…',
+
+  // ── Pagination ────────────────────────────────────────────────────────────
+  'pagination.summary': 'Showing {showing} {noun}',
+  'pagination.summaryOfTotal': 'Showing {showing} {noun} of {total}',
+  'pagination.page': 'Page {number}',
+  'pagination.previous': 'Previous',
+  'pagination.next': 'Next',
+  'pagination.rowsPerPage': 'Rows per page:',
+
   // ── Shared / generic ──────────────────────────────────────────────────────
   'common.retry': 'Try again',
   'common.loading': 'Loading',

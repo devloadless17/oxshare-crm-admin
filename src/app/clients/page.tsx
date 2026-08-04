@@ -12,6 +12,7 @@ import { apiErrorMessage } from '@/lib/api/errors';
 import { useDebounced } from '@/hooks/use-debounced';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { useCursorPages } from '@/hooks/use-cursor-pages';
 import {
   Select,
   SelectTrigger,
@@ -42,7 +43,20 @@ export default function ClientsPage() {
   const canSuspend = hasPermission(admin, 'users.suspend');
   const queryClient = useQueryClient();
 
-  const [page, setPage] = useState(1);
+  /*
+   * Cursor navigation, not numbered pages — PLATFORM-CONVENTIONS R-2.4.
+   *
+   * This list is the ~219,000-record one, and it is written to while it is
+   * read: a client registers while an admin is part-way down, every later
+   * offset page shifts, and one client is never shown. Nothing looks wrong, and
+   * the reviewer believes they saw everyone — which on a client base under
+   * compliance review is the failure that matters.
+   *
+   * The cost is that "jump to page 7" is gone; a cursor names a row, not an
+   * ordinal. At this scale nobody navigates to page 4,382 — they filter and
+   * search, which is why the filters above are the real navigation.
+   */
+  const pages = useCursorPages();
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
   const [status, setStatus] = useState('');
@@ -51,9 +65,10 @@ export default function ClientsPage() {
   const debouncedSearch = useDebounced(search.trim());
 
   const query = useResource<ClientListResponse>(
-    ['clients', page, debouncedSearch, type, status, level],
+    ['clients', pages.cursor ?? 'first', debouncedSearch, type, status, level],
     async (signal) => {
-      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (pages.cursor) params.set('cursor', pages.cursor);
       if (debouncedSearch) params.set('q', debouncedSearch);
       if (type) params.set('type', type);
       if (status) params.set('status', status);
@@ -85,7 +100,10 @@ export default function ClientsPage() {
   };
 
   const rows = query.data?.items ?? [];
-  const total = query.data?.total ?? 0;
+  // The server no longer counts unless asked: counting 219,000 rows is a full
+  // scan on every page view for a number nobody acts on (R-2.4). `nextCursor`
+  // is what says whether there is more.
+  const nextCursor = query.data?.nextCursor ?? null;
   const actingId = setStatusMutation.isPending ? setStatusMutation.variables?.client.id : null;
 
   const columns: Column<ClientRow>[] = [
@@ -186,7 +204,7 @@ export default function ClientsPage() {
           placeholder="Search by name, email..."
           value={search}
           onChange={(e) => {
-            setPage(1);
+            pages.reset();
             setSearch(e.target.value);
           }}
           className="flex h-9 w-72 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-outline"
@@ -194,7 +212,7 @@ export default function ClientsPage() {
         <Select
           value={type || 'all'}
           onValueChange={(val) => {
-            setPage(1);
+            pages.reset();
             setType(val === 'all' ? '' : val);
           }}
         >
@@ -212,7 +230,7 @@ export default function ClientsPage() {
         <Select
           value={status || 'all'}
           onValueChange={(val) => {
-            setPage(1);
+            pages.reset();
             setStatus(val === 'all' ? '' : val);
           }}
         >
@@ -230,7 +248,7 @@ export default function ClientsPage() {
         <Select
           value={level || 'all'}
           onValueChange={(val) => {
-            setPage(1);
+            pages.reset();
             setLevel(val === 'all' ? '' : val);
           }}
         >
@@ -269,11 +287,14 @@ export default function ClientsPage() {
           selectable={true}
           dimmed={query.isFetching}
           empty={<EmptyState icon={Users} message="No clients match the current filters." />}
-          pagination={{
-            page,
+          cursorPagination={{
+            pageNumber: pages.pageNumber,
             pageSize: PAGE_SIZE,
-            total,
-            onPageChange: setPage,
+            showing: rows.length,
+            canGoBack: pages.canGoBack,
+            canGoForward: Boolean(nextCursor),
+            onBack: pages.goBack,
+            onNext: () => pages.goNext(nextCursor),
             noun: ['client', 'clients'],
           }}
         />

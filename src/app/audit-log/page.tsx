@@ -14,7 +14,9 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { Pagination } from '@/components/pagination';
+import { CursorPagination } from '@/components/cursor-pagination';
+import { useCursorPages } from '@/hooks/use-cursor-pages';
+import { t } from '@/lib/i18n';
 
 // D-21: append-only admin action log. Read-only view — there is deliberately
 // no edit or delete anywhere in this flow.
@@ -40,13 +42,23 @@ const ACTION_STYLES: Record<string, string> = {
 };
 
 export default function AuditLogPage() {
-  const [page, setPage] = useState(1);
+  /*
+   * Cursor navigation, not numbered pages — PLATFORM-CONVENTIONS R-2.4.
+   *
+   * The audit log is append-only and only grows. A trail with a gap is worse
+   * than no trail, because it is believed.
+   *
+   * "Jump to page N" is gone because a cursor names a row rather than an
+   * ordinal. Filters are the real navigation here.
+   */
+  const pages = useCursorPages();
   const [action, setAction] = useState('');
 
   const { status, data, isFetching, refetch } = useResource<AuditListResponse>(
-    ['audit-log', page, action],
+    ['audit-log', pages.cursor ?? 'first', action],
     async (signal) => {
-      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (pages.cursor) params.set('cursor', pages.cursor);
       if (action) params.set('action', action);
       const res = await api.get<AuditListResponse>(`/admin/audit-log?${params}`, { signal });
       return res.data;
@@ -54,17 +66,19 @@ export default function AuditLogPage() {
   );
 
   const rows = data?.items ?? [];
-  const total = data?.total ?? 0;
+  // `nextCursor`, not `total`: the server only counts on request, because
+  // counting is a full scan of the filtered set (R-2.4).
+  const nextCursor = data?.nextCursor ?? null;
 
   const columns: Column<AuditEntry>[] = [
     {
-      header: 'When',
+      header: t('audit.colWhen'),
       cell: (e) => new Date(e.createdAt).toLocaleString(),
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
-    { header: 'Actor', cell: (e) => e.actorEmail, cellClassName: 'text-foreground' },
+    { header: t('audit.colActor'), cell: (e) => e.actorEmail, cellClassName: 'text-foreground' },
     {
-      header: 'Action',
+      header: t('audit.colAction'),
       cell: (e) => (
         <span
           className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold font-mono ${
@@ -76,7 +90,7 @@ export default function AuditLogPage() {
       ),
     },
     {
-      header: 'Subject',
+      header: t('audit.colSubject'),
       cell: (e) => (
         <>
           <div className="text-xs">{e.subjectType}</div>
@@ -91,7 +105,7 @@ export default function AuditLogPage() {
       cellClassName: 'text-muted-foreground',
     },
     {
-      header: 'Details',
+      header: t('audit.colDetails'),
       cell: (e) =>
         e.details ? (
           <code className="block max-w-md overflow-x-auto whitespace-pre-wrap break-all text-[11px] text-muted-foreground">
@@ -106,17 +120,15 @@ export default function AuditLogPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Audit Log</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Append-only record of every admin action — who did what, to what, and when
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('audit.title')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('audit.subtitle')}</p>
       </div>
 
       <div className="flex items-center gap-3">
         <Select
           value={action || 'all'}
           onValueChange={(val) => {
-            setPage(1);
+            pages.reset();
             setAction(val === 'all' ? '' : val);
           }}
         >
@@ -124,7 +136,7 @@ export default function AuditLogPage() {
             <SelectValue placeholder="All Actions" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Actions</SelectItem>
+            <SelectItem value="all">{t('audit.allActions')}</SelectItem>
             {ACTIONS.map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
@@ -156,11 +168,14 @@ export default function AuditLogPage() {
         />
         {rows.length > 0 && (
           <div className="mt-6">
-            <Pagination
-              page={page}
-              total={total}
+            <CursorPagination
+              pageNumber={pages.pageNumber}
               pageSize={PAGE_SIZE}
-              onPageChange={setPage}
+              showing={rows.length}
+              canGoBack={pages.canGoBack}
+              canGoForward={Boolean(nextCursor)}
+              onBack={pages.goBack}
+              onNext={() => pages.goNext(nextCursor)}
               noun={['entry', 'entries']}
             />
           </div>

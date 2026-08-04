@@ -11,6 +11,7 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { useCursorPages } from '@/hooks/use-cursor-pages';
 import {
   Select,
   SelectTrigger,
@@ -19,6 +20,7 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
+import { t } from '@/lib/i18n';
 
 // ADM-03 / §8.4 withdrawal review.
 //
@@ -28,22 +30,34 @@ import { Modal } from '@/components/ui/modal';
 const PAGE_SIZE = 25;
 
 const STATE_META: Record<string, { label: string; classes: string }> = {
-  pending: { label: 'Pending', classes: 'bg-warning/10 text-warning border-warning/20' },
-  approved: { label: 'Approved', classes: 'bg-info/10 text-info border-info/20' },
-  success: { label: 'Paid', classes: 'bg-success/10 text-success border-success/20' },
+  pending: {
+    label: t('withdrawals.statePending'),
+    classes: 'bg-warning/10 text-warning border-warning/20',
+  },
+  approved: {
+    label: t('withdrawals.stateApproved'),
+    classes: 'bg-info/10 text-info border-info/20',
+  },
+  success: {
+    label: t('withdrawals.statePaid'),
+    classes: 'bg-success/10 text-success border-success/20',
+  },
   rejected: {
-    label: 'Rejected',
+    label: t('withdrawals.stateRejected'),
     classes: 'bg-destructive/10 text-destructive border-destructive/20',
   },
-  failure: { label: 'Failed', classes: 'bg-destructive/10 text-destructive border-destructive/20' },
+  failure: {
+    label: t('withdrawals.stateFailed'),
+    classes: 'bg-destructive/10 text-destructive border-destructive/20',
+  },
 };
 
 const FILTERS = [
-  { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'success', label: 'Paid' },
-  { value: 'rejected', label: 'Rejected' },
+  { value: '', label: t('withdrawals.stateAll') },
+  { value: 'pending', label: t('withdrawals.statePending') },
+  { value: 'approved', label: t('withdrawals.stateApproved') },
+  { value: 'success', label: t('withdrawals.statePaid') },
+  { value: 'rejected', label: t('withdrawals.stateRejected') },
 ];
 
 export default function WithdrawalsPage() {
@@ -54,7 +68,17 @@ export default function WithdrawalsPage() {
   const canApprove = hasPermission(admin, 'withdrawals.approve');
   const queryClient = useQueryClient();
 
-  const [page, setPage] = useState(1);
+  /*
+   * Cursor navigation, not numbered pages — PLATFORM-CONVENTIONS R-2.4.
+   *
+   * The withdrawal QUEUE is worked down by an admin while clients keep
+   * submitting — the concurrent-insert case offset paging gets wrong. A skipped
+   * withdrawal is one nobody actions, and nothing about it looks wrong.
+   *
+   * "Jump to page N" is gone because a cursor names a row rather than an
+   * ordinal. Filters are the real navigation here.
+   */
+  const pages = useCursorPages();
   const [filter, setFilter] = useState('');
 
   const [rejectTarget, setRejectTarget] = useState<WithdrawalRow | null>(null);
@@ -65,9 +89,10 @@ export default function WithdrawalsPage() {
   const [providerRef, setProviderRef] = useState('');
 
   const query = useResource<WithdrawalListResponse>(
-    ['withdrawals', page, filter],
+    ['withdrawals', pages.cursor ?? 'first', filter],
     async (signal) => {
-      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (pages.cursor) params.set('cursor', pages.cursor);
       if (filter) params.set('state', filter);
       const res = await api.get<WithdrawalListResponse>(`/admin/withdrawals?${params}`, { signal });
       return res.data;
@@ -115,7 +140,9 @@ export default function WithdrawalsPage() {
 
   const busy = approve.isPending || reject.isPending || settle.isPending;
   const rows = query.data?.items ?? [];
-  const total = query.data?.total ?? 0;
+  // `nextCursor`, not `total`: the server only counts on request, because
+  // counting is a full scan of the filtered set (R-2.4).
+  const nextCursor = query.data?.nextCursor ?? null;
   const counts = query.data?.counts ?? {};
 
   const listError = approve.isError
@@ -124,7 +151,7 @@ export default function WithdrawalsPage() {
 
   const columns: Column<WithdrawalRow>[] = [
     {
-      header: 'Client',
+      header: t('withdrawals.colClient'),
       sortable: true,
       sortKey: 'id',
       cell: (w) => (
@@ -137,7 +164,7 @@ export default function WithdrawalsPage() {
       ),
     },
     {
-      header: 'Amount',
+      header: t('withdrawals.colAmount'),
       align: 'right',
       sortable: true,
       sortKey: 'amount',
@@ -164,7 +191,7 @@ export default function WithdrawalsPage() {
       cellClassName: 'font-mono font-semibold text-foreground whitespace-nowrap',
     },
     {
-      header: 'Destination',
+      header: t('withdrawals.colDestination'),
       sortable: true,
       sortKey: 'destination',
       cell: (w) => (
@@ -180,7 +207,7 @@ export default function WithdrawalsPage() {
       ),
     },
     {
-      header: 'State',
+      header: t('withdrawals.colState'),
       sortable: true,
       sortKey: 'state',
       cell: (w) => (
@@ -205,7 +232,7 @@ export default function WithdrawalsPage() {
       ),
     },
     {
-      header: 'Requested',
+      header: t('withdrawals.colRequested'),
       sortable: true,
       sortKey: 'requestedAt',
       sortType: 'date',
@@ -213,10 +240,10 @@ export default function WithdrawalsPage() {
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
     {
-      header: 'Actions',
+      header: t('withdrawals.colActions'),
       cell: (w) =>
         !canApprove ? (
-          <span className="text-xs text-muted-foreground">View only</span>
+          <span className="text-xs text-muted-foreground">{t('withdrawals.viewOnly')}</span>
         ) : w.state === 'pending' ? (
           <div className="flex gap-2">
             <button
@@ -225,7 +252,7 @@ export default function WithdrawalsPage() {
               disabled={busy}
               className="h-8 px-3 rounded-md bg-success text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 focus-outline"
             >
-              Approve
+              {t('withdrawals.approve')}
             </button>
             <button
               type="button"
@@ -236,7 +263,7 @@ export default function WithdrawalsPage() {
               disabled={busy}
               className="h-8 px-3 rounded-md border border-destructive/40 text-destructive text-xs font-semibold hover:bg-destructive/10 disabled:opacity-50 focus-outline"
             >
-              Reject
+              {t('withdrawals.reject')}
             </button>
           </div>
         ) : w.state === 'approved' ? (
@@ -249,7 +276,7 @@ export default function WithdrawalsPage() {
             disabled={busy}
             className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-50 focus-outline"
           >
-            Mark Paid
+            {t('withdrawals.markPaid')}
           </button>
         ) : (
           <span className="text-xs text-muted-foreground">
@@ -266,30 +293,27 @@ export default function WithdrawalsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Withdrawal Requests</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review client withdrawals — approve, reject with a reason, or mark paid once the provider
-          confirms
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('withdrawals.heading')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('withdrawals.subtitle')}</p>
       </div>
 
       {query.status === 'ready' && (
         <div className="grid gap-4 sm:grid-cols-3">
           {[
             {
-              label: 'Pending Review',
+              label: t('withdrawals.tabPending'),
               value: counts['pending'] ?? 0,
               Icon: Clock,
               tone: 'text-warning bg-warning/10',
             },
             {
-              label: 'Approved / Paid',
+              label: t('withdrawals.tabApproved'),
               value: (counts['approved'] ?? 0) + (counts['success'] ?? 0),
               Icon: CheckCircle2,
               tone: 'text-success bg-success/10',
             },
             {
-              label: 'Rejected / Failed',
+              label: t('withdrawals.tabRejected'),
               value: (counts['rejected'] ?? 0) + (counts['failure'] ?? 0),
               Icon: XCircle,
               tone: 'text-destructive bg-destructive/10',
@@ -319,7 +343,7 @@ export default function WithdrawalsPage() {
                 key={f.value}
                 type="button"
                 onClick={() => {
-                  setPage(1);
+                  pages.reset();
                   setFilter(f.value);
                 }}
                 aria-pressed={filter === f.value}
@@ -331,7 +355,12 @@ export default function WithdrawalsPage() {
               >
                 {f.label}
                 <span className="ml-1.5 opacity-70">
-                  {f.value ? (counts[f.value] ?? 0) : total}
+                  {/* `counts.all` comes from the server's per-state grouping over
+                      the FULL set, so it stays correct whatever page is shown —
+                      unlike the old `total`, which was the filtered count for
+                      the current query and is no longer returned by default
+                      (R-2.4: counting is opt-in). */}
+                  {f.value ? (counts[f.value] ?? 0) : (counts['all'] ?? 0)}
                 </span>
               </button>
             ))}
@@ -369,11 +398,14 @@ export default function WithdrawalsPage() {
               message={filter ? 'No withdrawals in this state.' : 'No withdrawal requests yet.'}
             />
           }
-          pagination={{
-            page,
+          cursorPagination={{
+            pageNumber: pages.pageNumber,
             pageSize: PAGE_SIZE,
-            total,
-            onPageChange: setPage,
+            showing: rows.length,
+            canGoBack: pages.canGoBack,
+            canGoForward: Boolean(nextCursor),
+            onBack: pages.goBack,
+            onNext: () => pages.goNext(nextCursor),
             noun: ['request', 'requests'],
           }}
         />
@@ -398,7 +430,7 @@ export default function WithdrawalsPage() {
               disabled={reject.isPending}
               className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-medium hover:bg-muted disabled:opacity-50 focus-outline"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -414,7 +446,7 @@ export default function WithdrawalsPage() {
       >
         {reasons.length > 0 && (
           <div>
-            <label className="text-xs font-semibold">Rejection Reason</label>
+            <label className="text-xs font-semibold">{t('withdrawals.rejectionReason')}</label>
             <Select value={reasonId} onValueChange={(val) => setReasonId(val)}>
               <SelectTrigger className="mt-1 h-9 w-full">
                 <SelectValue placeholder="Select a reason…" />
@@ -441,7 +473,7 @@ export default function WithdrawalsPage() {
             value={reasonNote}
             onChange={(e) => setReasonNote(e.target.value)}
             className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-vertical focus-outline"
-            placeholder="e.g. Beneficiary name does not match the account holder…"
+            placeholder={t('withdrawals.reasonPlaceholder')}
           />
         </div>
 
@@ -471,7 +503,7 @@ export default function WithdrawalsPage() {
               disabled={settle.isPending}
               className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-medium hover:bg-muted disabled:opacity-50 focus-outline"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -487,14 +519,14 @@ export default function WithdrawalsPage() {
       >
         <div>
           <label htmlFor="provider-ref" className="text-xs font-semibold">
-            Provider reference <span className="text-destructive">*</span>
+            {t('withdrawals.providerRef')} <span className="text-destructive">*</span>
           </label>
           <input
             id="provider-ref"
             value={providerRef}
             onChange={(e) => setProviderRef(e.target.value)}
             className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm font-mono focus-outline"
-            placeholder="e.g. whish-payout-9911"
+            placeholder={t('withdrawals.providerRefPlaceholder')}
           />
         </div>
         {settle.isError && (

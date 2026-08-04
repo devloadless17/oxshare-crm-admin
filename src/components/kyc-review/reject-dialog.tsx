@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select';
 import type { RejectionReason } from '@/lib/api/admin';
 import { FIELD_OPTIONS } from './field-options';
+import { t } from '@/lib/i18n';
 
 /**
  * Rejection dialog: a configured reason (FR-ADM-03), an optional free-text note,
@@ -65,16 +66,13 @@ export function RejectDialog({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 id="reject-modal-title">Reject KYC Submission</h3>
-        <p className="text-xs text-muted-foreground mb-4">
-          Choose a rejection reason, flag the invalid fields, and optionally add a note. The client
-          is emailed the reason and can correct and resubmit.
-        </p>
+        <h3 id="reject-modal-title">{t('kyc.rejectTitle')}</h3>
+        <p className="text-xs text-muted-foreground mb-4">{t('kyc.rejectBody')}</p>
 
         {reasons.length > 0 && (
           <div className="space-y-1.5 mb-4">
             <label className="text-xs font-bold text-foreground">
-              Rejection Reason <span className="text-destructive">*</span>
+              {t('kyc.rejectionReason')} <span className="text-destructive">*</span>
             </label>
             <Select value={selectedReasonId} onValueChange={(val) => onReasonChange(val)}>
               <SelectTrigger className="h-9 w-full">
@@ -130,13 +128,13 @@ export function RejectDialog({
               'Additional Note (optional)'
             ) : (
               <>
-                Rejection Reason <span className="text-destructive">*</span>
+                {t('kyc.rejectionReason')} <span className="text-destructive">*</span>
               </>
             )}
           </label>
           <textarea
             className="reject-textarea"
-            placeholder="e.g. Passport image is blurry and date of birth has a typo..."
+            placeholder={t('kyc.rejectPlaceholder')}
             value={note}
             onChange={(e) => onNoteChange(e.target.value)}
             rows={3}
@@ -154,7 +152,7 @@ export function RejectDialog({
 
         <div className="modal-btns">
           <button className="btn-cancel" onClick={() => onCancel()} disabled={loading}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             className="btn-reject-confirm"

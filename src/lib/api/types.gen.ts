@@ -1259,6 +1259,7 @@ export interface components {
         };
         LedgerListResponseDto: {
             items: components["schemas"]["LedgerEntryDto"][];
+            nextCursor: string | null;
             /** @description Total matching entries, ignoring pagination. */
             total: number;
             page: number;
@@ -1450,7 +1451,9 @@ export interface components {
         };
         ClientListResponseDto: {
             items: components["schemas"]["ClientRowDto"][];
-            total: number;
+            nextCursor: string | null;
+            /** @description Only when ?withTotal=true. Counting 219,000 rows is a full scan. */
+            total?: number;
             page: number;
             limit: number;
         };
@@ -1600,6 +1603,7 @@ export interface components {
         };
         WithdrawalListResponseDto: {
             items: components["schemas"]["WithdrawalRowDto"][];
+            nextCursor: string | null;
             total: number;
             page: number;
             limit: number;
@@ -1741,6 +1745,7 @@ export interface components {
         };
         AuditListResponseDto: {
             items: components["schemas"]["AuditEntryDto"][];
+            nextCursor: string | null;
             total: number;
             page: number;
             limit: number;

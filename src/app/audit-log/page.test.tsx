@@ -61,14 +61,24 @@ describe('audit log — listing', () => {
     expect(screen.getByText(/kyc\.approve/i)).toBeInTheDocument();
   });
 
-  it('requests the first page with a bounded limit', async () => {
+  it('requests the first page with a bounded limit and NO offset', async () => {
     renderWithProviders(<AuditLogPage />);
 
     await waitFor(() => expect(get).toHaveBeenCalled());
     const url = get.mock.calls[0]?.[0] as string;
+
     // An unbounded audit query is a slow query at §5's row counts.
-    expect(url).toMatch(/page=1/);
     expect(url).toMatch(/limit=\d+/);
+
+    /*
+     * No `page`, and no `cursor` on the first request — PLATFORM-CONVENTIONS
+     * R-2.4. This assertion said `page=1` until the migration, which is what an
+     * offset walk sends; the audit log is append-only and only grows, and offset
+     * paging over a list being written to silently skips rows. A trail with a
+     * gap is worse than no trail, because it is believed.
+     */
+    expect(url).not.toMatch(/page=/);
+    expect(url).not.toMatch(/cursor=/);
   });
 
   it('offers a retry when the log cannot be loaded', async () => {

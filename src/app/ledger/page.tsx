@@ -14,7 +14,9 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { Pagination } from '@/components/pagination';
+import { CursorPagination } from '@/components/cursor-pagination';
+import { useCursorPages } from '@/hooks/use-cursor-pages';
+import { t } from '@/lib/i18n';
 
 // ADM-13: the ledger view, filterable for reconciliation.
 //
@@ -42,15 +44,26 @@ const TYPE_STYLES: Record<string, string> = {
 const isDebit = (amount: string) => amount.trim().startsWith('-');
 
 export default function LedgerPage() {
-  const [page, setPage] = useState(1);
+  /*
+   * Cursor navigation, not numbered pages — PLATFORM-CONVENTIONS R-2.4.
+   *
+   * The ledger is append-only and never stops growing, and it is the list used
+   * FOR reconciliation (ADM-13): a page that silently skips an entry means
+   * balancing against the wrong set of rows.
+   *
+   * "Jump to page N" is gone because a cursor names a row rather than an
+   * ordinal. Filters are the real navigation here.
+   */
+  const pages = useCursorPages();
   const [entryType, setEntryType] = useState('');
   const [userId, setUserId] = useState('');
 
   const trimmedUserId = userId.trim();
   const { status, data, isFetching, refetch } = useResource<LedgerListResponse>(
-    ['ledger', page, entryType, trimmedUserId],
+    ['ledger', pages.cursor ?? 'first', entryType, trimmedUserId],
     async (signal) => {
-      const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (pages.cursor) params.set('cursor', pages.cursor);
       if (entryType) params.set('entryType', entryType);
       if (trimmedUserId) params.set('userId', trimmedUserId);
       const res = await api.get<LedgerListResponse>(`/admin/ledger?${params}`, { signal });
@@ -59,16 +72,18 @@ export default function LedgerPage() {
   );
 
   const rows = data?.items ?? [];
-  const total = data?.total ?? 0;
+  // `nextCursor`, not `total`: the server only counts on request, because
+  // counting is a full scan of the filtered set (R-2.4).
+  const nextCursor = data?.nextCursor ?? null;
 
   const columns: Column<LedgerEntry>[] = [
     {
-      header: 'When',
+      header: t('ledger.colWhen'),
       cell: (e) => new Date(e.createdAt).toLocaleString(),
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
     {
-      header: 'Type',
+      header: t('ledger.colType'),
       cell: (e) => (
         <span
           className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${TYPE_STYLES[e.entryType] ?? ''}`}
@@ -78,7 +93,7 @@ export default function LedgerPage() {
       ),
     },
     {
-      header: 'Amount',
+      header: t('ledger.colAmount'),
       align: 'right',
       // Strings, rendered verbatim (§6.1).
       cell: (e) => (
@@ -89,7 +104,7 @@ export default function LedgerPage() {
       cellClassName: 'font-mono font-semibold whitespace-nowrap',
     },
     {
-      header: 'Balance After',
+      header: t('ledger.colBalanceAfter'),
       align: 'right',
       // Deliberately UNformatted, unlike the withdrawals queue.
       //
@@ -101,7 +116,7 @@ export default function LedgerPage() {
       cellClassName: 'font-mono text-muted-foreground whitespace-nowrap',
     },
     {
-      header: 'Caused By',
+      header: t('ledger.colCausedBy'),
       cell: (e) => (
         <>
           <div className="text-xs text-foreground">{e.referenceType}</div>
@@ -115,12 +130,12 @@ export default function LedgerPage() {
       ),
     },
     {
-      header: 'Client',
+      header: t('ledger.colClient'),
       cell: (e) => (
         <button
           type="button"
           onClick={() => {
-            setPage(1);
+            pages.reset();
             setUserId(e.userId);
           }}
           title="Filter this client's entries"
@@ -135,18 +150,15 @@ export default function LedgerPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Ledger</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Every money movement, append-only. Each row records the running balance it produced —
-          corrections are new compensating entries, never edits.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('ledger.title')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('ledger.subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <Select
           value={entryType || 'all'}
           onValueChange={(val) => {
-            setPage(1);
+            pages.reset();
             setEntryType(val === 'all' ? '' : val);
           }}
         >
@@ -154,7 +166,7 @@ export default function LedgerPage() {
             <SelectValue placeholder="All Entry Types" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Entry Types</SelectItem>
+            <SelectItem value="all">{t('ledger.allTypes')}</SelectItem>
             {ENTRY_TYPES.map((t) => (
               <SelectItem key={t} value={t}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -165,10 +177,10 @@ export default function LedgerPage() {
         <input
           type="search"
           aria-label="Filter by client user ID"
-          placeholder="Filter by user ID…"
+          placeholder={t('ledger.filterUser')}
           value={userId}
           onChange={(e) => {
-            setPage(1);
+            pages.reset();
             setUserId(e.target.value);
           }}
           className="flex h-9 w-72 rounded-md border border-input bg-background px-3 py-1 text-sm font-mono shadow-sm placeholder:font-sans placeholder:text-muted-foreground focus-outline"
@@ -201,11 +213,14 @@ export default function LedgerPage() {
         />
         {rows.length > 0 && (
           <div className="mt-6">
-            <Pagination
-              page={page}
-              total={total}
+            <CursorPagination
+              pageNumber={pages.pageNumber}
               pageSize={PAGE_SIZE}
-              onPageChange={setPage}
+              showing={rows.length}
+              canGoBack={pages.canGoBack}
+              canGoForward={Boolean(nextCursor)}
+              onBack={pages.goBack}
+              onNext={() => pages.goNext(nextCursor)}
               noun={['entry', 'entries']}
             />
           </div>

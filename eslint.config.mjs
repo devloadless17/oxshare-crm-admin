@@ -32,13 +32,38 @@ import tseslint from 'typescript-eslint';
 const I18N_ENFORCED = [
   'src/components/layout/admin-layout.tsx',
   'src/app/login/page.tsx',
+  'src/app/withdrawals/page.tsx',
+  'src/app/ledger/page.tsx',
+  'src/app/audit-log/page.tsx',
+  'src/components/kyc-review/approve-dialog.tsx',
+  'src/components/kyc-review/reject-dialog.tsx',
+  'src/components/cursor-pagination.tsx',
 ];
 
 /**
  * Text that is not copy: punctuation, separators and symbols a translator would
  * leave untouched anyway.
  */
-const ALLOWED_JSX_LITERALS = ['·', '—', '–', '/', '%', '+', '-', '×', ':', '*', '(', ')', '&'];
+const ALLOWED_JSX_LITERALS = [
+  '·',
+  '—',
+  '–',
+  '/',
+  '%',
+  '+',
+  '-',
+  '×',
+  ':',
+  '*',
+  '(',
+  ')',
+  '&',
+  // Separators and required-field markers. Not copy: a translator has nothing
+  // to do with them, and listing them keeps the rule usable on screens that are
+  // otherwise fully converted.
+  '•',
+  '0',
+];
 
 export default defineConfig([
   globalIgnores([

@@ -1,6 +1,7 @@
 'use client';
 
 import type { RefObject } from 'react';
+import { t } from '@/lib/i18n';
 
 /**
  * Approval confirmation for a KYC submission.
@@ -40,10 +41,9 @@ export function ApproveDialog({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 id="approve-confirm-title">Approve KYC Submission</h3>
+        <h3 id="approve-confirm-title">{t('kyc.approveTitle')}</h3>
         <p className="text-xs text-muted-foreground mb-4">
-          This advances {clientName} to verification level 1 and unlocks gated features. This cannot
-          be undone from the admin panel.
+          {t('kyc.approveBody', { client: clientName })}
         </p>
         {error && (
           <p className="text-xs font-semibold text-destructive mb-3" role="alert">
@@ -52,7 +52,7 @@ export function ApproveDialog({
         )}
         <div className="modal-btns">
           <button className="btn-cancel" onClick={() => onCancel()} disabled={loading}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             className="btn-approve-confirm"
