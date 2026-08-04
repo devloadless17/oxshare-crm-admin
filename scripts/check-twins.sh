@@ -45,6 +45,8 @@ fi
 # portal answers access_token — a frozen backend divergence). Listing it here
 # would make this check assert something untrue, so it is reviewed by hand.
 TWINS=(
+  src/lib/env.ts
+  src/lib/env.test.ts
   src/lib/api/errors.ts
   src/lib/api/errors.test.ts
   src/hooks/use-resource.ts

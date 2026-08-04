@@ -8,11 +8,9 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL =
-  typeof window !== 'undefined'
-    ? '/api'
-    : process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
-
+// Resolved and validated in `lib/env.ts`, which refuses a production build with
+// no NEXT_PUBLIC_API_BASE_URL rather than silently falling back to localhost.
+import { API_BASE_URL } from '../env';
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
