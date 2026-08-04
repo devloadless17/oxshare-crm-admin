@@ -131,7 +131,10 @@ export default defineConfig([
       'src/app/withdrawals/page.tsx',
     ],
     rules: {
-      'max-lines': ['error', { max: 950, skipBlankLines: true, skipComments: true }],
+      // Lowered from 950 after kyc/[userId] was split (973 -> 745 lines). This
+      // number only ever goes DOWN: 720 leaves the largest of these files no room
+      // to grow, and each split should be followed by lowering it again.
+      'max-lines': ['error', { max: 720, skipBlankLines: true, skipComments: true }],
     },
   },
 

@@ -5,19 +5,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select';
 import Link from 'next/link';
 import api from '@/lib/api';
 import type { RejectionReason } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
+import { apiErrorMessage } from '@/lib/api/errors';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
-import { buildKycDocUrl } from '@/lib/kyc-doc-url';
+import { DocViewer } from '@/components/kyc-review/doc-viewer';
+import { ApproveDialog } from '@/components/kyc-review/approve-dialog';
+import { RejectDialog } from '@/components/kyc-review/reject-dialog';
 
 interface KycDetail {
   userId: string;
@@ -38,84 +34,6 @@ interface KycDetail {
   selfie?: { filePath?: string; fileName?: string };
   addressProof?: { docType?: string; filePath?: string; fileName?: string; page2FilePath?: string };
 }
-
-function DocViewer({ filePath, label }: { filePath?: string; label: string }) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const isPdf = filePath?.toLowerCase().endsWith('.pdf');
-  const url = buildKycDocUrl(filePath);
-
-  return (
-    <div className="flex flex-col gap-2 p-4 rounded-xl border border-border bg-card/60">
-      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      {filePath ? (
-        isPdf ? (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 text-link hover:underline font-semibold text-xs py-3"
-          >
-            📄 View Document PDF
-          </a>
-        ) : imgFailed ? (
-          <div className="text-xs text-destructive py-6 text-center border border-dashed border-destructive/40 rounded-lg">
-            Could not load document.{' '}
-            <a href={url} target="_blank" rel="noreferrer" className="underline">
-              Open directly
-            </a>
-          </div>
-        ) : (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="block overflow-hidden rounded-lg border border-border/80"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- KYC documents are
-                served from the API origin behind auth; next/image would proxy them
-                through the optimizer and cache identity documents on disk. */}
-            <img
-              src={url}
-              alt={label}
-              onError={() => setImgFailed(true)}
-              className="w-full h-44 object-cover hover:opacity-90 transition-opacity cursor-pointer"
-            />
-          </a>
-        )
-      ) : (
-        <div className="text-xs italic text-muted-foreground py-6 text-center border border-dashed border-border/50 rounded-lg">
-          Not uploaded
-        </div>
-      )}
-    </div>
-  );
-}
-
-const FIELD_OPTIONS = [
-  {
-    group: 'Personal Information',
-    fields: [
-      { id: 'firstName', label: 'First Name' },
-      { id: 'lastName', label: 'Last Name' },
-      { id: 'dateOfBirth', label: 'Date of Birth' },
-      { id: 'phone', label: 'Phone Number' },
-      { id: 'nationality', label: 'Nationality' },
-      { id: 'country', label: 'Country' },
-      { id: 'address', label: 'Address' },
-    ],
-  },
-  {
-    group: 'Documents & Verification',
-    fields: [
-      { id: 'doc_front', label: 'ID / Passport Photo' },
-      { id: 'doc_back', label: 'ID Back Side' },
-      { id: 'selfie', label: 'Selfie Photo' },
-      { id: 'address_proof', label: 'Proof of Address' },
-    ],
-  },
-];
 
 export default function KycDetailPage() {
   const params = useParams();
@@ -158,11 +76,6 @@ export default function KycDetailPage() {
   );
   useFocusTrap(rejectPanelRef, showRejectModal, () => setShowRejectModal(false), !actionLoading);
 
-  const errorMessage = (e: unknown, fallback: string) => {
-    const err = e as { response?: { data?: { message?: string } } };
-    return err?.response?.data?.message ?? fallback;
-  };
-
   // FR-ADM-03: reasons come from the configurable list; free text is the
   // fallback and doubles as an optional note alongside a selected reason.
   useEffect(() => {
@@ -181,7 +94,7 @@ export default function KycDetailPage() {
       await queryClient.invalidateQueries({ queryKey: ['kyc'] });
       setShowApproveConfirm(false);
     } catch (e: unknown) {
-      setActionError(errorMessage(e, 'Failed to approve the submission. Please try again.'));
+      setActionError(apiErrorMessage(e, 'Failed to approve the submission. Please try again.'));
     } finally {
       setActionLoading(false);
     }
@@ -194,7 +107,7 @@ export default function KycDetailPage() {
       await api.patch(`/admin/kyc/${userId}/claim`);
       await queryClient.invalidateQueries({ queryKey: ['kyc'] });
     } catch (e: unknown) {
-      setActionError(errorMessage(e, 'Failed to claim the submission for review.'));
+      setActionError(apiErrorMessage(e, 'Failed to claim the submission for review.'));
     } finally {
       setActionLoading(false);
     }
@@ -224,7 +137,7 @@ export default function KycDetailPage() {
       setSelectedReasonId('');
       setSelectedRejectedFields([]);
     } catch (e: unknown) {
-      setActionError(errorMessage(e, 'Failed to reject the submission. Please try again.'));
+      setActionError(apiErrorMessage(e, 'Failed to reject the submission. Please try again.'));
     } finally {
       setActionLoading(false);
     }
@@ -427,174 +340,33 @@ export default function KycDetailPage() {
 
       {/* Approve Confirmation */}
       {showApproveConfirm && (
-        <div
-          className="modal-overlay"
-          onClick={() => !actionLoading && setShowApproveConfirm(false)}
-        >
-          <div
-            ref={approvePanelRef}
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="approve-confirm-title"
-            tabIndex={-1}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="approve-confirm-title">Approve KYC Submission</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              This advances {data.user?.firstName} {data.user?.lastName} to verification level 1 and
-              unlocks gated features. This cannot be undone from the admin panel.
-            </p>
-            {actionError && (
-              <p className="text-xs font-semibold text-destructive mb-3" role="alert">
-                {actionError}
-              </p>
-            )}
-            <div className="modal-btns">
-              <button
-                className="btn-cancel"
-                onClick={() => setShowApproveConfirm(false)}
-                disabled={actionLoading}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-approve-confirm"
-                onClick={() => void approve()}
-                disabled={actionLoading}
-                aria-busy={actionLoading}
-              >
-                {actionLoading ? 'Approving...' : 'Confirm Approval'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ApproveDialog
+          panelRef={approvePanelRef}
+          clientName={`${data.user?.firstName ?? ''} ${data.user?.lastName ?? ''}`.trim()}
+          loading={actionLoading}
+          error={actionError}
+          onCancel={() => !actionLoading && setShowApproveConfirm(false)}
+          onConfirm={approve}
+        />
       )}
 
       {/* Reject Modal */}
       {showRejectModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            // Don't discard a typed reason on a stray backdrop click
-            if (!actionLoading && !rejectReason.trim()) setShowRejectModal(false);
-          }}
-        >
-          <div
-            ref={rejectPanelRef}
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reject-modal-title"
-            tabIndex={-1}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="reject-modal-title">Reject KYC Submission</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Choose a rejection reason, flag the invalid fields, and optionally add a note. The
-              client is emailed the reason and can correct and resubmit.
-            </p>
-
-            {reasons.length > 0 && (
-              <div className="space-y-1.5 mb-4">
-                <label className="text-xs font-bold text-foreground">
-                  Rejection Reason <span className="text-destructive">*</span>
-                </label>
-                <Select value={selectedReasonId} onValueChange={(val) => setSelectedReasonId(val)}>
-                  <SelectTrigger className="h-9 w-full">
-                    <SelectValue placeholder="Select a reason…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {reasons.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1 mb-4">
-              {FIELD_OPTIONS.map((grp) => (
-                <div key={grp.group} className="space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-destructive block">
-                    {grp.group}
-                  </span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {grp.fields.map((f) => {
-                      const isChecked = selectedRejectedFields.includes(f.id);
-                      return (
-                        <label
-                          key={f.id}
-                          className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
-                            isChecked
-                              ? 'border-destructive bg-destructive/10 text-destructive font-semibold'
-                              : 'border-border bg-card/40 text-muted-foreground hover:border-border/80'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleFieldSelection(f.id)}
-                            className="rounded border-input accent-destructive focus:ring-destructive"
-                          />
-                          <span>{f.label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">
-                {reasons.length > 0 ? (
-                  'Additional Note (optional)'
-                ) : (
-                  <>
-                    Rejection Reason <span className="text-destructive">*</span>
-                  </>
-                )}
-              </label>
-              <textarea
-                className="reject-textarea"
-                placeholder="e.g. Passport image is blurry and date of birth has a typo..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                rows={3}
-                maxLength={500}
-                autoFocus={reasons.length === 0}
-                aria-required={reasons.length === 0}
-              />
-            </div>
-
-            {actionError && (
-              <p className="mt-3 text-xs font-semibold text-destructive" role="alert">
-                {actionError}
-              </p>
-            )}
-
-            <div className="modal-btns">
-              <button
-                className="btn-cancel"
-                onClick={() => setShowRejectModal(false)}
-                disabled={actionLoading}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-reject-confirm"
-                onClick={() => void reject()}
-                disabled={!canConfirmReject || actionLoading}
-                aria-busy={actionLoading}
-              >
-                {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <RejectDialog
+          panelRef={rejectPanelRef}
+          reasons={reasons}
+          selectedReasonId={selectedReasonId}
+          note={rejectReason}
+          selectedFields={selectedRejectedFields}
+          canConfirm={canConfirmReject}
+          loading={actionLoading}
+          error={actionError}
+          onReasonChange={setSelectedReasonId}
+          onNoteChange={setRejectReason}
+          onToggleField={toggleFieldSelection}
+          onCancel={() => !actionLoading && setShowRejectModal(false)}
+          onConfirm={reject}
+        />
       )}
 
       <style jsx>{`
