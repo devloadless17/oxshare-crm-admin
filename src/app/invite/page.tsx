@@ -11,6 +11,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import { t } from '@/lib/i18n';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -77,8 +78,8 @@ export default function InviteAdminPage() {
   return (
     <div className="invite-wrap">
       <div className="invite-card">
-        <div className="invite-icon">✉️</div>
-        <h2>Invite Admin</h2>
+        <div className="invite-icon">{t('invite.iconMail')}</div>
+        <h2>{t('invite.title')}</h2>
         <p>
           Invite a new admin: they receive an activation email, and you also get the link to share
           manually if needed. Invites expire after 48 hours.
@@ -86,10 +87,8 @@ export default function InviteAdminPage() {
 
         {result ? (
           <div className="result-box" aria-live="polite">
-            <div className="result-success">✓ Invite created!</div>
-            <p className="result-note">
-              Invitation email sent. You can also share the link directly:
-            </p>
+            <div className="result-success">{t('invite.created')}</div>
+            <p className="result-note">{t('invite.sentNote')}</p>
             <div className="invite-link-box">
               <code>{result.inviteUrl}</code>
               <button className="copy-btn" onClick={() => void copyLink()}>
@@ -108,17 +107,17 @@ export default function InviteAdminPage() {
                 setError('');
               }}
             >
-              Send another invite
+              {t('invite.sendAnother')}
             </button>
           </div>
         ) : (
           <form className="invite-form" onSubmit={(e) => void submit(e)}>
             <div className="form-group">
-              <label htmlFor="invite-name">Full Name</label>
+              <label htmlFor="invite-name">{t('invite.fullName')}</label>
               <input
                 id="invite-name"
                 className="form-input"
-                placeholder="Jane Smith"
+                placeholder={t('invite.namePlaceholder')}
                 autoComplete="off"
                 value={form.name}
                 onChange={(e) => {
@@ -128,12 +127,12 @@ export default function InviteAdminPage() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="invite-email">Email Address</label>
+              <label htmlFor="invite-email">{t('invite.email')}</label>
               <input
                 id="invite-email"
                 className="form-input"
                 type="email"
-                placeholder="jane@oxshare.com"
+                placeholder={t('invite.emailPlaceholder')}
                 autoComplete="off"
                 value={form.email}
                 onChange={(e) => {
@@ -144,16 +143,16 @@ export default function InviteAdminPage() {
             </div>
             {roles.length > 0 && (
               <div className="form-group">
-                <label htmlFor="invite-role">Role</label>
+                <label htmlFor="invite-role">{t('invite.role')}</label>
                 <Select
                   value={roleId || 'default'}
                   onValueChange={(val) => setRoleId(val === 'default' ? '' : val)}
                 >
                   <SelectTrigger className="h-10 w-full">
-                    <SelectValue placeholder="Default (KYC review + client list)" />
+                    <SelectValue placeholder={t('invite.defaultRole')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="default">Default (KYC review + client list)</SelectItem>
+                    <SelectItem value="default">{t('invite.defaultRole')}</SelectItem>
                     {roles.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {r.name} ({r.permissions.length} permission

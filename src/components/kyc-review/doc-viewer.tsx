@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { buildKycDocUrl } from '@/lib/kyc-doc-url';
+import { t } from '@/lib/i18n';
 
 /**
  * One uploaded KYC document: image inline, PDF as a link, and an honest fallback
@@ -28,13 +29,13 @@ export function DocViewer({ filePath, label }: { filePath?: string; label: strin
             rel="noreferrer"
             className="inline-flex items-center gap-2 text-link hover:underline font-semibold text-xs py-3"
           >
-            📄 View Document PDF
+            {t('kycReview.viewDocumentPdf')}
           </a>
         ) : imgFailed ? (
           <div className="text-xs text-destructive py-6 text-center border border-dashed border-destructive/40 rounded-lg">
-            Could not load document.{' '}
+            {t('kycReview.docLoadFailed')}{' '}
             <a href={url} target="_blank" rel="noreferrer" className="underline">
-              Open directly
+              {t('kycReview.openDirectly')}
             </a>
           </div>
         ) : (
@@ -57,7 +58,7 @@ export function DocViewer({ filePath, label }: { filePath?: string; label: strin
         )
       ) : (
         <div className="text-xs italic text-muted-foreground py-6 text-center border border-dashed border-border/50 rounded-lg">
-          Not uploaded
+          {t('kycReview.notUploaded')}
         </div>
       )}
     </div>

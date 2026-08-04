@@ -14,6 +14,7 @@ import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { DocViewer } from '@/components/kyc-review/doc-viewer';
 import { ApproveDialog } from '@/components/kyc-review/approve-dialog';
 import { RejectDialog } from '@/components/kyc-review/reject-dialog';
+import { t } from '@/lib/i18n';
 
 interface KycDetail {
   userId: string;
@@ -154,10 +155,10 @@ export default function KycDetailPage() {
             onClick={() => void load()}
             className="text-sm font-semibold text-link hover:underline"
           >
-            Retry
+            {t('common.retryShort')}
           </button>
           <Link href="/kyc" className="text-sm text-muted-foreground hover:underline">
-            Back to KYC list
+            {t('kycReview.backToList')}
           </Link>
         </div>
       </div>
@@ -172,7 +173,7 @@ export default function KycDetailPage() {
       <div className="detail-header">
         <Link href="/kyc" className="back-link inline-flex items-center gap-1">
           <ChevronLeft className="h-4 w-4" />
-          <span>Back to KYC List</span>
+          <span>{t('kycReview.backToList')}</span>
         </Link>
         <div className="detail-title-row">
           <div>
@@ -191,7 +192,7 @@ export default function KycDetailPage() {
         {/* Left: Info */}
         <div className="detail-left">
           <div className="info-card">
-            <h3>Personal Information</h3>
+            <h3>{t('kycReview.personalInfo')}</h3>
             {data.personalInfo ? (
               Object.entries(data.personalInfo).map(([k, v]) => (
                 <div key={k} className="info-row">
@@ -208,14 +209,14 @@ export default function KycDetailPage() {
                 </div>
               ))
             ) : (
-              <p className="not-submitted">Not submitted</p>
+              <p className="not-submitted">{t('kycReview.notSubmitted')}</p>
             )}
           </div>
 
           <div className="info-card">
-            <h3>Document Type</h3>
+            <h3>{t('kycReview.documentType')}</h3>
             <div className="info-row">
-              <span>Type</span>
+              <span>{t('kycReview.typeLabel')}</span>
               <strong className="uppercase tracking-wider text-link">
                 {docType.replace('_', ' ')}
               </strong>
@@ -224,12 +225,12 @@ export default function KycDetailPage() {
 
           {data.status === 'rejected' && data.rejectionReason && (
             <div className="rejection-card">
-              <h3>❌ Rejection Reason</h3>
+              <h3>{t('kycReview.rejectionReasonLabel')}</h3>
               <p>{data.rejectionReason}</p>
               {data.rejectedFields && data.rejectedFields.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-destructive/20">
                   <span className="text-xs font-bold text-destructive block mb-1">
-                    Flagged Fields for Correction:
+                    {t('kycReview.flaggedFields')}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {data.rejectedFields.map((f) => (
@@ -247,15 +248,15 @@ export default function KycDetailPage() {
           )}
 
           <div className="timeline-card">
-            <h3>Timeline</h3>
+            <h3>{t('kycReview.timeline')}</h3>
             <div className="info-row">
-              <span>Submitted</span>
+              <span>{t('kycReview.colSubmitted')}</span>
               <strong>
                 {data.submittedAt ? new Date(data.submittedAt).toLocaleString() : '—'}
               </strong>
             </div>
             <div className="info-row">
-              <span>Reviewed</span>
+              <span>{t('kycReview.reviewed')}</span>
               <strong>{data.reviewedAt ? new Date(data.reviewedAt).toLocaleString() : '—'}</strong>
             </div>
           </div>
@@ -288,7 +289,7 @@ export default function KycDetailPage() {
 
           {canReview && (
             <div className="action-card">
-              <h3>Review Decision</h3>
+              <h3>{t('kycReview.decision')}</h3>
               {data.status === 'submitted' && (
                 <button
                   className="btn-claim"
@@ -296,7 +297,7 @@ export default function KycDetailPage() {
                   disabled={actionLoading}
                   title="Marks this submission as under review by you, so another admin doesn't review it at the same time"
                 >
-                  Claim for review
+                  {t('kycReview.claim')}
                 </button>
               )}
               <div className="action-btns">
@@ -309,7 +310,7 @@ export default function KycDetailPage() {
                   disabled={actionLoading}
                   aria-label="Approve KYC submission"
                 >
-                  ✓ Approve KYC
+                  {t('kycReview.approveCta')}
                 </button>
                 <button
                   className="btn-reject"
@@ -320,7 +321,7 @@ export default function KycDetailPage() {
                   disabled={actionLoading}
                   aria-label="Reject KYC submission"
                 >
-                  ✕ Reject
+                  {t('kycReview.rejectCta')}
                 </button>
               </div>
               {actionError && !showRejectModal && !showApproveConfirm && (
@@ -332,7 +333,7 @@ export default function KycDetailPage() {
           )}
           {data.status === 'approved' && (
             <div className="approved-banner">
-              ✅ KYC has been approved. User verification level set to 1.
+              {t('kycReview.approvedNote')} User verification level set to 1.
             </div>
           )}
         </div>

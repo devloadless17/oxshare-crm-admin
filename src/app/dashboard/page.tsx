@@ -6,6 +6,7 @@ import { Loader } from '@/components/ui/loader';
 import api from '@/lib/api';
 import type { KycListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
+import { t } from '@/lib/i18n';
 
 // The dashboard shows real data where an endpoint exists (KYC queue) and an
 // explicit pending marker where it does not — never invented numbers (D-30).
@@ -24,7 +25,7 @@ export default function AdminDashboardPage() {
 
   const tiles = [
     {
-      label: 'Pending KYC',
+      label: t('adminDashboard.pendingKyc'),
       icon: FileCheck,
       href: '/kyc',
       live: true,
@@ -32,7 +33,7 @@ export default function AdminDashboardPage() {
       sub: 'Submissions to review',
     },
     {
-      label: 'Total Clients',
+      label: t('adminDashboard.totalClients'),
       icon: Users,
       href: '/clients',
       live: false,
@@ -40,7 +41,7 @@ export default function AdminDashboardPage() {
       sub: 'Needs GET /admin/clients',
     },
     {
-      label: 'Active Partners',
+      label: t('adminDashboard.activePartners'),
       icon: Building2,
       href: '/partners',
       live: false,
@@ -48,7 +49,7 @@ export default function AdminDashboardPage() {
       sub: 'Needs GET /admin/partners',
     },
     {
-      label: 'Pending Withdrawals',
+      label: t('adminDashboard.pendingWithdrawals'),
       icon: ArrowUpRight,
       href: '/withdrawals',
       live: false,
@@ -60,8 +61,8 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Back-office overview</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('adminDashboard.title')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('adminDashboard.subtitle')}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -101,12 +102,12 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border border-border bg-card shadow-sm">
           <div className="p-6 border-b border-border flex items-center justify-between">
-            <h2 className="font-semibold">KYC Review Queue</h2>
+            <h2 className="font-semibold">{t('adminDashboard.kycQueue')}</h2>
             <Link
               href="/kyc"
               className="inline-flex items-center gap-1 text-xs font-semibold text-link hover:underline focus-outline rounded-sm"
             >
-              <span>View all</span>
+              <span>{t('adminDashboard.viewAll')}</span>
               <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -116,18 +117,18 @@ export default function AdminDashboardPage() {
             </div>
           ) : status === 'error' || status === 'unavailable' ? (
             <div className="p-6 text-center space-y-2" role="alert">
-              <p className="text-sm text-muted-foreground">Failed to load the KYC queue.</p>
+              <p className="text-sm text-muted-foreground">{t('adminDashboard.kycQueueFailed')}</p>
               <button
                 type="button"
                 onClick={() => void refetch()}
                 className="text-xs font-semibold text-link hover:underline focus-outline rounded-sm"
               >
-                Retry
+                {t('common.retryShort')}
               </button>
             </div>
           ) : reviewQueue.length === 0 ? (
             <div className="p-6 text-center text-muted-foreground text-sm">
-              No submissions waiting for review.
+              {t('adminDashboard.kycQueueEmpty')}
             </div>
           ) : (
             <ul className="divide-y divide-border">
@@ -157,14 +158,10 @@ export default function AdminDashboardPage() {
 
         <div className="rounded-lg border border-border bg-card shadow-sm">
           <div className="p-6 border-b border-border">
-            <h2 className="font-semibold">Coming Online</h2>
+            <h2 className="font-semibold">{t('adminDashboard.comingOnline')}</h2>
           </div>
           <div className="p-6 text-sm text-muted-foreground space-y-2">
-            <p>
-              Client, partner, and withdrawal metrics activate automatically once their backend
-              endpoints exist. The missing endpoints are listed on each page and tracked in
-              DECISIONS.md (D-28, D-31).
-            </p>
+            <p>{t('adminDashboard.statsSubtitle')}</p>
           </div>
         </div>
       </div>

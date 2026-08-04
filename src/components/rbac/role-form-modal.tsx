@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { CheckSquare, Square } from 'lucide-react';
 import type { PermissionModule, Role } from '@/lib/api/admin';
+import { t } from '@/lib/i18n';
 
 export interface RoleFormValues {
   name: string;
@@ -63,7 +64,7 @@ export function RoleFormModal({
             aria-label="Close"
             className="text-muted-foreground hover:text-foreground focus-outline rounded-sm"
           >
-            ✕
+            {t('table.close')}
           </button>
         </div>
 
@@ -71,13 +72,13 @@ export function RoleFormModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="font-semibold" htmlFor="role-name">
-                Role Name
+                {t('settings.roleName')}
               </label>
               <input
                 id="role-name"
                 type="text"
                 required
-                placeholder="e.g. Financial Auditor"
+                placeholder={t('settings.roleNamePlaceholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
@@ -85,12 +86,12 @@ export function RoleFormModal({
             </div>
             <div>
               <label className="font-semibold" htmlFor="role-description">
-                Description
+                {t('settings.roleDescription')}
               </label>
               <input
                 id="role-description"
                 type="text"
-                placeholder="Short summary of access scope"
+                placeholder={t('settings.roleDescriptionPlaceholder')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
@@ -101,8 +102,10 @@ export function RoleFormModal({
           {/* Per-action checkbox matrix from the backend catalog */}
           <div className="space-y-4 pt-2">
             <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">
-              Permission Matrix ({permissions.length} action{permissions.length === 1 ? '' : 's'}{' '}
-              granted)
+              {t('settings.permissionMatrix', {
+                count: permissions.length,
+                noun: permissions.length === 1 ? t('settings.action') : t('settings.actions'),
+              })}
             </h4>
 
             <div className="space-y-4">
@@ -167,7 +170,7 @@ export function RoleFormModal({
               disabled={busy}
               className="h-9 px-4 rounded-lg border border-input bg-card font-medium hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"

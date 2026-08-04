@@ -20,6 +20,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import { t } from '@/lib/i18n';
 
 // ADM-01: filterable client list (no profile view this phase) + ADM-14 country/labels.
 // Filtering, sorting and pagination all happen in SQL — the list is indexed on
@@ -108,22 +109,27 @@ export default function ClientsPage() {
 
   const columns: Column<ClientRow>[] = [
     {
-      header: 'Name',
+      header: t('clients.colName'),
       sortable: true,
       sortKey: 'firstName',
       cell: (c) => [c.firstName, c.lastName].filter(Boolean).join(' ') || '—',
       cellClassName: 'font-medium text-foreground',
     },
     {
-      header: 'Email',
+      header: t('clients.colEmail'),
       sortable: true,
       sortKey: 'email',
       cell: (c) => c.email,
       cellClassName: 'text-muted-foreground',
     },
-    { header: 'Type', sortable: true, sortKey: 'type', cell: (c) => TYPE_LABELS[c.type] ?? c.type },
     {
-      header: 'Status',
+      header: t('clients.colType'),
+      sortable: true,
+      sortKey: 'type',
+      cell: (c) => TYPE_LABELS[c.type] ?? c.type,
+    },
+    {
+      header: t('clients.colStatus'),
       sortable: true,
       sortKey: 'status',
       cell: (c) => (
@@ -135,7 +141,7 @@ export default function ClientsPage() {
       ),
     },
     {
-      header: 'KYC Level',
+      header: t('clients.colKycLevel'),
       sortable: true,
       sortKey: 'verificationLevel',
       cell: (c) => (
@@ -147,14 +153,14 @@ export default function ClientsPage() {
       ),
     },
     {
-      header: 'Country',
+      header: t('clients.colCountry'),
       sortable: true,
       sortKey: 'country',
       cell: (c) => c.country ?? '—',
       cellClassName: 'text-muted-foreground',
     },
     {
-      header: 'Created',
+      header: t('clients.colCreated'),
       sortable: true,
       sortKey: 'createdAt',
       cell: (c) => (c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'),
@@ -163,7 +169,7 @@ export default function ClientsPage() {
     ...(canSuspend
       ? [
           {
-            header: 'Actions',
+            header: t('clients.colActions'),
             cell: (c: ClientRow) => (
               <button
                 type="button"
@@ -191,17 +197,15 @@ export default function ClientsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Clients</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Filterable client base — type, status, verification level
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('clients.title')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('clients.subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search"
           aria-label="Search clients by name or email"
-          placeholder="Search by name, email..."
+          placeholder={t('clients.searchPlaceholder')}
           value={search}
           onChange={(e) => {
             pages.reset();
@@ -217,13 +221,13 @@ export default function ClientsPage() {
           }}
         >
           <SelectTrigger className="h-9 w-38">
-            <SelectValue placeholder="All Types" />
+            <SelectValue placeholder={t('clients.allTypes')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="individual">Individual</SelectItem>
-            <SelectItem value="referral">Referral</SelectItem>
-            <SelectItem value="partner">Partner / IB</SelectItem>
+            <SelectItem value="all">{t('clients.allTypes')}</SelectItem>
+            <SelectItem value="individual">{t('clients.typeIndividual')}</SelectItem>
+            <SelectItem value="referral">{t('clients.typeReferral')}</SelectItem>
+            <SelectItem value="partner">{t('clients.typePartner')}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -235,13 +239,13 @@ export default function ClientsPage() {
           }}
         >
           <SelectTrigger className="h-9 w-38">
-            <SelectValue placeholder="All Statuses" />
+            <SelectValue placeholder={t('clients.allStatuses')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
+            <SelectItem value="all">{t('clients.allStatuses')}</SelectItem>
+            <SelectItem value="active">{t('clients.statusActive')}</SelectItem>
+            <SelectItem value="pending">{t('clients.statusPending')}</SelectItem>
+            <SelectItem value="suspended">{t('clients.statusSuspended')}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -253,12 +257,12 @@ export default function ClientsPage() {
           }}
         >
           <SelectTrigger className="h-9 w-46">
-            <SelectValue placeholder="All KYC Levels" />
+            <SelectValue placeholder={t('clients.allLevels')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All KYC Levels</SelectItem>
-            <SelectItem value="0">Level 0 — Unverified</SelectItem>
-            <SelectItem value="1">Level 1 — Verified</SelectItem>
+            <SelectItem value="all">{t('clients.allLevels')}</SelectItem>
+            <SelectItem value="0">{t('clients.level0')}</SelectItem>
+            <SelectItem value="1">{t('clients.level1')}</SelectItem>
           </SelectContent>
         </Select>
       </div>

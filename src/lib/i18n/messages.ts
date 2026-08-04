@@ -171,14 +171,286 @@ export const messages = {
 
   // ── Pagination ────────────────────────────────────────────────────────────
   'pagination.summary': 'Showing {showing} {noun}',
+  'pagination.range': 'Showing {start} to {end} of {total} {noun}',
   'pagination.summaryOfTotal': 'Showing {showing} {noun} of {total}',
   'pagination.page': 'Page {number}',
   'pagination.previous': 'Previous',
   'pagination.next': 'Next',
   'pagination.rowsPerPage': 'Rows per page:',
 
+  // ── Clients (ADM-01) ──────────────────────────────────────────────────────
+  'clients.title': 'Clients',
+  'clients.subtitle': 'Filterable client base — type, status, verification level',
+  'clients.allTypes': 'All Types',
+  'clients.typeIndividual': 'Individual',
+  'clients.typeReferral': 'Referral',
+  'clients.typePartner': 'Partner / IB',
+  'clients.allStatuses': 'All Statuses',
+  'clients.statusActive': 'Active',
+  'clients.statusPending': 'Pending',
+  'clients.statusSuspended': 'Suspended',
+  'clients.allLevels': 'All KYC Levels',
+  'clients.level0': 'Level 0 — Unverified',
+  'clients.level1': 'Level 1 — Verified',
+  'clients.searchPlaceholder': 'Search by name, email…',
+  'clients.colName': 'Name',
+  'clients.colEmail': 'Email',
+  'clients.colType': 'Type',
+  'clients.colStatus': 'Status',
+  'clients.colKycLevel': 'KYC Level',
+  'clients.colCountry': 'Country',
+  'clients.colCreated': 'Created',
+  'clients.colActions': 'Actions',
+
+  // ── Commission plans (ADM-10 / IB-06) ─────────────────────────────────────
+  'plans.title': 'Commission Plans',
+  'plans.newPlan': 'New Plan',
+  'plans.inactive': 'Inactive',
+  'plans.notSelectable': 'Not selectable',
+  'plans.method': 'Method',
+  'plans.commission': 'Commission',
+  'plans.clientRebate': 'Client rebate',
+  'plans.settlementWindow': 'Settlement window',
+  'plans.viewOnly': 'View only',
+  'plans.name': 'Plan name',
+  'plans.namePlaceholder': 'e.g. Standard IB',
+  'plans.position': 'Ladder position',
+  'plans.description': 'Description',
+  'plans.descriptionPlaceholder': 'Who this tier is for',
+  'plans.commissionMethod': 'Commission method',
+  'plans.rebateValue': 'Client rebate value',
+  'plans.twoLevelSplit': 'Two-level split',
+  'plans.windowHours': 'Settlement window (hours)',
+  'plans.windowHint': 'How long accruals wait before they are confirmed and credited.',
+  'plans.rebateOnClose': 'Credit rebate on deal close',
+  'plans.rebateOnCloseHint': 'Skips the settlement window for the client rebate.',
+  'plans.selectable': 'IBs may select this plan',
+  'plans.confirmHint': 'Check this with the client before saving.',
+  'plans.modeCommission': 'Commission only',
+  'plans.modeRebate': 'Rebate only',
+  'plans.modeHybrid': 'Hybrid',
+  'plans.methodSpread': 'Share of spread (%)',
+  'plans.methodPerLot': 'Per lot',
+  'plans.methodFixed': 'Fixed per deal',
+
+  // ── Admin dashboard ───────────────────────────────────────────────────────
+  'adminDashboard.title': 'Dashboard',
+  'adminDashboard.subtitle': 'Back-office overview',
+  'adminDashboard.kycQueue': 'KYC Review Queue',
+  'adminDashboard.viewAll': 'View all',
+  'adminDashboard.kycQueueFailed': 'Failed to load the KYC queue.',
+  'adminDashboard.kycQueueEmpty': 'No submissions waiting for review.',
+  'adminDashboard.comingOnline': 'Coming Online',
+  'adminDashboard.pendingKyc': 'Pending KYC',
+  'adminDashboard.totalClients': 'Total Clients',
+  'adminDashboard.activePartners': 'Active Partners',
+  'adminDashboard.pendingWithdrawals': 'Pending Withdrawals',
+
+  // ── Invite ────────────────────────────────────────────────────────────────
+  'invite.title': 'Invite Admin',
+  'invite.sentNote': 'Invitation email sent. You can also share the link directly:',
+  'invite.sendAnother': 'Send another invite',
+  'invite.fullName': 'Full Name',
+  'invite.email': 'Email Address',
+  'invite.defaultRole': 'Default (KYC review + client list)',
+  'invite.namePlaceholder': 'Jane Smith',
+  'invite.emailPlaceholder': 'jane@oxshare.com',
+  'invite.loadingParams': 'Loading invite parameters…',
+
+  // ── KYC review ────────────────────────────────────────────────────────────
+  'kycReview.title': 'KYC Submissions',
+  'kycReview.searchPlaceholder': 'Search by name or email…',
+  'kycReview.review': 'Review',
+  'kycReview.colUser': 'User',
+  'kycReview.colCountry': 'Country',
+  'kycReview.colStatus': 'Status',
+  'kycReview.colSubmitted': 'Submitted',
+  'kycReview.colReviewed': 'Reviewed',
+  'kycReview.colAction': 'Action',
+  'kycReview.filterAll': 'All',
+  'kycReview.filterUnderReview': 'Under Review',
+  'kycReview.filterApproved': 'Approved',
+  'kycReview.filterRejected': 'Rejected',
+  'kycReview.backToList': 'Back to KYC list',
+  'kycReview.personalInfo': 'Personal Information',
+  'kycReview.notSubmitted': 'Not submitted',
+  'kycReview.documentType': 'Document Type',
+  'kycReview.flaggedFields': 'Flagged Fields for Correction:',
+  'kycReview.timeline': 'Timeline',
+  'kycReview.reviewed': 'Reviewed',
+  'kycReview.decision': 'Review Decision',
+  'kycReview.claim': 'Claim for review',
+  'kycReview.openDirectly': 'Open directly',
+  'kycReview.notUploaded': 'Not uploaded',
+
+  // ── KYC workflow builder ──────────────────────────────────────────────────
+  'builder.section': 'KYC Management',
+  'builder.title': 'KYC Onboarding Workflow Builder',
+  'builder.resetDefaults': 'Reset Defaults',
+  'builder.addCustomStep': 'Add Custom Step',
+  'builder.required': 'Required',
+  'builder.stepTitle': 'Step Title',
+  'builder.stepDescription': 'Description / Instructions',
+  'builder.fieldsHint': 'Configure field labels, input types, and requirement flags.',
+  'builder.addField': 'Add Field',
+  'builder.fieldLabel': 'Field Label',
+  'builder.keyName': 'Key Name',
+  'builder.inputType': 'Input Type',
+  'builder.typeText': 'Text Input',
+  'builder.typeDate': 'Date Picker',
+  'builder.typePhone': 'Phone Input',
+  'builder.typeSelect': 'Dropdown Select',
+  'builder.typeFile': 'File Uploader',
+  'builder.typeCamera': 'Live Camera',
+  'builder.typeCheckbox': 'Checkbox',
+  'builder.newStepTitle': 'Add Custom Onboarding Step',
+  'builder.newStepBody': 'Create a new step for your KYC verification flow.',
+  'builder.urlSlug': 'URL Slug',
+  'builder.guidance': 'Description / Guidance',
+  'builder.addStep': 'Add Step',
+  'builder.titlePlaceholder': 'e.g., Employment & Tax Declaration',
+  'builder.slugPlaceholder': 'e.g., employment (optional)',
+  'builder.guidancePlaceholder':
+    'e.g., Provide details about your employment status and source of funds.',
+  'builder.newField': 'New Field',
+
+  // ── Partners (IB lifecycle) ───────────────────────────────────────────────
+  'partners.title': 'Partners / IBs',
+  'partners.subtitle':
+    'Introducing-broker applications and lifecycle — approval gates the partner portal',
+  'partners.searchPlaceholder': 'Search by name, email, code…',
+  'partners.colPartner': 'Partner',
+  'partners.colStatus': 'Status',
+  'partners.colParent': 'Parent IB',
+  'partners.colProgram': 'Program',
+  'partners.colReferralCode': 'Referral Code',
+  'partners.colApplied': 'Applied',
+  'partners.colActions': 'Actions',
+
+  // ── Settings / RBAC ───────────────────────────────────────────────────────
+  'settings.title': 'System Settings & RBAC',
+  'settings.subtitle':
+    'Dynamic Role-Based Access Control, Permission Matrix & Admin User Management',
+  'settings.rolesTitle': 'Configured System & Custom Roles',
+  'settings.rolesHint':
+    'Permissions defined in permissions.json are mapped dynamically to custom roles.',
+  'settings.createRole': 'Create Custom Role',
+  'settings.directoryTitle': 'Admin Account Directory',
+  'settings.directoryHint':
+    'Create and manage back-office administrator accounts with assigned RBAC roles.',
+  'settings.colAdministrator': 'Administrator',
+  'settings.colEmail': 'Email Address',
+  'settings.colRole': 'System Role',
+  'settings.colStatus': 'Status',
+  'settings.systemRole': 'System Role',
+  'settings.roleName': 'Role Name',
+  'settings.roleNamePlaceholder': 'e.g. Financial Auditor',
+  'settings.roleDescription': 'Description',
+  'settings.roleDescriptionPlaceholder': 'Short summary of access scope',
+
+  // ── Counts and labels that were assembled from fragments ──────────────────
+  //
+  // Every key here replaces a "Label (" + {count} + ")" or a count + noun built
+  // from separate JSX children. Word order and plural agreement both move
+  // between languages, so those shapes were untranslatable — see the header of
+  // this file.
+  'plans.subtitle':
+    'IB programs and their rates. Set the L1/L2 split, the commission method, the settlement window and rebate timing here — no deploy needed.',
+  'plans.rebateOnCloseWarning':
+    'Rebate credits on deal close, ahead of the settlement window — pays out on trades that may still reverse, and Phase 1 has no clawback.',
+  'plans.commissionValueLabelPct': 'Commission value (% of spread)',
+  'plans.commissionValueLabelAmt': 'Commission value (amount)',
+  'plans.shareTotalValue': 'total {total}%',
+  'plans.shareTotalExceeds': 'total {total}% — exceeds 100%',
+  'plans.l2NoteLong':
+    'Resolution stops at L2 — an IB three levels above a trading client earns nothing. Any remainder below 100% stays with the broker.',
+  'plans.rebateWarningLong':
+    'Crediting the rebate on close pays out on trades that may later reverse, and Phase 1 has no clawback. ARCHITECTURE §12.8 recommends keeping both legs behind the same settlement window.',
+  'plans.commissionValueLabel': 'Commission value',
+  'plans.l2NoteFull': 'Resolution stops at L2 — an IB three levels up earns nothing.',
+  'plans.tier': 'Tier {position}',
+  'plans.mode': 'Mode',
+  'plans.split': 'L1 / L2 split',
+  'plans.splitValue': '{l1}% / {l2}%',
+  'plans.windowValue': '{hours}h',
+  'plans.rebateOnCloseNote': 'Rebate credits on deal close',
+  'plans.edit': 'Edit',
+  'plans.commissionValue': 'Commission value',
+  'plans.shareTotal': '{total} total',
+  'plans.l1Share': 'L1 share (%)',
+  'plans.l2Share': 'L2 share (%)',
+  'plans.l2Note': 'Resolution stops at L2 — an IB three levels up earns nothing.',
+  'plans.rebateWarning':
+    'Crediting the rebate on close pays out on trades that may need reversing, and Phase 1 has no clawback.',
+
+  'adminDashboard.statsSubtitle':
+    'Client, partner, and withdrawal metrics activate automatically once their backend endpoints exist. The missing endpoints are listed on each page and tracked in DECISIONS.md (D-28, D-31).',
+
+  'settings.rolesCount': 'Dynamic Roles ({count})',
+  'settings.adminsCount': 'Admin Users ({count})',
+  'settings.you': '(you)',
+  'settings.assignedPermissions': 'Assigned Permissions ({count})',
+  'settings.permissionMatrix': 'Permission Matrix ({count} {noun} granted)',
+  'settings.action': 'action',
+  'settings.actions': 'actions',
+
+  'builder.subtitle':
+    'Customize, add, edit, or disable steps and fields for client identity verification onboarding.',
+  'builder.slugLockedFull': '(locked — the client flow submits by this slug)',
+  'builder.noFieldsHint': 'No custom fields added yet. Click "Add Field" to configure inputs.',
+  'builder.slugIdentifier': 'URL Slug Identifier',
+  'builder.slugLocked': '(locked — the client portal routes on it)',
+  'builder.fieldsCount': 'Form Fields ({count})',
+  'builder.noFields': 'No custom fields added yet.',
+
+  'kycReview.totalSubmissions': '{count} total submissions',
+  'kycReview.rejectionReasonLabel': '❌ Rejection Reason',
+  'kycReview.uploadedFiles': 'Uploaded Files ({count})',
+  'kycReview.approveCta': '✓ Approve KYC',
+  'kycReview.rejectCta': '✕ Reject',
+  'kycReview.approvedNote': '✅ KYC has been approved.',
+  'kycReview.typeLabel': 'Type',
+  'kycReview.viewDocumentPdf': '📄 View Document PDF',
+  'kycReview.docLoadFailed': 'Could not load document.',
+
+  'partners.noParent': '— (L1)',
+
+  'invite.iconMail': '✉️',
+  'invite.iconWarn': '⚠️',
+  'invite.iconWave': '👋',
+  'invite.intro': 'Invite a new admin: they set their own password from the emailed link.',
+  'invite.created': '✓ Invite created!',
+  'invite.role': 'Role',
+  'invite.permission': 'permission',
+  'invite.permissions': 'permissions',
+  'invite.welcomeName': 'Welcome, {name}!',
+  'invite.bodyText':
+    "You've been invited to join OXShare Admin. Set your password to activate your account.",
+
+  'table.selectedCount': '{count} {noun} selected',
+  'table.row': 'row',
+  'table.rows': 'rows',
+  'table.close': '✕',
+  'pagination.ellipsis': '…',
+
+  'backendPending.body':
+    "This page's UI is ready, but the API it needs is not implemented yet. It will light up automatically once these endpoints exist:",
+
+  // ── Table chrome ──────────────────────────────────────────────────────────
+  'table.clearSelection': 'Clear selection',
+
   // ── Shared / generic ──────────────────────────────────────────────────────
   'common.retry': 'Try again',
+  /*
+   * Two labels for one action, preserved rather than unified.
+   *
+   * AsyncBoundary's button says "Retry"; other surfaces say "Try again". Making
+   * them one string is a product decision and a visible change, and an
+   * extraction pass is the wrong commit to smuggle it into — the portal's
+   * equivalent change broke a test the moment the two were collapsed. Recorded
+   * here so the inconsistency is visible and resolvable on purpose.
+   */
+  'common.retryShort': 'Retry',
   'common.loading': 'Loading',
   'common.cancel': 'Cancel',
   'common.save': 'Save',

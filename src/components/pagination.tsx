@@ -9,6 +9,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import { t } from '@/lib/i18n';
 
 export function Pagination({
   page,
@@ -61,14 +62,26 @@ export function Pagination({
       {/* Left: Range text & Rows Per Page dropdown */}
       <div className="flex flex-wrap items-center gap-4">
         <span>
-          Showing <strong className="font-semibold text-foreground">{startItem}</strong> to{' '}
-          <strong className="font-semibold text-foreground">{endItem}</strong> of{' '}
-          <strong className="font-semibold text-foreground">{total}</strong>{' '}
-          {total === 1 ? noun[0] : noun[1]}
+          {/*
+            One key, not "Showing" + start + "to" + end + "of" + total + noun
+            across seven JSX children with plural agreement inline. That shape
+            does not survive translation into any language whose word order or
+            plural rules differ, which is most of them. The bold on the numbers
+            went with the fragments — emphasis that costs translatability is not
+            worth keeping.
+          */}
+          {t('pagination.range', {
+            start: startItem,
+            end: endItem,
+            total,
+            noun: total === 1 ? noun[0] : noun[1],
+          })}
         </span>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Rows per page:</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            {t('pagination.rowsPerPage')}
+          </span>
           {(() => {
             const sizeOptions = Array.from(new Set([10, 25, 50, 100, pageSize])).sort(
               (a, b) => a - b,
@@ -130,7 +143,7 @@ export function Pagination({
             if (typeof pNum === 'string') {
               return (
                 <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground select-none">
-                  ...
+                  {t('pagination.ellipsis')}
                 </span>
               );
             }

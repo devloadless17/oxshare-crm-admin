@@ -17,6 +17,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import { t } from '@/lib/i18n';
 
 // ADM-11: partner / IB application management — full lifecycle, parent assignment.
 // IB-01: approval status gates the partner portal. Hierarchy is two levels max
@@ -80,7 +81,7 @@ export default function PartnersPage() {
 
   const columns: Column<PartnerRow>[] = [
     {
-      header: 'Partner',
+      header: t('partners.colPartner'),
       sortable: true,
       sortKey: 'id',
       cell: (p) => (
@@ -93,7 +94,7 @@ export default function PartnersPage() {
       ),
     },
     {
-      header: 'Status',
+      header: t('partners.colStatus'),
       sortable: true,
       sortKey: 'status',
       cell: (p) => (
@@ -105,42 +106,43 @@ export default function PartnersPage() {
       ),
     },
     {
-      header: 'Parent IB',
+      header: t('partners.colParent'),
       sortable: true,
       sortKey: 'parentIb',
-      cell: (p) => (p.parentIb ? p.parentIb.name : <span className="text-xs">— (L1)</span>),
+      cell: (p) =>
+        p.parentIb ? p.parentIb.name : <span className="text-xs">{t('partners.noParent')}</span>,
       cellClassName: 'text-muted-foreground',
     },
     {
-      header: 'Program',
+      header: t('partners.colProgram'),
       sortable: true,
       sortKey: 'program',
       cell: (p) => p.program ?? '—',
       cellClassName: 'text-muted-foreground',
     },
     {
-      header: 'Referral Code',
+      header: t('partners.colReferralCode'),
       sortable: true,
       sortKey: 'referralCode',
       cell: (p) => p.referralCode ?? '—',
       cellClassName: 'font-mono text-xs text-muted-foreground',
     },
     {
-      header: 'Applied',
+      header: t('partners.colApplied'),
       sortable: true,
       sortKey: 'createdAt',
       cell: (p) => (p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'),
       cellClassName: 'text-muted-foreground',
     },
     {
-      header: 'Actions',
+      header: t('partners.colActions'),
       // Approve/reject need partners.manage on the API. Rendering them to a
       // read-only admin only produces a 403 they cannot act on.
       cell: (p) =>
         p.status !== 'pending' ? (
           <span className="text-xs text-muted-foreground">—</span>
         ) : !canManage ? (
-          <span className="text-xs text-muted-foreground">View only</span>
+          <span className="text-xs text-muted-foreground">{t('plans.viewOnly')}</span>
         ) : (
           <div className="flex gap-2">
             <button
@@ -149,7 +151,7 @@ export default function PartnersPage() {
               disabled={decide.isPending}
               className="h-8 px-3 rounded-md bg-success text-success-foreground text-xs font-semibold hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
             >
-              Approve
+              {t('withdrawals.approve')}
             </button>
             <button
               type="button"
@@ -157,7 +159,7 @@ export default function PartnersPage() {
               disabled={decide.isPending}
               className="h-8 px-3 rounded-md border border-destructive/40 text-destructive text-xs font-semibold hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed focus-outline"
             >
-              Reject
+              {t('withdrawals.reject')}
             </button>
           </div>
         ),
@@ -167,17 +169,15 @@ export default function PartnersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Partners / IBs</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Introducing-broker applications and lifecycle — approval gates the partner portal
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('partners.title')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('partners.subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search"
           aria-label="Search partners by name, email or referral code"
-          placeholder="Search by name, email, code..."
+          placeholder={t('partners.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex h-9 w-72 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-outline"
@@ -187,14 +187,14 @@ export default function PartnersPage() {
           onValueChange={(val) => setFilter(val === 'all' ? '' : val)}
         >
           <SelectTrigger className="h-9 w-38">
-            <SelectValue placeholder="All Statuses" />
+            <SelectValue placeholder={t('clients.allStatuses')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
+            <SelectItem value="all">{t('clients.allStatuses')}</SelectItem>
+            <SelectItem value="pending">{t('clients.statusPending')}</SelectItem>
+            <SelectItem value="approved">{t('kycReview.filterApproved')}</SelectItem>
+            <SelectItem value="rejected">{t('kycReview.filterRejected')}</SelectItem>
+            <SelectItem value="suspended">{t('clients.statusSuspended')}</SelectItem>
           </SelectContent>
         </Select>
         {decide.isError && (

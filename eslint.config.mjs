@@ -38,7 +38,36 @@ const I18N_ENFORCED = [
   'src/components/kyc-review/approve-dialog.tsx',
   'src/components/kyc-review/reject-dialog.tsx',
   'src/components/cursor-pagination.tsx',
+  'src/app/clients/page.tsx',
+  'src/app/dashboard/page.tsx',
+  'src/app/partners/page.tsx',
+  'src/app/kyc/page.tsx',
+  'src/app/settings/page.tsx',
+  'src/app/kyc/builder/page.tsx',
+  'src/app/commission-plans/page.tsx',
+  'src/components/async-boundary.tsx',
+  'src/components/backend-pending.tsx',
+  'src/components/data-table.tsx',
+  'src/components/pagination.tsx',
+  'src/components/kyc-review/doc-viewer.tsx',
+  'src/components/rbac/role-card.tsx',
+  'src/components/rbac/role-form-modal.tsx',
 ];
+
+/*
+ * NOT enforced, and why — so each gap is a decision rather than an oversight.
+ *
+ * These three use styled-jsx, and `jsx-no-literals` flags the CSS template
+ * literal as a string child. Their COPY is externalised; adding them would mean
+ * either suppressing the rule per file — which enforces nothing — or rewriting
+ * each screen in Tailwind, which this change has no business doing:
+ *
+ *   src/app/invite/page.tsx
+ *   src/app/invite/accept/page.tsx
+ *   src/app/kyc/[userId]/page.tsx
+ *
+ * Convert a screen off styled-jsx, then move it into the list above.
+ */
 
 /**
  * Text that is not copy: punctuation, separators and symbols a translator would

@@ -20,6 +20,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { t } from '@/lib/i18n';
 
 // The single owner of roles and admin users. /roles used to be a second,
 // strictly smaller copy of the Roles tab; it now redirects here.
@@ -103,10 +104,8 @@ export default function AdminSettingsPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">System Settings & RBAC</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Dynamic Role-Based Access Control, Permission Matrix & Admin User Management
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('settings.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t('settings.subtitle')}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -119,7 +118,7 @@ export default function AdminSettingsPage() {
                 : 'border border-input bg-card text-foreground hover:bg-muted'
             }`}
           >
-            Dynamic Roles ({roles.length})
+            {t('settings.rolesCount', { count: roles.length })}
           </button>
           <button
             type="button"
@@ -130,7 +129,7 @@ export default function AdminSettingsPage() {
                 : 'border border-input bg-card text-foreground hover:bg-muted'
             }`}
           >
-            Admin Users ({adminUsers.length})
+            {t('settings.adminsCount', { count: adminUsers.length })}
           </button>
         </div>
       </div>
@@ -156,10 +155,8 @@ export default function AdminSettingsPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between rounded-xl border border-border bg-card p-5 shadow-xs">
               <div>
-                <h2 className="text-base font-semibold">Configured System & Custom Roles</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Permissions defined in permissions.json are mapped dynamically to custom roles.
-                </p>
+                <h2 className="text-base font-semibold">{t('settings.rolesTitle')}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('settings.rolesHint')}</p>
               </div>
               {canManageRoles && (
                 <button
@@ -171,7 +168,7 @@ export default function AdminSettingsPage() {
                   className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary-hover cursor-pointer focus-outline"
                 >
                   <Plus className="h-4 w-4" />
-                  Create Custom Role
+                  {t('settings.createRole')}
                 </button>
               )}
             </div>
@@ -197,9 +194,9 @@ export default function AdminSettingsPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between rounded-xl border border-border bg-card p-5 shadow-xs">
               <div>
-                <h2 className="text-base font-semibold">Admin Account Directory</h2>
+                <h2 className="text-base font-semibold">{t('settings.directoryTitle')}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Create and manage back-office administrator accounts with assigned RBAC roles.
+                  {t('settings.directoryHint')}
                 </p>
               </div>
               {canInvite && (
@@ -208,7 +205,7 @@ export default function AdminSettingsPage() {
                   className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary-hover focus-outline"
                 >
                   <UserPlus className="h-4 w-4" />
-                  Invite Admin
+                  {t('invite.title')}
                 </Link>
               )}
             </div>
@@ -217,10 +214,10 @@ export default function AdminSettingsPage() {
               <table className="w-full text-xs text-left">
                 <thead className="border-b border-border bg-muted/40 font-semibold text-muted-foreground uppercase tracking-wider">
                   <tr>
-                    <th className="px-6 py-3">Administrator</th>
-                    <th className="px-6 py-3">Email Address</th>
-                    <th className="px-6 py-3">System Role</th>
-                    <th className="px-6 py-3">Status</th>
+                    <th className="px-6 py-3">{t('settings.colAdministrator')}</th>
+                    <th className="px-6 py-3">{t('settings.colEmail')}</th>
+                    <th className="px-6 py-3">{t('settings.colRole')}</th>
+                    <th className="px-6 py-3">{t('settings.colStatus')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -235,7 +232,7 @@ export default function AdminSettingsPage() {
                           {user.name}
                           {isSelf && (
                             <span className="ml-2 text-[10px] font-normal text-muted-foreground">
-                              (you)
+                              {t('settings.you')}
                             </span>
                           )}
                         </td>
@@ -271,7 +268,7 @@ export default function AdminSettingsPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success">
-                            Active
+                            {t('clients.statusActive')}
                           </span>
                         </td>
                       </tr>

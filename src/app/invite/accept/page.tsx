@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { t } from '@/lib/i18n';
 
 function AcceptInviteContent() {
   const params = useSearchParams();
@@ -74,17 +75,17 @@ function AcceptInviteContent() {
         {validating ? (
           <>
             <div className="spinner" />
-            <p>Validating invite...</p>
+            <p>{t('invite.validating')}</p>
           </>
         ) : inviteError ? (
           <>
-            <div className="error-icon">⚠️</div>
-            <h2>Invalid Invite</h2>
+            <div className="error-icon">{t('invite.iconWarn')}</div>
+            <h2>{t('invite.invalidTitle')}</h2>
             <p>{inviteError}</p>
           </>
         ) : (
           <>
-            <div className="welcome-icon">👋</div>
+            <div className="welcome-icon">{t('invite.iconWave')}</div>
             <h2>Welcome, {invite?.name}!</h2>
             <p>
               You&apos;ve been invited to join OXShare Admin. Set your password to activate your
@@ -94,12 +95,12 @@ function AcceptInviteContent() {
 
             <form className="form" onSubmit={(e) => void submit(e)}>
               <div className="form-group">
-                <label htmlFor="new-password">New Password</label>
+                <label htmlFor="new-password">{t('invite.newPassword')}</label>
                 <input
                   id="new-password"
                   type={showPassword ? 'text' : 'password'}
                   className="form-input"
-                  placeholder="Min. 8 characters"
+                  placeholder={t('invite.passwordHint')}
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => {
@@ -109,12 +110,12 @@ function AcceptInviteContent() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="confirm-password">Confirm Password</label>
+                <label htmlFor="confirm-password">{t('invite.confirmPassword')}</label>
                 <input
                   id="confirm-password"
                   type={showPassword ? 'text' : 'password'}
                   className="form-input"
-                  placeholder="Repeat password"
+                  placeholder={t('invite.repeatPassword')}
                   autoComplete="new-password"
                   value={confirm}
                   onChange={(e) => {
@@ -300,7 +301,7 @@ export default function AcceptInvitePage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground text-sm">
-          Loading invite parameters...
+          {t('invite.loadingParams')}
         </div>
       }
     >

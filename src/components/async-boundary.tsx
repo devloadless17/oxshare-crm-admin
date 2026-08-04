@@ -7,6 +7,7 @@
 import { Loader } from '@/components/ui/loader';
 import { BackendPending } from '@/components/backend-pending';
 import type { ResourceStatus } from '@/hooks/use-resource';
+import { t } from '@/lib/i18n';
 
 /**
  * The loading / not-built-yet / error / ready branch that eight pages each
@@ -57,7 +58,7 @@ export function AsyncBoundary({
           onClick={onRetry}
           className="h-9 px-4 rounded-lg border border-input bg-card text-xs font-semibold hover:bg-muted focus-outline"
         >
-          Retry
+          {t('common.retryShort')}
         </button>
       </div>
     );

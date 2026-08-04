@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { t } from '@/lib/i18n';
 
 export interface KycFieldConfig {
   id: string;
@@ -174,7 +175,7 @@ export default function KycBuilderPage() {
     const newField: KycFieldConfig = {
       id: fieldId,
       name: `customField_${Date.now()}`,
-      label: 'New Field',
+      label: t('builder.newField'),
       type: 'text',
       required: false,
     };
@@ -276,15 +277,14 @@ export default function KycBuilderPage() {
         <div>
           <div className="flex items-center gap-2.5 text-link mb-1">
             <Layers className="h-6 w-6" />
-            <span className="text-xs font-bold uppercase tracking-wider">KYC Management</span>
+            <span className="text-xs font-bold uppercase tracking-wider">
+              {t('builder.section')}
+            </span>
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-            KYC Onboarding Workflow Builder
+            {t('builder.title')}
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Customize, add, edit, or disable steps and fields for client identity verification
-            onboarding.
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">{t('builder.subtitle')}</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -296,7 +296,7 @@ export default function KycBuilderPage() {
             className="gap-2"
           >
             <RotateCcw className="h-4 w-4" />
-            <span>Reset Defaults</span>
+            <span>{t('builder.resetDefaults')}</span>
           </Button>
           <Button
             variant="outline"
@@ -305,7 +305,7 @@ export default function KycBuilderPage() {
             className="gap-2 border-primary/30 text-link hover:bg-primary/10"
           >
             <Plus className="h-4 w-4" />
-            <span>Add Custom Step</span>
+            <span>{t('builder.addCustomStep')}</span>
           </Button>
           <Button
             size="sm"
@@ -365,7 +365,7 @@ export default function KycBuilderPage() {
                             className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link border border-primary/20"
                             title="Required by FR-CORE-15 — cannot be disabled or deleted"
                           >
-                            Required
+                            {t('builder.required')}
                           </span>
                         )}
                       </div>
@@ -449,7 +449,7 @@ export default function KycBuilderPage() {
                     {/* Step Basic Meta */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Step Title</Label>
+                        <Label className="text-xs">{t('builder.stepTitle')}</Label>
                         <Input
                           value={step.title}
                           onChange={(e) => updateStepField(step.id, 'title', e.target.value)}
@@ -457,10 +457,10 @@ export default function KycBuilderPage() {
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs">
-                          URL Slug Identifier
+                          {t('builder.slugIdentifier')}
                           {isMandatoryStep(step) && (
                             <span className="ml-2 font-normal text-muted-foreground">
-                              (locked — the client flow submits by this slug)
+                              {t('builder.slugLockedFull')}
                             </span>
                           )}
                         </Label>
@@ -471,7 +471,7 @@ export default function KycBuilderPage() {
                         />
                       </div>
                       <div className="space-y-1.5 md:col-span-2">
-                        <Label className="text-xs">Description / Instructions</Label>
+                        <Label className="text-xs">{t('builder.stepDescription')}</Label>
                         <Input
                           value={step.description}
                           onChange={(e) => updateStepField(step.id, 'description', e.target.value)}
@@ -484,10 +484,10 @@ export default function KycBuilderPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                            Form Fields ({step.fields.length})
+                            {t('builder.fieldsCount', { count: step.fields.length })}
                           </h4>
                           <p className="text-[11px] text-muted-foreground">
-                            Configure field labels, input types, and requirement flags.
+                            {t('builder.fieldsHint')}
                           </p>
                         </div>
                         <Button
@@ -497,15 +497,14 @@ export default function KycBuilderPage() {
                           className="gap-1.5 text-link border-primary/30 hover:bg-primary/10 h-8 text-xs"
                         >
                           <Plus className="h-3.5 w-3.5" />
-                          <span>Add Field</span>
+                          <span>{t('builder.addField')}</span>
                         </Button>
                       </div>
 
                       {/* Fields Table / Grid */}
                       {step.fields.length === 0 ? (
                         <div className="py-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
-                          No custom fields added yet. Click &quot;Add Field&quot; to configure
-                          inputs.
+                          {t('builder.noFieldsHint')}
                         </div>
                       ) : (
                         <div className="space-y-3">
@@ -516,7 +515,7 @@ export default function KycBuilderPage() {
                             >
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 w-full">
                                 <div className="space-y-1">
-                                  <Label className="text-[11px]">Field Label</Label>
+                                  <Label className="text-[11px]">{t('builder.fieldLabel')}</Label>
                                   <Input
                                     value={f.label}
                                     onChange={(e) =>
@@ -527,7 +526,7 @@ export default function KycBuilderPage() {
                                 </div>
 
                                 <div className="space-y-1">
-                                  <Label className="text-[11px]">Key Name</Label>
+                                  <Label className="text-[11px]">{t('builder.keyName')}</Label>
                                   <Input
                                     value={f.name}
                                     onChange={(e) =>
@@ -538,7 +537,7 @@ export default function KycBuilderPage() {
                                 </div>
 
                                 <div className="space-y-1">
-                                  <Label className="text-[11px]">Input Type</Label>
+                                  <Label className="text-[11px]">{t('builder.inputType')}</Label>
                                   <Select
                                     value={f.type}
                                     onValueChange={(val) =>
@@ -551,13 +550,21 @@ export default function KycBuilderPage() {
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="text">Text Input</SelectItem>
-                                      <SelectItem value="date">Date Picker</SelectItem>
-                                      <SelectItem value="phone">Phone Input</SelectItem>
-                                      <SelectItem value="select">Dropdown Select</SelectItem>
-                                      <SelectItem value="file">File Uploader</SelectItem>
-                                      <SelectItem value="camera">Live Camera</SelectItem>
-                                      <SelectItem value="checkbox">Checkbox</SelectItem>
+                                      <SelectItem value="text">{t('builder.typeText')}</SelectItem>
+                                      <SelectItem value="date">{t('builder.typeDate')}</SelectItem>
+                                      <SelectItem value="phone">
+                                        {t('builder.typePhone')}
+                                      </SelectItem>
+                                      <SelectItem value="select">
+                                        {t('builder.typeSelect')}
+                                      </SelectItem>
+                                      <SelectItem value="file">{t('builder.typeFile')}</SelectItem>
+                                      <SelectItem value="camera">
+                                        {t('builder.typeCamera')}
+                                      </SelectItem>
+                                      <SelectItem value="checkbox">
+                                        {t('builder.typeCheckbox')}
+                                      </SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </div>
@@ -575,7 +582,7 @@ export default function KycBuilderPage() {
                                     }
                                     className="rounded border-input accent-primary focus:ring-ring"
                                   />
-                                  <span>Required</span>
+                                  <span>{t('builder.required')}</span>
                                 </label>
 
                                 <button
@@ -606,38 +613,36 @@ export default function KycBuilderPage() {
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150">
             <div className="flex items-center gap-2 text-link mb-1">
               <Sparkles className="h-5 w-5" />
-              <h3 className="text-lg font-bold text-foreground">Add Custom Onboarding Step</h3>
+              <h3 className="text-lg font-bold text-foreground">{t('builder.newStepTitle')}</h3>
             </div>
-            <p className="text-xs text-muted-foreground mb-6">
-              Create a new step for your KYC verification flow.
-            </p>
+            <p className="text-xs text-muted-foreground mb-6">{t('builder.newStepBody')}</p>
 
             <form onSubmit={handleAddStepSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label>
-                  Step Title <span className="text-destructive">*</span>
+                  {t('builder.stepTitle')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   required
-                  placeholder="e.g., Employment & Tax Declaration"
+                  placeholder={t('builder.titlePlaceholder')}
                   value={newStepTitle}
                   onChange={(e) => setNewStepTitle(e.target.value)}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label>URL Slug</Label>
+                <Label>{t('builder.urlSlug')}</Label>
                 <Input
-                  placeholder="e.g., employment (optional)"
+                  placeholder={t('builder.slugPlaceholder')}
                   value={newStepSlug}
                   onChange={(e) => setNewStepSlug(e.target.value)}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label>Description / Guidance</Label>
+                <Label>{t('builder.guidance')}</Label>
                 <Input
-                  placeholder="e.g., Provide details about your employment status and source of funds."
+                  placeholder={t('builder.guidancePlaceholder')}
                   value={newStepDesc}
                   onChange={(e) => setNewStepDesc(e.target.value)}
                 />
@@ -645,9 +650,9 @@ export default function KycBuilderPage() {
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
-                <Button type="submit">Add Step</Button>
+                <Button type="submit">{t('builder.addStep')}</Button>
               </div>
             </form>
           </div>

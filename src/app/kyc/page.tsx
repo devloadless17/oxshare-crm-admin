@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { t } from '@/lib/i18n';
 
 type KycStatus =
   'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
@@ -41,11 +42,11 @@ const STATUS_LABELS: Record<KycStatus, string> = {
 };
 
 const FILTERS: Array<{ value: string; label: string }> = [
-  { value: '', label: 'All' },
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'under_review', label: 'Under Review' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
+  { value: '', label: t('kycReview.filterAll') },
+  { value: 'submitted', label: t('kycReview.colSubmitted') },
+  { value: 'under_review', label: t('kycReview.filterUnderReview') },
+  { value: 'approved', label: t('kycReview.filterApproved') },
+  { value: 'rejected', label: t('kycReview.filterRejected') },
 ];
 
 interface KycListResponse {
@@ -83,7 +84,7 @@ export default function AdminKycPage() {
 
   const columns: Column<KycRow>[] = [
     {
-      header: 'User',
+      header: t('kycReview.colUser'),
       sortable: true,
       sortKey: 'userId',
       cell: (row) => (
@@ -101,7 +102,7 @@ export default function AdminKycPage() {
       ),
     },
     {
-      header: 'Country',
+      header: t('kycReview.colCountry'),
       sortable: true,
       sortKey: 'country',
       cell: (row) => (
@@ -109,7 +110,7 @@ export default function AdminKycPage() {
       ),
     },
     {
-      header: 'Status',
+      header: t('kycReview.colStatus'),
       sortable: true,
       sortKey: 'status',
       cell: (row) => (
@@ -126,7 +127,7 @@ export default function AdminKycPage() {
       ),
     },
     {
-      header: 'Submitted',
+      header: t('kycReview.colSubmitted'),
       sortable: true,
       sortKey: 'submittedAt',
       cell: (row) => (
@@ -136,7 +137,7 @@ export default function AdminKycPage() {
       ),
     },
     {
-      header: 'Reviewed',
+      header: t('kycReview.colReviewed'),
       sortable: true,
       sortKey: 'reviewedAt',
       cell: (row) => (
@@ -146,7 +147,7 @@ export default function AdminKycPage() {
       ),
     },
     {
-      header: 'Action',
+      header: t('kycReview.colAction'),
       align: 'right',
       cell: (row) => (
         <Link
@@ -154,7 +155,7 @@ export default function AdminKycPage() {
           className="inline-flex items-center gap-1 font-semibold text-xs text-link hover:underline focus-outline rounded-sm"
           aria-label={`Review KYC submission of ${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim()}
         >
-          <span>Review</span>
+          <span>{t('kycReview.review')}</span>
           <ChevronRight className="h-4 w-4" />
         </Link>
       ),
@@ -166,9 +167,9 @@ export default function AdminKycPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">KYC Submissions</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t('kycReview.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {counts['all'] ?? 0} total submissions
+            {t('kycReview.totalSubmissions', { count: counts['all'] ?? 0 })}
           </p>
         </div>
       </div>
@@ -200,7 +201,7 @@ export default function AdminKycPage() {
 
         <Input
           className="max-w-xs h-9"
-          placeholder="Search by name or email..."
+          placeholder={t('kycReview.searchPlaceholder')}
           aria-label="Search submissions by name or email"
           value={search}
           onChange={(e) => {

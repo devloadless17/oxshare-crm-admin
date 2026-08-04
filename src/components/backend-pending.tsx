@@ -5,6 +5,7 @@
 // two copies a signal rather than noise.
 
 import { ServerOff } from 'lucide-react';
+import { t } from '@/lib/i18n';
 
 /**
  * Honest placeholder for UI whose backend endpoints don't exist yet.
@@ -19,8 +20,7 @@ export function BackendPending({ title, endpoints }: { title?: string; endpoints
         {title ?? 'Waiting on backend endpoints'}
       </h3>
       <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-        This page&apos;s UI is ready, but the API it needs is not implemented yet. It will light up
-        automatically once these endpoints exist:
+        {t('backendPending.body')}
       </p>
       <div className="flex flex-wrap justify-center gap-1.5">
         {endpoints.map((e) => (

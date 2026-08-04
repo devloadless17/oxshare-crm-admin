@@ -2,6 +2,7 @@
 
 import { Pencil, ShieldCheck, Trash2 } from 'lucide-react';
 import type { Role } from '@/lib/api/admin';
+import { t } from '@/lib/i18n';
 
 /**
  * One role with its granted actions. Edit/delete appear only for non-system
@@ -31,7 +32,7 @@ export function RoleCard({
             <h3 className="text-base font-bold text-foreground">{role.name}</h3>
             {role.isSystem && (
               <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link border border-primary/20">
-                System Role
+                {t('settings.systemRole')}
               </span>
             )}
           </div>
@@ -68,7 +69,7 @@ export function RoleCard({
 
       <div className="space-y-2 border-t border-border/60 pt-3">
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Assigned Permissions ({role.permissions.length})
+          {t('settings.assignedPermissions', { count: role.permissions.length })}
         </span>
         <div className="flex flex-wrap gap-1.5">
           {role.permissions.map((p) => (
