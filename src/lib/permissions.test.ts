@@ -31,11 +31,29 @@ describe('hasPermission', () => {
     expect(hasPermission(subAdmin, 'withdrawals.view')).toBe(false);
   });
 
-  it('treats colon and dot spellings as the same key (guard parity)', () => {
-    // pre-unification token data on one side, catalog key on the other
-    expect(hasPermission(subAdmin, 'kyc:review')).toBe(true);
+  it('matches regardless of case (guard parity)', () => {
+    expect(hasPermission(subAdmin, 'KYC.Review')).toBe(true);
+    const mixed = { ...subAdmin, permissions: ['KYC.Review'] };
+    expect(hasPermission(mixed, 'kyc.review')).toBe(true);
+  });
+
+  it('does NOT treat the old colon spelling as the same key (guard parity)', () => {
+    /*
+     * This asserted the opposite until backend migration 0009.
+     *
+     * Four copies of `replace(/:/g, '.')` bridged two spellings of every
+     * permission key — three in the backend, one here. They were generative
+     * rather than redundant: the backend normalised BEFORE checking its catalog,
+     * so `kyc:review` passed validation and was stored verbatim.
+     *
+     * Parity with the guard is the point of this test, and the guard no longer
+     * accepts it. Keeping the shim on this side alone would be worse than
+     * useless: the nav would show a page the API then refuses, which is exactly
+     * the drift assertPermissionKeysExist exists to catch.
+     */
+    expect(hasPermission(subAdmin, 'kyc:review')).toBe(false);
     const legacy = { ...subAdmin, permissions: ['kyc:review'] };
-    expect(hasPermission(legacy, 'kyc.review')).toBe(true);
+    expect(hasPermission(legacy, 'kyc.review')).toBe(false);
   });
 
   it('denies when unauthenticated', () => {
@@ -141,7 +159,16 @@ describe('assertPermissionKeysExist', () => {
     expect(orphans).toEqual(['ledger.view']);
   });
 
-  it('normalizes colon-style catalog keys the same way the guard does', () => {
-    expect(assertPermissionKeysExist(CATALOG.map((k) => k.replace('.', ':')))).toEqual([]);
+  it('folds case on catalog keys, the same way the guard does', () => {
+    expect(assertPermissionKeysExist(CATALOG.map((k) => k.toUpperCase()))).toEqual([]);
+  });
+
+  it('reports every route key as an orphan when the catalog uses the old spelling', () => {
+    // The useful failure. A backend still serving colon keys is now a real
+    // mismatch rather than something this file silently absorbs — and it
+    // surfaces here, in development, as the loud list assertPermissionKeysExist
+    // was built to print.
+    const colonCatalog = CATALOG.map((k) => k.replace('.', ':'));
+    expect(assertPermissionKeysExist(colonCatalog).length).toBeGreaterThan(0);
   });
 });

@@ -16,8 +16,7 @@ import type { AdminProfile } from '@/context/AdminAuthContext';
  * `assertPermissionKeysExist()` below now catches that class of drift at
  * runtime in development instead of leaving it invisible.
  *
- * Matching is normalized (colons to dots, lowercase) exactly like the
- * backend's PermissionsGuard.
+ * Matching is case-insensitive, exactly like the backend's PermissionsGuard.
  */
 export type RouteRequirement = { permission: string } | { masterOnly: true } | null; // any authenticated admin
 
@@ -40,9 +39,22 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/dashboard', requirement: null },
 ];
 
-/** Same normalization as the backend guard: 'kyc:review' ≡ 'kyc.review'. */
+/**
+ * Same normalization as the backend guard: case only.
+ *
+ * This used to rewrite `:` to `.` so `kyc:review` and `kyc.review` matched. Four
+ * copies of that shim existed — three in the backend, this one here — bridging
+ * two spellings of every permission key, and they were generative rather than
+ * merely redundant: the backend's `assertGrantable` normalised BEFORE checking
+ * the catalog, so a colon key passed validation and was then stored verbatim.
+ *
+ * Backend migration 0009 converted the stored keys and all four shims came out
+ * together. Keeping this one would be worse than pointless: the frontend would
+ * show a nav item the API then refuses, which is the exact drift
+ * `assertPermissionKeysExist` exists to catch.
+ */
 function normalizeKey(key: string): string {
-  return key.replace(/:/g, '.').toLowerCase();
+  return key.toLowerCase();
 }
 
 export function isMasterAdmin(admin: AdminProfile | null): boolean {
