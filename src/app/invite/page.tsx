@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import type { Role } from '@/lib/api/admin';
+import { apiErrorMessage } from '@/lib/api/errors';
 import {
   Select,
   SelectTrigger,
@@ -55,8 +56,7 @@ export default function InviteAdminPage() {
       setCopied(false);
       setForm({ email: '', name: '' });
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string } } };
-      setError(err?.response?.data?.message ?? 'Failed to create the invite.');
+      setError(apiErrorMessage(e, 'Failed to create the invite.'));
     } finally {
       setLoading(false);
     }

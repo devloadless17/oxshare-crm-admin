@@ -55,8 +55,7 @@ function AcceptInviteContent() {
       // with the new session; a client-side push renders the shell with admin: null.
       window.location.assign('/dashboard');
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string } } };
-      setError(err?.response?.data?.message ?? 'Failed to accept invite.');
+      setError(apiErrorMessage(e, 'Failed to accept invite.'));
       setLoading(false);
     }
   };

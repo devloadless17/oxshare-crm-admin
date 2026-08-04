@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { apiErrorMessage } from '@/lib/api/errors';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -35,12 +36,9 @@ export default function AdminLoginPage() {
       router.push('/dashboard');
       router.refresh();
     } catch (err: unknown) {
-      const response = (err as { response?: { data?: { message?: string | string[] } } })?.response;
-      const msg =
-        response?.data?.message ??
-        (err as { message?: string })?.message ??
-        'Sign in failed. Please try again.';
-      setError(Array.isArray(msg) ? msg.join(', ') : msg);
+      // This was a line-for-line reimplementation of apiErrorMessage, array join
+      // included. One copy, in lib/api/errors.ts.
+      setError(apiErrorMessage(err, 'Sign in failed. Please try again.'));
     } finally {
       setIsLoading(false);
     }
