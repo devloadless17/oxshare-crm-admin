@@ -82,6 +82,13 @@ export default function AdminLoginPage() {
         <div className="flex flex-col items-center space-y-2 text-center">
           <Image
             src="/oxshare-mark.svg"
+            // An SVG is already a vector: there is nothing for the optimizer to
+            // resize or re-encode. Next also REFUSES to optimize SVG unless
+            // `dangerouslyAllowSVG` is set — correctly, since an SVG can carry
+            // script — so routing this through /_next/image returned 400 and
+            // rendered as a broken image. `unoptimized` serves the file
+            // directly and keeps next/image's layout props.
+            unoptimized
             alt={t('app.name')}
             width={44}
             height={40}

@@ -119,6 +119,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           >
             <Image
               src="/oxshare-mark.svg"
+              // See the note on the sign-in page: Next refuses to optimize SVG
+              // without `dangerouslyAllowSVG`, and a vector needs no optimizing.
+              unoptimized
               alt={t('app.name')}
               width={28}
               height={26}
