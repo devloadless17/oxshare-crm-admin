@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, type RefObject } from 'react';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -10,8 +10,8 @@ const FOCUSABLE =
  * the dialog and returns to whatever opened it.
  *
  * Of the seven hand-rolled modals in this app, one handled Escape and none
- * trapped or restored focus — a keyboard user tabbed straight out of the
- * dialog into the page behind it and had no way back.
+ * trapped or restored focus — a keyboard user tabbed straight out of the dialog
+ * into the page behind it and had no way back.
  *
  * @param enabled false while the dialog is closed, and while a request is in
  *   flight if dismissing mid-request would lose data.
@@ -22,15 +22,44 @@ export function useFocusTrap(
   onClose: () => void,
   enabled = true,
 ): void {
+  /*
+   * A dialog used to close itself while you typed. Reproducing it needed TWO
+   * defects at once, and this hook had both:
+   *
+   *  1. The mount effect re-ran on every render. Callers pass an inline arrow
+   *     (`onClose={() => setShowForm(false)}`), so onClose had a new identity each
+   *     render, which invalidated the onKeyDown useCallback, which invalidated the
+   *     effect. So it tore down and re-ran constantly, re-running its focus call.
+   *  2. That focus call targeted the FIRST focusable element, which is the header's
+   *     Close button, not the first form field.
+   *
+   * Together: focus was yanked to the Close button after every keystroke, and
+   * since space activates a button, typing a name containing a space closed the
+   * dialog and discarded everything typed. It reproduced on the commission-plan
+   * form and the withdrawal reject/settle dialogs — the money screens.
+   *
+   * Both are fixed below, and measured: reverting either one alone does NOT bring
+   * the bug back, because each independently breaks the chain. Both are worth
+   * keeping on their own merits — an effect that re-runs every render is wrong,
+   * and a dialog should open with focus in its form. src/components/ui/modal.test.tsx
+   * pins each half separately.
+   */
+  const onCloseRef = useRef(onClose);
+  const enabledRef = useRef(enabled);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    enabledRef.current = enabled;
+  }, [onClose, enabled]);
+
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
       const panel = panelRef.current;
       if (!panel) return;
 
       if (event.key === 'Escape') {
-        if (enabled) {
+        if (enabledRef.current) {
           event.stopPropagation();
-          onClose();
+          onCloseRef.current();
         }
         return;
       }
@@ -41,8 +70,7 @@ export function useFocusTrap(
       );
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      // Replaces a bare `length === 0` check: this also narrows both reads, so
-      // the two .focus() calls below need no assertion.
+      // Narrows both reads, so the two .focus() calls below need no assertion.
       if (!first || !last) return;
       const active = document.activeElement;
 
@@ -54,14 +82,26 @@ export function useFocusTrap(
         first.focus();
       }
     },
-    [panelRef, onClose, enabled],
+    // Stable for the life of the hook: everything mutable is read from a ref.
+    [panelRef],
   );
 
   useEffect(() => {
     if (!open) return;
     const restoreFocusTo = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
-    (panel?.querySelector<HTMLElement>(FOCUSABLE) ?? panel)?.focus();
+
+    /*
+     * Focus the first field rather than the Close button.
+     *
+     * The Close button is the first focusable in DOM order (it sits in the
+     * header), so a user opening a dialog landed on "Close dialog" and a
+     * screen-reader announced that before the form. Prefer a real input.
+     */
+    const firstField = panel?.querySelector<HTMLElement>(
+      'input:not([disabled]), textarea:not([disabled]), select:not([disabled])',
+    );
+    (firstField ?? panel?.querySelector<HTMLElement>(FOCUSABLE) ?? panel)?.focus();
 
     document.addEventListener('keydown', onKeyDown, true);
     const previousOverflow = document.body.style.overflow;

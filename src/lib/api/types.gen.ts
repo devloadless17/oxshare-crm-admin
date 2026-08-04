@@ -490,7 +490,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Admin login */
-        post: operations["AdminController_login"];
+        post: operations["AdminAuthController_login"];
         delete?: never;
         options?: never;
         head?: never;
@@ -507,7 +507,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Admin refresh token */
-        post: operations["AdminController_refresh"];
+        post: operations["AdminAuthController_refresh"];
         delete?: never;
         options?: never;
         head?: never;
@@ -524,7 +524,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Admin logout */
-        post: operations["AdminController_logout"];
+        post: operations["AdminAuthController_logout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -539,7 +539,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get current admin */
-        get: operations["AdminController_me"];
+        get: operations["AdminAuthController_me"];
         put?: never;
         post?: never;
         delete?: never;
@@ -558,7 +558,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Invite a new sub-admin with a role or explicit permissions (requires users.create) */
-        post: operations["AdminController_invite"];
+        post: operations["AdminAuthController_invite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -573,7 +573,7 @@ export interface paths {
             cookie?: never;
         };
         /** Validate invite token — returns email and name for pre-fill */
-        get: operations["AdminController_validateInvite"];
+        get: operations["AdminAuthController_validateInvite"];
         put?: never;
         post?: never;
         delete?: never;
@@ -592,96 +592,11 @@ export interface paths {
         get?: never;
         put?: never;
         /** Accept invite and set password — logs admin in immediately */
-        post: operations["AdminController_acceptInvite"];
+        post: operations["AdminAuthController_acceptInvite"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/admin/kyc": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List all KYC submissions, optionally filtered by status */
-        get: operations["AdminController_listKyc"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/kyc/{userId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get full KYC submission for a user */
-        get: operations["AdminController_getKyc"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/kyc/{userId}/claim": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Claim a submitted KYC for review (sets under_review) */
-        patch: operations["AdminController_claimKyc"];
-        trace?: never;
-    };
-    "/admin/kyc/{userId}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Approve KYC — bumps user verificationLevel to 1; returns the updated submission */
-        patch: operations["AdminController_approveKyc"];
-        trace?: never;
-    };
-    "/admin/kyc/{userId}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Reject KYC with a reason (free text or a configured reasonId); returns the updated submission */
-        patch: operations["AdminController_rejectKyc"];
         trace?: never;
     };
     "/admin/clients": {
@@ -692,7 +607,7 @@ export interface paths {
             cookie?: never;
         };
         /** Paginated, filterable client list */
-        get: operations["AdminController_listClients"];
+        get: operations["AdminClientsController_listClients"];
         put?: never;
         post?: never;
         delete?: never;
@@ -715,7 +630,92 @@ export interface paths {
         options?: never;
         head?: never;
         /** Suspend or reactivate a client account (requires users.suspend) */
-        patch: operations["AdminController_setClientStatus"];
+        patch: operations["AdminClientsController_setClientStatus"];
+        trace?: never;
+    };
+    "/admin/kyc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all KYC submissions, optionally filtered by status */
+        get: operations["AdminComplianceController_listKyc"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/kyc/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get full KYC submission for a user */
+        get: operations["AdminComplianceController_getKyc"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/kyc/{userId}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Claim a submitted KYC for review (sets under_review) */
+        patch: operations["AdminComplianceController_claimKyc"];
+        trace?: never;
+    };
+    "/admin/kyc/{userId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Approve KYC — bumps user verificationLevel to 1; returns the updated submission */
+        patch: operations["AdminComplianceController_approveKyc"];
+        trace?: never;
+    };
+    "/admin/kyc/{userId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reject KYC with a reason (free text or a configured reasonId); returns the updated submission */
+        patch: operations["AdminComplianceController_rejectKyc"];
         trace?: never;
     };
     "/admin/rejection-reasons": {
@@ -726,10 +726,10 @@ export interface paths {
             cookie?: never;
         };
         /** List configurable rejection reasons, optionally by context (kyc | withdrawal) */
-        get: operations["AdminController_listRejectionReasons"];
+        get: operations["AdminComplianceController_listRejectionReasons"];
         put?: never;
         /** Add a rejection reason (master admin only) */
-        post: operations["AdminController_createRejectionReason"];
+        post: operations["AdminComplianceController_createRejectionReason"];
         delete?: never;
         options?: never;
         head?: never;
@@ -745,10 +745,80 @@ export interface paths {
         };
         get?: never;
         /** Rename a rejection reason (master admin only) */
-        put: operations["AdminController_updateRejectionReason"];
+        put: operations["AdminComplianceController_updateRejectionReason"];
         post?: never;
         /** Delete a rejection reason (master admin only) */
-        delete: operations["AdminController_deleteRejectionReason"];
+        delete: operations["AdminComplianceController_deleteRejectionReason"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/kyc-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current KYC onboarding steps configuration */
+        get: operations["AdminComplianceController_getKycConfig"];
+        /** Update entire KYC onboarding steps configuration */
+        put: operations["AdminComplianceController_updateKycConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/kyc-config/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a new KYC step */
+        post: operations["AdminComplianceController_addKycStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/kyc-config/steps/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a specific KYC step */
+        put: operations["AdminComplianceController_updateKycStep"];
+        post?: never;
+        /** Delete a KYC step */
+        delete: operations["AdminComplianceController_deleteKycStep"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/kyc-config/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset KYC steps to default */
+        post: operations["AdminComplianceController_resetKycConfig"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -762,7 +832,7 @@ export interface paths {
             cookie?: never;
         };
         /** Withdrawal requests with per-state counts (amounts are strings) */
-        get: operations["AdminController_listWithdrawals"];
+        get: operations["AdminMoneyController_listWithdrawals"];
         put?: never;
         post?: never;
         delete?: never;
@@ -785,7 +855,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Approve a pending withdrawal — funds stay on hold until settlement */
-        patch: operations["AdminController_approveWithdrawal"];
+        patch: operations["AdminMoneyController_approveWithdrawal"];
         trace?: never;
     };
     "/admin/withdrawals/{id}/reject": {
@@ -802,7 +872,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Reject a pending withdrawal — releases the hold, emails the client */
-        patch: operations["AdminController_rejectWithdrawal"];
+        patch: operations["AdminMoneyController_rejectWithdrawal"];
         trace?: never;
     };
     "/admin/withdrawals/{id}/settle": {
@@ -819,7 +889,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Mark an approved withdrawal paid — posts the debit and clears the hold */
-        patch: operations["AdminController_settleWithdrawal"];
+        patch: operations["AdminMoneyController_settleWithdrawal"];
         trace?: never;
     };
     "/admin/ledger": {
@@ -830,7 +900,7 @@ export interface paths {
             cookie?: never;
         };
         /** Append-only ledger, filterable for reconciliation */
-        get: operations["AdminController_listLedger"];
+        get: operations["AdminMoneyController_listLedger"];
         put?: never;
         post?: never;
         delete?: never;
@@ -847,10 +917,10 @@ export interface paths {
             cookie?: never;
         };
         /** IB programs / commission plans, ordered by ladder position */
-        get: operations["AdminController_listPrograms"];
+        get: operations["AdminMoneyController_listPrograms"];
         put?: never;
         /** Create a commission plan (validated: shares ≤ 100%, mode/value coherence) */
-        post: operations["AdminController_createProgram"];
+        post: operations["AdminMoneyController_createProgram"];
         delete?: never;
         options?: never;
         head?: never;
@@ -866,7 +936,7 @@ export interface paths {
         };
         get?: never;
         /** Update a commission plan — audited with before/after values */
-        put: operations["AdminController_updateProgram"];
+        put: operations["AdminMoneyController_updateProgram"];
         post?: never;
         delete?: never;
         options?: never;
@@ -888,7 +958,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Activate or deactivate a plan — plans are never deleted, accruals reference them */
-        patch: operations["AdminController_setProgramActive"];
+        patch: operations["AdminMoneyController_setProgramActive"];
         trace?: never;
     };
     "/admin/permissions": {
@@ -899,7 +969,7 @@ export interface paths {
             cookie?: never;
         };
         /** Permission catalog grouped by module (requires roles.view or users.view) */
-        get: operations["AdminController_getPermissions"];
+        get: operations["AdminRbacController_getPermissions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -916,10 +986,10 @@ export interface paths {
             cookie?: never;
         };
         /** List RBAC roles (requires roles.view or users.view) */
-        get: operations["AdminController_listRoles"];
+        get: operations["AdminRbacController_listRoles"];
         put?: never;
         /** Create a custom role (requires roles.manage) */
-        post: operations["AdminController_createRole"];
+        post: operations["AdminRbacController_createRole"];
         delete?: never;
         options?: never;
         head?: never;
@@ -935,10 +1005,10 @@ export interface paths {
         };
         get?: never;
         /** Update a custom role (requires roles.manage) */
-        put: operations["AdminController_updateRole"];
+        put: operations["AdminRbacController_updateRole"];
         post?: never;
         /** Delete a custom role (requires roles.manage) */
-        delete: operations["AdminController_deleteRole"];
+        delete: operations["AdminRbacController_deleteRole"];
         options?: never;
         head?: never;
         patch?: never;
@@ -952,7 +1022,7 @@ export interface paths {
             cookie?: never;
         };
         /** List admin accounts (requires users.view) */
-        get: operations["AdminController_listAdmins"];
+        get: operations["AdminRbacController_listAdmins"];
         put?: never;
         post?: never;
         delete?: never;
@@ -975,7 +1045,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Update an admin’s name, role, or permissions (requires users.edit) */
-        patch: operations["AdminController_updateAdmin"];
+        patch: operations["AdminRbacController_updateAdmin"];
         trace?: never;
     };
     "/admin/audit-log": {
@@ -986,79 +1056,9 @@ export interface paths {
             cookie?: never;
         };
         /** Append-only admin action log (master admin only) */
-        get: operations["AdminController_listAuditLog"];
+        get: operations["AdminAuditController_listAuditLog"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/kyc-config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get current KYC onboarding steps configuration */
-        get: operations["AdminController_getKycConfig"];
-        /** Update entire KYC onboarding steps configuration */
-        put: operations["AdminController_updateKycConfig"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/kyc-config/steps": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Add a new KYC step */
-        post: operations["AdminController_addKycStep"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/kyc-config/steps/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update a specific KYC step */
-        put: operations["AdminController_updateKycStep"];
-        post?: never;
-        /** Delete a KYC step */
-        delete: operations["AdminController_deleteKycStep"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/kyc-config/reset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reset KYC steps to default */
-        post: operations["AdminController_resetKycConfig"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1082,6 +1082,28 @@ export interface components {
             country?: string;
             /** @example +1234567890 */
             phone?: string;
+        };
+        RegistrationResponseDto: {
+            /** @example Registration successful. Please check your email to verify your account. */
+            message: string;
+            /** @description The new user id. No session exists until the email is verified. */
+            userId: string;
+        };
+        MessageResponseDto: {
+            /** @example Logged out. */
+            message: string;
+        };
+        ResendVerificationDto: {
+            /** @example john@example.com */
+            email: string;
+        };
+        LoginDto: {
+            /** @example john@example.com */
+            email: string;
+            /** @example StrongPass123! */
+            password: string;
+            /** @example CLIENT */
+            role?: string;
         };
         UserProfileDto: {
             id: string;
@@ -1115,22 +1137,6 @@ export interface components {
             user: components["schemas"]["UserProfileDto"];
             /** @description Mirrors user.emailVerified; kept for older portal builds. */
             emailVerified: boolean;
-        };
-        MessageResponseDto: {
-            /** @example Logged out. */
-            message: string;
-        };
-        ResendVerificationDto: {
-            /** @example john@example.com */
-            email: string;
-        };
-        LoginDto: {
-            /** @example john@example.com */
-            email: string;
-            /** @example StrongPass123! */
-            password: string;
-            /** @example CLIENT */
-            role?: string;
         };
         WalletDto: {
             id: string;
@@ -1307,15 +1313,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        PermissionItemDto: {
-            key: string;
-            label: string;
-        };
-        PermissionModuleDto: {
-            moduleName: string;
-            description: string;
-            permissions: components["schemas"]["PermissionItemDto"][];
-        };
         AdminLoginDto: {
             /** @example admin@oxshare.com */
             email: string;
@@ -1358,6 +1355,34 @@ export interface components {
             /** @description Single-use token from the invitation email. */
             token: string;
             password: string;
+        };
+        ClientRowDto: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            /** @enum {string} */
+            type: "individual" | "referral" | "partner";
+            /** @enum {string} */
+            status: "active" | "pending" | "suspended";
+            /** @enum {number} */
+            verificationLevel: 0 | 1;
+            country?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ClientListResponseDto: {
+            items: components["schemas"]["ClientRowDto"][];
+            total: number;
+            page: number;
+            limit: number;
+        };
+        ClientStatusDto: {
+            /**
+             * @description Suspending blocks sign-in but preserves the client and their ledger history.
+             * @enum {string}
+             */
+            status: "active" | "suspended";
         };
         KycDocumentDto: {
             docType?: string;
@@ -1419,34 +1444,6 @@ export interface components {
             /** @description Field names the client must re-submit, e.g. ["doc_front"]. */
             rejectedFields?: string[];
         };
-        ClientRowDto: {
-            id: string;
-            email: string;
-            firstName: string;
-            lastName: string;
-            /** @enum {string} */
-            type: "individual" | "referral" | "partner";
-            /** @enum {string} */
-            status: "active" | "pending" | "suspended";
-            /** @enum {number} */
-            verificationLevel: 0 | 1;
-            country?: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        ClientListResponseDto: {
-            items: components["schemas"]["ClientRowDto"][];
-            total: number;
-            page: number;
-            limit: number;
-        };
-        ClientStatusDto: {
-            /**
-             * @description Suspending blocks sign-in but preserves the client and their ledger history.
-             * @enum {string}
-             */
-            status: "active" | "suspended";
-        };
         RejectionReasonResponseDto: {
             id: string;
             /** @enum {string} */
@@ -1460,6 +1457,43 @@ export interface components {
             context: "kyc" | "withdrawal";
             /** @example Document expired */
             label: string;
+        };
+        KycFieldDto: {
+            id: string;
+            /**
+             * @description Machine name submitted by the portal.
+             * @example firstName
+             */
+            name: string;
+            /** @example First Name */
+            label: string;
+            /** @enum {string} */
+            type: "text" | "date" | "phone" | "select" | "file" | "camera" | "checkbox";
+            required: boolean;
+            /** @description Choices, for type: select. */
+            options?: string[];
+            /** @example As shown on your ID */
+            hint?: string;
+        };
+        KycStepDto: {
+            id?: string;
+            /** @description Server-assigned ordering; ignored on create. */
+            stepNumber?: number;
+            /** @example personal */
+            slug: string;
+            /** @example Personal Information */
+            title: string;
+            description?: string;
+            /**
+             * @description lucide icon name.
+             * @example User
+             */
+            icon?: string;
+            enabled?: boolean;
+            fields: components["schemas"]["KycFieldDto"][];
+        };
+        KycConfigDto: {
+            steps: components["schemas"]["KycStepDto"][];
         };
         WithdrawalUserDto: {
             id: string;
@@ -1572,6 +1606,15 @@ export interface components {
         ProgramActiveDto: {
             active: boolean;
         };
+        PermissionItemDto: {
+            key: string;
+            label: string;
+        };
+        PermissionModuleDto: {
+            moduleName: string;
+            description: string;
+            permissions: components["schemas"]["PermissionItemDto"][];
+        };
         RoleResponseDto: {
             id: string;
             name: string;
@@ -1625,43 +1668,6 @@ export interface components {
             page: number;
             limit: number;
         };
-        KycFieldDto: {
-            id: string;
-            /**
-             * @description Machine name submitted by the portal.
-             * @example firstName
-             */
-            name: string;
-            /** @example First Name */
-            label: string;
-            /** @enum {string} */
-            type: "text" | "date" | "phone" | "select" | "file" | "camera" | "checkbox";
-            required: boolean;
-            /** @description Choices, for type: select. */
-            options?: string[];
-            /** @example As shown on your ID */
-            hint?: string;
-        };
-        KycStepDto: {
-            id?: string;
-            /** @description Server-assigned ordering; ignored on create. */
-            stepNumber?: number;
-            /** @example personal */
-            slug: string;
-            /** @example Personal Information */
-            title: string;
-            description?: string;
-            /**
-             * @description lucide icon name.
-             * @example User
-             */
-            icon?: string;
-            enabled?: boolean;
-            fields: components["schemas"]["KycFieldDto"][];
-        };
-        KycConfigDto: {
-            steps: components["schemas"]["KycStepDto"][];
-        };
     };
     responses: never;
     parameters: never;
@@ -1706,7 +1712,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                    "application/json": components["schemas"]["RegistrationResponseDto"];
                 };
             };
         };
@@ -1729,7 +1735,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                    "application/json": components["schemas"]["RegistrationResponseDto"];
                 };
             };
         };
@@ -2234,7 +2240,7 @@ export interface operations {
             };
         };
     };
-    AdminController_login: {
+    AdminAuthController_login: {
         parameters: {
             query?: never;
             header?: never;
@@ -2257,7 +2263,7 @@ export interface operations {
             };
         };
     };
-    AdminController_refresh: {
+    AdminAuthController_refresh: {
         parameters: {
             query?: never;
             header?: never;
@@ -2276,7 +2282,7 @@ export interface operations {
             };
         };
     };
-    AdminController_logout: {
+    AdminAuthController_logout: {
         parameters: {
             query?: never;
             header?: never;
@@ -2295,7 +2301,7 @@ export interface operations {
             };
         };
     };
-    AdminController_me: {
+    AdminAuthController_me: {
         parameters: {
             query?: never;
             header?: never;
@@ -2314,7 +2320,7 @@ export interface operations {
             };
         };
     };
-    AdminController_invite: {
+    AdminAuthController_invite: {
         parameters: {
             query?: never;
             header?: never;
@@ -2337,7 +2343,7 @@ export interface operations {
             };
         };
     };
-    AdminController_validateInvite: {
+    AdminAuthController_validateInvite: {
         parameters: {
             query: {
                 token: string;
@@ -2356,7 +2362,7 @@ export interface operations {
             };
         };
     };
-    AdminController_acceptInvite: {
+    AdminAuthController_acceptInvite: {
         parameters: {
             query?: never;
             header?: never;
@@ -2377,119 +2383,7 @@ export interface operations {
             };
         };
     };
-    AdminController_listKyc: {
-        parameters: {
-            query: {
-                status: string;
-                q: string;
-                page: string;
-                limit: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KycListResponseDto"];
-                };
-            };
-        };
-    };
-    AdminController_getKyc: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KycSubmissionDto"];
-                };
-            };
-        };
-    };
-    AdminController_claimKyc: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KycSubmissionDto"];
-                };
-            };
-        };
-    };
-    AdminController_approveKyc: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KycSubmissionDto"];
-                };
-            };
-        };
-    };
-    AdminController_rejectKyc: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RejectDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KycSubmissionDto"];
-                };
-            };
-        };
-    };
-    AdminController_listClients: {
+    AdminClientsController_listClients: {
         parameters: {
             query: {
                 page: string;
@@ -2515,7 +2409,7 @@ export interface operations {
             };
         };
     };
-    AdminController_setClientStatus: {
+    AdminClientsController_setClientStatus: {
         parameters: {
             query?: never;
             header?: never;
@@ -2538,7 +2432,119 @@ export interface operations {
             };
         };
     };
-    AdminController_listRejectionReasons: {
+    AdminComplianceController_listKyc: {
+        parameters: {
+            query: {
+                status: string;
+                q: string;
+                page: string;
+                limit: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminComplianceController_getKyc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycSubmissionDto"];
+                };
+            };
+        };
+    };
+    AdminComplianceController_claimKyc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycSubmissionDto"];
+                };
+            };
+        };
+    };
+    AdminComplianceController_approveKyc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycSubmissionDto"];
+                };
+            };
+        };
+    };
+    AdminComplianceController_rejectKyc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycSubmissionDto"];
+                };
+            };
+        };
+    };
+    AdminComplianceController_listRejectionReasons: {
         parameters: {
             query: {
                 context: string;
@@ -2559,7 +2565,7 @@ export interface operations {
             };
         };
     };
-    AdminController_createRejectionReason: {
+    AdminComplianceController_createRejectionReason: {
         parameters: {
             query?: never;
             header?: never;
@@ -2582,7 +2588,7 @@ export interface operations {
             };
         };
     };
-    AdminController_updateRejectionReason: {
+    AdminComplianceController_updateRejectionReason: {
         parameters: {
             query?: never;
             header?: never;
@@ -2603,7 +2609,7 @@ export interface operations {
             };
         };
     };
-    AdminController_deleteRejectionReason: {
+    AdminComplianceController_deleteRejectionReason: {
         parameters: {
             query?: never;
             header?: never;
@@ -2624,7 +2630,125 @@ export interface operations {
             };
         };
     };
-    AdminController_listWithdrawals: {
+    AdminComplianceController_getKycConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminComplianceController_updateKycConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KycConfigDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminComplianceController_addKycStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KycStepDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminComplianceController_updateKycStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KycStepDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminComplianceController_deleteKycStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminComplianceController_resetKycConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminMoneyController_listWithdrawals: {
         parameters: {
             query: {
                 state: string;
@@ -2647,7 +2771,7 @@ export interface operations {
             };
         };
     };
-    AdminController_approveWithdrawal: {
+    AdminMoneyController_approveWithdrawal: {
         parameters: {
             query?: never;
             header?: never;
@@ -2668,7 +2792,7 @@ export interface operations {
             };
         };
     };
-    AdminController_rejectWithdrawal: {
+    AdminMoneyController_rejectWithdrawal: {
         parameters: {
             query?: never;
             header?: never;
@@ -2693,7 +2817,7 @@ export interface operations {
             };
         };
     };
-    AdminController_settleWithdrawal: {
+    AdminMoneyController_settleWithdrawal: {
         parameters: {
             query?: never;
             header?: never;
@@ -2718,7 +2842,7 @@ export interface operations {
             };
         };
     };
-    AdminController_listLedger: {
+    AdminMoneyController_listLedger: {
         parameters: {
             query: {
                 userId: string;
@@ -2743,7 +2867,7 @@ export interface operations {
             };
         };
     };
-    AdminController_listPrograms: {
+    AdminMoneyController_listPrograms: {
         parameters: {
             query?: never;
             header?: never;
@@ -2762,7 +2886,7 @@ export interface operations {
             };
         };
     };
-    AdminController_createProgram: {
+    AdminMoneyController_createProgram: {
         parameters: {
             query?: never;
             header?: never;
@@ -2785,7 +2909,7 @@ export interface operations {
             };
         };
     };
-    AdminController_updateProgram: {
+    AdminMoneyController_updateProgram: {
         parameters: {
             query?: never;
             header?: never;
@@ -2810,7 +2934,7 @@ export interface operations {
             };
         };
     };
-    AdminController_setProgramActive: {
+    AdminMoneyController_setProgramActive: {
         parameters: {
             query?: never;
             header?: never;
@@ -2835,7 +2959,7 @@ export interface operations {
             };
         };
     };
-    AdminController_getPermissions: {
+    AdminRbacController_getPermissions: {
         parameters: {
             query?: never;
             header?: never;
@@ -2856,7 +2980,7 @@ export interface operations {
             };
         };
     };
-    AdminController_listRoles: {
+    AdminRbacController_listRoles: {
         parameters: {
             query?: never;
             header?: never;
@@ -2875,7 +2999,7 @@ export interface operations {
             };
         };
     };
-    AdminController_createRole: {
+    AdminRbacController_createRole: {
         parameters: {
             query?: never;
             header?: never;
@@ -2898,7 +3022,7 @@ export interface operations {
             };
         };
     };
-    AdminController_updateRole: {
+    AdminRbacController_updateRole: {
         parameters: {
             query?: never;
             header?: never;
@@ -2923,7 +3047,7 @@ export interface operations {
             };
         };
     };
-    AdminController_deleteRole: {
+    AdminRbacController_deleteRole: {
         parameters: {
             query?: never;
             header?: never;
@@ -2944,7 +3068,7 @@ export interface operations {
             };
         };
     };
-    AdminController_listAdmins: {
+    AdminRbacController_listAdmins: {
         parameters: {
             query?: never;
             header?: never;
@@ -2963,7 +3087,7 @@ export interface operations {
             };
         };
     };
-    AdminController_updateAdmin: {
+    AdminRbacController_updateAdmin: {
         parameters: {
             query?: never;
             header?: never;
@@ -2988,7 +3112,7 @@ export interface operations {
             };
         };
     };
-    AdminController_listAuditLog: {
+    AdminAuditController_listAuditLog: {
         parameters: {
             query: {
                 page: string;
@@ -3009,124 +3133,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuditListResponseDto"];
                 };
-            };
-        };
-    };
-    AdminController_getKycConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AdminController_updateKycConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["KycConfigDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AdminController_addKycStep: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["KycStepDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AdminController_updateKycStep: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["KycStepDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AdminController_deleteKycStep: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AdminController_resetKycConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

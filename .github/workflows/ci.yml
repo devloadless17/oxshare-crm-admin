@@ -36,8 +36,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # --coverage so the thresholds in vitest.config.mts actually bind. They are
+      # floors pinned to measured numbers, not aspirations, and may only go up.
       - name: Unit tests
-        run: npm test
+        run: npm run test:coverage
 
       # Catches the drift the generated API types are there to catch: if a
       # backend response shape changed and types.gen.ts was not regenerated,
