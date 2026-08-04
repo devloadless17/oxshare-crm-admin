@@ -58,7 +58,13 @@ const STATE_CHANGING = /^(post|put|patch|delete)$/i;
 const CSRF_HEADER = 'X-OxShare-CSRF';
 
 /**
- * Reads the CSRF cookie under both spellings.
+ * Reads THIS app's CSRF cookie, under both spellings.
+ *
+ * Per-surface, not shared: cookies are scoped by host and path and ignore the
+ * port, so on localhost the portal and the admin app share one cookie jar. A
+ * single shared name meant logging into one app silently overwrote the other's
+ * token — and, worse, made the other app's login look like an authenticated
+ * request that was missing its anti-forgery header.
  *
  * The name gains a `__Host-` prefix wherever the deployment has TLS, because
  * that prefix is what stops another OxShare site writing this cookie — the
@@ -68,7 +74,7 @@ const CSRF_HEADER = 'X-OxShare-CSRF';
  * exist, the prefixed cookie is the one nothing else could have set.
  */
 function readCsrfCookie(): string | undefined {
-  return Cookies.get('__Host-oxshare_csrf') ?? Cookies.get('oxshare_csrf');
+  return Cookies.get('__Host-oxshare_crm_admin_csrf') ?? Cookies.get('oxshare_crm_admin_csrf');
 }
 
 /**

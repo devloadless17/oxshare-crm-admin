@@ -11,8 +11,8 @@ export function proxy(request: NextRequest) {
   // accepted because the `__Host-` prefix appears only where TLS makes it valid
   // (see the backend's common/security/session-cookies.ts).
   const token =
-    request.cookies.get('__Host-oxshare_admin_at')?.value ??
-    request.cookies.get('oxshare_admin_at')?.value;
+    request.cookies.get('__Host-oxshare_crm_admin_at')?.value ??
+    request.cookies.get('oxshare_crm_admin_at')?.value;
 
   if (!isPublic && !token) {
     return NextResponse.redirect(new URL('/login', request.url));
