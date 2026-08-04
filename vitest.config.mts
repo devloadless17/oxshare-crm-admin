@@ -36,15 +36,14 @@ export default defineConfig({
        *
        * These may only ever go up. `npm run test:coverage` prints the figures.
        */
-      // Raised again after the withdrawal queue gained 9 tests. Measured
-      // 2026-08-04: statements 36.4, branches 34.0, functions 28.2, lines 37.3.
-      // Set a couple of points under, so an unrelated refactor that moves a branch
-      // count by one does not fail CI spuriously.
+      // Raised again after the KYC builder and withdrawal queue gained tests.
+      // Measured 2026-08-04: statements 37.6, functions 29.5, lines 38.4,
+      // branches 35.3. Set a couple of points under.
       thresholds: {
-        lines: 35,
-        functions: 26,
-        branches: 32,
-        statements: 34,
+        lines: 36,
+        functions: 27,
+        branches: 33,
+        statements: 35,
       },
     },
   },
