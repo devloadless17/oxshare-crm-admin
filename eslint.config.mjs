@@ -22,6 +22,24 @@ import tseslint from 'typescript-eslint';
 // is declared in devDependencies rather than borrowed from eslint-config-next's
 // transitive tree, so a future Next bump cannot silently take type-aware linting
 // away again.
+/**
+ * Screens whose user-visible text has been moved into `src/lib/i18n`.
+ *
+ * This list only ever GROWS. Converting a screen means adding it here in the
+ * same commit, which is what makes the remaining work visible rather than
+ * indefinite.
+ */
+const I18N_ENFORCED = [
+  'src/components/layout/admin-layout.tsx',
+  'src/app/login/page.tsx',
+];
+
+/**
+ * Text that is not copy: punctuation, separators and symbols a translator would
+ * leave untouched anyway.
+ */
+const ALLOWED_JSX_LITERALS = ['·', '—', '–', '/', '%', '+', '-', '×', ':', '*', '(', ')', '&'];
+
 export default defineConfig([
   globalIgnores([
     // Defaults from eslint-config-next, restated because we override its ignores.
@@ -224,5 +242,32 @@ export default defineConfig([
     // type-aware rules cannot resolve them.
     files: ['*.mjs', '*.mts', '*.config.ts'],
     ...tseslint.configs.disableTypeChecked,
+  },
+
+  {
+    // ── i18n: no new hardcoded UI text ──────────────────────────────────────
+    // docs/CLAUDE.md seam 4. The catalogue and t() exist; this is what stops the
+    // next screen adding literals faster than they get externalised.
+    //
+    // Scoped to the screens ALREADY converted, and widened as more are done —
+    // the same ratchet shape as max-lines. A blanket ban across an app that is
+    // half converted produces hundreds of errors, gets disabled wholesale, and
+    // then enforces nothing, which is how a rule stops working.
+    //
+    // It catches the two forms that actually carry copy: a bare string as a JSX
+    // child, and a `placeholder` attribute. It deliberately does not chase every
+    // possible string — aria-labels and titles are caught by review, and a rule
+    // with too many false positives is one people learn to silence.
+    files: I18N_ENFORCED,
+    rules: {
+      'react/jsx-no-literals': [
+        'error',
+        {
+          noStrings: true,
+          allowedStrings: ALLOWED_JSX_LITERALS,
+          ignoreProps: true,
+        },
+      ],
+    },
   },
 ]);

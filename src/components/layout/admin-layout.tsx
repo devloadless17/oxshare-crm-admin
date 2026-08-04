@@ -314,7 +314,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             {/* System Live Status */}
             <div className="hidden md:flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-[11px] font-medium text-success">
               <Activity className="h-3.5 w-3.5 animate-pulse" />
-              <span>System Operational</span>
+              <span>{t('nav.systemStatus')}</span>
             </div>
 
             {/* Notifications */}

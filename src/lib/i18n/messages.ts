@@ -59,6 +59,7 @@ export const messages = {
   'nav.logout': 'Logout',
   'nav.searchPlaceholder': 'Search clients, deals, IBs… (⌘K)',
   'nav.notifications': 'Notifications',
+  'nav.systemStatus': 'System Operational',
 
   // ── Session ───────────────────────────────────────────────────────────────
   'session.loading': 'Loading your session',
