@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Lock, Mail, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { api } from '@/lib/api';
+import { useAdmin } from '@/context/AdminAuthContext';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { t } from '@/lib/i18n';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { refetchAdmin } = useAdmin();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -34,8 +36,31 @@ export default function AdminLoginPage() {
 
     try {
       await api.auth.login({ email, password });
+
+      /*
+       * Refetch the session BEFORE navigating.
+       *
+       * `AdminAuthContext` holds `GET /admin/auth/me` in a React Query with
+       * `retry: false` and a 5-minute staleTime. On the login screen that query
+       * has already run and failed with a 401, and that failure is cached.
+       * `router.push` is a client-side navigation — it does not remount the
+       * provider — and `router.refresh()` only re-runs Server Components, not a
+       * client query. So the dashboard rendered with `admin: null` until a
+       * manual reload.
+       *
+       * That bug predates the nav-gating change but was invisible: the sidebar
+       * used to fall back to showing EVERY item while `admin` was null, so it
+       * looked complete and only a sub-admin would ever have noticed. Once the
+       * nav correctly renders nothing until identity is known, an unrefetched
+       * session shows as an empty sidebar.
+       *
+       * `invite/accept` hit the same wall and solved it with a full page load,
+       * documenting that "a client-side push renders the shell with admin:
+       * null". Refetching is the smaller fix: it keeps the SPA navigation and
+       * uses the mechanism the context already exposes.
+       */
+      await refetchAdmin();
       router.push('/dashboard');
-      router.refresh();
     } catch (err: unknown) {
       // This was a line-for-line reimplementation of apiErrorMessage, array join
       // included. One copy, in lib/api/errors.ts.
