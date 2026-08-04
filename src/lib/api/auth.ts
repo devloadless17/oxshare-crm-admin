@@ -1,4 +1,4 @@
-import { apiClient, clearAdminSession, setSessionCookies, startProactiveRefresh } from './client';
+import { apiClient, clearAdminSession, startProactiveRefresh } from './client';
 import type { components } from './types.gen';
 
 export interface AdminLoginDto {
@@ -29,11 +29,11 @@ export interface AdminLoginResponse {
 export const authApi = {
   async login(dto: AdminLoginDto) {
     const { data } = await apiClient.post<AdminLoginResponse>('/admin/auth/login', dto);
-    // One writer for session cookies, in client.ts. This used to repeat the
-    // lifetimes inline, so a change in one place silently diverged from the other.
-    if (data.accessToken) {
-      setSessionCookies(data.accessToken, data.refreshToken);
-    }
+    // Nothing to store: the server sets the session as httpOnly cookies and the
+    // browser installs them from this very response (PLATFORM-CONVENTIONS R-3.2).
+    // This used to write them from `data.accessToken`, which is why the response
+    // still carries the tokens at all — they are now unused by the app and should
+    // come out of the payload the next time that DTO is touched.
     startProactiveRefresh();
     return data;
   },

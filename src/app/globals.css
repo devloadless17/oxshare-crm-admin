@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* next-themes toggles a .dark class; without this, dark:* utilities follow the OS instead */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -158,8 +158,14 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    font-family:
+      var(--font-geist-sans),
+      system-ui,
+      -apple-system,
+      sans-serif;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
   }
 
   ::selection {
@@ -175,9 +181,9 @@
   input,
   select,
   textarea,
-  [role="button"],
-  [role="tab"],
-  [role="menuitem"] {
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'] {
     transition:
       color 150ms ease,
       background-color 150ms ease,
@@ -189,7 +195,7 @@
 
   /* Soft pressed feedback on real buttons */
   button:active:not(:disabled),
-  [role="button"]:active:not([aria-disabled="true"]) {
+  [role='button']:active:not([aria-disabled='true']) {
     transform: scale(0.985);
   }
 
