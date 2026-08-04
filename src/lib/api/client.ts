@@ -41,8 +41,34 @@ const LOGIN_PATH = '/login';
 apiClient.interceptors.request.use((config) => {
   const token = Cookies.get(ACCESS_COOKIE);
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  config.headers['X-Request-Id'] = newCorrelationId();
   return config;
 });
+
+/**
+ * A correlation id for one request — PLATFORM-CONVENTIONS R-6.1.
+ *
+ * The API already accepts an inbound `x-request-id`, runs the request inside an
+ * AsyncLocalStorage context keyed on it, stamps it on every log line and returns
+ * it in the error envelope. What was missing was anyone sending one: the chain
+ * started at the API, so an admin saying "I clicked approve and nothing happened"
+ * could not be tied to a request, and nothing joined a browser error to a server
+ * log line.
+ *
+ * Generated per REQUEST, not per session — the id has to identify one call for a
+ * log search to mean anything.
+ *
+ * The backend validates the shape (`/^[\w-]{8,128}$/`) before letting it into a
+ * log, so anything non-conforming is replaced server-side rather than trusted.
+ * The fallback below exists because `crypto.randomUUID` is undefined on insecure
+ * origins and in some test environments; it only has to be unique enough to
+ * correlate one request, never to be unguessable.
+ */
+function newCorrelationId(): string {
+  const cryptoObj = globalThis.crypto as Crypto | undefined;
+  if (typeof cryptoObj?.randomUUID === 'function') return cryptoObj.randomUUID();
+  return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 /**
  * Cookie lifetimes must match the tokens inside them.
@@ -166,6 +192,12 @@ apiClient.interceptors.response.use(
       }
       clearAdminSession();
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith(LOGIN_PATH)) {
+        // A HARD navigation, deliberately, against @next/next's advice to use
+        // router.push. The session is dead: a client-side push keeps the same JS
+        // context alive, so the React Query cache, the auth context and any
+        // rendered client data survive into the login screen. A full load is what
+        // discards them. Same reasoning in AdminAuthContext.logout.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = LOGIN_PATH;
       }
     }

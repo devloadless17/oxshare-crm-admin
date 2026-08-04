@@ -53,6 +53,8 @@ TWINS=(
   src/components/theme-provider.tsx
   src/components/theme-toggle.tsx
   src/lib/utils.ts
+  src/lib/money.ts
+  src/lib/money.test.ts
   src/components/ui/button.tsx
   src/components/ui/input.tsx
   src/components/ui/label.tsx

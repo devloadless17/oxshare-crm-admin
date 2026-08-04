@@ -69,6 +69,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     await authApi.logout();
     queryClient.clear();
+    // A HARD navigation, deliberately. `queryClient.clear()` drops the cache but
+    // not the rest of the JS context; a full load is what guarantees no admin
+    // data survives the logout into the next session on a shared machine.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/login';
   }, [queryClient]);
 

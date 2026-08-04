@@ -21,6 +21,12 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      # PLATFORM-CONVENTIONS R-7.6. `--no-audit` above keeps the install quiet;
+      # auditing is a separate, FAILING step rather than install noise nobody
+      # reads. This app holds admin session cookies and renders client PII.
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
       - name: Type-check
         run: npm run type-check
 

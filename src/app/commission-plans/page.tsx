@@ -178,6 +178,14 @@ export default function CommissionPlansPage() {
   // Verified exhaustively: every split of 100 at 1dp and 2dp, plus 8dp cases like
   // 33.33333333 + 66.66666667, sums to exactly 100 in IEEE754 at this magnitude.
   // The shares themselves are posted as the strings they were typed as (§6.1).
+  //
+  // The disable is deliberate and narrow: the money-path rule (PLATFORM-CONVENTIONS
+  // R-2.6) now bans Number() across this screen, which is right — every OTHER
+  // value here is money. This one is a display-only percentage that never leaves
+  // the component, and the authoritative split validation lives on the backend
+  // (DECISIONS D-39). Keeping the rule and disabling this line makes the exception
+  // reviewable; widening the rule to permit it would not.
+  // eslint-disable-next-line no-restricted-syntax
   const shareTotal = (Number(form.l1Share) || 0) + (Number(form.l2Share) || 0);
   const isPercentMethod = form.method === 'spread_share';
 

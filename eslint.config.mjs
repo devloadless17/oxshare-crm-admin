@@ -105,6 +105,77 @@ export default defineConfig([
   },
 
   {
+    // ── Money paths: no coercion at all ─────────────────────────────────────
+    // PLATFORM-CONVENTIONS R-2.6 / R-2.5.5. The global rule above bans only
+    // `parseFloat`; the backend additionally bans `Number()` inside
+    // modules/{wallet,partners,payments} and the frontends did not, even though
+    // `Number(balance)` is the *more* likely way to lose precision here — it is
+    // what `.toFixed(2)` and `.toLocaleString()` want you to reach for.
+    //
+    // Scoped to the screens that actually render money rather than applied
+    // globally, exactly as the backend scopes it to its money modules: a blanket
+    // ban would fire on genuinely non-monetary conversions (a page number, a KYC
+    // step index) and get disabled wholesale, which is how a rule stops working.
+    //
+    // Keep this list in step with the screens that display amounts.
+    files: [
+      'src/lib/money.ts',
+      'src/app/withdrawals/**/*.tsx',
+      'src/app/ledger/**/*.tsx',
+      'src/app/commission-plans/**/*.tsx',
+    ],
+    ignores: ['**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.name='Number']",
+          message:
+            'ARCHITECTURE §6.1: Number() on a monetary string silently truncates past 2^53. Use decimal.js via lib/money.ts (formatMoney, isZeroMoney).',
+        },
+      ],
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'parseFloat',
+          message: 'Never coerce a monetary string to a float — use decimal.js via lib/money.ts.',
+        },
+        {
+          name: 'parseInt',
+          message:
+            'Suspicious on a money screen. If this is not money, use Number.parseInt with an explicit radix.',
+        },
+      ],
+    },
+  },
+
+  {
+    // ── Layering: the shared layers know nothing about the pages ────────────
+    // PLATFORM-CONVENTIONS R-2.5.1. The backend enforces the same direction
+    // (`store/`, `common/`, `config/`, `database/` may not import `modules/**`);
+    // the frontends had no equivalent, so nothing stopped a generic helper or a
+    // UI primitive from importing a page and quietly creating a cycle.
+    //
+    // Verified 0 violations when this landed — it is a ratchet on the current
+    // state, not a migration.
+    files: ['src/lib/**/*.ts', 'src/lib/**/*.tsx', 'src/components/ui/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app/*', '@/app', '**/app/*'],
+              message:
+                'Dependencies point one way: pages may import from lib/ and components/ui/, never the reverse. If a page owns something these layers need, move it down into lib/.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     // ── File size, as a ratchet ─────────────────────────────────────────────
     // 400 code lines (comments and blanks excluded, so documenting a decision is
     // never penalised). An `error`, not a warning, because both frontends run at

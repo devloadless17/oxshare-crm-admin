@@ -53,6 +53,7 @@ function AcceptInviteContent() {
       await api.post('/admin/invite/accept', { token, password });
       // Full navigation instead of router.push so AdminAuthContext boots fresh
       // with the new session; a client-side push renders the shell with admin: null.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign('/dashboard');
     } catch (e: unknown) {
       setError(apiErrorMessage(e, 'Failed to accept invite.'));

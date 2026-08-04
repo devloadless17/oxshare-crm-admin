@@ -1,0 +1,38 @@
+# Dependency scanning — PLATFORM-CONVENTIONS R-7.6.
+#
+# TWIN FILE — an identical copy lives at the same path in oxshare-crm-client.
+#
+# There was none, in any repo, and CI installs with `--no-audit`. This app holds
+# admin session cookies and renders client PII and balances; a compromised
+# transitive dependency here reads both.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: ['dependencies']
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: ['minor', 'patch']
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+      radix:
+        patterns: ['@radix-ui/*']
+        update-types: ['minor', 'patch']
+
+    # decimal.js is pinned exactly (ARCHITECTURE §2) and is deliberately in no
+    # group, so a bump to the library that does every monetary calculation
+    # arrives as its own reviewable PR. Same for next/eslint-config-next, which
+    # move together and can silently change what the linter checks.
+    ignore: []
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: monthly
+    labels: ['dependencies']
