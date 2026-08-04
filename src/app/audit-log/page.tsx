@@ -54,7 +54,7 @@ export default function AuditLogPage() {
   const pages = useCursorPages();
   const [action, setAction] = useState('');
 
-  const { status, data, isFetching, refetch } = useResource<AuditListResponse>(
+  const { status, data, error, isFetching, refetch } = useResource<AuditListResponse>(
     ['audit-log', pages.cursor ?? 'first', action],
     async (signal) => {
       const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
@@ -152,6 +152,7 @@ export default function AuditLogPage() {
         endpoints={['GET /admin/audit-log?page&limit&action']}
         onRetry={refetch}
         errorMessage="Failed to load the audit log."
+        error={error}
       >
         <DataTable
           caption="Admin actions, newest first"

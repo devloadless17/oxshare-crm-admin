@@ -456,6 +456,15 @@ export const messages = {
   'common.save': 'Save',
   'common.delete': 'Delete',
   'common.confirm': 'Confirm',
+  /*
+   * Shown under a failed request, alongside the message.
+   *
+   * The API generates a request id, sends it in the error body and logs it with
+   * the failure — and until now no screen displayed it. A user reporting "it
+   * failed" gave us nothing that finds their failure in the log, so the id
+   * existed for a correlation nobody could actually make.
+   */
+  'common.errorReference': 'Reference: {id}',
   'common.genericError': 'Something went wrong. Please try again.',
   'common.requestId': 'Reference: {id}',
 } as const;

@@ -52,7 +52,7 @@ export default function PartnersPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
 
-  const { status, data, isFetching, refetch } = useResource<PartnerRow[]>(
+  const { status, data, error, isFetching, refetch } = useResource<PartnerRow[]>(
     ['partners'],
     async (signal) => (await api.get<PartnerRow[]>('/admin/partners', { signal })).data,
   );
@@ -213,6 +213,7 @@ export default function PartnersPage() {
           'PATCH /admin/partners/:id/reject',
         ]}
         onRetry={refetch}
+        error={error}
         errorMessage="Failed to load partners."
       >
         <DataTable

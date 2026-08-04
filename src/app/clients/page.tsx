@@ -282,6 +282,7 @@ export default function ClientsPage() {
         endpoints={['GET /admin/clients?page&limit&q&type&status&level']}
         onRetry={query.refetch}
         errorMessage="Failed to load clients."
+        error={query.error}
       >
         <DataTable
           caption="Client accounts"

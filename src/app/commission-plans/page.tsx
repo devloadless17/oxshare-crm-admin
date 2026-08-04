@@ -232,6 +232,7 @@ export default function CommissionPlansPage() {
         ]}
         onRetry={query.refetch}
         errorMessage="Failed to load commission plans."
+        error={query.error}
       >
         {toggleActive.isError && (
           <div

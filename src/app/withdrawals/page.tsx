@@ -384,6 +384,7 @@ export default function WithdrawalsPage() {
         ]}
         onRetry={query.refetch}
         errorMessage="Failed to load withdrawal requests."
+        error={query.error}
       >
         <DataTable
           caption="Client withdrawal requests"

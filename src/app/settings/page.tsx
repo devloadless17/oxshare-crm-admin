@@ -149,6 +149,7 @@ export default function AdminSettingsPage() {
         endpoints={['GET /admin/permissions', 'GET /admin/roles', 'GET /admin/users']}
         onRetry={query.refetch}
         errorMessage="Failed to load roles and admin users."
+        error={query.error}
       >
         {activeTab === 'roles' ? (
           /* Roles Tab */

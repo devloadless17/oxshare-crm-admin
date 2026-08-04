@@ -59,7 +59,7 @@ export default function LedgerPage() {
   const [userId, setUserId] = useState('');
 
   const trimmedUserId = userId.trim();
-  const { status, data, isFetching, refetch } = useResource<LedgerListResponse>(
+  const { status, data, error, isFetching, refetch } = useResource<LedgerListResponse>(
     ['ledger', pages.cursor ?? 'first', entryType, trimmedUserId],
     async (signal) => {
       const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
@@ -193,6 +193,7 @@ export default function LedgerPage() {
         endpoints={['GET /admin/ledger?userId&walletId&entryType&page&limit']}
         onRetry={refetch}
         errorMessage="Failed to load the ledger."
+        error={error}
       >
         <DataTable
           caption="Append-only ledger entries"
