@@ -1,4 +1,5 @@
 import { messages, type MessageKey } from './messages';
+import { readStoredLocale } from './locale-storage';
 
 /**
  * The translation seam — `docs/CLAUDE.md` "Designed for change", seam 4.
@@ -18,16 +19,25 @@ export type Locale = 'en' | 'ar';
 /** Locales that read right-to-left. FSD §10 names Arabic specifically. */
 const RTL_LOCALES: ReadonlySet<Locale> = new Set<Locale>(['ar']);
 
+/** The language used when nothing is stored, and on the server. */
+export const DEFAULT_LOCALE: Locale = 'en';
+
 /**
  * The active locale.
  *
- * A constant until there is a second catalogue. It is a FUNCTION rather than an
- * exported constant so that call sites are already written against "ask for the
- * locale" instead of "read the locale", which is the difference between adding a
- * switcher and rewriting every consumer.
+ * A FUNCTION rather than an exported constant, so call sites are written against
+ * "ask for the locale" instead of "read the locale" — the difference between
+ * adding a switcher later and rewriting every consumer.
+ *
+ * On the server this is always `DEFAULT_LOCALE`. It has to be: the server has no
+ * access to the browser's stored preference, and rendering one language on the
+ * server and another on the client is a hydration mismatch. `LocaleDirection`
+ * resolves the stored value on the client and corrects `<html lang>`/`<html dir>`
+ * before paint — the same shape next-themes uses for the theme class, and the
+ * reason `<html>` already carries `suppressHydrationWarning`.
  */
 export function currentLocale(): Locale {
-  return 'en';
+  return readStoredLocale() ?? DEFAULT_LOCALE;
 }
 
 /**
@@ -82,3 +92,4 @@ export function useTranslation(): { t: typeof t; locale: Locale; dir: 'ltr' | 'r
 }
 
 export { messages, type MessageKey };
+export { LOCALE_STORAGE_KEY, readStoredLocale, storeLocale } from './locale-storage';

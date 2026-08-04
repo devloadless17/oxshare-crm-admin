@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { currentLocale, direction, messages, t } from './index';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { LOCALE_STORAGE_KEY, currentLocale, direction, messages, storeLocale, t } from './index';
 import type { MessageKey } from './messages';
 
 /**
@@ -91,3 +91,55 @@ void _validKey;
 // @ts-expect-error — a key that is not in the catalogue must not type-check.
 const _invalidKey: MessageKey = 'lgoin.title';
 void _invalidKey;
+
+describe('locale persistence — what makes RTL exercisable', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('defaults to English when nothing is stored', () => {
+    expect(currentLocale()).toBe('en');
+    expect(direction()).toBe('ltr');
+  });
+
+  it('reads a stored language', () => {
+    storeLocale('ar');
+    expect(currentLocale()).toBe('ar');
+    // The point of the whole exercise: flipping one stored value flips the
+    // document direction, so the RTL layout sweep can be verified rather than
+    // assumed. FSD §10 names Arabic explicitly.
+    expect(direction()).toBe('rtl');
+  });
+
+  it('ignores a stored value that is not a supported locale', () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, 'klingon');
+    // An older build, a manual edit, or a half-finished migration must not be
+    // able to render the app in a language that has no catalogue.
+    expect(currentLocale()).toBe('en');
+  });
+
+  it('namespaces the key, so a sibling OxShare app cannot clobber it', () => {
+    // Same reasoning as the backend's oxshare_crm_* cookie names: several
+    // OxShare properties share one registrable domain and one localStorage
+    // origin per host, and a bare `locale` or `i18nextLng` is exactly what
+    // another team would also pick.
+    expect(LOCALE_STORAGE_KEY).toMatch(/^oxshare-/);
+  });
+
+  it('survives storage being unavailable', () => {
+    const original = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('denied in private browsing');
+      },
+    });
+
+    // A preference that cannot be read is not a reason to fail a page render.
+    expect(() => currentLocale()).not.toThrow();
+    expect(currentLocale()).toBe('en');
+    expect(() => storeLocale('ar')).not.toThrow();
+
+    if (original) Object.defineProperty(window, 'localStorage', original);
+  });
+});

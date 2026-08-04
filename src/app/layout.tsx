@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { currentLocale, direction } from '@/lib/i18n';
+import { DEFAULT_LOCALE, direction } from '@/lib/i18n';
+import { LocaleDirection } from '@/components/locale-direction';
 import { ThemeProvider } from '@/components/theme-provider';
 
 import { AdminAuthProvider } from '@/context/AdminAuthContext';
@@ -28,9 +29,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang={currentLocale()} dir={direction()} suppressHydrationWarning>
+    <html lang={DEFAULT_LOCALE} dir={direction(DEFAULT_LOCALE)} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider defaultTheme="light" storageKey="oxshare-admin-theme">
+          <LocaleDirection />
           <QueryProvider>
             <AdminAuthProvider>{children}</AdminAuthProvider>
           </QueryProvider>
