@@ -103,6 +103,32 @@ function newCorrelationId(): string {
 }
 
 /**
+ * A key identifying ONE intended money operation — PLATFORM-CONVENTIONS R-5.2.
+ *
+ * Money-moving endpoints require an `Idempotency-Key`, and the value belongs to
+ * the user's INTENT, not to the HTTP call. Generate it once when the user starts
+ * an operation (opening the withdrawal form, say) and reuse that same value for
+ * every attempt at it — that is what makes a double-click, a flaky network and a
+ * "did that go through?" refresh all resolve to a single withdrawal.
+ *
+ * Deliberately NOT generated automatically per request: a fresh key on every
+ * call would make each duplicate look like a new operation, which is precisely
+ * the bug this exists to prevent. The request interceptor does preserve a key
+ * that is already set, so the 401-refresh retry reuses it rather than minting a
+ * new one.
+ */
+export function newIdempotencyKey(): string {
+  const cryptoObj = globalThis.crypto as Crypto | undefined;
+  if (typeof cryptoObj?.randomUUID === 'function') return cryptoObj.randomUUID();
+  return `idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/** Axios config carrying the key. `api.post(url, body, idempotent(key))`. */
+export function idempotent(key: string) {
+  return { headers: { 'Idempotency-Key': key } };
+}
+
+/**
  * There is no session-cookie writer here any more, deliberately.
  *
  * The server sets `httpOnly` cookies (PLATFORM-CONVENTIONS R-3.2), so this app

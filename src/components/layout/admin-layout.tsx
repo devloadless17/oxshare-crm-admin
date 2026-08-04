@@ -25,6 +25,7 @@ import {
   X,
   Shield,
   Activity,
+  Loader2,
 } from 'lucide-react';
 import { ThemeToggle } from '../theme-toggle';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -77,7 +78,7 @@ const NAV_SECTIONS: NavSection[] = [
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { admin, logout } = useAdmin();
+  const { admin, isLoading, logout } = useAdmin();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -154,9 +155,21 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         {/* Sidebar Navigation — items filtered by the admin's permissions (RBAC-03 nav half) */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
           {NAV_SECTIONS.map((section) => {
+            /*
+             * Nothing is shown until we know who is asking.
+             *
+             * This used to fall back to `section.items` — the UNFILTERED list —
+             * while `admin` was null, which is the whole of the GET
+             * /admin/auth/me round trip. So every sub-admin saw the complete
+             * master-admin navigation on each page load, then watched it shrink.
+             * Not a privilege leak (the API returns 403 and `canAccess` blocks
+             * the page body), but it advertises the existence and paths of every
+             * section a restricted admin is not meant to reach, and it looks like
+             * a bug to the person it happens to.
+             */
             const visibleItems = admin
               ? section.items.filter((item) => canAccess(admin, item.href))
-              : section.items;
+              : [];
             if (visibleItems.length === 0) return null;
             return (
               <div key={section.title} className="space-y-1">
@@ -312,7 +325,20 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
         {/* Page Content Container — uniform small padding, edge-to-edge layout for all admin pages */}
         <main className="flex-1 p-4 md:p-5 overflow-y-auto w-full max-w-full">
-          {admin && !canAccess(admin, pathname ?? '') ? (
+          {/*
+           * Three states, not two. `isLoading` used to fall through to
+           * `children`, so a forbidden page mounted and fired its queries during
+           * the identity round trip — every one of them guaranteed to come back
+           * 403 — and only then was replaced by the panel below. Holding the
+           * frame until the answer arrives costs one spinner and removes a burst
+           * of requests that exist only to fail.
+           */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-24" role="status">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+              <span className="sr-only">Loading your session</span>
+            </div>
+          ) : admin && !canAccess(admin, pathname ?? '') ? (
             <div
               className="flex flex-col items-center justify-center py-24 text-center gap-3"
               role="alert"
