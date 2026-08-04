@@ -9,31 +9,24 @@ export interface AdminLoginDto {
 /**
  * `POST /admin/auth/login`.
  *
- * The `admin` half is the generated schema, so a change to the sanitized admin
- * shape is a compile error here. The two token fields are hand-declared because
- * the endpoint carries no `@ApiOkResponse` — once the backend adds an
- * `AdminAuthResponseDto`, replace this whole interface with an alias.
+ * A straight alias now: the endpoint carries a response DTO, so a change to the
+ * shape is a compile error here rather than a runtime surprise.
  *
- * Note the casing: this endpoint returns camelCase `accessToken`, while the
- * client portal's `/auth/login` returns snake_case `access_token`. That
- * divergence is known, frozen, and deliberately not "fixed" — renaming a live
- * auth contract across three repos risks logging out every session for no
- * functional gain (docs/API-CONTRACTS.md).
+ * There are no token fields any more, deliberately. The session is set as
+ * httpOnly cookies on the same response, and returning the tokens in the body
+ * as well handed JavaScript the exact credential that flag exists to keep away
+ * from it. While they existed, an older build of this app kept reading them and
+ * writing its own JS-readable `admin_access_token` cookie — so clearing the
+ * browser and logging in again recreated the exposure the migration removed.
  */
-export interface AdminLoginResponse {
-  admin: components['schemas']['AdminProfileDto'];
-  accessToken?: string;
-  refreshToken?: string;
-}
+export type AdminLoginResponse = components['schemas']['AdminLoginResponseDto'];
 
 export const authApi = {
   async login(dto: AdminLoginDto) {
     const { data } = await apiClient.post<AdminLoginResponse>('/admin/auth/login', dto);
     // Nothing to store: the server sets the session as httpOnly cookies and the
     // browser installs them from this very response (PLATFORM-CONVENTIONS R-3.2).
-    // This used to write them from `data.accessToken`, which is why the response
-    // still carries the tokens at all — they are now unused by the app and should
-    // come out of the payload the next time that DTO is touched.
+    // The response carries no tokens at all now — see the type above.
     startProactiveRefresh();
     return data;
   },

@@ -138,14 +138,11 @@ export function refreshAdminToken(): Promise<string | null> {
       // and the API accepts it from nowhere else (R-3.1 — two credential
       // channels for one session means two threat models). Nothing to read,
       // nothing to send, nothing to leak.
-      const { data } = await axios.post<{ accessToken?: string }>(
-        `${API_BASE_URL}${REFRESH_PATH}`,
-        {},
-        { withCredentials: true },
-      );
-      // The rotated cookies — session and CSRF — arrive on the response and are
-      // installed by the browser. A truthy answer just means "the session lives".
-      return data.accessToken ?? 'refreshed';
+      await axios.post(`${API_BASE_URL}${REFRESH_PATH}`, {}, { withCredentials: true });
+      // The rotated cookies — session and CSRF — arrive on the response and the
+      // browser installs them. The body carries no tokens, so there is nothing to
+      // read: reaching 200 IS the result. Callers only need "did it survive".
+      return 'refreshed';
     } catch {
       return null;
     } finally {
