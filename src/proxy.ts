@@ -43,5 +43,25 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
+  /*
+   * Everything except Next's internals, the API rewrite, and STATIC FILES.
+   *
+   * The last exclusion was missing, and it is why the logo rendered as a broken
+   * image on the sign-in screen: `/oxshare-mark.svg` is not a public PATH, so an
+   * unauthenticated request for it was redirected to /login. The browser got an
+   * HTML redirect where it expected an SVG. `next/image` failed the same way one
+   * level down — the optimizer fetches the source itself, got the redirect, and
+   * answered 400.
+   *
+   * It hid well: anyone with a live session loaded the asset normally, and a
+   * cached copy survived logging out, so it only appeared on a genuinely cold
+   * signed-out load.
+   *
+   * The trailing pattern excludes any path with a file extension. Gating a
+   * static asset behind a session was never the intent — nothing under
+   * `public/` is private, and anything that ever is belongs behind an
+   * authenticated route handler like the KYC uploads controller, not behind a
+   * redirect that returns HTML.
+   */
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/|.*\\.[\\w]+$).*)'],
 };
