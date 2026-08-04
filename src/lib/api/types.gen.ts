@@ -2499,6 +2499,8 @@ export interface operations {
             query: {
                 page: string;
                 limit: string;
+                cursor: string;
+                withTotal: string;
                 q: string;
                 type: string;
                 status: string;
