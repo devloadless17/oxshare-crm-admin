@@ -36,14 +36,14 @@ export default defineConfig({
        *
        * These may only ever go up. `npm run test:coverage` prints the figures.
        */
-      // Raised again after the RBAC settings screen gained tests. Measured
-      // 2026-08-04: statements 41.0, branches 38.0, functions 31.8, lines 41.7.
+      // Raised again after the clients and audit-log screens gained tests. Measured
+      // 2026-08-04: statements 47.1, branches 42.9, functions 38.4, lines 48.1.
       // Set a couple of points under.
       thresholds: {
-        lines: 40,
-        functions: 30,
-        branches: 36,
-        statements: 39,
+        lines: 46,
+        functions: 36,
+        branches: 41,
+        statements: 45,
       },
     },
   },
