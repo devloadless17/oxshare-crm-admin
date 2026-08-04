@@ -143,6 +143,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request a password reset link — always answers the same, existing account or not */
+        post: operations["AuthController_forgotPassword[0]"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/identity/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request a password reset link — always answers the same, existing account or not */
+        post: operations["AuthController_forgotPassword[1]"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set a new password from a reset token — single use, and revokes every session */
+        post: operations["AuthController_resetPassword[0]"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/identity/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set a new password from a reset token — single use, and revokes every session */
+        post: operations["AuthController_resetPassword[1]"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/login": {
         parameters: {
             query?: never;
@@ -1179,6 +1247,16 @@ export interface components {
             /** @example john@example.com */
             email: string;
         };
+        ForgotPasswordDto: {
+            /** @example john@example.com */
+            email: string;
+        };
+        ResetPasswordDto: {
+            /** @description The token from the emailed reset link. */
+            token: string;
+            /** @example StrongPass123! */
+            newPassword: string;
+        };
         LoginDto: {
             /** @example john@example.com */
             email: string;
@@ -1293,12 +1371,14 @@ export interface components {
             /** @enum {string} */
             provider?: "whish" | "usdt";
             /** @description The provider's own reference. Backs UNIQUE(provider, provider_ref), which is what makes settlement idempotent in the database (§6.3). */
-            providerRef?: Record<string, never>;
-            destination?: Record<string, never>;
-            rejectionReason?: Record<string, never>;
-            reviewedBy?: Record<string, never>;
-            reviewedAt?: Record<string, never>;
-            settledAt?: Record<string, never>;
+            providerRef?: string | null;
+            destination?: string | null;
+            rejectionReason?: string | null;
+            reviewedBy?: string | null;
+            /** Format: date-time */
+            reviewedAt?: string | null;
+            /** Format: date-time */
+            settledAt?: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -1928,6 +2008,98 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ResendVerificationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
+    "AuthController_forgotPassword[0]": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
+    "AuthController_forgotPassword[1]": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
+    "AuthController_resetPassword[0]": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
+    "AuthController_resetPassword[1]": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordDto"];
             };
         };
         responses: {
