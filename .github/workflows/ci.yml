@@ -47,8 +47,23 @@ jobs:
       - name: Unit tests
         run: npm run test:coverage
 
-      # Catches the drift the generated API types are there to catch: if a
-      # backend response shape changed and types.gen.ts was not regenerated,
-      # this build fails.
+      # This step does NOT detect API contract drift, and used to claim it did.
+      #
+      # `next build` type-checks this app against the COMMITTED
+      # src/lib/api/types.gen.ts. If the backend changed a response shape and
+      # nobody ran `npm run gen:api-types`, the committed file still describes the
+      # old shape, the app still compiles against it, and this step is green — so
+      # the one failure mode the generated types exist to catch is the one it
+      # cannot see. It fires only in the harmless direction: someone regenerated
+      # and forgot to update a caller.
+      #
+      # PLATFORM-CONVENTIONS §13.3 called that claim out as the most consequential
+      # of three stale statements in the docs, "because it describes a safety net
+      # that is not there". The claim is gone rather than left to reassure.
+      #
+      # The real check (R-1.3) needs the backend to publish its OpenAPI document
+      # so this job can regenerate and diff. That is cross-repo work, tracked as a
+      # Group C item in docs/AUDIT-oxshare-crm-admin.md. Until it exists, treat
+      # `types.gen.ts` as a snapshot that a human must refresh.
       - name: Build
         run: npm run build
