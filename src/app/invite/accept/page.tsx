@@ -22,8 +22,15 @@ function AcceptInviteContent() {
   const validation = useQuery({
     queryKey: ['invite', token],
     queryFn: async () =>
-      (await api.get<{ email?: string; name?: string }>(`/admin/invite/validate?token=${token}`))
-        .data,
+      // `params`, not string interpolation: the token comes straight off the URL
+      // bar, and axios encodes it correctly. Interpolating it meant a token
+      // containing `&` or `#` silently arrived truncated, which reads as
+      // "invalid invite" with nothing to explain why.
+      (
+        await api.get<{ email?: string; name?: string }>('/admin/invite/validate', {
+          params: { token },
+        })
+      ).data,
     enabled: token !== '',
     retry: false,
   });

@@ -75,11 +75,23 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [{ source: '/roles', destination: '/settings', permanent: false }];
   },
+  /**
+   * The same-origin proxy to the API.
+   *
+   * The destination was hardcoded to `http://localhost:3001`, which meant this
+   * app could not be deployed anywhere without editing this file — the kind of
+   * blocker that is an hour before there is a production and an incident after.
+   *
+   * Read from the environment with the dev value as the fallback, so nothing
+   * changes locally and a deploy is a variable rather than a diff. The `/api`
+   * prefix is stripped here, which is why `baseURL` stays `/api` in the client
+   * and why the backend serves bare paths with no `/api` and no `/v1`.
+   */
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/:path*',
+        destination: `${process.env.API_ORIGIN ?? 'http://localhost:3001'}/:path*`,
       },
     ];
   },

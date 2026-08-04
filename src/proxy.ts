@@ -3,9 +3,22 @@ import type { NextRequest } from 'next/server';
 
 const PUBLIC_PATHS = ['/login', '/invite/accept'];
 
+/**
+ * Public by whole path segments, never by string prefix.
+ *
+ * `pathname.startsWith('/login')` also matches `/login-help`, `/logins` and
+ * anything else that happens to begin with those characters — so adding an
+ * innocuous route later could silently make it unauthenticated. Matching on a
+ * segment boundary means only `/login` and `/login/...` qualify, which is what
+ * the list is meant to say.
+ */
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isPublic = isPublicPath(pathname);
   // httpOnly cookies ARE sent to the server, and this runs server-side, so the
   // gate is unaffected by R-3.2 — only the NAME changed. Both spellings are
   // accepted because the `__Host-` prefix appears only where TLS makes it valid
