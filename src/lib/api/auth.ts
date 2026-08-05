@@ -1,10 +1,16 @@
 import { apiClient, clearAdminSession, startProactiveRefresh } from './client';
 import type { components } from './types.gen';
 
-export interface AdminLoginDto {
-  email: string;
-  password: string;
-}
+/**
+ * An ALIAS, not a hand-written copy — R-1.1.
+ *
+ * This was declared by hand while the generated schema existed at
+ * `components['schemas']['AdminLoginDto']`. A required field added to the login
+ * body backend-side would have compiled clean here and broken every admin login
+ * at runtime — which is the exact failure the typegen mechanism exists to turn
+ * into a build error.
+ */
+export type AdminLoginDto = components['schemas']['AdminLoginDto'];
 
 /**
  * `POST /admin/auth/login`.

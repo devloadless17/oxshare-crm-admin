@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { components } from '@/lib/api/types.gen';
 import Link from 'next/link';
 import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
@@ -13,14 +14,16 @@ import { t } from '@/lib/i18n';
 type KycStatus =
   'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
 
-interface KycRow {
-  userId: string;
-  status: KycStatus;
-  submittedAt?: string;
-  reviewedAt?: string;
-  user?: { email: string; firstName: string; lastName: string };
-  personalInfo?: { country?: string; nationality?: string };
-}
+/**
+ * Aliases, not hand-written copies — R-1.1.
+ *
+ * Both of these were declared by hand beside a generated schema that already
+ * described them (`KycSubmissionDto`, `KycListResponseDto`). A hand-written
+ * shape removes the only mechanism that turns backend drift into a compile
+ * error, and it does so silently: the page keeps building against a description
+ * of an API that has moved.
+ */
+type KycRow = components['schemas']['KycSubmissionDto'];
 
 // Semantic tokens from globals.css — resolved at render, so they flip with the theme.
 const STATUS_COLORS: Record<KycStatus, string> = {
@@ -49,13 +52,7 @@ const FILTERS: Array<{ value: string; label: string }> = [
   { value: 'rejected', label: t('kycReview.filterRejected') },
 ];
 
-interface KycListResponse {
-  items: KycRow[];
-  total: number;
-  page: number;
-  limit: number;
-  counts: Record<string, number>;
-}
+type KycListResponse = components['schemas']['KycListResponseDto'];
 
 export default function AdminKycPage() {
   const [page, setPage] = useState(1);

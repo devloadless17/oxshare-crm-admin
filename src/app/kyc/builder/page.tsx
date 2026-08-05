@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import type { components } from '@/lib/api/types.gen';
 import api from '@/lib/api';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
@@ -30,26 +31,17 @@ import {
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 
-export interface KycFieldConfig {
-  id: string;
-  name: string;
-  label: string;
-  type: 'text' | 'date' | 'phone' | 'select' | 'file' | 'checkbox';
-  required: boolean;
-  options?: string[];
-  hint?: string;
-}
-
-export interface KycStepConfig {
-  id: string;
-  stepNumber: number;
-  slug: string;
-  title: string;
-  description: string;
-  icon: string;
-  enabled: boolean;
-  fields: KycFieldConfig[];
-}
+/**
+ * Aliases, not hand-written copies — R-1.1.
+ *
+ * These had ALREADY drifted from the schema they describe, which is the whole
+ * argument in one place: the hand-written field type omitted `"camera"`, and
+ * both `description` and `icon` were required here while the API marks them
+ * optional. Nothing failed, because nothing compared them — the builder simply
+ * held a slightly wrong picture of the config it edits.
+ */
+export type KycFieldConfig = components['schemas']['KycFieldConfigDto'];
+export type KycStepConfig = components['schemas']['KycStepConfigDto'];
 
 // FR-CORE-15 mandates the identity document, selfie, and proof-of-address steps for
 // every customer, and FR-IND-03 requires the profile step. These cannot be disabled,

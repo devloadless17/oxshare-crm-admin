@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { components } from '@/lib/api/types.gen';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -16,25 +17,15 @@ import { ApproveDialog } from '@/components/kyc-review/approve-dialog';
 import { RejectDialog } from '@/components/kyc-review/reject-dialog';
 import { t } from '@/lib/i18n';
 
-interface KycDetail {
-  userId: string;
-  status: string;
-  submittedAt?: string;
-  reviewedAt?: string;
-  rejectionReason?: string;
-  rejectedFields?: string[];
-  user?: { email: string; firstName: string; lastName: string };
-  personalInfo?: Record<string, string>;
-  document?: {
-    docType?: string;
-    frontFilePath?: string;
-    backFilePath?: string;
-    frontFileName?: string;
-    backFileName?: string;
-  };
-  selfie?: { filePath?: string; fileName?: string };
-  addressProof?: { docType?: string; filePath?: string; fileName?: string; page2FilePath?: string };
-}
+/**
+ * An ALIAS, not a hand-written copy — R-1.1.
+ *
+ * The generated `KycSubmissionDto` already describes this response. Declaring it
+ * by hand removes the one mechanism that turns backend drift into a compile
+ * error, and does it silently: the page goes on building against a description
+ * of an API that has moved.
+ */
+type KycDetail = components['schemas']['KycSubmissionDto'];
 
 export default function KycDetailPage() {
   const params = useParams();
