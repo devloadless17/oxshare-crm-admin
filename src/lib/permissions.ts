@@ -37,6 +37,12 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/audit-log', requirement: { masterOnly: true } },
   { prefix: '/invite', requirement: { permission: 'users.create' } },
   { prefix: '/dashboard', requirement: null },
+  // `requirement: null` is "any authenticated admin", stated rather than
+  // assumed — the frontend counterpart of the backend's @AnyAdmin(reason).
+  // These two are matched EXACTLY, not as prefixes: `path.startsWith('/' + '/')`
+  // is never true, so '/' cannot shadow the entries above it.
+  { prefix: '/', requirement: null },
+  { prefix: '/login', requirement: null },
 ];
 
 /**
@@ -68,12 +74,32 @@ export function hasPermission(admin: AdminProfile | null, key: string): boolean 
   return admin.permissions.some((p) => normalizeKey(p) === wanted);
 }
 
+/**
+ * DENY BY DEFAULT — the frontend half of R-4.2.
+ *
+ * An undeclared route used to return `true`, so every page added from then on
+ * was visible to every authenticated admin until someone remembered to list it
+ * here. Coverage was complete by discipline, which is not a property a reviewer
+ * can check: a route that forgot its entry looks exactly like one that never
+ * needed it, and `/payouts`, `/ledger`, `/commission-plans` and `/admin-users`
+ * are already committed scope waiting to be built.
+ *
+ * Now the absence of a declaration is a refusal, and "any authenticated admin
+ * may see this" is written down as `requirement: null` — a decision someone
+ * made rather than one nobody did.
+ *
+ * This is UX, not security. The API enforces the same rules independently and
+ * returns 403 regardless (ARCHITECTURE §8.8). What it buys is that a new page
+ * fails visibly for its author on the first click, instead of quietly showing
+ * itself to everyone until the API refuses the data behind it.
+ */
 export function canAccess(admin: AdminProfile | null, path: string): boolean {
   if (!admin) return false;
   const match = ROUTE_REQUIREMENTS.find(
     (r) => path === r.prefix || path.startsWith(r.prefix + '/'),
   );
-  if (!match || match.requirement === null) return true;
+  if (!match) return false;
+  if (match.requirement === null) return true;
   if ('masterOnly' in match.requirement) return isMasterAdmin(admin);
   return hasPermission(admin, match.requirement.permission);
 }

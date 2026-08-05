@@ -114,9 +114,36 @@ describe('canAccess', () => {
     ).toBe(false);
   });
 
-  it('unknown routes default to accessible for any authenticated admin', () => {
-    expect(canAccess(subAdmin, '/some-future-page')).toBe(true);
+  it('DENIES an undeclared route rather than defaulting it open', () => {
+    /*
+     * This asserted the opposite until R-4.2 was applied to the frontend: an
+     * unknown route returned true, so every page added from then on was visible
+     * to every authenticated admin until someone remembered to list it. Coverage
+     * was complete by discipline, which a reviewer cannot verify — a route that
+     * forgot its entry is indistinguishable from one that never needed one.
+     *
+     * `/payouts`, `/ledger`, `/commission-plans` and `/admin-users` are all
+     * committed scope still to be built, so this is a live path, not a
+     * hypothetical.
+     */
+    expect(canAccess(subAdmin, '/some-future-page')).toBe(false);
+    expect(canAccess(master, '/some-future-page')).toBe(false);
     expect(canAccess(null, '/some-future-page')).toBe(false);
+  });
+
+  it('lets an explicitly unrestricted route through', () => {
+    // `requirement: null` is the stated "any authenticated admin" — the
+    // frontend counterpart of the backend's @AnyAdmin(reason).
+    expect(canAccess(subAdmin, '/dashboard')).toBe(true);
+    expect(canAccess(subAdmin, '/')).toBe(true);
+    expect(canAccess(subAdmin, '/login')).toBe(true);
+  });
+
+  it('does not let the root entry shadow a gated route', () => {
+    // '/' is matched exactly, never as a prefix: `startsWith('//')` is never
+    // true. If it were a prefix it would make every route unrestricted.
+    expect(canAccess(subAdmin, '/withdrawals')).toBe(false);
+    expect(canAccess(subAdmin, '/audit-log')).toBe(false);
   });
 
   it('prefix matching does not leak across sibling routes', () => {
