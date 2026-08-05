@@ -77,36 +77,51 @@ export function CursorPagination({
               })}
         </span>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            {t('pagination.rowsPerPage')}
-          </span>
-          <Select
-            value={String(pageSize)}
-            // Not money: a page size, from a fixed list this component renders
-            // (10/25/50/100). The money-path rule is right to be broad — every
-            // other Number() on these screens is a balance — so the exception is
-            // disabled narrowly and stated rather than the rule being widened.
-            // eslint-disable-next-line no-restricted-syntax
-            onValueChange={(value) => onPageSizeChange?.(Number(value))}
-          >
-            <SelectTrigger className="h-8 w-20 px-2.5 text-xs font-semibold">
-              <SelectValue placeholder={String(pageSize)}>{pageSize}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {sizeOptions.map((size) => (
-                <SelectItem key={size} value={String(size)}>
-                  {size}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/*
+          Only when the caller can act on it. `onPageSizeChange` is optional, and
+          this control used to render regardless — so on /ledger and /audit-log,
+          which do not pass it, an operator could open "Rows per page", choose
+          50, and watch the list stay at 25. A dropdown that silently does
+          nothing is worse than no dropdown: it reads as a broken page.
+        */}
+        {onPageSizeChange && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              {t('pagination.rowsPerPage')}
+            </span>
+            <Select
+              value={String(pageSize)}
+              // Not money: a page size, from a fixed list this component renders
+              // (10/25/50/100). The money-path rule is right to be broad — every
+              // other Number() on these screens is a balance — so the exception is
+              // disabled narrowly and stated rather than the rule being widened.
+              // eslint-disable-next-line no-restricted-syntax
+              onValueChange={(value) => onPageSizeChange(Number(value))}
+            >
+              <SelectTrigger className="h-8 w-20 px-2.5 text-xs font-semibold">
+                <SelectValue placeholder={String(pageSize)}>{pageSize}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {sizeOptions.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
+        {/*
+          Interpolated, not concatenated — the same rule the note above states,
+          which this line broke. `t('pagination.page')` on its own returns the
+          template verbatim, so the footer of every paginated screen read
+          "Page {number} 1": the literal placeholder, then the number beside it.
+        */}
         <span className="px-2 text-xs font-medium">
-          {t('pagination.page')} {pageNumber}
+          {t('pagination.page', { number: pageNumber })}
         </span>
         <button
           type="button"
