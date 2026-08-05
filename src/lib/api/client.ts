@@ -11,9 +11,21 @@ import Cookies from 'js-cookie';
 // Resolved and validated in `lib/env.ts`, which refuses a production build with
 // no NEXT_PUBLIC_API_BASE_URL rather than silently falling back to localhost.
 import { API_BASE_URL } from '../env';
+/**
+ * A request that never finishes must eventually fail.
+ *
+ * axios defaults `timeout` to 0, which means NO timeout: a request hangs until
+ * the browser or OS gives up, which can be minutes, behind whatever spinner the
+ * screen happens to be showing.
+ *
+ * 60s, matching the portal's twin — this is a backstop against hanging, not a
+ * latency budget, and the number has to clear the slowest legitimate request in
+ * either app.
+ */
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+  timeout: 60_000,
   headers: { 'Content-Type': 'application/json' },
 });
 

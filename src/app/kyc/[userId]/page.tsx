@@ -15,6 +15,7 @@ import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { DocViewer } from '@/components/kyc-review/doc-viewer';
 import { ApproveDialog } from '@/components/kyc-review/approve-dialog';
 import { RejectDialog } from '@/components/kyc-review/reject-dialog';
+import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
 import { t } from '@/lib/i18n';
 
 /**
@@ -26,6 +27,20 @@ import { t } from '@/lib/i18n';
  * of an API that has moved.
  */
 type KycDetail = components['schemas']['KycSubmissionDto'];
+
+/**
+ * The status, translated.
+ *
+ * `status.replace('_', ' ')` rendered the raw enum with an underscore swapped
+ * out — English by accident, and untranslatable by construction. The keys are
+ * exhaustive over the backend enum, and the fallback exists only so a status
+ * added on the API side degrades to something readable rather than blank.
+ */
+function statusLabel(status: string): string {
+  const key = `kycStatus.${status}` as Parameters<typeof t>[0];
+  const label = t(key);
+  return label === key ? status.replace(/_/g, ' ') : label;
+}
 
 export default function KycDetailPage() {
   const params = useParams();
@@ -50,9 +65,9 @@ export default function KycDetailPage() {
   const loading = query.status === 'loading';
   const loadError =
     query.status === 'unavailable'
-      ? 'Submission not found.'
+      ? t('kycReview.notFound')
       : query.status === 'error'
-        ? 'Failed to load the submission. Check your connection and try again.'
+        ? t('kycReview.loadFailed')
         : '';
   const load = query.refetch;
 
@@ -86,7 +101,7 @@ export default function KycDetailPage() {
       await queryClient.invalidateQueries({ queryKey: ['kyc'] });
       setShowApproveConfirm(false);
     } catch (e: unknown) {
-      setActionError(apiErrorMessage(e, 'Failed to approve the submission. Please try again.'));
+      setActionError(apiErrorMessage(e, t('kycReview.approveFailed')));
     } finally {
       setActionLoading(false);
     }
@@ -99,7 +114,7 @@ export default function KycDetailPage() {
       await api.patch(`/admin/kyc/${userId}/claim`);
       await queryClient.invalidateQueries({ queryKey: ['kyc'] });
     } catch (e: unknown) {
-      setActionError(apiErrorMessage(e, 'Failed to claim the submission for review.'));
+      setActionError(apiErrorMessage(e, t('kycReview.claimFailed')));
     } finally {
       setActionLoading(false);
     }
@@ -129,17 +144,17 @@ export default function KycDetailPage() {
       setSelectedReasonId('');
       setSelectedRejectedFields([]);
     } catch (e: unknown) {
-      setActionError(apiErrorMessage(e, 'Failed to reject the submission. Please try again.'));
+      setActionError(apiErrorMessage(e, t('kycReview.rejectFailed')));
     } finally {
       setActionLoading(false);
     }
   };
 
-  if (loading) return <Loader text="Loading KYC submission..." fullPage />;
+  if (loading) return <Loader text={t('kycReview.loading')} fullPage />;
   if (loadError || !data)
     return (
       <div className="detail-loading">
-        <p>{loadError || 'Submission not found.'}</p>
+        <p>{loadError || t('kycReview.notFound')}</p>
         <div className="flex gap-3">
           <button
             type="button"
@@ -173,106 +188,61 @@ export default function KycDetailPage() {
             </h1>
             <p>{data.user?.email}</p>
           </div>
-          <span className={`status-pill status-${data.status}`}>
-            {data.status.replace('_', ' ')}
-          </span>
+          <span className={`status-pill status-${data.status}`}>{statusLabel(data.status)}</span>
         </div>
       </div>
 
       <div className="detail-grid">
-        {/* Left: Info */}
-        <div className="detail-left">
-          <div className="info-card">
-            <h3>{t('kycReview.personalInfo')}</h3>
-            {data.personalInfo ? (
-              Object.entries(data.personalInfo).map(([k, v]) => (
-                <div key={k} className="info-row">
-                  <span>{k.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
-                  <strong
-                    className={
-                      data.status === 'rejected' && data.rejectedFields?.includes(k)
-                        ? 'text-destructive font-bold'
-                        : ''
-                    }
-                  >
-                    {v}
-                  </strong>
-                </div>
-              ))
-            ) : (
-              <p className="not-submitted">{t('kycReview.notSubmitted')}</p>
-            )}
-          </div>
-
-          <div className="info-card">
-            <h3>{t('kycReview.documentType')}</h3>
-            <div className="info-row">
-              <span>{t('kycReview.typeLabel')}</span>
-              <strong className="uppercase tracking-wider text-link">
-                {docType.replace('_', ' ')}
-              </strong>
-            </div>
-          </div>
-
-          {data.status === 'rejected' && data.rejectionReason && (
-            <div className="rejection-card">
-              <h3>{t('kycReview.rejectionReasonLabel')}</h3>
-              <p>{data.rejectionReason}</p>
-              {data.rejectedFields && data.rejectedFields.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-destructive/20">
-                  <span className="text-xs font-bold text-destructive block mb-1">
-                    {t('kycReview.flaggedFields')}
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {data.rejectedFields.map((f) => (
-                      <span
-                        key={f}
-                        className="text-[11px] font-mono bg-destructive/15 text-destructive px-2 py-0.5 rounded border border-destructive/30"
-                      >
-                        {f}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="timeline-card">
-            <h3>{t('kycReview.timeline')}</h3>
-            <div className="info-row">
-              <span>{t('kycReview.colSubmitted')}</span>
-              <strong>
-                {data.submittedAt ? new Date(data.submittedAt).toLocaleString() : '—'}
-              </strong>
-            </div>
-            <div className="info-row">
-              <span>{t('kycReview.reviewed')}</span>
-              <strong>{data.reviewedAt ? new Date(data.reviewedAt).toLocaleString() : '—'}</strong>
-            </div>
-          </div>
-        </div>
+        {/* Left: who this is, what they sent, and when — see SubmissionSummary. */}
+        <SubmissionSummary data={data} docType={docType} />
 
         {/* Right: Documents */}
         <div className="detail-right">
           <div className="docs-card">
-            <h3>Uploaded Files ({docType.toUpperCase()})</h3>
+            <h3>
+              {t('kycReview.uploadedFiles', { docType: docType.replace('_', ' ').toUpperCase() })}
+            </h3>
             <div className="docs-grid">
               {isPassport ? (
                 <>
                   <DocViewer
                     filePath={data.document?.frontFilePath}
-                    label="Passport (Photo & Signature Page)"
+                    fileName={data.document?.frontFileName}
+                    label={t('kycReview.docPassport')}
                   />
-                  <DocViewer filePath={data.selfie?.filePath} label="Selfie Verification" />
-                  <DocViewer filePath={data.addressProof?.filePath} label="Proof of Address" />
+                  <DocViewer
+                    filePath={data.selfie?.filePath}
+                    fileName={data.selfie?.fileName}
+                    label={t('kycReview.docSelfie')}
+                  />
+                  <DocViewer
+                    filePath={data.addressProof?.filePath}
+                    fileName={data.addressProof?.fileName}
+                    label={t('kycReview.docAddress')}
+                  />
                 </>
               ) : (
                 <>
-                  <DocViewer filePath={data.document?.frontFilePath} label="ID Document (Front)" />
-                  <DocViewer filePath={data.document?.backFilePath} label="ID Document (Back)" />
-                  <DocViewer filePath={data.selfie?.filePath} label="Selfie Verification" />
-                  <DocViewer filePath={data.addressProof?.filePath} label="Proof of Address" />
+                  <DocViewer
+                    filePath={data.document?.frontFilePath}
+                    fileName={data.document?.frontFileName}
+                    label={t('kycReview.docIdFront')}
+                  />
+                  <DocViewer
+                    filePath={data.document?.backFilePath}
+                    fileName={data.document?.backFileName}
+                    label={t('kycReview.docIdBack')}
+                  />
+                  <DocViewer
+                    filePath={data.selfie?.filePath}
+                    fileName={data.selfie?.fileName}
+                    label={t('kycReview.docSelfie')}
+                  />
+                  <DocViewer
+                    filePath={data.addressProof?.filePath}
+                    fileName={data.addressProof?.fileName}
+                    label={t('kycReview.docAddress')}
+                  />
                 </>
               )}
             </div>
@@ -286,7 +256,7 @@ export default function KycDetailPage() {
                   className="btn-claim"
                   onClick={() => void claim()}
                   disabled={actionLoading}
-                  title="Marks this submission as under review by you, so another admin doesn't review it at the same time"
+                  title={t('kycReview.claimHint')}
                 >
                   {t('kycReview.claim')}
                 </button>

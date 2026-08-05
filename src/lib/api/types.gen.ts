@@ -812,6 +812,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/kyc/{userId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A client's previously decided KYC attempts, oldest first */
+        get: operations["AdminComplianceController_getKycHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/kyc/{userId}/claim": {
         parameters: {
             query?: never;
@@ -1802,6 +1819,27 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+        };
+        KycAttemptDto: {
+            /** @description Dense from 1, per client. */
+            attemptNo: number;
+            /** @enum {string} */
+            status: "approved" | "rejected";
+            /** Format: date-time */
+            submittedAt?: string;
+            /** Format: date-time */
+            reviewedAt?: string;
+            reviewedBy?: string;
+            rejectionReason?: string;
+            rejectedFields?: string[];
+            personalInfo?: {
+                [key: string]: string;
+            };
+            document?: components["schemas"]["KycDocumentDto"];
+            selfie?: components["schemas"]["KycSelfieDto"];
+            addressProof?: components["schemas"]["KycAddressProofDto"];
+            /** Format: date-time */
+            archivedAt: string;
         };
         RejectDto: {
             /** @description Free-text reason, when not using a configured reasonId. */
@@ -3132,6 +3170,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KycSubmissionDto"];
+                };
+            };
+        };
+    };
+    AdminComplianceController_getKycHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycAttemptDto"][];
                 };
             };
         };
