@@ -82,10 +82,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Verify email via token from email link */
-        get: operations["AuthController_verifyEmail[0]"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Verify email with the token from the emailed link */
+        post: operations["AuthController_verifyEmail[0]"];
         delete?: never;
         options?: never;
         head?: never;
@@ -99,10 +99,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Verify email via token from email link */
-        get: operations["AuthController_verifyEmail[1]"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Verify email with the token from the emailed link */
+        post: operations["AuthController_verifyEmail[1]"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1239,6 +1239,13 @@ export interface components {
             /** @description The new user id. No session exists until the email is verified. */
             userId: string;
         };
+        VerifyEmailDto: {
+            /**
+             * @description The single-use token from the verification email link.
+             * @example a1b2c3d4e5f6
+             */
+            token: string;
+        };
         MessageResponseDto: {
             /** @example Logged out. */
             message: string;
@@ -1830,6 +1837,47 @@ export interface components {
             page: number;
             limit: number;
         };
+        ErrorResponseDto: {
+            /**
+             * @description HTTP status, repeated in the body for convenience.
+             * @example 403
+             */
+            statusCode: number;
+            /**
+             * @description Machine-readable cause, from a closed set. BRANCH ON THIS, never on `message` — the message is prose, is localised, and is reworded without notice.
+             * @example EMAIL_NOT_VERIFIED
+             */
+            code: string;
+            /**
+             * @description Human-readable and safe to display. Never parse it.
+             * @example Please verify your email address before accessing this resource.
+             */
+            message: string;
+            /**
+             * @description Present only on validation failures: field path → what is wrong with it. Dotted for nested DTOs, so a form can attach each message to the input that caused it.
+             * @example {
+             *       "amount": "must not be less than 10"
+             *     }
+             */
+            fields?: {
+                [key: string]: string;
+            };
+            /**
+             * @description The correlation id for this request (R-6.1). Stamped on every log line the API wrote while handling it, so quoting it in a support ticket is enough to find them.
+             * @example req-lz4k2p-8f3a91c2
+             */
+            requestId: string;
+            /**
+             * @description ISO-8601 UTC (R-2.7).
+             * @example 2026-08-05T13:45:12.000Z
+             */
+            timestamp: string;
+            /**
+             * @description The path as served, with query values redacted.
+             * @example /v1/payments/withdrawals
+             */
+            path: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1935,14 +1983,16 @@ export interface operations {
     };
     "AuthController_verifyEmail[0]": {
         parameters: {
-            query: {
-                token: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -1956,14 +2006,16 @@ export interface operations {
     };
     "AuthController_verifyEmail[1]": {
         parameters: {
-            query: {
-                token: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -2328,7 +2380,11 @@ export interface operations {
     };
     WalletController_myLedger: {
         parameters: {
-            query?: never;
+            query: {
+                entryType: string;
+                limit: string;
+                cursor: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3065,7 +3121,10 @@ export interface operations {
     AdminMoneyController_approveWithdrawal: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description A unique value per intended action, reused only when retrying that same one. The state guards below make a REPLAYED CAUSE a no-op; this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
             path: {
                 id: string;
             };
@@ -3086,7 +3145,10 @@ export interface operations {
     AdminMoneyController_rejectWithdrawal: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description A unique value per intended action, reused only when retrying that same one. The state guards below make a REPLAYED CAUSE a no-op; this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
             path: {
                 id: string;
             };
@@ -3111,7 +3173,10 @@ export interface operations {
     AdminMoneyController_settleWithdrawal: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description A unique value per intended action, reused only when retrying that same one. The state guards below make a REPLAYED CAUSE a no-op; this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
             path: {
                 id: string;
             };

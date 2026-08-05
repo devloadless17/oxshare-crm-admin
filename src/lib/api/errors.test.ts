@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiErrorMessage, apiErrorRequestId } from './errors';
+import { apiErrorCode, apiErrorMessage, apiErrorRequestId, isEmailUnverified } from './errors';
 
 /**
  * TWIN FILE — an identical copy lives at the same path in the sibling app.
@@ -70,5 +70,48 @@ describe('apiErrorRequestId', () => {
 
   it('ignores a non-string id rather than rendering an object', () => {
     expect(apiErrorRequestId({ response: { data: { requestId: { id: 1 } } } })).toBeUndefined();
+  });
+});
+
+/**
+ * `code`, not prose — R-2.2.
+ *
+ * The envelope always carried a machine-readable `code`; nothing consumed it,
+ * because it was not in the OpenAPI document and so not in the generated types.
+ * The portal branched on `message.includes('verify your email')` instead, which
+ * holds only while the copy stays exactly as written and in English — so it
+ * would have stopped working the day Arabic shipped (FSD §10, D-16).
+ */
+describe('apiErrorCode', () => {
+  it('reads the code from the envelope', () => {
+    expect(apiErrorCode({ response: { data: { code: 'EMAIL_NOT_VERIFIED' } } })).toBe(
+      'EMAIL_NOT_VERIFIED',
+    );
+  });
+
+  it('is undefined when there is no code to read', () => {
+    // A 502 from a proxy never reaches the exception filter and has no body.
+    expect(apiErrorCode({ response: {} })).toBeUndefined();
+    expect(apiErrorCode(new Error('network'))).toBeUndefined();
+    expect(apiErrorCode(undefined)).toBeUndefined();
+    expect(apiErrorCode({ response: { data: { code: '' } } })).toBeUndefined();
+  });
+
+  it('identifies an unverified email without reading the message', () => {
+    const err = {
+      response: {
+        data: {
+          code: 'EMAIL_NOT_VERIFIED',
+          // Deliberately NOT English: the whole point is that the decision does
+          // not depend on the prose.
+          message: 'يرجى التحقق من عنوان بريدك الإلكتروني',
+        },
+      },
+    };
+    expect(isEmailUnverified(err)).toBe(true);
+  });
+
+  it('does not mistake another 403 for an unverified email', () => {
+    expect(isEmailUnverified({ response: { data: { code: 'FORBIDDEN' } } })).toBe(false);
   });
 });

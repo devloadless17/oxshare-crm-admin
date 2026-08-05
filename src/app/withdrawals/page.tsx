@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import api from '@/lib/api';
+import { idempotent } from '@/lib/api/client';
 import type { RejectionReason, WithdrawalListResponse, WithdrawalRow } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
@@ -109,17 +110,38 @@ export default function WithdrawalsPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['withdrawals'] });
 
+  /*
+   * One key per intended ACTION on one withdrawal — R-5.2.
+   *
+   * Derived from the action and the row rather than randomly generated, because
+   * that is what the key means here: approving withdrawal X is a single intent,
+   * so a double-click and a retry after a failed request are the same operation
+   * and must collapse to one. A fresh random key per click would present each as
+   * new, which is the bug the header exists to prevent.
+   *
+   * Safe against a legitimate second operation on the same row: approve, reject
+   * and settle each carry their own prefix, and the state guards refuse a repeat
+   * of the same transition anyway. The API releases a claim whose handler threw,
+   * so a corrected retry is not blocked by the failed attempt.
+   */
+  const intentKey = (action: string, row: WithdrawalRow) => idempotent(`${action}:${row.id}`);
+
   const approve = useMutation({
-    mutationFn: (row: WithdrawalRow) => api.patch(`/admin/withdrawals/${row.id}/approve`),
+    mutationFn: (row: WithdrawalRow) =>
+      api.patch(`/admin/withdrawals/${row.id}/approve`, {}, intentKey('approve', row)),
     onSuccess: invalidate,
   });
 
   const reject = useMutation({
     mutationFn: (row: WithdrawalRow) =>
-      api.patch(`/admin/withdrawals/${row.id}/reject`, {
-        reasonId: reasonId || undefined,
-        reason: reasonNote.trim() || undefined,
-      }),
+      api.patch(
+        `/admin/withdrawals/${row.id}/reject`,
+        {
+          reasonId: reasonId || undefined,
+          reason: reasonNote.trim() || undefined,
+        },
+        intentKey('reject', row),
+      ),
     onSuccess: async () => {
       setRejectTarget(null);
       setReasonId('');
@@ -130,7 +152,11 @@ export default function WithdrawalsPage() {
 
   const settle = useMutation({
     mutationFn: (row: WithdrawalRow) =>
-      api.patch(`/admin/withdrawals/${row.id}/settle`, { providerRef: providerRef.trim() }),
+      api.patch(
+        `/admin/withdrawals/${row.id}/settle`,
+        { providerRef: providerRef.trim() },
+        intentKey('settle', row),
+      ),
     onSuccess: async () => {
       setSettleTarget(null);
       setProviderRef('');

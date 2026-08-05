@@ -176,3 +176,54 @@ describe('withdrawal queue — settling', () => {
     expect(body.providerRef).toBe('whish-payout-9911');
   });
 });
+
+/**
+ * A double-clicked money action must be one operation — R-5.2.
+ *
+ * The state guards (`UPDATE … WHERE state = 'pending'`) already make a replayed
+ * CAUSE a no-op. They do nothing about a replayed REQUEST: two clicks race, both
+ * read `pending`, and only the rowcount check decides which one loses — after
+ * both have reached the service. The key is what makes the second request a
+ * replay of the first rather than a second operation.
+ *
+ * It is derived from the action and the row, not generated randomly, because
+ * that is what the key means: approving withdrawal X is one intent however many
+ * times the button is pressed.
+ */
+describe('idempotency on the money actions', () => {
+  it('sends a stable key derived from the action and the row', async () => {
+    const user = userEvent.setup();
+    permissions.current = ['*'];
+    renderWithProviders(<WithdrawalsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /^approve$/i }));
+
+    await waitFor(() => expect(patch).toHaveBeenCalled());
+    const [url, , config] = patch.mock.calls[0] as [
+      string,
+      unknown,
+      { headers: Record<string, string> },
+    ];
+    const id = url.split('/')[3];
+
+    expect(config.headers['Idempotency-Key']).toBe(`approve:${id}`);
+  });
+
+  it('sends the SAME key when the button is pressed twice', async () => {
+    // The assertion that matters. Two distinct keys would present the second
+    // click as a new withdrawal approval, which is the bug the header prevents.
+    const user = userEvent.setup();
+    permissions.current = ['*'];
+    renderWithProviders(<WithdrawalsPage />);
+
+    const button = await screen.findByRole('button', { name: /^approve$/i });
+    await user.click(button);
+    await user.click(button);
+
+    await waitFor(() => expect(patch.mock.calls.length).toBeGreaterThanOrEqual(2));
+    const keys = patch.mock.calls.map(
+      (call) => (call[2] as { headers: Record<string, string> }).headers['Idempotency-Key'],
+    );
+    expect(new Set(keys).size).toBe(1);
+  });
+});

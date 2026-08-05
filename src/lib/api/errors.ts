@@ -46,3 +46,24 @@ export function apiErrorRequestId(error: unknown): string | undefined {
   const fromHeader = response?.headers?.['x-request-id'];
   return typeof fromHeader === 'string' && fromHeader.length > 0 ? fromHeader : undefined;
 }
+
+/**
+ * The machine-readable cause of an API error — R-2.2.
+ *
+ * `ErrorResponseDto` is now published in the OpenAPI document, so this reads a
+ * GENERATED type rather than a hand-written picture of the envelope (R-1.1).
+ *
+ * Branch on this, never on `message`. The portal decided whether to offer
+ * "resend verification" with `message.includes('verify your email')`, which
+ * breaks the moment the wording changes and again on the day Arabic ships —
+ * FSD §10 / D-16. A client should never have to read prose to make a decision.
+ */
+export function apiErrorCode(error: unknown): string | undefined {
+  const code = (error as { response?: { data?: { code?: unknown } } })?.response?.data?.code;
+  return typeof code === 'string' && code.length > 0 ? code : undefined;
+}
+
+/** True when the API refused because the caller's email is unverified. */
+export function isEmailUnverified(error: unknown): boolean {
+  return apiErrorCode(error) === 'EMAIL_NOT_VERIFIED';
+}
