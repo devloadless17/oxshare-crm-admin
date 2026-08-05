@@ -177,6 +177,9 @@ export const messages = {
   'pagination.previous': 'Previous',
   'pagination.next': 'Next',
   'pagination.rowsPerPage': 'Rows per page:',
+  // Shown when a sort covers only the rows on screen. An operator reading a
+  // page-local ordering as a global one can approve the wrong withdrawal.
+  'table.sortScopeNote': 'Sorted within this page only — other pages are not included.',
 
   // ── Clients (ADM-01) ──────────────────────────────────────────────────────
   'clients.title': 'Clients',

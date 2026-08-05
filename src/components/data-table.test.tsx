@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { compareValues } from './data-table';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { renderWithProviders } from '@/test/render';
+import { DataTable, compareValues } from './data-table';
 
 /**
  * The table sorted money as text, and that is a money bug.
@@ -86,5 +89,82 @@ describe('compareValues — missing values', () => {
 
   it('treats two blanks as equal', () => {
     expect(compareValues(null, undefined, 'money')).toBe(0);
+  });
+});
+
+/**
+ * The scope note — the mitigation the code claimed but did not have.
+ *
+ * A comment in DataTable said callers needing a true ordering must not mark a
+ * column sortable, "and `sortScopeNote` below is what tells the operator which
+ * they are looking at." No such identifier existed anywhere in the repo. The
+ * only stated mitigation for a page-local sort was fiction, which is worse than
+ * an acknowledged gap: a reader checking this behaviour found a reassuring
+ * sentence and stopped.
+ *
+ * It exists now, and these pin when it appears. The condition is the point —
+ * a note that showed on every sort would be ignored, and one that never showed
+ * on a misleading sort would be useless.
+ */
+describe('sort scope note', () => {
+  const rows = [
+    { id: '1', amount: '9.00000000' },
+    { id: '2', amount: '100.00000000' },
+  ];
+  const columns = [
+    {
+      header: 'Amount',
+      sortable: true,
+      sortKey: 'amount',
+      sortType: 'money' as const,
+      cell: (r: { amount: string }) => r.amount,
+    },
+  ];
+  const pagination = {
+    pageNumber: 1,
+    pageSize: 25,
+    showing: 2,
+    canGoBack: false,
+    canGoForward: true,
+    onBack: () => {},
+    onNext: () => {},
+  };
+
+  const render = (props: Record<string, unknown>) =>
+    renderWithProviders(
+      <DataTable rows={rows} columns={columns} rowKey={(r: { id: string }) => r.id} {...props} />,
+    );
+
+  const NOTE = /sorted within this page only/i;
+
+  it('says nothing until a sort is actually applied', () => {
+    render({ cursorPagination: pagination });
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+  });
+
+  it('warns once a client-side sort is active and more pages exist', async () => {
+    const user = userEvent.setup();
+    render({ cursorPagination: pagination });
+    await user.click(screen.getByRole('button', { name: /amount/i }));
+
+    expect(await screen.findByText(NOTE)).toBeInTheDocument();
+  });
+
+  it('stays quiet when this is the only page — the sort is then complete', async () => {
+    const user = userEvent.setup();
+    render({ cursorPagination: { ...pagination, canGoForward: false } });
+    await user.click(screen.getByRole('button', { name: /amount/i }));
+
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+  });
+
+  it('stays quiet when the caller sorts server-side', async () => {
+    // onSortChange means the ordering is real and covers the whole set, so a
+    // warning would be false and would train the operator to ignore it.
+    const user = userEvent.setup();
+    render({ cursorPagination: pagination, onSortChange: () => {} });
+    await user.click(screen.getByRole('button', { name: /amount/i }));
+
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
   });
 });

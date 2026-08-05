@@ -168,8 +168,13 @@ export function DataTable<T>({
    * currently HELD, which for a paginated table is one page. "The largest
    * withdrawal" is therefore the largest of 25 unless the endpoint sorts. No
    * list endpoint accepts a sort parameter today (PLATFORM-CONVENTIONS R-2.5),
-   * so callers that need a true ordering must not mark a column sortable — and
-   * `sortScopeNote` below is what tells the operator which they are looking at.
+   * so callers that need a true ordering must not mark a column sortable.
+   *
+   * This comment used to point at a `sortScopeNote` that told the operator which
+   * of the two they were looking at. No such identifier existed anywhere in the
+   * repo — the only mitigation the code claimed was fiction, which is worse than
+   * an acknowledged gap, because a reader checking this behaviour finds a
+   * reassuring sentence and stops. It is now `scopeNote` below, and it renders.
    */
   // Column key -> how to compare it, taken from the column definitions so a
   // caller declares the type once, next to the cell that renders it.
@@ -193,6 +198,16 @@ export function DataTable<T>({
       return sortDir === 'asc' ? result : -result;
     });
   }, [rows, sortCol, sortDir, onSortChange, sortTypes]);
+
+  /*
+   * True when the operator is looking at a sort that covers only this page.
+   *
+   * `onSortChange` means the caller sorts server-side, so the ordering is real
+   * and no note is warranted. Without it the sort is client-side, and it is
+   * misleading precisely when more rows exist than are held — which for a
+   * cursor-paginated list is whenever another page is reachable.
+   */
+  const scopeNote = Boolean(sortCol) && !onSortChange && Boolean(cursorPagination?.canGoForward);
 
   const allKeys = React.useMemo(() => rows.map(rowKey), [rows, rowKey]);
   const isAllSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeys.includes(k));
@@ -420,6 +435,14 @@ export function DataTable<T>({
 
         {/* Integrated Pagination Footer — cursor where the list can change
             underneath the reader (R-2.4), offset only where it cannot. */}
+        {scopeNote && (
+          <p
+            role="status"
+            className="px-4 py-2 text-[11px] text-muted-foreground border-t border-border bg-muted/20"
+          >
+            {t('table.sortScopeNote')}
+          </p>
+        )}
         {cursorPagination && (
           <div className="px-4 bg-muted/20">
             <CursorPagination {...cursorPagination} />

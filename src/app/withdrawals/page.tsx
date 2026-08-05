@@ -166,11 +166,25 @@ export default function WithdrawalsPage() {
     {
       header: t('withdrawals.colAmount'),
       align: 'right',
-      sortable: true,
-      sortKey: 'amount',
-      // Decimal strings, not text. Without this the queue sorted 9.00 above
-      // 100.00 — see compareValues in components/data-table.tsx.
-      sortType: 'money',
+      /*
+       * NOT sortable, deliberately.
+       *
+       * The comparator is correct — `sortType: 'money'` compared decimals rather
+       * than text, after the queue once sorted 9.00 above 100.00. The problem is
+       * scope, not arithmetic: this list is cursor-paginated, no list endpoint
+       * accepts a sort parameter (R-2.5), so sorting here orders the 25 rows on
+       * screen. "The largest withdrawal" would mean the largest of 25.
+       *
+       * On every other column that misreading costs a moment of confusion. On
+       * this one it is the screen where an admin authorises a payout, and
+       * "largest pending" is exactly the question an operator asks before
+       * deciding what to scrutinise. DataTable now shows a scope note wherever a
+       * client-side sort is active, but a note beside a wrong answer is a weaker
+       * control than not offering the wrong answer.
+       *
+       * Restore `sortable: true` with `sortKey: 'amount'` and `sortType: 'money'`
+       * once the endpoint sorts server-side.
+       */
       /*
        * Rendered VERBATIM — the API sends money as a string (§6.1).
        *
