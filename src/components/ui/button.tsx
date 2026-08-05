@@ -10,7 +10,22 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer',
+  /*
+   * `active:scale-[0.97]` is the press feedback, and it lives HERE rather than
+   * on individual buttons for the reason every design system eventually learns:
+   * a press effect on some buttons and not others reads as the ones without it
+   * being broken.
+   *
+   * `transition-transform` with a short duration, and NOT `transition-all`:
+   * animating colour alongside the transform makes hover feel laggy, and
+   * animating layout properties on a control that is pressed constantly is the
+   * cheapest way to make an interface feel slow on a mid-range phone.
+   *
+   * `motion-reduce:transform-none` because a scale is exactly the kind of
+   * movement `prefers-reduced-motion` exists for. Without it the one setting a
+   * vestibular-sensitive user has is ignored by every button in the product.
+   */
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-transform duration-100 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer',
   {
     variants: {
       variant: {
