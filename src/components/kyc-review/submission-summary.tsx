@@ -1,6 +1,7 @@
 'use client';
 
 import type { components } from '@/lib/api/types.gen';
+import { AttemptHistory } from './attempt-history';
 import { t } from '@/lib/i18n';
 
 type KycDetail = components['schemas']['KycSubmissionDto'];
@@ -18,7 +19,18 @@ type KycDetail = components['schemas']['KycSubmissionDto'];
  *
  * The page keeps its styled-jsx, and these class names resolve against it.
  */
-export function SubmissionSummary({ data, docType }: { data: KycDetail; docType: string }) {
+type KycAttempt = components['schemas']['KycAttemptDto'];
+
+export function SubmissionSummary({
+  data,
+  docType,
+  attempts,
+}: {
+  data: KycDetail;
+  docType: string;
+  /** Previously decided attempts, oldest first. Empty for a first submission. */
+  attempts: KycAttempt[];
+}) {
   return (
     <div className="detail-left">
       <div className="info-card">
@@ -105,6 +117,8 @@ export function SubmissionSummary({ data, docType }: { data: KycDetail; docType:
           )}
         </div>
       )}
+
+      <AttemptHistory attempts={attempts} />
 
       <div className="timeline-card">
         <h3>{t('kycReview.timeline')}</h3>

@@ -29,6 +29,7 @@ import { t } from '@/lib/i18n';
  * of an API that has moved.
  */
 type KycDetail = components['schemas']['KycSubmissionDto'];
+type KycAttempt = components['schemas']['KycAttemptDto'];
 
 /**
  * The status, translated.
@@ -62,6 +63,20 @@ export default function KycDetailPage() {
   const query = useResource<KycDetail>(
     ['kyc', userId],
     async (signal) => (await api.get<KycDetail>(`/admin/kyc/${userId}`, { signal })).data,
+  );
+
+  /*
+   * Previously decided attempts.
+   *
+   * A separate query rather than part of the submission: it is empty for most
+   * clients (a first submission has no history), it is a different lifetime —
+   * the past does not change while this screen is open — and a failure to load
+   * it must not stop the reviewer deciding on what is in front of them.
+   */
+  const history = useResource<KycAttempt[]>(
+    ['kyc', userId, 'history'],
+    async (signal) =>
+      (await api.get<KycAttempt[]>(`/admin/kyc/${userId}/history`, { signal })).data,
   );
 
   const data = query.data ?? null;
@@ -192,7 +207,7 @@ export default function KycDetailPage() {
 
       <div className="detail-grid">
         {/* Left: who this is, what they sent, and when — see SubmissionSummary. */}
-        <SubmissionSummary data={data} docType={docType} />
+        <SubmissionSummary data={data} docType={docType} attempts={history.data ?? []} />
 
         {/* Right: Documents */}
         <div className="detail-right">

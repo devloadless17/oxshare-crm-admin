@@ -313,6 +313,8 @@ export const messages = {
   'kycReview.claim': 'Claim for review',
   'kycReview.openDirectly': 'Open directly',
   'kycReview.notUploaded': 'Not uploaded',
+  'kycReview.historyTitle': 'Previous attempts ({count})',
+  'kycReview.attemptNo': 'Attempt {n}',
   'kycReview.rotate': 'Rotate',
   'kycReview.zoomIn': 'Zoom in',
   'kycReview.zoomOut': 'Zoom out',

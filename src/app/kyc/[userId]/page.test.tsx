@@ -69,9 +69,26 @@ const STEP_CONFIG = [
   },
 ];
 
-/** Route by URL — this page issues two different GETs. */
+/**
+ * One previously refused attempt, so the history panel has something to show
+ * and the "was this client rejected before" question has a fixture.
+ */
+const HISTORY = [
+  {
+    attemptNo: 1,
+    status: 'rejected',
+    rejectionReason: 'Passport expired',
+    rejectedFields: ['doc_front'],
+    reviewedAt: '2026-07-30T09:00:00.000Z',
+    archivedAt: '2026-07-30T09:00:00.000Z',
+    document: { docType: 'passport', frontFilePath: '/uploads/kyc/old-front.png' },
+  },
+];
+
+/** Route by URL — this page issues three different GETs. */
 function getFor(url: string) {
   if (url.includes('/admin/kyc-config')) return Promise.resolve({ data: STEP_CONFIG });
+  if (url.includes('/history')) return Promise.resolve({ data: HISTORY });
   return Promise.resolve({ data: SUBMISSION });
 }
 
@@ -257,7 +274,9 @@ describe('KYC review — load states', () => {
     get.mockImplementation((url: string) =>
       url.includes('/admin/kyc-config')
         ? Promise.resolve({ data: STEP_CONFIG })
-        : Promise.resolve({ data: { ...SUBMISSION, status: 'approved' } }),
+        : url.includes('/history')
+          ? Promise.resolve({ data: HISTORY })
+          : Promise.resolve({ data: { ...SUBMISSION, status: 'approved' } }),
     );
     renderWithProviders(<KycDetailPage />);
 
@@ -265,5 +284,38 @@ describe('KYC review — load states', () => {
     // Re-approving or re-rejecting a decided submission is not offered.
     expect(screen.queryByRole('button', { name: /approve kyc submission/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /reject kyc submission/i })).toBeNull();
+  });
+});
+
+describe('KYC review — previous attempts', () => {
+  it('tells the reviewer this client has been refused before', async () => {
+    /*
+     * Repeat rejection is a fraud signal, and until submissions kept a history
+     * it was invisible: a resubmission overwrote the original in place, so a
+     * client refused twice and approved on the third try looked identical to
+     * one approved first time.
+     */
+    renderWithProviders(<KycDetailPage />);
+
+    expect(await screen.findByText(/previous attempts/i)).toBeInTheDocument();
+    expect(screen.getByText(/attempt 1/i)).toBeInTheDocument();
+  });
+
+  it('keeps the refused documents collapsed until asked for', async () => {
+    // Reading a KYC document is an audited event, and every fetch names the
+    // admin who read it. Rendering historical documents up front would fill the
+    // PII access log with reads nobody performed.
+    const user = userEvent.setup();
+    renderWithProviders(<KycDetailPage />);
+
+    const row = await screen.findByRole('button', { name: /attempt 1/i });
+    expect(row).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText(/passport expired/i)).not.toBeInTheDocument();
+
+    await user.click(row);
+
+    // The reason it was refused — the thing a resubmission used to erase.
+    expect(await screen.findByText(/passport expired/i)).toBeInTheDocument();
+    expect(screen.getByText('doc_front')).toBeInTheDocument();
   });
 });
