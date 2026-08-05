@@ -18,15 +18,29 @@ set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 this_repo="$(basename "$repo_root")"
+# TWO naming conventions, because both are in use. The repositories are called
+# oxshare-crm-admin and oxshare-crm-client, but they are commonly checked out
+# side by side as admin/ and portal/ -- and in THAT layout this script matched
+# neither case arm, printed "no twin defined", exited 0, and enforced nothing.
+# It had been passing by doing nothing, for every twin file, in this checkout.
+# The candidate list is ordered; the first directory that exists wins.
 case "$this_repo" in
-  oxshare-crm-admin) sibling_name=oxshare-crm-client ;;
-  oxshare-crm-client) sibling_name=oxshare-crm-admin ;;
+  oxshare-crm-admin | admin) sibling_candidates="oxshare-crm-client portal" ;;
+  oxshare-crm-client | portal) sibling_candidates="oxshare-crm-admin admin" ;;
   *) echo "check-twins: no twin defined for $this_repo"; exit 0 ;;
 esac
+
+sibling_name=""
+for candidate in $sibling_candidates; do
+  if [ -d "$repo_root/../$candidate" ]; then
+    sibling_name="$candidate"
+    break
+  fi
+done
 sibling="$repo_root/../$sibling_name"
 
-if [ ! -d "$sibling" ]; then
-  echo "check-twins: $sibling_name is not checked out next to this repo — skipping."
+if [ -z "$sibling_name" ]; then
+  echo "check-twins: none of ($sibling_candidates) is checked out next to this repo - skipping."
   exit 0
 fi
 

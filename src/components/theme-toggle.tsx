@@ -31,7 +31,7 @@ export function ThemeToggle() {
         onClick={() => setTheme('light')}
         className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium focus-outline ${
           theme === 'light'
-            ? 'bg-background text-link shadow-xs'
+            ? 'bg-background text-link'
             : 'text-muted-foreground hover:text-foreground'
         }`}
         title="Light Mode"
@@ -43,7 +43,7 @@ export function ThemeToggle() {
         onClick={() => setTheme('dark')}
         className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium focus-outline ${
           theme === 'dark'
-            ? 'bg-background text-link shadow-xs'
+            ? 'bg-background text-link'
             : 'text-muted-foreground hover:text-foreground'
         }`}
         title="Dark Mode"

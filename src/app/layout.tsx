@@ -48,7 +48,12 @@ export default async function RootLayout({
   return (
     <html lang={DEFAULT_LOCALE} dir={direction(DEFAULT_LOCALE)} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider defaultTheme="light" storageKey="oxshare-admin-theme" nonce={nonce}>
+        {/* `defaultTheme` is NOT passed. It used to be `"light"` here, which
+            overrode the provider's own default via the `{...props}` spread — so
+            changing the default in theme-provider.tsx alone would have looked
+            like it worked and changed nothing. The default is `"system"` and it
+            lives in one place. */}
+        <ThemeProvider storageKey="oxshare-admin-theme" nonce={nonce}>
           <LocaleDirection />
           <QueryProvider>
             <AdminAuthProvider>{children}</AdminAuthProvider>
