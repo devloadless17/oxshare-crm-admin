@@ -438,7 +438,8 @@ export default function KycDetailPage() {
         }
         .info-row strong {
           color: var(--foreground);
-          text-align: right;
+          /* Logical, so the value column stays on the reading edge in Arabic. */
+          text-align: end;
           max-width: 60%;
           text-transform: capitalize;
         }

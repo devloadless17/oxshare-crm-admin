@@ -249,7 +249,7 @@ export default function KycBuilderPage() {
         <div
           role="status"
           aria-live="polite"
-          className={`fixed top-20 right-8 z-50 flex items-center gap-3 rounded-xl border px-4 py-3 text-xs font-semibold shadow-2xl animate-in fade-in-0 slide-in-from-top-4 ${
+          className={`fixed top-20 end-8 z-50 flex items-center gap-3 rounded-xl border px-4 py-3 text-xs font-semibold shadow-2xl animate-in fade-in-0 slide-in-from-top-4 ${
             toast.type === 'success'
               ? 'border-success/30 bg-success/10 text-success'
               : 'border-destructive/30 bg-destructive/10 text-destructive'
@@ -412,7 +412,7 @@ export default function KycBuilderPage() {
                       type="button"
                       onClick={() => deleteStep(step.id)}
                       disabled={isMandatoryStep(step)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 ml-1 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent focus-outline"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 ms-1 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent focus-outline"
                       title={
                         isMandatoryStep(step) ? 'Required step — cannot be deleted' : 'Delete Step'
                       }
@@ -424,7 +424,7 @@ export default function KycBuilderPage() {
                     <button
                       type="button"
                       onClick={() => setExpandedStep(isExpanded ? null : step.id)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent ml-1 focus-outline"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent ms-1 focus-outline"
                     >
                       {isExpanded ? (
                         <ChevronUp className="h-4 w-4" />
@@ -451,7 +451,7 @@ export default function KycBuilderPage() {
                         <Label className="text-xs">
                           {t('builder.slugIdentifier')}
                           {isMandatoryStep(step) && (
-                            <span className="ml-2 font-normal text-muted-foreground">
+                            <span className="ms-2 font-normal text-muted-foreground">
                               {t('builder.slugLockedFull')}
                             </span>
                           )}

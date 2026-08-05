@@ -92,7 +92,7 @@ export function RejectDialog({
           </div>
         )}
 
-        <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1 mb-4">
+        <div className="space-y-4 max-h-[50vh] overflow-y-auto pe-1 mb-4">
           {fieldGroups.map((grp) => (
             <div key={grp.group} className="space-y-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-destructive block">

@@ -166,7 +166,7 @@ export function DocLightbox({
 
         <div className="relative flex flex-1 items-center justify-center overflow-hidden">
           {docs.length > 1 && (
-            <LightboxNav side="left" onClick={() => go(-1)} label={t('kycReview.previousDoc')} />
+            <LightboxNav side="start" onClick={() => go(-1)} label={t('kycReview.previousDoc')} />
           )}
 
           {isPdf ? (
@@ -207,7 +207,7 @@ export function DocLightbox({
           )}
 
           {docs.length > 1 && (
-            <LightboxNav side="right" onClick={() => go(1)} label={t('kycReview.nextDoc')} />
+            <LightboxNav side="end" onClick={() => go(1)} label={t('kycReview.nextDoc')} />
           )}
         </div>
 
@@ -258,12 +258,20 @@ function LightboxButton({
   );
 }
 
+/**
+ * `start`/`end` rather than `left`/`right`, and logical positioning to match.
+ *
+ * "Previous" belongs at the start of the reading direction, which under Arabic
+ * (FSD §10, D-16) is the right-hand side. Hard-coding left/right would put the
+ * back arrow where an RTL reader expects forward. `rtl:rotate-180` turns the
+ * chevrons with them — an arrow pointing the wrong way is worse than no arrow.
+ */
 function LightboxNav({
   side,
   onClick,
   label,
 }: {
-  side: 'left' | 'right';
+  side: 'start' | 'end';
   onClick: () => void;
   label: string;
 }) {
@@ -273,9 +281,13 @@ function LightboxNav({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`absolute ${side === 'left' ? 'left-2' : 'right-2'} z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 focus-outline`}
+      className={`absolute ${side === 'start' ? 'start-2' : 'end-2'} z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 focus-outline`}
     >
-      {side === 'left' ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+      {side === 'start' ? (
+        <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
+      ) : (
+        <ChevronRight className="h-5 w-5 rtl:rotate-180" />
+      )}
     </button>
   );
 }
