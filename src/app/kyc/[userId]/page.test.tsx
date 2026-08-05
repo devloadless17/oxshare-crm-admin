@@ -48,9 +48,36 @@ const REASONS = [
   { id: 'r-2', context: 'kyc', label: 'Image unreadable', createdAt: '2026-08-01T00:00:00.000Z' },
 ];
 
+/**
+ * The step configuration the reject dialog derives its flaggable fields from.
+ *
+ * Includes a field that is NOT in the hardcoded fallback, because that is the
+ * defect the derivation fixes: a field added through /kyc/builder used to be
+ * impossible to flag for correction.
+ */
+const STEP_CONFIG = [
+  {
+    id: 'step-1',
+    stepNumber: 1,
+    slug: 'personal',
+    title: 'Personal Information',
+    enabled: true,
+    fields: [
+      { id: 'f-1', name: 'firstName', label: 'First Name', type: 'text', required: true },
+      { id: 'f-2', name: 'taxId', label: 'Tax ID', type: 'text', required: true },
+    ],
+  },
+];
+
+/** Route by URL — this page issues two different GETs. */
+function getFor(url: string) {
+  if (url.includes('/admin/kyc-config')) return Promise.resolve({ data: STEP_CONFIG });
+  return Promise.resolve({ data: SUBMISSION });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  get.mockResolvedValue({ data: SUBMISSION });
+  get.mockImplementation(getFor);
   patch.mockResolvedValue({ data: {} });
   getRejectionReasons.mockResolvedValue(REASONS);
 });
@@ -105,6 +132,39 @@ describe('KYC review — rejection requires a reason', () => {
     await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
     const [, body] = patch.mock.calls[0] as [string, { rejectedFields?: string[] }];
     expect(body.rejectedFields?.length).toBe(1);
+  });
+
+  it('offers a field added through the KYC builder, not a hardcoded list', async () => {
+    /*
+     * The defect this closes. The flaggable fields were a fixed array, so a
+     * field configured through /kyc/builder appeared in the client's wizard and
+     * in the reviewer's Personal Information card — and could not be flagged for
+     * correction. A reviewer could see a bad value and had no way to ask for
+     * that specific thing to be fixed.
+     *
+     * `taxId` is in STEP_CONFIG and deliberately NOT in FALLBACK_FIELD_OPTIONS,
+     * so this fails if the list ever stops being derived.
+     */
+    await openRejectDialog();
+
+    expect(await screen.findByText('Tax ID')).toBeInTheDocument();
+  });
+
+  it('sends the CONFIGURED field id, which is the contract the portal reads back', async () => {
+    // The portal highlights what to fix by matching these ids, so a label-only
+    // match would leave the client with a rejection naming nothing.
+    const user = await openRejectDialog();
+
+    await user.type(
+      await screen.findByPlaceholderText(/passport image is blurry/i),
+      'Wrong tax id',
+    );
+    await user.click(screen.getByLabelText('Tax ID'));
+    await user.click(screen.getByRole('button', { name: /confirm rejection/i }));
+
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    const [, body] = patch.mock.calls[0] as [string, { rejectedFields?: string[] }];
+    expect(body.rejectedFields).toEqual(['taxId']);
   });
 
   it('surfaces the API message when the rejection fails', async () => {
@@ -194,7 +254,11 @@ describe('KYC review — load states', () => {
   });
 
   it('hides review actions for a submission that is already decided', async () => {
-    get.mockResolvedValue({ data: { ...SUBMISSION, status: 'approved' } });
+    get.mockImplementation((url: string) =>
+      url.includes('/admin/kyc-config')
+        ? Promise.resolve({ data: STEP_CONFIG })
+        : Promise.resolve({ data: { ...SUBMISSION, status: 'approved' } }),
+    );
     renderWithProviders(<KycDetailPage />);
 
     await screen.findByText(/client@oxshare\.com/i);

@@ -314,6 +314,9 @@ export const messages = {
   'kycReview.openDirectly': 'Open directly',
   'kycReview.notUploaded': 'Not uploaded',
   'kycReview.rotate': 'Rotate',
+  // Plural-naive on purpose: the catalogue has no plural machinery yet, and
+  // inventing one for a single string would be the wrong place to start.
+  'kycReview.waitingDays': 'waiting {days}d',
   'kycReview.openFullSize': 'Open full size in a new tab',
   'kycReview.docPassport': 'Passport (photo & signature page)',
   'kycReview.docIdFront': 'ID document (front)',

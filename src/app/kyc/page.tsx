@@ -55,6 +55,30 @@ const FILTERS: Array<{ value: string; label: string }> = [
 
 type KycListResponse = components['schemas']['KycListResponseDto'];
 
+/**
+ * When a waiting submission starts reading as a problem rather than a queue.
+ *
+ * An ASSUMPTION, not a specification — no document states an SLA for KYC
+ * review. The client portal already tells clients "this usually takes 1–2
+ * business days", so anything past that is already outside what they were
+ * promised, and 3 leaves a day of slack before it is called out.
+ */
+const STALE_AFTER_DAYS = 3;
+
+/**
+ * Whole days a submission has been waiting for a decision, or `null` if it is
+ * not waiting for one.
+ *
+ * Only `submitted` and `under_review` are waiting: a client still filling in
+ * their details is not queued, and a decided one is not waiting.
+ */
+function daysWaiting(row: KycRow): number | null {
+  if (row.status !== 'submitted' && row.status !== 'under_review') return null;
+  if (!row.submittedAt) return null;
+  const elapsed = Date.now() - new Date(row.submittedAt).getTime();
+  return Math.max(0, Math.floor(elapsed / 86_400_000));
+}
+
 export default function AdminKycPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -128,11 +152,30 @@ export default function AdminKycPage() {
       header: t('kycReview.colSubmitted'),
       sortable: true,
       sortKey: 'submittedAt',
-      cell: (row) => (
-        <span className="text-xs text-muted-foreground">
-          {row.submittedAt ? new Date(row.submittedAt).toLocaleDateString() : '—'}
-        </span>
-      ),
+      cell: (row) => {
+        const waiting = daysWaiting(row);
+        return (
+          <span className="flex flex-col">
+            <span className="text-xs text-muted-foreground">
+              {row.submittedAt ? new Date(row.submittedAt).toLocaleDateString() : '—'}
+            </span>
+            {/* How long this client has been waiting, and a warning once it is
+                long. The queue sorts newest-first, so without this the OLDEST
+                unreviewed submissions sink to the bottom and are the least
+                likely to be looked at — while their owners are waiting on
+                level 1 to withdraw their own money. */}
+            {waiting !== null && (
+              <span
+                className={`text-xs font-semibold ${
+                  waiting >= STALE_AFTER_DAYS ? 'text-destructive' : 'text-muted-foreground'
+                }`}
+              >
+                {t('kycReview.waitingDays', { days: waiting })}
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       header: t('kycReview.colReviewed'),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { components } from '@/lib/api/types.gen';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
@@ -8,13 +8,13 @@ import { ChevronLeft } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import Link from 'next/link';
 import api from '@/lib/api';
-import type { RejectionReason } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { DocViewer } from '@/components/kyc-review/doc-viewer';
 import { ApproveDialog } from '@/components/kyc-review/approve-dialog';
 import { RejectDialog } from '@/components/kyc-review/reject-dialog';
+import { useRejectOptions } from '@/components/kyc-review/use-reject-options';
 import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
 import { t } from '@/lib/i18n';
 
@@ -47,7 +47,6 @@ export default function KycDetailPage() {
   const userId = params.userId as string;
 
   const [rejectReason, setRejectReason] = useState('');
-  const [reasons, setReasons] = useState<RejectionReason[]>([]);
   const [selectedReasonId, setSelectedReasonId] = useState('');
   const [selectedRejectedFields, setSelectedRejectedFields] = useState<string[]>([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -83,15 +82,8 @@ export default function KycDetailPage() {
   );
   useFocusTrap(rejectPanelRef, showRejectModal, () => setShowRejectModal(false), !actionLoading);
 
-  // FR-ADM-03: reasons come from the configurable list; free text is the
-  // fallback and doubles as an optional note alongside a selected reason.
-  useEffect(() => {
-    if (!showRejectModal || reasons.length > 0) return;
-    api.admin
-      .getRejectionReasons('kyc')
-      .then(setReasons)
-      .catch(() => setReasons([]));
-  }, [showRejectModal, reasons.length]);
+  // Both configurable lists the reject dialog offers, loaded when it opens.
+  const { reasons, fieldGroups } = useRejectOptions(showRejectModal);
 
   const approve = async () => {
     setActionLoading(true);
@@ -320,6 +312,7 @@ export default function KycDetailPage() {
           selectedReasonId={selectedReasonId}
           note={rejectReason}
           selectedFields={selectedRejectedFields}
+          fieldGroups={fieldGroups}
           canConfirm={canConfirmReject}
           loading={actionLoading}
           error={actionError}

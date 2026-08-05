@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { RejectionReason } from '@/lib/api/admin';
-import { FIELD_OPTIONS } from './field-options';
+import type { FieldGroup } from './field-options';
 import { t } from '@/lib/i18n';
 
 /**
@@ -26,6 +26,7 @@ export function RejectDialog({
   selectedReasonId,
   note,
   selectedFields,
+  fieldGroups,
   canConfirm,
   loading,
   error,
@@ -40,6 +41,8 @@ export function RejectDialog({
   selectedReasonId: string;
   note: string;
   selectedFields: string[];
+  /** Derived from the live KYC step config — see field-options.ts. */
+  fieldGroups: FieldGroup[];
   canConfirm: boolean;
   loading: boolean;
   error: string;
@@ -90,7 +93,7 @@ export function RejectDialog({
         )}
 
         <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1 mb-4">
-          {FIELD_OPTIONS.map((grp) => (
+          {fieldGroups.map((grp) => (
             <div key={grp.group} className="space-y-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-destructive block">
                 {grp.group}
