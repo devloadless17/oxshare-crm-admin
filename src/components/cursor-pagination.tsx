@@ -83,6 +83,11 @@ export function CursorPagination({
           </span>
           <Select
             value={String(pageSize)}
+            // Not money: a page size, from a fixed list this component renders
+            // (10/25/50/100). The money-path rule is right to be broad — every
+            // other Number() on these screens is a balance — so the exception is
+            // disabled narrowly and stated rather than the rule being widened.
+            // eslint-disable-next-line no-restricted-syntax
             onValueChange={(value) => onPageSizeChange?.(Number(value))}
           >
             <SelectTrigger className="h-8 w-20 px-2.5 text-xs font-semibold">

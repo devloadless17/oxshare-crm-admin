@@ -90,6 +90,9 @@ export function Pagination({
               <Select
                 value={String(pageSize)}
                 onValueChange={(val) => {
+                  // Not money: a page size from this component's own fixed list.
+                  // See the note in cursor-pagination.tsx.
+                  // eslint-disable-next-line no-restricted-syntax
                   const newSize = Number(val);
                   onPageSizeChange?.(newSize);
                   onPageChange(1); // Reset to first page when size changes

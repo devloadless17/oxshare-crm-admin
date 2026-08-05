@@ -331,8 +331,17 @@ export default defineConfig([
       // did not: the two are mutually exclusive in that rule. So the props that
       // genuinely carry user-visible copy get their own check, which is narrow
       // enough to stay believable.
+      // ESLint flat config REPLACES a rule rather than merging it, so this block
+      // silently dropped the money-path Number() ban on every file it covers —
+      // which is most of the screens that display a balance. The money selector
+      // is repeated here so both rules apply. Change one, change the other.
       'no-restricted-syntax': [
         'error',
+        {
+          selector: "CallExpression[callee.name='Number']",
+          message:
+            'ARCHITECTURE §6.1: Number() on a monetary string silently truncates past 2^53. Use decimal.js via lib/money.ts (formatMoney, isZeroMoney).',
+        },
         {
           selector:
             'JSXAttribute[name.name=/^(placeholder|title|aria-label|alt)$/] > Literal[value=/[A-Za-z]{2}/]',
