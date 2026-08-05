@@ -16,6 +16,7 @@ import {
   LineChart,
   ShieldCheck,
   Settings,
+  Lock,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -76,9 +77,14 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'nav.kyc', href: '/kyc', icon: FileCheck },
       { label: 'nav.kycBuilder', href: '/kyc/builder', icon: Settings },
-      { label: 'nav.adminUsers', href: '/admin-users', icon: Users, comingSoon: true },
+      // No longer comingSoon: the directory was built the whole time, hidden as
+      // a tab inside /settings, while this entry told operators it was unbuilt.
+      { label: 'nav.adminUsers', href: '/admin-users', icon: Users },
+      { label: 'nav.roles', href: '/roles', icon: ShieldCheck },
       { label: 'nav.auditLog', href: '/audit-log', icon: Activity },
-      { label: 'nav.settings', href: '/settings', icon: ShieldCheck },
+      // Lock, not Settings: that icon is the KYC Builder's, and this page is
+      // now network access and security controls rather than general config.
+      { label: 'nav.settings', href: '/settings', icon: Lock },
     ],
   },
 ];

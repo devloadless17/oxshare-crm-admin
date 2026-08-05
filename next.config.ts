@@ -69,12 +69,14 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Three sibling repos each have a lockfile; pin the root so Next doesn't guess.
   turbopack: { root: __dirname },
-  // /roles was a strict subset of the /settings Roles tab — six byte-identical
-  // blocks, two sidebar entries, one feature, and already drifting (only
-  // /settings gained delete and reassignment). One page owns roles now.
-  async redirects() {
-    return [{ source: '/roles', destination: '/settings', permanent: false }];
-  },
+  // NOTE: /roles used to redirect to /settings, because it was then a strict
+  // subset of the /settings Roles tab — a duplicate that had already drifted.
+  // That redirect is gone: /roles is now the canonical roles page and /settings
+  // holds only network access and security controls. Deduplicating was right;
+  // the fix was to delete the copy, not to make one page own three concerns.
+  // `permanent: false` at the time is why no browser cached it.
+  // (There is deliberately no `redirects()` key below.)
+
   /**
    * The same-origin proxy to the API.
    *

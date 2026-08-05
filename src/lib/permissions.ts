@@ -31,8 +31,12 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/payouts', requirement: { permission: 'payouts.review' } },
   { prefix: '/ledger', requirement: { permission: 'ledger.view' } },
   { prefix: '/commission-plans', requirement: { permission: 'commissions.view' } },
-  // /roles redirects here (next.config.ts); this page owns both tabs.
-  { prefix: '/settings', requirement: { permission: 'roles.view' } },
+  { prefix: '/roles', requirement: { permission: 'roles.view' } },
+  // roles.MANAGE, not roles.view. /settings is now the RBAC-08 network allowlist
+  // and the security controls; when both were the "Network" tab they were shown
+  // only to an admin holding roles.manage, so requiring roles.view here would
+  // newly expose which networks are trusted to every read-only admin.
+  { prefix: '/settings', requirement: { permission: 'roles.manage' } },
   { prefix: '/admin-users', requirement: { permission: 'users.view' } },
   { prefix: '/audit-log', requirement: { masterOnly: true } },
   { prefix: '/invite', requirement: { permission: 'users.create' } },

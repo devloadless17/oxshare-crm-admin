@@ -101,10 +101,24 @@ describe('canAccess', () => {
   });
 
   it('management sections follow their catalog permissions', () => {
-    expect(canAccess(subAdmin, '/settings')).toBe(false);
-    expect(canAccess({ ...subAdmin, permissions: ['roles.view'] }, '/settings')).toBe(true);
+    expect(canAccess(subAdmin, '/roles')).toBe(false);
+    expect(canAccess({ ...subAdmin, permissions: ['roles.view'] }, '/roles')).toBe(true);
+    // subAdmin already holds users.view, so the directory IS open to them.
+    expect(canAccess(subAdmin, '/admin-users')).toBe(true);
+    expect(canAccess({ ...subAdmin, permissions: ['kyc.review'] }, '/admin-users')).toBe(false);
     expect(canAccess(subAdmin, '/invite')).toBe(false); // needs users.create
     expect(canAccess({ ...subAdmin, permissions: ['users.create'] }, '/invite')).toBe(true);
+  });
+
+  it('/settings needs roles.MANAGE, not roles.view', () => {
+    // Reading roles and deciding which networks may reach the admin API are
+    // different powers. Before the three-way split, /settings held roles behind
+    // roles.view AND the RBAC-08 allowlist behind a tab rendered only for
+    // roles.manage. Roles moved to /roles, so if /settings had kept roles.view
+    // it would newly expose the trusted-network list to every read-only admin.
+    expect(canAccess({ ...subAdmin, permissions: ['roles.view'] }, '/settings')).toBe(false);
+    expect(canAccess({ ...subAdmin, permissions: ['roles.manage'] }, '/settings')).toBe(true);
+    expect(canAccess(master, '/settings')).toBe(true);
   });
 
   it('audit log stays master-only (no catalog key advertises it)', () => {

@@ -52,8 +52,9 @@ export const messages = {
   'nav.kyc': 'KYC Review',
   'nav.kycBuilder': 'KYC Workflow Builder',
   'nav.adminUsers': 'Admin Users',
+  'nav.roles': 'Roles & Permissions',
   'nav.auditLog': 'Audit Log',
-  'nav.settings': 'Roles & Settings',
+  'nav.settings': 'Settings',
   'nav.comingSoon': 'Soon',
   'nav.comingSoonTitle': '{label} — coming soon',
   'nav.logout': 'Logout',
@@ -147,6 +148,11 @@ export const messages = {
   'withdrawals.required': '*',
   'withdrawals.colActions': 'Actions',
   'withdrawals.viewOnly': 'View only',
+  // R-5.4: the two steps are separate permissions, so an admin may legitimately
+  // hold one and not the other. Saying WHO it is waiting for beats a disabled
+  // button with no explanation.
+  'withdrawals.awaitingApprover': 'Awaiting an approver',
+  'withdrawals.awaitingSettler': 'Awaiting a payer',
   'withdrawals.markPaid': 'Mark Paid',
   'withdrawals.rejectionReason': 'Rejection Reason',
   'withdrawals.selectReason': 'Select a reason…',
@@ -352,10 +358,26 @@ export const messages = {
   'partners.colApplied': 'Applied',
   'partners.colActions': 'Actions',
 
+  // ── Roles (/roles) ────────────────────────────────────────────────────────
+  // RBAC-01/02. Was the "Roles" tab of /settings until the three concerns were
+  // split into their own routes: defining roles, holding them, and network
+  // access are separate jobs and were only ever one page by accident.
+  'roles.title': 'Roles & Permissions',
+  'roles.subtitle':
+    'Define what a role may do. Permissions come from the API catalog, so a role can never grant something the backend does not enforce.',
+
+  // ── Admin users (/admin-users) ────────────────────────────────────────────
+  'adminUsers.title': 'Admin Users',
+  'adminUsers.subtitle':
+    'Back-office accounts and the role each one holds. Roles themselves are defined under Roles & Permissions.',
+  'adminUsers.rolesLink': 'Manage roles',
+
   // ── Settings / RBAC ───────────────────────────────────────────────────────
-  'settings.title': 'System Settings & RBAC',
-  'settings.subtitle':
-    'Dynamic Role-Based Access Control, Permission Matrix & Admin User Management',
+  // /settings is now network and security only — see roles.* and adminUsers.*
+  // above. The settings.* keys below are still shared by the RBAC components
+  // (role-card, role-form-modal), which both pages render.
+  'settings.title': 'Settings',
+  'settings.subtitle': 'Network access and the security controls protecting this admin API.',
   'settings.rolesTitle': 'Configured System & Custom Roles',
   'settings.rolesHint':
     'Permissions defined in permissions.json are mapped dynamically to custom roles.',
