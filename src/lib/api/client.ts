@@ -152,23 +152,49 @@ export function clearAdminSession(): void {
  * failed, and logged the admin out mid-session. Every caller now awaits the one
  * in-flight promise instead.
  */
-let inFlight: Promise<string | null> | null = null;
+let inFlight: Promise<boolean> | null = null;
 
-export function refreshAdminToken(): Promise<string | null> {
+export function refreshAdminToken(): Promise<boolean> {
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      // No body: the refresh token is an httpOnly cookie the browser attaches,
-      // and the API accepts it from nowhere else (R-3.1 — two credential
-      // channels for one session means two threat models). Nothing to read,
-      // nothing to send, nothing to leak.
-      await axios.post(`${API_BASE_URL}${REFRESH_PATH}`, {}, { withCredentials: true });
-      // The rotated cookies — session and CSRF — arrive on the response and the
-      // browser installs them. The body carries no tokens, so there is nothing to
-      // read: reaching 200 IS the result. Callers only need "did it survive".
-      return 'refreshed';
+      /*
+       * No body: the refresh token is an httpOnly cookie the browser attaches,
+       * and the API accepts it from nowhere else (R-3.1 — two credential
+       * channels for one session means two threat models). Nothing to read,
+       * nothing to send, nothing to leak.
+       *
+       * Deliberately NOT through `apiClient`, so a 401 here cannot recurse into
+       * the response interceptor that called it. The cost of stepping outside is
+       * that the request interceptor does not run, so the correlation id has to
+       * be attached by hand — R-6.1. It was not, and this is the single request
+       * you most want to trace when a session dies for no visible reason: the
+       * one call in the app that decides whether the user stays signed in had
+       * nothing tying it to a server log line.
+       *
+       * No CSRF header, and that is correct rather than an oversight: the API
+       * marks this route `@NoCsrf` precisely because the anti-forgery token
+       * expires alongside the access token, and demanding one here would lock
+       * out the returning user this call exists to renew.
+       */
+      await axios.post(
+        `${API_BASE_URL}${REFRESH_PATH}`,
+        {},
+        { withCredentials: true, headers: { 'X-Request-Id': newCorrelationId() } },
+      );
+      /*
+       * A boolean, because there is nothing else to return.
+       *
+       * This used to resolve the literal string `'refreshed'` — a placeholder
+       * shaped like the access token that used to come back in the body. The
+       * token is gone (R-3.2): the rotated cookies arrive on the response and
+       * the browser installs them, so reaching 200 IS the result. A `string |
+       * null` signature invites the next reader to put a credential back into
+       * JavaScript, which is the exact thing this migration removed.
+       */
+      return true;
     } catch {
-      return null;
+      return false;
     } finally {
       inFlight = null;
     }

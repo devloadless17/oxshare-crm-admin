@@ -55,6 +55,27 @@ export function AsyncBoundary({
 
   if (status === 'unavailable') return <BackendPending endpoints={endpoints} />;
 
+  /*
+   * A 403 is a closed door, not a broken page — R-2.3.
+   *
+   * It used to fall into the branch below, which offers "something went wrong"
+   * and a Retry button. Retrying a permission failure cannot succeed, so the
+   * admin clicks it, watches it fail again, and reports a bug against a system
+   * that is working exactly as configured. No retry here, and no request id:
+   * there is nothing for support to look up, only a role to change.
+   */
+  if (status === 'forbidden') {
+    return (
+      <div
+        className="rounded-xl border border-border bg-card p-8 text-center space-y-2"
+        role="alert"
+      >
+        <p className="text-sm font-semibold text-foreground">{t('session.deniedTitle')}</p>
+        <p className="text-sm text-muted-foreground">{t('session.deniedBody')}</p>
+      </div>
+    );
+  }
+
   if (status === 'error') {
     const requestId = apiErrorRequestId(error);
     return (

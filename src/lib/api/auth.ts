@@ -44,11 +44,33 @@ export const authApi = {
    * clearing cookies (so proxy.ts still saw a session and bounced the admin
    * straight back in).
    */
-  async logout() {
+  /**
+   * Ends the session, and REPORTS whether it actually ended.
+   *
+   * The failure this closes is quiet and specific to how logout works now. Since
+   * R-3.2 this app cannot delete a session cookie — they are httpOnly — and
+   * `clearAdminSession()` deliberately clears nothing but a timer. So the server
+   * call is the *only* thing that ends a session: it revokes every refresh-token
+   * family and sends the Set-Cookie headers that remove the cookies.
+   *
+   * Swallowing its failure in `finally` therefore did not mean "logged out
+   * locally, not remotely" — it meant NOT LOGGED OUT AT ALL, while the admin was
+   * shown a clean login screen and walked away from a shared back-office machine
+   * whose browser still held a live 30-day session. The next person to open the
+   * app would have been signed in as them, with whatever permissions they hold.
+   *
+   * One retry first, because the common cause is a transient blip and asking
+   * somebody to click logout again is a poor answer to a network hiccup.
+   */
+  async logout(): Promise<void> {
     try {
       await apiClient.post('/admin/auth/logout');
-    } finally {
-      clearAdminSession();
+    } catch {
+      // Second attempt, then give up and tell the caller. `clearAdminSession()`
+      // is NOT called on the failure path: stopping the proactive refresh while
+      // the server session is still alive would only hide the problem further.
+      await apiClient.post('/admin/auth/logout');
     }
+    clearAdminSession();
   },
 };

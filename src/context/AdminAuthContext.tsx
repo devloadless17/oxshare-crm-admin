@@ -66,6 +66,19 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       .catch(() => undefined);
   }, [admin]);
 
+  /**
+   * Ends the session, and does NOT pretend to when it could not.
+   *
+   * `authApi.logout` now retries once and then throws. Navigating anyway would
+   * show a clean login screen over a session that is still live server-side —
+   * and since R-3.2 this app cannot clear an httpOnly cookie itself, "still live
+   * server-side" also means "still live in this browser". On a shared machine
+   * that is the whole risk: the admin believes they signed out and the next
+   * person is signed in as them.
+   *
+   * So a failure propagates to the caller, which surfaces it. The button stays,
+   * and the session is still there to try again.
+   */
   const logout = useCallback(async () => {
     await authApi.logout();
     queryClient.clear();

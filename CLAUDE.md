@@ -144,8 +144,16 @@ portal's. Diff it by hand.
 
 ## Tests
 
-`npm test` → Vitest, 38 tests. `*.test.ts` / `*.test.tsx` colocated beside the code.
-There is no jsdom or testing-library yet, so component tests need those added first.
+`npm test` → Vitest, 238 tests. `*.test.ts` / `*.test.tsx` colocated beside the code.
+jsdom and testing-library **are** configured (`vitest.config.mts`, `vitest.setup.ts`), so a screen
+can be rendered and asserted on — `admin-layout.test.tsx`, `login/page.test.tsx` and
+`settings/page.test.tsx` are the patterns to copy. Render through `src/test/render.tsx`, which
+supplies `QueryClientProvider` but deliberately **not** `AdminAuthProvider`: mock `useAdmin`
+instead, so a test states the identity it is asserting about rather than inheriting one.
+
+`src/proxy.test.ts` covers the route gate. Note it anchors the matcher (`^…$`) before testing
+it — Next matches the whole pathname, and an unanchored check reports `/api/...` as gated when
+the runtime excludes it.
 
 Unbuilt sidebar entries (`/trading-accounts`, `/payouts`, `/commission-plans`, `/admin-users`)
 render as disabled "Soon" items. They are committed scope — **don't delete the links**.

@@ -220,7 +220,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login — also sets the JWT cookies (deliberately readable by JS, not httpOnly) */
+        /** Login — sets the session as httpOnly cookies. No tokens in the response body. */
         post: operations["AuthController_login[0]"];
         delete?: never;
         options?: never;
@@ -237,7 +237,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login — also sets the JWT cookies (deliberately readable by JS, not httpOnly) */
+        /** Login — sets the session as httpOnly cookies. No tokens in the response body. */
         post: operations["AuthController_login[1]"];
         delete?: never;
         options?: never;
@@ -426,6 +426,26 @@ export interface paths {
         put?: never;
         /** Request a withdrawal — requires KYC level 1; reserves the amount on hold */
         post: operations["PaymentsController_requestWithdrawal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/withdrawals/otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a confirmation code for one specific withdrawal (FR-CORE-08)
+         * @description The code is bound to the exact amount, currency, destination and provider supplied here. Changing any of them before submitting makes the code invalid, which is what stops a code obtained for a small withdrawal from authorising a large one.
+         */
+        post: operations["PaymentsController_sendWithdrawalOtp"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1173,6 +1193,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/security-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Security controls and whether each is currently on (master admin only) */
+        get: operations["AdminSecuritySettingsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/security-settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Turn a security control on or off (master admin only)
+         * @description Every change is written to the admin action log with its before and after value, and turning a control OFF raises an alert — once at the moment of the change, and again on every request made while it stays off.
+         */
+        put: operations["AdminSecuritySettingsController_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ip-allowlist": {
         parameters: {
             query?: never;
@@ -1394,6 +1451,11 @@ export interface components {
             destination: string;
             /** @enum {string} */
             provider: "whish" | "usdt";
+            /**
+             * @description Six-digit confirmation code. Required while the withdrawal OTP control is on.
+             * @example 482913
+             */
+            otp?: string;
         };
         TransactionDto: {
             id: string;
@@ -1423,6 +1485,16 @@ export interface components {
             settledAt?: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        RequestWithdrawalOtpDto: {
+            /** @example 300.00000000 */
+            amount: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** @description Payout target, e.g. an IBAN or a USDT address. */
+            destination: string;
+            /** @enum {string} */
+            provider: "whish" | "usdt";
         };
         KycFieldConfigDto: {
             /** @example f-1 */
@@ -1871,6 +1943,24 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+        };
+        SecuritySwitchDto: {
+            /**
+             * @description Stable machine key. Never renamed.
+             * @example withdrawal_otp
+             */
+            key: string;
+            enabled: boolean;
+            /** @example Email confirmation code on every client withdrawal */
+            label: string;
+            /** @description The admin who last changed it. Null while it has never been changed. */
+            updatedBy: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SetSecuritySwitchDto: {
+            /** @description Whether the control is in force. Turning one OFF is audited and alerted — see AdminSecuritySettingsController. */
+            enabled: boolean;
         };
         IpAllowlistRuleDto: {
             id: string;
@@ -2486,6 +2576,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_sendWithdrawalOtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestWithdrawalOtpDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
                 };
             };
         };
@@ -3570,6 +3683,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminSecuritySettingsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecuritySwitchDto"][];
+                };
+            };
+        };
+    };
+    AdminSecuritySettingsController_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSecuritySwitchDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecuritySwitchDto"];
                 };
             };
         };

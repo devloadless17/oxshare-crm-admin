@@ -9,6 +9,7 @@ import { Role, AdminUser } from '@/lib/api/admin';
 import { RoleCard } from '@/components/rbac/role-card';
 import { RoleFormModal, RoleFormValues } from '@/components/rbac/role-form-modal';
 import { IpAllowlistPanel } from '@/components/rbac/ip-allowlist-panel';
+import { SecurityControlsPanel } from '@/components/rbac/security-controls-panel';
 import { AsyncBoundary } from '@/components/async-boundary';
 import {
   Select,
@@ -18,7 +19,7 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { useAdmin } from '@/context/AdminAuthContext';
-import { hasPermission } from '@/lib/permissions';
+import { hasPermission, isMasterAdmin } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
@@ -172,7 +173,13 @@ export default function AdminSettingsPage() {
           /* RBAC-08 — which networks may reach the admin API. The panel owns its
              own query: the list is unrelated to roles and admin users, and
              folding it into the shared one would make every tab wait for it. */
-          <IpAllowlistPanel canManage={canManageRoles} />
+          <div className="space-y-6">
+            <IpAllowlistPanel canManage={canManageRoles} />
+            {/* Master admin only, and the API refuses anyone else regardless
+                (R-4.1). Rendered under Network because both answer the same
+                operator question — what is currently protecting this system. */}
+            {isMasterAdmin(admin) && <SecurityControlsPanel canManage />}
+          </div>
         ) : activeTab === 'roles' ? (
           /* Roles Tab */
           <div className="space-y-6">

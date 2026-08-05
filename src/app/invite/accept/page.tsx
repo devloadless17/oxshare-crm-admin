@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
@@ -38,6 +38,26 @@ function AcceptInviteContent() {
 
   const invite = validation.data ?? null;
   const validating = token !== '' && validation.isPending;
+
+  /*
+   * Take the token out of the address bar once it has been read.
+   *
+   * It is a bearer credential that CREATES AN ADMIN ACCOUNT, and it arrives in a
+   * query string because it came from an emailed link — that part is unavoidable.
+   * What is avoidable is leaving it there: the URL goes into browser history, is
+   * offered by autocomplete afterwards, and is the first thing shown if this
+   * screen is ever demonstrated or screen-shared.
+   *
+   * `replaceState` rather than a router navigation: the component keeps the
+   * token it already read in `token`, so nothing re-renders and the flow is
+   * untouched — only the visible URL changes. Referrer-Policy in next.config.ts
+   * already stops it leaking cross-origin; this is the same token's other route
+   * out.
+   */
+  useEffect(() => {
+    if (token === '') return;
+    window.history.replaceState(null, '', window.location.pathname);
+  }, [token]);
   const inviteError =
     token === ''
       ? 'Invalid invite link.'

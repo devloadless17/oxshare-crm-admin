@@ -78,7 +78,7 @@ describe('refreshAdminToken', () => {
     // second and third present an already-rotated one and fail — which is a
     // logout in the middle of a working session.
     expect(mockedPost).toHaveBeenCalledTimes(1);
-    expect(results).toEqual(['refreshed', 'refreshed', 'refreshed']);
+    expect(results).toEqual([true, true, true]);
   });
 
   it('allows a new refresh after the previous one settles', async () => {
@@ -115,17 +115,19 @@ describe('refreshAdminToken', () => {
 
     // Callers branch on the value. A throw here would propagate out of the
     // response interceptor as an unhandled rejection instead of a clean logout.
-    await expect(refreshAdminToken()).resolves.toBeNull();
+    // `false`, not null: the call reports whether the session survived, and there
+    // is no token to hand back — the rotated cookies are httpOnly (R-3.2).
+    await expect(refreshAdminToken()).resolves.toBe(false);
   });
 
   it('does not wedge after a failure', async () => {
     const { refreshAdminToken } = await loadClient();
     mockedPost.mockRejectedValueOnce(new Error('401')).mockResolvedValueOnce({ status: 200 });
 
-    expect(await refreshAdminToken()).toBeNull();
+    expect(await refreshAdminToken()).toBe(false);
     // The `finally` that clears `inFlight` is what makes this pass. Without it a
     // single failed refresh would poison every later one for the tab's lifetime.
-    expect(await refreshAdminToken()).toBe('refreshed');
+    expect(await refreshAdminToken()).toBe(true);
   });
 });
 

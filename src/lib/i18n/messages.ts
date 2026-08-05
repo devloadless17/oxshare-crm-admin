@@ -68,6 +68,28 @@ export const messages = {
     'Your role does not include access to this section. Ask a master admin if you need it.',
   'session.backToDashboard': 'Back to dashboard',
 
+  // ── Security controls (master admin) ──────────────────────────────────────
+  'security.title': 'Security controls',
+  'security.subtitle':
+    'Controls that can be switched off for testing. Leave them on unless you have a reason not to.',
+  'security.loading': 'Loading security controls',
+  'security.enforced': 'On — enforced on every request.',
+  'security.notEnforced': 'OFF — this protection is NOT being enforced.',
+  'security.turnOff': 'Turn off',
+  'security.turnOn': 'Turn on',
+  'security.lastChanged': 'Last changed {when}',
+  'security.updateFailed': 'Could not change that control. Please try again.',
+  'security.auditNote':
+    'Every change is recorded in the admin action log with who made it, and turning a control off raises an alert for as long as it stays off.',
+  // Names what stops being enforced, rather than asking a generic "are you
+  // sure?" — the question people learn to click through.
+  'security.confirmDisable':
+    'Turn OFF “{label}”?\n\nThis protection will stop being enforced immediately, for every client. The change is recorded against your account and will keep raising an alert until it is turned back on.',
+  // Deliberately says the session is STILL OPEN. Only the server can end it —
+  // the cookies are httpOnly — so a failed logout leaves the admin signed in,
+  // and on a shared machine that is the thing they need to know.
+  'session.logoutFailed': 'Sign-out failed — you are still signed in. Please try again.',
+
   // ── Login ─────────────────────────────────────────────────────────────────
   'login.title': 'OXShare',
   'login.subtitle': 'Authorized back-office management login',

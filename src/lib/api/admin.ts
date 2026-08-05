@@ -32,7 +32,29 @@ export type CreateRoleRequest = components['schemas']['RoleDto'];
 export type UpdateRoleRequest = components['schemas']['UpdateRoleDto'];
 export type UpdateAdminRequest = components['schemas']['UpdateAdminDto'];
 
+/**
+ * One operator-controlled security control — FR-CORE-08's OTP is the first.
+ *
+ * Aliased from the generated schema, never hand-written (R-1.1): if the backend
+ * renames `enabled`, this becomes a compile error rather than a toggle that
+ * silently always reads false.
+ */
+export type SecuritySwitch = components['schemas']['SecuritySwitchDto'];
+
 export const adminApi = {
+  /** Master admin only — the API answers 403 for anyone else. */
+  async getSecuritySettings(): Promise<SecuritySwitch[]> {
+    const { data } = await apiClient.get<SecuritySwitch[]>('/admin/security-settings');
+    return data;
+  },
+
+  async setSecuritySwitch(key: string, enabled: boolean): Promise<SecuritySwitch> {
+    const { data } = await apiClient.put<SecuritySwitch>(`/admin/security-settings/${key}`, {
+      enabled,
+    });
+    return data;
+  },
+
   async getPermissions(): Promise<Record<string, PermissionModule>> {
     const { data } = await apiClient.get<Record<string, PermissionModule>>('/admin/permissions');
     return data;

@@ -13,7 +13,19 @@ import { useQuery, type QueryKey } from '@tanstack/react-query';
  * built yet (a to-do for the API owner) while an error means something broke.
  * Nine pages each declared this union locally, in two incompatible variants.
  */
-export type ResourceStatus = 'loading' | 'ready' | 'unavailable' | 'error';
+/**
+ * `forbidden` is a 403 and is NOT an error in the sense the retry card means.
+ *
+ * R-2.3: 401 means "no valid session", 403 means "session valid, not
+ * permitted". Both used to land in `error`, which rendered "something went
+ * wrong — try again" over a page the caller will never be allowed to see. On a
+ * permission-gated back office that reads as a broken screen rather than a
+ * closed door, and it invites an admin to retry forever and then raise a bug.
+ *
+ * Kept distinct from `unavailable` (404 = the endpoint is not built yet), which
+ * is a to-do for the API owner rather than a statement about this caller.
+ */
+export type ResourceStatus = 'loading' | 'ready' | 'unavailable' | 'forbidden' | 'error';
 
 export function httpStatusOf(error: unknown): number | undefined {
   return (error as { response?: { status?: number } })?.response?.status;
@@ -53,7 +65,9 @@ export function useResource<T>(
     : query.isError
       ? httpStatusOf(query.error) === 404
         ? 'unavailable'
-        : 'error'
+        : httpStatusOf(query.error) === 403
+          ? 'forbidden'
+          : 'error'
       : 'ready';
 
   return {
