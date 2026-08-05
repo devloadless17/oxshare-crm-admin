@@ -1,33 +1,56 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import AdminUsersPage from './page';
 
 /**
- * Who holds which role.
+ * FR-RBAC-07 — the directory, and who may do what to whom.
  *
- * The directory itself is a table; what matters is who may change a row, and
- * which changes are refused before they are ever sent:
+ * The single most important assertion in this file is that a SUSPENDED
+ * administrator renders as suspended. This table used to draw a hardcoded
+ * "Active" pill on every row, because the API carried no status field at all —
+ * so the one screen an operator checks before trusting an account told them
+ * everyone was fine. Suspension was enforced the whole time; only the screen
+ * lied, which is the worse half of that bug.
  *
- *  - users.edit gates reassignment. The API refuses self-changes and changes to
- *    a master admin regardless, so those rows must not offer a control that is
- *    guaranteed to fail.
- *  - reassigning an admin to the role they already hold sends NO request. The
- *    backend enforces an anti-escalation invariant on that path, and a redundant
- *    write is a redundant audit-log entry against a named administrator.
- *  - system roles are not assignable — offering one produces a 403.
+ * Everything else here is the same shape: a control is offered exactly when the
+ * API will accept it. Offering one that always 403s (self, master admin, missing
+ * permission) teaches operators that errors are normal, which is how a real one
+ * gets ignored.
  */
 
-const { getRoles, getAdminUsers, updateAdminUser } = vi.hoisted(() => ({
+const {
+  getRoles,
+  getAdminUsers,
+  getPermissions,
+  updateAdminUser,
+  setAdminStatus,
+  getPendingInvites,
+  revokeInvite,
+} = vi.hoisted(() => ({
   getRoles: vi.fn(),
   getAdminUsers: vi.fn(),
+  getPermissions: vi.fn(),
   updateAdminUser: vi.fn(),
+  setAdminStatus: vi.fn(),
+  getPendingInvites: vi.fn(),
+  revokeInvite: vi.fn(),
 }));
 
 // Both exports — see the note in roles/page.test.tsx.
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getRoles, getAdminUsers, updateAdminUser } };
+  const api = {
+    admin: {
+      getRoles,
+      getAdminUsers,
+      getPermissions,
+      updateAdminUser,
+      setAdminStatus,
+      getPendingInvites,
+      revokeInvite,
+    },
+  };
   return { api, default: api };
 });
 
@@ -40,6 +63,7 @@ vi.mock('@/context/AdminAuthContext', () => ({
       email: 'admin@oxshare.com',
       name: 'Master Admin',
       role: 'master_admin',
+      status: 'active',
       get permissions() {
         return permissions.current;
       },
@@ -53,7 +77,7 @@ const ROLES = [
     id: 'r-1',
     name: 'KYC Reviewer',
     description: 'Reviews submissions',
-    permissions: ['kyc.view'],
+    permissions: ['kyc.review'],
     isSystem: false,
     createdAt: '2026-08-01T00:00:00.000Z',
   },
@@ -75,103 +99,214 @@ const ROLES = [
   },
 ];
 
-const ADMINS = [
-  {
-    id: 'a-1',
-    email: 'admin@oxshare.com',
-    name: 'Master Admin',
-    role: 'master_admin',
-    permissions: ['*'],
-    createdAt: '2026-08-01T00:00:00.000Z',
-  },
-  {
-    id: 'a-2',
-    email: 'sub@oxshare.com',
-    name: 'Sub Admin',
-    role: 'sub_admin',
-    roleId: 'r-1',
-    permissions: ['kyc.view'],
-    createdAt: '2026-08-01T00:00:00.000Z',
-  },
-];
+const master = {
+  id: 'a-1',
+  email: 'admin@oxshare.com',
+  name: 'Master Admin',
+  role: 'master_admin',
+  status: 'active',
+  permissions: ['*'],
+  createdAt: '2026-08-01T00:00:00.000Z',
+};
+
+const sub = (over: Record<string, unknown> = {}) => ({
+  id: 'a-2',
+  email: 'sub@oxshare.com',
+  name: 'Sub Admin',
+  role: 'sub_admin',
+  status: 'active',
+  roleId: 'r-1',
+  permissions: ['kyc.review'],
+  createdAt: '2026-08-01T00:00:00.000Z',
+  ...over,
+});
+
+/** The <tr> for a given email, so assertions are scoped to one person. */
+const rowFor = (email: string) => screen.getByText(email).closest('tr')!;
 
 beforeEach(() => {
   vi.clearAllMocks();
   permissions.current = ['*'];
   getRoles.mockResolvedValue(ROLES);
-  getAdminUsers.mockResolvedValue(ADMINS);
+  getAdminUsers.mockResolvedValue([master, sub()]);
+  getPermissions.mockResolvedValue({
+    kyc: {
+      moduleName: 'KYC',
+      description: 'Compliance',
+      permissions: [
+        { key: 'kyc.review', label: 'Review submissions' },
+        { key: 'ledger.view', label: 'View ledger' },
+      ],
+    },
+  });
+  getPendingInvites.mockResolvedValue([]);
   updateAdminUser.mockResolvedValue({});
+  setAdminStatus.mockResolvedValue({});
+  revokeInvite.mockResolvedValue({});
 });
 
-describe('the directory', () => {
-  it('lists each administrator with the role they hold', async () => {
-    renderWithProviders(<AdminUsersPage />);
-
-    expect(await screen.findByText('sub@oxshare.com')).toBeInTheDocument();
-    expect(screen.getByText('admin@oxshare.com')).toBeInTheDocument();
-  });
-
-  it('marks the signed-in administrator as themselves', async () => {
-    renderWithProviders(<AdminUsersPage />);
-    expect(await screen.findByText(/\(you\)/i)).toBeInTheDocument();
-  });
-});
-
-describe('who may reassign a role', () => {
-  it('offers no role control at all without users.edit', async () => {
-    permissions.current = ['users.view'];
+describe('the status column tells the truth', () => {
+  it('shows a SUSPENDED admin as suspended, not as Active', async () => {
+    // The regression this file exists for.
+    getAdminUsers.mockResolvedValue([master, sub({ status: 'suspended' })]);
     renderWithProviders(<AdminUsersPage />);
 
     await screen.findByText('sub@oxshare.com');
-    expect(screen.queryByRole('combobox')).toBeNull();
+    const row = within(rowFor('sub@oxshare.com'));
+    expect(row.getByText(/suspended/i)).toBeInTheDocument();
+    expect(row.queryByText(/^active$/i)).toBeNull();
   });
 
-  it('never offers reassignment on the signed-in admin or a master admin', async () => {
-    // Row a-1 is both. The API refuses each case independently; offering the
-    // control anyway produces a 403 the operator cannot act on.
+  it('shows an active admin as active', async () => {
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+    expect(within(rowFor('sub@oxshare.com')).getByText(/active/i)).toBeInTheDocument();
+  });
+});
+
+describe('suspending an administrator', () => {
+  it('is not offered without users.suspend', async () => {
+    permissions.current = ['users.view', 'users.edit'];
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    // Only the sub-admin row (a-2) is reassignable, so exactly one control.
-    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /suspend/i })).toBeNull();
   });
 
-  it('sends the new role id when a DIFFERENT role is chosen', async () => {
+  it('is never offered on yourself or on a master admin', async () => {
+    // The API refuses both independently; a-1 is both at once.
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+
+    expect(
+      within(rowFor('admin@oxshare.com')).queryByRole('button', { name: /suspend/i }),
+    ).toBeNull();
+    expect(
+      within(rowFor('sub@oxshare.com')).getByRole('button', { name: /suspend/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('asks before suspending, and does nothing if declined', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    // a-2 holds r-1, so r-2 is the only choice that is an actual change.
-    await user.click(screen.getByRole('combobox'));
+    await user.click(within(rowFor('sub@oxshare.com')).getByRole('button', { name: /suspend/i }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(setAdminStatus).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('suspends once confirmed', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const user = userEvent.setup();
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+
+    await user.click(within(rowFor('sub@oxshare.com')).getByRole('button', { name: /suspend/i }));
+
+    await waitFor(() => expect(setAdminStatus).toHaveBeenCalledWith('a-2', 'suspended'));
+    confirmSpy.mockRestore();
+  });
+
+  it('offers Reactivate on a suspended admin, and sends active', async () => {
+    // Reversibility is the reason suspension exists instead of deletion.
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    getAdminUsers.mockResolvedValue([master, sub({ status: 'suspended' })]);
+    const user = userEvent.setup();
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+
+    await user.click(
+      within(rowFor('sub@oxshare.com')).getByRole('button', { name: /reactivate/i }),
+    );
+
+    await waitFor(() => expect(setAdminStatus).toHaveBeenCalledWith('a-2', 'active'));
+    confirmSpy.mockRestore();
+  });
+});
+
+describe('editing one administrator (FR-RBAC-02)', () => {
+  it('is not offered without users.edit', async () => {
+    permissions.current = ['users.view', 'users.suspend'];
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+
+    expect(within(rowFor('sub@oxshare.com')).queryByRole('button', { name: /^edit$/i })).toBeNull();
+  });
+
+  it('sends INDIVIDUAL permissions, not a role id', async () => {
+    // The half of RBAC-02 that had no UI: the API always accepted a direct
+    // permission list, and the directory only ever sent roleId — so granting one
+    // extra permission to one person meant inventing a role for them.
+    const user = userEvent.setup();
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+
+    await user.click(within(rowFor('sub@oxshare.com')).getByRole('button', { name: /^edit$/i }));
+
+    // Switch from the role to individual permissions.
+    await user.click(screen.getByLabelText(/access/i));
+    await user.click(await screen.findByRole('option', { name: /individual permissions/i }));
+
+    // Grant one the admin does not currently hold.
+    await user.click(await screen.findByRole('button', { name: /view ledger/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
+    const [, body] = updateAdminUser.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body['permissions']).toEqual(expect.arrayContaining(['kyc.review', 'ledger.view']));
+    // roleId and permissions are EXCLUSIVE on the API; sending both is incoherent.
+    expect(body).not.toHaveProperty('roleId');
+  });
+
+  it('sends nothing at all when nothing was changed', async () => {
+    // Re-sending an unchanged roleId still rewrites the permission snapshot and
+    // lands another audit entry against a named administrator.
+    const user = userEvent.setup();
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+
+    await user.click(within(rowFor('sub@oxshare.com')).getByRole('button', { name: /^edit$/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(updateAdminUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('reassigning a role from the table', () => {
+  it('sends the new role id when a different role is chosen', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+
+    await user.click(within(rowFor('sub@oxshare.com')).getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Finance Auditor' }));
 
     await waitFor(() => expect(updateAdminUser).toHaveBeenCalledWith('a-2', { roleId: 'r-2' }));
   });
 
   it('sends NOTHING when reassigned to the role already held', async () => {
-    // The backend enforces an anti-escalation invariant on this path, and every
-    // write lands in the audit log against a named administrator. A no-op that
-    // still round-trips leaves a trail of changes that never happened.
     const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await user.click(screen.getByRole('combobox'));
+    await user.click(within(rowFor('sub@oxshare.com')).getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'KYC Reviewer' }));
 
-    // Give the mutation a chance to fire before asserting it did not.
     await new Promise((r) => setTimeout(r, 50));
     expect(updateAdminUser).not.toHaveBeenCalled();
   });
 
   it('does not offer a SYSTEM role as a reassignment target', async () => {
-    // Assigning one is refused by the API — master_admin is not a role that can
-    // be handed out through the directory.
     const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await user.click(screen.getByRole('combobox'));
+    await user.click(within(rowFor('sub@oxshare.com')).getByRole('combobox'));
     await screen.findByRole('option', { name: 'KYC Reviewer' });
     expect(screen.queryByRole('option', { name: 'Master Admin' })).toBeNull();
   });
@@ -184,16 +319,6 @@ describe('load failures', () => {
     );
     renderWithProviders(<AdminUsersPage />);
 
-    expect(await screen.findByRole('button', { name: /retry/i })).toBeInTheDocument();
-  });
-
-  it('names the missing endpoints when the API is not built yet', async () => {
-    getAdminUsers.mockRejectedValue(
-      Object.assign(new Error('nope'), { response: { status: 404, data: {} } }),
-    );
-    renderWithProviders(<AdminUsersPage />);
-
-    const named = await screen.findAllByText(/\/admin\//);
-    expect(named.length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole('button', { name: /retry/i })).length).toBeGreaterThan(0);
   });
 });

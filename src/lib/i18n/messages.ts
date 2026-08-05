@@ -313,6 +313,37 @@ export const messages = {
   'kycReview.claim': 'Claim for review',
   'kycReview.openDirectly': 'Open directly',
   'kycReview.notUploaded': 'Not uploaded',
+  'kycReview.rotate': 'Rotate',
+  'kycReview.openFullSize': 'Open full size in a new tab',
+  'kycReview.docPassport': 'Passport (photo & signature page)',
+  'kycReview.docIdFront': 'ID document (front)',
+  'kycReview.docIdBack': 'ID document (back)',
+  'kycReview.docSelfie': 'Selfie verification',
+  'kycReview.docAddress': 'Proof of address',
+  // Signals a reviewer needs that the API was already sending and the screen
+  // never rendered — a brand-new account and a two-year-old one looked identical.
+  'kycReview.accountLabel': 'Account',
+  'kycReview.accountAge': 'Account created',
+  'kycReview.emailStatus': 'Email',
+  'kycReview.emailVerified': 'Verified',
+  'kycReview.emailUnverified': 'Not verified',
+  'kycReview.country': 'Country',
+  'kycReview.loading': 'Loading KYC submission…',
+  'kycReview.notFound': 'Submission not found.',
+  'kycReview.loadFailed': 'Failed to load the submission. Check your connection and try again.',
+  'kycReview.approveFailed': 'Failed to approve the submission. Please try again.',
+  'kycReview.claimFailed': 'Failed to claim the submission for review.',
+  'kycReview.rejectFailed': 'Failed to reject the submission. Please try again.',
+  'kycReview.claimHint':
+    'Marks this submission as under review by you, so another admin does not review it at the same time',
+  // The status pill used to render `status.replace('_', ' ')` — English by
+  // accident, and untranslatable by construction.
+  'kycStatus.not_started': 'Not started',
+  'kycStatus.in_progress': 'In progress',
+  'kycStatus.submitted': 'Submitted',
+  'kycStatus.under_review': 'Under review',
+  'kycStatus.approved': 'Approved',
+  'kycStatus.rejected': 'Rejected',
 
   // ── KYC workflow builder ──────────────────────────────────────────────────
   'builder.section': 'KYC Management',
@@ -371,6 +402,33 @@ export const messages = {
   'adminUsers.subtitle':
     'Back-office accounts and the role each one holds. Roles themselves are defined under Roles & Permissions.',
   'adminUsers.rolesLink': 'Manage roles',
+  'adminUsers.editTitle': 'Edit Administrator',
+  'adminUsers.nameLabel': 'Full Name',
+  'adminUsers.accessLabel': 'Access',
+  'adminUsers.directOption': 'Individual permissions (no role)',
+  'adminUsers.roleHint':
+    'Permissions come from the role and follow it — editing the role changes this administrator too.',
+  'adminUsers.directHint':
+    'Permissions are set on this administrator alone. Choosing a role instead will replace them.',
+  'adminUsers.edit': 'Edit',
+  'adminUsers.suspend': 'Suspend',
+  'adminUsers.reactivate': 'Reactivate',
+  'adminUsers.statusSuspended': 'Suspended',
+  'adminUsers.confirmSuspend':
+    'Suspend {name}? They are signed out on their next request and cannot log in until reactivated.',
+  'adminUsers.confirmReactivate': 'Reactivate {name}? They regain the access listed here.',
+  'adminUsers.colActions': 'Actions',
+
+  // Outstanding invites — sent, not yet accepted.
+  'adminUsers.pendingTitle': 'Outstanding Invites',
+  'adminUsers.pendingHint':
+    'Sent but not yet accepted. The link creates an administrator account, so revoke one that went to the wrong address.',
+  'adminUsers.pendingNone': 'No outstanding invites.',
+  'adminUsers.colInvited': 'Invited',
+  'adminUsers.colExpires': 'Link expires',
+  'adminUsers.revoke': 'Revoke',
+  'adminUsers.confirmRevoke':
+    'Revoke the invite for {email}? The link stops working immediately. You can send a new one afterwards.',
 
   // ── Settings / RBAC ───────────────────────────────────────────────────────
   // /settings is now network and security only — see roles.* and adminUsers.*
@@ -453,7 +511,7 @@ export const messages = {
 
   'kycReview.totalSubmissions': '{count} total submissions',
   'kycReview.rejectionReasonLabel': '❌ Rejection Reason',
-  'kycReview.uploadedFiles': 'Uploaded Files ({count})',
+  'kycReview.uploadedFiles': 'Uploaded files ({docType})',
   'kycReview.approveCta': '✓ Approve KYC',
   'kycReview.rejectCta': '✕ Reject',
   'kycReview.approvedNote': '✅ KYC has been approved.',
@@ -522,6 +580,8 @@ export const messages = {
   'pagination.lastAria': 'Go to Last Page',
   'common.close': 'Close',
   'common.cancel': 'Cancel',
+  'common.saving': 'Saving…',
+  'common.saveChanges': 'Save Changes',
   'common.save': 'Save',
   'common.delete': 'Delete',
   'common.confirm': 'Confirm',

@@ -673,6 +673,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List outstanding invites (requires users.view) */
+        get: operations["AdminAuthController_listInvites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/invites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an outstanding invite (requires users.create)
+         * @description Kills the accept link immediately. Whoever may create an invite may cancel one — the undo for a mistyped address, on a 48-hour credential that creates an admin account.
+         */
+        delete: operations["AdminAuthController_revokeInvite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/invite/validate": {
         parameters: {
             query?: never;
@@ -996,7 +1033,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Mark an approved withdrawal paid — posts the debit and clears the hold */
+        /**
+         * Mark an approved withdrawal paid — posts the debit and clears the hold
+         * @description Requires `withdrawals.settle`, which is separate from `withdrawals.approve` so the two steps can be granted to different people (separation of duties, R-5.4).
+         */
         patch: operations["AdminMoneyController_settleWithdrawal"];
         trace?: never;
     };
@@ -1176,6 +1216,26 @@ export interface paths {
         patch: operations["AdminRbacController_updateAdmin"];
         trace?: never;
     };
+    "/v1/admin/users/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Suspend or reactivate an administrator (requires users.suspend)
+         * @description Suspension takes effect on the target’s NEXT request — AdminGuard re-reads status on every call — and blocks login. Refused on your own account and on the master admin.
+         */
+        patch: operations["AdminRbacController_setAdminStatus"];
+        trace?: never;
+    };
     "/v1/admin/audit-log": {
         parameters: {
             query?: never;
@@ -1328,8 +1388,8 @@ export interface components {
         RegistrationResponseDto: {
             /** @example Registration successful. Please check your email to verify your account. */
             message: string;
-            /** @description The new user id. No session exists until the email is verified. */
-            userId: string;
+            /** @description The new user id. Absent when no account was created — including when one already existed, which this endpoint deliberately does not disclose. No session exists until the email is verified. */
+            userId?: string;
         };
         VerifyEmailDto: {
             /**
@@ -1496,6 +1556,12 @@ export interface components {
             /** @enum {string} */
             provider: "whish" | "usdt";
         };
+        WithdrawalOtpResponseDto: {
+            /** @example A confirmation code has been sent to your email address. */
+            message: string;
+            /** @description False when the operator has the withdrawal-OTP control switched off; the withdrawal may then be submitted without a code. */
+            required: boolean;
+        };
         KycFieldConfigDto: {
             /** @example f-1 */
             id: string;
@@ -1601,6 +1667,8 @@ export interface components {
             role: "master_admin" | "sub_admin";
             permissions: string[];
             roleId?: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
             /** Format: date-time */
             createdAt: string;
         };
@@ -1619,9 +1687,23 @@ export interface components {
         };
         InviteResponseDto: {
             message: string;
-            /** @description Dev only — removed in production */
-            token: string;
-            inviteUrl: string;
+            /** @description The accept link, echoed OUTSIDE PRODUCTION ONLY to keep local development workable. Absent in production — read the link from the invite email. */
+            inviteUrl?: string;
+        };
+        PendingInviteDto: {
+            id: string;
+            email: string;
+            name: string;
+            roleId?: string;
+            /** @description Admin id of whoever sent it. */
+            invitedBy: string;
+            /**
+             * Format: date-time
+             * @description After this the link is dead; re-invite to replace it.
+             */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         AcceptInviteDto: {
             /** @description Single-use token from the invitation email. */
@@ -1681,6 +1763,17 @@ export interface components {
             email: string;
             firstName: string;
             lastName: string;
+            /** @enum {string} */
+            type?: "individual" | "referral" | "partner";
+            /** @enum {string} */
+            status?: "active" | "pending" | "suspended";
+            /** @enum {number} */
+            verificationLevel?: 0 | 1;
+            emailVerified?: boolean;
+            country?: string;
+            phone?: string;
+            /** Format: date-time */
+            createdAt?: string;
         };
         KycSubmissionDto: {
             userId: string;
@@ -1923,6 +2016,10 @@ export interface components {
             roleId?: string;
             /** @description Direct permission grants. */
             permissions?: string[];
+        };
+        AdminStatusDto: {
+            /** @enum {string} */
+            status: "active" | "suspended";
         };
         AuditEntryDto: {
             id: string;
@@ -2598,7 +2695,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
+                    "application/json": components["schemas"]["WithdrawalOtpResponseDto"];
                 };
             };
         };
@@ -2859,6 +2956,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InviteResponseDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_listInvites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingInviteDto"][];
+                };
+            };
+        };
+    };
+    AdminAuthController_revokeInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
                 };
             };
         };
@@ -3649,6 +3786,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateAdminDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProfileDto"];
+                };
+            };
+        };
+    };
+    AdminRbacController_setAdminStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminStatusDto"];
             };
         };
         responses: {

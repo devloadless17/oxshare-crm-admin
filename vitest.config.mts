@@ -60,14 +60,16 @@ export default defineConfig({
        *
        * These may only ever go up. `npm run test:coverage` prints the figures.
        */
-      // Raised again after the clients and audit-log screens gained tests. Measured
-      // 2026-08-04: statements 47.1, branches 42.9, functions 38.4, lines 48.1.
-      // Set a couple of points under.
+      // Raised after the RBAC slice — the admin directory, the outstanding-invites
+      // panel and the per-admin permission editor all arrived with tests, and the
+      // roles/settings split brought its three screens under test too. Measured
+      // 2026-08-05: statements 70.19, branches 64.73, functions 58.53, lines 71.93.
+      // Set a point or two under.
       thresholds: {
-        lines: 46,
-        functions: 36,
-        branches: 41,
-        statements: 45,
+        lines: 70,
+        functions: 57,
+        branches: 63,
+        statements: 69,
       },
     },
   },

@@ -31,6 +31,8 @@ export type IbProgram = components['schemas']['IbProgramDto'];
 export type CreateRoleRequest = components['schemas']['RoleDto'];
 export type UpdateRoleRequest = components['schemas']['UpdateRoleDto'];
 export type UpdateAdminRequest = components['schemas']['UpdateAdminDto'];
+/** An invite sent and not yet accepted. Never carries the token — see the DTO. */
+export type PendingInvite = components['schemas']['PendingInviteDto'];
 
 /**
  * One operator-controlled security control — FR-CORE-08's OTP is the first.
@@ -87,6 +89,26 @@ export const adminApi = {
 
   async updateAdminUser(id: string, dto: UpdateAdminRequest) {
     const { data } = await apiClient.patch<AdminUser>(`/admin/users/${id}`, dto);
+    return data;
+  },
+
+  /**
+   * FR-RBAC-07's "manage" half. Its own route, not a field on updateAdminUser:
+   * the API requires `users.suspend` here and `users.edit` there, deliberately.
+   */
+  async setAdminStatus(id: string, status: 'active' | 'suspended') {
+    const { data } = await apiClient.patch<AdminUser>(`/admin/users/${id}/status`, { status });
+    return data;
+  },
+
+  // ── Outstanding invites (RBAC-07) ────────────────────────────────────────
+  async getPendingInvites(): Promise<PendingInvite[]> {
+    const { data } = await apiClient.get<PendingInvite[]>('/admin/invites');
+    return data;
+  },
+
+  async revokeInvite(id: string) {
+    const { data } = await apiClient.delete<{ message: string }>(`/admin/invites/${id}`);
     return data;
   },
 

@@ -8,6 +8,9 @@ const master: AdminProfile = {
   name: 'Master',
   role: 'master_admin',
   permissions: ['*'],
+  // Required since the API started admitting it. The directory used to render a
+  // hardcoded "Active" badge because AdminProfileDto had no status field at all.
+  status: 'active',
   createdAt: '2026-08-02T00:00:00.000Z',
 };
 
