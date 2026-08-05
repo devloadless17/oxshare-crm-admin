@@ -32,6 +32,26 @@
  *    between languages, and in Arabic so does direction. One key per sentence.
  */
 export const messages = {
+  // ── Platform download links ───────────────────────────────────────────────
+  'platforms.title': 'Trading platform downloads',
+  'platforms.subtitle':
+    'The download links clients see on their Platforms page. A platform with no link is shown to them as not available yet, never as a link that goes nowhere.',
+  'platforms.desktop': 'Desktop terminal',
+  'platforms.ios': 'iPhone and iPad',
+  'platforms.android': 'Android',
+  'platforms.urlPlaceholder': 'https://downloads.oxshare.com/...',
+  'platforms.save': 'Save',
+  'platforms.saving': 'Saving...',
+  'platforms.saved': 'Saved',
+  'platforms.clearHint': 'Leave empty to take the download offline.',
+  'platforms.httpsOnly': 'Must be an https link — clients install what they download from here.',
+  'platforms.updateFailed': 'Could not save that link.',
+  'platforms.loading': 'Loading download links',
+  'platforms.loadFailed': 'Could not load the download links.',
+  'platforms.notConfigured': 'Not configured',
+  'platforms.lastUpdated': 'Updated {when}',
+  'platforms.readOnly': 'You do not have permission to change these.',
+
   // ── Brand and chrome ──────────────────────────────────────────────────────
   'app.name': 'OXShare',
   'app.adminName': 'Admin Portal',

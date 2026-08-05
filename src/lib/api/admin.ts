@@ -45,6 +45,9 @@ export type AcceptInviteResponse = components['schemas']['AcceptInviteResponseDt
  * renames `enabled`, this becomes a compile error rather than a toggle that
  * silently always reads false.
  */
+/** One platform's download link. `url` is null until an admin sets it. */
+export type PlatformLink = components['schemas']['PlatformLinkDto'];
+
 export type SecuritySwitch = components['schemas']['SecuritySwitchDto'];
 
 export const adminApi = {
@@ -58,6 +61,35 @@ export const adminApi = {
     const { data } = await apiClient.put<SecuritySwitch>(`/admin/security-settings/${key}`, {
       enabled,
     });
+    return data;
+  },
+  /**
+   * The trading-terminal download links the client portal shows.
+   *
+   * Always returns every platform, configured or not - `url: null` means the
+   * operator has not set it up, which the portal renders as "not available yet"
+   * rather than as a link that goes nowhere.
+   */
+  async getPlatformLinks(): Promise<PlatformLink[]> {
+    const { data } = await apiClient.get<PlatformLink[]>('/admin/platforms');
+    return data;
+  },
+
+  /**
+   * Set or clear one link. An empty string CLEARS it.
+   *
+   * Clearing matters more than it looks: taking a broken download offline is
+   * something an operator does in a hurry, and making them hunt for a separate
+   * delete control is how a dead link stays up.
+   *
+   * The API accepts https only. That is not a formatting preference - this
+   * value becomes an `href` in every client's browser, so `javascript:` here
+   * would be stored XSS against every client who opens the downloads page, and
+   * plain http is a channel anyone on the path can rewrite, for a link whose
+   * whole purpose is delivering an executable.
+   */
+  async setPlatformLink(key: string, url: string): Promise<PlatformLink> {
+    const { data } = await apiClient.put<PlatformLink>(`/admin/platforms/${key}`, { url });
     return data;
   },
 

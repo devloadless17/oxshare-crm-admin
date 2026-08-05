@@ -1,6 +1,7 @@
 'use client';
 
 import { IpAllowlistPanel } from '@/components/rbac/ip-allowlist-panel';
+import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
 import { SecurityControlsPanel } from '@/components/rbac/security-controls-panel';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission, isMasterAdmin } from '@/lib/permissions';
@@ -32,6 +33,15 @@ export default function AdminSettingsPage() {
 
       <div className="space-y-6">
         <IpAllowlistPanel canManage={canManage} />
+        {/*
+          Rendered for EVERY admin, with the controls disabled without
+          `settings.manage`, rather than hidden like the master-admin panel
+          below. The two are different kinds of secret: which security controls
+          exist is worth withholding, whereas which platforms have a download is
+          something an operator needs to look up without holding a permission
+          they do not need. The API refuses the write regardless.
+        */}
+        <PlatformLinksPanel canManage={hasPermission(admin, 'settings.manage')} />
         {/* Master admin only, and the API refuses anyone else regardless (R-4.1). */}
         {isMasterAdmin(admin) && <SecurityControlsPanel canManage />}
       </div>
