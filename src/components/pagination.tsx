@@ -118,9 +118,9 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(1)}
           disabled={page <= 1}
-          title="First Page"
+          title={t('pagination.firstTitle')}
           className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-outline"
-          aria-label="Go to First Page"
+          aria-label={t('pagination.firstAria')}
         >
           <ChevronsLeft className="h-4 w-4" />
         </button>
@@ -130,9 +130,9 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
-          title="Previous Page"
+          title={t('pagination.previousTitle')}
           className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-outline"
-          aria-label="Previous Page"
+          aria-label={t('pagination.previous')}
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -173,9 +173,9 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
-          title="Next Page"
+          title={t('pagination.nextTitle')}
           className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-outline"
-          aria-label="Next Page"
+          aria-label={t('pagination.next')}
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -185,9 +185,9 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(totalPages)}
           disabled={page >= totalPages}
-          title="Last Page"
+          title={t('pagination.lastTitle')}
           className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-outline"
-          aria-label="Go to Last Page"
+          aria-label={t('pagination.lastAria')}
         >
           <ChevronsRight className="h-4 w-4" />
         </button>

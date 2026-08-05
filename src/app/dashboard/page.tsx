@@ -66,33 +66,36 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {tiles.map((t) => {
-          const Icon = t.icon;
+        {tiles.map((tile) => {
+          const Icon = tile.icon;
           return (
             <Link
-              key={t.label}
-              href={t.href}
+              key={tile.label}
+              href={tile.href}
               className="rounded-lg border border-border bg-card p-6 shadow-sm hover:bg-accent/40 block focus-outline"
             >
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-muted-foreground">{t.label}</p>
+                <p className="text-sm font-medium text-muted-foreground">{tile.label}</p>
                 <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               </div>
               <p className="text-2xl font-bold mt-2">
-                {t.live ? (
+                {tile.live ? (
                   status === 'loading' ? (
-                    <Loader2 className="h-6 w-6 animate-spin text-link" aria-label="Loading" />
+                    <Loader2
+                      className="h-6 w-6 animate-spin text-link"
+                      aria-label={t('common.loading')}
+                    />
                   ) : (
-                    (t.value ?? '—')
+                    (tile.value ?? '—')
                   )
                 ) : (
-                  <span className="text-muted-foreground" title={t.sub}>
+                  <span className="text-muted-foreground" title={tile.sub}>
                     —
                   </span>
                 )}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {t.live ? t.sub : <span className="italic">{t.sub}</span>}
+                {tile.live ? tile.sub : <span className="italic">{tile.sub}</span>}
               </p>
             </Link>
           );

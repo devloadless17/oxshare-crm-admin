@@ -138,7 +138,7 @@ export default function LedgerPage() {
             pages.reset();
             setUserId(e.userId);
           }}
-          title="Filter this client's entries"
+          title={t('ledger.filterClientEntries')}
           className="font-mono text-[11px] text-link hover:underline max-w-[160px] truncate block focus-outline"
         >
           {e.userId}
@@ -163,7 +163,7 @@ export default function LedgerPage() {
           }}
         >
           <SelectTrigger className="h-9 w-44">
-            <SelectValue placeholder="All Entry Types" />
+            <SelectValue placeholder={t('ledger.filterAllEntryTypes')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('ledger.allTypes')}</SelectItem>
@@ -176,7 +176,7 @@ export default function LedgerPage() {
         </Select>
         <input
           type="search"
-          aria-label="Filter by client user ID"
+          aria-label={t('ledger.filterByUserIdAria')}
           placeholder={t('ledger.filterUser')}
           value={userId}
           onChange={(e) => {

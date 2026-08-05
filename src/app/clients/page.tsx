@@ -204,7 +204,7 @@ export default function ClientsPage() {
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search"
-          aria-label="Search clients by name or email"
+          aria-label={t('clients.searchAria')}
           placeholder={t('clients.searchPlaceholder')}
           value={search}
           onChange={(e) => {

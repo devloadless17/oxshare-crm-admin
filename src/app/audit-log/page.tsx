@@ -133,7 +133,7 @@ export default function AuditLogPage() {
           }}
         >
           <SelectTrigger className="h-9 w-48">
-            <SelectValue placeholder="All Actions" />
+            <SelectValue placeholder={t('auditLog.filterAllActions')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('audit.allActions')}</SelectItem>

@@ -61,7 +61,7 @@ export function RoleFormModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('common.close')}
             className="text-muted-foreground hover:text-foreground focus-outline rounded-sm"
           >
             {t('table.close')}

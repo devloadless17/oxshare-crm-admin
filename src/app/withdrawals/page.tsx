@@ -431,7 +431,7 @@ export default function WithdrawalsPage() {
         open={rejectTarget !== null}
         onClose={() => setRejectTarget(null)}
         labelledBy="reject-withdrawal-title"
-        title="Reject Withdrawal"
+        title={t('withdrawals.rejectTitle')}
         description={
           rejectTarget
             ? `${rejectTarget.user?.email} · ${rejectTarget.amount} ${rejectTarget.currency}. The hold is released, the client is emailed the reason, and they may submit a new request.`
@@ -464,7 +464,7 @@ export default function WithdrawalsPage() {
             <label className="text-xs font-semibold">{t('withdrawals.rejectionReason')}</label>
             <Select value={reasonId} onValueChange={(val) => setReasonId(val)}>
               <SelectTrigger className="mt-1 h-9 w-full">
-                <SelectValue placeholder="Select a reason…" />
+                <SelectValue placeholder={t('withdrawals.selectReason')} />
               </SelectTrigger>
               <SelectContent>
                 {reasons.map((r) => (
@@ -504,7 +504,7 @@ export default function WithdrawalsPage() {
         open={settleTarget !== null}
         onClose={() => setSettleTarget(null)}
         labelledBy="settle-title"
-        title="Mark Withdrawal Paid"
+        title={t('withdrawals.markPaidTitle')}
         description={
           settleTarget
             ? `${settleTarget.user?.email} · ${settleTarget.amount} ${settleTarget.currency}. This posts the debit to the ledger and clears the hold. It cannot be undone — corrections are compensating ledger entries.`

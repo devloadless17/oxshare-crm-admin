@@ -176,7 +176,7 @@ export default function PartnersPage() {
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search"
-          aria-label="Search partners by name, email or referral code"
+          aria-label={t('partners.searchAria')}
           placeholder={t('partners.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}

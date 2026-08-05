@@ -363,7 +363,7 @@ export default function KycBuilderPage() {
                         {isMandatoryStep(step) && (
                           <span
                             className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link border border-primary/20"
-                            title="Required by FR-CORE-15 — cannot be disabled or deleted"
+                            title={t('kycBuilder.requiredStepTitle')}
                           >
                             {t('builder.required')}
                           </span>
@@ -383,7 +383,7 @@ export default function KycBuilderPage() {
                       disabled={idx === 0}
                       onClick={() => moveStep(idx, 'up')}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed focus-outline"
-                      title="Move Step Up"
+                      title={t('kycBuilder.moveStepUp')}
                     >
                       <ArrowUp className="h-4 w-4" />
                     </button>
@@ -394,7 +394,7 @@ export default function KycBuilderPage() {
                       disabled={idx === steps.length - 1}
                       onClick={() => moveStep(idx, 'down')}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed focus-outline"
-                      title="Move Step Down"
+                      title={t('kycBuilder.moveStepDown')}
                     >
                       <ArrowDown className="h-4 w-4" />
                     </button>
@@ -589,7 +589,7 @@ export default function KycBuilderPage() {
                                   type="button"
                                   onClick={() => removeFieldFromStep(step.id, f.id)}
                                   className="flex h-7 w-7 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 focus-outline"
-                                  title="Remove Field"
+                                  title={t('kycBuilder.removeField')}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>

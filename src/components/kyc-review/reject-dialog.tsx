@@ -76,7 +76,7 @@ export function RejectDialog({
             </label>
             <Select value={selectedReasonId} onValueChange={(val) => onReasonChange(val)}>
               <SelectTrigger className="h-9 w-full">
-                <SelectValue placeholder="Select a reason…" />
+                <SelectValue placeholder={t('withdrawals.selectReason')} />
               </SelectTrigger>
               <SelectContent>
                 {reasons.map((r) => (

@@ -202,7 +202,7 @@ export default function AdminKycPage() {
         <Input
           className="max-w-xs h-9"
           placeholder={t('kycReview.searchPlaceholder')}
-          aria-label="Search submissions by name or email"
+          aria-label={t('kyc.searchAria')}
           value={search}
           onChange={(e) => {
             setPage(1);

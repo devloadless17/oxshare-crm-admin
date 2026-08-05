@@ -308,10 +308,10 @@ export default defineConfig([
     // half converted produces hundreds of errors, gets disabled wholesale, and
     // then enforces nothing, which is how a rule stops working.
     //
-    // It catches the two forms that actually carry copy: a bare string as a JSX
-    // child, and a `placeholder` attribute. It deliberately does not chase every
-    // possible string — aria-labels and titles are caught by review, and a rule
-    // with too many false positives is one people learn to silence.
+    // It catches the forms that actually carry copy: a bare string as a JSX
+    // child, and the handful of ATTRIBUTES that render text to a user. It
+    // deliberately does not chase every possible string — a rule with too many
+    // false positives is one people learn to silence.
     files: I18N_ENFORCED,
     rules: {
       'react/jsx-no-literals': [
@@ -320,6 +320,30 @@ export default defineConfig([
           noStrings: true,
           allowedStrings: ALLOWED_JSX_LITERALS,
           ignoreProps: true,
+        },
+      ],
+      // `ignoreProps: true` above is deliberate and NOT a gap: with it off,
+      // `react/jsx-no-literals` flags every className, every type="submit" and
+      // every href — hundreds of findings that carry no copy, which is exactly
+      // how a rule gets switched off wholesale.
+      //
+      // But the comment above claimed this block caught `placeholder`, and it
+      // did not: the two are mutually exclusive in that rule. So the props that
+      // genuinely carry user-visible copy get their own check, which is narrow
+      // enough to stay believable.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'JSXAttribute[name.name=/^(placeholder|title|aria-label|alt)$/] > Literal[value=/[A-Za-z]{2}/]',
+          message:
+            'This attribute is user-visible copy. Use t(\'key\') from lib/i18n so it can be translated (FSD §10, D-16).',
+        },
+        {
+          selector:
+            'JSXAttribute[name.name=/^(placeholder|title|aria-label|alt)$/] > JSXExpressionContainer > Literal[value=/[A-Za-z]{2}/]',
+          message:
+            'This attribute is user-visible copy. Use t(\'key\') from lib/i18n so it can be translated (FSD §10, D-16).',
         },
       ],
     },
