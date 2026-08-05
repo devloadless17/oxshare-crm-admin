@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/render';
-import { AdminLayout } from './admin-layout';
+import { activeNavHref, AdminLayout } from './admin-layout';
 
 /**
  * The layout has THREE states, and only two of them used to be handled.
@@ -150,5 +150,56 @@ describe('AdminLayout — nothing is shown until we know who is asking', () => {
     // usePathname is /withdrawals, which this admin cannot access.
     expect(screen.queryByText('page body')).not.toBeInTheDocument();
     expect(screen.getByText('Access denied')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Exactly one sidebar entry is the current page.
+ *
+ * `/kyc/builder` lit up BOTH "KYC Review" and "KYC Workflow Builder", because
+ * each item tested itself in isolation with
+ * `pathname === href || pathname.startsWith(href + '/')` — true for the prefix
+ * `/kyc` and for the exact `/kyc/builder` at the same time.
+ *
+ * Nested routes are normal here, not an edge case: `/kyc` and `/kyc/builder` are
+ * different screens behind different permissions. So the rule has to compare
+ * candidates against each other, and these assert that it does.
+ */
+describe('activeNavHref', () => {
+  const HREFS = ['/dashboard', '/clients', '/kyc', '/kyc/builder', '/roles', '/audit-log'];
+
+  it('picks the NESTED route, not its parent', () => {
+    // The reported bug, stated directly.
+    expect(activeNavHref('/kyc/builder', HREFS)).toBe('/kyc/builder');
+  });
+
+  it('picks the parent when the nested route is not the page', () => {
+    // A submission detail lives under /kyc and has no nav entry of its own, so
+    // the parent is correctly the active one.
+    expect(activeNavHref('/kyc', HREFS)).toBe('/kyc');
+    expect(activeNavHref('/kyc/some-user-id', HREFS)).toBe('/kyc');
+  });
+
+  it('returns exactly ONE href for every route in the nav', () => {
+    // The property that was violated. Asserted over the whole set rather than
+    // one path, so a future nested route cannot quietly reintroduce it.
+    for (const path of [...HREFS, '/kyc/abc', '/clients/123']) {
+      const active = activeNavHref(path, HREFS);
+      const lit = HREFS.filter((h) => h === active);
+      expect(lit).toHaveLength(1);
+    }
+  });
+
+  it('does not match a sibling that merely shares a prefix', () => {
+    // '/kyc-archive' is not inside '/kyc'. String prefixes alone would say it is.
+    expect(activeNavHref('/kyc-archive', HREFS)).toBeNull();
+  });
+
+  it('highlights nothing on a route that is not in the nav', () => {
+    expect(activeNavHref('/login', HREFS)).toBeNull();
+  });
+
+  it('survives a null pathname', () => {
+    expect(activeNavHref(null, HREFS)).toBeNull();
   });
 });

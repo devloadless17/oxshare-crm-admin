@@ -221,6 +221,206 @@
   }
 }
 
+/*
+ * ── Screens written against class names that were never defined ─────────────
+ *
+ * `/kyc/[userId]`, `/invite` and `/invite/accept` were authored with semantic
+ * class names — `info-card`, `info-row`, `modal-overlay`, `form-input` — and no
+ * stylesheet ever backed them. Not before the design-system rebrand, not after:
+ * `git show 7105590^:src/app/globals.css` has none of them either.
+ *
+ * So those screens rendered as raw markup. The KYC review page showed
+ * "CountryUAE" and "Last NameDoe" because `.info-row` was supposed to be the
+ * flex row that separates a label from its value, and it did not exist. Every
+ * gate stayed green throughout: nothing type-checks a className, tests assert on
+ * text and roles rather than layout, and the parts of those pages written with
+ * Tailwind utilities looked fine, which made the whole thing read as a styling
+ * quirk rather than a page with no CSS.
+ *
+ * DEFINED HERE, rather than rewriting the markup into utilities. The rest of the
+ * app is Tailwind and these screens are the exception, so the tidier end state
+ * is to convert them — but that is ~50 classes across six files of dense JSX,
+ * and every one of those edits is a chance to change behaviour while fixing
+ * appearance. This restores what the markup always meant, in one place, using
+ * the same tokens every other screen uses, and can be unwound a file at a time.
+ */
+@layer components {
+  /* Page scaffolding — KYC review detail */
+  .detail-page {
+    @apply space-y-6;
+  }
+  .detail-header {
+    @apply space-y-1;
+  }
+  .detail-title-row {
+    @apply flex flex-wrap items-center justify-between gap-3;
+  }
+  .detail-grid {
+    @apply grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-6 items-start;
+  }
+  .detail-left,
+  .detail-right {
+    @apply space-y-4 min-w-0;
+  }
+  .detail-loading {
+    @apply flex min-h-[300px] items-center justify-center text-sm text-muted-foreground;
+  }
+  .back-link {
+    @apply inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground;
+  }
+
+  /* Cards */
+  .info-card,
+  .action-card,
+  .docs-card,
+  .timeline-card,
+  .rejection-card,
+  .result-box,
+  .invite-link-box {
+    @apply rounded-xl border border-border bg-card p-5 shadow-xs space-y-3;
+  }
+  .info-card h3,
+  .action-card h3,
+  .docs-card h3,
+  .timeline-card h3 {
+    @apply text-xs font-bold uppercase tracking-wider text-muted-foreground;
+  }
+  .rejection-card {
+    @apply border-destructive/30 bg-destructive/5;
+  }
+
+  /*
+   * The row this whole bug was visible in: a label and its value, apart.
+   * `gap-4` rather than only `justify-between` so a long value never collides
+   * with its label on a narrow column.
+   */
+  .info-row {
+    @apply flex items-baseline justify-between gap-4 text-xs border-b border-border/50 py-2 last:border-0;
+  }
+  .info-row > span:first-child {
+    @apply shrink-0 text-muted-foreground;
+  }
+  .info-row > :last-child {
+    @apply text-right font-semibold text-foreground break-words;
+  }
+  .not-submitted {
+    @apply text-xs italic text-muted-foreground;
+  }
+  .docs-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-3;
+  }
+  .approved-banner {
+    @apply rounded-xl border border-success/30 bg-success/10 p-4 text-xs font-semibold text-success;
+  }
+
+  /* Buttons — one base, then intent */
+  .btn-approve,
+  .btn-reject,
+  .btn-claim,
+  .btn-cancel,
+  .btn-another,
+  .copy-btn,
+  .submit-btn,
+  .btn-approve-confirm,
+  .btn-reject-confirm {
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-xs font-semibold
+      transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-approve,
+  .btn-approve-confirm,
+  .submit-btn {
+    @apply bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover;
+  }
+  .btn-reject,
+  .btn-reject-confirm {
+    @apply border border-destructive/40 text-destructive hover:bg-destructive/10;
+  }
+  .btn-claim,
+  .btn-cancel,
+  .btn-another,
+  .copy-btn {
+    @apply border border-input bg-card text-foreground hover:bg-muted;
+  }
+  .submit-btn {
+    @apply h-10 w-full;
+  }
+  .action-btns,
+  .modal-btns {
+    @apply flex flex-wrap items-center gap-2;
+  }
+  .modal-btns {
+    @apply justify-end border-t border-border pt-4;
+  }
+  .toggle-visibility {
+    @apply absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground;
+  }
+
+  /* Modals — approve / reject dialogs */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto;
+  }
+  .modal {
+    @apply w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl space-y-4;
+  }
+  .modal h3 {
+    @apply text-base font-bold text-foreground;
+  }
+
+  /* Forms — invite and invite/accept */
+  .form,
+  .invite-form {
+    @apply space-y-4;
+  }
+  .form-group {
+    @apply space-y-1.5;
+  }
+  .form-group label {
+    @apply block text-xs font-semibold text-foreground;
+  }
+  .form-input {
+    @apply h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground
+      placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)];
+  }
+  .reject-textarea {
+    @apply w-full min-h-24 rounded-lg border border-input bg-background p-3 text-xs text-foreground;
+  }
+  .error-msg {
+    @apply flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive;
+  }
+  .error-icon {
+    @apply h-4 w-4 shrink-0 text-destructive;
+  }
+
+  /* Centred single-card screens */
+  .invite-wrap,
+  .accept-wrap {
+    @apply flex min-h-screen items-center justify-center bg-background p-4;
+  }
+  .invite-card,
+  .accept-card {
+    @apply w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg space-y-5;
+  }
+  .invite-icon,
+  .welcome-icon {
+    @apply mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-link;
+  }
+  .email-badge {
+    @apply inline-flex items-center rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground;
+  }
+  .result-success {
+    @apply text-xs font-semibold text-success;
+  }
+  .result-note {
+    @apply text-[11px] text-muted-foreground;
+  }
+  .invite-link-box {
+    @apply break-all font-mono text-[11px];
+  }
+  .spinner {
+    @apply h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary;
+  }
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

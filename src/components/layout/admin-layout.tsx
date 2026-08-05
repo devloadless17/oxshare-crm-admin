@@ -48,6 +48,31 @@ interface NavSection {
   items: NavItem[];
 }
 
+/**
+ * Which nav entry is the current page — the MOST SPECIFIC match, not every match.
+ *
+ * This was `pathname === href || pathname.startsWith(href + '/')`, evaluated per
+ * item in isolation. On `/kyc/builder` that is true for BOTH `/kyc` (a prefix)
+ * and `/kyc/builder` (exact), so two sidebar entries lit up at once and the
+ * sidebar stopped answering the only question it exists to answer: where am I.
+ *
+ * Nested routes are the normal case here, not an edge one — `/kyc` and
+ * `/kyc/builder` are separate screens behind separate permissions — so the rule
+ * has to compare the candidates against each other rather than test each alone.
+ * Longest match wins, which is what a router does.
+ *
+ * Exported and pure so the nesting is asserted directly. The bug was invisible
+ * until somebody opened the nested page and looked at the sidebar.
+ */
+export function activeNavHref(pathname: string | null, hrefs: string[]): string | null {
+  if (!pathname) return null;
+  const matches = hrefs.filter((h) => pathname === h || pathname.startsWith(h + '/'));
+  return matches.reduce<string | null>(
+    (best, h) => (!best || h.length > best.length ? h : best),
+    null,
+  );
+}
+
 const NAV_SECTIONS: NavSection[] = [
   {
     title: 'nav.section.main',
@@ -92,6 +117,17 @@ const NAV_SECTIONS: NavSection[] = [
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { admin, isLoading, logout } = useAdmin();
+  /*
+   * Resolved across EVERY section, not per section.
+   *
+   * Specificity is a property of the whole nav: `/kyc` and `/kyc/builder` happen
+   * to share a section today, but a nested route whose parent lived in another
+   * group would light up both again if each section decided on its own.
+   */
+  const activeHref = activeNavHref(
+    pathname,
+    NAV_SECTIONS.flatMap((s) => s.items.map((i) => i.href)),
+  );
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [logoutError, setLogoutError] = React.useState<string | null>(null);
@@ -216,7 +252,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 )}
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+                  const isActive = item.href === activeHref;
 
                   if (item.comingSoon) {
                     return (
