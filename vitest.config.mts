@@ -15,6 +15,30 @@ export default defineConfig({
     // there was no way to test a page at all, only pure functions.
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    /*
+     * 20s, not vitest's default 5s.
+     *
+     * Every test in this suite that has ever timed out has been a `userEvent`
+     * one — invite, kyc/builder, admin-users, audit-log, data-table — and none
+     * of them assert anything time-sensitive. They are slow for a structural
+     * reason: `userEvent.setup()` advances real timers between keystrokes, each
+     * render goes through jsdom, and React Query settles on its own schedule. A
+     * form fill that is 40ms of work on an idle machine is several seconds when
+     * the box is also compiling another app or running a Testcontainers suite.
+     *
+     * 5s is not a deadline anybody chose for these tests; it is a default that
+     * happens to sit just above their cost on a quiet machine and just below it
+     * on a busy one. That produces a suite which is green locally and red in CI
+     * for reasons unrelated to the code — and a flaky gate is one people learn
+     * to re-run rather than read.
+     *
+     * Raising it costs nothing real: a test that genuinely hangs still fails,
+     * 15 seconds later. It does NOT mask a slow application — nothing here
+     * measures production performance.
+     */
+    testTimeout: 20_000,
+    // Same reasoning for `beforeAll`/`afterAll`, which mount providers.
+    hookTimeout: 20_000,
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'json-summary'],
