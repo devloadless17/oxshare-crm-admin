@@ -67,6 +67,16 @@ jobs:
       # `types.gen.ts` as a snapshot that a human must refresh.
       - name: Build
         run: npm run build
+        env:
+          # src/lib/env.ts resolves this AT IMPORT and throws in production so a
+          # misconfigured build fails immediately rather than on the unlucky
+          # first request. That is deliberate — but it also means a build with
+          # no value cannot succeed at all, and CI never supplied one, so this
+          # step failed on every push regardless of the change.
+          #
+          # A deployment supplies its own real URL. This value exists only to
+          # satisfy the guard while compiling, and is never served.
+          NEXT_PUBLIC_API_BASE_URL: https://ci-build-placeholder.invalid
 
       # PLATFORM-CONVENTIONS R-1.3 — the real drift guard.
       #

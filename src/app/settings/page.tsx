@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { Role, AdminUser } from '@/lib/api/admin';
 import { RoleCard } from '@/components/rbac/role-card';
 import { RoleFormModal, RoleFormValues } from '@/components/rbac/role-form-modal';
+import { IpAllowlistPanel } from '@/components/rbac/ip-allowlist-panel';
 import { AsyncBoundary } from '@/components/async-boundary';
 import {
   Select,
@@ -31,7 +32,7 @@ export default function AdminSettingsPage() {
   const canEditAdmins = hasPermission(admin, 'users.edit');
   const canInvite = hasPermission(admin, 'users.create');
 
-  const [activeTab, setActiveTab] = React.useState<'roles' | 'admins'>('roles');
+  const [activeTab, setActiveTab] = React.useState<'roles' | 'admins' | 'network'>('roles');
 
   // null = closed, 'create' = new role, Role = editing that role
   const [modal, setModal] = React.useState<'create' | Role | null>(null);
@@ -131,6 +132,22 @@ export default function AdminSettingsPage() {
           >
             {t('settings.adminsCount', { count: adminUsers.length })}
           </button>
+          {/* RBAC-08. Gated on roles.manage: deciding which networks may reach
+              the admin API is the same class of authority as deciding who holds
+              which permissions. */}
+          {canManageRoles && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('network')}
+              className={`h-9 px-4 rounded-lg text-xs font-semibold focus-outline ${
+                activeTab === 'network'
+                  ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                  : 'border border-input bg-card text-foreground hover:bg-muted'
+              }`}
+            >
+              {t('settings.networkTab')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -151,7 +168,12 @@ export default function AdminSettingsPage() {
         errorMessage="Failed to load roles and admin users."
         error={query.error}
       >
-        {activeTab === 'roles' ? (
+        {activeTab === 'network' ? (
+          /* RBAC-08 — which networks may reach the admin API. The panel owns its
+             own query: the list is unrelated to roles and admin users, and
+             folding it into the shared one would make every tab wait for it. */
+          <IpAllowlistPanel canManage={canManageRoles} />
+        ) : activeTab === 'roles' ? (
           /* Roles Tab */
           <div className="space-y-6">
             <div className="flex items-center justify-between rounded-xl border border-border bg-card p-5 shadow-xs">

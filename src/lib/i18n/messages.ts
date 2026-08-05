@@ -391,6 +391,7 @@ export const messages = {
 
   'settings.rolesCount': 'Dynamic Roles ({count})',
   'settings.adminsCount': 'Admin Users ({count})',
+  'settings.networkTab': 'Network Access',
   'settings.you': '(you)',
   'settings.assignedPermissions': 'Assigned Permissions ({count})',
   'settings.permissionMatrix': 'Permission Matrix ({count} {noun} granted)',

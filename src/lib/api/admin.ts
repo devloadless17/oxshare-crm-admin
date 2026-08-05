@@ -10,6 +10,8 @@ export type PermissionModule = components['schemas']['PermissionModuleDto'];
 export type Role = components['schemas']['RoleResponseDto'];
 export type AdminUser = components['schemas']['AdminProfileDto'];
 export type RejectionReason = components['schemas']['RejectionReasonResponseDto'];
+export type IpAllowlistStatus = components['schemas']['IpAllowlistStatusDto'];
+export type IpAllowlistRule = components['schemas']['IpAllowlistRuleDto'];
 export type KycSubmission = components['schemas']['KycSubmissionDto'];
 export type KycListResponse = components['schemas']['KycListResponseDto'];
 export type ClientRow = components['schemas']['ClientRowDto'];
@@ -63,6 +65,22 @@ export const adminApi = {
 
   async updateAdminUser(id: string, dto: UpdateAdminRequest) {
     const { data } = await apiClient.patch<AdminUser>(`/admin/users/${id}`, dto);
+    return data;
+  },
+
+  // RBAC-08 — the admin IP allowlist.
+  async getIpAllowlist(): Promise<IpAllowlistStatus> {
+    const { data } = await apiClient.get<IpAllowlistStatus>('/admin/ip-allowlist');
+    return data;
+  },
+
+  async addIpAllowlistRule(dto: { cidr: string; label: string }): Promise<IpAllowlistStatus> {
+    const { data } = await apiClient.post<IpAllowlistStatus>('/admin/ip-allowlist', dto);
+    return data;
+  },
+
+  async removeIpAllowlistRule(id: string) {
+    const { data } = await apiClient.delete<{ message: string }>(`/admin/ip-allowlist/${id}`);
     return data;
   },
 
