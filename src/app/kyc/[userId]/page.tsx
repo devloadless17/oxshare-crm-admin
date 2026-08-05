@@ -14,6 +14,8 @@ import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { DocViewer } from '@/components/kyc-review/doc-viewer';
 import { ApproveDialog } from '@/components/kyc-review/approve-dialog';
 import { RejectDialog } from '@/components/kyc-review/reject-dialog';
+import { DocLightbox } from '@/components/kyc-review/doc-lightbox';
+import { documentsOf } from '@/components/kyc-review/documents-of';
 import { useRejectOptions } from '@/components/kyc-review/use-reject-options';
 import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
 import { t } from '@/lib/i18n';
@@ -53,6 +55,8 @@ export default function KycDetailPage() {
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
+  /** Which document the lightbox is showing, or null when it is closed. */
+  const [lightboxAt, setLightboxAt] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
   const query = useResource<KycDetail>(
@@ -163,8 +167,10 @@ export default function KycDetailPage() {
     );
 
   const canReview = data.status === 'submitted' || data.status === 'under_review';
+  // One derived list, shared by the grid and the lightbox, so the two cannot
+  // disagree about which documents exist.
+  const documents = documentsOf(data);
   const docType = data.document?.docType ?? 'passport';
-  const isPassport = docType === 'passport';
 
   return (
     <div className="detail-page">
@@ -195,48 +201,15 @@ export default function KycDetailPage() {
               {t('kycReview.uploadedFiles', { docType: docType.replace('_', ' ').toUpperCase() })}
             </h3>
             <div className="docs-grid">
-              {isPassport ? (
-                <>
-                  <DocViewer
-                    filePath={data.document?.frontFilePath}
-                    fileName={data.document?.frontFileName}
-                    label={t('kycReview.docPassport')}
-                  />
-                  <DocViewer
-                    filePath={data.selfie?.filePath}
-                    fileName={data.selfie?.fileName}
-                    label={t('kycReview.docSelfie')}
-                  />
-                  <DocViewer
-                    filePath={data.addressProof?.filePath}
-                    fileName={data.addressProof?.fileName}
-                    label={t('kycReview.docAddress')}
-                  />
-                </>
-              ) : (
-                <>
-                  <DocViewer
-                    filePath={data.document?.frontFilePath}
-                    fileName={data.document?.frontFileName}
-                    label={t('kycReview.docIdFront')}
-                  />
-                  <DocViewer
-                    filePath={data.document?.backFilePath}
-                    fileName={data.document?.backFileName}
-                    label={t('kycReview.docIdBack')}
-                  />
-                  <DocViewer
-                    filePath={data.selfie?.filePath}
-                    fileName={data.selfie?.fileName}
-                    label={t('kycReview.docSelfie')}
-                  />
-                  <DocViewer
-                    filePath={data.addressProof?.filePath}
-                    fileName={data.addressProof?.fileName}
-                    label={t('kycReview.docAddress')}
-                  />
-                </>
-              )}
+              {documents.map((d, i) => (
+                <DocViewer
+                  key={d.filePath}
+                  filePath={d.filePath}
+                  fileName={d.fileName}
+                  label={d.label}
+                  onOpen={() => setLightboxAt(i)}
+                />
+              ))}
             </div>
           </div>
 
@@ -321,6 +294,15 @@ export default function KycDetailPage() {
           onToggleField={toggleFieldSelection}
           onCancel={() => !actionLoading && setShowRejectModal(false)}
           onConfirm={reject}
+        />
+      )}
+
+      {lightboxAt !== null && (
+        <DocLightbox
+          docs={documents}
+          index={lightboxAt}
+          onClose={() => setLightboxAt(null)}
+          onNavigate={setLightboxAt}
         />
       )}
 

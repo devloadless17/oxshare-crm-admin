@@ -314,6 +314,10 @@ export const messages = {
   'kycReview.openDirectly': 'Open directly',
   'kycReview.notUploaded': 'Not uploaded',
   'kycReview.rotate': 'Rotate',
+  'kycReview.zoomIn': 'Zoom in',
+  'kycReview.zoomOut': 'Zoom out',
+  'kycReview.previousDoc': 'Previous document',
+  'kycReview.nextDoc': 'Next document',
   // Plural-naive on purpose: the catalogue has no plural machinery yet, and
   // inventing one for a single string would be the wrong place to start.
   'kycReview.waitingDays': 'waiting {days}d',

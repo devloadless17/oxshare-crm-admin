@@ -31,11 +31,18 @@ export function DocViewer({
   filePath,
   label,
   fileName,
+  onOpen,
 }: {
   filePath?: string;
   label: string;
   /** The name the client uploaded it under, when the submission carries one. */
   fileName?: string;
+  /**
+   * Open this document in the lightbox. When absent the tile falls back to a
+   * new browser tab, which is what it did before the lightbox existed and is
+   * still the right behaviour for a PDF.
+   */
+  onOpen?: () => void;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const [quarterTurns, setQuarterTurns] = useState(0);
@@ -82,12 +89,11 @@ export function DocViewer({
             </a>
           </div>
         ) : (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={onOpen}
             title={t('kycReview.openFullSize')}
-            className="flex h-56 items-center justify-center overflow-hidden rounded-lg border border-border/80 bg-muted/30"
+            className="flex h-56 w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border border-border/80 bg-muted/30 focus-outline"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- KYC documents are
                 served from the API origin behind auth; next/image would proxy them
@@ -97,9 +103,9 @@ export function DocViewer({
               alt={label}
               onError={() => setImgFailed(true)}
               style={{ transform: `rotate(${quarterTurns * 90}deg)` }}
-              className={`${turned ? 'max-h-full w-auto max-w-[14rem]' : 'max-h-full max-w-full'} object-contain transition-transform duration-200 hover:opacity-90 cursor-pointer`}
+              className={`${turned ? 'max-h-full w-auto max-w-[14rem]' : 'max-h-full max-w-full'} object-contain transition-transform duration-200 hover:opacity-90`}
             />
-          </a>
+          </button>
         )
       ) : (
         <div className="text-xs italic text-muted-foreground py-6 text-center border border-dashed border-border/50 rounded-lg">
