@@ -33,6 +33,10 @@ export type UpdateRoleRequest = components['schemas']['UpdateRoleDto'];
 export type UpdateAdminRequest = components['schemas']['UpdateAdminDto'];
 /** An invite sent and not yet accepted. Never carries the token — see the DTO. */
 export type PendingInvite = components['schemas']['PendingInviteDto'];
+export type CreateInviteRequest = components['schemas']['InviteDto'];
+export type CreateInviteResponse = components['schemas']['InviteResponseDto'];
+export type InviteValidation = components['schemas']['InviteValidationDto'];
+export type AcceptInviteResponse = components['schemas']['AcceptInviteResponseDto'];
 
 /**
  * One operator-controlled security control — FR-CORE-08's OTP is the first.
@@ -101,7 +105,41 @@ export const adminApi = {
     return data;
   },
 
-  // ── Outstanding invites (RBAC-07) ────────────────────────────────────────
+  // ── Invites (RBAC-07) ────────────────────────────────────────────────────
+  /*
+   * The three invite calls were the last on this surface still made as bare
+   * `api.post('/admin/invite', …)` from inside the screens. That works, and it
+   * is the one shape in the flow nothing checks: the request and response types
+   * were written by hand next to the call, so a backend rename becomes a runtime
+   * surprise rather than a compile error (API-CONTRACTS Part C).
+   *
+   * `validateInvite` and `acceptInvite` could not be aliased until the backend
+   * routes gained `@ApiOkResponse` — they generated with no schema at all — so
+   * that was fixed at the source rather than hand-declared here.
+   */
+  async createInvite(dto: CreateInviteRequest): Promise<CreateInviteResponse> {
+    const { data } = await apiClient.post<CreateInviteResponse>('/admin/invite', dto);
+    return data;
+  },
+
+  /** Unauthenticated — the invitee holds a token and nothing else. */
+  async validateInvite(token: string): Promise<InviteValidation> {
+    // `params`, not interpolation: the token comes off the URL bar, and a value
+    // containing `&` or `#` silently arrived truncated when it was interpolated.
+    const { data } = await apiClient.get<InviteValidation>('/admin/invite/validate', {
+      params: { token },
+    });
+    return data;
+  },
+
+  async acceptInvite(token: string, password: string): Promise<AcceptInviteResponse> {
+    const { data } = await apiClient.post<AcceptInviteResponse>('/admin/invite/accept', {
+      token,
+      password,
+    });
+    return data;
+  },
+
   async getPendingInvites(): Promise<PendingInvite[]> {
     const { data } = await apiClient.get<PendingInvite[]>('/admin/invites');
     return data;

@@ -1722,10 +1722,26 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        InviteValidationDto: {
+            /** @description The address the invite was sent to; the form shows it read-only. */
+            email: string;
+            /** @description Used only to greet the invitee by name. */
+            name: string;
+            /**
+             * @description Always sub_admin — an invite cannot mint a master.
+             * @enum {string}
+             */
+            role: "sub_admin";
+        };
         AcceptInviteDto: {
             /** @description Single-use token from the invitation email. */
             token: string;
             password: string;
+        };
+        AcceptInviteResponseDto: {
+            /** @example Account created. Welcome aboard! */
+            message: string;
+            admin: components["schemas"]["AdminProfileDto"];
         };
         ClientRowDto: {
             id: string;
@@ -3053,7 +3069,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InviteValidationDto"];
+                };
             };
         };
     };
@@ -3074,7 +3092,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AcceptInviteResponseDto"];
+                };
             };
         };
     };

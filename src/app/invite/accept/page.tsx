@@ -22,16 +22,10 @@ function AcceptInviteContent() {
   // so a bad token and a bad password were indistinguishable.
   const validation = useQuery({
     queryKey: ['invite', token],
-    queryFn: async () =>
-      // `params`, not string interpolation: the token comes straight off the URL
-      // bar, and axios encodes it correctly. Interpolating it meant a token
-      // containing `&` or `#` silently arrived truncated, which reads as
-      // "invalid invite" with nothing to explain why.
-      (
-        await api.get<{ email?: string; name?: string }>('/admin/invite/validate', {
-          params: { token },
-        })
-      ).data,
+    // Typed against the generated schema. This route carried no @ApiOkResponse,
+    // so its shape was hand-written here — outside the one mechanism that stops
+    // these two repos drifting apart. The backend now publishes it.
+    queryFn: () => api.admin.validateInvite(token),
     enabled: token !== '',
     retry: false,
   });
@@ -78,7 +72,7 @@ function AcceptInviteContent() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/admin/invite/accept', { token, password });
+      await api.admin.acceptInvite(token, password);
       // Full navigation instead of router.push so AdminAuthContext boots fresh
       // with the new session; a client-side push renders the shell with admin: null.
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination

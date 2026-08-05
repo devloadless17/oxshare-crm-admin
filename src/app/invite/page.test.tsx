@@ -17,13 +17,16 @@ import InvitePage from './page';
  * what the server expects, and that a refusal is shown rather than swallowed.
  */
 
-const { post, getRoles } = vi.hoisted(() => ({ post: vi.fn(), getRoles: vi.fn() }));
+const { createInvite, getRoles } = vi.hoisted(() => ({
+  createInvite: vi.fn(),
+  getRoles: vi.fn(),
+}));
 
 // Both exports — see the note in settings/page.test.tsx. Mocking only `default`
 // leaves the named `api` undefined and the page fails in a way that reads like a
 // broken query rather than a broken mock.
 vi.mock('@/lib/api', () => {
-  const api = { post, admin: { getRoles } };
+  const api = { admin: { getRoles, createInvite } };
   return { api, default: api };
 });
 
@@ -35,7 +38,7 @@ const ROLES = [
 beforeEach(() => {
   vi.clearAllMocks();
   getRoles.mockResolvedValue(ROLES);
-  post.mockResolvedValue({ data: { message: 'Invite sent to newcomer@oxshare.com' } });
+  createInvite.mockResolvedValue({ message: 'Invite sent to newcomer@oxshare.com' });
 });
 
 async function fillAndSubmit(
@@ -57,8 +60,7 @@ describe('issuing an invite', () => {
     await fillAndSubmit(user, 'Newcomer@Oxshare.com', 'New Comer');
 
     await waitFor(() =>
-      expect(post).toHaveBeenCalledWith(
-        '/admin/invite',
+      expect(createInvite).toHaveBeenCalledWith(
         expect.objectContaining({ email: 'newcomer@oxshare.com', name: 'New Comer' }),
       ),
     );
@@ -72,8 +74,7 @@ describe('issuing an invite', () => {
     await fillAndSubmit(user, '  MiXeD@Oxshare.COM  ', 'Mixed Case');
 
     await waitFor(() =>
-      expect(post).toHaveBeenCalledWith(
-        '/admin/invite',
+      expect(createInvite).toHaveBeenCalledWith(
         expect.objectContaining({ email: 'mixed@oxshare.com' }),
       ),
     );
@@ -86,7 +87,7 @@ describe('issuing an invite', () => {
 
     await fillAndSubmit(user, 'not-an-email', 'Someone');
 
-    expect(post).not.toHaveBeenCalled();
+    expect(createInvite).not.toHaveBeenCalled();
   });
 
   it('sends no request when a field is blank', async () => {
@@ -97,7 +98,7 @@ describe('issuing an invite', () => {
     await user.type(screen.getByLabelText(/email/i), 'someone@oxshare.com');
     await user.click(screen.getByRole('button', { name: /send invite|invite/i }));
 
-    expect(post).not.toHaveBeenCalled();
+    expect(createInvite).not.toHaveBeenCalled();
   });
 
   it('offers only custom roles — a system role is not assignable by invite', async () => {
@@ -113,7 +114,7 @@ describe('issuing an invite', () => {
   it('shows the reason when the server refuses', async () => {
     // The anti-escalation refusal names the permission that was over-reached.
     // Swallowing it leaves the admin with no idea why nothing happened.
-    post.mockRejectedValue({
+    createInvite.mockRejectedValue({
       response: {
         data: { message: 'You cannot grant permissions you do not hold: users.delete.' },
       },
@@ -149,8 +150,9 @@ describe('issuing an invite', () => {
     // Outside production the backend echoes the link so local development is
     // workable. In production it is absent and only the email carries it — the
     // screen must render either without breaking.
-    post.mockResolvedValue({
-      data: { message: 'Invite sent', inviteUrl: 'http://localhost:3002/invite/accept?token=abc' },
+    createInvite.mockResolvedValue({
+      message: 'Invite sent',
+      inviteUrl: 'http://localhost:3002/invite/accept?token=abc',
     });
     const user = userEvent.setup();
     renderWithProviders(<InvitePage />);
@@ -168,6 +170,6 @@ describe('issuing an invite', () => {
     renderWithProviders(<InvitePage />);
 
     await fillAndSubmit(user, 'newcomer@oxshare.com', 'New Comer');
-    await waitFor(() => expect(post).toHaveBeenCalled());
+    await waitFor(() => expect(createInvite).toHaveBeenCalled());
   });
 });

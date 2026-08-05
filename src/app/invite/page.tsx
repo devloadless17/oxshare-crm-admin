@@ -48,12 +48,11 @@ export default function InviteAdminPage() {
     setError('');
     setLoading(true);
     try {
-      const r = await api.post<{ inviteUrl?: string; message?: string }>('/admin/invite', {
-        name,
-        email,
-        roleId: roleId || undefined,
-      });
-      setResult(r.data);
+      // Typed, not `api.post` with a hand-written shape — the request and the
+      // response are both aliases of the generated schema, so a backend rename
+      // is a compile error here rather than a runtime surprise.
+      const r = await api.admin.createInvite({ name, email, roleId: roleId || undefined });
+      setResult(r);
       setCopied(false);
       setForm({ email: '', name: '' });
     } catch (e: unknown) {

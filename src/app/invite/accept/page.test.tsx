@@ -15,10 +15,13 @@ import AcceptInvitePage from './page';
  * could retype it forever.
  */
 
-const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
+const { validateInvite, acceptInvite } = vi.hoisted(() => ({
+  validateInvite: vi.fn(),
+  acceptInvite: vi.fn(),
+}));
 
 vi.mock('@/lib/api', () => {
-  const api = { get, post };
+  const api = { admin: { validateInvite, acceptInvite } };
   return { api, default: api };
 });
 
@@ -32,19 +35,18 @@ vi.mock('next/navigation', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   searchParams.current = new URLSearchParams('token=good-token');
-  get.mockResolvedValue({ data: { email: 'newcomer@oxshare.com', name: 'New Comer' } });
-  post.mockResolvedValue({ data: { message: 'Account created.' } });
+  validateInvite.mockResolvedValue({
+    email: 'newcomer@oxshare.com',
+    name: 'New Comer',
+    role: 'sub_admin',
+  });
+  acceptInvite.mockResolvedValue({ message: 'Account created.' });
 });
 
 describe('validating the link', () => {
   it('validates the token from the URL before showing the form', async () => {
     renderWithProviders(<AcceptInvitePage />);
-    await waitFor(() =>
-      expect(get).toHaveBeenCalledWith(
-        '/admin/invite/validate',
-        expect.objectContaining({ params: { token: 'good-token' } }),
-      ),
-    );
+    await waitFor(() => expect(validateInvite).toHaveBeenCalledWith('good-token'));
   });
 
   it('greets the invitee by the name on the invite', async () => {
@@ -55,7 +57,7 @@ describe('validating the link', () => {
   it('reports an invalid or expired link as a LINK problem, not a form problem', async () => {
     // The distinction this file exists for. If it reads as a password error the
     // recipient retypes their password forever and never requests a new invite.
-    get.mockRejectedValue({
+    validateInvite.mockRejectedValue({
       response: { data: { message: 'Invalid or expired invite token.' } },
     });
     renderWithProviders(<AcceptInvitePage />);
@@ -73,8 +75,8 @@ describe('validating the link', () => {
 
     expect(await screen.findByRole('heading', { name: /invalid invite/i })).toBeInTheDocument();
     // No token means nothing to validate — the page must not call the API at all.
-    expect(get).not.toHaveBeenCalled();
-    expect(post).not.toHaveBeenCalled();
+    expect(validateInvite).not.toHaveBeenCalled();
+    expect(acceptInvite).not.toHaveBeenCalled();
   });
 });
 
@@ -92,10 +94,7 @@ describe('setting the password', () => {
     await fill(user, 'a-good-password-123', 'a-good-password-123');
 
     await waitFor(() =>
-      expect(post).toHaveBeenCalledWith('/admin/invite/accept', {
-        token: 'good-token',
-        password: 'a-good-password-123',
-      }),
+      expect(acceptInvite).toHaveBeenCalledWith('good-token', 'a-good-password-123'),
     );
   });
 
@@ -106,7 +105,7 @@ describe('setting the password', () => {
     await fill(user, 'a-good-password-123', 'a-different-password');
 
     expect(await screen.findByText(/match/i)).toBeInTheDocument();
-    expect(post).not.toHaveBeenCalled();
+    expect(acceptInvite).not.toHaveBeenCalled();
   });
 
   it('sends nothing for a password under the minimum length', async () => {
@@ -116,13 +115,13 @@ describe('setting the password', () => {
     await fill(user, 'short', 'short');
 
     expect(await screen.findByText(/8 characters/i)).toBeInTheDocument();
-    expect(post).not.toHaveBeenCalled();
+    expect(acceptInvite).not.toHaveBeenCalled();
   });
 
   it('shows the server’s refusal rather than a generic failure', async () => {
     // "This invite has already been used" is actionable; "something went wrong"
     // is not, and this is the moment a recipient is most likely to be stuck.
-    post.mockRejectedValue({
+    acceptInvite.mockRejectedValue({
       response: { data: { message: 'This invite has already been used.' } },
     });
     const user = userEvent.setup();
@@ -136,7 +135,7 @@ describe('setting the password', () => {
   it('does not leave the button stuck after a failure', async () => {
     // A spinner that never resolves is indistinguishable from a hung request,
     // and the recipient cannot retry.
-    post.mockRejectedValue({ response: { data: { message: 'Invite has expired.' } } });
+    acceptInvite.mockRejectedValue({ response: { data: { message: 'Invite has expired.' } } });
     const user = userEvent.setup();
     renderWithProviders(<AcceptInvitePage />);
 
