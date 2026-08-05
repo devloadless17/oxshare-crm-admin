@@ -7,6 +7,7 @@ import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { useResource } from '@/hooks/use-resource';
+import { AsyncBoundary } from '@/components/async-boundary';
 import { useDebounced } from '@/hooks/use-debounced';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { t } from '@/lib/i18n';
@@ -208,26 +209,47 @@ export default function AdminKycPage() {
         />
       </div>
 
-      {/* DataTable */}
-      <DataTable
-        caption="KYC Submissions"
-        columns={columns}
-        rows={rows}
-        rowKey={(row) => row.userId}
-        selectable={true}
-        loading={loading}
-        loadingText="Loading KYC submissions..."
-        dimmed={query.isFetching}
-        empty={<EmptyState icon={FileCheck} message="No submissions match the current filters." />}
-        pagination={{
-          page,
-          pageSize,
-          total,
-          onPageChange: setPage,
-          onPageSizeChange: setPageSize,
-          noun: ['submission', 'submissions'],
-        }}
-      />
+      {/*
+        A failed load used to fall through to `rows = []` and render "No
+        submissions match the current filters." — so an API outage read to a
+        reviewer as an empty backlog, and submissions waited while everyone
+        believed there were none. On a compliance queue that is the expensive
+        direction to be wrong in.
+
+        AsyncBoundary is what every other screen in this app uses; this one was
+        the exception. `loading` stays on DataTable so paging keeps its inline
+        spinner instead of blanking the table on every page change.
+      */}
+      <AsyncBoundary
+        status={query.status}
+        label="Loading KYC submissions"
+        endpoints={['GET /admin/kyc?status&q&page&limit']}
+        onRetry={query.refetch}
+        errorMessage="Failed to load the review queue. This is NOT an empty queue — submissions may be waiting."
+        error={query.error}
+      >
+        <DataTable
+          caption="KYC Submissions"
+          columns={columns}
+          rows={rows}
+          rowKey={(row) => row.userId}
+          selectable={true}
+          loading={loading}
+          loadingText="Loading KYC submissions..."
+          dimmed={query.isFetching}
+          empty={
+            <EmptyState icon={FileCheck} message="No submissions match the current filters." />
+          }
+          pagination={{
+            page,
+            pageSize,
+            total,
+            onPageChange: setPage,
+            onPageSizeChange: setPageSize,
+            noun: ['submission', 'submissions'],
+          }}
+        />
+      </AsyncBoundary>
     </div>
   );
 }
