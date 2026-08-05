@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { NONCE_HEADER, contentSecurityPolicy, createNonce } from '@/lib/csp';
 
 const PUBLIC_PATHS = ['/login', '/invite/accept'];
 
@@ -37,9 +38,41 @@ export function proxy(request: NextRequest) {
     request.cookies.get('oxshare_crm_admin_rt')?.value;
 
   if (!isPublic && !session) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return withCsp(request, NextResponse.redirect(new URL('/login', request.url)));
   }
-  return NextResponse.next();
+  return withCsp(request);
+}
+
+/**
+ * Attaches the per-request `script-src` nonce — see lib/csp.ts.
+ *
+ * Every return path goes through this, including the redirect: a response
+ * without the header would fall back to no `script-src` at all, and the one
+ * page an unauthenticated visitor definitely loads is `/login`.
+ *
+ * The nonce is set on the REQUEST headers as well, because that is how Next's
+ * renderer learns to stamp it onto the inline bootstrap and hydration scripts it
+ * emits. Setting it only on the response would produce a strict policy and a
+ * blank page.
+ */
+function withCsp(request: NextRequest, response?: NextResponse): NextResponse {
+  const nonce = createNonce();
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(NONCE_HEADER, nonce);
+
+  const res = response ?? NextResponse.next({ request: { headers: requestHeaders } });
+  if (response) response.headers.set(NONCE_HEADER, nonce);
+
+  // The WHOLE policy, from one place. Merging with a header set in
+  // next.config.ts does not work — config headers are applied after middleware
+  // and replace it — and the failure is silent: the response goes out with
+  // script-src alone and no default-src at all.
+  res.headers.set(
+    'Content-Security-Policy',
+    contentSecurityPolicy(nonce, process.env.NODE_ENV === 'production'),
+  );
+  return res;
 }
 
 export const config = {

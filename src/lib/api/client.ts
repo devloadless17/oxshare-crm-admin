@@ -53,7 +53,7 @@ apiClient.interceptors.request.use((config) => {
 });
 
 const STATE_CHANGING = /^(post|put|patch|delete)$/i;
-const CSRF_HEADER = 'X-OxShare-CSRF';
+export const CSRF_HEADER = 'X-OxShare-CSRF';
 
 /**
  * Reads THIS app's CSRF cookie, under both spellings.
@@ -71,8 +71,21 @@ const CSRF_HEADER = 'X-OxShare-CSRF';
  * hence two spellings and one reader. Prefer the prefixed one: if both somehow
  * exist, the prefixed cookie is the one nothing else could have set.
  */
+/**
+ * The two spellings of this app's CSRF cookie, in order of preference.
+ *
+ * Exported so `cookie-contract.test.ts` pins the actual values rather than a
+ * copy of them — the backend computes these names and this repo hardcodes them,
+ * with nothing connecting the two (separate repos, no shared package). A rename
+ * there compiles here, passes type-checking, and then logs everyone out.
+ */
+export const CSRF_COOKIE_NAMES = [
+  '__Host-oxshare_crm_admin_csrf',
+  'oxshare_crm_admin_csrf',
+] as const;
+
 function readCsrfCookie(): string | undefined {
-  return Cookies.get('__Host-oxshare_crm_admin_csrf') ?? Cookies.get('oxshare_crm_admin_csrf');
+  return Cookies.get(CSRF_COOKIE_NAMES[0]) ?? Cookies.get(CSRF_COOKIE_NAMES[1]);
 }
 
 /**

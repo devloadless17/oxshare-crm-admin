@@ -23,25 +23,13 @@ const isProd = process.env.NODE_ENV === 'production';
  * attacker's host. Tighten to nonces if the app ever moves off static rendering.
  */
 const securityHeaders = [
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      // 'unsafe-eval' is dev-only: the Turbopack/webpack dev runtime needs it.
-      `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
-      "style-src 'self' 'unsafe-inline'", // Tailwind and Next inject style tags
-      "img-src 'self' data:", // KYC documents load same-origin via the /api rewrite
-      "font-src 'self' data:",
-      // Same-origin only: the API is reached through the /api rewrite, so the
-      // browser never needs to talk to :3001 directly. Anything else is exfiltration.
-      `connect-src 'self'${isProd ? '' : ' ws: http://localhost:*'}`,
-      "frame-ancestors 'none'", // no OxShare site should embed the admin panel
-      "base-uri 'self'", // stops an injected <base> retargeting every relative URL
-      "form-action 'self'", // stops an injected form posting credentials elsewhere
-      "object-src 'none'",
-      ...(isProd ? ['upgrade-insecure-requests'] : []),
-    ].join('; '),
-  },
+  // Content-Security-Policy is NOT here — it is built per request in
+  // `src/lib/csp.ts` and set by `src/proxy.ts`, because `script-src` carries a
+  // per-response nonce and a static header cannot. Keeping half the policy here
+  // and half there was worse than either: `next.config.ts` headers are applied
+  // AFTER middleware and REPLACED the header it set, so the static directives
+  // silently vanished from every response. One owner, one place.
+
   // Legacy companion to frame-ancestors, for anything that predates CSP level 2.
   { key: 'X-Frame-Options', value: 'DENY' },
   // A mislabelled KYC upload must never be sniffed into active content.

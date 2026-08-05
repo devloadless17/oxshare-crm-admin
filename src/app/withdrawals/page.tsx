@@ -62,11 +62,22 @@ const FILTERS = [
 ];
 
 export default function WithdrawalsPage() {
-  // Every mutation here needs withdrawals.approve on the API. Without this
-  // check the page rendered Approve / Reject / Mark-Paid to anyone who could
-  // read the queue, and each one came back as a bare 403.
+  /*
+   * TWO permissions, not one — R-5.4.
+   *
+   * Approving a withdrawal and PAYING it are separate steps and now separate
+   * keys, so an operator can require two people on a payout by granting them to
+   * different roles. Gating both buttons on `withdrawals.approve` would show a
+   * Mark-Paid button to an approver who cannot use it, and it would come back a
+   * bare 403 — which is the bug this check was added for in the first place.
+   *
+   * UX only: `PermissionsGuard` enforces each independently (R-4.1).
+   */
   const { admin } = useAdmin();
   const canApprove = hasPermission(admin, 'withdrawals.approve');
+  const canSettle = hasPermission(admin, 'withdrawals.settle');
+  /** Any action at all — decides "view only" rather than which button shows. */
+  const canAct = canApprove || canSettle;
   const queryClient = useQueryClient();
 
   /*
@@ -282,42 +293,54 @@ export default function WithdrawalsPage() {
     {
       header: t('withdrawals.colActions'),
       cell: (w) =>
-        !canApprove ? (
+        !canAct ? (
           <span className="text-xs text-muted-foreground">{t('withdrawals.viewOnly')}</span>
         ) : w.state === 'pending' ? (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => approve.mutate(w)}
-              disabled={busy}
-              className="h-8 px-3 rounded-md bg-success text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 focus-outline"
-            >
-              {t('withdrawals.approve')}
-            </button>
+          !canApprove ? (
+            <span className="text-xs text-muted-foreground">
+              {t('withdrawals.awaitingApprover')}
+            </span>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => approve.mutate(w)}
+                disabled={busy}
+                className="h-8 px-3 rounded-md bg-success text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50 focus-outline"
+              >
+                {t('withdrawals.approve')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  reject.reset();
+                  setRejectTarget(w);
+                }}
+                disabled={busy}
+                className="h-8 px-3 rounded-md border border-destructive/40 text-destructive text-xs font-semibold hover:bg-destructive/10 disabled:opacity-50 focus-outline"
+              >
+                {t('withdrawals.reject')}
+              </button>
+            </div>
+          )
+        ) : w.state === 'approved' ? (
+          !canSettle ? (
+            <span className="text-xs text-muted-foreground">
+              {t('withdrawals.awaitingSettler')}
+            </span>
+          ) : (
             <button
               type="button"
               onClick={() => {
-                reject.reset();
-                setRejectTarget(w);
+                settle.reset();
+                setSettleTarget(w);
               }}
               disabled={busy}
-              className="h-8 px-3 rounded-md border border-destructive/40 text-destructive text-xs font-semibold hover:bg-destructive/10 disabled:opacity-50 focus-outline"
+              className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-50 focus-outline"
             >
-              {t('withdrawals.reject')}
+              {t('withdrawals.markPaid')}
             </button>
-          </div>
-        ) : w.state === 'approved' ? (
-          <button
-            type="button"
-            onClick={() => {
-              settle.reset();
-              setSettleTarget(w);
-            }}
-            disabled={busy}
-            className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-50 focus-outline"
-          >
-            {t('withdrawals.markPaid')}
-          </button>
+          )
         ) : (
           <span className="text-xs text-muted-foreground">
             {w.settledAt

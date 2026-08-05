@@ -124,12 +124,46 @@ describe('withdrawal queue — lifecycle gating', () => {
     expect(screen.queryByRole('button', { name: /mark paid/i })).toBeNull();
   });
 
-  it('is read-only without the withdrawals.approve permission', async () => {
+  it('is read-only with neither approve nor settle', async () => {
     permissions.current = ['withdrawals.view'];
     renderWithProviders(<WithdrawalsPage />);
 
     expect(await screen.findByText(/view only/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^approve$/i })).toBeNull();
+  });
+
+  /*
+   * R-5.4 — separation of duties. Approving and PAYING are separate permissions
+   * so an operator can require two people on a payout, which means an admin may
+   * legitimately hold one and not the other. Gating both buttons on
+   * `withdrawals.approve` would offer Mark-Paid to someone who cannot use it and
+   * return a bare 403 — the exact bug the permission check was added to fix.
+   */
+  it('an APPROVER sees Approve but not Mark Paid', async () => {
+    permissions.current = ['withdrawals.view', 'withdrawals.approve'];
+    get.mockResolvedValue({ data: page([row({ state: 'approved' })]) });
+    renderWithProviders(<WithdrawalsPage />);
+
+    await screen.findByText('300.00000000');
+    expect(screen.queryByRole('button', { name: /mark paid/i })).toBeNull();
+    expect(screen.getByText(/awaiting a payer/i)).toBeInTheDocument();
+  });
+
+  it('a SETTLER sees Mark Paid but not Approve', async () => {
+    permissions.current = ['withdrawals.view', 'withdrawals.settle'];
+    renderWithProviders(<WithdrawalsPage />);
+
+    await screen.findByText('300.00000000');
+    expect(screen.queryByRole('button', { name: /^approve$/i })).toBeNull();
+    expect(screen.getByText(/awaiting an approver/i)).toBeInTheDocument();
+  });
+
+  it('a settler CAN act on an approved request', async () => {
+    permissions.current = ['withdrawals.view', 'withdrawals.settle'];
+    get.mockResolvedValue({ data: page([row({ state: 'approved' })]) });
+    renderWithProviders(<WithdrawalsPage />);
+
+    expect(await screen.findByRole('button', { name: /mark paid/i })).toBeInTheDocument();
   });
 });
 

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { DEFAULT_LOCALE, direction } from '@/lib/i18n';
@@ -23,15 +24,31 @@ export const metadata: Metadata = {
   description: 'OXShare CRM back-office administration.',
 };
 
-export default function RootLayout({
+/**
+ * `async`, and it reads `headers()`, for ONE reason: the CSP nonce.
+ *
+ * `next-themes` injects an inline script to set the theme class before first
+ * paint — that is what stops the flash of the wrong theme. Next stamps its OWN
+ * inline scripts with the nonce automatically, but not a library's, so with
+ * `'unsafe-inline'` removed that one script is blocked and every page loads in
+ * the default theme with a console error nobody sees.
+ *
+ * The cost is that this layout renders dynamically rather than being
+ * prerendered. That is acceptable here and would not be everywhere: every route
+ * in this app is behind a session and personalised anyway, so there was nothing
+ * to cache.
+ */
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
     <html lang={DEFAULT_LOCALE} dir={direction(DEFAULT_LOCALE)} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider defaultTheme="light" storageKey="oxshare-admin-theme">
+        <ThemeProvider defaultTheme="light" storageKey="oxshare-admin-theme" nonce={nonce}>
           <LocaleDirection />
           <QueryProvider>
             <AdminAuthProvider>{children}</AdminAuthProvider>
