@@ -570,9 +570,34 @@ export const messages = {
   // RBAC-01/02. Was the "Roles" tab of /settings until the three concerns were
   // split into their own routes: defining roles, holding them, and network
   // access are separate jobs and were only ever one page by accident.
-  'roles.title': 'Roles & Permissions',
-  'roles.subtitle':
-    'Define what a role may do. Permissions come from the API catalog, so a role can never grant something the backend does not enforce.',
+  // Just "Roles". The page defines roles; that permissions are what a role is
+  // made of does not need saying in the title, and the sidebar entry, the page
+  // heading and the route now all read the same word.
+  'roles.title': 'Roles',
+  'roles.noDescription': 'No description',
+  'roles.rowActions': 'Actions for {name}',
+  'roles.empty': 'No roles yet.',
+  'roles.emptyHint': 'Create one to describe what a group of admins may do.',
+  // Delete confirmation. Names the role and states the one thing that blocks
+  // the delete, because "still assigned" is the failure an operator hits.
+  'roles.deleteTitle': 'Delete “{name}”?',
+  'roles.deleteBody':
+    'This cannot be undone. Any admin still holding this role must be reassigned first, or the delete is refused.',
+  'roles.deleting': 'Deleting…',
+  // ── Create / edit, now their own pages rather than a modal ────────────────
+  'roles.newTitle': 'New role',
+  'roles.newSubtitle': 'Name it, then choose what it may do and what it may see.',
+  'roles.editTitle': 'Edit {name}',
+  'roles.editSubtitle': 'Changes apply to every admin holding this role on their next request.',
+  'roles.backToRoles': 'Back to roles',
+  'roles.saveNew': 'Create role',
+  'roles.saveEdit': 'Save changes',
+  'roles.saving': 'Saving…',
+  'roles.notFound': 'That role no longer exists.',
+  'roles.systemReadOnly': 'System roles cannot be edited.',
+  'roles.loadFailed': 'Failed to load roles.',
+  'roles.saveFailed': 'Failed to save the role. Please try again.',
+  'roles.deleteFailed': 'Failed to delete the role.',
 
   // ── Admin users (/admin-users) ────────────────────────────────────────────
   'adminUsers.title': 'Admin Users',
@@ -834,6 +859,7 @@ export const messages = {
   'common.saveChanges': 'Save Changes',
   'common.save': 'Save',
   'common.delete': 'Delete',
+  'common.edit': 'Edit',
   'common.confirm': 'Confirm',
   /*
    * Shown under a failed request, alongside the message.

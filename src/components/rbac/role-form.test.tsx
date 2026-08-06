@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
-import { RoleFormModal, type RoleFormValues } from './role-form-modal';
+import { RoleForm, type RoleFormValues } from './role-form';
 
 /**
  * RBAC-03's masking matrix, where it belongs — on the ROLE.
@@ -50,20 +50,18 @@ const PERMISSIONS = {
   },
 };
 
-function renderModal(overrides: Partial<Parameters<typeof RoleFormModal>[0]> = {}): {
+function renderModal(overrides: Partial<Parameters<typeof RoleForm>[0]> = {}): {
   onSubmit: ReturnType<typeof vi.fn>;
 } {
   const onSubmit = vi.fn();
   renderWithProviders(
-    <RoleFormModal
-      title="Edit role"
+    <RoleForm
       catalog={PERMISSIONS as never}
       fieldCatalog={CATALOG as never}
       busy={false}
       error=""
       submitLabel="Save"
       onSubmit={onSubmit as (values: RoleFormValues) => void}
-      onClose={vi.fn()}
       {...overrides}
     />,
   );
