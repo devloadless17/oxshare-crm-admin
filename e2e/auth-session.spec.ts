@@ -44,6 +44,109 @@ test.describe('an authenticated admin session', () => {
     await expect(page.getByRole('button', { name: /^sign in$/i })).toHaveCount(0);
   });
 
+  test('survives a hard refresh on every private page, chrome intact', async ({ page }) => {
+    /*
+     * The refresh is the whole test. A hard reload throws away the in-memory
+     * context, the React Query cache and every inference the app had made, and
+     * leaves it with a cookie it cannot read. Everything it knows it has to ask
+     * for again — and each of those asks is a chance to render the signed-out
+     * shell, or bounce a perfectly valid session to /login.
+     *
+     * The chrome is asserted alongside the URL because staying on the page while
+     * losing the navigation is the failure people actually report: the portal's
+     * sidebar vanished on reload twice, and both times the route was fine.
+     */
+    for (const path of PRIVATE_PAGES) {
+      await page.goto(path);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      expect(page.url(), `refreshing ${path} redirected away`).toContain(path);
+      await expect(
+        page.getByRole('navigation').first(),
+        `refreshing ${path} lost the console chrome`,
+      ).toBeAttached();
+      await expect(
+        page.getByRole('button', { name: /^sign in$/i }),
+        `refreshing ${path} rendered the signed-out screen`,
+      ).toHaveCount(0);
+    }
+  });
+
+  test('refreshes silently when only the access cookie is gone', async ({ page, context }) => {
+    /*
+     * THE REFRESH PATH, exercised the way it actually happens.
+     *
+     * The access cookie lives fifteen minutes and the refresh cookie thirty
+     * days, so the ordinary state of an admin returning from lunch is exactly
+     * this: no access token, a valid refresh token. Deleting the access cookie
+     * reproduces it in a second rather than waiting a quarter of an hour.
+     *
+     * What must happen is nothing visible — the interceptor renews and retries,
+     * and the admin never learns anything went missing. What must NOT happen is
+     * a bounce to /login, which is what gating on the access cookie would cause
+     * and why `proxy.ts` gates on the refresh cookie instead.
+     */
+    await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
+
+    const before = await context.cookies();
+    await context.clearCookies();
+    // Everything back EXCEPT the short-lived access token.
+    await context.addCookies(before.filter((c) => !c.name.includes('oxshare_crm_admin_at')));
+    expect(
+      (await context.cookies()).some((c) => c.name.includes('oxshare_crm_admin_at')),
+      'the access cookie was not actually removed — this test would pass for the wrong reason',
+    ).toBe(false);
+
+    // Count the renewals, so "it still worked" cannot mean "nothing expired".
+    const renewals: number[] = [];
+    page.on('response', (res) => {
+      if (res.url().includes('/admin/auth/refresh')) renewals.push(res.status());
+    });
+
+    await page.goto('/clients');
+    await page.waitForLoadState('networkidle');
+
+    /*
+     * A renewal HAPPENED and succeeded.
+     *
+     * Without this the test asserts only that the page rendered, which it would
+     * also do if the cookie had never been removed — the failure mode where a
+     * green test proves nothing. The precondition above guards the same risk
+     * from the other side.
+     */
+    expect(
+      renewals,
+      'no refresh was attempted — the access cookie may still have been valid',
+    ).not.toEqual([]);
+    expect(renewals.every((s) => s === 200 || s === 201)).toBe(true);
+
+    await expect(page, 'a renewable session was sent to login').toHaveURL(/\/clients/);
+    await expect(page.getByRole('navigation').first()).toBeAttached();
+
+    // And it really renewed, rather than the page merely rendering optimistically.
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/admin/auth/me', { credentials: 'include' });
+      return res.status;
+    });
+    expect(me).toBe(200);
+  });
+
+  test('gives up cleanly when the refresh cookie is gone too', async ({ page, context }) => {
+    // The other half: nothing left to renew from is a real end of session, and
+    // it must land on /login rather than looping or rendering a broken console.
+    await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
+
+    await context.clearCookies();
+
+    await page.goto('/clients');
+    await expect(page, 'a dead session did not reach the sign-in screen').toHaveURL(/\/login/, {
+      timeout: 20_000,
+    });
+  });
+
   test('does not loop or 401 while simply moving around', async ({ page }) => {
     // A refresh cycle that misfires shows up as repeated 401s rather than as a
     // broken screen — the session self-heals and nobody notices except the log.
