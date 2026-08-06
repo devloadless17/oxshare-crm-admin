@@ -357,18 +357,26 @@ export function stopProactiveRefresh(): void {
  */
 function endDeadSession(): void {
   clearAdminSession();
-  /*
-   * Tell the other tabs too.
-   *
-   * Whichever tab notices first is the one that knows; the rest are sitting on a
-   * rendered console with a dead session behind it, and would only find out when
-   * somebody clicked something. On a shared machine that is the gap that matters.
-   */
-  announceSessionEvent('signed-out');
   if (typeof window === 'undefined') return;
   // Nothing to evict anyone from: these pages are meant to work signed out.
   if (isPublicPath(window.location.pathname)) return;
   if (window.location.pathname.startsWith(LOGIN_PATH)) return;
+
+  /*
+   * Tell the other tabs — but only now that we know this is a real eviction.
+   *
+   * Whichever tab notices first is the one that knows; the rest are sitting on a
+   * rendered console with a dead session behind it, and would only find out when
+   * somebody clicked something. On a shared machine that is the gap that matters.
+   *
+   * Announcing ABOVE, before the public-path check, is what produced an infinite
+   * reload in the portal's copy of this file: every load of the sign-in page
+   * answers 401 on the profile call, which reaches here, which announced — and
+   * the same document's own listener heard it and reloaded. `session-channel.ts`
+   * now ignores self-sent messages, and this ordering means a public page does
+   * not broadcast at all. Either alone fixes it; both are correct independently.
+   */
+  announceSessionEvent('signed-out');
 
   /*
    * A HARD navigation, deliberately, against @next/next's advice to use

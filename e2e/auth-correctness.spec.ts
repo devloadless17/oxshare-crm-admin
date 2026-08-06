@@ -203,8 +203,13 @@ test.describe('invites', () => {
     ).toBeTruthy();
     const token = new URL(inviteUrl!).searchParams.get('token');
 
-    // A clean browser: the invitee has no session, which is the whole premise.
-    const invitee = await browser.newContext();
+    /*
+     * A clean browser: the invitee has no session, which is the whole premise —
+     * and `storageState` is stated rather than defaulted, because
+     * `browser.newContext()` otherwise inherits the project's saved admin
+     * session and this would be testing the wrong thing entirely.
+     */
+    const invitee = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const page = await invitee.newPage();
     await page.goto(`/invite/accept?token=${token}`);
 
@@ -235,26 +240,33 @@ test.describe('two tabs', () => {
      * had just cleared — never corrected even on their next request. On a shared
      * back-office machine that is the console still showing an operator's name
      * and data to whoever sits down next.
+     */
+    /*
+     * Its OWN session, from an empty jar — not the shared `STORAGE_STATE`.
      *
-     * ONE context, two pages: that is what makes them share a cookie jar, which
+     * Logging out revokes EVERY refresh family for that admin (R-3.3), so a test
+     * that signs the shared identity out kills the session every later spec
+     * restores from. Signing in here costs one login and leaves the saved state
+     * untouched, which is the same shape `auth-session.spec.ts` uses for its own
+     * logout journey and the reason the suite tolerates that one.
+     *
+     * One context, two pages: that is what gives them a shared cookie jar, which
      * is what makes this the real scenario rather than a simulation of it.
      */
     /*
-     * ONE context, two pages, seeded from the SAVED session.
+     * `storageState` stated EXPLICITLY, not left to default.
      *
-     * Not `signIn` — the fixture is already authenticated, so driving the form
-     * would be bounced straight off `/login` by the reverse gate this same
-     * change added, and would spend one of the five logins a minute the API
-     * allows. Sharing a context is the part that matters anyway: it is what
-     * gives the two pages one cookie jar, which is what makes this the real
-     * scenario rather than a simulation of it.
+     * `browser.newContext()` here inherits the project's saved session, so a
+     * context meant to be empty arrived signed in — `signIn` then navigated to
+     * /login, was bounced straight to /dashboard by the reverse gate, and waited
+     * thirty seconds for a login request that was never going to happen. The
+     * failure read as "login is broken".
      */
-    const context = await browser.newContext({ storageState: STORAGE_STATE });
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const tabA = await context.newPage();
     const tabB = await context.newPage();
 
-    await tabA.goto('/dashboard');
-    await tabA.waitForLoadState('networkidle');
+    await signIn(tabA, E2E_ADMIN);
     await tabB.goto('/clients');
     await tabB.waitForLoadState('networkidle');
     await expect(tabB.getByRole('navigation').first()).toBeAttached();
@@ -276,13 +288,8 @@ test.describe('two tabs', () => {
      * Logging out revokes EVERY refresh family for that admin (R-3.3), so this
      * test does not merely end its own context — it kills the seeded session
      * that `auth.setup.ts` saved and every later spec restores from. Without
-     * this the next spec inherits cookies the server has already revoked and
-     * fails for a reason that has nothing to do with what it is testing, which
-     * is exactly the kind of order-dependent failure that makes a suite
-     * untrustworthy.
-     *
-     * It costs one extra sign-in per run, which is inside the five-per-minute
-     * cap because nothing else in this file signs in at all.
+     * this, the next test inherits cookies the server has already revoked and
+     * fails for a reason that has nothing to do with what it is testing.
      */
     await signIn(tabA, E2E_ADMIN);
     await context.storageState({ path: STORAGE_STATE });

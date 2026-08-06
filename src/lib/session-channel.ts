@@ -38,6 +38,42 @@ const REFRESH_LOCK = 'oxshare-crm-admin-refresh';
 
 export type SessionEvent = 'signed-out' | 'signed-in';
 
+/**
+ * Who sent a message, so a document never acts on its own announcement.
+ *
+ * `BroadcastChannel` does not deliver a message back to the channel OBJECT that
+ * sent it — but it does deliver to every other object with the same name in the
+ * same origin, INCLUDING other objects in the same document. `announceSessionEvent`
+ * opens a short-lived channel to post; `onSessionEvent` holds a separate
+ * long-lived one. They are two objects, so the listener heard its own tab.
+ *
+ * That produced an infinite reload after signing out, and it is worth spelling
+ * out because it is not obvious from either function on its own:
+ *
+ *   land on /auth/login → `/auth/me` 401 → refresh fails → `endDeadSession`
+ *   announces 'signed-out' → THIS document's own listener hears it → hard
+ *   navigation to /auth/login → and round again, forever.
+ *
+ * The reload also aborted whatever request was in flight, which surfaced as
+ * "Cannot reach OxShare" on a perfectly healthy API — the loop wearing the
+ * costume of the very failure state this work added.
+ *
+ * A per-document id fixes it at the source rather than by adding guards at each
+ * call site, which would have to be remembered by the next caller.
+ */
+const SENDER_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+interface SessionMessage {
+  event: SessionEvent;
+  from: string;
+}
+
+function isSessionMessage(data: unknown): data is SessionMessage {
+  if (typeof data !== 'object' || data === null) return false;
+  const { event, from } = data as { event?: unknown; from?: unknown };
+  return (event === 'signed-out' || event === 'signed-in') && typeof from === 'string';
+}
+
 type ChannelLike = { postMessage(message: unknown): void; close(): void };
 
 function openChannel(): ChannelLike | null {
@@ -62,7 +98,7 @@ export function announceSessionEvent(event: SessionEvent): void {
   const channel = openChannel();
   if (!channel) return;
   try {
-    channel.postMessage(event);
+    channel.postMessage({ event, from: SENDER_ID } satisfies SessionMessage);
   } finally {
     channel.close();
   }
@@ -90,7 +126,11 @@ export function onSessionEvent(handler: (event: SessionEvent) => void): () => vo
   }
 
   channel.onmessage = (e: { data: unknown }) => {
-    if (e.data === 'signed-out' || e.data === 'signed-in') handler(e.data);
+    if (!isSessionMessage(e.data)) return;
+    // Never act on our own announcement — see SENDER_ID. This is the guard that
+    // stops a document reloading itself in a loop.
+    if (e.data.from === SENDER_ID) return;
+    handler(e.data.event);
   };
 
   return () => {
