@@ -105,6 +105,23 @@ export type PlatformLink = components['schemas']['PlatformLinkDto'];
 
 export type SecuritySwitch = components['schemas']['SecuritySwitchDto'];
 
+/** Brand name, support contacts and the maintenance notice. */
+export type GeneralSettings = components['schemas']['GeneralSettingsDto'];
+export type UpdateGeneralSettings = components['schemas']['UpdateGeneralSettingsDto'];
+
+/**
+ * The mail configuration.
+ *
+ * There is no `password` on the RESPONSE type, and that is the contract rather
+ * than an omission: the API never returns the stored password. `passwordSet`
+ * says only whether one exists, which is what lets the form offer "leave blank
+ * to keep the current password" truthfully instead of rendering dots that
+ * cannot be edited.
+ */
+export type SmtpSettings = components['schemas']['SmtpSettingsDto'];
+export type UpdateSmtpSettings = components['schemas']['UpdateSmtpSettingsDto'];
+export type SmtpTestResult = components['schemas']['SmtpTestResultDto'];
+
 export const adminApi = {
   /** Master admin only — the API answers 403 for anyone else. */
   async getSecuritySettings(): Promise<SecuritySwitch[]> {
@@ -145,6 +162,47 @@ export const adminApi = {
    */
   async setPlatformLink(key: string, url: string): Promise<PlatformLink> {
     const { data } = await apiClient.put<PlatformLink>(`/admin/platforms/${key}`, { url });
+    return data;
+  },
+
+  async getGeneralSettings(): Promise<GeneralSettings> {
+    const { data } = await apiClient.get<GeneralSettings>('/admin/settings/general');
+    return data;
+  },
+
+  async updateGeneralSettings(body: UpdateGeneralSettings): Promise<GeneralSettings> {
+    const { data } = await apiClient.put<GeneralSettings>('/admin/settings/general', body);
+    return data;
+  },
+
+  /** Master admin only — the API answers 403 for anyone else. */
+  async getSmtpSettings(): Promise<SmtpSettings> {
+    const { data } = await apiClient.get<SmtpSettings>('/admin/settings/smtp');
+    return data;
+  },
+
+  /**
+   * Master admin only.
+   *
+   * `password` has three meanings and the caller must pick deliberately: OMIT it
+   * (or send null) to keep the stored one, send a string to replace it, send an
+   * empty string to remove it. Collapsing the first into the third is how
+   * editing a port silently breaks authentication.
+   */
+  async updateSmtpSettings(body: UpdateSmtpSettings): Promise<SmtpSettings> {
+    const { data } = await apiClient.put<SmtpSettings>('/admin/settings/smtp', body);
+    return data;
+  },
+
+  /**
+   * Send a test message to the signed-in admin's own address.
+   *
+   * There is no recipient parameter by design — a free-text one would make this
+   * an authenticated open relay. A delivery failure comes back as an error
+   * carrying the mail server's own message, because that is the entire point.
+   */
+  async sendSmtpTest(): Promise<SmtpTestResult> {
+    const { data } = await apiClient.post<SmtpTestResult>('/admin/settings/smtp/test');
     return data;
   },
 

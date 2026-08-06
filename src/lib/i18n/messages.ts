@@ -642,11 +642,84 @@ export const messages = {
     'Revoke the invite for {email}? The link stops working immediately. You can send a new one afterwards.',
 
   // ── Settings / RBAC ───────────────────────────────────────────────────────
-  // /settings is now network and security only — see roles.* and adminUsers.*
-  // above. The settings.* keys below are still shared by the RBAC components
-  // (role-card, role-form-modal), which both pages render.
+  // /settings is a four-tab screen: General, Email, Platforms, Security. Roles
+  // and the admin directory stay on their own routes — see roles.* and
+  // adminUsers.* above. The settings.* keys below are still shared by the RBAC
+  // components (role-card, role-form-modal), which those pages render.
   'settings.title': 'Settings',
-  'settings.subtitle': 'Network access and the security controls protecting this admin API.',
+  'settings.subtitle':
+    'Branding, mail delivery, client downloads and the controls protecting this admin API.',
+
+  // ── Settings tabs ─────────────────────────────────────────────────────────
+  'settings.tabGeneral': 'General',
+  'settings.tabEmail': 'Email',
+  'settings.tabPlatforms': 'Platforms',
+  'settings.tabSecurity': 'Security',
+  'settings.masterOnly': 'Master admin only',
+
+  // ── General tab ───────────────────────────────────────────────────────────
+  'general.title': 'Brand and contact',
+  'general.subtitle': 'What clients see across the portal, and where they are told to get help.',
+  'general.loading': 'Loading general settings',
+  'general.loadFailed': 'Could not load the general settings.',
+  'general.brandName': 'Brand name',
+  'general.brandNameHint': 'Shown in the portal header and in email headings.',
+  'general.supportEmail': 'Support email',
+  'general.supportEmailHint': 'Where clients are told to write. Leave empty to show no address.',
+  'general.supportUrl': 'Support URL',
+  'general.supportUrlHint':
+    'Help centre or ticket portal. Must be https — it becomes a link in a client’s browser.',
+  'general.maintenanceNotice': 'Maintenance notice',
+  'general.maintenanceHint':
+    'Shown to every client while it is set. Leave empty to show nothing — this is not a draft box.',
+  'general.maintenancePlaceholder': 'e.g. Deposits are paused until 09:00 UTC while we upgrade.',
+  'general.readOnly': 'You do not have permission to change these.',
+  'general.updateFailed': 'Could not save the general settings.',
+  'general.save': 'Save changes',
+  'general.saving': 'Saving...',
+  'general.saved': 'Saved',
+
+  // ── Email tab ─────────────────────────────────────────────────────────────
+  'smtp.title': 'Mail server (SMTP)',
+  'smtp.subtitle':
+    'How this system sends verification links, password resets, admin invitations and withdrawal codes.',
+  'smtp.loading': 'Loading mail settings',
+  'smtp.loadFailed': 'Could not load the mail settings.',
+  'smtp.restricted':
+    'Only a master admin can view or change the mail server. Whoever controls it receives every password-reset and invitation link this system sends.',
+  'smtp.sourceEnvironment':
+    'Nothing has been saved here yet — these are the server’s own start-up settings. Saving stores them in the database, where they can be changed without a deploy.',
+  'smtp.sourceDatabase': 'Saved settings, last changed {when}.',
+  'smtp.host': 'Host',
+  'smtp.hostPlaceholder': 'smtp.postmarkapp.com',
+  'smtp.port': 'Port',
+  'smtp.portHint': '587 for STARTTLS, 465 for implicit TLS.',
+  'smtp.username': 'Username',
+  'smtp.usernameHint': 'Leave empty for a relay that takes no credentials.',
+  'smtp.password': 'Password',
+  'smtp.passwordSetHint':
+    'A password is stored. Leave empty to keep it, or type a new one to replace it.',
+  'smtp.passwordNoneHint': 'No password is stored.',
+  'smtp.passwordClear': 'Remove the stored password',
+  'smtp.passwordNeverShown': 'The stored password is encrypted and is never shown again.',
+  'smtp.fromAddress': 'From address',
+  'smtp.fromHint':
+    'The sender on every message. Include a display name, e.g. "OxShare" <no-reply@oxshare.com>.',
+  'smtp.secure': 'Use implicit TLS (SMTPS)',
+  'smtp.secureHint': 'On for port 465. Off uses STARTTLS, which is the usual choice on 587.',
+  'smtp.save': 'Save mail settings',
+  'smtp.saving': 'Saving...',
+  'smtp.saved': 'Saved',
+  'smtp.updateFailed': 'Could not save the mail settings.',
+  'smtp.test': 'Send test email',
+  'smtp.testing': 'Sending...',
+  'smtp.testSentDatabase': 'Sent to {email} using the saved settings. Check your inbox.',
+  'smtp.testSentEnvironment':
+    'Sent to {email} using the server’s start-up settings. Check your inbox.',
+  'smtp.testFailed': 'The test message could not be sent.',
+  'smtp.testHint': 'Sends to your own address using whatever is currently saved.',
+  'smtp.unsavedWarning':
+    'You have unsaved changes. A test sends the SAVED settings, not what is on screen.',
   'settings.rolesTitle': 'Configured System & Custom Roles',
   'settings.rolesHint':
     'Permissions defined in permissions.json are mapped dynamically to custom roles.',

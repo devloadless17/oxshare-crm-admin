@@ -820,6 +820,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/settings/general": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Brand name, support contacts and the maintenance notice */
+        get: operations["AdminSettingsController_getGeneral"];
+        /**
+         * Update the general settings
+         * @description Null or an empty string clears an optional field. The support URL must be https — it becomes a link in every client’s browser.
+         */
+        put: operations["AdminSettingsController_setGeneral"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settings/smtp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mail server configuration (master admin only)
+         * @description The stored password is never returned — `passwordSet` reports only whether one exists. `source` is "environment" until the first save, and the values shown are then the server’s own boot configuration rather than a blank form.
+         */
+        get: operations["AdminSettingsController_getSmtp"];
+        /**
+         * Update the mail server configuration (master admin only)
+         * @description Omit `password` or send null to keep the stored one, a string to replace it, or an empty string to remove it. The password is encrypted at rest and is never read back.
+         */
+        put: operations["AdminSettingsController_setSmtp"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settings/smtp/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test email to yourself using the saved settings (master admin only)
+         * @description Always sent to the signed-in administrator’s own address. A delivery failure is returned as an error carrying the mail server’s own message, because reporting success for a send that failed would defeat the purpose of the endpoint.
+         */
+        post: operations["AdminSettingsController_testSmtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/auth/login": {
         parameters: {
             query?: never;
@@ -970,6 +1035,40 @@ export interface paths {
         put?: never;
         /** Accept invite and set password — logs admin in immediately */
         post: operations["AdminAuthController_acceptInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Email another administrator a single-use password reset link */
+        post: operations["AdminAuthController_initiatePasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/password-reset/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Spend a reset link and set a new password */
+        post: operations["AdminAuthController_completePasswordReset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2136,6 +2235,89 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        GeneralSettingsDto: {
+            /**
+             * @description Shown in the portal header.
+             * @example OxShare
+             */
+            brandName: string;
+            /**
+             * @description Where clients are told to write. Null when unset.
+             * @example support@oxshare.com
+             */
+            supportEmail?: string | null;
+            /**
+             * @description Help centre or ticket portal. Null when unset.
+             * @example https://help.oxshare.com
+             */
+            supportUrl?: string | null;
+            /** @description Shown to clients during planned downtime. Null shows nothing. */
+            maintenanceNotice?: string | null;
+            /** Format: date-time */
+            updatedAt?: string | null;
+        };
+        UpdateGeneralSettingsDto: {
+            /** @example OxShare */
+            brandName: string;
+            /** @example support@oxshare.com */
+            supportEmail?: string | null;
+            /** @example https://help.oxshare.com */
+            supportUrl?: string | null;
+            maintenanceNotice?: string | null;
+        };
+        SmtpSettingsDto: {
+            /** @example smtp.postmarkapp.com */
+            host: string;
+            /** @example 587 */
+            port: number;
+            /** @example apikey */
+            username?: string | null;
+            /**
+             * @description Whether a password is stored. The password itself is never returned.
+             * @example true
+             */
+            passwordSet: boolean;
+            /** @example "OxShare" <no-reply@oxshare.com> */
+            fromAddress: string;
+            /**
+             * @description Implicit TLS on connect (SMTPS). False means STARTTLS.
+             * @example false
+             */
+            secure: boolean;
+            /**
+             * @description Which configuration is actually in force. "environment" means nothing has been saved here yet and the server is using its boot configuration.
+             * @enum {string}
+             */
+            source: "database" | "environment";
+            /** Format: date-time */
+            updatedAt?: string | null;
+        };
+        UpdateSmtpSettingsDto: {
+            /** @example smtp.postmarkapp.com */
+            host: string;
+            /** @example 587 */
+            port: number;
+            /** @description Null for a relay that takes no credentials. */
+            username?: string | null;
+            /** @description Omit or null keeps the stored password. A string replaces it. An empty string removes it. */
+            password?: string | null;
+            /** @example "OxShare" <no-reply@oxshare.com> */
+            fromAddress: string;
+            /** @example false */
+            secure: boolean;
+        };
+        SmtpTestResultDto: {
+            /**
+             * @description Always the acting admin.
+             * @example admin@oxshare.com
+             */
+            sentTo: string;
+            /**
+             * @description Which configuration delivered the message.
+             * @enum {string}
+             */
+            source: "database" | "environment";
+        };
         AdminLoginDto: {
             /** @example admin@oxshare.com */
             email: string;
@@ -2220,6 +2402,11 @@ export interface components {
             /** @example Account created. Welcome aboard! */
             message: string;
             admin: components["schemas"]["AdminProfileDto"];
+        };
+        CompleteAdminResetDto: {
+            /** @description Single-use token from the password reset email. */
+            token: string;
+            password: string;
         };
         ClientTagDto: {
             id: string;
@@ -3850,6 +4037,109 @@ export interface operations {
             };
         };
     };
+    AdminSettingsController_getGeneral: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneralSettingsDto"];
+                };
+            };
+        };
+    };
+    AdminSettingsController_setGeneral: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateGeneralSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneralSettingsDto"];
+                };
+            };
+        };
+    };
+    AdminSettingsController_getSmtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmtpSettingsDto"];
+                };
+            };
+        };
+    };
+    AdminSettingsController_setSmtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSmtpSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmtpSettingsDto"];
+                };
+            };
+        };
+    };
+    AdminSettingsController_testSmtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmtpTestResultDto"];
+                };
+            };
+        };
+    };
     AdminAuthController_login: {
         parameters: {
             query?: never;
@@ -4033,6 +4323,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AcceptInviteResponseDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_initiatePasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_completePasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteAdminResetDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
                 };
             };
         };
