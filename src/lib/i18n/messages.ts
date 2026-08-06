@@ -87,7 +87,6 @@ export const messages = {
   'nav.searchPlaceholder': 'Search clients, deals, IBs… (⌘K)',
   'nav.searchAria': 'Global search across the console',
   'nav.notifications': 'Notifications',
-  'nav.systemStatus': 'System Operational',
 
   // ── Session ───────────────────────────────────────────────────────────────
   'session.loading': 'Loading your session',

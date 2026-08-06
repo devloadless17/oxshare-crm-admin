@@ -98,12 +98,27 @@ describe('the list itself', () => {
     expect(getRoles).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no action menu on a system role', async () => {
+  it('does not list system roles at all', async () => {
+    // Master Admin cannot be edited or deleted and holds `*`, so it rendered as
+    // a row with no menu and a permission count that undersold it by eighty.
+    // A management list opening with an unmanageable entry teaches the reader
+    // to skip the first row.
     renderWithProviders(<RolesPage />);
     await screen.findByText('Support');
 
+    expect(screen.queryByText('Master Admin')).not.toBeInTheDocument();
+    expect(screen.queryByText(/system role/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /actions for support/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /actions for master admin/i })).toBeNull();
+  });
+
+  it('shows the empty state when every role the API returns is a system role', async () => {
+    // Not an error and not a blank card: a fresh install has exactly the system
+    // roles and nothing else, and that is the moment the prompt to create one
+    // is most useful.
+    getRoles.mockResolvedValue([SYSTEM]);
+    renderWithProviders(<RolesPage />);
+
+    expect(await screen.findByText(/no roles yet/i)).toBeInTheDocument();
   });
 
   it('hides the create button and every action menu without roles.manage', async () => {

@@ -381,11 +381,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
           {/* Right Controls */}
           <div className="flex items-center gap-3">
-            {/* System Live Status */}
-            <div className="hidden md:flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-[11px] font-medium text-success">
-              <Activity className="h-3.5 w-3.5 animate-pulse" />
-              <span>{t('nav.systemStatus')}</span>
-            </div>
+            {/*
+              The "System Operational" pill is gone. It was a hardcoded green
+              badge with a pulsing icon — nothing measured it, no health check
+              fed it, and it read as an assurance the console was in a position
+              to give. A status indicator that cannot say "degraded" is worse
+              than none: it is only ever seen agreeing with itself, so when
+              something IS wrong it is still there, green, being wrong.
+            */}
 
             {/* Notifications */}
             <button

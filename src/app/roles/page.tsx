@@ -62,7 +62,23 @@ export default function RolesPage() {
   const queryClient = useQueryClient();
 
   const query = useResource(['roles'], () => api.admin.getRoles());
-  const roles = query.data ?? [];
+
+  /*
+   * System roles are not listed.
+   *
+   * `Master Admin` cannot be edited, cannot be deleted, and holds `*` — so it
+   * rendered as a row with no action menu and an "Assigned Permissions (1)"
+   * line that undersells it by eighty. Nothing on this page can act on it, and
+   * a management list that opens with an unmanageable entry teaches the reader
+   * to skip the first row.
+   *
+   * Filtered HERE rather than asked of the API: `GET /admin/roles` is shared
+   * with the admin directory, which assigns roles and therefore does need the
+   * system ones. `role-row.tsx` still handles `isSystem` — the backend can add
+   * another system role at any time, and it should not become editable here by
+   * the accident of this filter changing.
+   */
+  const roles = (query.data ?? []).filter((role) => !role.isSystem);
 
   const deleteRole = useMutation({
     mutationFn: (role: Role) => api.admin.deleteRole(role.id),
