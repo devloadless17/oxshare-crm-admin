@@ -426,7 +426,11 @@ apiClient.interceptors.response.use(
        * every cold load of the sign-in page — against a route throttled at
        * 20/min, which a shared office IP can reach.
        */
-      if (typeof window !== 'undefined' && isPublicPath(window.location.pathname)) {
+      if (
+        typeof window !== 'undefined' &&
+        isPublicPath(window.location.pathname) &&
+        readCsrfCookie() === undefined
+      ) {
         return Promise.reject(error);
       }
       const refreshed = await refreshAdminToken();
