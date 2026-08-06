@@ -22,16 +22,22 @@ import { t } from '@/lib/i18n';
 // no edit or delete anywhere in this flow.
 const PAGE_SIZE = 25;
 
-const ACTIONS: readonly (readonly [string, string])[] = [
-  ['kyc.approve', 'KYC Approve'],
-  ['kyc.reject', 'KYC Reject'],
-  ['kyc.claim', 'KYC Claim'],
-  ['admin.invite', 'Admin Invite'],
-  ['admin.update', 'Admin Update'],
-  ['role.create', 'Role Create'],
-  ['role.update', 'Role Update'],
-  ['role.delete', 'Role Delete'],
-];
+/*
+ * The action list is FETCHED, not written here.
+ *
+ * It used to be eight hardcoded entries, written when eight was all there was.
+ * The system records thirty-four, so everything added because it had
+ * previously gone UNRECORDED was also unfilterable — which is to say precisely
+ * the actions somebody arrives looking for: who reworded the rejection reason
+ * a client was emailed, who disabled a KYC step, who repointed a download link.
+ *
+ * A filter that silently offers a subset is the same defect as a silently
+ * ignored query parameter (R-2.5): an operator reads "no results for Rejection
+ * Reason Update" as "that never happened", when the truth is they could not
+ * ask. Serving the vocabulary is the same rule as the permission catalog
+ * (R-4.5) — the frontend never invents a key, and a new audited action appears
+ * here without a frontend release.
+ */
 
 const ACTION_STYLES: Record<string, string> = {
   'kyc.approve': 'bg-success/10 text-success border-success/20',
@@ -53,6 +59,16 @@ export default function AuditLogPage() {
    */
   const pages = useCursorPages();
   const [action, setAction] = useState('');
+
+  /*
+   * Its own resource, so a failure here degrades the FILTER rather than the
+   * log. The trail is the thing somebody came for; losing it because a
+   * vocabulary request failed would be the wrong trade.
+   */
+  const actionsQuery = useResource(['audit-actions'], (signal) =>
+    api.admin.getAuditActions(signal),
+  );
+  const actionOptions = actionsQuery.data ?? [];
 
   const { status, data, error, isFetching, refetch } = useResource<AuditListResponse>(
     ['audit-log', pages.cursor ?? 'first', action],
@@ -168,7 +184,7 @@ export default function AuditLogPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('audit.allActions')}</SelectItem>
-            {ACTIONS.map(([value, label]) => (
+            {actionOptions.map(({ action: value, label }) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>

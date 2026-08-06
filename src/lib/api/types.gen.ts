@@ -1593,6 +1593,23 @@ export interface paths {
         patch: operations["AdminRbacController_setAdminStatus"];
         trace?: never;
     };
+    "/v1/admin/audit-log/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every action the log can record (master admin only) */
+        get: operations["AdminAuditController_listAuditActions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/audit-log": {
         parameters: {
             query?: never;
@@ -2155,6 +2172,10 @@ export interface components {
             roleId?: string;
             /** @description Explicit permission keys, when not assigning a role. */
             permissions?: string[];
+            /** @description Client fields this admin may not see. Omit to inherit the role’s mask; [] means no mask. */
+            maskedFields?: string[];
+            /** @description Client tags this admin is scoped to. Omit or [] means UNRESTRICTED — every client. */
+            scopedTagIds?: string[];
         };
         InviteResponseDto: {
             message: string;
@@ -2619,6 +2640,7 @@ export interface components {
             name: string;
             description?: string;
             permissions: string[];
+            maskedFields: string[];
             isSystem: boolean;
             /** Format: date-time */
             createdAt: string;
@@ -2665,6 +2687,12 @@ export interface components {
         AdminStatusDto: {
             /** @enum {string} */
             status: "active" | "suspended";
+        };
+        AuditActionDto: {
+            action: string;
+            label: string;
+            /** @description Groups the filter, so 30+ entries stay readable. */
+            group: string;
         };
         AuditEntryDto: {
             id: string;
@@ -5010,6 +5038,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminProfileDto"];
+                };
+            };
+        };
+    };
+    AdminAuditController_listAuditActions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditActionDto"][];
                 };
             };
         };

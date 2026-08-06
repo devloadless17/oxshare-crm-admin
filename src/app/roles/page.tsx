@@ -42,12 +42,20 @@ export default function RolesPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['roles'] });
 
   const query = useResource(['roles'], async () => {
-    const [catalog, roles] = await Promise.all([api.admin.getPermissions(), api.admin.getRoles()]);
-    return { catalog, roles };
+    // Both VOCABULARIES, loaded together: a role editor that opened with the
+    // permission matrix but no field catalog would offer half of what a role
+    // decides, which is worse than making the operator wait for both (R-4.5).
+    const [catalog, roles, fieldCatalog] = await Promise.all([
+      api.admin.getPermissions(),
+      api.admin.getRoles(),
+      api.admin.getClientFields(),
+    ]);
+    return { catalog, roles, fieldCatalog };
   });
 
   const permissionsCatalog = query.data?.catalog ?? {};
   const roles = query.data?.roles ?? [];
+  const fieldCatalog = query.data?.fieldCatalog ?? {};
 
   const saveRole = useMutation({
     mutationFn: (values: RoleFormValues) =>
@@ -169,6 +177,7 @@ export default function RolesPage() {
           title={modal === 'create' ? 'Create Dynamic RBAC Role' : `Edit Role — ${modal.name}`}
           initial={modal === 'create' ? undefined : modal}
           catalog={permissionsCatalog}
+          fieldCatalog={fieldCatalog}
           busy={saveRole.isPending}
           error={
             saveRole.isError

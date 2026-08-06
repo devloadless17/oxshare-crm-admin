@@ -322,6 +322,12 @@ export const messages = {
   'tags.caption': 'Client tags',
   // ── FR-ADM-01 client profile ────────────────────────────────────────────
   // ── RBAC-07 visibility panels ───────────────────────────────────────────
+  'roles.maskSection': 'Client field visibility',
+  'roles.maskSummary': '{count} field(s) hidden',
+  'roles.maskSummaryNone': 'Nothing hidden',
+  'roles.maskHint':
+    'Fields holders of this role cannot see. The value is removed from the API response, not just from the screen — and it applies everywhere, including the KYC review.',
+
   'adminUsers.scopeSection': 'Client scope',
   'adminUsers.scopeSummary': '{count} tag(s)',
   // Said in words, because both readings of an empty scope are plausible and

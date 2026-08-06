@@ -72,6 +72,7 @@ export function clientListSearchParams(params: ClientListParams): URLSearchParam
 }
 export type AuditEntry = components['schemas']['AuditEntryDto'];
 export type AuditListResponse = components['schemas']['AuditListResponseDto'];
+export type AuditAction = components['schemas']['AuditActionDto'];
 export type WithdrawalRow = components['schemas']['WithdrawalRowDto'];
 export type WithdrawalListResponse = components['schemas']['WithdrawalListResponseDto'];
 export type LedgerEntry = components['schemas']['LedgerEntryDto'];
@@ -331,6 +332,20 @@ export const adminApi = {
     const { data } = await apiClient.delete<ClientTag[]>(
       `/admin/clients/${clientId}/tags/${tagId}`,
     );
+    return data;
+  },
+
+  /**
+   * The action vocabulary the audit filter is built from.
+   *
+   * Fetched, never hardcoded. The screen carried a list of EIGHT while the
+   * system recorded thirty-four, so every action added because it had
+   * previously gone unrecorded was ALSO unfilterable — which is to say exactly
+   * the ones somebody would come looking for. Same rule as the permission and
+   * client-field catalogs (R-4.5): the frontend never invents a key.
+   */
+  async getAuditActions(signal?: AbortSignal): Promise<AuditAction[]> {
+    const { data } = await apiClient.get<AuditAction[]>('/admin/audit-log/actions', { signal });
     return data;
   },
 

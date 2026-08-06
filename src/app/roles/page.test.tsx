@@ -19,20 +19,27 @@ import RolesPage from './page';
  *    and the API refuses until they are.
  */
 
-const { getPermissions, getRoles, createRole, updateRole, deleteRole } = vi.hoisted(() => ({
-  getPermissions: vi.fn(),
-  getRoles: vi.fn(),
-  createRole: vi.fn(),
-  updateRole: vi.fn(),
-  deleteRole: vi.fn(),
-}));
+const { getPermissions, getRoles, createRole, updateRole, deleteRole, getClientFields } =
+  vi.hoisted(() => ({
+    getPermissions: vi.fn(),
+    getRoles: vi.fn(),
+    createRole: vi.fn(),
+    updateRole: vi.fn(),
+    deleteRole: vi.fn(),
+    // RBAC-03: the role editor now offers field masking, so the page loads the
+    // field catalog alongside the permission one. Both are VOCABULARIES the
+    // frontend must not invent (R-4.5).
+    getClientFields: vi.fn(),
+  }));
 
 // Both exports. lib/api/index.ts exposes `api` as a named export AND as default,
 // and this page uses the named one. Mocking only `default` leaves `api` undefined,
 // the fetcher throws, and the screen renders its generic "failed to load" state —
 // which looks like a broken query rather than a broken mock.
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getPermissions, getRoles, createRole, updateRole, deleteRole } };
+  const api = {
+    admin: { getPermissions, getRoles, createRole, updateRole, deleteRole, getClientFields },
+  };
   return { api, default: api };
 });
 
@@ -67,6 +74,7 @@ const ROLES = [
 beforeEach(() => {
   vi.clearAllMocks();
   permissions.current = ['*'];
+  getClientFields.mockResolvedValue({});
   getPermissions.mockResolvedValue({
     kyc: { label: 'KYC', items: [{ key: 'kyc.view', label: 'View submissions' }] },
   });

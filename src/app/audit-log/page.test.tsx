@@ -18,10 +18,15 @@ import type { AuditEntry } from '@/lib/api/admin';
  * reach the request rather than only filtering what is already on screen.
  */
 
-const { get } = vi.hoisted(() => ({ get: vi.fn() }));
+const { get, getAuditActions } = vi.hoisted(() => ({
+  get: vi.fn(),
+  // The action filter is SERVED now, not hardcoded — the screen offered eight
+  // of thirty-four, so everything recently made auditable was unfilterable.
+  getAuditActions: vi.fn(),
+}));
 
 vi.mock('@/lib/api', () => {
-  const api = { get };
+  const api = { get, admin: { getAuditActions } };
   return { api, default: api };
 });
 
@@ -56,6 +61,9 @@ function page(rows: AuditEntry[], total = rows.length) {
 beforeEach(() => {
   vi.clearAllMocks();
   get.mockResolvedValue({ data: page([entry()]) });
+  getAuditActions.mockResolvedValue([
+    { action: 'kyc.approve', label: 'KYC approved', group: 'Verification' },
+  ]);
 });
 
 describe('audit log — listing', () => {
