@@ -16,6 +16,60 @@ export type KycSubmission = components['schemas']['KycSubmissionDto'];
 export type KycListResponse = components['schemas']['KycListResponseDto'];
 export type ClientRow = components['schemas']['ClientRowDto'];
 export type ClientListResponse = components['schemas']['ClientListResponseDto'];
+export type ClientProfile = components['schemas']['ClientProfileDto'];
+export type ClientTag = components['schemas']['ClientTagDto'];
+export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
+export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
+
+/**
+ * The columns the API will sort by, mirroring its SORTABLE_COLUMNS allowlist.
+ *
+ * A column may not declare a `sortKey` outside this list. That is what stops
+ * the table promising an order the endpoint refuses — R-2.5 makes an
+ * unrecognised sort a 400 rather than a silent fallback, so a header outside
+ * this set would produce an error instead of rows.
+ */
+export const CLIENT_SORT_KEYS = [
+  'createdAt',
+  'email',
+  'firstName',
+  'status',
+  'type',
+  'verificationLevel',
+  'country',
+] as const;
+export type ClientSortKey = (typeof CLIENT_SORT_KEYS)[number];
+
+export interface ClientListParams {
+  limit: number;
+  cursor?: string;
+  q?: string;
+  type?: string;
+  status?: string;
+  level?: string;
+  country?: string;
+  /** Tag SLUG, not id — a rename must not break a link somebody saved. */
+  tag?: string;
+  sort?: ClientSortKey;
+  order?: 'asc' | 'desc';
+}
+
+/**
+ * Query string for the client list. Exported for its own unit test.
+ *
+ * Empty values are OMITTED rather than sent blank: `?country=` reaches the API
+ * as an empty string, and a filter that is present-but-empty is a different
+ * request from one that is absent.
+ */
+export function clientListSearchParams(params: ClientListParams): URLSearchParams {
+  const query = new URLSearchParams();
+  query.set('limit', String(params.limit));
+  for (const [key, value] of Object.entries(params)) {
+    if (key === 'limit') continue;
+    if (typeof value === 'string' && value !== '') query.set(key, value);
+  }
+  return query;
+}
 export type AuditEntry = components['schemas']['AuditEntryDto'];
 export type AuditListResponse = components['schemas']['AuditListResponseDto'];
 export type WithdrawalRow = components['schemas']['WithdrawalRowDto'];
@@ -202,6 +256,95 @@ export const adminApi = {
     const { data } = await apiClient.get<RejectionReason[]>(
       `/admin/rejection-reasons?context=${context}`,
     );
+    return data;
+  },
+
+  // ── Clients (ADM-01) ──────────────────────────────────────────────────────
+  //
+  // These moved out of `clients/page.tsx`, which called `api.get()` inline and
+  // built its own query string — alone among the features here. With four new
+  // parameters and a sort contract to keep in step with the backend allowlist,
+  // an inline call means the page pays for it in its own line budget and no
+  // type alias governs the params (R-1.1).
+
+  async getClients(params: ClientListParams, signal?: AbortSignal): Promise<ClientListResponse> {
+    const { data } = await apiClient.get<ClientListResponse>(
+      `/admin/clients?${clientListSearchParams(params).toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  async getClient(id: string, signal?: AbortSignal): Promise<ClientProfile> {
+    const { data } = await apiClient.get<ClientProfile>(`/admin/clients/${id}`, { signal });
+    return data;
+  },
+
+  async setClientStatus(id: string, status: 'active' | 'suspended') {
+    const { data } = await apiClient.patch<ClientRow>(`/admin/clients/${id}/status`, { status });
+    return data;
+  },
+
+  // ── Client tags (ADM-14) ──────────────────────────────────────────────────
+
+  async getTags(signal?: AbortSignal): Promise<ClientTagWithCount[]> {
+    const { data } = await apiClient.get<ClientTagWithCount[]>('/admin/tags', { signal });
+    return data;
+  },
+
+  async createTag(dto: { label: string; color?: string; description?: string }) {
+    const { data } = await apiClient.post<ClientTag>('/admin/tags', dto);
+    return data;
+  },
+
+  async updateTag(id: string, dto: { label?: string; color?: string; description?: string }) {
+    const { data } = await apiClient.patch<ClientTag>(`/admin/tags/${id}`, dto);
+    return data;
+  },
+
+  async deleteTag(id: string) {
+    const { data } = await apiClient.delete<{ message: string }>(`/admin/tags/${id}`);
+    return data;
+  },
+
+  async getClientTags(clientId: string, signal?: AbortSignal): Promise<ClientTag[]> {
+    const { data } = await apiClient.get<ClientTag[]>(`/admin/clients/${clientId}/tags`, {
+      signal,
+    });
+    return data;
+  },
+
+  /*
+   * Single-tag add and remove, NOT a whole-set replace.
+   *
+   * A replace is last-writer-wins: two administrators tagging the same client
+   * seconds apart silently discard one another's work, and the composite
+   * primary key cannot catch it because the second request is a legitimately
+   * different write. Both of these are idempotent by construction.
+   */
+  async assignTag(clientId: string, tagId: string): Promise<ClientTag[]> {
+    const { data } = await apiClient.post<ClientTag[]>(`/admin/clients/${clientId}/tags/${tagId}`);
+    return data;
+  },
+
+  async unassignTag(clientId: string, tagId: string): Promise<ClientTag[]> {
+    const { data } = await apiClient.delete<ClientTag[]>(
+      `/admin/clients/${clientId}/tags/${tagId}`,
+    );
+    return data;
+  },
+
+  /**
+   * The RBAC-03 field catalog.
+   *
+   * Fetched, never a frontend constant — the same rule as the permission
+   * catalog (R-4.5). A mask key with no backend counterpart is not a cosmetic
+   * bug: it is a field an operator ticked a box for and believes they hid.
+   */
+  async getClientFields(signal?: AbortSignal): Promise<Record<string, ClientFieldGroup>> {
+    const { data } = await apiClient.get<Record<string, ClientFieldGroup>>('/admin/client-fields', {
+      signal,
+    });
     return data;
   },
 };

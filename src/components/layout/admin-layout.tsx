@@ -25,6 +25,7 @@ import {
   Menu,
   X,
   Shield,
+  Tags,
   Activity,
   Loader2,
 } from 'lucide-react';
@@ -106,6 +107,10 @@ const NAV_SECTIONS: NavSection[] = [
       // a tab inside /settings, while this entry told operators it was unbuilt.
       { label: 'nav.adminUsers', href: '/admin-users', icon: Users },
       { label: 'nav.roles', href: '/roles', icon: ShieldCheck },
+      // ADM-14. In Management rather than under the client list, because a tag
+      // now decides which admins can SEE a client — it belongs with the other
+      // privileged, audited objects.
+      { label: 'nav.tags', href: '/tags', icon: Tags },
       { label: 'nav.auditLog', href: '/audit-log', icon: Activity },
       // Lock, not Settings: that icon is the KYC Builder's, and this page is
       // now network access and security controls rather than general config.
@@ -368,7 +373,21 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <div
-        className={`flex flex-1 flex-col transition-all duration-300 ${
+        /*
+         * `min-w-0` is load-bearing, not tidying.
+         *
+         * A flex child's default `min-width: auto` refuses to shrink below its
+         * CONTENT, so a wide table inside pushes this column — and therefore the
+         * whole page — past the viewport. `DataTable` already wraps itself in
+         * `overflow-x-auto`, and that does nothing while its ancestor is free to
+         * grow: the scrollbar appears on the document instead of on the table,
+         * and the sidebar and header scroll away with it.
+         *
+         * `ux-sweep.spec.ts` caught this the moment the client list gained a
+         * Tags column and the admin directory a Scope column — 77px and 36px of
+         * horizontal page scroll respectively.
+         */
+        className={`flex min-w-0 flex-1 flex-col transition-all duration-300 ${
           collapsed ? 'lg:pl-20' : 'lg:pl-64'
         }`}
       >
@@ -389,6 +408,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
                 type="search"
+                /*
+                 * An explicit name, distinct from the client list's own search.
+                 *
+                 * It had none at all — a screen reader announced "search" with
+                 * no indication of what it searched — and the placeholder it
+                 * fell back to ("Search clients, deals, IBs…") is close enough
+                 * to the list's label that they were indistinguishable to
+                 * anything querying by accessible name, tests included.
+                 */
+                aria-label={t('nav.searchAria')}
                 placeholder={t('nav.searchPlaceholder')}
                 className="h-9 w-full rounded-lg border border-input bg-muted/30 pl-9 pr-4 text-xs focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               />

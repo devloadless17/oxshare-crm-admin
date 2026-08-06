@@ -77,6 +77,60 @@ describe('what the screen says about enforcement', () => {
     renderWithProviders(<IpAllowlistPanel canManage />);
     expect(await screen.findByText('203.0.113.9')).toBeInTheDocument();
   });
+
+  /**
+   * The failure mode this whole block exists for: a control that is OFF while
+   * the screen says it is ON.
+   *
+   * A `/0` rule makes the list non-empty, so the API answers `enforced: true`
+   * and, before this, the panel drew a green shield reading "Enforced — 1 rule"
+   * over an allowlist admitting the entire internet. The API now refuses to add
+   * one, but rows predating that check — or written by direct SQL — still exist,
+   * and this screen is the only place anyone would ever notice.
+   */
+  it('refuses to call a /0 rule "enforced", and names it', async () => {
+    getIpAllowlist.mockResolvedValue(
+      status({ enforced: true, rules: [rule({ cidr: '0.0.0.0/0', label: 'Everywhere' })] }),
+    );
+    renderWithProviders(<IpAllowlistPanel canManage />);
+
+    expect(await screen.findByText(/not effectively enforced/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^enforced — /i)).not.toBeInTheDocument();
+    // Loud enough to interrupt: this is a live exposure, not a hint. And it
+    // must NAME the offending rule — "something is wrong" without saying which
+    // row leaves the operator hunting through the list.
+    const banner = screen.getByRole('alert');
+    expect(banner).toHaveTextContent(/matches every address/i);
+    expect(banner).toHaveTextContent('0.0.0.0/0');
+  });
+
+  it('flags a /0 even when other, genuine rules are present', async () => {
+    // The dangerous shape in practice: someone adds a real office range, then a
+    // `/0` "temporarily", and the count in the banner still looks reassuring.
+    getIpAllowlist.mockResolvedValue(
+      status({
+        enforced: true,
+        rules: [rule(), rule({ id: 'rule-2', cidr: '::/0', label: 'Temp' })],
+      }),
+    );
+    renderWithProviders(<IpAllowlistPanel canManage />);
+
+    expect(await screen.findByText(/not effectively enforced/i)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('::/0');
+  });
+
+  it('does not mistake a merely broad rule for a /0', async () => {
+    // `10.0.0.0/20` ends in `0` but not in `/0`. Getting this wrong would cry
+    // wolf on ordinary corporate ranges, and an alarm that is usually wrong is
+    // one people learn to click past.
+    getIpAllowlist.mockResolvedValue(
+      status({ enforced: true, rules: [rule({ cidr: '10.0.0.0/20' })] }),
+    );
+    renderWithProviders(<IpAllowlistPanel canManage />);
+
+    expect(await screen.findByText(/enforced — 1 rule/i)).toBeInTheDocument();
+    expect(screen.queryByText(/not effectively enforced/i)).not.toBeInTheDocument();
+  });
 });
 
 describe('the lockout warning', () => {

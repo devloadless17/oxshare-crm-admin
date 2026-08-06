@@ -28,6 +28,8 @@ const {
   setAdminStatus,
   getPendingInvites,
   revokeInvite,
+  getTags,
+  getClientFields,
 } = vi.hoisted(() => ({
   getRoles: vi.fn(),
   getAdminUsers: vi.fn(),
@@ -36,6 +38,11 @@ const {
   setAdminStatus: vi.fn(),
   getPendingInvites: vi.fn(),
   revokeInvite: vi.fn(),
+  // RBAC-03 vocabularies. The page loads both before the edit modal can
+  // render a coherent form — a modal that opened with two of the three would
+  // show a partial picture of somebody's access.
+  getTags: vi.fn(),
+  getClientFields: vi.fn(),
 }));
 
 // Both exports — see the note in roles/page.test.tsx.
@@ -48,6 +55,8 @@ vi.mock('@/lib/api', () => {
       updateAdminUser,
       setAdminStatus,
       getPendingInvites,
+      getTags,
+      getClientFields,
       revokeInvite,
     },
   };
@@ -106,6 +115,8 @@ const master = {
   role: 'master_admin',
   status: 'active',
   permissions: ['*'],
+  maskedFields: [],
+  scopedTags: [],
   createdAt: '2026-08-01T00:00:00.000Z',
 };
 
@@ -117,6 +128,10 @@ const sub = (over: Record<string, unknown> = {}) => ({
   status: 'active',
   roleId: 'r-1',
   permissions: ['kyc.review'],
+  // RBAC-03, reported per row so the directory shows visibility without a
+  // modal being opened.
+  maskedFields: [],
+  scopedTags: [],
   createdAt: '2026-08-01T00:00:00.000Z',
   ...over,
 });
@@ -136,6 +151,24 @@ beforeEach(() => {
       permissions: [
         { key: 'kyc.review', label: 'Review submissions' },
         { key: 'ledger.view', label: 'View ledger' },
+      ],
+    },
+  });
+  getTags.mockResolvedValue([
+    { id: 'tag-1', slug: 'levant', label: 'Levant desk', clientCount: 12, createdAt: '2026-08-01' },
+  ]);
+  getClientFields.mockResolvedValue({
+    contact: {
+      groupName: 'Contact',
+      description: 'How the client is reached',
+      fields: [
+        { key: 'client.phone', label: 'Phone number', maskable: true },
+        {
+          key: 'client.status',
+          label: 'Account status',
+          maskable: false,
+          reason: 'Suspend decisions are made from it.',
+        },
       ],
     },
   });
@@ -320,5 +353,166 @@ describe('load failures', () => {
     renderWithProviders(<AdminUsersPage />);
 
     expect((await screen.findAllByRole('button', { name: /retry/i })).length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * RBAC-03 configuration, on the person.
+ *
+ * Two properties carry this whole feature and both are the kind that get
+ * "simplified" by someone who does not know why they are there:
+ *
+ *  1. An EMPTY tag scope means UNRESTRICTED — every client — following RBAC-08's
+ *     empty allowlist and D-10, so introducing the feature cannot blind every
+ *     existing sub-admin. Both readings are plausible and one of them is a data
+ *     breach, so the screen must SAY which it is.
+ *  2. `null` and `[]` are different masks. `null` follows the role; `[]` is an
+ *     explicit "hide nothing for this person". Without the difference, an admin
+ *     given an override could never be put back on their role.
+ */
+describe('client scope and field visibility', () => {
+  /*
+   * Returns a query scoped TO THE DIALOG.
+   *
+   * The directory row behind the modal says "All clients" too, so an unscoped
+   * query matches both and the assertion would be about whichever the DOM
+   * happened to order first.
+   */
+  const openEditor = async () => {
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+    await userEvent.click(screen.getByRole('button', { name: /^edit$/i }));
+    return within(await screen.findByRole('dialog'));
+  };
+
+  it('is not offered without users.scope', async () => {
+    /*
+     * A SEPARATE permission from `users.edit`. Reusing that would mean anyone
+     * who can rename an administrator can also widen that administrator's view
+     * of the entire client base — not the same size of act.
+     */
+    permissions.current = ['users.view', 'users.edit'];
+    const dialog = await openEditor();
+
+    expect(dialog.queryByText(/client scope/i)).not.toBeInTheDocument();
+    expect(dialog.queryByText(/field visibility/i)).not.toBeInTheDocument();
+  });
+
+  it('summarises the current state WITHOUT being opened', async () => {
+    // RBAC-07's failure mode is granting access you did not realise you
+    // granted. A summary you cannot avoid reading is the point — which is why
+    // these are <details> with a visible summary rather than tabs.
+    const dialog = await openEditor();
+
+    expect(dialog.getByText(/all clients/i)).toBeInTheDocument();
+    expect(dialog.getByText(/inherits the role/i)).toBeInTheDocument();
+  });
+
+  it('WARNS that an empty scope means every client', async () => {
+    const dialog = await openEditor();
+    await userEvent.click(dialog.getByText(/client scope/i));
+
+    expect(dialog.getByRole('note')).toHaveTextContent(/UNRESTRICTED/i);
+    expect(dialog.getByRole('note')).toHaveTextContent(/every client/i);
+  });
+
+  it('sends the chosen tags, and only when they changed', async () => {
+    const dialog = await openEditor();
+    await userEvent.click(dialog.getByText(/client scope/i));
+    await userEvent.click(dialog.getByRole('button', { name: /levant desk/i }));
+    await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
+    expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ scopedTagIds: ['tag-1'] });
+  });
+
+  it('sends NOTHING when the form is opened and closed unchanged', async () => {
+    // A `scopedTagIds` echoed back unchanged is a whole-set replace on the
+    // scope table and another audit row against a named administrator.
+    const dialog = await openEditor();
+    await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
+
+    expect(updateAdminUser).not.toHaveBeenCalled();
+  });
+
+  it('offers an unmaskable field DISABLED, with the reason', async () => {
+    // An operator hunting for "why can I not hide the status column" needs the
+    // answer where they are looking. Omitting the field entirely reads as a bug.
+    const dialog = await openEditor();
+    await userEvent.click(dialog.getByText(/field visibility/i));
+
+    const locked = dialog.getByRole('button', { name: /account status/i });
+    expect(locked).toBeDisabled();
+    expect(dialog.getByText(/suspend decisions are made from it/i)).toBeInTheDocument();
+  });
+
+  it('creates an override when a field is first hidden', async () => {
+    const dialog = await openEditor();
+    await userEvent.click(dialog.getByText(/field visibility/i));
+    await userEvent.click(dialog.getByRole('button', { name: /phone number/i }));
+    await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
+    expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ maskedFields: ['client.phone'] });
+  });
+
+  it('sends NULL to put an administrator back on their role', async () => {
+    /*
+     * The distinction the API makes and the UI must not lose: `null` clears the
+     * override, `[]` is an explicit "hide nothing for this person". Without a
+     * dedicated control the second is reachable and the first is not, so an
+     * override would be permanent.
+     */
+    getAdminUsers.mockResolvedValue([
+      master,
+      sub({ maskedFields: ['client.phone'], maskedFieldsOverride: ['client.phone'] }),
+    ]);
+    const dialog = await openEditor();
+    await userEvent.click(dialog.getByText(/field visibility/i));
+    await userEvent.click(dialog.getByRole('button', { name: /follow the role again/i }));
+    await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
+    expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ maskedFields: null });
+  });
+
+  it('shows the master admin as exempt rather than configurable', async () => {
+    // FR-RBAC-01 is "without exception". A control that appears to work and
+    // then does nothing is worse than one that explains itself.
+    getAdminUsers.mockResolvedValue([sub(), master]);
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('admin@oxshare.com');
+  });
+});
+
+describe('the directory row', () => {
+  it('shows an administrator’s scope WITHOUT opening a modal', async () => {
+    /*
+     * The same lesson as the status pill, which used to be hardcoded "Active"
+     * and so showed a suspended administrator as active on the one screen an
+     * operator checks before trusting an account. An override visible only
+     * inside a modal is invisible drift: if eight of twenty agents have one,
+     * the role tells you nothing and nobody would know.
+     */
+    getAdminUsers.mockResolvedValue([
+      master,
+      sub({
+        scopedTags: [{ tagId: 'tag-1', slug: 'levant', label: 'Levant desk' }],
+        maskedFields: ['client.phone'],
+      }),
+    ]);
+    renderWithProviders(<AdminUsersPage />);
+
+    await screen.findByText('sub@oxshare.com');
+    const row = rowFor('sub@oxshare.com');
+    expect(within(row).getByText(/1 tag/i)).toBeInTheDocument();
+    expect(within(row).getByText(/1 hidden/i)).toBeInTheDocument();
+  });
+
+  it('says "all clients" for an unrestricted administrator', async () => {
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+    const row = rowFor('sub@oxshare.com');
+    expect(within(row).getByText(/all clients/i)).toBeInTheDocument();
   });
 });

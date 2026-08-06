@@ -46,17 +46,28 @@ export default function AdminUsersPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-users'] });
 
   const query = useResource(['admin-users'], async () => {
-    const [roles, adminUsers, catalog] = await Promise.all([
+    /*
+     * Five reads in one resource, because the edit modal needs all of them
+     * before it can render a coherent form: the permission catalog, the tag
+     * vocabulary and the field catalog are all VOCABULARIES the frontend must
+     * not invent (R-4.5), and a modal that opened with two of the three would
+     * offer a partial picture of somebody's access.
+     */
+    const [roles, adminUsers, catalog, tags, fieldCatalog] = await Promise.all([
       api.admin.getRoles(),
       api.admin.getAdminUsers(),
       api.admin.getPermissions(),
+      api.admin.getTags(),
+      api.admin.getClientFields(),
     ]);
-    return { roles, adminUsers, catalog };
+    return { roles, adminUsers, catalog, tags, fieldCatalog };
   });
 
   const roles: Role[] = query.data?.roles ?? [];
   const adminUsers: AdminUser[] = query.data?.adminUsers ?? [];
   const catalog = query.data?.catalog ?? {};
+  const tags = query.data?.tags ?? [];
+  const fieldCatalog = query.data?.fieldCatalog ?? {};
 
   const assignRole = useMutation({
     mutationFn: ({ user, roleId }: { user: AdminUser; roleId: string }) =>
@@ -180,6 +191,15 @@ export default function AdminUsersPage() {
           admin={editing}
           roles={roles}
           catalog={catalog}
+          tags={tags}
+          fieldCatalog={fieldCatalog}
+          currentScope={editing.scopedTags.map((tag) => tag.tagId)}
+          /*
+           * `users.scope`, NOT `users.edit`. Reusing the edit permission would
+           * mean anyone who can rename an administrator can also widen that
+           * administrator's view of the entire client base.
+           */
+          canScope={hasPermission(admin, 'users.scope')}
           busy={saveAdmin.isPending}
           error={
             saveAdmin.isError

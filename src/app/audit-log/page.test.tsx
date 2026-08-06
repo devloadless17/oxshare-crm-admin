@@ -36,6 +36,11 @@ function entry(over: Partial<AuditEntry> = {}): AuditEntry {
     id: 'e-1',
     actorId: 'a-1',
     actorEmail: 'admin@oxshare.com',
+    // Both required by the generated schema, and both were missing from this
+    // fixture until the API started admitting they exist — the compile error
+    // was the contract doing its job.
+    actorKind: 'admin',
+    ipAddress: '203.0.113.9',
     action: 'kyc.approve',
     subjectType: 'kyc',
     subjectId: 'u-1',
@@ -132,5 +137,49 @@ describe('audit log — append-only', () => {
     // would be a promise the database refuses to keep.
     expect(screen.queryByRole('button', { name: /delete|remove/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /edit/i })).toBeNull();
+  });
+});
+
+describe('who acted, and from where', () => {
+  /**
+   * The address is what makes an action attributable rather than merely
+   * attributed. `audit_log.ip_address` was populated from the first day the
+   * column existed and was absent from the response DTO, so this screen could
+   * not show it: "which address did this administrator approve the payout
+   * from" was answerable in SQL and nowhere an operator would look.
+   */
+  it('shows the address the action came from', async () => {
+    get.mockResolvedValue({ data: page([entry({ ipAddress: '203.0.113.9' })]) });
+    renderWithProviders(<AuditLogPage />);
+
+    expect(await screen.findByText('203.0.113.9')).toBeInTheDocument();
+  });
+
+  it('says so plainly when no address was recorded', async () => {
+    // Null is legitimate — a scheduled job has no request context. An empty
+    // cell would read as a rendering bug rather than as a fact about the row.
+    get.mockResolvedValue({ data: page([entry({ ipAddress: null })]) });
+    renderWithProviders(<AuditLogPage />);
+
+    expect(await screen.findByText(/no address recorded/i)).toBeInTheDocument();
+  });
+
+  it('labels a non-admin actor, and does NOT label an admin one', async () => {
+    // Every row here is an admin action until background jobs land, so
+    // labelling all of them would be noise that hides the one row that is not.
+    get.mockResolvedValue({
+      data: page([entry({ actorKind: 'system', actorEmail: 'commission.confirm' })]),
+    });
+    renderWithProviders(<AuditLogPage />);
+
+    expect(await screen.findByText('system')).toBeInTheDocument();
+  });
+
+  it('does not label an ordinary admin row', async () => {
+    get.mockResolvedValue({ data: page([entry({ actorKind: 'admin' })]) });
+    renderWithProviders(<AuditLogPage />);
+
+    await screen.findByText('admin@oxshare.com');
+    expect(screen.queryByText('admin', { selector: 'span.uppercase' })).not.toBeInTheDocument();
   });
 });

@@ -76,7 +76,38 @@ export default function AuditLogPage() {
       cell: (e) => new Date(e.createdAt).toLocaleString(),
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
-    { header: t('audit.colActor'), cell: (e) => e.actorEmail, cellClassName: 'text-foreground' },
+    {
+      /*
+       * WHO, and FROM WHERE.
+       *
+       * The address was recorded from the first day the column existed and was
+       * absent from the response DTO, so this screen could not show it — "which
+       * address did this administrator approve the payout from" was answerable
+       * in SQL and nowhere an operator would look. On a money system that is
+       * the question asked after an incident.
+       *
+       * The KIND is rendered only when it is not `admin`, because every row on
+       * this screen is an admin action until background jobs land — labelling
+       * all of them would be noise that hides the one row that is not.
+       */
+      header: t('audit.colActor'),
+      cell: (e) => (
+        <>
+          <div className="text-foreground">{e.actorEmail}</div>
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {e.ipAddress ?? t('audit.noIp')}
+            </span>
+            {e.actorKind !== 'admin' && (
+              <span className="rounded border border-border px-1 text-[10px] font-semibold uppercase text-muted-foreground">
+                {e.actorKind}
+              </span>
+            )}
+          </div>
+        </>
+      ),
+      cellClassName: 'text-foreground',
+    },
     {
       header: t('audit.colAction'),
       cell: (e) => (

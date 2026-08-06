@@ -61,6 +61,7 @@ export function AdminDirectoryTable({
             <th className="px-6 py-3">{t('settings.colEmail')}</th>
             <th className="px-6 py-3">{t('settings.colRole')}</th>
             <th className="px-6 py-3">{t('settings.colStatus')}</th>
+            <th className="px-6 py-3">{t('adminUsers.colScope')}</th>
             {showActions && <th className="px-6 py-3">{t('adminUsers.colActions')}</th>}
           </tr>
         </thead>
@@ -123,6 +124,30 @@ export function AdminDirectoryTable({
                   >
                     {suspended ? t('adminUsers.statusSuspended') : t('clients.statusActive')}
                   </span>
+                </td>
+                {/*
+                 * RBAC-03's state, ON THE ROW.
+                 *
+                 * The same reasoning as the status pill above, which used to be
+                 * hardcoded "Active" and so showed a suspended administrator as
+                 * active on the one screen an operator checks before trusting an
+                 * account. An override that can only be seen by opening a modal
+                 * is invisible drift: if eight of twenty agents have one, the
+                 * role tells you nothing and nobody would know.
+                 */}
+                <td className="px-6 py-4 text-muted-foreground">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[11px]">
+                      {isMasterRow || user.scopedTags.length === 0
+                        ? t('adminUsers.scopeAll')
+                        : t('adminUsers.scopeCount', { count: user.scopedTags.length })}
+                    </span>
+                    {user.maskedFields.length > 0 && (
+                      <span className="text-[10px]">
+                        {t('adminUsers.maskCount', { count: user.maskedFields.length })}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 {showActions && (
                   <td className="px-6 py-4">

@@ -1,4 +1,4 @@
-import type { Page, Response } from '@playwright/test';
+import { test, type Page, type Response } from '@playwright/test';
 
 /**
  * The admin the E2E SUITE owns — seeded master, permissions `["*"]`.
@@ -18,8 +18,29 @@ export const E2E_ADMIN = {
   password: 'admin123',
 } as const;
 
-/** Where the signed-in session is cached between specs. See `auth.setup.ts`. */
+/**
+ * The RESTRICTED admin — the identity that makes FR-RBAC-03 assertable.
+ *
+ * Gating cannot be proved from the master's session: a spec that tried would
+ * pass while demonstrating nothing. Seeded rather than invited, because there
+ * is no `DELETE /admin/users` — an accepted invite is a permanent row, and a
+ * suite that accepted one per run would fill the directory it is testing.
+ *
+ * Holds `users.view`, `kyc.review` and `tags.view`; its role masks
+ * `client.email`; and it is scoped to the `e2e-alpha` tag. One identity, both
+ * RBAC-03 dimensions, every gating branch.
+ */
+export const E2E_RESTRICTED = {
+  email: 'e2e-restricted@oxshare.com',
+  password: 'admin123',
+} as const;
+
+/** Where each signed-in session is cached between specs. See `auth.setup.ts`. */
+/** The login limiter's window, plus a few seconds of slack. */
+const RATE_LIMIT_WINDOW_MS = 65_000;
+
 export const STORAGE_STATE = 'e2e/.auth/admin.json';
+export const RESTRICTED_STATE = 'e2e/.auth/restricted.json';
 
 /**
  * Sign in through the real form.
@@ -80,10 +101,41 @@ export async function signIn(
   ]);
 
   if (response.status() === 429) {
-    throw new Error(
-      `Rate limited signing in as ${credentials.email}: the admin login answered 429. ` +
-        'That cap is not the thing under test — wait a minute and re-run.',
-    );
+    /*
+     * WAIT FOR THE CAP, do not fail on it and do not weaken it.
+     *
+     * `POST /admin/auth/login` allows 5 per minute per IP. This suite needs
+     * five: two `auth.setup.ts` identities plus the three logins
+     * `auth-session.spec.ts` deliberately drives through the form. A run
+     * therefore sits exactly ON the limit, and anybody re-running inside the
+     * same minute tips over — with the failure landing on whichever test
+     * happened to log in last, which reads as that test being broken.
+     *
+     * Three things were tried before this. Relaxing the cap for tests weakens
+     * a real control on a money system. Caching `storageState` across runs
+     * replays a rotated refresh token and trips reuse detection, which revokes
+     * the whole family and signs the run out several specs later. Cutting the
+     * form-driven logins would delete the coverage that made them worth having.
+     *
+     * Waiting out the window costs one minute on an unlucky run and nothing on
+     * a lucky one, and it keeps every control exactly as it is in production.
+     */
+    /*
+     * The per-test budget has to grow for the wait, or the wait itself is the
+     * failure — the config allows 60s per test and this pause is 65s. That is
+     * the shape of the first attempt at this fix: the backoff worked, and every
+     * test it rescued then failed on a timeout instead, which looked identical
+     * to the problem it was solving.
+     *
+     * Raised only on the unlucky path, so an ordinary run keeps the tight
+     * budget that makes a genuinely slow page visible.
+     */
+    test.setTimeout(RATE_LIMIT_WINDOW_MS + 60_000);
+
+    // eslint-disable-next-line no-console
+    console.log(`↻ login rate limit reached; waiting ${RATE_LIMIT_WINDOW_MS / 1000}s to retry…`);
+    await page.waitForTimeout(RATE_LIMIT_WINDOW_MS);
+    return signIn(page, credentials, landsOn);
   }
   if (!response.ok()) {
     throw new Error(
@@ -119,4 +171,72 @@ export function collectRejections(page: Page): { list: () => string[] } {
   });
 
   return { list: () => [...rejected] };
+}
+
+/**
+ * ── The seeded end-to-end client cohort ─────────────────────────────────────
+ *
+ * Created by `oxshare-crm-backend/src/database/seed.ts`, and SEEDED rather than
+ * minted at runtime because that is forced: `POST /auth/register` is capped at
+ * 10 per hour per IP and no admin endpoint creates a client at all, so a suite
+ * that made its own fixtures would rate-limit itself on the second run.
+ *
+ * The SHAPE is chosen so every filter has both a match and a non-match —
+ * 3 types x 3 statuses x 2 levels x 3 countries. A filter that silently ignores
+ * its parameter (which is exactly what `?country=` did before this work) then
+ * produces a count change a spec can catch, rather than a vacuous pass. Names
+ * run alpha..zulu so a sort assertion is "first is Alpha, last is Zulu",
+ * decidable without knowing the total.
+ */
+export const E2E_DOMAIN = 'oxshare-e2e.test';
+
+export const E2E_CLIENTS = {
+  alpha: { email: `alpha@${E2E_DOMAIN}`, name: 'Alpha Aardvark', country: 'Lebanon' },
+  bravo: { email: `bravo@${E2E_DOMAIN}`, name: 'Bravo Baker', country: 'United Arab Emirates' },
+  charlie: { email: `charlie@${E2E_DOMAIN}`, name: 'Charlie Croft', country: 'Cyprus' },
+  delta: { email: `delta@${E2E_DOMAIN}`, name: 'Delta Dunn', country: 'Lebanon' },
+  zulu: { email: `zulu@${E2E_DOMAIN}`, name: 'Zulu Zimmer', country: 'United Arab Emirates' },
+  /**
+   * The ONLY client any spec writes to.
+   *
+   * Suspension is destructive and its own spec toggles it, so it must not be a
+   * row another assertion reads — a shared mutable fixture is how a suite starts
+   * failing in an order that depends on which test ran first.
+   */
+  suspendTarget: { email: `suspend-target@${E2E_DOMAIN}`, name: 'Sierra Target' },
+} as const;
+
+/** Tags the suite owns. `alpha` is on one client; `beta` is on none. */
+export const E2E_TAGS = {
+  alpha: { slug: 'e2e-alpha', label: 'E2E Alpha' },
+  beta: { slug: 'e2e-beta', label: 'E2E Beta' },
+} as const;
+
+/**
+ * Narrow the client list to the rows this suite owns.
+ *
+ * THE MECHANISM THAT MAKES A SHARED DEVELOPMENT DATABASE WORKABLE. Every list
+ * assertion runs inside this filter, so it is about a set the suite owns
+ * entirely and a developer who registers forty clients tomorrow cannot break a
+ * single one. It is also why the fixtures share a DOMAIN rather than a prefix:
+ * a prefix collides, a domain does not.
+ *
+ * Nothing is ever deleted to compensate. Half these tables refuse deletion, and
+ * a `DELETE ... WHERE email LIKE` against a shared development database is one
+ * typo away from destroying somebody's afternoon.
+ */
+export async function searchOwnClients(page: Page): Promise<void> {
+  // The LIST's search box, by its accessible name. The admin layout header
+  // carries one too, so a bare `getByRole('searchbox')` is ambiguous and
+  // Playwright refuses it — correctly, since which one it typed into would
+  // otherwise be whichever the DOM happened to order first.
+  await clientSearchBox(page).fill(E2E_DOMAIN);
+  // Wait on a ROW, not a timeout: the box is debounced and then re-fetches, and
+  // a fixed wait is what makes a suite flaky on a loaded machine.
+  await page.getByRole('link', { name: E2E_CLIENTS.alpha.name }).waitFor({ timeout: 15_000 });
+}
+
+/** The client list's own search box, distinguished from the header's. */
+export function clientSearchBox(page: Page) {
+  return page.getByRole('searchbox', { name: /search clients/i });
 }

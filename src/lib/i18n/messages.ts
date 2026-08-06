@@ -81,6 +81,7 @@ export const messages = {
   'nav.collapseSidebar': 'Collapse the sidebar',
   'nav.expandSidebar': 'Expand the sidebar',
   'nav.searchPlaceholder': 'Search clients, deals, IBs… (⌘K)',
+  'nav.searchAria': 'Global search across the console',
   'nav.notifications': 'Notifications',
   'nav.systemStatus': 'System Operational',
 
@@ -204,6 +205,15 @@ export const messages = {
   'audit.allActions': 'All Actions',
   'audit.colWhen': 'When',
   'audit.colActor': 'Actor',
+
+  // ── RBAC-03 field masking ───────────────────────────────────────────────
+  // One key per sentence, never concatenated: word order and direction both
+  // move in Arabic, so two keys glued together produce a sentence that reads
+  // backwards in one locale and fine in the other.
+  'masking.hidden': 'Hidden by your permissions',
+  'masking.hiddenTitle': 'You do not have permission to see this value.',
+  'masking.columnsHidden': 'Some columns are hidden by your permissions: {fields}.',
+  'audit.noIp': 'no address recorded',
   'audit.colAction': 'Action',
   'audit.colSubject': 'Subject',
   'audit.colDetails': 'Details',
@@ -251,6 +261,130 @@ export const messages = {
   'clients.colType': 'Type',
   'clients.colStatus': 'Status',
   'clients.colKycLevel': 'KYC Level',
+  'clients.colTags': 'Tags',
+  'clients.unnamed': 'Unnamed',
+  'clients.tagFilterLabel': 'Tag',
+  'clients.allCountries': 'All countries',
+  'clients.clearFilters': 'Clear filters',
+  'clients.searchLabel': 'Search clients by name or email',
+  'clients.levelVerified': 'L1 · Verified',
+  'clients.levelUnverified': 'L0 · Unverified',
+  'clients.saving': 'Saving…',
+  'clients.suspend': 'Suspend',
+  'clients.reactivate': 'Reactivate',
+  'clients.confirmSuspend':
+    'Suspend {email}? They will be logged out immediately and unable to log back in.',
+  'clients.statusFailed': 'Failed to change the client status.',
+  'clients.loading': 'Loading clients',
+  'clients.loadFailed': 'Failed to load clients.',
+  'clients.caption': 'Client accounts',
+  'clients.empty': 'No clients match the current filters.',
+  'clients.nounOne': 'client',
+  'clients.nounMany': 'clients',
+  'tags.overflow': '+{count} more',
+
+  // ── ADM-14 tag management ───────────────────────────────────────────────
+  'nav.tags': 'Client Tags',
+  'tags.title': 'Client Tags',
+  'tags.subtitle':
+    'Labels for segmenting the client base. A tag can also define which clients an administrator is allowed to see.',
+  'tags.colTag': 'Tag',
+  'tags.colSlug': 'Link name',
+  'tags.colDescription': 'Description',
+  'tags.colClients': 'Clients',
+  'tags.colActions': 'Actions',
+  'tags.clientCount': '{count} clients',
+  'tags.create': 'New tag',
+  'tags.createTitle': 'Create a client tag',
+  'tags.createHint':
+    'The link name is derived from the label and never changes afterwards, so saved filter links keep working.',
+  'tags.editTitle': 'Edit tag',
+  'tags.edit': 'Edit',
+  'tags.editAria': 'Edit {label}',
+  'tags.delete': 'Delete',
+  'tags.deleteAria': 'Delete {label}',
+  'tags.confirmDelete':
+    'Delete "{label}"? It is on {count} client(s) and will be removed from all of them. Any administrator restricted to this tag would lose that restriction, so the server refuses while anyone is scoped to it.',
+  'tags.deleteFailed': 'Failed to delete the tag.',
+  'tags.labelField': 'Label',
+  'tags.labelPlaceholder': 'High risk',
+  'tags.slugFixed': 'Link name stays {slug} — saved /clients?tag= links keep working.',
+  'tags.colourField': 'Colour',
+  'tags.colourPreview': 'Preview:',
+  'tags.previewPlaceholder': 'Tag',
+  'tags.descriptionField': 'Description',
+  'tags.descriptionPlaceholder': 'What this segment is for',
+  'tags.save': 'Save changes',
+  'tags.saving': 'Saving…',
+  'tags.saveFailed': 'Failed to save the tag.',
+  'tags.loading': 'Loading tags',
+  'tags.loadFailed': 'Failed to load tags.',
+  'tags.caption': 'Client tags',
+  // ── FR-ADM-01 client profile ────────────────────────────────────────────
+  // ── RBAC-07 visibility panels ───────────────────────────────────────────
+  'adminUsers.scopeSection': 'Client scope',
+  'adminUsers.scopeSummary': '{count} tag(s)',
+  // Said in words, because both readings of an empty scope are plausible and
+  // one of them is a data breach.
+  'adminUsers.scopeSummaryAll': 'All clients',
+  'adminUsers.scopeHint':
+    'Restrict this administrator to clients carrying the selected tags. Everything about those clients — their KYC, withdrawals, ledger and documents — follows the same restriction.',
+  'adminUsers.scopeTagHint': '{count} clients',
+  'adminUsers.scopeNoTags': 'No tags exist yet. Create one on the Client Tags screen.',
+  'adminUsers.scopeEmptyWarning':
+    'No tags selected means UNRESTRICTED — this administrator can see every client in the system.',
+  'adminUsers.maskSection': 'Field visibility',
+  'adminUsers.maskSummary': '{count} field(s) hidden',
+  'adminUsers.maskSummaryNone': 'Nothing hidden',
+  'adminUsers.maskSummaryInherited': 'Inherits the role',
+  'adminUsers.maskInheriting':
+    'This administrator follows their role. Ticking a field here creates a personal override.',
+  'adminUsers.maskOverriding':
+    'This administrator has a personal override and no longer follows their role.',
+  'adminUsers.maskResetToRole': 'Clear the override and follow the role again',
+  'adminUsers.masterExempt':
+    'The master admin sees every client and every field, without exception (FR-RBAC-01).',
+  'adminUsers.colScope': 'Client scope',
+  'adminUsers.scopeAll': 'All clients',
+  'adminUsers.scopeCount': '{count} tag(s)',
+  'adminUsers.maskCount': '{count} hidden',
+
+  'clientProfile.back': 'Back to clients',
+  'clientProfile.loading': 'Loading client',
+  'clientProfile.loadFailed': 'Failed to load this client.',
+  'clientProfile.notFoundTitle': 'This client is not available',
+  // ONE message for two causes, deliberately. Distinguishing "no such client"
+  // from "outside your client scope" would let a restricted administrator
+  // enumerate the client base by trying ids and reading the difference.
+  'clientProfile.notFoundBody':
+    'It may not exist, or it may be outside the client groups your account is allowed to see.',
+  'clientProfile.sectionIdentity': 'Identity',
+  'clientProfile.sectionTags': 'Tags',
+  'clientProfile.sectionKyc': 'Verification',
+  'clientProfile.sectionDocuments': 'Documents',
+  'clientProfile.sectionTrading': 'Trading accounts',
+  'clientProfile.sectionReferrals': 'Referrals',
+  'clientProfile.fieldPhone': 'Phone',
+  'clientProfile.kycStatus': 'Status',
+  'clientProfile.kycSubmitted': 'Submitted',
+  'clientProfile.openKycReview': 'Open the KYC review →',
+  'clientProfile.kycHidden': 'Verification status is hidden by your permissions.',
+  // The most important of the four. A compliance reviewer shown no documents
+  // concludes none were uploaded, which is a claim about the client rather than
+  // about the reviewer.
+  'clientProfile.documentsHidden': 'Documents are hidden by your permissions.',
+  'clientProfile.tradingHidden': 'Trading accounts are hidden by your permissions.',
+  'clientProfile.referralsHidden': 'Referral relationships are hidden by your permissions.',
+  'clientProfile.noKyc': 'This client has not started verification.',
+  'clientProfile.noDocuments': 'No documents uploaded.',
+  'clientProfile.noTradingAccounts': 'No trading accounts yet.',
+  'clientProfile.noTagsAvailable': 'No tags exist yet. Create one on the Client Tags screen.',
+  'clientProfile.parentIb': 'Introduced by',
+  'clientProfile.noParentIb': 'Not introduced by a partner.',
+  'clientProfile.referredClients': 'Clients introduced',
+  'clientProfile.noReferrals': 'No clients introduced.',
+  'clientProfile.attributionInactive': 'inactive',
+  'tags.empty': 'No tags yet. Create one to start segmenting the client base.',
   'clients.colCountry': 'Country',
   'clients.colCreated': 'Created',
   'clients.colActions': 'Actions',

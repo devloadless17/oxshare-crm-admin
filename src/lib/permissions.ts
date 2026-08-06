@@ -32,6 +32,15 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/ledger', requirement: { permission: 'ledger.view' } },
   { prefix: '/commission-plans', requirement: { permission: 'commissions.view' } },
   { prefix: '/roles', requirement: { permission: 'roles.view' } },
+  /*
+   * `tags.view` OR `users.view` would be the honest requirement — anyone who
+   * can see the client list needs the tag vocabulary to read its chips — but
+   * this table takes one key per prefix. `tags.view` is the narrower and safer
+   * choice: a sub-admin without it sees no /tags nav item and gets the denied
+   * panel on a direct URL, while the client list still renders its chips from
+   * the same endpoint, which grants on either key.
+   */
+  { prefix: '/tags', requirement: { permission: 'tags.view' } },
   // roles.MANAGE, not roles.view. /settings is now the RBAC-08 network allowlist
   // and the security controls; when both were the "Network" tab they were shown
   // only to an admin holding roles.manage, so requiring roles.view here would

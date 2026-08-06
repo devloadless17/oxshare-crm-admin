@@ -8,7 +8,7 @@ import { Loader } from '@/components/ui/loader';
 import { BackendPending } from '@/components/backend-pending';
 import type { ResourceStatus } from '@/hooks/use-resource';
 import { t } from '@/lib/i18n';
-import { apiErrorRequestId } from '@/lib/api/errors';
+import { apiErrorMessage, apiErrorRequestId } from '@/lib/api/errors';
 
 /**
  * The loading / not-built-yet / error / ready branch that eight pages each
@@ -84,7 +84,20 @@ export function AsyncBoundary({
         role="alert"
       >
         <p className="text-sm text-muted-foreground">
-          {errorMessage ?? 'Something went wrong loading this page.'}
+          {/*
+           * The API's OWN message when it sent one, and the generic line only
+           * as a fallback.
+           *
+           * R-2.5 requires an unrecognised filter or sort to be a 400 rather
+           * than a silently empty list, precisely so the operator learns what
+           * they got wrong — and this component was throwing that sentence
+           * away and printing "Failed to load clients." instead. A validation
+           * error the user cannot read is a 400 with the usefulness of a 500.
+           *
+           * `apiErrorMessage` falls back to the caller's line for a 500, where
+           * the server's message is not something to show anybody.
+           */}
+          {apiErrorMessage(error, errorMessage ?? 'Something went wrong loading this page.')}
         </p>
         {/*
           The id the API already logged with this failure. Rendered small and

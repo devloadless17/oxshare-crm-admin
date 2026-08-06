@@ -22,7 +22,28 @@ import { apiErrorMessage } from '@/lib/api/errors';
  *      cover the machine you are sitting at, you lose this screen. The API
  *      refuses that, but a refusal after the fact is a worse experience than a
  *      warning before it — so the form warns while you type.
+ *   3. A `/0` rule makes the list non-empty while admitting every address, so
+ *      the API reports `enforced: true` and this panel would show a green
+ *      shield over a control that is doing nothing. The API now refuses to ADD
+ *      one, but a row predating that check — or added by direct SQL — is still
+ *      possible, and this screen is the last place anyone would notice.
  */
+
+/**
+ * Whether a stored rule admits every address.
+ *
+ * A string test rather than CIDR parsing, and that is safe *because* these
+ * values are canonical: the API stores what `canonicaliseRule` emits, which
+ * always ends in an explicit `/<prefix>`. So `/0` is exact — `10.0.0.0/20` ends
+ * in `0` but not in `/0`.
+ *
+ * Reimplementing address arithmetic here would be the wrong trade: a second,
+ * subtly different matcher on the frontend is how a UI ends up disagreeing with
+ * the guard about who is admitted.
+ */
+export function admitsEveryAddress(cidr: string): boolean {
+  return cidr.trim().endsWith('/0');
+}
 export function IpAllowlistPanel({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient();
   const [cidr, setCidr] = React.useState('');
@@ -58,6 +79,11 @@ export function IpAllowlistPanel({ canManage }: { canManage: boolean }) {
   // turns enforcement on. Later rules cannot: the existing ones still cover you.
   const isFirstRule = rules.length === 0;
 
+  // A rule that admits everyone defeats the list without emptying it, so the
+  // API's `enforced` flag stays true and cannot be trusted for the banner.
+  const wideOpenRules = rules.filter((rule) => admitsEveryAddress(rule.cidr));
+  const effectivelyEnforced = enforced && wideOpenRules.length === 0;
+
   return (
     <AsyncBoundary
       status={query.status}
@@ -73,24 +99,45 @@ export function IpAllowlistPanel({ canManage }: { canManage: boolean }) {
       <div className="space-y-6">
         <div
           className={`flex items-start gap-3 rounded-xl border p-5 ${
-            enforced ? 'border-success/30 bg-success/5' : 'border-warning/40 bg-warning/10'
+            effectivelyEnforced
+              ? 'border-success/30 bg-success/5'
+              : wideOpenRules.length > 0
+                ? 'border-destructive/40 bg-destructive/10'
+                : 'border-warning/40 bg-warning/10'
           }`}
+          role={wideOpenRules.length > 0 ? 'alert' : undefined}
         >
-          {enforced ? (
+          {effectivelyEnforced ? (
             <ShieldCheck className="h-5 w-5 shrink-0 text-success" aria-hidden="true" />
           ) : (
-            <ShieldOff className="h-5 w-5 shrink-0 text-warning" aria-hidden="true" />
+            <ShieldOff
+              className={`h-5 w-5 shrink-0 ${wideOpenRules.length > 0 ? 'text-destructive' : 'text-warning'}`}
+              aria-hidden="true"
+            />
           )}
           <div className="space-y-1">
             <h3 className="text-sm font-bold">
-              {enforced
+              {effectivelyEnforced
                 ? `Enforced — ${rules.length} rule${rules.length === 1 ? '' : 's'}`
-                : 'Not enforced — any network can reach the admin API'}
+                : wideOpenRules.length > 0
+                  ? 'Not effectively enforced — a rule admits every address'
+                  : 'Not enforced — any network can reach the admin API'}
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              {enforced
-                ? 'Requests to the administration API are refused unless they come from one of the ranges below.'
-                : 'The list is empty, which deliberately means this protection is switched OFF — so that deploying it cannot lock every administrator out. It starts working the moment you add the first rule.'}
+              {effectivelyEnforced ? (
+                'Requests to the administration API are refused unless they come from one of the ranges below.'
+              ) : wideOpenRules.length > 0 ? (
+                <>
+                  <code className="font-mono text-destructive">
+                    {wideOpenRules.map((rule) => rule.cidr).join(', ')}
+                  </code>{' '}
+                  matches every address, so the list is non-empty but nothing is actually being
+                  refused. Remove it. If you do want this protection switched off, remove{' '}
+                  <em>all</em> the rules — that reports itself honestly.
+                </>
+              ) : (
+                'The list is empty, which deliberately means this protection is switched OFF — so that deploying it cannot lock every administrator out. It starts working the moment you add the first rule.'
+              )}
             </p>
             {yourIp && (
               <p className="text-xs text-muted-foreground">

@@ -1,8 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import type { AdminUser, PermissionModule, Role } from '@/lib/api/admin';
+import type {
+  AdminUser,
+  ClientFieldGroup,
+  ClientTagWithCount,
+  PermissionModule,
+  Role,
+} from '@/lib/api/admin';
 import { PermissionMatrix } from './permission-matrix';
+import { AdminFieldMaskPanel, AdminTagScopePanel } from './admin-visibility-panels';
 import {
   Select,
   SelectTrigger,
@@ -16,6 +23,17 @@ export interface AdminFormValues {
   name?: string;
   roleId?: string;
   permissions?: string[];
+  /** RBAC-03 mask override. `null` clears it — back to inheriting the role. */
+  maskedFields?: string[] | null;
+  /** RBAC-03 territory. An EMPTY ARRAY means unrestricted, not none. */
+  scopedTagIds?: string[];
+}
+
+/** Order- and duplicate-insensitive membership equality. */
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const left = new Set(a);
+  return b.every((value) => left.has(value));
 }
 
 const DIRECT = '__direct__';
@@ -39,6 +57,10 @@ export function AdminFormModal({
   admin,
   roles,
   catalog,
+  tags,
+  fieldCatalog,
+  currentScope,
+  canScope,
   busy,
   error,
   onSubmit,
@@ -47,6 +69,13 @@ export function AdminFormModal({
   admin: AdminUser;
   roles: Role[];
   catalog: Record<string, PermissionModule>;
+  /** RBAC-03 vocabularies, both fetched — the frontend invents no keys (R-4.5). */
+  tags: ClientTagWithCount[];
+  fieldCatalog: Record<string, ClientFieldGroup>;
+  /** This admin's current territory, resolved server-side. */
+  currentScope: string[];
+  /** A separate permission from users.edit — see the panels. */
+  canScope: boolean;
   busy: boolean;
   error: string;
   onSubmit: (values: AdminFormValues) => void;
@@ -57,6 +86,15 @@ export function AdminFormModal({
   // from "nothing chosen yet", and this is a deliberate choice with consequences.
   const [source, setSource] = React.useState<string>(admin.roleId ?? DIRECT);
   const [permissions, setPermissions] = React.useState<string[]>(admin.permissions ?? []);
+  const [scopedTagIds, setScopedTagIds] = React.useState<string[]>(currentScope);
+  /*
+   * `null` is a real value here, not a placeholder: it is what puts this
+   * administrator back on their role's mask. An `undefined` state could not
+   * express it, and the operator would have no way to undo an override.
+   */
+  const [maskedFields, setMaskedFields] = React.useState<string[] | null>(
+    admin.maskedFieldsOverride ?? null,
+  );
 
   const assignable = roles.filter((r) => !r.isSystem);
   const usingDirect = source === DIRECT;
@@ -78,6 +116,25 @@ export function AdminFormModal({
     } else if (source !== admin.roleId) {
       values.roleId = source;
     }
+    /*
+     * The two visibility dimensions are compared as SETS, and only sent when
+     * they actually differ.
+     *
+     * A `scopedTagIds` echoed back unchanged is a whole-set replace on the
+     * scope table and another audit row against a named administrator — and,
+     * because the panel presents order-free chips, the array order alone would
+     * otherwise make every save look like a change.
+     */
+    if (!sameSet(scopedTagIds, currentScope)) values.scopedTagIds = scopedTagIds;
+
+    const inheritingNow = maskedFields === null;
+    const inheritingBefore = (admin.maskedFieldsOverride ?? null) === null;
+    if (inheritingNow !== inheritingBefore) {
+      values.maskedFields = maskedFields;
+    } else if (maskedFields !== null && !sameSet(maskedFields, admin.maskedFieldsOverride ?? [])) {
+      values.maskedFields = maskedFields;
+    }
+
     if (Object.keys(values).length === 0) {
       onClose();
       return;
@@ -87,10 +144,24 @@ export function AdminFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl space-y-5">
+      {/*
+       * `role="dialog"` + `aria-modal`, which this hand-rolled overlay was
+       * missing entirely — so a screen reader announced it as an ordinary
+       * region and gave no indication that the rest of the page was inert.
+       * `ui/modal.tsx` has always done this; this component predates it and
+       * never caught up.
+       */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-form-title"
+        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl space-y-5"
+      >
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div>
-            <h3 className="text-base font-bold">{t('adminUsers.editTitle')}</h3>
+            <h3 id="admin-form-title" className="text-base font-bold">
+              {t('adminUsers.editTitle')}
+            </h3>
             <p className="font-mono text-[11px] text-muted-foreground mt-0.5">{admin.email}</p>
           </div>
           <button
@@ -145,6 +216,85 @@ export function AdminFormModal({
               it overwrite whatever is shown here. */}
           {usingDirect && (
             <PermissionMatrix catalog={catalog} selected={permissions} onToggle={toggle} />
+          )}
+
+          {/*
+           * `<details>` with an ALWAYS-VISIBLE summary, not tabs.
+           *
+           * RBAC-07's failure mode is granting access you did not realise you
+           * granted, and a tab hides the summary of the tab you are not on. A
+           * summary line you cannot avoid reading is the whole point — so
+           * "3 tags · 2 fields hidden" is on screen before anything is opened.
+           *
+           * Native `<details>` is keyboard- and screen-reader-correct with no
+           * dependency, which is why this is not a Radix accordion.
+           */}
+          {canScope && (
+            <div className="space-y-2 rounded-lg border border-border">
+              <details className="group p-3">
+                <summary className="cursor-pointer list-none font-semibold focus-outline">
+                  <span className="flex items-center justify-between gap-3">
+                    {t('adminUsers.scopeSection')}
+                    <span className="font-normal text-[11px] text-muted-foreground">
+                      {scopedTagIds.length === 0
+                        ? t('adminUsers.scopeSummaryAll')
+                        : t('adminUsers.scopeSummary', { count: scopedTagIds.length })}
+                    </span>
+                  </span>
+                </summary>
+                <div className="pt-3">
+                  <AdminTagScopePanel
+                    tags={tags}
+                    selected={scopedTagIds}
+                    onToggle={(tagId) =>
+                      setScopedTagIds((prev) =>
+                        prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
+                      )
+                    }
+                    disabled={busy}
+                    disabledReason={
+                      admin.role === 'master_admin' ? t('adminUsers.masterExempt') : undefined
+                    }
+                  />
+                </div>
+              </details>
+
+              <details className="group border-t border-border p-3">
+                <summary className="cursor-pointer list-none font-semibold focus-outline">
+                  <span className="flex items-center justify-between gap-3">
+                    {t('adminUsers.maskSection')}
+                    <span className="font-normal text-[11px] text-muted-foreground">
+                      {maskedFields === null
+                        ? t('adminUsers.maskSummaryInherited')
+                        : maskedFields.length === 0
+                          ? t('adminUsers.maskSummaryNone')
+                          : t('adminUsers.maskSummary', { count: maskedFields.length })}
+                    </span>
+                  </span>
+                </summary>
+                <div className="pt-3">
+                  <AdminFieldMaskPanel
+                    catalog={fieldCatalog}
+                    selected={maskedFields ?? []}
+                    inheriting={maskedFields === null}
+                    onResetToRole={() => setMaskedFields(null)}
+                    onToggle={(key) =>
+                      setMaskedFields((prev) => {
+                        // The first tick on an inheriting admin CREATES the
+                        // override, starting from what they can see today
+                        // rather than from nothing.
+                        const base = prev ?? [];
+                        return base.includes(key) ? base.filter((k) => k !== key) : [...base, key];
+                      })
+                    }
+                    disabled={busy}
+                    disabledReason={
+                      admin.role === 'master_admin' ? t('adminUsers.masterExempt') : undefined
+                    }
+                  />
+                </div>
+              </details>
+            </div>
           )}
 
           {error && (

@@ -11,6 +11,11 @@ const master: AdminProfile = {
   // Required since the API started admitting it. The directory used to render a
   // hardcoded "Active" badge because AdminProfileDto had no status field at all.
   status: 'active',
+  // RBAC-03. Both required since the API started reporting each admin's
+  // effective visibility on the row — the directory shows it without needing a
+  // modal opened.
+  maskedFields: [],
+  scopedTags: [],
   createdAt: '2026-08-02T00:00:00.000Z',
 };
 
@@ -192,6 +197,11 @@ describe('assertPermissionKeysExist', () => {
     'ledger.view',
     'commissions.view',
     'commissions.manage',
+    // ADM-14. Added here the moment `/tags` gained a route requirement — a key
+    // referenced by the route table and absent from the catalog is a
+    // permanently unreachable page, which is the exact drift
+    // `assertPermissionKeysExist` exists to catch.
+    'tags.view',
   ];
 
   it('reports nothing when every referenced key is in the catalog', () => {
@@ -214,5 +224,36 @@ describe('assertPermissionKeysExist', () => {
     // was built to print.
     const colonCatalog = CATALOG.map((k) => k.replace('.', ':'));
     expect(assertPermissionKeysExist(colonCatalog).length).toBeGreaterThan(0);
+  });
+});
+
+describe('ADM-14 — the tags screen', () => {
+  const withPerms = (permissions: string[]): AdminProfile => ({ ...subAdmin, permissions });
+
+  it('requires tags.view', () => {
+    expect(canAccess(withPerms(['tags.view']), '/tags')).toBe(true);
+    // `users.view` reaches the client LIST and its tag chips (the API grants
+    // GET /admin/tags on either key), but not the management screen.
+    expect(canAccess(withPerms(['users.view']), '/tags')).toBe(false);
+  });
+
+  it('is reachable by the master admin', () => {
+    expect(canAccess(master, '/tags')).toBe(true);
+  });
+});
+
+describe('ADM-01 — the client profile', () => {
+  const withPerms = (permissions: string[]): AdminProfile => ({ ...subAdmin, permissions });
+
+  it('inherits the client list requirement, via the prefix match', () => {
+    // No separate entry: `/clients/<uuid>` matches the `/clients` prefix, so a
+    // profile can never be reachable by someone who cannot reach the list it
+    // is opened from.
+    expect(
+      canAccess(withPerms(['users.view']), '/clients/a3f1c2d4-0000-4000-8000-000000000001'),
+    ).toBe(true);
+    expect(
+      canAccess(withPerms(['kyc.review']), '/clients/a3f1c2d4-0000-4000-8000-000000000001'),
+    ).toBe(false);
   });
 });
