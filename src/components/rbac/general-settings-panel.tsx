@@ -59,13 +59,7 @@ export function GeneralSettingsPanel({ canManage }: { canManage: boolean }) {
   );
 }
 
-function GeneralForm({
-  settings,
-  canManage,
-}: {
-  settings: GeneralSettings;
-  canManage: boolean;
-}) {
+function GeneralForm({ settings, canManage }: { settings: GeneralSettings; canManage: boolean }) {
   /*
    * Seeded from the server value and then owned by the fields, matching the
    * platform links panel: a `value` bound straight to query data would let a

@@ -20,6 +20,9 @@ export type ClientProfile = components['schemas']['ClientProfileDto'];
 export type ClientTag = components['schemas']['ClientTagDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
 export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
+export type Currency = components['schemas']['CurrencyDto'];
+export type CreateCurrency = components['schemas']['CreateCurrencyDto'];
+export type UpdateCurrency = components['schemas']['UpdateCurrencyDto'];
 
 /**
  * The columns the API will sort by, mirroring its SORTABLE_COLUMNS allowlist.
@@ -163,6 +166,51 @@ export const adminApi = {
   async setPlatformLink(key: string, url: string): Promise<PlatformLink> {
     const { data } = await apiClient.put<PlatformLink>(`/admin/platforms/${key}`, { url });
     return data;
+  },
+
+  /**
+   * The currencies this platform supports.
+   *
+   * Includes DISABLED ones, unlike the portal's `GET /currencies` — managing
+   * them is the point of this screen, and a currency you cannot see is one you
+   * cannot re-enable.
+   */
+  async getCurrencies(signal?: AbortSignal): Promise<Currency[]> {
+    const { data } = await apiClient.get<Currency[]>('/admin/currencies', { signal });
+    return data;
+  },
+
+  async createCurrency(body: CreateCurrency): Promise<Currency> {
+    const { data } = await apiClient.post<Currency>('/admin/currencies', body);
+    return data;
+  },
+
+  /**
+   * PATCH, and only the supplied fields change.
+   *
+   * `code` is absent from `UpdateCurrency` by design: it is the primary key and
+   * wallets, transactions and transfers reference it, so a rename would be a
+   * data migration across four money tables rather than an edit.
+   *
+   * Setting `isDefault: true` moves the flag off whatever holds it, atomically.
+   * The API refuses to leave the platform with NO default, because registration
+   * reads it to decide which wallet to open for a new client.
+   */
+  async updateCurrency(code: string, body: UpdateCurrency): Promise<Currency> {
+    const { data } = await apiClient.patch<Currency>(`/admin/currencies/${code}`, body);
+    return data;
+  },
+
+  /**
+   * Only ever succeeds for a currency nobody holds.
+   *
+   * The API answers 409 when any wallet exists in it, because balances and
+   * append-only ledger history depend on the row. Disabling is the operation
+   * that means "stop offering this": it blocks new wallets while leaving the
+   * existing ones readable and spendable.
+   */
+  async deleteCurrency(code: string): Promise<void> {
+    await apiClient.delete(`/admin/currencies/${code}`);
   },
 
   async getGeneralSettings(): Promise<GeneralSettings> {

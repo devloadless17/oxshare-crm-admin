@@ -39,7 +39,9 @@ describe('ARIA wiring', () => {
   it('marks exactly one tab selected', () => {
     render(<Harness value="two" onValueChange={vi.fn()} />);
 
-    const selected = screen.getAllByRole('tab').filter((t) => t.getAttribute('aria-selected') === 'true');
+    const selected = screen
+      .getAllByRole('tab')
+      .filter((t) => t.getAttribute('aria-selected') === 'true');
     expect(selected).toHaveLength(1);
     expect(selected[0]).toHaveTextContent('Two');
   });

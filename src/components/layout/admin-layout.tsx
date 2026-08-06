@@ -10,6 +10,7 @@ import {
   Building2,
   ArrowUpRight,
   FileCheck,
+  Coins,
   Percent,
   Wallet,
   Receipt,
@@ -96,6 +97,10 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'nav.payouts', href: '/payouts', icon: Wallet, comingSoon: true },
       { label: 'nav.ledger', href: '/ledger', icon: Receipt },
       { label: 'nav.commissionPlans', href: '/commission-plans', icon: Percent },
+      // In Financials rather than as a Settings tab: a currency is not
+      // presentation config. It is the set of money the platform can hold, and
+      // disabling one stops wallets opening in it across the whole product.
+      { label: 'nav.currencies', href: '/currencies', icon: Coins },
     ],
   },
   {

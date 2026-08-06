@@ -485,40 +485,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/trading/ping": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health ping for trading module */
-        get: operations["TradingController_ping"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/partners/ping": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health ping for partners module */
-        get: operations["PartnersController_ping"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/wallet": {
         parameters: {
             query?: never;
@@ -545,6 +511,122 @@ export interface paths {
         };
         /** The signed-in client's own ledger entries */
         get: operations["WalletController_myLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/currencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The currencies this platform supports, enabled only, in operator order */
+        get: operations["CurrenciesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/currencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every currency, including disabled ones, in operator order
+         * @description Unlike the client-facing GET /currencies, this includes disabled currencies — managing them is the point of the screen.
+         */
+        get: operations["AdminCurrenciesController_list"];
+        put?: never;
+        /**
+         * Add a currency
+         * @description The code is normalised to upper case and must be unique. Marking it default moves the flag off whatever holds it, atomically.
+         */
+        post: operations["AdminCurrenciesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/currencies/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a currency that nobody holds
+         * @description Refuses with 409 if any wallet exists in it — balances and append-only ledger history depend on the row. Disable it instead: that stops new wallets while keeping the existing ones readable and spendable.
+         */
+        delete: operations["AdminCurrenciesController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a currency
+         * @description PATCH, not PUT: the code is the primary key and is referenced by wallets, transactions and transfers, so it is not editable — a rename would be a data migration across four money tables. Everything else is optional and only supplied fields change.
+         */
+        patch: operations["AdminCurrenciesController_update"];
+        trace?: never;
+    };
+    "/v1/trading/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health ping for trading module */
+        get: operations["TradingController_ping"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in client's MT5 trading accounts — live and demo, in one list */
+        get: operations["TradingController_myAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/partners/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health ping for partners module */
+        get: operations["PartnersController_ping"];
         put?: never;
         post?: never;
         delete?: never;
@@ -621,6 +703,27 @@ export interface paths {
         get: operations["PaymentsController_myTransactions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in client's own wallet <-> trading-account transfers */
+        get: operations["PaymentsController_myTransfers"];
+        put?: never;
+        /**
+         * Transfer between the wallet and a live trading account — requires KYC level 1
+         * @description wallet_to_account holds the amount immediately and debits it on settlement. account_to_wallet credits nothing until the bridge confirms MT5 was debited — the CRM never shows money it has not received. Demo accounts are refused.
+         */
+        post: operations["PaymentsController_requestTransfer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2027,16 +2130,96 @@ export interface components {
             page: number;
             limit: number;
         };
+        CurrencyDto: {
+            /** @example USD */
+            code: string;
+            /** @example US Dollar */
+            name: string;
+            /** @example $ */
+            symbol: string;
+            /**
+             * @description Display precision only; storage is always 8dp.
+             * @example 2
+             */
+            decimals: number;
+            /** @description Disabled currencies keep their wallets but accept no new ones. */
+            enabled: boolean;
+            /** @description The currency a new client's first wallet opens in. */
+            isDefault: boolean;
+            sortOrder: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateCurrencyDto: {
+            /** @example EUR */
+            code: string;
+            /** @example Euro */
+            name: string;
+            /** @example € */
+            symbol: string;
+            /** @default 2 */
+            decimals: number;
+            /** @default true */
+            enabled: boolean;
+            /** @default 0 */
+            sortOrder: number;
+            /** @default false */
+            isDefault: boolean;
+        };
+        UpdateCurrencyDto: {
+            /** @example Euro */
+            name?: string;
+            /** @example € */
+            symbol?: string;
+            decimals?: number;
+            enabled?: boolean;
+            sortOrder?: number;
+            isDefault?: boolean;
+        };
+        TradingAccountDto: {
+            id: string;
+            /**
+             * @description The MT5 login. A string, not a number — it is an identifier that happens to be digits, and leading zeros are significant to the bridge.
+             * @example 5001234
+             */
+            mt5Login: string;
+            /**
+             * @description The MT5 group this account sits in. Null until the bridge reports one.
+             * @example real\Standard
+             */
+            mt5Group: string | null;
+            /**
+             * @description Whether this is real money or a practice account. The client-facing distinction that matters most on this screen: a demo account must never be mistaken for a live one.
+             * @enum {string}
+             */
+            environment: "live" | "demo";
+            /** @example Standard */
+            tier: string | null;
+            /**
+             * @description The 1:N in 1:500.
+             * @example 500
+             */
+            leverage: number | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
         RequestDepositDto: {
             /** @example 500.00000000 */
             amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
+            /**
+             * @description Must be an enabled currency — see GET /currencies.
+             * @example USD
+             */
+            currency: string;
             /**
              * @description How the client is sending the money. Decides which instructions they are shown.
              * @enum {string}
              */
             method: "bank_transfer" | "usdt_trc20";
+            /** @description A live trading account of the caller, to fund once the deposit is confirmed. */
+            destinationTradingAccountId?: string;
         };
         DepositRequestDto: {
             /** @description The transaction id. Also shown on /transactions. */
@@ -2048,8 +2231,8 @@ export interface components {
             reference: string;
             /** @example 500.00000000 */
             amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
+            /** @example USD */
+            currency: string;
             /** @enum {string} */
             method: "bank_transfer" | "usdt_trc20";
             /**
@@ -2119,6 +2302,44 @@ export interface components {
             message: string;
             /** @description False when the operator has the withdrawal-OTP control switched off; the withdrawal may then be submitted without a code. */
             required: boolean;
+        };
+        RequestTransferDto: {
+            /** @description A live trading account belonging to the caller. */
+            tradingAccountId: string;
+            /** @enum {string} */
+            direction: "wallet_to_account" | "account_to_wallet";
+            /**
+             * @description Decimal string, up to 8 places.
+             * @example 250.00
+             */
+            amount: string;
+            /** @example USD */
+            currency: string;
+        };
+        TransferDto: {
+            id: string;
+            userId: string;
+            walletId: string;
+            tradingAccountId: string;
+            /** @enum {string} */
+            direction: "wallet_to_account" | "account_to_wallet";
+            /**
+             * @description Decimal string (§6.1).
+             * @example 250.00000000
+             */
+            amount: string;
+            /** @example USD */
+            currency: string;
+            /**
+             * @description pending until the MT5 bridge confirms. A wallet_to_account transfer holds the amount while pending; an account_to_wallet one credits nothing until it settles.
+             * @enum {string}
+             */
+            state: "pending" | "settled" | "failed";
+            failureReason?: string | null;
+            /** Format: date-time */
+            settledAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
         };
         PlatformLinkDto: {
             /**
@@ -3647,40 +3868,6 @@ export interface operations {
             };
         };
     };
-    TradingController_ping: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PartnersController_ping: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     WalletController_myWallets: {
         parameters: {
             query?: never;
@@ -3720,6 +3907,164 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["LedgerListResponseDto"];
                 };
+            };
+        };
+    };
+    CurrenciesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrencyDto"][];
+                };
+            };
+        };
+    };
+    AdminCurrenciesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrencyDto"][];
+                };
+            };
+        };
+    };
+    AdminCurrenciesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCurrencyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrencyDto"];
+                };
+            };
+        };
+    };
+    AdminCurrenciesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminCurrenciesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCurrencyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrencyDto"];
+                };
+            };
+        };
+    };
+    TradingController_ping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TradingController_myAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountDto"][];
+                };
+            };
+        };
+    };
+    PartnersController_ping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -3813,6 +4158,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionDto"][];
+                };
+            };
+        };
+    };
+    PaymentsController_myTransfers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"][];
+                };
+            };
+        };
+    };
+    PaymentsController_requestTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended transfer, reused only when retrying that same one. */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestTransferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
                 };
             };
         };
