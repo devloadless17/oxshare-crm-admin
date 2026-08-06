@@ -976,6 +976,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{id}/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Email another administrator a single-use password reset link */
+        post: operations["AdminAuthController_initiatePasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/password-reset/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Spend a reset link and set a new password */
+        post: operations["AdminAuthController_completePasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/clients": {
         parameters: {
             query?: never;
@@ -2220,6 +2254,11 @@ export interface components {
             /** @example Account created. Welcome aboard! */
             message: string;
             admin: components["schemas"]["AdminProfileDto"];
+        };
+        CompleteAdminResetDto: {
+            /** @description Single-use token from the password reset email. */
+            token: string;
+            password: string;
         };
         ClientTagDto: {
             id: string;
@@ -4033,6 +4072,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AcceptInviteResponseDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_initiatePasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_completePasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteAdminResetDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
                 };
             };
         };
