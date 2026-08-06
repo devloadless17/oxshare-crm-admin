@@ -35,7 +35,7 @@ describe('t() — lookup and interpolation', () => {
   it('leaves an unsupplied placeholder visible instead of rendering undefined', () => {
     // "on hold: undefined" is a bug someone screenshots and asks about;
     // "{total}" is a bug the developer fixes before it ships.
-    expect(t('nav.comingSoonTitle')).toBe('{label} — coming soon');
+    expect(t('common.requestId')).toBe('Reference: {id}');
   });
 
   it('ignores extra variables rather than throwing', () => {

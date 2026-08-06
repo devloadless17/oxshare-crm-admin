@@ -27,8 +27,10 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/clients', requirement: { permission: 'users.view' } },
   { prefix: '/partners', requirement: { permission: 'partners.view' } },
   { prefix: '/withdrawals', requirement: { permission: 'withdrawals.view' } },
-  { prefix: '/trading-accounts', requirement: { permission: 'trading.view' } },
-  { prefix: '/payouts', requirement: { permission: 'payouts.review' } },
+  // `/trading-accounts` and `/payouts` were listed here with no `page.tsx`
+  // behind either. Removed with their sidebar entries: `canAccess` denies an
+  // unlisted path (see the `!match` branch below), which is the correct answer
+  // for a route that does not exist. Re-add both when the pages are built.
   { prefix: '/ledger', requirement: { permission: 'ledger.view' } },
   { prefix: '/commission-plans', requirement: { permission: 'commissions.view' } },
   { prefix: '/roles', requirement: { permission: 'roles.view' } },

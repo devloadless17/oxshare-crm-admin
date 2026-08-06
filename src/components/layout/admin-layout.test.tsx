@@ -154,6 +154,87 @@ describe('AdminLayout — nothing is shown until we know who is asking', () => {
 });
 
 /**
+ * Every nav entry goes somewhere.
+ *
+ * The sidebar used to carry `/trading-accounts` and `/payouts` as disabled
+ * "Soon" rows for pages that had no `page.tsx` at all. They are gone, and these
+ * pin that they stay gone — a placeholder row is the easiest thing in this file
+ * to reintroduce, because adding one is a two-line change that nothing else
+ * objects to.
+ */
+describe('the sidebar lists only pages that exist', () => {
+  beforeEach(() => {
+    useAdmin.mockReturnValue({ admin: MASTER, isLoading: false, logout: vi.fn() });
+  });
+
+  it('offers no "Soon" placeholder to a master admin, who sees the most', () => {
+    renderWithProviders(
+      <AdminLayout>
+        <p>page body</p>
+      </AdminLayout>,
+    );
+
+    expect(screen.queryByText(/^soon$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Trading Accounts')).not.toBeInTheDocument();
+    expect(screen.queryByText('Payouts')).not.toBeInTheDocument();
+  });
+
+  it('groups the rest under Overview, Clients, Finance and Administration', () => {
+    renderWithProviders(
+      <AdminLayout>
+        <p>page body</p>
+      </AdminLayout>,
+    );
+
+    expect(screen.getByText('OVERVIEW')).toBeInTheDocument();
+    expect(screen.getByText('CLIENTS')).toBeInTheDocument();
+    expect(screen.getByText('FINANCE')).toBeInTheDocument();
+    expect(screen.getByText('ADMINISTRATION')).toBeInTheDocument();
+    // The headings this replaced, so a half-applied rename is caught.
+    expect(screen.queryByText('MAIN')).not.toBeInTheDocument();
+    expect(screen.queryByText('MANAGEMENT')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The theme control lives in the sidebar's account menu, not the header.
+ *
+ * It was a two-button light/dark toggle in the top bar with no way to say
+ * "follow the OS". Asserting on the ABSENCE of the old control matters as much
+ * as the presence of the new one: the failure mode of this change is two theme
+ * controls, which is worse than either alone.
+ */
+describe('the account menu replaces the header theme toggle', () => {
+  beforeEach(() => {
+    useAdmin.mockReturnValue({ admin: MASTER, isLoading: false, logout: vi.fn() });
+  });
+
+  it('renders the account menu trigger and no bare sign-out button', () => {
+    renderWithProviders(
+      <AdminLayout>
+        <p>page body</p>
+      </AdminLayout>,
+    );
+
+    // Two triggers: the sidebar foot, and the mobile header copy.
+    expect(screen.getAllByRole('button', { name: /account menu/i }).length).toBeGreaterThan(0);
+    // Sign-out moved INSIDE the menu, so it is not in the document while closed.
+    expect(screen.queryByRole('button', { name: /^logout$/i })).not.toBeInTheDocument();
+  });
+
+  it('no longer renders the old light/dark buttons', () => {
+    renderWithProviders(
+      <AdminLayout>
+        <p>page body</p>
+      </AdminLayout>,
+    );
+
+    expect(screen.queryByTitle('Light Mode')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Dark Mode')).not.toBeInTheDocument();
+  });
+});
+
+/**
  * Exactly one sidebar entry is the current page.
  *
  * `/kyc/builder` lit up BOTH "KYC Review" and "KYC Workflow Builder", because

@@ -7,18 +7,16 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   Building2,
   ArrowUpRight,
   FileCheck,
   Coins,
   Percent,
-  Wallet,
   Receipt,
-  LineChart,
+  ClipboardList,
   ShieldCheck,
-  Settings,
   Lock,
-  LogOut,
   ChevronLeft,
   ChevronRight,
   Bell,
@@ -30,7 +28,7 @@ import {
   Activity,
   Loader2,
 } from 'lucide-react';
-import { ThemeToggle } from '../theme-toggle';
+import { UserMenu } from './user-menu';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { canAccess } from '@/lib/permissions';
 import { t, type MessageKey } from '@/lib/i18n';
@@ -41,8 +39,6 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   badge?: string | number;
-  /** Page not built yet — rendered as a disabled "Soon" entry instead of a link. */
-  comingSoon?: boolean;
 }
 
 interface NavSection {
@@ -75,50 +71,79 @@ export function activeNavHref(pathname: string | null, hrefs: string[]): string 
   );
 }
 
+/**
+ * Every entry here is a page that EXISTS and is implemented.
+ *
+ * ── The "Soon" entries are gone ────────────────────────────────────────────
+ *
+ * `/trading-accounts` and `/payouts` had no `page.tsx` at all, so they were
+ * rendered as disabled placeholders carrying a "Soon" badge. That was a
+ * deliberate earlier decision — they were committed scope, and the badge was
+ * how the sidebar admitted the gap rather than 404ing. This pass reverses it on
+ * instruction: an operator reading the navigation should be reading a list of
+ * places they can go, not a roadmap. Both entries, the `comingSoon` flag, the
+ * branch that rendered it, and `nav.comingSoon*` are removed together.
+ *
+ * If either page gets built, it comes back as a plain entry.
+ *
+ * ⚠️ `admin/CLAUDE.md` still says these links are committed scope and must not
+ * be deleted. That instruction is now stale and is updated in the same change.
+ *
+ * ── The grouping ──────────────────────────────────────────────────────────
+ *
+ * Three sections, split by WHAT THE OBJECT IS rather than by which team owns
+ * it, because the sidebar's job is to answer "where does this thing live":
+ *
+ *   Clients      — the people, and everything that describes them. KYC and Tags
+ *                  belong here rather than in an admin bucket: both are read as
+ *                  properties OF a client, and an operator looking for either
+ *                  starts from the client list.
+ *   Finance      — money. Withdrawals, the ledger, what the platform pays out
+ *                  (commission plans) and what it can hold (currencies). A
+ *                  currency is not presentation config; disabling one stops
+ *                  wallets opening in it across the whole product.
+ *   Administration — the console configuring ITSELF. Who may sign in, what they
+ *                  may do, what they did, and the settings behind it. Nothing
+ *                  here is about a client.
+ *
+ * Dashboard sits alone at the top, outside any group: it is the landing page
+ * and belongs to no category. A one-item "Main" heading above it was a label
+ * that said nothing.
+ */
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: 'nav.section.main',
+    title: 'nav.section.overview',
+    items: [{ label: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard }],
+  },
+  {
+    title: 'nav.section.clients',
     items: [
-      { label: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
       { label: 'nav.clients', href: '/clients', icon: Users },
       { label: 'nav.partners', href: '/partners', icon: Building2 },
-      {
-        label: 'nav.tradingAccounts',
-        href: '/trading-accounts',
-        icon: LineChart,
-        comingSoon: true,
-      },
+      { label: 'nav.kyc', href: '/kyc', icon: FileCheck },
+      { label: 'nav.kycBuilder', href: '/kyc/builder', icon: ClipboardList },
+      // ADM-14. A tag decides which admins can SEE a client, so it is a
+      // property of the client rather than a console-level object.
+      { label: 'nav.tags', href: '/tags', icon: Tags },
     ],
   },
   {
-    title: 'nav.section.financials',
+    title: 'nav.section.finance',
     items: [
       { label: 'nav.withdrawals', href: '/withdrawals', icon: ArrowUpRight },
-      { label: 'nav.payouts', href: '/payouts', icon: Wallet, comingSoon: true },
       { label: 'nav.ledger', href: '/ledger', icon: Receipt },
       { label: 'nav.commissionPlans', href: '/commission-plans', icon: Percent },
-      // In Financials rather than as a Settings tab: a currency is not
-      // presentation config. It is the set of money the platform can hold, and
-      // disabling one stops wallets opening in it across the whole product.
       { label: 'nav.currencies', href: '/currencies', icon: Coins },
     ],
   },
   {
-    title: 'nav.section.management',
+    title: 'nav.section.administration',
     items: [
-      { label: 'nav.kyc', href: '/kyc', icon: FileCheck },
-      { label: 'nav.kycBuilder', href: '/kyc/builder', icon: Settings },
-      // No longer comingSoon: the directory was built the whole time, hidden as
-      // a tab inside /settings, while this entry told operators it was unbuilt.
-      { label: 'nav.adminUsers', href: '/admin-users', icon: Users },
+      { label: 'nav.adminUsers', href: '/admin-users', icon: UserCog },
       { label: 'nav.roles', href: '/roles', icon: ShieldCheck },
-      // ADM-14. In Management rather than under the client list, because a tag
-      // now decides which admins can SEE a client — it belongs with the other
-      // privileged, audited objects.
-      { label: 'nav.tags', href: '/tags', icon: Tags },
       { label: 'nav.auditLog', href: '/audit-log', icon: Activity },
-      // Lock, not Settings: that icon is the KYC Builder's, and this page is
-      // now network access and security controls rather than general config.
+      // Lock, not Settings: that icon reads as "configuration of a thing", and
+      // this is the console's own configuration.
       { label: 'nav.settings', href: '/settings', icon: Lock },
     ],
   },
@@ -126,7 +151,7 @@ const NAV_SECTIONS: NavSection[] = [
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { admin, isLoading, isUnreachable, retry, logout } = useAdmin();
+  const { admin, isLoading, isUnreachable, retry } = useAdmin();
   /*
    * Resolved across EVERY section, not per section.
    *
@@ -140,26 +165,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   );
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [logoutError, setLogoutError] = React.useState<string | null>(null);
 
-  /**
-   * Logout, with the failure made visible instead of swallowed.
-   *
-   * `authApi.logout` retries once and then throws, and it throws for a reason
-   * worth showing: only the server can end this session — it revokes the
-   * refresh-token family and clears the httpOnly cookies — so a failed call
-   * leaves the admin fully signed in. Navigating to /login anyway would show a
-   * sign-in screen over a live session on a machine the admin is about to walk
-   * away from.
-   */
-  const handleLogout = async () => {
-    setLogoutError(null);
-    try {
-      await logout();
-    } catch {
-      setLogoutError(t('session.logoutFailed'));
-    }
-  };
+  // Sign-out and its failure message moved into `UserMenu` with the rest of the
+  // account controls, which is why none of that state lives here any more.
 
   // The mobile drawer closes where it is opened from — on the click that
   // navigates. Doing it in an effect keyed on `pathname` meant React ran a
@@ -269,29 +277,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   const Icon = item.icon;
                   const isActive = item.href === activeHref;
 
-                  if (item.comingSoon) {
-                    return (
-                      <div
-                        key={item.href}
-                        title={
-                          collapsed ? t('nav.comingSoonTitle', { label: t(item.label) }) : undefined
-                        }
-                        aria-disabled="true"
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground/60 cursor-not-allowed select-none ${
-                          collapsed ? 'justify-center px-0' : ''
-                        }`}
-                      >
-                        <Icon className="h-5 w-5 shrink-0 text-muted-foreground/60" />
-                        {!collapsed && <span className="flex-1 truncate">{t(item.label)}</span>}
-                        {!collapsed && (
-                          <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                            {t('nav.comingSoon')}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  }
-
                   return (
                     <Link
                       key={item.href}
@@ -336,44 +321,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Sidebar User Footer */}
-        <div className="border-t border-border p-3">
-          <div
-            className={`flex items-center gap-3 rounded-lg bg-muted p-2.5 ${
-              collapsed ? 'justify-center p-2' : ''
-            }`}
-          >
-            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-sm">
-              {admin?.name ? admin.name.charAt(0).toUpperCase() : 'A'}
-              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-card" />
-            </div>
-
-            {!collapsed && (
-              <div className="flex-1 overflow-hidden">
-                <p className="truncate text-xs font-semibold text-foreground">
-                  {admin?.name || 'Admin'}
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">{admin?.email || ''}</p>
-              </div>
-            )}
-
-            {!collapsed && (
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                title={t('nav.logout')}
-                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-outline"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            )}
-            {logoutError && !collapsed && (
-              <p role="alert" className="mt-2 text-[11px] text-destructive">
-                {logoutError}
-              </p>
-            )}
-          </div>
-        </div>
+        {/* Account menu — identity, theme and sign-out, behind one trigger.
+            Matches the portal's sidebar foot; see layout/user-menu.tsx. */}
+        <UserMenu collapsed={collapsed} />
       </aside>
 
       {/* Main Content Area */}
@@ -447,8 +397,20 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
             </button>
 
-            {/* Theme Switcher Toggle */}
-            <ThemeToggle />
+            {/*
+              The theme toggle used to live here — a two-button light/dark
+              control with no way to say "follow the OS". It is now Light / Dark
+              / System inside the account menu at the foot of the sidebar, which
+              is where a personal preference belongs rather than beside system
+              status and notifications.
+
+              `lg:hidden` because on desktop the sidebar footer already carries
+              it; on mobile the sidebar is a drawer, so the account menu needs a
+              second home in the header.
+            */}
+            <div className="lg:hidden">
+              <UserMenu collapsed variant="header" />
+            </div>
           </div>
         </header>
 

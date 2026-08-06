@@ -155,8 +155,14 @@ instead, so a test states the identity it is asserting about rather than inherit
 it — Next matches the whole pathname, and an unanchored check reports `/api/...` as gated when
 the runtime excludes it.
 
-Unbuilt sidebar entries (`/trading-accounts`, `/payouts`, `/commission-plans`, `/admin-users`)
-render as disabled "Soon" items. They are committed scope — **don't delete the links**.
+**Every sidebar entry is a page that exists.** There is no "Soon" state any more — the
+`comingSoon` flag, its disabled-item branch and the `nav.comingSoon*` strings are gone, and
+`/trading-accounts` and `/payouts` were removed from both the nav and `ROUTE_REQUIREMENTS`
+because neither had a `page.tsx`. This reverses the earlier rule that those links were
+committed scope and must not be deleted: the navigation lists places an operator can go, not
+a roadmap. When one of those pages is built, add the route back to `permissions.ts` and the
+entry back to `NAV_SECTIONS` together — `canAccess` denies an unlisted path, so a page with
+no route requirement renders the "no access" panel rather than itself.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
