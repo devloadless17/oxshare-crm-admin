@@ -14,6 +14,13 @@ import { t } from '@/lib/i18n';
 export interface DirectoryCapabilities {
   canEdit: boolean;
   canSuspend: boolean;
+  /**
+   * D-44. Gated on the same grant the API requires, and NOT on `isMasterRow`
+   * the way edit and suspend are: masters are peers for reset specifically, so
+   * hiding the control on a master row would hide the one case the feature
+   * exists for — a locked-out master with no path back except the database.
+   */
+  canResetPassword: boolean;
 }
 
 /**
@@ -38,6 +45,7 @@ export function AdminDirectoryTable({
   suspendingId,
   onAssignRole,
   onEdit,
+  onResetPassword,
   onToggleStatus,
 }: {
   admins: AdminUser[];
@@ -48,9 +56,10 @@ export function AdminDirectoryTable({
   suspendingId: string | null | undefined;
   onAssignRole: (user: AdminUser, roleId: string) => void;
   onEdit: (user: AdminUser) => void;
+  onResetPassword: (user: AdminUser) => void;
   onToggleStatus: (user: AdminUser) => void;
 }) {
-  const showActions = can.canEdit || can.canSuspend;
+  const showActions = can.canEdit || can.canSuspend || can.canResetPassword;
 
   return (
     <div className="rounded-xl border border-border bg-card shadow-xs overflow-x-auto">
@@ -159,6 +168,15 @@ export function AdminDirectoryTable({
                           className="h-8 px-3 rounded-lg border border-input text-[11px] font-semibold hover:bg-muted cursor-pointer focus-outline"
                         >
                           {t('adminUsers.edit')}
+                        </button>
+                      )}
+                      {can.canResetPassword && !isSelf && (
+                        <button
+                          type="button"
+                          onClick={() => onResetPassword(user)}
+                          className="h-8 px-3 rounded-lg border border-input text-[11px] font-semibold hover:bg-muted cursor-pointer focus-outline"
+                        >
+                          {t('adminUsers.sendResetLink')}
                         </button>
                       )}
                       {suspendable && (

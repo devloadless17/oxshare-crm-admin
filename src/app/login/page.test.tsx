@@ -49,7 +49,16 @@ vi.mock('@/context/AdminAuthContext', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   login.mockResolvedValue({});
-  refetchAdmin.mockResolvedValue(undefined);
+  /*
+   * `true` — the refetch SUCCEEDED.
+   *
+   * `refetchAdmin` now reports whether the identity actually arrived, because
+   * `invalidateQueries` resolves even when the refetch behind it errored. The
+   * login page reads that and refuses to navigate on a failure, so a mock
+   * resolving `undefined` means "the profile never loaded" and the page
+   * correctly stays put.
+   */
+  refetchAdmin.mockResolvedValue(true);
 });
 
 async function signIn() {
@@ -83,6 +92,21 @@ describe('admin login', () => {
     expect(push).not.toHaveBeenCalled();
     // And no refetch either — there is no new session to fetch.
     expect(refetchAdmin).not.toHaveBeenCalled();
+  });
+
+  it('stays put when the profile cannot be loaded after signing in', async () => {
+    /*
+     * `refetchAdmin` is `invalidateQueries`, which resolves even when the
+     * refetch behind it FAILS — so this page used to navigate regardless, and a
+     * transient failure on `/admin/auth/me` right after a successful sign-in
+     * landed the operator in a console shell that knew nothing about them.
+     */
+    refetchAdmin.mockResolvedValue(false);
+    renderWithProviders(<AdminLoginPage />);
+    await signIn();
+
+    expect(await screen.findByText(/could not load your profile/i)).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
   });
 
   it('sends no request until both fields are filled', async () => {

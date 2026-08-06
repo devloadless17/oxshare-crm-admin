@@ -192,6 +192,35 @@ export const adminApi = {
     return data;
   },
 
+  /**
+   * Email another administrator a single-use password reset link — D-44.
+   *
+   * There is deliberately no self-service equivalent: self-service would make
+   * an admin's mailbox the root of trust for an account that approves payouts.
+   * The API refuses anyone reaching a privilege level above their own, so a 403
+   * here is a real answer and not a UI bug — the button is gated client-side
+   * for ergonomics only.
+   */
+  async sendAdminPasswordReset(id: string) {
+    const { data } = await apiClient.post<{ message: string }>(
+      `/admin/users/${id}/password-reset`,
+      {},
+    );
+    return data;
+  },
+
+  /**
+   * Spend a reset link. UNAUTHENTICATED — the caller cannot sign in, which is
+   * the whole reason they are here, so the token IS the credential.
+   */
+  async completePasswordReset(token: string, password: string) {
+    const { data } = await apiClient.post<{ message: string }>('/admin/password-reset/complete', {
+      token,
+      password,
+    });
+    return data;
+  },
+
   // ── Invites (RBAC-07) ────────────────────────────────────────────────────
   /*
    * The three invite calls were the last on this surface still made as bare

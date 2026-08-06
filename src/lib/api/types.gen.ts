@@ -1833,6 +1833,9 @@ export interface components {
             /** @description Mirrors user.emailVerified; kept for older portal builds. */
             emailVerified: boolean;
         };
+        RefreshResponseDto: {
+            user: components["schemas"]["UserProfileDto"];
+        };
         ChangePasswordDto: {
             /** @example CurrentPass123! */
             currentPassword: string;
@@ -3155,7 +3158,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                    "application/json": components["schemas"]["RefreshResponseDto"];
                 };
             };
         };
@@ -3174,7 +3177,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthTokensResponseDto"];
+                    "application/json": components["schemas"]["RefreshResponseDto"];
                 };
             };
         };

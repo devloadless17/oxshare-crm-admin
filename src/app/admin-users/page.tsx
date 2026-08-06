@@ -37,6 +37,10 @@ export default function AdminUsersPage() {
   const { admin } = useAdmin();
   const canEditAdmins = hasPermission(admin, 'users.edit');
   const canSuspend = hasPermission(admin, 'users.suspend');
+  // D-44. `users.create` is the admin-management grant in this catalogue — it is
+  // what inviting an administrator requires. The API enforces the escalation
+  // rule on top of it; this only decides whether to draw the button.
+  const canResetPassword = hasPermission(admin, 'users.create');
   const canInvite = hasPermission(admin, 'users.create');
   const canViewRoles = hasPermission(admin, 'roles.view');
 
@@ -90,6 +94,23 @@ export default function AdminUsersPage() {
     onSuccess: invalidate,
   });
 
+  const sendReset = useMutation({
+    mutationFn: (user: AdminUser) => api.admin.sendAdminPasswordReset(user.id),
+    // Nothing in the directory changes, so nothing is invalidated. The result
+    // is an email; the only feedback available here is the banner below.
+  });
+
+  const handleResetPassword = (user: AdminUser) => {
+    /*
+     * Confirmed, because this is not reversible from the operator's side: it
+     * arms a credential that grants that person's account, and completing it
+     * signs them out everywhere. The name is in the prompt so a misclick on the
+     * wrong row is caught before the email goes out, not after.
+     */
+    if (!window.confirm(t('adminUsers.confirmSendReset', { name: user.name }))) return;
+    sendReset.mutate(user);
+  };
+
   const handleAssignRole = (user: AdminUser, roleId: string) => {
     // Reassigning to the role already held sends nothing. The backend enforces
     // an anti-escalation invariant on this path, and a redundant write is a
@@ -110,11 +131,13 @@ export default function AdminUsersPage() {
   };
 
   // 403 for self-changes, over-grants, or acting on a master admin.
-  const banner = assignRole.isError
-    ? apiErrorMessage(assignRole.error, 'Failed to change the admin’s role.')
-    : setStatus.isError
-      ? apiErrorMessage(setStatus.error, 'Failed to change the administrator’s status.')
-      : '';
+  const banner = sendReset.isError
+    ? apiErrorMessage(sendReset.error, 'Could not send that reset link.')
+    : assignRole.isError
+      ? apiErrorMessage(assignRole.error, 'Failed to change the admin’s role.')
+      : setStatus.isError
+        ? apiErrorMessage(setStatus.error, 'Failed to change the administrator’s status.')
+        : '';
 
   return (
     <div className="space-y-6">
@@ -173,12 +196,13 @@ export default function AdminUsersPage() {
             admins={adminUsers}
             roles={roles}
             currentAdminId={admin?.id}
-            can={{ canEdit: canEditAdmins, canSuspend }}
+            can={{ canEdit: canEditAdmins, canSuspend, canResetPassword }}
             assigningId={assignRole.isPending ? assignRole.variables?.user.id : null}
             suspendingId={setStatus.isPending ? setStatus.variables?.id : null}
             onAssignRole={handleAssignRole}
             onEdit={setEditing}
             onToggleStatus={handleToggleStatus}
+            onResetPassword={handleResetPassword}
           />
         </div>
       </AsyncBoundary>

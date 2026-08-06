@@ -1,14 +1,18 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
+import { useAdmin } from '@/context/AdminAuthContext';
 
 function AcceptInviteContent() {
   const params = useSearchParams();
+  const { admin, isLoading: sessionLoading } = useAdmin();
+  /*
+   */
   const token = params.get('token') ?? '';
 
   const [password, setPassword] = useState('');
@@ -34,24 +38,21 @@ function AcceptInviteContent() {
   const validating = token !== '' && validation.isPending;
 
   /*
-   * Take the token out of the address bar once it has been read.
+   * Accepting an invite REPLACES whoever is signed in, and used to do it in
+   * silence.
    *
-   * It is a bearer credential that CREATES AN ADMIN ACCOUNT, and it arrives in a
-   * query string because it came from an emailed link — that part is unavoidable.
-   * What is avoidable is leaving it there: the URL goes into browser history, is
-   * offered by autocomplete afterwards, and is the first thing shown if this
-   * screen is ever demonstrated or screen-shared.
+   * `POST /admin/invite/accept` sets a fresh admin session on its response, so
+   * an operator who opens a forwarded invite — or who is helping a colleague set
+   * up at their own desk, which is the realistic case — is signed out and
+   * replaced by the new account with no warning at any point. Their own
+   * refresh-token family is not revoked either: it stays live for thirty days,
+   * orphaned, and appears in no UI.
    *
-   * `replaceState` rather than a router navigation: the component keeps the
-   * token it already read in `token`, so nothing re-renders and the flow is
-   * untouched — only the visible URL changes. Referrer-Policy in next.config.ts
-   * already stops it leaking cross-origin; this is the same token's other route
-   * out.
+   * Refusing outright would be wrong: the invitee may legitimately be using a
+   * shared machine. So the page says plainly what is about to happen and makes
+   * signing out first the obvious move.
    */
-  useEffect(() => {
-    if (token === '') return;
-    window.history.replaceState(null, '', window.location.pathname);
-  }, [token]);
+  const signedInAsSomeoneElse = !sessionLoading && admin !== null;
   const inviteError =
     token === ''
       ? 'Invalid invite link.'
@@ -73,6 +74,29 @@ function AcceptInviteContent() {
     setLoading(true);
     try {
       await api.admin.acceptInvite(token, password);
+      /*
+       * Take the token out of the address bar NOW — once it is spent.
+       *
+       * It is a bearer credential that creates an admin account, it arrives in a
+       * query string because it came from an emailed link, and leaving it in the
+       * URL puts it into browser history and autocomplete. So it still gets
+       * removed; what changed is WHEN.
+       *
+       * It used to be scrubbed on mount, and that quietly destroyed the invite:
+       * `history.replaceState` rewrites the current history entry, so a RELOAD
+       * reloaded the scrubbed URL, found no token, and showed "invalid link" to
+       * somebody holding a good invite — with no way back except the original
+       * email. Reloading a form-filling page is not an edge case; browsers do it
+       * on tab restore and people do it when a page looks stuck.
+       *
+       * The trade, stated plainly: while the form is open the token remains in
+       * the URL, so an invite abandoned half-way leaves it in history until it
+       * expires (48 hours, single use). Scrubbing after acceptance means the
+       * entry that survives is a SPENT token, which is worth nothing. That is
+       * the better side of the trade, and it is the only version in which
+       * reloading works.
+       */
+      window.history.replaceState(null, '', window.location.pathname);
       // Full navigation instead of router.push so AdminAuthContext boots fresh
       // with the new session; a client-side push renders the shell with admin: null.
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
@@ -106,6 +130,17 @@ function AcceptInviteContent() {
               account.
             </p>
             <div className="email-badge">{invite?.email}</div>
+
+            {/*
+             * Somebody else is signed in on this browser, and accepting will
+             * replace them. Said out loud rather than done silently — see the
+             * note above `signedInAsSomeoneElse`.
+             */}
+            {signedInAsSomeoneElse && (
+              <div role="alert" className="session-warning">
+                <p>{t('invite.sessionWarning', { email: admin?.email ?? '' })}</p>
+              </div>
+            )}
 
             <form className="form" onSubmit={(e) => void submit(e)}>
               <div className="form-group">
@@ -215,6 +250,19 @@ function AcceptInviteContent() {
           line-height: 1.6;
           margin-bottom: 0;
         }
+        /* The "somebody else is signed in" warning — see signedInAsSomeoneElse. */
+        .session-warning {
+          margin: 0 0 4px;
+          border: 1px solid color-mix(in srgb, var(--destructive) 35%, transparent);
+          background: color-mix(in srgb, var(--destructive) 10%, transparent);
+          border-radius: 10px;
+          padding: 10px 14px;
+          color: var(--destructive);
+          font-size: 0.8rem;
+          line-height: 1.45;
+          text-align: left;
+        }
+
         .email-badge {
           display: inline-block;
           margin: 20px 0;

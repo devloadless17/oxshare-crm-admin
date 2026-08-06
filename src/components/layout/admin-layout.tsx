@@ -121,7 +121,7 @@ const NAV_SECTIONS: NavSection[] = [
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { admin, isLoading, logout } = useAdmin();
+  const { admin, isLoading, isUnreachable, retry, logout } = useAdmin();
   /*
    * Resolved across EVERY section, not per section.
    *
@@ -482,6 +482,38 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center justify-center py-24" role="status">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
               <span className="sr-only">{t('session.loading')}</span>
+            </div>
+          ) : isUnreachable ? (
+            /*
+             * FIVE states now, and this is the one that was missing.
+             *
+             * `!admin` below assumes the 401 interceptor is on its way to
+             * /login. That is true when the answer was 401 and false for every
+             * other failure — the API down, a 500, a timeout, an offline
+             * moment — because there is no 401 to intercept. Those all landed
+             * in the spinner below and stayed there: no error, no retry, no way
+             * to reach the sign-in page. Stopping the backend was enough to
+             * reproduce it.
+             *
+             * The distinction is made in `AdminAuthContext`, which is the only
+             * place that can see WHY the request failed.
+             */
+            <div
+              className="flex flex-col items-center justify-center py-24 text-center gap-3"
+              role="alert"
+            >
+              <Shield className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+              <h2 className="text-lg font-bold text-foreground">{t('session.unreachableTitle')}</h2>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                {t('session.unreachableBody')}
+              </p>
+              <button
+                type="button"
+                onClick={() => void retry()}
+                className="text-sm font-semibold text-link hover:underline focus-outline rounded-sm"
+              >
+                {t('session.retry')}
+              </button>
             </div>
           ) : !admin ? (
             <div className="flex items-center justify-center py-24" role="status">

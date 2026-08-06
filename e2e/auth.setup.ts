@@ -1,4 +1,4 @@
-import { test as setup } from '@playwright/test';
+import { test as setup, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { E2E_RESTRICTED, RESTRICTED_STATE, signIn, STORAGE_STATE } from './helpers';
@@ -34,7 +34,50 @@ setup('authenticate as the e2e admin', async ({ page }) => {
   // Not committed: these are live session cookies, and `.auth/` is gitignored.
   mkdirSync(dirname(STORAGE_STATE), { recursive: true });
   await page.context().storageState({ path: STORAGE_STATE });
+
+  await warmRoutes(page);
 });
+
+/**
+ * Compile the routes the suite drives, before any test is timed.
+ *
+ * `next dev` compiles a route the first time it is REQUESTED, so the first spec
+ * to reach `/clients` pays a cold webpack build inside its own timeout. On a
+ * loaded machine that alone exceeds the 15s row wait in `searchOwnClients`, and
+ * the run reports "the client list never showed alpha" — which reads as a broken
+ * filter and is really a compiler.
+ *
+ * That is the worst shape of flake: it hits whichever two specs happen to run
+ * first, so it moves when the file order changes and looks like a different bug
+ * each time. It cost one full-suite red whose every spec passed individually.
+ *
+ * Warming rather than raising the timeout keeps the timeout meaning what it says
+ * — "the app did not respond" — instead of quietly becoming a budget for
+ * compilation.
+ *
+ * It has to happen HERE and not in `global-setup.ts`: every route below is
+ * behind `src/proxy.ts`, so an unauthenticated request is redirected to /login
+ * and compiles nothing. This runs on the session that was just established.
+ *
+ * Navigation failures are swallowed on purpose. A route that will not load is a
+ * test's job to report, with an assertion naming what was expected — not a setup
+ * crash naming a URL.
+ */
+async function warmRoutes(page: Page): Promise<void> {
+  const routes = [
+    '/dashboard',
+    '/clients',
+    '/tags',
+    '/roles',
+    '/admin-users',
+    '/kyc',
+    '/audit-log',
+  ];
+
+  for (const route of routes) {
+    await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 120_000 }).catch(() => null);
+  }
+}
 
 /**
  * The second identity, and the reason there is one.

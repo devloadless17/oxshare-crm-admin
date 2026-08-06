@@ -91,6 +91,25 @@ export const messages = {
   'session.deniedBody':
     'Your role does not include access to this section. Ask a master admin if you need it.',
   'session.backToDashboard': 'Back to dashboard',
+  // Signed in, but the console could not then confirm who with. Navigating
+  // anyway lands the operator in a shell that knows nothing about them.
+  'login.sessionCheckFailed':
+    'Signed in, but the console could not load your profile. Check your connection and try again.',
+  // The state that used to render as an endless spinner: the API could not be
+  // reached, which is NOT the same as having no session and must not look like it.
+  'session.unreachableTitle': 'Cannot reach the server',
+  'session.unreachableBody':
+    'Your session is intact — the console could not contact the API. Check your connection and try again.',
+  'session.retry': 'Try again',
+  'error.title': 'Something went wrong',
+  'error.body':
+    'This screen failed to render. Trying again often clears it; if it does not, quote the reference below.',
+  'notFound.title': 'Page not found',
+  'notFound.body': 'That address does not match anything in the console.',
+  // Accepting an invite mints a new session over the existing one. Saying so is
+  // the difference between a deliberate hand-over and a silent account swap.
+  'invite.sessionWarning':
+    '{email} is currently signed in on this browser. Activating this account will sign them out.',
 
   // ── Security controls (master admin) ──────────────────────────────────────
   'security.title': 'Security controls',
@@ -582,6 +601,27 @@ export const messages = {
   'adminUsers.directHint':
     'Permissions are set on this administrator alone. Choosing a role instead will replace them.',
   'adminUsers.edit': 'Edit',
+  'adminUsers.sendResetLink': 'Send reset link',
+  'resetPassword.title': 'Set a new password',
+  'resetPassword.subtitle':
+    'Choose a new password for your OxShare Admin account. This signs you out everywhere else.',
+  'resetPassword.newPassword': 'New password',
+  'resetPassword.confirmPassword': 'Confirm new password',
+  'resetPassword.submit': 'Set password',
+  'resetPassword.saving': 'Setting…',
+  'resetPassword.mismatch': 'Those two passwords do not match.',
+  'resetPassword.failed': 'Could not set that password. Please try again.',
+  'resetPassword.doneTitle': 'Password set',
+  'resetPassword.doneBody':
+    'Your password has been changed and every other session has been signed out. Sign in to continue.',
+  'resetPassword.goToSignIn': 'Go to sign in',
+  'resetPassword.backToSignIn': 'Back to sign in',
+  'resetPassword.noTokenTitle': 'This link is incomplete',
+  'resetPassword.noTokenBody':
+    'Open the link from your email exactly as it was sent. If it has expired, ask an administrator to send another.',
+  'adminUsers.confirmSendReset':
+    'Email {name} a single-use link to set a new password? It expires in an hour, and using it signs them out everywhere.',
+  'adminUsers.resetSent': 'Reset link sent.',
   'adminUsers.suspend': 'Suspend',
   'adminUsers.reactivate': 'Reactivate',
   'adminUsers.statusSuspended': 'Suspended',

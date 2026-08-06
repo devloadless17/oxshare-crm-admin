@@ -12,6 +12,9 @@ import Cookies from 'js-cookie';
 // no NEXT_PUBLIC_API_BASE_URL rather than silently falling back to localhost.
 import { API_BASE_URL } from '../env';
 import { loginPathFor } from '@/lib/return-to';
+// The single definition of "reachable without a session", shared with proxy.ts.
+import { isPublicPath } from '@/lib/public-paths';
+import { announceSessionEvent, withSessionLock } from '@/lib/session-channel';
 /**
  * A request that never finishes must eventually fail.
  *
@@ -35,10 +38,22 @@ export const apiClient = axios.create({
 // end marker must stay identical in both apps; scripts/check-twins.sh enforces
 // that by excluding this block and comparing the rest.
 //
-// Cookie lifetimes must match the tokens inside them: proxy.ts gates private
-// routes on the mere PRESENCE of the access cookie, so a cookie that outlives
-// its JWT waves the user through to a page where every request 401s.
+// `proxy.ts` gates private routes on the presence of the REFRESH cookie — not
+// the access cookie, which lives fifteen minutes and would bounce a returning
+// operator whose thirty-day session is perfectly valid. (This comment said
+// "access cookie" long after that changed, which is exactly the stale-literal
+// class that has disarmed a check in this system three times.)
 const REFRESH_PATH = '/admin/auth/refresh';
+/*
+ * Requests whose own 401 must NOT trigger a refresh-and-retry.
+ *
+ * `me` is deliberately NOT here. Its 401 is what renews a returning operator's
+ * session: the access cookie lives fifteen minutes and the refresh cookie
+ * thirty days, so the ordinary state of somebody back from lunch is a 401 on
+ * `/admin/auth/me` followed by a silent renewal. Excluding it would send them
+ * to the sign-in screen holding a valid session — the exact bounce `proxy.ts`
+ * gates on the refresh cookie to avoid.
+ */
 const AUTH_ENDPOINT_PATTERN = /\/admin\/auth\/(login|logout|refresh)/;
 const LOGIN_PATH = '/login';
 // ─── twin:config:end ──────────────────────────────────────────────────────────
@@ -183,48 +198,64 @@ let inFlight: Promise<boolean> | null = null;
 export function refreshAdminToken(): Promise<boolean> {
   if (inFlight) return inFlight;
   inFlight = (async () => {
-    try {
-      /*
-       * No body: the refresh token is an httpOnly cookie the browser attaches,
-       * and the API accepts it from nowhere else (R-3.1 — two credential
-       * channels for one session means two threat models). Nothing to read,
-       * nothing to send, nothing to leak.
-       *
-       * Deliberately NOT through `apiClient`, so a 401 here cannot recurse into
-       * the response interceptor that called it. The cost of stepping outside is
-       * that the request interceptor does not run, so the correlation id has to
-       * be attached by hand — R-6.1. It was not, and this is the single request
-       * you most want to trace when a session dies for no visible reason: the
-       * one call in the app that decides whether the user stays signed in had
-       * nothing tying it to a server log line.
-       *
-       * No CSRF header, and that is correct rather than an oversight: the API
-       * marks this route `@NoCsrf` precisely because the anti-forgery token
-       * expires alongside the access token, and demanding one here would lock
-       * out the returning user this call exists to renew.
-       */
-      await axios.post(
-        `${API_BASE_URL}${REFRESH_PATH}`,
-        {},
-        { withCredentials: true, headers: { 'X-Request-Id': newCorrelationId() } },
-      );
-      /*
-       * A boolean, because there is nothing else to return.
-       *
-       * This used to resolve the literal string `'refreshed'` — a placeholder
-       * shaped like the access token that used to come back in the body. The
-       * token is gone (R-3.2): the rotated cookies arrive on the response and
-       * the browser installs them, so reaching 200 IS the result. A `string |
-       * null` signature invites the next reader to put a credential back into
-       * JavaScript, which is the exact thing this migration removed.
-       */
-      return true;
-    } catch {
-      return false;
-    } finally {
-      inFlight = null;
-    }
-  })();
+    /*
+     * Single-flight ACROSS TABS as well as within one.
+     *
+     * `inFlight` above is module scope, which is per tab, and each tab runs its
+     * own ten-minute timer — so a laptop waking with two tabs open fires two
+     * refreshes at the same instant against one rotating token. The lock
+     * serialises them; see lib/session-channel.ts for why it waits rather than
+     * short-circuiting, and why it degrades to the old behaviour where Web Locks
+     * are unavailable.
+     */
+    return withSessionLock(async () => {
+      try {
+        /*
+         * No body: the refresh token is an httpOnly cookie the browser attaches,
+         * and the API accepts it from nowhere else (R-3.1 — two credential
+         * channels for one session means two threat models). Nothing to read,
+         * nothing to send, nothing to leak.
+         *
+         * Deliberately NOT through `apiClient`, so a 401 here cannot recurse into
+         * the response interceptor that called it. The cost of stepping outside is
+         * that the request interceptor does not run, so the correlation id has to
+         * be attached by hand — R-6.1. It was not, and this is the single request
+         * you most want to trace when a session dies for no visible reason: the
+         * one call in the app that decides whether the user stays signed in had
+         * nothing tying it to a server log line.
+         *
+         * No CSRF header, and that is correct rather than an oversight: the API
+         * marks this route `@NoCsrf` precisely because the anti-forgery token
+         * expires alongside the access token, and demanding one here would lock
+         * out the returning user this call exists to renew.
+         */
+        await axios.post(
+          `${API_BASE_URL}${REFRESH_PATH}`,
+          {},
+          { withCredentials: true, headers: { 'X-Request-Id': newCorrelationId() } },
+        );
+        /*
+         * A boolean, because there is nothing else to return.
+         *
+         * This used to resolve the literal string `'refreshed'` — a placeholder
+         * shaped like the access token that used to come back in the body. The
+         * token is gone (R-3.2): the rotated cookies arrive on the response and
+         * the browser installs them, so reaching 200 IS the result. A `string |
+         * null` signature invites the next reader to put a credential back into
+         * JavaScript, which is the exact thing this migration removed.
+         */
+        return true;
+      } catch {
+        return false;
+      }
+    });
+  })().finally(() => {
+    // Released here rather than inside the lock, so the in-tab dedupe covers the
+    // whole operation INCLUDING the wait for the cross-tab lock. Clearing it
+    // inside would let a second caller in this tab queue behind the lock
+    // separately, which is the duplication the single-flight exists to prevent.
+    inFlight = null;
+  });
   return inFlight;
 }
 
@@ -254,6 +285,61 @@ export function stopProactiveRefresh(): void {
 }
 
 /**
+ * This session is over: stop the timers and get off the console.
+ *
+ * ## What replaced the CSRF-cookie heuristic, and why
+ *
+ * This used to decide whether to navigate by asking `readCsrfCookie() !==
+ * undefined`, reasoning that the cookie is set and cleared alongside the
+ * session so its absence means nobody was ever signed in. The reasoning was
+ * added for a real bug — an invitee following an emailed link was being bounced
+ * to a sign-in page for an account they do not have yet — but the signal is
+ * wrong in two ordinary situations:
+ *
+ *  - The CSRF cookie lives **8 hours**; the refresh cookie lives **30 days**. An
+ *    operator returning the next morning holds one and not the other. If their
+ *    session has also died — revoked elsewhere, or a development database reset
+ *    — the redirect was suppressed and `admin-layout.tsx` rendered its spinner
+ *    with no error and no way out. Forever.
+ *  - Signing out in one tab clears the CSRF cookie for the WHOLE browser, so
+ *    every other tab concluded nobody had been signed in and kept rendering the
+ *    console indefinitely.
+ *
+ * The question it was trying to answer is "am I on a page that expects a
+ * session?", and `isPublicPath` answers exactly that, from the one list
+ * `proxy.ts` also reads. The invitee case stays fixed, because `/invite/accept`
+ * is in that list.
+ */
+function endDeadSession(): void {
+  clearAdminSession();
+  /*
+   * Tell the other tabs too.
+   *
+   * Whichever tab notices first is the one that knows; the rest are sitting on a
+   * rendered console with a dead session behind it, and would only find out when
+   * somebody clicked something. On a shared machine that is the gap that matters.
+   */
+  announceSessionEvent('signed-out');
+  if (typeof window === 'undefined') return;
+  // Nothing to evict anyone from: these pages are meant to work signed out.
+  if (isPublicPath(window.location.pathname)) return;
+  if (window.location.pathname.startsWith(LOGIN_PATH)) return;
+
+  /*
+   * A HARD navigation, deliberately, against @next/next's advice to use
+   * router.push. The session is dead: a client-side push keeps the same JS
+   * context alive, so the React Query cache, the auth context and any rendered
+   * client data survive into the login screen. A full load discards them. Same
+   * reasoning in AdminAuthContext.logout.
+   *
+   * It carries where they were, exactly as proxy.ts does when it bounces a
+   * signed-out visitor — a session dying mid-task is the case where losing the
+   * destination hurts most.
+   */
+  window.location.href = loginPathFor(window.location.pathname, window.location.search);
+}
+
+/**
  * A request we have already retried once.
  *
  * `_retry` is our own marker, not an axios field, so it is declared rather than
@@ -277,6 +363,19 @@ apiClient.interceptors.response.use(
       !isAuthEndpoint
     ) {
       originalRequest._retry = true;
+      /*
+       * On a public page there is nothing to renew, so do not ask.
+       *
+       * `AdminAuthContext` asks `/admin/auth/me` on mount everywhere, including
+       * `/login` and `/invite/accept`, and a signed-out visitor's 401 there is
+       * the correct answer to "is anyone here". Answering it with a real
+       * `POST /admin/auth/refresh` meant two guaranteed-to-fail requests on
+       * every cold load of the sign-in page — against a route throttled at
+       * 20/min, which a shared office IP can reach.
+       */
+      if (typeof window !== 'undefined' && isPublicPath(window.location.pathname)) {
+        return Promise.reject(error);
+      }
       const refreshed = await refreshAdminToken();
       if (refreshed) {
         // No header to re-attach: the rotated session cookie travels on its own.
@@ -285,38 +384,22 @@ apiClient.interceptors.response.use(
         // one would fail the binding check.
         return apiClient(originalRequest);
       }
+      endDeadSession();
+    } else if (error.response?.status === 401 && originalRequest?._retry) {
       /*
-       * A session that never existed cannot have died.
+       * The SECOND 401 — after a refresh succeeded and the retry still failed.
        *
-       * `AdminAuthContext` asks `/admin/auth/me` on mount, and for a visitor
-       * with no session that answers 401 BY DESIGN — it is how the app asks
-       * "is anyone here". Treating that as an expired session redirected every
-       * anonymous visitor to the sign-in form, which broke the one public
-       * screen that matters: an invitee following an emailed link landed on a
-       * login page for an account they do not have yet, with no explanation.
+       * This branch did not exist. Control fell straight through to the rethrow
+       * with no `clearAdminSession()` and no redirect, so the operator got a
+       * generic "something went wrong" card with a Retry button that could never
+       * succeed, and stayed on a console whose session was dead.
        *
-       * The CSRF cookie is the tell. It is set beside the session and is the
-       * only part readable from JS, so its presence means there WAS a session
-       * to lose. The portal carried this identical bug on registration and
-       * carries the identical fix — see its `endDeadSession`.
+       * It is not hypothetical: it is what the API answers when the rotation
+       * worked but the account behind it no longer passes — suspended, deleted,
+       * or logged out from another device between the two calls. The portal's
+       * twin of this file already handled it; this side had drifted.
        */
-      const hadSession = readCsrfCookie() !== undefined;
-      clearAdminSession();
-      if (
-        typeof window !== 'undefined' &&
-        hadSession &&
-        !window.location.pathname.startsWith(LOGIN_PATH)
-      ) {
-        // A HARD navigation, deliberately, against @next/next's advice to use
-        // router.push. The session is dead: a client-side push keeps the same JS
-        // context alive, so the React Query cache, the auth context and any
-        // rendered client data survive into the login screen. A full load is what
-        // discards them. Same reasoning in AdminAuthContext.logout.
-        // Carries where they were, exactly as proxy.ts does when it bounces a
-        // signed-out visitor. A session dying mid-task is the case where losing
-        // the destination hurts most.
-        window.location.href = loginPathFor(window.location.pathname, window.location.search);
-      }
+      endDeadSession();
     }
     // Rethrow the original AxiosError, never a wrapped one: every caller reads
     // `error.response.data.message` through apiErrorMessage, and the 401 branch

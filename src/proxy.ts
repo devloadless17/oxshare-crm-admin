@@ -1,22 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { loginPathFor } from '@/lib/return-to';
+// The single definition of "reachable without a session", shared with
+// lib/api/client.ts so the two cannot disagree — see lib/public-paths.ts.
+import { isPublicPath } from '@/lib/public-paths';
 import { NONCE_HEADER, contentSecurityPolicy, createNonce } from '@/lib/csp';
-
-const PUBLIC_PATHS = ['/login', '/invite/accept'];
-
-/**
- * Public by whole path segments, never by string prefix.
- *
- * `pathname.startsWith('/login')` also matches `/login-help`, `/logins` and
- * anything else that happens to begin with those characters — so adding an
- * innocuous route later could silently make it unauthenticated. Matching on a
- * segment boundary means only `/login` and `/login/...` qualify, which is what
- * the list is meant to say.
- */
-function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -114,5 +102,22 @@ export const config = {
    * authenticated route handler like the KYC uploads controller, not behind a
    * redirect that returns HTML.
    */
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/|.*\\.[\\w]+$).*)'],
+  matcher: [
+    /*
+     * The trailing exclusion names ASSET EXTENSIONS rather than "any path with a
+     * dot in it".
+     *
+     * It was `.*\.[\w]+$`, which excludes every path ending in `.something` —
+     * so a dynamic segment carrying a dot (`/clients/foo.bar`,
+     * `/kyc/user@example.com`) skipped the route gate AND skipped `withCsp()`,
+     * shipping a response with no Content-Security-Policy at all. Low impact
+     * while ids are UUIDs, and a hole keyed on user-supplied data either way.
+     *
+     * The list is what `public/` actually holds plus the usual well-known files.
+     * Anything under `public/` is public by definition; anything that ever is
+     * not belongs behind an authenticated route handler, as the KYC uploads
+     * controller already is.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|json|webmanifest|woff|woff2|ttf|otf|eot|map|mp4|webm|pdf|csv)$).*)',
+  ],
 };

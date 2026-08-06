@@ -55,6 +55,9 @@ const NEVER_RETURN_TO = [
    * dead invite screen to somebody who just successfully became an admin.
    */
   '/invite/accept',
+  // Same reasoning: the token is spent by the time anyone is signed in, so
+  // returning here would show a dead link to somebody who just set a password.
+  '/reset-password',
 ];
 
 /**

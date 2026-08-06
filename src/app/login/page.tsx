@@ -13,9 +13,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/lib/return-to';
+import { RedirectIfAuthenticated } from '@/components/auth/redirect-if-authenticated';
 import { t } from '@/lib/i18n';
 
-export default function AdminLoginPage() {
+function AdminLoginForm() {
   const router = useRouter();
   // `next` is written by proxy.ts when it bounces a signed-out operator.
   const searchParams = useSearchParams();
@@ -62,7 +63,20 @@ export default function AdminLoginPage() {
        * null". Refetching is the smaller fix: it keeps the SPA navigation and
        * uses the mechanism the context already exposes.
        */
-      await refetchAdmin();
+      /*
+       * And do not navigate if that refetch FAILED.
+       *
+       * `refetchAdmin` is `invalidateQueries`, which resolves even when the
+       * refetch behind it errors — so a transient failure on `/admin/auth/me`
+       * immediately after a successful sign-in still pushed to the destination,
+       * landing the operator in the layout's "no admin" state after an
+       * apparently successful login.
+       */
+      const identity = await refetchAdmin();
+      if (!identity) {
+        setError(t('login.sessionCheckFailed'));
+        return;
+      }
       /*
        * Back where they were going, or the dashboard.
        *
@@ -179,5 +193,25 @@ export default function AdminLoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+/**
+ * `useSearchParams()` needs a Suspense boundary, and this is where it goes.
+ *
+ * The form reads `?next=`, and so does `RedirectIfAuthenticated`. Without a
+ * boundary this built only because the root layout is `async` and reads
+ * `headers()` for the CSP nonce, which forces every route dynamic — so moving
+ * the nonce anywhere else would turn the one page an unauthenticated visitor
+ * definitely loads into a hard build failure. `clients/page.tsx` and
+ * `invite/accept/page.tsx` both wrap it for the same reason.
+ */
+export default function AdminLoginPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <RedirectIfAuthenticated>
+        <AdminLoginForm />
+      </RedirectIfAuthenticated>
+    </React.Suspense>
   );
 }
