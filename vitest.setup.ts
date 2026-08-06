@@ -62,3 +62,25 @@ if (!Element.prototype.releasePointerCapture) {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => undefined;
 }
+
+/*
+ * Radix's Checkbox measures itself with `ResizeObserver`, which jsdom does not
+ * implement — so without this the constructor throws during RENDER and takes the
+ * whole component down, not just the checkbox.
+ *
+ * That presents in the worst possible way: every query in the file fails with
+ * "Unable to find a label with the text of: /^host$/i", naming a field that has
+ * nothing to do with checkboxes and sits ABOVE it in the form. Reading that as a
+ * broken form is the obvious wrong turn, and it cost a full suite run here.
+ *
+ * A no-op is enough. The observer only feeds the size of the hidden bubble input
+ * Radix renders for native form submission, and nothing in this app submits a
+ * checkbox that way — every call site is controlled via `onCheckedChange`.
+ */
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}

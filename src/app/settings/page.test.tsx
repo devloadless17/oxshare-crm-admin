@@ -5,46 +5,36 @@ import { renderWithProviders } from '@/test/render';
 import AdminSettingsPage from './page';
 
 /**
- * /settings — four tabs over four independently-guarded resources.
+ * /settings — three tabs over three independently-guarded resources.
  *
  * Each panel owns its own query and is tested directly (see
- * components/rbac/ip-allowlist-panel.test.tsx). What is pinned here is the
+ * components/rbac/smtp-settings-panel.test.tsx). What is pinned here is the
  * wiring the tab split could get wrong:
  *
  *  - WHICH tabs a given admin is offered. The Email tab is master-admin-only,
  *    so a sub-admin must not see it at all rather than see it 403.
  *  - that only the ACTIVE panel mounts. Every panel fetches on mount, so
- *    rendering all four would fire four requests on a screen where the operator
- *    reads one — including the SMTP one, which 403s for a sub-admin.
+ *    rendering all three would fire three requests on a screen where the
+ *    operator reads one — including the SMTP one, which 403s for a sub-admin.
  *  - that the active tab comes from the URL, which is what makes "Settings →
  *    Email" a link somebody can send.
  *  - that roles and the admin directory are still absent. They live at /roles
  *    and /admin-users, and a second copy here is how the old page drifted.
+ *  - that Security is GONE. Its panels were deleted with the tab, so a bookmark
+ *    to `?tab=security` has to land somewhere rather than render blank.
  */
 
-const {
-  getIpAllowlist,
-  getPlatformLinks,
-  getGeneralSettings,
-  getSmtpSettings,
-  getSecuritySettings,
-} = vi.hoisted(() => ({
-  getIpAllowlist: vi.fn(),
+const { getPlatformLinks, getGeneralSettings, getSmtpSettings } = vi.hoisted(() => ({
   getPlatformLinks: vi.fn(),
   getGeneralSettings: vi.fn(),
   getSmtpSettings: vi.fn(),
-  getSecuritySettings: vi.fn(),
 }));
 
-// Both exports — see the note in roles/page.test.tsx.
+// Both exports — see the note in roles/page.test.tsx. Nothing on this page
+// reaches for `api.admin` any more, but the page still imports the module, so
+// the mock has to answer for both names or the import throws.
 vi.mock('@/lib/api', () => {
-  const api = {
-    admin: {
-      getIpAllowlist,
-      addIpAllowlistRule: vi.fn(),
-      removeIpAllowlistRule: vi.fn(),
-    },
-  };
+  const api = { admin: {} };
   return { api, default: api };
 });
 
@@ -57,7 +47,6 @@ vi.mock('@/lib/api/admin', async (importOriginal) => {
       getPlatformLinks,
       getGeneralSettings,
       getSmtpSettings,
-      getSecuritySettings,
     },
   };
 });
@@ -97,9 +86,7 @@ beforeEach(() => {
   identity.permissions = ['*'];
   search.current = new URLSearchParams();
 
-  getIpAllowlist.mockResolvedValue([]);
   getPlatformLinks.mockResolvedValue([]);
-  getSecuritySettings.mockResolvedValue([]);
   getGeneralSettings.mockResolvedValue({
     brandName: 'OxShare',
     supportEmail: null,
@@ -120,11 +107,11 @@ beforeEach(() => {
 });
 
 describe('which tabs an admin is offered', () => {
-  it('offers all four to a master admin', () => {
+  it('offers all three to a master admin', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['General', 'Email', 'Platforms', 'Security']);
+    expect(tabs).toEqual(['General', 'Email', 'Platforms']);
   });
 
   it('hides the Email tab from a non-master admin', () => {
@@ -135,7 +122,7 @@ describe('which tabs an admin is offered', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['General', 'Platforms', 'Security']);
+    expect(tabs).toEqual(['General', 'Platforms']);
   });
 
   it('defaults to General when no tab is in the URL', async () => {
@@ -198,48 +185,33 @@ describe('only the active panel mounts', () => {
     expect(getGeneralSettings).toHaveBeenCalledTimes(1);
     expect(getSmtpSettings).not.toHaveBeenCalled();
     expect(getPlatformLinks).not.toHaveBeenCalled();
-    expect(getIpAllowlist).not.toHaveBeenCalled();
   });
 
   it('fetches a tab only once it is opened', async () => {
-    search.current = new URLSearchParams('tab=security');
+    search.current = new URLSearchParams('tab=platforms');
     renderWithProviders(<AdminSettingsPage />);
 
-    // The allowlist panel's own heading with no rules configured. NOT the phrase
-    // "network access" — that used to live in the page SUBTITLE, so the old
-    // assertion passed without the panel having rendered at all.
-    await screen.findByRole('heading', { name: /any network can reach the admin api/i });
-    expect(getIpAllowlist).toHaveBeenCalledTimes(1);
+    await screen.findByText(/trading platform downloads/i);
+    expect(getPlatformLinks).toHaveBeenCalledTimes(1);
     expect(getGeneralSettings).not.toHaveBeenCalled();
   });
 });
 
-describe('who is shown the security controls', () => {
-  // Matched as a HEADING: the page subtitle also contains the phrase "controls",
-  // so a bare text matcher can find two nodes and report an ambiguity that reads
-  // like a rendering bug.
-  it('shows them to a master admin on the Security tab', async () => {
-    search.current = new URLSearchParams('tab=security');
+describe('the Security tab is gone', () => {
+  it('is not offered to a master admin', () => {
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(
-      await screen.findByRole('heading', { name: /^security controls$/i }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /security/i })).toBeNull();
   });
 
-  it('hides them from a non-master admin holding roles.manage', async () => {
-    // R-4.1 — the API refuses a non-master regardless. Rendering the panel would
-    // offer a control that always fails.
-    identity.role = 'sub_admin';
-    identity.permissions = ['roles.manage'];
+  it('lands an old ?tab=security bookmark on General', async () => {
+    // The panels behind it were deleted, so this is the same path as any other
+    // stale link — General, not a blank panel.
     search.current = new URLSearchParams('tab=security');
     renderWithProviders(<AdminSettingsPage />);
 
-    // The allowlist panel's own heading with no rules configured. NOT the phrase
-    // "network access" — that used to live in the page SUBTITLE, so the old
-    // assertion passed without the panel having rendered at all.
-    await screen.findByRole('heading', { name: /any network can reach the admin api/i });
-    expect(screen.queryByRole('heading', { name: /security controls/i })).toBeNull();
+    expect(screen.getByRole('tab', { name: /general/i })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText(/brand and contact/i)).toBeInTheDocument();
   });
 });
 

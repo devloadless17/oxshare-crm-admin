@@ -111,23 +111,6 @@ export const messages = {
   'invite.sessionWarning':
     '{email} is currently signed in on this browser. Activating this account will sign them out.',
 
-  // ── Security controls (master admin) ──────────────────────────────────────
-  'security.title': 'Security controls',
-  'security.subtitle':
-    'Controls that can be switched off for testing. Leave them on unless you have a reason not to.',
-  'security.loading': 'Loading security controls',
-  'security.enforced': 'On — enforced on every request.',
-  'security.notEnforced': 'OFF — this protection is NOT being enforced.',
-  'security.turnOff': 'Turn off',
-  'security.turnOn': 'Turn on',
-  'security.lastChanged': 'Last changed {when}',
-  'security.updateFailed': 'Could not change that control. Please try again.',
-  'security.auditNote':
-    'Every change is recorded in the admin action log with who made it, and turning a control off raises an alert for as long as it stays off.',
-  // Names what stops being enforced, rather than asking a generic "are you
-  // sure?" — the question people learn to click through.
-  'security.confirmDisable':
-    'Turn OFF “{label}”?\n\nThis protection will stop being enforced immediately, for every client. The change is recorded against your account and will keep raising an alert until it is turned back on.',
   // Deliberately says the session is STILL OPEN. Only the server can end it —
   // the cookies are httpOnly — so a failed logout leaves the admin signed in,
   // and on a shared machine that is the thing they need to know.
@@ -685,41 +668,20 @@ export const messages = {
     'How this system sends verification links, password resets, admin invitations and withdrawal codes.',
   'smtp.loading': 'Loading mail settings',
   'smtp.loadFailed': 'Could not load the mail settings.',
-  'smtp.restricted':
-    'Only a master admin can view or change the mail server. Whoever controls it receives every password-reset and invitation link this system sends.',
-  'smtp.sourceEnvironment':
-    'Nothing has been saved here yet — these are the server’s own start-up settings. Saving stores them in the database, where they can be changed without a deploy.',
-  'smtp.sourceDatabase': 'Saved settings, last changed {when}.',
   'smtp.host': 'Host',
   'smtp.hostPlaceholder': 'smtp.postmarkapp.com',
   'smtp.port': 'Port',
-  'smtp.portHint': '587 for STARTTLS, 465 for implicit TLS.',
   'smtp.username': 'Username',
-  'smtp.usernameHint': 'Leave empty for a relay that takes no credentials.',
   'smtp.password': 'Password',
   'smtp.passwordSetHint':
     'A password is stored. Leave empty to keep it, or type a new one to replace it.',
   'smtp.passwordNoneHint': 'No password is stored.',
-  'smtp.passwordClear': 'Remove the stored password',
-  'smtp.passwordNeverShown': 'The stored password is encrypted and is never shown again.',
   'smtp.fromAddress': 'From address',
-  'smtp.fromHint':
-    'The sender on every message. Include a display name, e.g. "OxShare" <no-reply@oxshare.com>.',
   'smtp.secure': 'Use implicit TLS (SMTPS)',
-  'smtp.secureHint': 'On for port 465. Off uses STARTTLS, which is the usual choice on 587.',
   'smtp.save': 'Save mail settings',
   'smtp.saving': 'Saving...',
   'smtp.saved': 'Saved',
   'smtp.updateFailed': 'Could not save the mail settings.',
-  'smtp.test': 'Send test email',
-  'smtp.testing': 'Sending...',
-  'smtp.testSentDatabase': 'Sent to {email} using the saved settings. Check your inbox.',
-  'smtp.testSentEnvironment':
-    'Sent to {email} using the server’s start-up settings. Check your inbox.',
-  'smtp.testFailed': 'The test message could not be sent.',
-  'smtp.testHint': 'Sends to your own address using whatever is currently saved.',
-  'smtp.unsavedWarning':
-    'You have unsaved changes. A test sends the SAVED settings, not what is on screen.',
   'settings.rolesTitle': 'Configured System & Custom Roles',
   'settings.rolesHint':
     'Permissions defined in permissions.json are mapped dynamically to custom roles.',
@@ -880,6 +842,66 @@ export const messages = {
   'common.errorReference': 'Reference: {id}',
   'common.genericError': 'Something went wrong. Please try again.',
   'common.requestId': 'Reference: {id}',
+
+  // ── Currencies (ADM) ──────────────────────────────────────────────────────
+  //
+  // The set of money the platform can hold. It was a Postgres enum, so adding
+  // one meant a migration plus a release; it is operator data now, and this is
+  // the screen that owns it.
+  'nav.currencies': 'Currencies',
+  'currencies.title': 'Currencies',
+  'currencies.subtitle':
+    'The money this platform can hold. Disabling one stops new wallets and deposits in it; existing balances stay readable.',
+  'currencies.caption': 'Supported currencies',
+  'currencies.loading': 'Loading currencies',
+  'currencies.loadFailed': 'Could not load the currencies.',
+  'currencies.empty': 'No currencies configured yet.',
+  'currencies.create': 'Add currency',
+  'currencies.createTitle': 'Add a currency',
+  'currencies.editTitle': 'Edit currency',
+  'currencies.save': 'Save',
+  'currencies.saving': 'Saving…',
+  'currencies.saveFailed': 'Could not save that currency.',
+  'currencies.deleteFailed': 'Could not delete that currency.',
+
+  'currencies.colCode': 'Code',
+  'currencies.colName': 'Name',
+  'currencies.colSymbol': 'Symbol',
+  'currencies.colDecimals': 'Decimals',
+  'currencies.colOrder': 'Order',
+  'currencies.colStatus': 'Status',
+  'currencies.colActions': 'Actions',
+  'currencies.statusEnabled': 'Enabled',
+  'currencies.statusDisabled': 'Disabled',
+  'currencies.defaultBadge': 'Default',
+
+  'currencies.edit': 'Edit',
+  'currencies.editAria': 'Edit {code}',
+  'currencies.delete': 'Delete',
+  'currencies.deleteAria': 'Delete {code}',
+  'currencies.enable': 'Enable',
+  'currencies.disable': 'Disable',
+  'currencies.makeDefault': 'Make default',
+  // Names the consequence and the alternative, rather than asking "are you
+  // sure" about something the API refuses outright if any wallet exists.
+  'currencies.confirmDelete':
+    'Delete {code}? This is only possible while no client holds a wallet in it. To stop offering a currency that is in use, disable it instead.',
+
+  'currencies.code': 'Code',
+  'currencies.codeHint': 'Letters and digits, e.g. EUR or USDT. Stored upper-case.',
+  'currencies.codeLocked': 'The code cannot change — wallets and ledger entries reference it.',
+  'currencies.name': 'Name',
+  'currencies.symbol': 'Symbol',
+  'currencies.decimals': 'Display decimals',
+  'currencies.decimalsHint': 'How balances are shown. Storage is always 8 decimal places.',
+  'currencies.order': 'Sort order',
+  'currencies.orderHint': 'Lower numbers appear first, in the portal as well as here.',
+  'currencies.enabled': 'Enabled',
+  'currencies.enabledHint':
+    'Clients can open wallets and deposit in this currency. Disabling never touches existing balances.',
+  'currencies.isDefault': 'Default currency',
+  'currencies.isDefaultHint':
+    "The currency a new client's first wallet opens in. Exactly one currency holds this, and it must stay enabled.",
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */

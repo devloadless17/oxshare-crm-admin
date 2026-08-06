@@ -3,11 +3,9 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Building2, Mail, MonitorDown, ShieldCheck } from 'lucide-react';
+import { Building2, Mail, MonitorDown } from 'lucide-react';
 import { GeneralSettingsPanel } from '@/components/rbac/general-settings-panel';
-import { IpAllowlistPanel } from '@/components/rbac/ip-allowlist-panel';
 import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
-import { SecurityControlsPanel } from '@/components/rbac/security-controls-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -15,21 +13,28 @@ import { hasPermission, isMasterAdmin } from '@/lib/permissions';
 import { t } from '@/lib/i18n';
 
 /**
- * The operator's settings — four tabs over four independently-guarded resources.
+ * The operator's settings — three tabs over three independently-guarded
+ * resources.
  *
  * ── This is not the tab strip that was removed ─────────────────────────────
  *
  * An earlier version of this page carried roles and the admin directory behind
  * tabs, and splitting those out to `/roles` and `/admin-users` was right: they
  * are their own screens, with their own permissions, their own deep links and
- * their own place in the sidebar. Nothing here re-litigates that. These four are
- * configuration — things an operator sets once and revisits rarely — and they
- * were already stacked on one page. Tabs give them room to be filled in without
- * turning the page into a scroll.
+ * their own place in the sidebar. Nothing here re-litigates that. These three
+ * are configuration — things an operator sets once and revisits rarely — and
+ * they were already stacked on one page. Tabs give them room to be filled in
+ * without turning the page into a scroll.
+ *
+ * A Security tab (IP allowlist + master-admin control switches) also lived here
+ * and was removed as unwanted scope. The API endpoints behind it still exist and
+ * `adminApi` still wraps them — nothing renders them.
  *
  * ── The active tab lives in the URL ────────────────────────────────────────
  *
  * `?tab=email` is linkable, survives a refresh, and gives Back somewhere to go.
+ * A bookmark to the removed `?tab=security` now lands on General — see the
+ * fallback below, which is the reason it exists.
  * The alternative — `useState` — makes "the SMTP settings are under Settings →
  * Email" un-sendable, which on a screen whose whole audience is two or three
  * administrators talking to each other is most of its value.
@@ -45,8 +50,8 @@ import { t } from '@/lib/i18n';
  * ── Which tabs exist depends on who is asking ──────────────────────────────
  *
  * The Email tab is master-admin-only, so a sub-admin does not see it at all
- * rather than seeing it 403. Security is likewise filtered. The API enforces all
- * of this independently — client-side gating here is UX, not security.
+ * rather than seeing it 403. The API enforces this independently — client-side
+ * gating here is UX, not security.
  */
 function AdminSettingsContent() {
   const { admin } = useAdmin();
@@ -54,9 +59,6 @@ function AdminSettingsContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Gated on roles.manage: deciding which networks may reach the admin API is
-  // the same class of authority as deciding who holds which permissions.
-  const canManageNetwork = hasPermission(admin, 'roles.manage');
   const canManageSettings = hasPermission(admin, 'settings.manage');
   const isMaster = isMasterAdmin(admin);
 
@@ -78,11 +80,6 @@ function AdminSettingsContent() {
         value: 'platforms',
         label: t('settings.tabPlatforms'),
         icon: <MonitorDown className="h-4 w-4" aria-hidden="true" />,
-      },
-      {
-        value: 'security',
-        label: t('settings.tabSecurity'),
-        icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />,
       },
     ];
     return all.filter((tab): tab is TabDefinition => tab !== null);
@@ -132,21 +129,13 @@ function AdminSettingsContent() {
         <TabPanel value="platforms" activeValue={active} idPrefix="settings">
           {/*
             Rendered for EVERY admin, with the controls disabled without
-            `settings.manage`, rather than hidden like the master-admin tabs.
-            The two are different kinds of secret: which security controls exist
-            is worth withholding, whereas which platforms have a download is
-            something an operator needs to look up without holding a permission
-            they do not need. The API refuses the write regardless.
+            `settings.manage`, rather than hidden like the Email tab. The two are
+            different kinds of secret: where the mail relay points is worth
+            withholding, whereas which platforms have a download is something an
+            operator needs to look up without holding a permission they do not
+            need. The API refuses the write regardless.
           */}
           <PlatformLinksPanel canManage={canManageSettings} />
-        </TabPanel>
-
-        <TabPanel value="security" activeValue={active} idPrefix="settings">
-          <div className="space-y-6">
-            <IpAllowlistPanel canManage={canManageNetwork} />
-            {/* Master admin only, and the API refuses anyone else (R-4.1). */}
-            {isMaster && <SecurityControlsPanel canManage />}
-          </div>
         </TabPanel>
       </div>
     </div>

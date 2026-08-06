@@ -5,26 +5,30 @@ import { renderWithProviders } from '@/test/render';
 import { SmtpSettingsPanel, parsePort } from './smtp-settings-panel';
 
 /**
- * The Email tab.
+ * The Email tab — the SMTP connection settings and nothing else.
  *
- * What is pinned here is the THREE-STATE PASSWORD, because the failure mode is
+ * What is pinned here is the WRITE-ONLY PASSWORD, because the failure mode is
  * silent: the natural implementation sends `password: null` whenever the field
  * is empty, which wipes a working credential every time an operator edits the
  * port. Nothing on screen says so, and the next verification email simply never
  * arrives.
+ *
+ * The panel was cut back to six fields and Save. The test button, the
+ * database-vs-environment banner, the "remove stored password" checkbox and the
+ * unsaved-changes warning are gone, and the last block below pins that they
+ * stay gone — those were the parts most likely to be reinstated by habit.
  */
 
-const { getSmtpSettings, updateSmtpSettings, sendSmtpTest } = vi.hoisted(() => ({
+const { getSmtpSettings, updateSmtpSettings } = vi.hoisted(() => ({
   getSmtpSettings: vi.fn(),
   updateSmtpSettings: vi.fn(),
-  sendSmtpTest: vi.fn(),
 }));
 
 vi.mock('@/lib/api/admin', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/admin')>();
   return {
     ...actual,
-    adminApi: { ...actual.adminApi, getSmtpSettings, updateSmtpSettings, sendSmtpTest },
+    adminApi: { ...actual.adminApi, getSmtpSettings, updateSmtpSettings },
   };
 });
 
@@ -43,7 +47,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   getSmtpSettings.mockResolvedValue(SAVED);
   updateSmtpSettings.mockImplementation((body: Record<string, unknown>) =>
-    Promise.resolve({ ...SAVED, ...body, passwordSet: body['password'] !== '' }),
+    Promise.resolve({ ...SAVED, ...body }),
   );
 });
 
@@ -52,6 +56,36 @@ async function renderPanel() {
   renderWithProviders(<SmtpSettingsPanel />);
   await screen.findByLabelText(/^host$/i);
 }
+
+describe('every field SMTP needs is on the form', () => {
+  it('renders host, port, username, password, from address and TLS', async () => {
+    await renderPanel();
+
+    expect(screen.getByLabelText(/^host$/i)).toHaveValue('smtp.saved.test');
+    expect(screen.getByLabelText(/^port$/i)).toHaveValue(587);
+    expect(screen.getByLabelText(/^username$/i)).toHaveValue('apikey');
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/from address/i)).toHaveValue('"OxShare" <no-reply@oxshare.com>');
+    expect(screen.getByLabelText(/implicit tls/i)).not.toBeChecked();
+  });
+
+  it('sends all of them on save', async () => {
+    await renderPanel();
+
+    await userEvent.type(screen.getByLabelText(/^host$/i), '.uk');
+    await userEvent.click(screen.getByRole('button', { name: /save mail settings/i }));
+
+    await waitFor(() => expect(updateSmtpSettings).toHaveBeenCalled());
+    const body = updateSmtpSettings.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(body).toMatchObject({
+      host: 'smtp.saved.test.uk',
+      port: 587,
+      username: 'apikey',
+      fromAddress: '"OxShare" <no-reply@oxshare.com>',
+      secure: false,
+    });
+  });
+});
 
 describe('the password is write-only', () => {
   it('never prefills the password field', async () => {
@@ -67,7 +101,6 @@ describe('the password is write-only', () => {
     await renderPanel();
 
     expect(screen.getByText(/a password is stored/i)).toBeInTheDocument();
-    expect(screen.getByText(/never shown again/i)).toBeInTheDocument();
   });
 
   it('says when no password is stored', async () => {
@@ -75,12 +108,8 @@ describe('the password is write-only', () => {
     await renderPanel();
 
     expect(screen.getByText(/no password is stored/i)).toBeInTheDocument();
-    // Nothing to remove, so the remove control is not offered.
-    expect(screen.queryByLabelText(/remove the stored password/i)).toBeNull();
   });
-});
 
-describe('the three states a save can carry', () => {
   it('OMITS password when the field is left empty', async () => {
     // The state that matters. Editing the port must not touch the credential.
     await renderPanel();
@@ -105,30 +134,6 @@ describe('the three states a save can carry', () => {
     const body = updateSmtpSettings.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(body['password']).toBe('new-secret');
   });
-
-  it('sends an empty string when the remove box is ticked', async () => {
-    await renderPanel();
-
-    await userEvent.click(screen.getByLabelText(/remove the stored password/i));
-    await userEvent.click(screen.getByRole('button', { name: /save mail settings/i }));
-
-    await waitFor(() => expect(updateSmtpSettings).toHaveBeenCalled());
-    const body = updateSmtpSettings.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(body['password']).toBe('');
-  });
-
-  it('disables the password field while remove is ticked', async () => {
-    // The two are contradictory instructions. Letting both be expressed at once
-    // means the code has to pick a winner, and the operator cannot tell which.
-    await renderPanel();
-
-    await userEvent.type(screen.getByLabelText(/^password$/i), 'typed');
-    await userEvent.click(screen.getByLabelText(/remove the stored password/i));
-
-    const field = screen.getByLabelText(/^password$/i);
-    expect(field).toBeDisabled();
-    expect(field).toHaveValue('');
-  });
 });
 
 describe('the save button', () => {
@@ -152,11 +157,6 @@ describe('the save button', () => {
      * submit before any handler runs — the trap admin/CLAUDE.md names: a page's
      * own validation branch is unreachable through the UI, so the honest
      * assertion is "no request was made" rather than a message.
-     *
-     * `parsePort` still refuses to guess (it returns NaN rather than falling
-     * back to 587, which `Number(x) || 587` would do silently), and that is
-     * covered as a unit below. This test pins the layer above it: an empty port
-     * never reaches the network.
      */
     await renderPanel();
 
@@ -187,52 +187,34 @@ describe('parsePort refuses to guess', () => {
   });
 });
 
-describe('which configuration is live', () => {
-  it('warns when nothing has been saved yet', async () => {
-    // The form is prefilled from the server's start-up settings rather than left
-    // blank, so without this line that reads as "already saved".
+describe('what the panel deliberately no longer carries', () => {
+  // Cut as unwanted scope. Pinned because each one is the kind of thing a later
+  // change reinstates by reflex, and the point was to keep this to SMTP itself.
+  it('has no test-send button', async () => {
+    await renderPanel();
+
+    expect(screen.queryByRole('button', { name: /send test/i })).toBeNull();
+  });
+
+  it('has no remove-stored-password control', async () => {
+    await renderPanel();
+
+    expect(screen.queryByLabelText(/remove the stored password/i)).toBeNull();
+  });
+
+  it('has no source banner, whichever source is live', async () => {
     getSmtpSettings.mockResolvedValue({ ...SAVED, source: 'environment', updatedAt: null });
     await renderPanel();
 
-    expect(screen.getByText(/nothing has been saved here yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/nothing has been saved here yet/i)).toBeNull();
+    expect(screen.queryByText(/saved settings, last changed/i)).toBeNull();
   });
 
-  it('reports saved settings once a row exists', async () => {
+  it('has no unsaved-changes warning', async () => {
     await renderPanel();
-
-    expect(screen.getByText(/saved settings, last changed/i)).toBeInTheDocument();
-  });
-});
-
-describe('the test send', () => {
-  it('surfaces the mail server’s own error', async () => {
-    // "535 Authentication failed" is the entire value of the button; a generic
-    // failure message would waste it.
-    sendSmtpTest.mockRejectedValue(new Error('535 Authentication failed'));
-    await renderPanel();
-
-    await userEvent.click(screen.getByRole('button', { name: /send test email/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/535 Authentication failed/i);
-  });
-
-  it('reports success with the address it reached', async () => {
-    sendSmtpTest.mockResolvedValue({ sentTo: 'admin@oxshare.com', source: 'database' });
-    await renderPanel();
-
-    await userEvent.click(screen.getByRole('button', { name: /send test email/i }));
-
-    expect(await screen.findByRole('status')).toHaveTextContent(/admin@oxshare\.com/);
-  });
-
-  it('warns that a test uses the SAVED settings when there are unsaved edits', async () => {
-    // The endpoint reads the stored row, so testing with unsaved edits would
-    // report on a configuration the operator is not looking at.
-    await renderPanel();
-    expect(screen.queryByText(/unsaved changes/i)).toBeNull();
 
     await userEvent.type(screen.getByLabelText(/^host$/i), '.uk');
 
-    expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument();
+    expect(screen.queryByText(/unsaved changes/i)).toBeNull();
   });
 });

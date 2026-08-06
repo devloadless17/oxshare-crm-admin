@@ -20,6 +20,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -563,19 +564,26 @@ export default function KycBuilderPage() {
                               </div>
 
                               <div className="flex items-center gap-3 self-end sm:self-center pt-2 sm:pt-0">
-                                <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
-                                  <input
-                                    type="checkbox"
+                                {/* The id carries both ids: this renders once per
+                                    field per step, and a shared id would point
+                                    every label at the first checkbox. */}
+                                <div className="flex items-center gap-1.5">
+                                  <Checkbox
+                                    id={`field-required-${step.id}-${f.id}`}
                                     checked={f.required}
-                                    onChange={(e) =>
+                                    onCheckedChange={(value) =>
                                       updateInnerField(step.id, f.id, {
-                                        required: e.target.checked,
+                                        required: value === true,
                                       })
                                     }
-                                    className="rounded border-input accent-primary focus:ring-ring"
                                   />
-                                  <span>{t('builder.required')}</span>
-                                </label>
+                                  <label
+                                    htmlFor={`field-required-${step.id}-${f.id}`}
+                                    className="cursor-pointer text-xs font-medium"
+                                  >
+                                    {t('builder.required')}
+                                  </label>
+                                </div>
 
                                 <button
                                   type="button"

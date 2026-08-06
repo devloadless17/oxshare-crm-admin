@@ -1,6 +1,7 @@
 'use client';
 
 import type { RefObject } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -102,22 +103,24 @@ export function RejectDialog({
                 {grp.fields.map((f) => {
                   const isChecked = selectedFields.includes(f.id);
                   return (
-                    <label
+                    <div
                       key={f.id}
-                      className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                      className={`flex items-center gap-2 p-2 rounded-lg border text-xs transition-all ${
                         isChecked
                           ? 'border-destructive bg-destructive/10 text-destructive font-semibold'
                           : 'border-border bg-card/40 text-muted-foreground hover:border-border/80'
                       }`}
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
+                        id={`reject-field-${f.id}`}
                         checked={isChecked}
-                        onChange={() => onToggleField(f.id)}
-                        className="rounded border-input accent-destructive focus:ring-destructive"
+                        onCheckedChange={() => onToggleField(f.id)}
+                        className="data-[state=checked]:border-destructive data-[state=checked]:bg-destructive data-[state=checked]:text-destructive-foreground"
                       />
-                      <span>{f.label}</span>
-                    </label>
+                      <label htmlFor={`reject-field-${f.id}`} className="flex-1 cursor-pointer">
+                        {f.label}
+                      </label>
+                    </div>
                   );
                 })}
               </div>

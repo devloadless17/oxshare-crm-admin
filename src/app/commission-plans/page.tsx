@@ -19,6 +19,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
 
@@ -539,29 +540,33 @@ export default function CommissionPlansPage() {
               <p className="mt-1 text-[11px] text-muted-foreground">{t('plans.windowHint')}</p>
             </div>
             <div className="space-y-2 pt-5">
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
+              {/* `htmlFor` rather than wrapping: the Radix checkbox is a button,
+                  which a label does not associate with. See ui/checkbox.tsx. */}
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="plan-rebate-on-close"
                   checked={form.rebateOnClose}
-                  onChange={(e) => setForm({ ...form, rebateOnClose: e.target.checked })}
+                  onCheckedChange={(value) => setForm({ ...form, rebateOnClose: value === true })}
                   className="mt-0.5"
                 />
-                <span>
+                <label htmlFor="plan-rebate-on-close" className="cursor-pointer">
                   <span className="font-semibold">{t('plans.rebateOnClose')}</span>
                   <span className="block text-[11px] text-muted-foreground">
                     {t('plans.rebateOnCloseHint')}
                   </span>
-                </span>
-              </label>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
+                </label>
+              </div>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="plan-selectable"
                   checked={form.selectable}
-                  onChange={(e) => setForm({ ...form, selectable: e.target.checked })}
+                  onCheckedChange={(value) => setForm({ ...form, selectable: value === true })}
                   className="mt-0.5"
                 />
-                <span className="font-semibold">{t('plans.selectable')}</span>
-              </label>
+                <label htmlFor="plan-selectable" className="cursor-pointer font-semibold">
+                  {t('plans.selectable')}
+                </label>
+              </div>
             </div>
           </div>
 
