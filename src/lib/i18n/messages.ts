@@ -64,7 +64,6 @@ export const messages = {
   'nav.section.administration': 'ADMINISTRATION',
   'nav.dashboard': 'Dashboard',
   'nav.clients': 'Clients',
-  'nav.partners': 'Partners / IBs',
   'nav.withdrawals': 'Withdrawals',
   'nav.ledger': 'Ledger',
   'nav.commissionPlans': 'Commission Plans',
@@ -552,19 +551,6 @@ export const messages = {
     'e.g., Provide details about your employment status and source of funds.',
   'builder.newField': 'New Field',
 
-  // ── Partners (IB lifecycle) ───────────────────────────────────────────────
-  'partners.title': 'Partners / IBs',
-  'partners.subtitle':
-    'Introducing-broker applications and lifecycle — approval gates the partner portal',
-  'partners.searchPlaceholder': 'Search by name, email, code…',
-  'partners.colPartner': 'Partner',
-  'partners.colStatus': 'Status',
-  'partners.colParent': 'Parent IB',
-  'partners.colProgram': 'Program',
-  'partners.colReferralCode': 'Referral Code',
-  'partners.colApplied': 'Applied',
-  'partners.colActions': 'Actions',
-
   // ── Roles (/roles) ────────────────────────────────────────────────────────
   // RBAC-01/02. Was the "Roles" tab of /settings until the three concerns were
   // split into their own routes: defining roles, holding them, and network
@@ -793,8 +779,6 @@ export const messages = {
   'kycReview.viewDocumentPdf': '📄 View Document PDF',
   'kycReview.docLoadFailed': 'Could not load document.',
 
-  'partners.noParent': '— (L1)',
-
   'invite.iconMail': '✉️',
   'invite.iconWarn': '⚠️',
   'invite.iconWave': '👋',
@@ -843,7 +827,6 @@ export const messages = {
   'ledger.filterAllEntryTypes': 'All Entry Types',
   'ledger.filterByUserIdAria': 'Filter by client user ID',
   'login.emailPlaceholder': 'admin@oxshare.com',
-  'partners.searchAria': 'Search partners by name, email or referral code',
   'withdrawals.rejectTitle': 'Reject Withdrawal',
   'withdrawals.markPaidTitle': 'Mark Withdrawal Paid',
   'pagination.firstTitle': 'First Page',
@@ -940,6 +923,7 @@ export const messages = {
   'nav.section.partners': 'Partners',
   'nav.section.approvals': 'Approvals',
   'nav.partnerApprovals': 'Partner Applications',
+  'nav.partners': 'Partners',
   'nav.ibLevels': 'IB Levels',
   'ibLevels.title': 'IB Levels',
   'ibLevels.subtitle':
@@ -1050,6 +1034,44 @@ export const messages = {
   'partnerReview.confirmReject': 'Reject application',
   'partnerReview.rejecting': 'Rejecting…',
   'partnerReview.rejectFailed': 'The application could not be rejected.',
+
+  // ── Partners ──────────────────────────────────────────────────────────────
+  'partners.title': 'Partners',
+  'partners.subtitle': 'Approved introducing brokers, their placement, and their referral code.',
+  'partners.loading': 'Loading partners…',
+  'partners.loadFailed': 'Could not load partners.',
+  'partners.empty': 'No partners yet. Approved applications appear here.',
+  'partners.actionFailed': 'That change could not be made.',
+
+  'partners.levelLine': 'Level {level} — {name}',
+  'partners.direct': 'Direct partner',
+  'partners.hasParent': 'Has a parent partner',
+  'partners.suspended': 'Suspended',
+
+  'partners.rowActions': 'Actions for {name}',
+  'partners.viewClient': 'View client',
+  'partners.copyLink': 'Copy referral link',
+  'partners.copyFailed': 'Could not copy the link. Open the client and copy it from there.',
+  'partners.changeLevel': 'Change level',
+  'partners.reassignParent': 'Reassign parent',
+  'partners.suspend': 'Suspend',
+  'partners.reactivate': 'Reactivate',
+
+  'partners.changeLevelIntro': 'Move {name} to a different rung of the payout ladder.',
+  'partners.level': 'Level',
+  'partners.reassignIntro': 'Choose who introduced {name}, or make them a direct partner.',
+  'partners.parent': 'Parent partner',
+  'partners.noParent': 'No parent — deals with the broker directly',
+  'partners.parentHint':
+    'A partner cannot be placed beneath somebody who already sits beneath them.',
+  'partners.save': 'Save',
+  'partners.saving': 'Saving…',
+
+  'partners.confirmSuspendTitle': 'Suspend this partner?',
+  'partners.confirmSuspendBody':
+    'They keep their referral code and everybody beneath them, and stop earning. You can reactivate them at any time.',
+  'partners.confirmReactivateTitle': 'Reactivate this partner?',
+  'partners.confirmReactivateBody': 'They will start earning again from their current level.',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */

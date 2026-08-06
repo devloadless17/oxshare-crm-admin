@@ -147,7 +147,10 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     title: 'nav.section.partners',
-    items: [{ label: 'nav.ibLevels', href: '/ib-levels', icon: Layers }],
+    items: [
+      { label: 'nav.partners', href: '/partners', icon: Handshake },
+      { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
+    ],
   },
   {
     title: 'nav.section.finance',

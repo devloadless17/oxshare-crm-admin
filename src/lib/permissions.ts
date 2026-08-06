@@ -58,6 +58,9 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * reject.
    */
   { prefix: '/approvals/ib', requirement: { permission: 'ib.view' } },
+  // `ib.view` to see the list; the row menu checks `ib.manage` before it draws,
+  // and the API refuses the writes regardless.
+  { prefix: '/partners', requirement: { permission: 'ib.view' } },
   // roles.MANAGE, not roles.view. /settings is now the RBAC-08 network allowlist
   // and the security controls; when both were the "Network" tab they were shown
   // only to an admin holding roles.manage, so requiring roles.view here would

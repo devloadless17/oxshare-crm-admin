@@ -43,6 +43,23 @@ export type IbAccount = components['schemas']['IbAccountDto'];
  * REPLACE THIS with an alias once `AdminIbController.list` declares an
  * `@ApiOkResponse` DTO — this is the gap, named so it gets closed.
  */
+/**
+ * The partner list. Hand-declared for the same reason as `IbApplicationPage`:
+ * the handler returns a store result rather than a DTO class, so Nest describes
+ * it as a bare object.
+ *
+ * REPLACE with an alias once `AdminIbController.listPartners` declares an
+ * `@ApiOkResponse` DTO.
+ */
+export interface IbPartnerPage {
+  rows: Array<{
+    account: IbAccount;
+    user: { id: string; email: string; firstName: string; lastName: string };
+    levelName: string;
+  }>;
+  total: number;
+}
+
 export interface IbApplicationPage {
   rows: Array<{
     application: IbApplication;
@@ -314,6 +331,43 @@ export const adminApi = {
    * primary keys and moves partner placements with them, so a half-applied
    * order must not be reachable.
    */
+  // ── Partners, once approved ───────────────────────────────────────────────
+
+  async getIbPartners(
+    params: { page?: number; limit?: number },
+    signal?: AbortSignal,
+  ): Promise<IbPartnerPage> {
+    const query = new URLSearchParams();
+    if (params.page) query.set('page', String(params.page));
+    if (params.limit) query.set('limit', String(params.limit));
+    const { data } = await apiClient.get<IbPartnerPage>(`/admin/ib/partners?${query.toString()}`, {
+      signal,
+    });
+    return data;
+  },
+
+  async changeIbPartnerLevel(userId: string, level: number): Promise<IbAccount> {
+    const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/level`, {
+      level,
+    });
+    return data;
+  },
+
+  /** `null` makes them a direct partner — it is a value, not an omission. */
+  async reassignIbPartnerParent(userId: string, parentIbUserId: string | null): Promise<IbAccount> {
+    const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/parent`, {
+      parentIbUserId,
+    });
+    return data;
+  },
+
+  async setIbPartnerActive(userId: string, active: boolean): Promise<IbAccount> {
+    const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/active`, {
+      active,
+    });
+    return data;
+  },
+
   async reorderIbLevels(order: number[]): Promise<IbLevel[]> {
     const { data } = await apiClient.patch<IbLevel[]>('/admin/ib-levels', { order });
     return data;
