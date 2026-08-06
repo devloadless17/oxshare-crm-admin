@@ -209,6 +209,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
+            /* Icon-only, so it needs a name. Without one a screen reader
+               announces "button" for the control that widens the entire
+               navigation — the portal's copy of this had the same gap. */
+            aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+            aria-expanded={!collapsed}
             className="hidden lg:flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline"
           >
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

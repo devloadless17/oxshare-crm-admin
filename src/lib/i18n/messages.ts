@@ -78,6 +78,8 @@ export const messages = {
   'nav.comingSoon': 'Soon',
   'nav.comingSoonTitle': '{label} — coming soon',
   'nav.logout': 'Logout',
+  'nav.collapseSidebar': 'Collapse the sidebar',
+  'nav.expandSidebar': 'Expand the sidebar',
   'nav.searchPlaceholder': 'Search clients, deals, IBs… (⌘K)',
   'nav.notifications': 'Notifications',
   'nav.systemStatus': 'System Operational',

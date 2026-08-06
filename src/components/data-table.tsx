@@ -389,6 +389,22 @@ export function DataTable<T>({
                         <button
                           type="button"
                           onClick={() => toggleSelectRow(key)}
+                          /*
+                           * Named and stateful, because the icon carries both
+                           * and neither reaches assistive technology.
+                           *
+                           * This announced as "button" — one of many identical
+                           * ones down a column — so there was no way to tell
+                           * what was being selected, or whether it already was.
+                           * The header control beside it has a `title` and was
+                           * fine; this one had nothing.
+                           *
+                           * `aria-pressed` is the toggle-button pattern: it says
+                           * "selected" without changing the element's role, so
+                           * keyboard behaviour is exactly as before.
+                           */
+                          aria-label={isSelected ? 'Deselect this row' : 'Select this row'}
+                          aria-pressed={isSelected}
                           className="text-muted-foreground hover:text-foreground focus-outline rounded-sm"
                         >
                           {isSelected ? (

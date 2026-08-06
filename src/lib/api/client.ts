@@ -284,8 +284,28 @@ apiClient.interceptors.response.use(
         // one would fail the binding check.
         return apiClient(originalRequest);
       }
+      /*
+       * A session that never existed cannot have died.
+       *
+       * `AdminAuthContext` asks `/admin/auth/me` on mount, and for a visitor
+       * with no session that answers 401 BY DESIGN — it is how the app asks
+       * "is anyone here". Treating that as an expired session redirected every
+       * anonymous visitor to the sign-in form, which broke the one public
+       * screen that matters: an invitee following an emailed link landed on a
+       * login page for an account they do not have yet, with no explanation.
+       *
+       * The CSRF cookie is the tell. It is set beside the session and is the
+       * only part readable from JS, so its presence means there WAS a session
+       * to lose. The portal carried this identical bug on registration and
+       * carries the identical fix — see its `endDeadSession`.
+       */
+      const hadSession = readCsrfCookie() !== undefined;
       clearAdminSession();
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith(LOGIN_PATH)) {
+      if (
+        typeof window !== 'undefined' &&
+        hadSession &&
+        !window.location.pathname.startsWith(LOGIN_PATH)
+      ) {
         // A HARD navigation, deliberately, against @next/next's advice to use
         // router.push. The session is dead: a client-side push keeps the same JS
         // context alive, so the React Query cache, the auth context and any
