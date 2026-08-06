@@ -10,6 +10,15 @@ export type PermissionModule = components['schemas']['PermissionModuleDto'];
 export type Role = components['schemas']['RoleResponseDto'];
 export type AdminUser = components['schemas']['AdminProfileDto'];
 export type RejectionReason = components['schemas']['RejectionReasonResponseDto'];
+/**
+ * Which decision a configured reason belongs to.
+ *
+ * Read off the response type rather than written out, so a context added on the
+ * backend reaches the callers as a compile error at the switch that does not
+ * handle it — which is what a hand-written union here failed to do when
+ * 'partner' arrived.
+ */
+export type RejectionContext = RejectionReason['context'];
 export type IpAllowlistStatus = components['schemas']['IpAllowlistStatusDto'];
 export type IpAllowlistRule = components['schemas']['IpAllowlistRuleDto'];
 export type KycSubmission = components['schemas']['KycSubmissionDto'];
@@ -22,6 +31,32 @@ export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
 export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
 export type Currency = components['schemas']['CurrencyDto'];
 export type IbLevel = components['schemas']['IbLevelDto'];
+export type IbApplication = components['schemas']['IbApplicationDto'];
+export type IbApplicationStatus = IbApplication['status'];
+export type IbAccount = components['schemas']['IbAccountDto'];
+
+/**
+ * The queue page. Hand-declared: the endpoint returns rows joined to their
+ * applicant plus per-status counts, and Nest describes that shape as a bare
+ * object because the handler returns a store result rather than a DTO class.
+ *
+ * REPLACE THIS with an alias once `AdminIbController.list` declares an
+ * `@ApiOkResponse` DTO — this is the gap, named so it gets closed.
+ */
+export interface IbApplicationPage {
+  rows: Array<{
+    application: IbApplication;
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      verificationLevel: number;
+    };
+  }>;
+  total: number;
+  counts: Record<IbApplicationStatus, number>;
+}
 export type CreateIbLevel = components['schemas']['CreateIbLevelDto'];
 export type UpdateIbLevel = components['schemas']['UpdateIbLevelDto'];
 export type CreateCurrency = components['schemas']['CreateCurrencyDto'];
@@ -219,6 +254,68 @@ export const adminApi = {
    */
   async getIbLevels(signal?: AbortSignal): Promise<IbLevel[]> {
     const { data } = await apiClient.get<IbLevel[]>('/admin/ib-levels', { signal });
+    return data;
+  },
+
+  /**
+   * The partner application queue.
+   *
+   * Rows AND per-status counts, both scoped to the reviewing admin's client
+   * visibility by the API. The counts drive the tab labels, so a count computed
+   * separately from the rows would promise twelve pending and show four.
+   */
+  async getIbApplications(
+    params: { status?: IbApplicationStatus; page?: number; limit?: number },
+    signal?: AbortSignal,
+  ): Promise<IbApplicationPage> {
+    const query = new URLSearchParams();
+    if (params.status) query.set('status', params.status);
+    if (params.page) query.set('page', String(params.page));
+    if (params.limit) query.set('limit', String(params.limit));
+    const { data } = await apiClient.get<IbApplicationPage>(
+      `/admin/ib/applications?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  async approveIbApplication(
+    id: string,
+    body: { level?: number; parentIbUserId?: string } = {},
+  ): Promise<IbAccount> {
+    const { data } = await apiClient.patch<IbAccount>(`/admin/ib/applications/${id}/approve`, body);
+    return data;
+  },
+
+  /**
+   * Reject, with a reason the API composes.
+   *
+   * `reason` is the configured LABEL rather than an id: the endpoint stores the
+   * composed sentence, and it is that sentence the client reads. Sending an id
+   * would make the stored text depend on a lookup that an operator can edit
+   * afterwards, so a client and an audit record could later disagree.
+   */
+  async rejectIbApplication(
+    id: string,
+    body: { reason?: string; note?: string },
+  ): Promise<IbApplication> {
+    const { data } = await apiClient.patch<IbApplication>(
+      `/admin/ib/applications/${id}/reject`,
+      body,
+    );
+    return data;
+  },
+
+  /**
+   * Renumber the ladder — the drag-and-drop.
+   *
+   * PATCH on the collection, taking every current level number in its new
+   * order. One request rather than several per-level PATCHes: it renumbers
+   * primary keys and moves partner placements with them, so a half-applied
+   * order must not be reachable.
+   */
+  async reorderIbLevels(order: number[]): Promise<IbLevel[]> {
+    const { data } = await apiClient.patch<IbLevel[]>('/admin/ib-levels', { order });
     return data;
   },
 
@@ -421,7 +518,7 @@ export const adminApi = {
     return data;
   },
 
-  async getRejectionReasons(context: 'kyc' | 'withdrawal'): Promise<RejectionReason[]> {
+  async getRejectionReasons(context: RejectionContext): Promise<RejectionReason[]> {
     const { data } = await apiClient.get<RejectionReason[]>(
       `/admin/rejection-reasons?context=${context}`,
     );

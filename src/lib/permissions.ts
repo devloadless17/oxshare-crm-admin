@@ -51,6 +51,13 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   // purpose — an operator who may see partners should be able to see the rules
   // they are paid under.
   { prefix: '/ib-levels', requirement: { permission: 'ib.view' } },
+  /*
+   * `ib.view`, not `ib.approve`. Seeing the queue and deciding on it are
+   * separate powers — the buttons inside each check their own — so requiring
+   * `ib.approve` here would hide the whole screen from a reviewer who may only
+   * reject.
+   */
+  { prefix: '/approvals/ib', requirement: { permission: 'ib.view' } },
   // roles.MANAGE, not roles.view. /settings is now the RBAC-08 network allowlist
   // and the security controls; when both were the "Network" tab they were shown
   // only to an admin holding roles.manage, so requiring roles.view here would

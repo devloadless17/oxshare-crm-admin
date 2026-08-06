@@ -938,6 +938,8 @@ export const messages = {
   // allow 2 partners", when it means the payout chain is two hops deep — so the
   // depth hint spells the consequence out rather than restating the number.
   'nav.section.partners': 'Partners',
+  'nav.section.approvals': 'Approvals',
+  'nav.partnerApprovals': 'Partner Applications',
   'nav.ibLevels': 'IB Levels',
   'ibLevels.title': 'IB Levels',
   'ibLevels.subtitle':
@@ -998,10 +1000,56 @@ export const messages = {
   'ibLevels.perLotValue': '{value} per lot',
   'ibLevels.maxDirect': 'Max direct partners',
   'ibLevels.maxDirectHint': 'Leave empty for unlimited. Checked when a partner is approved.',
+  'ibLevels.unlimitedPartners': 'Unlimited direct partners',
+  'ibLevels.maxPartners': 'Up to {max} direct partners',
+  'ibLevels.reorderFailed': 'The ladder could not be reordered.',
   'ibLevels.unlimited': 'Unlimited',
   'ibLevels.enabled': 'Enabled',
   'ibLevels.enabledHint':
     'A disabled level takes no share and accepts no new partners. Partners already placed there keep their position.',
+
+  // ── Partner application review ────────────────────────────────────────────
+  'partnerReview.title': 'Partner Applications',
+  'partnerReview.subtitle':
+    'Clients asking to introduce business. Approving one creates a partner who will be paid.',
+  'partnerReview.caption': 'Partner applications',
+  'partnerReview.loading': 'Loading applications…',
+  'partnerReview.loadFailed': 'Could not load partner applications.',
+  'partnerReview.empty': 'No applications here.',
+
+  'partnerReview.tabPending': 'Pending',
+  'partnerReview.tabApproved': 'Approved',
+  'partnerReview.tabRejected': 'Rejected',
+  'partnerReview.tabAll': 'All',
+
+  'partnerReview.colApplicant': 'Applicant',
+  'partnerReview.colSubmitted': 'Submitted',
+  'partnerReview.colVolume': 'Expected volume (self-reported)',
+  'partnerReview.colStatus': 'Status',
+  'partnerReview.colActions': 'Decision',
+  'partnerReview.notGiven': 'Not given',
+  'partnerReview.waitingDays': 'waiting {days} days',
+
+  'partnerReview.statusPending': 'Pending',
+  'partnerReview.statusApproved': 'Approved',
+  'partnerReview.statusRejected': 'Rejected',
+
+  'partnerReview.approve': 'Approve',
+  'partnerReview.reject': 'Reject',
+  'partnerReview.readOnly': 'View only',
+  'partnerReview.approveFailed': 'The application could not be approved.',
+
+  'partnerReview.rejectTitle': 'Reject this application',
+  'partnerReview.rejectIntro':
+    '{name} will be emailed the reason you give here, and it is shown on their portal.',
+  'partnerReview.rejectReason': 'Reason',
+  'partnerReview.rejectReasonNone': 'Choose a reason…',
+  'partnerReview.rejectNote': 'Note (optional)',
+  'partnerReview.rejectNotePlaceholder': 'Anything specific to this applicant.',
+  'partnerReview.rejectNoteHint': 'Appended to the reason above, in the message the client reads.',
+  'partnerReview.confirmReject': 'Reject application',
+  'partnerReview.rejecting': 'Rejecting…',
+  'partnerReview.rejectFailed': 'The application could not be rejected.',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */

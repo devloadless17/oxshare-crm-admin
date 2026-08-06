@@ -10,6 +10,7 @@ import {
   UserCog,
   FileCheck,
   Coins,
+  Handshake,
   Layers,
   ClipboardList,
   ShieldCheck,
@@ -123,6 +124,26 @@ const NAV_SECTIONS: NavSection[] = [
       // property of the client rather than a console-level object.
       { label: 'nav.tags', href: '/tags', icon: Tags },
     ],
+  },
+  /*
+   * Decisions waiting on somebody, grouped by the fact that they are WAITING
+   * rather than by what they are about.
+   *
+   * A section rather than a sub-menu under Partners. The plan called for a
+   * collapsible group, and every section here already is one — heading plus
+   * permission-filtered items, hidden entirely when nothing is visible, with a
+   * collapsed-rail answer already solved. Adding a third nesting level and a
+   * DropdownMenuSub for a single link would be machinery serving one entry.
+   *
+   * It sits above Partners because a queue is checked daily and a payout ladder
+   * is edited rarely. KYC review is deliberately NOT moved here yet: it lives
+   * under Clients, `activeNavHref` matches on longest prefix across every
+   * section, and moving a route between groups is a change worth making on its
+   * own rather than inside this one.
+   */
+  {
+    title: 'nav.section.approvals',
+    items: [{ label: 'nav.partnerApprovals', href: '/approvals/ib', icon: Handshake }],
   },
   {
     title: 'nav.section.partners',

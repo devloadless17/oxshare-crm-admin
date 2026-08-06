@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Layers, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import api from '@/lib/api';
 import type { IbLevel } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -10,9 +10,8 @@ import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
-import { DataTable, EmptyState, type Column } from '@/components/data-table';
-import { Badge } from '@/components/ui/badge';
 import { IbLevelFormModal, type IbLevelFormValues } from '@/components/ib/ib-level-form-modal';
+import { IbLevelTree } from '@/components/ib/ib-level-tree';
 import { t } from '@/lib/i18n';
 
 /**
@@ -72,6 +71,19 @@ export default function IbLevelsPage() {
     onSuccess: invalidate,
   });
 
+  /**
+   * Dragging a rung.
+   *
+   * One request for the whole order, because it renumbers primary keys and
+   * moves partner placements with them — a per-row PATCH would let a
+   * half-applied ladder exist. No optimistic update for the same reason: the
+   * order shown is the order the database confirmed.
+   */
+  const reorder = useMutation({
+    mutationFn: (order: number[]) => api.admin.reorderIbLevels(order),
+    onSuccess: invalidate,
+  });
+
   const toggleEnabled = useMutation({
     mutationFn: (level: IbLevel) =>
       api.admin.updateIbLevel(level.level, { enabled: !level.enabled }),
@@ -104,91 +116,6 @@ export default function IbLevelsPage() {
     deleteLevel.mutate(level.level);
   };
 
-  const columns: Column<IbLevel>[] = [
-    {
-      header: t('ibLevels.colLevel'),
-      cell: (l) => <span className="tabular font-semibold">{l.level}</span>,
-    },
-    { header: t('ibLevels.colName'), cell: (l) => l.name },
-    {
-      header: t('ibLevels.colModel'),
-      cell: (l) => (
-        <Badge variant="tag">
-          {l.payoutModel === 'revenue_share'
-            ? t('ibLevels.modelRevenueShare')
-            : t('ibLevels.modelPerLot')}
-        </Badge>
-      ),
-    },
-    {
-      header: t('ibLevels.colRate'),
-      // The unit travels with the number, always. "70" alone means 70% under
-      // one model and $70 under the other.
-      cell: (l) =>
-        l.payoutModel === 'revenue_share'
-          ? `${trimRate(l.rateValue)}%`
-          : t('ibLevels.perLotValue', { value: trimRate(l.rateValue) }),
-      cellClassName: 'tabular',
-    },
-    {
-      header: t('ibLevels.colMaxDirect'),
-      cell: (l) =>
-        l.maxDirectPartners === null ? (
-          <span className="text-muted-foreground">{t('ibLevels.unlimited')}</span>
-        ) : (
-          <span className="tabular">{l.maxDirectPartners}</span>
-        ),
-    },
-    {
-      header: t('ibLevels.colStatus'),
-      cell: (l) =>
-        l.enabled ? (
-          <span className="text-success">{t('ibLevels.statusEnabled')}</span>
-        ) : (
-          <span className="text-muted-foreground">{t('ibLevels.statusDisabled')}</span>
-        ),
-    },
-    ...(canManage
-      ? [
-          {
-            header: t('ibLevels.colActions'),
-            sortable: false,
-            cell: (l: IbLevel) => (
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEdit(l)}
-                  aria-label={t('ibLevels.editAria', { level: String(l.level) })}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-semibold hover:bg-muted focus-outline"
-                >
-                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t('ibLevels.edit')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleEnabled.mutate(l)}
-                  disabled={toggleEnabled.isPending}
-                  className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-50 focus-outline"
-                >
-                  {l.enabled ? t('ibLevels.disable') : t('ibLevels.enable')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => confirmDelete(l)}
-                  disabled={deleteLevel.isPending}
-                  aria-label={t('ibLevels.deleteAria', { level: String(l.level) })}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-destructive/40 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 focus-outline"
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t('ibLevels.delete')}
-                </button>
-              </div>
-            ),
-          },
-        ]
-      : []),
-  ];
-
   /*
    * The API's own refusal, verbatim. Its messages are the informative part of
    * this screen — "the enabled levels would total 110%, at most 30% is
@@ -198,25 +125,16 @@ export default function IbLevelsPage() {
   const mutationError =
     (deleteLevel.isError && apiErrorMessage(deleteLevel.error, t('ibLevels.deleteFailed'))) ||
     (toggleEnabled.isError && apiErrorMessage(toggleEnabled.error, t('ibLevels.saveFailed'))) ||
+    (reorder.isError && apiErrorMessage(reorder.error, t('ibLevels.reorderFailed'))) ||
     null;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t('ibLevels.title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('ibLevels.subtitle')}</p>
-        </div>
-        {canManage && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 focus-outline"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            {t('ibLevels.create')}
-          </button>
-        )}
+      {/* No action button here. "Add level" lives at the foot of the chain,
+          where the new rung actually appears — see IbLevelTree. */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{t('ibLevels.title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('ibLevels.subtitle')}</p>
       </div>
 
       {/* Depth and allocation, stated before the table. Both are read off the
@@ -268,14 +186,23 @@ export default function IbLevelsPage() {
         errorMessage={t('ibLevels.loadFailed')}
         error={query.error}
       >
-        <DataTable
-          caption={t('ibLevels.caption')}
-          columns={columns}
-          rows={rows}
-          rowKey={(l) => String(l.level)}
-          dimmed={query.isFetching}
-          empty={<EmptyState icon={Layers} message={t('ibLevels.empty')} />}
-        />
+        {rows.length === 0 && !canManage ? (
+          <div className="rounded-xl border border-dashed border-border p-8 text-center">
+            <Layers className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
+            <p className="mt-3 text-sm text-muted-foreground">{t('ibLevels.empty')}</p>
+          </div>
+        ) : (
+          <IbLevelTree
+            levels={rows}
+            canManage={canManage}
+            reordering={reorder.isPending}
+            onEdit={openEdit}
+            onToggle={(level) => toggleEnabled.mutate(level)}
+            onDelete={confirmDelete}
+            onReorder={(order) => reorder.mutate(order)}
+            onAdd={openCreate}
+          />
+        )}
       </AsyncBoundary>
 
       <IbLevelFormModal
@@ -290,15 +217,4 @@ export default function IbLevelsPage() {
       />
     </div>
   );
-}
-
-/**
- * `70.0000` reads as `70`, `2.5000` as `2.5`.
- *
- * Display only. The value stays the API's string everywhere else — this never
- * feeds back into a request, because trimming and re-sending would send a
- * different string than the one stored.
- */
-function trimRate(value: string): string {
-  return value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 }
