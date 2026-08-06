@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { loginPathFor } from '@/lib/return-to';
 import { NONCE_HEADER, contentSecurityPolicy, createNonce } from '@/lib/csp';
 
 const PUBLIC_PATHS = ['/login', '/invite/accept'];
@@ -38,7 +39,24 @@ export function proxy(request: NextRequest) {
     request.cookies.get('oxshare_crm_admin_rt')?.value;
 
   if (!isPublic && !session) {
-    return withCsp(request, NextResponse.redirect(new URL('/login', request.url)));
+    /*
+     * Carry where they were going.
+     *
+     * Landing every bounced operator on /dashboard threw away their intent:
+     * somebody following a link to a specific KYC submission, or a bookmarked
+     * client, signed in and then had to find it again. On a session that has
+     * quietly expired — the common case, not the rare one — that happens
+     * mid-task. The portal has done this for a while; this console did not.
+     *
+     * The query string travels with it, so filters and paging survive too.
+     * `safeReturnTo` on the other end is what makes reading it back safe.
+     */
+    return withCsp(
+      request,
+      NextResponse.redirect(
+        new URL(loginPathFor(request.nextUrl.pathname, request.nextUrl.search), request.url),
+      ),
+    );
   }
   return withCsp(request);
 }

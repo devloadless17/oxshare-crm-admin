@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Lock, Mail, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -12,10 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { RETURN_TO_PARAM, safeReturnTo } from '@/lib/return-to';
 import { t } from '@/lib/i18n';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  // `next` is written by proxy.ts when it bounces a signed-out operator.
+  const searchParams = useSearchParams();
   const { refetchAdmin } = useAdmin();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -60,7 +63,19 @@ export default function AdminLoginPage() {
        * uses the mechanism the context already exposes.
        */
       await refetchAdmin();
-      router.push('/dashboard');
+      /*
+       * Back where they were going, or the dashboard.
+       *
+       * `safeReturnTo` is not decoration here: `next` comes out of a URL, so it
+       * is attacker-controlled even though we wrote it. Anyone can send an
+       * operator a link to `/login?next=https://evil.example/login`, and a
+       * console that follows it after a successful sign-in has handed over a
+       * phishing page wearing its own flow — at the exact instant after the
+       * password was typed. The validator resolves through `URL` against an
+       * opaque origin rather than pattern-matching, because the browser's
+       * parser is the authority on what a string navigates to.
+       */
+      router.push(safeReturnTo(searchParams.get(RETURN_TO_PARAM)));
     } catch (err: unknown) {
       // This was a line-for-line reimplementation of apiErrorMessage, array join
       // included. One copy, in lib/api/errors.ts.

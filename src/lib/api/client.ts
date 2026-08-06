@@ -11,6 +11,7 @@ import Cookies from 'js-cookie';
 // Resolved and validated in `lib/env.ts`, which refuses a production build with
 // no NEXT_PUBLIC_API_BASE_URL rather than silently falling back to localhost.
 import { API_BASE_URL } from '../env';
+import { loginPathFor } from '@/lib/return-to';
 /**
  * A request that never finishes must eventually fail.
  *
@@ -311,8 +312,10 @@ apiClient.interceptors.response.use(
         // context alive, so the React Query cache, the auth context and any
         // rendered client data survive into the login screen. A full load is what
         // discards them. Same reasoning in AdminAuthContext.logout.
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-        window.location.href = LOGIN_PATH;
+        // Carries where they were, exactly as proxy.ts does when it bounces a
+        // signed-out visitor. A session dying mid-task is the case where losing
+        // the destination hurts most.
+        window.location.href = loginPathFor(window.location.pathname, window.location.search);
       }
     }
     // Rethrow the original AxiosError, never a wrapped one: every caller reads

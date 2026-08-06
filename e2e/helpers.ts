@@ -31,8 +31,31 @@ export const STORAGE_STATE = 'e2e/.auth/admin.json';
 export async function signIn(
   page: Page,
   credentials: { email: string; password: string } = E2E_ADMIN,
+  /*
+   * Where the sign-in is expected to land.
+   *
+   * Defaults to the dashboard, which is where an operator with no particular
+   * destination belongs. It is a PARAMETER because `?next=` exists: a sign-in
+   * that correctly returns someone to /clients would otherwise time out here
+   * waiting for /dashboard, and the failure would read as "login is broken"
+   * when login had just done exactly the right thing.
+   */
+  landsOn: RegExp = /\/dashboard/,
 ): Promise<void> {
-  await page.goto('/login');
+  /*
+   * Only navigate if we are not already on the sign-in screen.
+   *
+   * An unconditional `goto('/login')` discards the query string — including the
+   * `?next=` that `proxy.ts` had just written — so a spec that checked "am I
+   * returned to where I was going" destroyed the thing it was testing and then
+   * failed, which read as the product losing the destination.
+   *
+   * It is also the more faithful journey: a bounced operator is already looking
+   * at this page.
+   */
+  if (!new URL(page.url(), 'http://localhost:3002').pathname.startsWith('/login')) {
+    await page.goto('/login');
+  }
   await page.locator('#email').fill(credentials.email);
   await page.locator('#password').fill(credentials.password);
 
@@ -69,7 +92,7 @@ export async function signIn(
     );
   }
 
-  await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
+  await page.waitForURL(landsOn, { timeout: 30_000 });
 }
 
 /**

@@ -31,7 +31,13 @@ const { login, push, refetchAdmin } = vi.hoisted(() => ({
   refetchAdmin: vi.fn(),
 }));
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
+// `useSearchParams` too: the page reads `?next=` through it so a bounced
+// operator is returned to where they were going. Mocking only `useRouter`
+// leaves it undefined and the page throws on render.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push, refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock('@/lib/api', () => {
   const api = { auth: { login } };
   return { api, default: api };

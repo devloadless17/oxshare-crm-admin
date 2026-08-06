@@ -253,6 +253,63 @@ test.describe('signing in and out', () => {
     await expect(page.getByRole('navigation').first()).toBeAttached();
   });
 
+  test('returns the operator to the page they were trying to reach', async ({ page }) => {
+    /*
+     * Intent, preserved across a sign-in.
+     *
+     * Bouncing everyone to /dashboard threw away where they were going —
+     * someone opening a link to a specific client, or a bookmarked screen,
+     * signed in and then had to find it again. On a session that quietly
+     * expired, which is the ordinary case rather than the rare one, that
+     * happens mid-task.
+     */
+    await page.goto('/clients?page=2');
+    await expect(page).toHaveURL(/\/login/);
+    // The query string travels too, so filters and paging survive.
+    expect(decodeURIComponent(page.url())).toContain('/clients?page=2');
+
+    await signIn(page, E2E_ADMIN, /\/clients/);
+    await expect(page, 'the operator was not returned to where they were going').toHaveURL(
+      /\/clients/,
+    );
+  });
+
+  test('refuses to be pointed at another origin after sign-in', async ({ page }) => {
+    /*
+     * The reason `next` goes through `safeReturnTo` rather than straight into
+     * `router.push`.
+     *
+     * The parameter comes out of a URL, so it is attacker-controlled even
+     * though we are the ones who write it: anybody can send an operator a link
+     * to `/login?next=https://evil.example/login`. A console that follows it
+     * has handed over a phishing page wearing its own flow, at the exact moment
+     * after a password was typed — and this one approves payouts.
+     *
+     * The protocol-relative and backslash forms are here because they are what
+     * hand-rolled checks miss: browsers treat `/\evil.example` as `//`, and a
+     * naive "starts with /" test waves it straight through.
+     */
+    /*
+     * ONE case here, not the whole family.
+     *
+     * Every hostile form — protocol-relative `//evil`, the backslash variants
+     * browsers normalise to `//`, control characters, absolute URLs — is
+     * asserted in `src/lib/return-to.test.ts`, where it costs nothing. Driving
+     * them through the browser would mean a real sign-in each, and admin login
+     * is rate limited: the suite would exhaust the cap and fail for a reason
+     * that has nothing to do with open redirects.
+     *
+     * What a browser adds over the unit test is proof that the validator is
+     * actually WIRED to the redirect, and one case establishes that.
+     */
+    await page.context().clearCookies();
+    await page.goto(`/login?next=${encodeURIComponent('https://evil.example/login')}`);
+    await signIn(page);
+
+    expect(new URL(page.url()).host, 'followed a hostile next=').toBe('localhost:3002');
+    expect(page.url()).toContain('/dashboard');
+  });
+
   test('signs out, and the signed-out session cannot walk back in', async ({ page }) => {
     /*
      * Logout, asserted from the SERVER's side.
