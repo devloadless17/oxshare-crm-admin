@@ -536,7 +536,7 @@ export default function WithdrawalsPage() {
             maxLength={500}
             value={reasonNote}
             onChange={(e) => setReasonNote(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-vertical focus-outline"
+            className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-y focus-outline"
             placeholder={t('withdrawals.reasonPlaceholder')}
           />
         </div>

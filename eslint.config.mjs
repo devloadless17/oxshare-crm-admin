@@ -106,6 +106,11 @@ export default defineConfig([
     // Linting it would report on the generator's output, and any fix would be
     // erased by the next regeneration.
     'src/lib/api/types.gen.ts',
+    // Build tooling, not application code. These run under plain Node before
+    // the app exists, so they are outside the TypeScript project the
+    // type-checked rules need — linting them reports a parsing error rather
+    // than anything about the code.
+    'scripts/**',
   ]),
 
   ...nextVitals,

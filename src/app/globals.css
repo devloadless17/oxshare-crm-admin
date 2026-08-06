@@ -419,6 +419,107 @@
   .spinner {
     @apply h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary;
   }
+
+  /*
+   * KYC status pill. Ported from the page's own `<style jsx>` block along with
+   * everything above it — see the note there for why scoped styles were the
+   * wrong home. `color-mix` rather than a Tailwind opacity utility so the tint
+   * follows whatever the theme sets the status colour to.
+   */
+  .status-pill {
+    @apply rounded-full px-4 py-1.5 text-xs font-bold capitalize;
+  }
+  .status-pill.status-submitted {
+    background: var(--muted);
+    color: var(--link);
+  }
+  .status-pill.status-under_review {
+    background: color-mix(in srgb, var(--info) 15%, transparent);
+    color: var(--info);
+  }
+  .status-pill.status-approved {
+    background: color-mix(in srgb, var(--success) 15%, transparent);
+    color: var(--success);
+  }
+  .status-pill.status-rejected {
+    background: color-mix(in srgb, var(--destructive) 15%, transparent);
+    color: var(--destructive);
+  }
+  .status-pill.status-in_progress {
+    background: color-mix(in srgb, var(--warning) 15%, transparent);
+    color: var(--warning);
+  }
+  /* not_started has no variant in the original and falls back to the base pill. */
+
+  .reject-select {
+    @apply h-9 w-full rounded-lg border border-input bg-background px-3 text-xs text-foreground;
+  }
+  .reject-select:focus {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * ── Enter animations ────────────────────────────────────────────────────────
+ *
+ * `animate-in`, `fade-in-0`, `zoom-in-95`, `slide-in-from-top-2` and friends are
+ * used by the shadcn Select and by data-table, and NONE of them resolved:
+ * they come from `tailwindcss-animate`, which is neither installed nor imported.
+ * So every dropdown and empty-state has been appearing instantly, with markup
+ * that says it should fade and slide.
+ *
+ * Defined here rather than by adding the plugin. The set actually used is small,
+ * this is a money system where a dependency is a supply-chain decision, and the
+ * composition is simple: `animate-in` runs the keyframe, and each modifier sets
+ * one custom property the keyframe reads. Adding a variant means adding a line.
+ */
+@layer utilities {
+  @keyframes enter {
+    from {
+      opacity: var(--tw-enter-opacity, 1);
+      transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)
+        scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), 1);
+    }
+  }
+
+  .animate-in {
+    animation-name: enter;
+    animation-duration: 150ms;
+    animation-fill-mode: both;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .fade-in,
+  .fade-in-0 {
+    --tw-enter-opacity: 0;
+  }
+  .fade-in-50 {
+    --tw-enter-opacity: 0.5;
+  }
+
+  .zoom-in-95 {
+    --tw-enter-scale: 0.95;
+  }
+
+  .slide-in-from-top-1 {
+    --tw-enter-translate-y: -0.25rem;
+  }
+  .slide-in-from-top-2 {
+    --tw-enter-translate-y: -0.5rem;
+  }
+  .slide-in-from-top-4 {
+    --tw-enter-translate-y: -1rem;
+  }
+  .slide-in-from-bottom-2 {
+    --tw-enter-translate-y: 0.5rem;
+  }
+  .slide-in-from-left-2 {
+    --tw-enter-translate-x: -0.5rem;
+  }
+  .slide-in-from-right-2 {
+    --tw-enter-translate-x: 0.5rem;
+  }
 }
 
 /* Custom Scrollbars */

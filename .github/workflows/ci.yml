@@ -78,6 +78,22 @@ jobs:
           # satisfy the guard while compiling, and is never served.
           NEXT_PUBLIC_API_BASE_URL: https://ci-build-placeholder.invalid
 
+      # Runs AFTER the build, because it reads that build's CSS output.
+      #
+      # Tailwind emits only the utilities it finds in the source, and globals.css
+      # contributes everything hand-written — so the compiled bundle is the
+      # complete set of classes that actually resolve, and a class used in the
+      # source but absent from it resolves to nothing.
+      #
+      # Three screens shipped that way. /kyc/[userId] rendered "CountryUAE" and
+      # "Last NameDoe" run together because `.info-row`, the flex row separating
+      # a label from its value, matched no rule at all. Every other gate was
+      # green throughout: a className is a string, so nothing type-checks it; an
+      # unmatched CSS rule is not an error; and component tests assert on text
+      # and roles, which is exactly what cannot see layout.
+      - name: CSS classes resolve
+        run: npm run check:css
+
       # PLATFORM-CONVENTIONS R-1.3 — the real drift guard.
       #
       # This step existed and had never once run. The script exited 0 when the

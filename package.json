@@ -17,7 +17,8 @@
     "check:twins": "./scripts/check-twins.sh",
     "test:coverage": "vitest run --coverage",
     "gen:api-types:contract": "openapi-typescript ../oxshare-crm-backend/openapi.json -o src/lib/api/types.gen.ts",
-    "check:api-types": "./scripts/check-api-types.sh"
+    "check:api-types": "./scripts/check-api-types.sh",
+    "check:css": "node scripts/check-css-classes.mjs"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.1",
