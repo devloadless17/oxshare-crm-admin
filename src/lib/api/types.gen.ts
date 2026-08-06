@@ -485,15 +485,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/wallet": {
+    "/v1/platforms": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** The signed-in client's wallets — balance, on_hold and available, all as strings */
-        get: operations["WalletController_myWallets"];
+        /**
+         * Download links for the trading terminal
+         * @description Always returns every platform the portal offers, in presentation order. A platform the operator has not configured has a null url — which the portal renders as "not available yet" rather than as a link that goes nowhere.
+         */
+        get: operations["PlatformsController_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -502,16 +505,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/wallet/ledger": {
+    "/v1/admin/platforms": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** The signed-in client's own ledger entries */
-        get: operations["WalletController_myLedger"];
+        /** Download links for every platform, configured or not */
+        get: operations["AdminPlatformLinksController_list"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/platforms/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set or clear one download link
+         * @description An empty url clears the link, and the portal then shows that platform as not available yet. Only https is accepted: this link is how a client obtains an executable.
+         */
+        put: operations["AdminPlatformLinksController_set"];
         post?: never;
         delete?: never;
         options?: never;
@@ -582,209 +605,6 @@ export interface paths {
          * @description PATCH, not PUT: the code is the primary key and is referenced by wallets, transactions and transfers, so it is not editable — a rename would be a data migration across four money tables. Everything else is optional and only supplied fields change.
          */
         patch: operations["AdminCurrenciesController_update"];
-        trace?: never;
-    };
-    "/v1/trading/ping": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health ping for trading module */
-        get: operations["TradingController_ping"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trading/accounts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The signed-in client's MT5 trading accounts — live and demo, in one list */
-        get: operations["TradingController_myAccounts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/partners/ping": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health ping for partners module */
-        get: operations["PartnersController_ping"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/payments/deposits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Declare an incoming deposit and get the reference to quote on the transfer
-         * @description Creates a PENDING deposit. No balance changes until the operator confirms the money arrived. The returned reference is what reconciles the payment to this request.
-         */
-        post: operations["PaymentsController_requestDeposit"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/payments/withdrawals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Request a withdrawal — requires KYC level 1; reserves the amount on hold */
-        post: operations["PaymentsController_requestWithdrawal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/payments/withdrawals/otp": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send a confirmation code for one specific withdrawal (FR-CORE-08)
-         * @description The code is bound to the exact amount, currency, destination and provider supplied here. Changing any of them before submitting makes the code invalid, which is what stops a code obtained for a small withdrawal from authorising a large one.
-         */
-        post: operations["PaymentsController_sendWithdrawalOtp"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/payments/transactions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The signed-in client's own transactions */
-        get: operations["PaymentsController_myTransactions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/payments/transfers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The signed-in client's own wallet <-> trading-account transfers */
-        get: operations["PaymentsController_myTransfers"];
-        put?: never;
-        /**
-         * Transfer between the wallet and a live trading account — requires KYC level 1
-         * @description wallet_to_account holds the amount immediately and debits it on settlement. account_to_wallet credits nothing until the bridge confirms MT5 was debited — the CRM never shows money it has not received. Demo accounts are refused.
-         */
-        post: operations["PaymentsController_requestTransfer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/platforms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Download links for the trading terminal
-         * @description Always returns every platform the portal offers, in presentation order. A platform the operator has not configured has a null url — which the portal renders as "not available yet" rather than as a link that goes nowhere.
-         */
-        get: operations["PlatformsController_list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/platforms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Download links for every platform, configured or not */
-        get: operations["AdminPlatformLinksController_list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/platforms/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set or clear one download link
-         * @description An empty url clears the link, and the portal then shows that platform as not available yet. Only https is accepted: this link is how a client obtains an executable.
-         */
-        put: operations["AdminPlatformLinksController_set"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/v1/kyc/config": {
@@ -1511,166 +1331,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/withdrawals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Withdrawal requests with per-state counts (amounts are strings) */
-        get: operations["AdminMoneyController_listWithdrawals"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/withdrawals/{id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Approve a pending withdrawal — funds stay on hold until settlement */
-        patch: operations["AdminMoneyController_approveWithdrawal"];
-        trace?: never;
-    };
-    "/v1/admin/withdrawals/{id}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Reject a pending withdrawal — releases the hold, emails the client */
-        patch: operations["AdminMoneyController_rejectWithdrawal"];
-        trace?: never;
-    };
-    "/v1/admin/withdrawals/{id}/settle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Mark an approved withdrawal paid — posts the debit and clears the hold
-         * @description Requires `withdrawals.settle`, which is separate from `withdrawals.approve` so the two steps can be granted to different people (separation of duties, R-5.4).
-         */
-        patch: operations["AdminMoneyController_settleWithdrawal"];
-        trace?: never;
-    };
-    "/v1/admin/reconciliation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Run reconciliation now and return the report (§12.2)
-         * @description The same check the hourly job runs: every wallet balance against the sum of its own ledger, and every confirmed accrual against the entry that should have credited it. Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed.
-         */
-        get: operations["AdminMoneyController_reconcile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/ledger": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Append-only ledger, filterable for reconciliation */
-        get: operations["AdminMoneyController_listLedger"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/commission-plans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** IB programs / commission plans, ordered by ladder position */
-        get: operations["AdminMoneyController_listPrograms"];
-        put?: never;
-        /** Create a commission plan (validated: shares ≤ 100%, mode/value coherence) */
-        post: operations["AdminMoneyController_createProgram"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/commission-plans/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update a commission plan — audited with before/after values */
-        put: operations["AdminMoneyController_updateProgram"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/commission-plans/{id}/active": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Activate or deactivate a plan — plans are never deleted, accruals reference them */
-        patch: operations["AdminMoneyController_setProgramActive"];
-        trace?: never;
-    };
     "/v1/admin/permissions": {
         parameters: {
             query?: never;
@@ -2082,53 +1742,29 @@ export interface components {
              */
             avatarUrl?: string | null;
         };
-        WalletDto: {
-            id: string;
-            userId: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
+        PlatformLinkDto: {
             /**
-             * @description Decimal string (§6.1).
-             * @example 700.00000000
+             * @example desktop
+             * @enum {string}
              */
-            balance: string;
+            key: "desktop" | "ios" | "android";
             /**
-             * @description Reserved against pending withdrawals.
-             * @example 0.00000000
+             * @description Null when the operator has not configured this platform yet.
+             * @example https://downloads.oxshare.com/OXShare-Terminal.dmg
              */
-            onHold: string;
+            url?: string | null;
             /**
-             * @description balance − onHold, computed server-side so both sides agree.
-             * @example 700.00000000
+             * Format: date-time
+             * @description When an admin last changed it. Null while unconfigured.
              */
-            available: string;
-            /** Format: date-time */
-            createdAt: string;
+            updatedAt?: string | null;
         };
-        LedgerEntryDto: {
-            id: string;
-            walletId: string;
-            userId: string;
-            /** @description Signed monetary value as a string */
-            amount: string;
-            /** @description Running balance after this entry, as a string */
-            balanceAfter: string;
-            /** @enum {string} */
-            entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment";
-            referenceType: string;
-            referenceId: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
-            /** Format: date-time */
-            createdAt: string;
-        };
-        LedgerListResponseDto: {
-            items: components["schemas"]["LedgerEntryDto"][];
-            nextCursor: string | null;
-            /** @description Total matching entries, ignoring pagination. */
-            total: number;
-            page: number;
-            limit: number;
+        SetPlatformLinkDto: {
+            /**
+             * @description The https URL, or an empty string to clear it.
+             * @example https://downloads.oxshare.com/OXShare-Terminal.dmg
+             */
+            url?: string;
         };
         CurrencyDto: {
             /** @example USD */
@@ -2177,193 +1813,6 @@ export interface components {
             enabled?: boolean;
             sortOrder?: number;
             isDefault?: boolean;
-        };
-        TradingAccountDto: {
-            id: string;
-            /**
-             * @description The MT5 login. A string, not a number — it is an identifier that happens to be digits, and leading zeros are significant to the bridge.
-             * @example 5001234
-             */
-            mt5Login: string;
-            /**
-             * @description The MT5 group this account sits in. Null until the bridge reports one.
-             * @example real\Standard
-             */
-            mt5Group: string | null;
-            /**
-             * @description Whether this is real money or a practice account. The client-facing distinction that matters most on this screen: a demo account must never be mistaken for a live one.
-             * @enum {string}
-             */
-            environment: "live" | "demo";
-            /** @example Standard */
-            tier: string | null;
-            /**
-             * @description The 1:N in 1:500.
-             * @example 500
-             */
-            leverage: number | null;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        RequestDepositDto: {
-            /** @example 500.00000000 */
-            amount: string;
-            /**
-             * @description Must be an enabled currency — see GET /currencies.
-             * @example USD
-             */
-            currency: string;
-            /**
-             * @description How the client is sending the money. Decides which instructions they are shown.
-             * @enum {string}
-             */
-            method: "bank_transfer" | "usdt_trc20";
-            /** @description A live trading account of the caller, to fund once the deposit is confirmed. */
-            destinationTradingAccountId?: string;
-        };
-        DepositRequestDto: {
-            /** @description The transaction id. Also shown on /transactions. */
-            id: string;
-            /**
-             * @description Quote this on the transfer. It is what reconciles the payment to this request.
-             * @example OX-7F3A21
-             */
-            reference: string;
-            /** @example 500.00000000 */
-            amount: string;
-            /** @example USD */
-            currency: string;
-            /** @enum {string} */
-            method: "bank_transfer" | "usdt_trc20";
-            /**
-             * @description Always `pending`. Nothing is credited until the operator confirms receipt.
-             * @example pending
-             */
-            state: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        RequestWithdrawalDto: {
-            /** @example 300.00000000 */
-            amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
-            /** @description Payout target, e.g. an IBAN or a USDT address. */
-            destination: string;
-            /** @enum {string} */
-            provider: "whish" | "usdt";
-            /**
-             * @description Six-digit confirmation code. Required while the withdrawal OTP control is on.
-             * @example 482913
-             */
-            otp?: string;
-        };
-        TransactionDto: {
-            id: string;
-            userId: string;
-            walletId: string;
-            /** @enum {string} */
-            direction: "deposit" | "withdrawal";
-            /**
-             * @description Decimal string (§6.1).
-             * @example 300.00000000
-             */
-            amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
-            /** @enum {string} */
-            state: "pending" | "approved" | "rejected" | "success" | "failed";
-            /** @enum {string} */
-            provider?: "whish" | "usdt";
-            /** @description The provider's own reference. Backs UNIQUE(provider, provider_ref), which is what makes settlement idempotent in the database (§6.3). */
-            providerRef?: string | null;
-            destination?: string | null;
-            rejectionReason?: string | null;
-            reviewedBy?: string | null;
-            /** Format: date-time */
-            reviewedAt?: string | null;
-            /** Format: date-time */
-            settledAt?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        RequestWithdrawalOtpDto: {
-            /** @example 300.00000000 */
-            amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
-            /** @description Payout target, e.g. an IBAN or a USDT address. */
-            destination: string;
-            /** @enum {string} */
-            provider: "whish" | "usdt";
-        };
-        WithdrawalOtpResponseDto: {
-            /** @example A confirmation code has been sent to your email address. */
-            message: string;
-            /** @description False when the operator has the withdrawal-OTP control switched off; the withdrawal may then be submitted without a code. */
-            required: boolean;
-        };
-        RequestTransferDto: {
-            /** @description A live trading account belonging to the caller. */
-            tradingAccountId: string;
-            /** @enum {string} */
-            direction: "wallet_to_account" | "account_to_wallet";
-            /**
-             * @description Decimal string, up to 8 places.
-             * @example 250.00
-             */
-            amount: string;
-            /** @example USD */
-            currency: string;
-        };
-        TransferDto: {
-            id: string;
-            userId: string;
-            walletId: string;
-            tradingAccountId: string;
-            /** @enum {string} */
-            direction: "wallet_to_account" | "account_to_wallet";
-            /**
-             * @description Decimal string (§6.1).
-             * @example 250.00000000
-             */
-            amount: string;
-            /** @example USD */
-            currency: string;
-            /**
-             * @description pending until the MT5 bridge confirms. A wallet_to_account transfer holds the amount while pending; an account_to_wallet one credits nothing until it settles.
-             * @enum {string}
-             */
-            state: "pending" | "settled" | "failed";
-            failureReason?: string | null;
-            /** Format: date-time */
-            settledAt?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        PlatformLinkDto: {
-            /**
-             * @example desktop
-             * @enum {string}
-             */
-            key: "desktop" | "ios" | "android";
-            /**
-             * @description Null when the operator has not configured this platform yet.
-             * @example https://downloads.oxshare.com/OXShare-Terminal.dmg
-             */
-            url?: string | null;
-            /**
-             * Format: date-time
-             * @description When an admin last changed it. Null while unconfigured.
-             */
-            updatedAt?: string | null;
-        };
-        SetPlatformLinkDto: {
-            /**
-             * @description The https URL, or an empty string to clear it.
-             * @example https://downloads.oxshare.com/OXShare-Terminal.dmg
-             */
-            url?: string;
         };
         KycFieldConfigDto: {
             /** @example f-1 */
@@ -2910,118 +2359,6 @@ export interface components {
         };
         KycConfigDto: {
             steps: components["schemas"]["KycStepDto"][];
-        };
-        WithdrawalUserDto: {
-            id: string;
-            email: string;
-            firstName: string;
-            lastName: string;
-        };
-        WithdrawalRowDto: {
-            id: string;
-            /** @description Monetary value — always a string, never a number */
-            amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
-            /** @enum {string} */
-            state: "pending" | "approved" | "success" | "failure" | "rejected";
-            provider: string;
-            providerRef?: string | null;
-            destination?: string | null;
-            rejectionReason?: string | null;
-            /** Format: date-time */
-            requestedAt: string;
-            /** Format: date-time */
-            reviewedAt?: string | null;
-            /** Format: date-time */
-            settledAt?: string | null;
-            user: components["schemas"]["WithdrawalUserDto"];
-        };
-        WithdrawalListResponseDto: {
-            items: components["schemas"]["WithdrawalRowDto"][];
-            nextCursor: string | null;
-            total: number;
-            page: number;
-            limit: number;
-            counts: {
-                [key: string]: number;
-            };
-        };
-        WithdrawalRejectDto: {
-            /** @description Free-text reason, when not using a configured reasonId. */
-            reason?: string;
-            /** @description Id of a configured rejection reason. */
-            reasonId?: string;
-        };
-        SettleWithdrawalDto: {
-            /** @example wise-tx-9f3a1c */
-            providerRef: string;
-        };
-        IbProgramDto: {
-            id: string;
-            name: string;
-            description?: string | null;
-            position: number;
-            /** @enum {string} */
-            mode: "commission" | "rebate" | "hybrid";
-            /** @enum {string} */
-            method: "spread_share" | "per_lot" | "fixed_per_deal";
-            /** @description Percentage or money depending on method — always a string */
-            commissionValue: string;
-            /** @description Client rebate value — always a string */
-            rebateValue: string;
-            /** @description L1 share of the commission pool, percent as a string */
-            l1Share: string;
-            /** @description L2 share of the commission pool, percent as a string */
-            l2Share: string;
-            /** @description Hours accruals wait before confirming (§12.6) */
-            settlementWindowHours: number;
-            /** @description Credit the client rebate on deal close instead of after the window (§12.8) */
-            rebateOnClose: boolean;
-            selectable: boolean;
-            active: boolean;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        ProgramDto: {
-            /** @example Standard IB */
-            name: string;
-            description?: string;
-            /** @description Display order in the plan list. */
-            position?: number;
-            /** @enum {string} */
-            mode: "commission" | "rebate" | "hybrid";
-            /** @enum {string} */
-            method: "spread_share" | "per_lot" | "fixed_per_deal";
-            /**
-             * @description Money/percent as a decimal string (§6.1) — never a number.
-             * @example 12.50000000
-             */
-            commissionValue: string;
-            /** @example 2.00000000 */
-            rebateValue?: string;
-            /**
-             * @description Level-1 IB share, percent as a decimal string.
-             * @example 70.00000000
-             */
-            l1Share: string;
-            /**
-             * @description Level-2 IB share. Resolution stops at L2 — there is no L3.
-             * @example 30.00000000
-             */
-            l2Share: string;
-            /** @description Hours an accrual is held before it can be confirmed. */
-            settlementWindowHours?: number;
-            /** @description Pay the rebate on position close rather than on open. */
-            rebateOnClose?: boolean;
-            /** @description Offer this plan to IBs for self-selection. */
-            selectable?: boolean;
-            active?: boolean;
-        };
-        ProgramActiveDto: {
-            active: boolean;
         };
         PermissionItemDto: {
             key: string;
@@ -3868,7 +3205,7 @@ export interface operations {
             };
         };
     };
-    WalletController_myWallets: {
+    PlatformsController_list: {
         parameters: {
             query?: never;
             header?: never;
@@ -3882,18 +3219,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["WalletDto"][];
+                    "application/json": components["schemas"]["PlatformLinkDto"][];
                 };
             };
         };
     };
-    WalletController_myLedger: {
+    AdminPlatformLinksController_list: {
         parameters: {
-            query: {
-                entryType: string;
-                limit: string;
-                cursor: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -3905,7 +3238,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LedgerListResponseDto"];
+                    "application/json": components["schemas"]["PlatformLinkDto"][];
+                };
+            };
+        };
+    };
+    AdminPlatformLinksController_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPlatformLinkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformLinkDto"];
                 };
             };
         };
@@ -4011,261 +3369,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurrencyDto"];
-                };
-            };
-        };
-    };
-    TradingController_ping: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    TradingController_myAccounts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TradingAccountDto"][];
-                };
-            };
-        };
-    };
-    PartnersController_ping: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    PaymentsController_requestDeposit: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value per intended deposit, reused only when retrying that same one. Without it a double-clicked button files two declarations for one transfer, and the operator reconciling the bank statement has to guess which is real (R-5.2). */
-                "idempotency-key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RequestDepositDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DepositRequestDto"];
-                };
-            };
-        };
-    };
-    PaymentsController_requestWithdrawal: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value per intended withdrawal, reused only when retrying that same one. Without it a double-clicked button creates two withdrawals and places two holds (PLATFORM-CONVENTIONS R-5.2). */
-                "idempotency-key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RequestWithdrawalDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TransactionDto"];
-                };
-            };
-        };
-    };
-    PaymentsController_sendWithdrawalOtp: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RequestWithdrawalOtpDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WithdrawalOtpResponseDto"];
-                };
-            };
-        };
-    };
-    PaymentsController_myTransactions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TransactionDto"][];
-                };
-            };
-        };
-    };
-    PaymentsController_myTransfers: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TransferDto"][];
-                };
-            };
-        };
-    };
-    PaymentsController_requestTransfer: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value per intended transfer, reused only when retrying that same one. */
-                "idempotency-key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RequestTransferDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TransferDto"];
-                };
-            };
-        };
-    };
-    PlatformsController_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformLinkDto"][];
-                };
-            };
-        };
-    };
-    AdminPlatformLinksController_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformLinkDto"][];
-                };
-            };
-        };
-    };
-    AdminPlatformLinksController_set: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetPlatformLinkDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformLinkDto"];
                 };
             };
         };
@@ -5328,245 +4431,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    AdminMoneyController_listWithdrawals: {
-        parameters: {
-            query: {
-                state: string;
-                page: string;
-                limit: string;
-                cursor: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WithdrawalListResponseDto"];
-                };
-            };
-        };
-    };
-    AdminMoneyController_approveWithdrawal: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value per intended action, reused only when retrying that same one. The state guards below make a REPLAYED CAUSE a no-op; this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
-                "idempotency-key": string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WithdrawalRowDto"];
-                };
-            };
-        };
-    };
-    AdminMoneyController_rejectWithdrawal: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value per intended action, reused only when retrying that same one. The state guards below make a REPLAYED CAUSE a no-op; this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
-                "idempotency-key": string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WithdrawalRejectDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WithdrawalRowDto"];
-                };
-            };
-        };
-    };
-    AdminMoneyController_settleWithdrawal: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value per intended action, reused only when retrying that same one. The state guards below make a REPLAYED CAUSE a no-op; this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
-                "idempotency-key": string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SettleWithdrawalDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WithdrawalRowDto"];
-                };
-            };
-        };
-    };
-    AdminMoneyController_reconcile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AdminMoneyController_listLedger: {
-        parameters: {
-            query: {
-                userId: string;
-                walletId: string;
-                entryType: string;
-                page: string;
-                limit: string;
-                cursor: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LedgerListResponseDto"];
-                };
-            };
-        };
-    };
-    AdminMoneyController_listPrograms: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbProgramDto"][];
-                };
-            };
-        };
-    };
-    AdminMoneyController_createProgram: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProgramDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbProgramDto"];
-                };
-            };
-        };
-    };
-    AdminMoneyController_updateProgram: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProgramDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbProgramDto"];
-                };
-            };
-        };
-    };
-    AdminMoneyController_setProgramActive: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProgramActiveDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbProgramDto"];
-                };
             };
         };
     };

@@ -76,11 +76,6 @@ export function clientListSearchParams(params: ClientListParams): URLSearchParam
 export type AuditEntry = components['schemas']['AuditEntryDto'];
 export type AuditListResponse = components['schemas']['AuditListResponseDto'];
 export type AuditAction = components['schemas']['AuditActionDto'];
-export type WithdrawalRow = components['schemas']['WithdrawalRowDto'];
-export type WithdrawalListResponse = components['schemas']['WithdrawalListResponseDto'];
-export type LedgerEntry = components['schemas']['LedgerEntryDto'];
-export type LedgerListResponse = components['schemas']['LedgerListResponseDto'];
-export type IbProgram = components['schemas']['IbProgramDto'];
 
 // Request bodies, aliased too. These were hand-written until the backend moved
 // its inline controller DTOs into dto/ files with @ApiProperty — before that they

@@ -25,14 +25,10 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/kyc/builder', requirement: { permission: 'kyc.edit' } }, // edits the KYC config itself
   { prefix: '/kyc', requirement: { permission: 'kyc.review' } },
   { prefix: '/clients', requirement: { permission: 'users.view' } },
-  { prefix: '/partners', requirement: { permission: 'partners.view' } },
-  { prefix: '/withdrawals', requirement: { permission: 'withdrawals.view' } },
   // `/trading-accounts` and `/payouts` were listed here with no `page.tsx`
   // behind either. Removed with their sidebar entries: `canAccess` denies an
   // unlisted path (see the `!match` branch below), which is the correct answer
   // for a route that does not exist. Re-add both when the pages are built.
-  { prefix: '/ledger', requirement: { permission: 'ledger.view' } },
-  { prefix: '/commission-plans', requirement: { permission: 'commissions.view' } },
   { prefix: '/roles', requirement: { permission: 'roles.view' } },
   /*
    * `tags.view` OR `users.view` would be the honest requirement — anyone who
@@ -43,6 +39,13 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * the same endpoint, which grants on either key.
    */
   { prefix: '/tags', requirement: { permission: 'tags.view' } },
+  /*
+   * `settings.view`, matching `AdminCurrenciesController`. This entry was
+   * MISSING while the page shipped, so /currencies fell through to the '/'
+   * catch-all and rendered for any authenticated admin — the API still refused
+   * their writes, but the screen should not have drawn for them at all.
+   */
+  { prefix: '/currencies', requirement: { permission: 'settings.view' } },
   // roles.MANAGE, not roles.view. /settings is now the RBAC-08 network allowlist
   // and the security controls; when both were the "Network" tab they were shown
   // only to an admin holding roles.manage, so requiring roles.view here would

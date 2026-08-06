@@ -25,7 +25,11 @@ import { activeNavHref, AdminLayout } from './admin-layout';
 const { useAdmin } = vi.hoisted(() => ({ useAdmin: vi.fn() }));
 
 vi.mock('@/context/AdminAuthContext', () => ({ useAdmin }));
-vi.mock('next/navigation', () => ({ usePathname: () => '/withdrawals' }));
+// `/currencies` requires `settings.view`, so a master admin reaches it and a
+// sub-admin holding only kyc/users keys does not — which is what the
+// deny-the-body assertion below needs. It was `/withdrawals` until that
+// route left with the money teardown.
+vi.mock('next/navigation', () => ({ usePathname: () => '/currencies' }));
 
 const MASTER = {
   id: 'a1',
@@ -100,7 +104,7 @@ describe('AdminLayout — nothing is shown until we know who is asking', () => {
 
     // The regression: this used to show the whole master-admin nav to everyone
     // for the duration of the identity request.
-    expect(screen.queryByText('Withdrawals')).not.toBeInTheDocument();
+    expect(screen.queryByText('Currencies')).not.toBeInTheDocument();
     expect(screen.queryByText('Audit Log')).not.toBeInTheDocument();
     expect(screen.queryByText('Clients')).not.toBeInTheDocument();
   });
@@ -128,7 +132,7 @@ describe('AdminLayout — nothing is shown until we know who is asking', () => {
       </AdminLayout>,
     );
 
-    expect(screen.getByText('Withdrawals')).toBeInTheDocument();
+    expect(screen.getByText('Currencies')).toBeInTheDocument();
     expect(screen.getByText('Audit Log')).toBeInTheDocument();
     expect(screen.getByText('page body')).toBeInTheDocument();
   });
@@ -145,9 +149,9 @@ describe('AdminLayout — nothing is shown until we know who is asking', () => {
     expect(screen.getByText('KYC Review')).toBeInTheDocument();
     // /audit-log is master-only; /withdrawals needs withdrawals.view.
     expect(screen.queryByText('Audit Log')).not.toBeInTheDocument();
-    expect(screen.queryByText('Withdrawals')).not.toBeInTheDocument();
+    expect(screen.queryByText('Currencies')).not.toBeInTheDocument();
 
-    // usePathname is /withdrawals, which this admin cannot access.
+    // usePathname is /currencies, which this admin cannot access.
     expect(screen.queryByText('page body')).not.toBeInTheDocument();
     expect(screen.getByText('Access denied')).toBeInTheDocument();
   });

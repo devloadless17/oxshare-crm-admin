@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight, Building2, ChevronRight, FileCheck, Loader2, Users } from 'lucide-react';
+import { ChevronRight, FileCheck, Loader2, Users } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import api from '@/lib/api';
 import type { KycListResponse } from '@/lib/api/admin';
@@ -39,22 +39,6 @@ export default function AdminDashboardPage() {
       live: false,
       value: null,
       sub: 'Needs GET /admin/clients',
-    },
-    {
-      label: t('adminDashboard.activePartners'),
-      icon: Building2,
-      href: '/partners',
-      live: false,
-      value: null,
-      sub: 'Needs GET /admin/partners',
-    },
-    {
-      label: t('adminDashboard.pendingWithdrawals'),
-      icon: ArrowUpRight,
-      href: '/withdrawals',
-      live: false,
-      value: null,
-      sub: 'Needs GET /admin/withdrawals',
     },
   ];
 

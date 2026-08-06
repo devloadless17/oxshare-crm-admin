@@ -8,12 +8,8 @@ import {
   LayoutDashboard,
   Users,
   UserCog,
-  Building2,
-  ArrowUpRight,
   FileCheck,
   Coins,
-  Percent,
-  Receipt,
   ClipboardList,
   ShieldCheck,
   Lock,
@@ -98,8 +94,9 @@ export function activeNavHref(pathname: string | null, hrefs: string[]): string 
  *                  belong here rather than in an admin bucket: both are read as
  *                  properties OF a client, and an operator looking for either
  *                  starts from the client list.
- *   Finance      — money. Withdrawals, the ledger, what the platform pays out
- *                  (commission plans) and what it can hold (currencies). A
+ *   Finance      — what the platform can hold. Withdrawals, the ledger and
+ *                  commission plans left with the money teardown, so this is
+ *                  currencies alone until deposits and withdrawals return. A
  *                  currency is not presentation config; disabling one stops
  *                  wallets opening in it across the whole product.
  *   Administration — the console configuring ITSELF. Who may sign in, what they
@@ -119,7 +116,6 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'nav.section.clients',
     items: [
       { label: 'nav.clients', href: '/clients', icon: Users },
-      { label: 'nav.partners', href: '/partners', icon: Building2 },
       { label: 'nav.kyc', href: '/kyc', icon: FileCheck },
       { label: 'nav.kycBuilder', href: '/kyc/builder', icon: ClipboardList },
       // ADM-14. A tag decides which admins can SEE a client, so it is a
@@ -129,12 +125,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     title: 'nav.section.finance',
-    items: [
-      { label: 'nav.withdrawals', href: '/withdrawals', icon: ArrowUpRight },
-      { label: 'nav.ledger', href: '/ledger', icon: Receipt },
-      { label: 'nav.commissionPlans', href: '/commission-plans', icon: Percent },
-      { label: 'nav.currencies', href: '/currencies', icon: Coins },
-    ],
+    items: [{ label: 'nav.currencies', href: '/currencies', icon: Coins }],
   },
   {
     title: 'nav.section.administration',

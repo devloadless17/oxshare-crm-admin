@@ -36,7 +36,7 @@ describe('hasPermission', () => {
 
   it('grants only explicitly held permissions', () => {
     expect(hasPermission(subAdmin, 'kyc.review')).toBe(true);
-    expect(hasPermission(subAdmin, 'withdrawals.view')).toBe(false);
+    expect(hasPermission(subAdmin, 'ib.view')).toBe(false);
   });
 
   it('matches regardless of case (guard parity)', () => {
@@ -86,7 +86,7 @@ describe('canAccess', () => {
       '/kyc/builder',
       '/settings',
       '/invite',
-      '/withdrawals',
+      '/currencies',
       '/audit-log',
     ]) {
       expect(canAccess(master, path)).toBe(true);
@@ -187,16 +187,13 @@ describe('assertPermissionKeysExist', () => {
     'users.suspend',
     'roles.view',
     'roles.manage',
-    'trading.view',
-    'withdrawals.view',
-    'withdrawals.approve',
-    'partners.view',
-    'partners.manage',
-    'payouts.view',
-    'payouts.review',
-    'ledger.view',
-    'commissions.view',
-    'commissions.manage',
+    'settings.view',
+    // The IB module replaced trading/withdrawals/partners/payouts/ledger/
+    // commissions when the money and commission surface was torn out.
+    'ib.view',
+    'ib.manage',
+    'ib.approve',
+    'ib.reject',
     // ADM-14. Added here the moment `/tags` gained a route requirement — a key
     // referenced by the route table and absent from the catalog is a
     // permanently unreachable page, which is the exact drift
@@ -209,8 +206,8 @@ describe('assertPermissionKeysExist', () => {
   });
 
   it('names the keys the backend does not define', () => {
-    const orphans = assertPermissionKeysExist(CATALOG.filter((k) => k !== 'ledger.view'));
-    expect(orphans).toEqual(['ledger.view']);
+    const orphans = assertPermissionKeysExist(CATALOG.filter((k) => k !== 'settings.view'));
+    expect(orphans).toEqual(['settings.view']);
   });
 
   it('folds case on catalog keys, the same way the guard does', () => {
