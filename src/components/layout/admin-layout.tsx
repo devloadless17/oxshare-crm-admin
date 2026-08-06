@@ -283,6 +283,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                       href={item.href}
                       onClick={closeMobile}
                       title={collapsed ? t(item.label) : undefined}
+                      /*
+                       * Which page you are on, said rather than only shown.
+                       *
+                       * Active state was carried entirely by colour and font
+                       * weight, so a screen reader announced eleven identical
+                       * links and anyone who cannot separate those two colours
+                       * got nothing either. `aria-current="page"` is the one
+                       * thing assistive technology actually reads here, and it
+                       * costs an attribute.
+                       */
+                      aria-current={isActive ? 'page' : undefined}
                       className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium focus-outline ${
                         isActive
                           ? 'bg-primary/10 font-semibold text-link'

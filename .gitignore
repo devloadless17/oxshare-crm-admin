@@ -43,3 +43,8 @@ next-env.d.ts
 # Claude Code: the shared harness (.claude/settings.json + hooks) IS committed,
 # so the same gates run on every machine. Personal overrides are not.
 .claude/settings.local.json
+
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/e2e/.auth/
