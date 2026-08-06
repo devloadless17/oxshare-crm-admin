@@ -26,9 +26,11 @@ import {
   Activity,
   Loader2,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { UserMenu } from './user-menu';
 import { useAdmin } from '@/context/AdminAuthContext';
-import { canAccess } from '@/lib/permissions';
+import api from '@/lib/api';
+import { canAccess, hasPermission } from '@/lib/permissions';
 import { t, type MessageKey } from '@/lib/i18n';
 
 interface NavItem {
@@ -186,6 +188,55 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
+  /*
+   * How many partner applications are waiting, for the badge on that nav item.
+   *
+   * `useQuery` directly rather than `useResource`: this is a NUMBER on a nav
+   * item, and the 4-state Resource exists so a screen can distinguish loading
+   * from unavailable from error. None of those have a rendering here — a badge
+   * that cannot be counted is a badge that is not drawn, which is what
+   * `undefined` already means to `NavItem.badge`.
+   *
+   * Gated on `ib.view` so a restricted admin does not fire a request that will
+   * 403 on every page load. Refetched on an interval rather than on focus: a
+   * queue count going stale by a minute costs nothing, and this runs behind
+   * every screen in the console.
+   */
+  const canSeeApprovals = hasPermission(admin, 'ib.view');
+  const pendingApplications = useQuery({
+    queryKey: ['admin', 'ib-applications', 'pending-count'],
+    queryFn: () => api.admin.getIbApplications({ status: 'pending', limit: 1 }),
+    enabled: canSeeApprovals,
+    refetchInterval: 60_000,
+    // A failed count must not surface as an error anywhere — the nav simply
+    // shows no badge, which is the same as none pending.
+    retry: false,
+  });
+  const pendingCount = pendingApplications.data?.counts.pending ?? 0;
+
+  /**
+   * The nav, with live values applied.
+   *
+   * `NAV_SECTIONS` is a module constant so it can be flattened for
+   * `activeNavHref` without re-deriving it per render — and a badge is not a
+   * property of the route, it is a property of right now. This is where the two
+   * meet. The KYC nav badge in the portal records what happens otherwise: it
+   * was baked into the constant, evaluated once at import, and told an approved
+   * client their verification was "Required" forever.
+   */
+  const sections = React.useMemo(
+    () =>
+      NAV_SECTIONS.map((section) => ({
+        ...section,
+        items: section.items.map((item) =>
+          item.href === '/approvals/ib' && pendingCount > 0
+            ? { ...item, badge: pendingCount }
+            : item,
+        ),
+      })),
+    [pendingCount],
+  );
+
   // Sign-out and its failure message moved into `UserMenu` with the rest of the
   // account controls, which is why none of that state lives here any more.
 
@@ -269,7 +320,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
         {/* Sidebar Navigation — items filtered by the admin's permissions (RBAC-03 nav half) */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-          {NAV_SECTIONS.map((section) => {
+          {sections.map((section) => {
             /*
              * Nothing is shown until we know who is asking.
              *
