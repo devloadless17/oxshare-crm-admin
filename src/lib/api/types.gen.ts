@@ -449,6 +449,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload or replace your profile photo (JPEG, PNG or WebP, max 2MB) */
+        post: operations["AuthController_uploadAvatar[0]"];
+        /** Remove your profile photo */
+        delete: operations["AuthController_removeAvatar[0]"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/identity/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload or replace your profile photo (JPEG, PNG or WebP, max 2MB) */
+        post: operations["AuthController_uploadAvatar[1]"];
+        /** Remove your profile photo */
+        delete: operations["AuthController_removeAvatar[1]"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/trading/ping": {
         parameters: {
             query?: never;
@@ -744,6 +780,23 @@ export interface paths {
         put?: never;
         /** Reset KYC submission for current user */
         post: operations["KycController_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/uploads/avatars/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Serve a client's own profile photo */
+        get: operations["UploadsController_serveAvatar"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1644,6 +1697,11 @@ export interface components {
             phone?: string;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * @description Path to the profile photo, or null when there is none. The portal renders initials for null rather than a placeholder image or a gravatar - an invented image URL would be a request to a third party leaking the client's e-mail hash.
+             * @example /uploads/avatars/6f1c2b9e-....png
+             */
+            avatarUrl?: string | null;
         };
         AuthTokensResponseDto: {
             user: components["schemas"]["UserProfileDto"];
@@ -1686,6 +1744,13 @@ export interface components {
             ip?: string | null;
             /** @description True for the session making this request. Resolved from the refresh cookie, not the access token. */
             current: boolean;
+        };
+        AvatarResponseDto: {
+            /**
+             * @description Path to the stored photo, or null when there is none. Composed from the stored filename, so the section 8.5 move to private object storage changes this line and no rows.
+             * @example /uploads/avatars/6f1c...c2.png
+             */
+            avatarUrl?: string | null;
         };
         WalletDto: {
             id: string;
@@ -3028,6 +3093,82 @@ export interface operations {
             };
         };
     };
+    "AuthController_uploadAvatar[0]": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvatarResponseDto"];
+                };
+            };
+        };
+    };
+    "AuthController_removeAvatar[0]": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvatarResponseDto"];
+                };
+            };
+        };
+    };
+    "AuthController_uploadAvatar[1]": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvatarResponseDto"];
+                };
+            };
+        };
+    };
+    "AuthController_removeAvatar[1]": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvatarResponseDto"];
+                };
+            };
+        };
+    };
     TradingController_ping: {
         parameters: {
             query?: never;
@@ -3373,6 +3514,25 @@ export interface operations {
         requestBody?: never;
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UploadsController_serveAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
