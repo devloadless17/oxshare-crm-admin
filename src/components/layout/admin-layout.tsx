@@ -10,6 +10,7 @@ import {
   UserCog,
   FileCheck,
   Coins,
+  Layers,
   ClipboardList,
   ShieldCheck,
   Lock,
@@ -122,6 +123,10 @@ const NAV_SECTIONS: NavSection[] = [
       // property of the client rather than a console-level object.
       { label: 'nav.tags', href: '/tags', icon: Tags },
     ],
+  },
+  {
+    title: 'nav.section.partners',
+    items: [{ label: 'nav.ibLevels', href: '/ib-levels', icon: Layers }],
   },
   {
     title: 'nav.section.finance',

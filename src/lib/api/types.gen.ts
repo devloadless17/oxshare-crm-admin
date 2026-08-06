@@ -607,6 +607,54 @@ export interface paths {
         patch: operations["AdminCurrenciesController_update"];
         trace?: never;
     };
+    "/v1/admin/ib-levels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The payout ladder, shallowest level first
+         * @description Includes disabled levels — managing them is the point of the screen. The number of ENABLED levels is the depth of the payout chain.
+         */
+        get: operations["AdminIbLevelsController_list"];
+        put?: never;
+        /**
+         * Add a level to the ladder
+         * @description The level number is chosen, not auto-assigned. Under revenue_share the enabled levels must total at most 100% — the refusal names the current total and the room left.
+         */
+        post: operations["AdminIbLevelsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ib-levels/{level}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a level
+         * @description Refuses to empty the ladder: a platform with no levels can approve no partners. Once partner records exist this will also refuse a level anybody is placed at.
+         */
+        delete: operations["AdminIbLevelsController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a level
+         * @description PATCH, and `level` itself is not editable: it is the primary key and partner records reference it, so renumbering is a data migration rather than an edit.
+         */
+        patch: operations["AdminIbLevelsController_update"];
+        trace?: never;
+    };
     "/v1/kyc/config": {
         parameters: {
             query?: never;
@@ -1813,6 +1861,60 @@ export interface components {
             enabled?: boolean;
             sortOrder?: number;
             isDefault?: boolean;
+        };
+        IbLevelDto: {
+            /**
+             * @description 1 is closest to the broker; higher sits further down.
+             * @example 1
+             */
+            level: number;
+            /** @example Master Partner */
+            name: string;
+            /** @enum {string} */
+            payoutModel: "revenue_share" | "per_lot";
+            /**
+             * @description A percentage of the pool under revenue_share, an amount per lot under per_lot. A decimal string, never a number (§6.1).
+             * @example 70.0000
+             */
+            rateValue: string;
+            /**
+             * @description How many partners this level may recruit directly. Null means unlimited.
+             * @example null
+             */
+            maxDirectPartners: number | null;
+            /** @description A disabled level takes no share and accepts no new partners. */
+            enabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateIbLevelDto: {
+            /** @example 3 */
+            level: number;
+            /** @example Sub Partner */
+            name: string;
+            /**
+             * @default revenue_share
+             * @enum {string}
+             */
+            payoutModel: "revenue_share" | "per_lot";
+            /** @example 30.0000 */
+            rateValue: string;
+            /** @description Omit or send null for unlimited. */
+            maxDirectPartners?: number | null;
+            /** @default true */
+            enabled: boolean;
+        };
+        UpdateIbLevelDto: {
+            /** @example Sub Partner */
+            name?: string;
+            /** @enum {string} */
+            payoutModel?: "revenue_share" | "per_lot";
+            /** @example 30.0000 */
+            rateValue?: string;
+            maxDirectPartners?: number | null;
+            enabled?: boolean;
         };
         KycFieldConfigDto: {
             /** @example f-1 */
@@ -3369,6 +3471,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurrencyDto"];
+                };
+            };
+        };
+    };
+    AdminIbLevelsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbLevelDto"][];
+                };
+            };
+        };
+    };
+    AdminIbLevelsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIbLevelDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbLevelDto"];
+                };
+            };
+        };
+    };
+    AdminIbLevelsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                level: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminIbLevelsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                level: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIbLevelDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbLevelDto"];
                 };
             };
         };

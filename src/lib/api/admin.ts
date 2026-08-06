@@ -21,6 +21,9 @@ export type ClientTag = components['schemas']['ClientTagDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
 export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
 export type Currency = components['schemas']['CurrencyDto'];
+export type IbLevel = components['schemas']['IbLevelDto'];
+export type CreateIbLevel = components['schemas']['CreateIbLevelDto'];
+export type UpdateIbLevel = components['schemas']['UpdateIbLevelDto'];
 export type CreateCurrency = components['schemas']['CreateCurrencyDto'];
 export type UpdateCurrency = components['schemas']['UpdateCurrencyDto'];
 
@@ -206,6 +209,41 @@ export const adminApi = {
    */
   async deleteCurrency(code: string): Promise<void> {
     await apiClient.delete(`/admin/currencies/${code}`);
+  },
+
+  /**
+   * The IB payout ladder, shallowest level first.
+   *
+   * Includes DISABLED levels — managing them is the point of the screen, and a
+   * level you cannot see is one you cannot re-enable.
+   */
+  async getIbLevels(signal?: AbortSignal): Promise<IbLevel[]> {
+    const { data } = await apiClient.get<IbLevel[]>('/admin/ib-levels', { signal });
+    return data;
+  },
+
+  async createIbLevel(body: CreateIbLevel): Promise<IbLevel> {
+    const { data } = await apiClient.post<IbLevel>('/admin/ib-levels', body);
+    return data;
+  },
+
+  /**
+   * PATCH, and `level` is not in the body: it is the primary key and partner
+   * records reference it, so renumbering is a data migration rather than an
+   * edit.
+   *
+   * Under `revenue_share` the API refuses a change that would push the enabled
+   * levels past 100% between them, and its message names the current total and
+   * the room left. Surface it verbatim — a generic failure throws that away.
+   */
+  async updateIbLevel(level: number, body: UpdateIbLevel): Promise<IbLevel> {
+    const { data } = await apiClient.patch<IbLevel>(`/admin/ib-levels/${level}`, body);
+    return data;
+  },
+
+  /** Refuses to empty the ladder: with no levels, no partner can be approved. */
+  async deleteIbLevel(level: number): Promise<void> {
+    await apiClient.delete(`/admin/ib-levels/${level}`);
   },
 
   async getGeneralSettings(): Promise<GeneralSettings> {

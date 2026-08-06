@@ -46,6 +46,11 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * their writes, but the screen should not have drawn for them at all.
    */
   { prefix: '/currencies', requirement: { permission: 'settings.view' } },
+  // `ib.view` reads the ladder; `ib.manage` is what the page checks before it
+  // renders any write control. Route access is the weaker of the two on
+  // purpose — an operator who may see partners should be able to see the rules
+  // they are paid under.
+  { prefix: '/ib-levels', requirement: { permission: 'ib.view' } },
   // roles.MANAGE, not roles.view. /settings is now the RBAC-08 network allowlist
   // and the security controls; when both were the "Network" tab they were shown
   // only to an admin holding roles.manage, so requiring roles.view here would

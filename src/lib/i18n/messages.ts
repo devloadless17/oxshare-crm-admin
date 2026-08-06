@@ -931,6 +931,77 @@ export const messages = {
   'currencies.isDefault': 'Default currency',
   'currencies.isDefaultHint':
     "The currency a new client's first wallet opens in. Exactly one currency holds this, and it must stay enabled.",
+
+  // ── IB levels (the payout ladder) ─────────────────────────────────────────
+  //
+  // The wording is doing real work here. "2 levels" is naturally read as "we
+  // allow 2 partners", when it means the payout chain is two hops deep — so the
+  // depth hint spells the consequence out rather than restating the number.
+  'nav.section.partners': 'Partners',
+  'nav.ibLevels': 'IB Levels',
+  'ibLevels.title': 'IB Levels',
+  'ibLevels.subtitle':
+    'How far partner earnings travel, and what each level takes. The number of enabled levels is the depth of the payout chain, not a limit on how many partners you can have.',
+  'ibLevels.caption': 'Partner payout ladder',
+  'ibLevels.loading': 'Loading the payout ladder',
+  'ibLevels.loadFailed': 'Could not load the payout ladder.',
+  'ibLevels.empty':
+    'No levels configured yet. Partners cannot be approved until at least one exists.',
+  'ibLevels.create': 'Add level',
+  'ibLevels.createTitle': 'Add a level',
+  'ibLevels.editTitle': 'Edit level',
+  'ibLevels.save': 'Save',
+  'ibLevels.saving': 'Saving…',
+  'ibLevels.saveFailed': 'Could not save that level.',
+  'ibLevels.deleteFailed': 'Could not remove that level.',
+
+  'ibLevels.depthLabel': 'Payout chain depth',
+  'ibLevels.depthHint':
+    'A client’s activity pays their direct partner and {depth} level(s) up the chain, then stops.',
+  'ibLevels.allocatedLabel': 'Revenue share allocated',
+  'ibLevels.allocatedHint': '{remaining}% of the commission pool is still unallocated.',
+
+  'ibLevels.colLevel': 'Level',
+  'ibLevels.colName': 'Name',
+  'ibLevels.colModel': 'Model',
+  'ibLevels.colRate': 'Rate',
+  'ibLevels.colMaxDirect': 'Max direct partners',
+  'ibLevels.colStatus': 'Status',
+  'ibLevels.colActions': 'Actions',
+  'ibLevels.statusEnabled': 'Enabled',
+  'ibLevels.statusDisabled': 'Disabled',
+
+  'ibLevels.edit': 'Edit',
+  'ibLevels.editAria': 'Edit level {level}',
+  'ibLevels.delete': 'Remove',
+  'ibLevels.deleteAria': 'Remove level {level}',
+  'ibLevels.enable': 'Enable',
+  'ibLevels.disable': 'Disable',
+  'ibLevels.confirmDelete':
+    'Remove level {level} ({name})? Partners already placed at this level keep their position, but no new partner can be placed here.',
+
+  'ibLevels.level': 'Level number',
+  'ibLevels.levelHint': '1 is closest to the broker. Higher numbers sit further down the chain.',
+  'ibLevels.levelLocked': 'The level number cannot change — partner records reference it.',
+  'ibLevels.name': 'Name',
+  'ibLevels.payoutModel': 'Payout model',
+  'ibLevels.modelRevenueShare': 'Revenue share',
+  'ibLevels.modelPerLot': 'Per lot',
+  'ibLevels.modelRevenueShareHint':
+    'A percentage of the commission pool. Enabled revenue-share levels must total 100% or less between them.',
+  'ibLevels.modelPerLotHint':
+    'A fixed amount per standard lot traded. Not capped, and not counted against the revenue-share total.',
+  'ibLevels.rate': 'Rate',
+  'ibLevels.rateHintPercent': 'Percentage of the commission pool, e.g. 70 for 70%.',
+  'ibLevels.rateHintPerLot': 'Amount per standard lot, in the platform default currency.',
+  'ibLevels.perLotSuffix': '/lot',
+  'ibLevels.perLotValue': '{value} per lot',
+  'ibLevels.maxDirect': 'Max direct partners',
+  'ibLevels.maxDirectHint': 'Leave empty for unlimited. Checked when a partner is approved.',
+  'ibLevels.unlimited': 'Unlimited',
+  'ibLevels.enabled': 'Enabled',
+  'ibLevels.enabledHint':
+    'A disabled level takes no share and accepts no new partners. Partners already placed there keep their position.',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */
