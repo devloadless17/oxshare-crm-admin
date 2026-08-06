@@ -71,7 +71,7 @@ export const messages = {
   'nav.kyc': 'KYC Review',
   'nav.kycBuilder': 'KYC Workflow Builder',
   'nav.adminUsers': 'Admin Users',
-  'nav.roles': 'Roles & Permissions',
+  'nav.roles': 'Roles',
   'nav.auditLog': 'Audit Log',
   'nav.settings': 'Settings',
   'nav.logout': 'Logout',
