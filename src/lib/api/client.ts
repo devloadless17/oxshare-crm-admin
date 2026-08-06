@@ -195,6 +195,19 @@ export function clearAdminSession(): void {
  */
 let inFlight: Promise<boolean> | null = null;
 
+/**
+ * Did the API say this refresh merely LOST A RACE?
+ *
+ * `SESSION_SUPERSEDED` is the one 401 on this path that does not mean the
+ * session is over — see the backend's domain-errors.ts. Branching on the machine
+ * code rather than on the message, because the message is prose that changes and
+ * will be translated (D-16).
+ */
+function supersededCode(error: unknown): boolean {
+  const code = (error as { response?: { data?: { code?: string } } })?.response?.data?.code;
+  return code === 'SESSION_SUPERSEDED';
+}
+
 export function refreshAdminToken(): Promise<boolean> {
   if (inFlight) return inFlight;
   inFlight = (async () => {
@@ -208,6 +221,7 @@ export function refreshAdminToken(): Promise<boolean> {
      * short-circuiting, and why it degrades to the old behaviour where Web Locks
      * are unavailable.
      */
+    let retrying = false;
     return withSessionLock(async () => {
       try {
         /*
@@ -245,7 +259,38 @@ export function refreshAdminToken(): Promise<boolean> {
          * JavaScript, which is the exact thing this migration removed.
          */
         return true;
-      } catch {
+      } catch (error) {
+        /*
+         * `SESSION_SUPERSEDED` means the session is ALIVE — retry, do not sign out.
+         *
+         * Another request rotated the same token first, so the winner's cookies
+         * are already in this browser's jar and a second attempt succeeds
+         * against them. The API answers this code specifically to say so; before
+         * it existed the loser was told "revoked" and every caller here treated
+         * that as session death.
+         *
+         * It survived the cross-tab lock because a lock serialises but does not
+         * eliminate the race: a tab that queued behind the winner still sends
+         * whatever cookie the browser hands it, and a request already in flight
+         * when the winner committed cannot be recalled. So the retry is the part
+         * that actually closes it — and without it, the tab that lost broadcast
+         * `signed-out` and took every other tab down with it.
+         *
+         * Once only. A second failure is a real one.
+         */
+        if (supersededCode(error) && !retrying) {
+          retrying = true;
+          try {
+            await axios.post(
+              `${API_BASE_URL}${REFRESH_PATH}`,
+              {},
+              { withCredentials: true, headers: { 'X-Request-Id': newCorrelationId() } },
+            );
+            return true;
+          } catch {
+            return false;
+          }
+        }
         return false;
       }
     });

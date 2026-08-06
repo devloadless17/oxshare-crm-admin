@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { E2E_DOMAIN, STORAGE_STATE } from './helpers';
+import { E2E_ADMIN, E2E_DOMAIN, STORAGE_STATE, signIn } from './helpers';
 
 /**
  * The auth-correctness regressions — `docs/AUTH-CORRECTNESS-oxshare-crm-admin.md`.
@@ -269,6 +269,23 @@ test.describe('two tabs', () => {
       /\/login/,
       { timeout: 20_000 },
     );
+
+    /*
+     * Put the shared session back, and rewrite the file the other specs load.
+     *
+     * Logging out revokes EVERY refresh family for that admin (R-3.3), so this
+     * test does not merely end its own context — it kills the seeded session
+     * that `auth.setup.ts` saved and every later spec restores from. Without
+     * this the next spec inherits cookies the server has already revoked and
+     * fails for a reason that has nothing to do with what it is testing, which
+     * is exactly the kind of order-dependent failure that makes a suite
+     * untrustworthy.
+     *
+     * It costs one extra sign-in per run, which is inside the five-per-minute
+     * cap because nothing else in this file signs in at all.
+     */
+    await signIn(tabA, E2E_ADMIN);
+    await context.storageState({ path: STORAGE_STATE });
 
     await context.close();
   });

@@ -106,6 +106,14 @@ export default defineConfig([
     // Linting it would report on the generator's output, and any fix would be
     // erased by the next regeneration.
     'src/lib/api/types.gen.ts',
+    /*
+     * Playwright's own artefacts. Both are gitignored, but eslint does not read
+     * .gitignore — so the HTML report's bundled CodeMirror ends up parsed as
+     * project source and fails with "not found by the project service", which
+     * turns a green run into a red gate for a file nobody wrote.
+     */
+    'playwright-report/**',
+    'test-results/**',
     // Build tooling, not application code. These run under plain Node before
     // the app exists, so they are outside the TypeScript project the
     // type-checked rules need — linting them reports a parsing error rather
