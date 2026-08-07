@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense } from 'react';
 import { ScrollText } from 'lucide-react';
 import api from '@/lib/api';
 import type { AuditEntry, AuditListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { PageLoader } from '@/components/ui/loader';
 import {
   Select,
   SelectTrigger,
@@ -14,7 +15,8 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { useCursorPages } from '@/hooks/use-cursor-pages';
+import { useTableQueryState } from '@/hooks/use-table-query-state';
+import { pageParam } from '@/lib/page-param';
 import { t } from '@/lib/i18n';
 
 // D-21: append-only admin action log. Read-only view — there is deliberately
@@ -46,18 +48,39 @@ const ACTION_STYLES: Record<string, string> = {
   'admin.update': 'bg-warning/10 text-warning border-warning/20',
 };
 
+/*
+ * `useSearchParams()` requires a Suspense boundary at prerender or
+ * `npm run build` fails — and `next dev` does NOT, so CI is where you find out.
+ * Same shape as `clients/page.tsx`.
+ */
 export default function AuditLogPage() {
+  return (
+    <Suspense fallback={<PageLoader label={t('audit.title')} />}>
+      <AuditLogPageContent />
+    </Suspense>
+  );
+}
+
+function AuditLogPageContent() {
   /*
-   * Cursor navigation, not numbered pages — PLATFORM-CONVENTIONS R-2.4.
+   * Numbered pages, with the page and the action filter both in the URL.
    *
-   * The audit log is append-only and only grows. A trail with a gap is worse
-   * than no trail, because it is believed.
+   * The append-only argument for a cursor still holds — a trail with a gap is
+   * worse than no trail, because it is believed. What it did not survive is
+   * what an investigation actually needs: "page 12 of the log, filtered to
+   * kyc.reject" has to be a link somebody can paste into a ticket, and a
+   * cursor held in component state cannot be one. The log also only ever grows
+   * at the END, so a reader walking backwards through history is not stepping
+   * over rows being inserted ahead of them.
    *
-   * "Jump to page N" is gone because a cursor names a row rather than an
-   * ordinal. Filters are the real navigation here.
+   * THIS SCREEN HAS NO COLUMN SORTING, and that is not an omission: the
+   * endpoint hardcodes `ORDER BY created_at DESC, id DESC` and accepts no
+   * `sort` parameter at all. Every column below is therefore explicitly
+   * `sortable: false` — see the note on the columns.
    */
-  const pages = useCursorPages();
-  const [action, setAction] = useState('');
+  const url = useTableQueryState();
+  const page = pageParam(url.get('page'));
+  const action = url.get('action');
 
   /*
    * Its own resource, so a failure here degrades the FILTER rather than the
@@ -70,10 +93,12 @@ export default function AuditLogPage() {
   const actionOptions = actionsQuery.data ?? [];
 
   const { status, data, error, isFetching, refetch } = useResource<AuditListResponse>(
-    ['audit-log', pages.cursor ?? 'first', action],
+    ['audit-log', page, action],
     async (signal) => {
-      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
-      if (pages.cursor) params.set('cursor', pages.cursor);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      });
       if (action) params.set('action', action);
       const res = await api.get<AuditListResponse>(`/admin/audit-log?${params}`, { signal });
       return res.data;
@@ -81,13 +106,29 @@ export default function AuditLogPage() {
   );
 
   const rows = data?.items ?? [];
-  // `nextCursor`, not `total`: the server only counts on request, because
-  // counting is a full scan of the filtered set (R-2.4).
-  const nextCursor = data?.nextCursor ?? null;
+  // `AuditListResponseDto.total` is unconditional — this endpoint counts on
+  // every request rather than behind a `withTotal` flag, so the numbered pager
+  // has the number it needs without asking for it.
+  const total = data?.total ?? 0;
 
+  /*
+   * EVERY column here is explicitly `sortable: false`.
+   *
+   * DataTable treats a column as sortable unless told otherwise — it derives a
+   * sort key from the header text when none is given — so silence would turn
+   * all five of these into sort buttons. `GET /admin/audit-log` accepts no
+   * `sort` parameter and orders by `created_at DESC, id DESC` in the store, so
+   * a header that appeared to sort could only ever have reordered the 25 rows
+   * on screen and presented that as the trail.
+   *
+   * When the endpoint gains a sort allowlist, this is the file to change:
+   * mirror the allowlist as a `sortableBy()` helper the way `client-columns.tsx`
+   * does, rather than marking columns sortable one at a time.
+   */
   const columns: Column<AuditEntry>[] = [
     {
       header: t('audit.colWhen'),
+      sortable: false,
       cell: (e) => new Date(e.createdAt).toLocaleString(),
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
@@ -106,6 +147,7 @@ export default function AuditLogPage() {
        * all of them would be noise that hides the one row that is not.
        */
       header: t('audit.colActor'),
+      sortable: false,
       cell: (e) => (
         <>
           <div className="text-foreground">{e.actorEmail}</div>
@@ -125,6 +167,7 @@ export default function AuditLogPage() {
     },
     {
       header: t('audit.colAction'),
+      sortable: false,
       cell: (e) => (
         <span
           className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold font-mono ${
@@ -137,6 +180,7 @@ export default function AuditLogPage() {
     },
     {
       header: t('audit.colSubject'),
+      sortable: false,
       cell: (e) => (
         <>
           <div className="text-xs">{e.subjectType}</div>
@@ -152,6 +196,7 @@ export default function AuditLogPage() {
     },
     {
       header: t('audit.colDetails'),
+      sortable: false,
       cell: (e) =>
         e.details ? (
           <code className="block max-w-md overflow-x-auto whitespace-pre-wrap break-all text-[11px] text-muted-foreground">
@@ -174,8 +219,9 @@ export default function AuditLogPage() {
         <Select
           value={action || 'all'}
           onValueChange={(val) => {
-            pages.reset();
-            setAction(val === 'all' ? '' : val);
+            // Filter and page written together, so narrowing the log always
+            // lands on page one rather than past the end of the new result set.
+            url.set({ action: val === 'all' ? undefined : val, page: undefined });
           }}
         >
           <SelectTrigger className="h-9 w-48">
@@ -224,14 +270,11 @@ export default function AuditLogPage() {
            * old `rows.length > 0` guard is not lost: an empty result renders the
            * `empty` state instead of the table, footer included.
            */
-          cursorPagination={{
-            pageNumber: pages.pageNumber,
+          pagination={{
+            page,
             pageSize: PAGE_SIZE,
-            showing: rows.length,
-            canGoBack: pages.canGoBack,
-            canGoForward: Boolean(nextCursor),
-            onBack: pages.goBack,
-            onNext: () => pages.goNext(nextCursor),
+            total,
+            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
             noun: ['entry', 'entries'],
           }}
         />

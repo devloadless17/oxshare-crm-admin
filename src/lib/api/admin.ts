@@ -116,7 +116,16 @@ export type ClientSortKey = (typeof CLIENT_SORT_KEYS)[number];
 
 export interface ClientListParams {
   limit: number;
-  cursor?: string;
+  page?: number;
+  /**
+   * Ask for the count. Numbered pages cannot be drawn without it.
+   *
+   * Opt-in because counting ~219,000 rows is a full scan — the endpoint returns
+   * no `total` at all unless this is set, and `ClientListResponseDto.total` is
+   * optional for exactly that reason. A pager handed `undefined` would draw one
+   * page and hide the rest of the list.
+   */
+  withTotal?: boolean;
   q?: string;
   type?: string;
   status?: string;
@@ -129,17 +138,74 @@ export interface ClientListParams {
 }
 
 /**
+ * The columns `GET /admin/withdrawals` will sort by, mirroring the backend's
+ * `WITHDRAWAL_SORT_COLUMNS` (modules/payments/transactions.service.ts).
+ *
+ * `amount` IS here and is safe to offer: the server orders on the
+ * `NUMERIC(28,8)` column, so this is a true decimal ordering rather than the
+ * text comparison a client-side sort would do. That is the difference between
+ * "the largest withdrawal" meaning the largest of all of them and meaning the
+ * largest of the twenty-five on screen.
+ *
+ * There is no `destination` key — the queue's destination column must stay
+ * unsortable, because R-2.5 makes an unrecognised sort a 400 rather than a
+ * silent fallback, so declaring it would produce an error instead of rows.
+ */
+export const WITHDRAWAL_SORT_KEYS = [
+  'createdAt',
+  'amount',
+  'state',
+  'userEmail',
+  'userFirstName',
+] as const;
+export type WithdrawalSortKey = (typeof WITHDRAWAL_SORT_KEYS)[number];
+
+export interface WithdrawalListParams {
+  state?: string;
+  limit: number;
+  page?: number;
+  sort?: WithdrawalSortKey;
+  order?: 'asc' | 'desc';
+}
+
+/**
+ * The columns `GET /admin/kyc` will sort by, mirroring the backend's
+ * `KYC_SORT_COLUMNS` (store/kyc.store.ts).
+ *
+ * Note what is ABSENT: there is no `userId` and no `country`. The review queue
+ * declared both as sortable headers and the endpoint has never accepted either
+ * — `country` lives in a JSON blob rather than a column, and sorting a queue by
+ * opaque user id is not a question anybody asks.
+ */
+export const KYC_SORT_KEYS = [
+  'submittedAt',
+  'status',
+  'createdAt',
+  'userEmail',
+  'userFirstName',
+] as const;
+export type KycSortKey = (typeof KYC_SORT_KEYS)[number];
+
+/**
  * Query string for the client list. Exported for its own unit test.
  *
  * Empty values are OMITTED rather than sent blank: `?country=` reaches the API
  * as an empty string, and a filter that is present-but-empty is a different
  * request from one that is absent.
+ *
+ * `page` and `withTotal` are handled apart from the string filters because they
+ * are not strings — the loop below tests `typeof value === 'string'`, which
+ * silently dropped a numeric page and a boolean flag when they were first
+ * added. A page parameter that vanishes on the way out looks exactly like a
+ * pager that does not work.
  */
 export function clientListSearchParams(params: ClientListParams): URLSearchParams {
   const query = new URLSearchParams();
   query.set('limit', String(params.limit));
+  if (params.page !== undefined) query.set('page', String(params.page));
+  if (params.withTotal) query.set('withTotal', 'true');
   for (const [key, value] of Object.entries(params)) {
-    if (key === 'limit') continue;
+    if (key === 'limit' || key === 'page' || key === 'withTotal') continue;
     if (typeof value === 'string' && value !== '') query.set(key, value);
   }
   return query;
@@ -575,24 +641,33 @@ export const adminApi = {
   // ── Withdrawals (ADM-03 / §8.4) ───────────────────────────────────────────
 
   /**
-   * The withdrawal queue, cursor-paginated, with per-state counts.
+   * The withdrawal queue, with per-state counts.
    *
    * `counts` groups over the FULL filtered set rather than the page, so the
-   * filter bar stays correct whatever page is on screen. `total` is not relied
-   * on: counting is opt-in on this endpoint because it is a full scan (R-2.4).
+   * filter bar stays correct whatever page is on screen — it is a different
+   * number from `total`, which is the count of the CURRENT filter and is what
+   * the pager divides into pages. `WithdrawalListResponseDto.total` is
+   * unconditional here, unlike the client list's, so numbered pages need no
+   * `withTotal` flag.
    *
    * Every `amount` in the response is a STRING and must reach the DOM as one —
    * §6.1. Nothing here parses it, and neither should a caller.
    */
   async getWithdrawals(
-    params: { state?: string; limit: number; cursor?: string },
+    params: WithdrawalListParams,
     signal?: AbortSignal,
   ): Promise<WithdrawalListResponse> {
     const query = new URLSearchParams({ limit: String(params.limit) });
     // Omitted rather than sent blank: `?state=` is a different request from no
     // state at all, and the API reads the empty string as a filter.
     if (params.state) query.set('state', params.state);
-    if (params.cursor) query.set('cursor', params.cursor);
+    if (params.page !== undefined) query.set('page', String(params.page));
+    // Both halves or neither. `order` alone describes an ordering of no column,
+    // and the API is entitled to reject it.
+    if (params.sort) {
+      query.set('sort', params.sort);
+      if (params.order) query.set('order', params.order);
+    }
     const { data } = await apiClient.get<WithdrawalListResponse>(
       `/admin/withdrawals?${query.toString()}`,
       { signal },

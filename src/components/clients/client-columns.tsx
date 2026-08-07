@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { Eye, PauseCircle, PlayCircle } from 'lucide-react';
 import type { ClientRow, ClientSortKey } from '@/lib/api/admin';
 import { CLIENT_SORT_KEYS } from '@/lib/api/admin';
 import type { Column } from '@/components/data-table';
+import { RowActions, actionsColumn } from '@/components/row-actions';
 import { Badge } from '@/components/ui/badge';
 import { MaskedValue } from '@/components/masked-value';
 import { isMasked } from '@/lib/masking';
@@ -148,32 +150,46 @@ export function clientColumns({
   });
 
   if (canSuspend) {
-    columns.push({
-      header: t('clients.colActions'),
-      // Explicitly false. `DataTable` treats a column as sortable unless told
-      // otherwise, so without this the Actions header is sortable by accident —
-      // on a key the API has never heard of.
-      sortable: false,
-      cell: (c) => (
-        <button
-          type="button"
-          onClick={() => onToggleStatus(c)}
-          disabled={actingId === c.id}
-          aria-busy={actingId === c.id}
-          className={`h-8 px-3 rounded-md border text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed focus-outline ${
-            c.status === 'suspended'
-              ? 'border-success/30 bg-success/10 text-success hover:bg-success/20'
-              : 'border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20'
-          }`}
-        >
-          {actingId === c.id
-            ? t('clients.saving')
-            : c.status === 'suspended'
-              ? t('clients.reactivate')
-              : t('clients.suspend')}
-        </button>
+    /*
+     * `actionsColumn` rather than a hand-written column, so this table gets the
+     * same pinned, unsortable, right-aligned Actions affordance as every other
+     * one. It also carries the `sortable: false` that used to be spelled out
+     * here — DataTable treats a column as sortable unless told otherwise, so
+     * without it the Actions header becomes a sort button on a key the API has
+     * never heard of.
+     */
+    columns.push(
+      actionsColumn<ClientRow>(
+        (c) => (
+          <RowActions
+            /* Falls through to the id: name AND email are both maskable
+               (RBAC-03), so on a masked row neither is available to name the
+               trigger — and an unnamed one announces as a bare "button". */
+            label={t('table.rowActions', {
+              name: [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || c.id,
+            })}
+            busy={actingId === c.id}
+            items={[
+              {
+                label: t('clients.viewProfile'),
+                icon: Eye,
+                href: `/clients/${c.id}`,
+              },
+              {
+                label: c.status === 'suspended' ? t('clients.reactivate') : t('clients.suspend'),
+                icon: c.status === 'suspended' ? PlayCircle : PauseCircle,
+                // Only suspending is destructive. They are the same control,
+                // but only one of them locks somebody out of their account.
+                destructive: c.status !== 'suspended',
+                separatorBefore: true,
+                onSelect: () => onToggleStatus(c),
+              },
+            ]}
+          />
+        ),
+        t('clients.colActions'),
       ),
-    });
+    );
   }
 
   return columns;

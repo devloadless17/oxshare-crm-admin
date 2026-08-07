@@ -141,9 +141,23 @@ export default function PartnersPage() {
     (toggleActive.isError && apiErrorMessage(toggleActive.error, t('partners.actionFailed'))) ||
     null;
 
+  /*
+   * NO COLUMN HERE SORTS, and every one says so explicitly.
+   *
+   * `GET /admin/ib/partners` accepts `page` and `limit` and nothing else — the
+   * store hardcodes `ORDER BY approved_at DESC`. DataTable treats a column as
+   * sortable unless told otherwise, deriving a key from the header text, so
+   * silence would turn all five of these into sort buttons that reorder the
+   * page on screen and present it as the partner list.
+   *
+   * When the endpoint gains a sort allowlist, mirror it as a `sortableBy()`
+   * helper the way `client-columns.tsx` does, rather than marking these
+   * sortable one at a time.
+   */
   const columns: Column<PartnerRowData>[] = [
     {
       header: t('partners.colName'),
+      sortable: false,
       cell: ({ account, user }) => (
         <span className="flex flex-wrap items-center gap-2">
           <Link
@@ -164,6 +178,7 @@ export default function PartnersPage() {
     },
     {
       header: t('partners.colEmail'),
+      sortable: false,
       cell: ({ user }) => user.email,
       cellClassName: 'text-muted-foreground',
     },
@@ -172,16 +187,19 @@ export default function PartnersPage() {
       // operator recognises; the number is an implementation detail they should
       // not have to translate.
       header: t('partners.colLevel'),
+      sortable: false,
       cell: ({ account, levelName }) =>
         t('partners.levelLine', { level: String(account.level), name: levelName }),
     },
     {
       header: t('partners.colReferralCode'),
+      sortable: false,
       cell: ({ account }) => account.referralCode,
       cellClassName: 'font-mono tracking-wide text-muted-foreground',
     },
     {
       header: t('partners.colParent'),
+      sortable: false,
       cell: ({ account }) =>
         account.parentIbUserId ? t('partners.hasParent') : t('partners.direct'),
       cellClassName: 'text-muted-foreground',

@@ -12,10 +12,10 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
+import { pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState } from '@/components/data-table';
 import { PageLoader } from '@/components/ui/loader';
-import { useCursorPages } from '@/hooks/use-cursor-pages';
 import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
@@ -63,17 +63,21 @@ function ClientsPageContent() {
 
   const url = useTableQueryState();
   /*
-   * Cursor navigation, not numbered pages — R-2.4.
+   * Numbered pages, and the page number lives in the URL.
    *
-   * This is the ~219,000-record list, and it is written to while it is read: a
-   * client registers while an admin is part-way down, every later offset page
-   * shifts, and one client is never shown. Nothing looks wrong, and the
-   * reviewer believes they saw everyone.
+   * This list is cursor-CAPABLE — the endpoint still serves `?cursor=`, and the
+   * concurrent-insert hazard R-2.4 describes is real: a client registering while
+   * an admin reads page 3 shifts every later page by one. What decided it the
+   * other way is that a cursor cannot express "page 7", so the operator had
+   * Previous/Next over ~219,000 records and no way back to where they were. A
+   * page number survives a refresh, a shared link and the browser's Back button;
+   * an opaque cursor held in component state survives none of them.
    *
-   * The cursor stays out of the URL deliberately (see `use-table-query-state`):
-   * it names a row, not an ordinal, and a shared link should land on page one.
+   * `withTotal` is what makes numbered pages possible at all — see the flag's
+   * note in lib/api/admin.ts. Without it the response carries no `total` and the
+   * pager can only draw one page.
    */
-  const pages = useCursorPages();
+  const page = pageParam(url.get('page'));
   const debouncedSearch = useDebounced(url.get('q').trim());
 
   const sortKey = CLIENT_SORT_KEYS.includes(url.sort.key as ClientSortKey)
@@ -82,7 +86,8 @@ function ClientsPageContent() {
 
   const params = {
     limit: PAGE_SIZE,
-    cursor: pages.cursor,
+    page,
+    withTotal: true,
     q: debouncedSearch,
     type: url.get('type'),
     status: url.get('status'),
@@ -90,7 +95,10 @@ function ClientsPageContent() {
     country: url.get('country'),
     tag: url.get('tag'),
     sort: sortKey,
-    order: url.sort.order,
+    // Withheld when nothing is sorted. `order` alone describes an ordering of
+    // no column — the API is entitled to reject it, and sending it would also
+    // make two identical result sets cache under different query keys.
+    order: sortKey ? url.sort.order : undefined,
   };
 
   const query = useResource<ClientListResponse>(['clients', params], (signal) =>
@@ -124,7 +132,7 @@ function ClientsPageContent() {
   };
 
   const rows = query.data?.items ?? [];
-  const nextCursor = query.data?.nextCursor ?? null;
+  const total = query.data?.total ?? 0;
   const maskedFields = query.data?.maskedFields ?? [];
   const actingId = setStatusMutation.isPending ? setStatusMutation.variables?.client.id : null;
 
@@ -170,15 +178,13 @@ function ClientsPageContent() {
           hiddenFilters={maskedFields}
           isFiltered={url.isFiltered}
           onChange={(patch) => {
-            // Any filter change invalidates the cursor: it names a position in
-            // the PREVIOUS result set.
-            pages.reset();
-            url.set(patch);
+            // Back to page one with every filter change. Page 7 of the old
+            // filter is rarely page 7 of the new one, and is very often past
+            // the end of it — which renders as an empty table and reads as
+            // "no clients match", not as "you are too far down the list".
+            url.set({ ...patch, page: undefined });
           }}
-          onClear={() => {
-            pages.reset();
-            url.clear();
-          }}
+          onClear={() => url.clear()}
         />
       </div>
 
@@ -226,23 +232,26 @@ function ClientsPageContent() {
            * client-side path and suppresses its scope warning, so no change to
            * that component is needed.
            *
-           * `pages.reset()` FIRST, and it is load-bearing: a cursor encodes
-           * `(sortValue, id)` and is meaningless under a different ordering.
-           * The API refuses a mismatched cursor with a 400 rather than serving
-           * plausible wrong rows — this is what stops the user seeing that.
+           * The page is dropped along with the sort. Reordering the list
+           * renumbers every page in it, so the rows at position 151–175 after a
+           * sort are not the ones that were there before — staying on page 7
+           * would silently show a different slice of a different ordering.
            */
           onSortChange={(key, order) => {
-            pages.reset();
-            url.setSort(key, order);
+            url.set({
+              sort: key ?? undefined,
+              order: order ?? undefined,
+              page: undefined,
+            });
           }}
-          cursorPagination={{
-            pageNumber: pages.pageNumber,
+          pagination={{
+            page,
             pageSize: PAGE_SIZE,
-            showing: rows.length,
-            canGoBack: pages.canGoBack,
-            canGoForward: Boolean(nextCursor),
-            onBack: pages.goBack,
-            onNext: () => pages.goNext(nextCursor),
+            total,
+            // `String(next)`, and `undefined` for page one: `url.set` drops a
+            // key it is handed `undefined`, so returning to the first page
+            // leaves a clean URL rather than a trailing `?page=1`.
+            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
             noun: [t('clients.nounOne'), t('clients.nounMany')],
           }}
         />

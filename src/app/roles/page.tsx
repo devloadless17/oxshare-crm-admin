@@ -102,9 +102,25 @@ export default function RolesPage() {
 
   const deletingId = deleteRole.isPending ? deleteRole.variables?.id : null;
 
+  /*
+   * SORTING HERE IS CLIENT-SIDE, and on this table that is the honest answer.
+   *
+   * `GET /admin/roles` takes no `page`, `limit`, `sort` or `order` — it is a
+   * bare `select().from(roles)` returning every role as an array, which this
+   * page then filters. So `rows` IS the dataset rather than a page of it, and
+   * DataTable's comparator orders all of it.
+   *
+   * R-2.5's objection is that sorting the 25 rows you happen to hold looks
+   * identical to sorting the dataset. Here they are the same set, so no
+   * `onSortChange` is passed and the client-side path is correct. Should this
+   * endpoint ever paginate, these headers must gain a server-side handler in
+   * the same commit or they become a lie.
+   */
   const columns: Column<Role>[] = [
     {
       header: t('roles.colName'),
+      sortable: true,
+      sortKey: 'name',
       cell: (role) => (
         <span className="flex items-center gap-2">
           <span className="font-semibold text-foreground">{role.name}</span>
@@ -118,6 +134,8 @@ export default function RolesPage() {
     },
     {
       header: t('roles.colDescription'),
+      sortable: true,
+      sortKey: 'description',
       cell: (role) => role.description || t('roles.noDescription'),
       cellClassName: 'text-muted-foreground',
     },
@@ -128,6 +146,21 @@ export default function RolesPage() {
        * carries, and the edit page says what.
        */
       header: t('roles.colPermissions'),
+      /*
+       * NOT sortable, even though "which role carries the most access" is a
+       * fair question to want answered here.
+       *
+       * The cell renders a COUNT but the underlying field is `permissions`, an
+       * array — and DataTable's comparator indexes the row by the sort key, so
+       * it would receive the array itself. `compareValues` maps any non-primitive
+       * to `''` deliberately, so every role would compare equal and the column
+       * would appear to sort while doing nothing at all.
+       *
+       * Sorting by count needs either a derived numeric field on the row or a
+       * per-column accessor, neither of which exists yet. Offering nothing beats
+       * offering a control that silently no-ops.
+       */
+      sortable: false,
       cell: (role) => t('settings.assignedPermissions', { count: role.permissions.length }),
       cellClassName: 'text-muted-foreground',
     },

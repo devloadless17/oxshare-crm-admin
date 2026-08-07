@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { CLIENT_SORT_KEYS, clientListSearchParams, type ClientListParams } from './admin';
+import {
+  CLIENT_SORT_KEYS,
+  KYC_SORT_KEYS,
+  WITHDRAWAL_SORT_KEYS,
+  clientListSearchParams,
+  type ClientListParams,
+} from './admin';
 
 /**
  * The client list's query string.
@@ -46,11 +52,32 @@ describe('clientListSearchParams', () => {
     expect(query.get('order')).toBe('asc');
   });
 
-  it('passes the cursor through opaquely', () => {
-    // A cursor is a server-owned token. Parsing or reshaping it here would tie
-    // the frontend to a format the API is free to change.
-    const cursor = 'eyJzb3J0IjoiY3JlYXRlZEF0In0';
-    expect(clientListSearchParams(params({ cursor })).get('cursor')).toBe(cursor);
+  /*
+   * `page` and `withTotal` are asserted because the loop that copies the
+   * filters tests `typeof value === 'string'` — so both of these, being a
+   * number and a boolean, were silently dropped when they were first added.
+   * A page parameter that vanishes on the way out looks exactly like a pager
+   * that does not work, and nothing else in the stack would have caught it.
+   */
+  it('sends the page number', () => {
+    expect(clientListSearchParams(params({ page: 7 })).get('page')).toBe('7');
+  });
+
+  it('omits the page when none is given', () => {
+    expect(clientListSearchParams(params()).has('page')).toBe(false);
+  });
+
+  it('asks for the total, which numbered pages cannot be drawn without', () => {
+    // `ClientListResponseDto.total` is OPTIONAL — the endpoint counts only when
+    // asked, because counting ~219,000 rows is a full scan. A pager handed no
+    // total draws one page and hides the rest of the list.
+    expect(clientListSearchParams(params({ withTotal: true })).get('withTotal')).toBe('true');
+  });
+
+  it('omits withTotal when it is false rather than sending the string "false"', () => {
+    // `?withTotal=false` is a truthy string on the wire. Sending it would ask
+    // for exactly the full scan the flag exists to make opt-in.
+    expect(clientListSearchParams(params({ withTotal: false })).has('withTotal')).toBe(false);
   });
 });
 
@@ -75,5 +102,55 @@ describe('CLIENT_SORT_KEYS', () => {
       'type',
       'verificationLevel',
     ]);
+  });
+});
+
+/*
+ * The same assertion for the other two lists that have one, and for the same
+ * reason: these are hand-kept mirrors of backend constants, and a key the
+ * backend does not recognise is a 400 rather than a fallback (R-2.5). A header
+ * that claims to sort and instead produces an error page is the failure mode
+ * these three tests exist to catch at build time.
+ *
+ * Only clients, withdrawals and KYC appear here because they are the only admin
+ * list endpoints that accept `sort`/`order` at all. Audit-log, ib/applications,
+ * ib/partners, admin-users and roles each hardcode their ordering — so they
+ * have no allowlist to mirror, and every column on those screens is explicitly
+ * `sortable: false`.
+ */
+describe('WITHDRAWAL_SORT_KEYS', () => {
+  it('matches the backend WITHDRAWAL_SORT_COLUMNS exactly', () => {
+    expect([...WITHDRAWAL_SORT_KEYS].sort()).toEqual([
+      'amount',
+      'createdAt',
+      'state',
+      'userEmail',
+      'userFirstName',
+    ]);
+  });
+
+  it('has no destination key, which the queue must therefore not offer', () => {
+    // The destination column declared `sortKey: 'destination'` while sorting
+    // client-side. Pointed at the server it would be a 400.
+    expect([...WITHDRAWAL_SORT_KEYS]).not.toContain('destination');
+  });
+});
+
+describe('KYC_SORT_KEYS', () => {
+  it('matches the backend KYC_SORT_COLUMNS exactly', () => {
+    expect([...KYC_SORT_KEYS].sort()).toEqual([
+      'createdAt',
+      'status',
+      'submittedAt',
+      'userEmail',
+      'userFirstName',
+    ]);
+  });
+
+  it('has neither userId nor country, which the review queue used to claim', () => {
+    // `country` lives in a JSON blob rather than a column, so there is nothing
+    // to order by; `userId` is an opaque UUID nobody sorts a queue on.
+    expect([...KYC_SORT_KEYS]).not.toContain('userId');
+    expect([...KYC_SORT_KEYS]).not.toContain('country');
   });
 });

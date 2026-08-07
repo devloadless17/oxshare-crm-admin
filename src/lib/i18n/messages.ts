@@ -905,6 +905,15 @@ export const messages = {
   // ── Table chrome ──────────────────────────────────────────────────────────
   'table.clearSelection': 'Clear selection',
   'table.colActions': 'Actions',
+  /* The row's name cell is already a link to the profile; the menu repeats it
+     because a menu that offers only the destructive action reads as a trap. */
+  'clients.viewProfile': 'View profile',
+  /*
+   * Shown where an administrator holds per-admin permissions and no role.
+   * Replaces a fallback that printed the raw `master_admin` enum value into a
+   * column of operator-created role names.
+   */
+  'adminUsers.customPermissions': 'Custom permissions',
   /*
    * The inert footer's only sentence, on a table with no pagination.
    *

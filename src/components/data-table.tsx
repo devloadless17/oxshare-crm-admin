@@ -102,7 +102,16 @@ export interface DataTableProps<T> {
   // --- Sorting Props ---
   sortColumn?: string;
   sortDirection?: 'asc' | 'desc';
-  onSortChange?: (columnKey: string, direction: 'asc' | 'desc') => void;
+  /**
+   * Server-side sort handler. Passing it switches off the client-side fallback.
+   *
+   * `columnKey` is `null` when the operator has cycled the column back OFF —
+   * the third click. The caller should drop its sort params entirely and let
+   * the endpoint apply its own default ordering, rather than substituting a
+   * guess: "no sort" and "sorted by whatever I picked as a default" are
+   * different result sets, and only the API knows which one it promises.
+   */
+  onSortChange?: (columnKey: string | null, direction: 'asc' | 'desc' | null) => void;
 
   // --- Pagination Props ---
   /**
@@ -183,16 +192,28 @@ export function DataTable<T>({
   const sortCol = controlledSortColumn ?? localSortCol;
   const sortDir = controlledSortDirection ?? localSortDir;
 
+  /*
+   * Three states, not two: ascending → descending → unsorted.
+   *
+   * A two-state toggle has no way back. Once a column is sorted the operator
+   * can only swap direction, and the list's own default ordering — newest
+   * first, which is what a queue is FOR — becomes unreachable without a page
+   * reload. The third click restores it.
+   *
+   * Clicking a DIFFERENT column always starts at ascending rather than
+   * inheriting the previous column's direction, because a descending sort
+   * carried silently onto a new column shows a different top row than the one
+   * the operator expected to see.
+   */
   const handleSort = (key: string) => {
-    let nextDir: 'asc' | 'desc' = 'asc';
-    if (sortCol === key) {
-      nextDir = sortDir === 'asc' ? 'desc' : 'asc';
-    }
+    const isActive = sortCol === key;
+    const nextDir: 'asc' | 'desc' | null = !isActive ? 'asc' : sortDir === 'asc' ? 'desc' : null;
+
     if (onSortChange) {
-      onSortChange(key, nextDir);
+      onSortChange(nextDir === null ? null : key, nextDir);
     } else {
-      setLocalSortCol(key);
-      setLocalSortDir(nextDir);
+      setLocalSortCol(nextDir === null ? undefined : key);
+      setLocalSortDir(nextDir ?? 'asc');
     }
   };
 
@@ -264,6 +285,24 @@ export function DataTable<T>({
         ? 'bg-[color-mix(in_oklab,var(--color-primary)_5%,var(--color-card))] group-hover:bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-card))]'
         : 'bg-card group-hover:bg-[color-mix(in_oklab,var(--color-muted)_40%,var(--color-card))]',
     ].join(' ');
+
+  /*
+   * The header's background, OPAQUE, on every header cell.
+   *
+   * It used to be `bg-muted/60` on the `<thead>`, which fails twice over once
+   * the header is sticky:
+   *
+   *  1. `/60` is 60% opaque. Rows scrolling underneath show through the column
+   *     labels, which is exactly the reported symptom.
+   *  2. Under `border-collapse: collapse` a background on `<thead>` or `<tr>`
+   *     is not reliably painted at all — the cells own the paint — so even a
+   *     solid colour set there would leave the header transparent.
+   *
+   * `color-mix` reproduces what `bg-muted/60` LOOKED like over the card
+   * (60% muted composited onto the card colour) as a single opaque value, so
+   * the appearance is unchanged in both themes and nothing shows through.
+   */
+  const headerCellBg = 'bg-[color-mix(in_oklab,var(--color-muted)_60%,var(--color-card))]';
 
   const allKeys = React.useMemo(() => rows.map(rowKey), [rows, rowKey]);
   const isAllSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeys.includes(k));
@@ -375,7 +414,7 @@ export function DataTable<T>({
           <table className="w-full text-xs md:text-sm text-left border-collapse">
             {caption && <caption className="sr-only">{caption}</caption>}
             <thead
-              className={`border-b border-border bg-muted/60 text-muted-foreground uppercase text-[11px] font-semibold tracking-wider select-none ${
+              className={`border-b border-border text-muted-foreground uppercase text-[11px] font-semibold tracking-wider select-none ${
                 /*
                  * A scrolling body with no column labels is unreadable by the
                  * second screenful, so the header pins in fill mode.
@@ -388,17 +427,25 @@ export function DataTable<T>({
                  * bordered `<thead>` under `border-collapse` scrolls away from
                  * its own border — the border belongs to the collapsed edge
                  * between cells, which is not sticky.
+                 *
+                 * THE BACKGROUND IS NOT HERE — it is on each `<th>` below.
+                 * Under `border-collapse: collapse` the browser does not paint
+                 * a background on `<thead>`/`<tr>` reliably, so a colour set
+                 * here simply does not appear on a sticky header and the rows
+                 * scroll through the text.
                  */
                 fill ? 'sticky top-0 z-20 shadow-[inset_0_-1px_0_var(--color-border)]' : ''
               }`}
             >
               <tr>
                 {/* Expand Toggle Header Column */}
-                {renderExpandedRow && <th scope="col" className="w-10 px-3 py-3 text-center" />}
+                {renderExpandedRow && (
+                  <th scope="col" className={`w-10 px-3 py-3 text-center ${headerCellBg}`} />
+                )}
 
                 {/* Selection Checkbox Header Column */}
                 {selectable && (
-                  <th scope="col" className="w-10 px-3 py-3 text-center">
+                  <th scope="col" className={`w-10 px-3 py-3 text-center ${headerCellBg}`}>
                     <button
                       type="button"
                       onClick={toggleSelectAll}
@@ -427,19 +474,19 @@ export function DataTable<T>({
                     <th
                       key={idx}
                       scope="col"
-                      className={`px-4 py-3 font-semibold ${
+                      /* `headerCellBg` on EVERY header cell — see its
+                         definition for why the colour cannot live on `<thead>`.
+                         The pinned column adds only its position and border;
+                         its background is the same one, so the header reads as
+                         a single bar rather than a patched-together strip. */
+                      className={`${headerCellBg} px-4 py-3 font-semibold ${
                         c.align === 'right'
                           ? 'text-right'
                           : c.align === 'center'
                             ? 'text-center'
                             : 'text-left'
                       } ${
-                        /* The header's own tint, not the row's — `thead` is
-                         bg-muted/60 over the card, and the pinned header cell
-                         has to be opaque in exactly that colour. */
-                        c.sticky === 'end'
-                          ? 'sticky end-0 z-10 border-s border-border/60 bg-[color-mix(in_oklab,var(--color-muted)_60%,var(--color-card))]'
-                          : ''
+                        c.sticky === 'end' ? 'sticky end-0 z-10 border-s border-border/60' : ''
                       } ${c.headerClassName ?? ''}`}
                     >
                       {isSortable && sortKey ? (

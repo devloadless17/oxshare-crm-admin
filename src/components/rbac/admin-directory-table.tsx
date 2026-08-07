@@ -73,9 +73,30 @@ export function AdminDirectoryTable({
   const isMaster = (user: AdminUser) => user.role === 'master_admin';
   const isSelf = (user: AdminUser) => user.id === currentAdminId;
 
+  /*
+   * SORTING HERE IS CLIENT-SIDE, AND THAT IS CORRECT ON THIS TABLE ALONE.
+   *
+   * `GET /admin/users` takes no `page`, no `limit`, no `sort` and no `order` —
+   * it is a bare `select().from(admins)` with no ORDER BY, and it returns the
+   * whole directory as an array. So `rows` here IS the dataset, not a page of
+   * it, and DataTable's own comparator orders every administrator there is.
+   *
+   * That is precisely the condition R-2.5 objects to the absence of: its
+   * complaint is that sorting 25 held rows looks identical to sorting the
+   * dataset. When the held rows ARE the dataset the two are the same operation,
+   * and no `onSortChange` is passed — DataTable's client-side path is the right
+   * one, and it suppresses its own scope note because there is no next page to
+   * warn about.
+   *
+   * If this endpoint ever becomes paginated, this table must gain a server-side
+   * `onSortChange` in the same commit, or these three headers become the exact
+   * lie the withdrawal queue's used to be.
+   */
   const columns: Column<AdminUser>[] = [
     {
       header: t('settings.colAdministrator'),
+      sortable: true,
+      sortKey: 'name',
       cell: (user) => (
         <>
           {user.name}
@@ -90,6 +111,8 @@ export function AdminDirectoryTable({
     },
     {
       header: t('settings.colEmail'),
+      sortable: true,
+      sortKey: 'email',
       cell: (user) => user.email,
       cellClassName: 'font-mono text-muted-foreground',
     },
@@ -118,7 +141,21 @@ export function AdminDirectoryTable({
         ) : (
           <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-semibold text-link border border-primary/20">
             <Key className="h-3 w-3" />
-            {roles.find((r) => r.id === user.roleId)?.name || user.role}
+            {/*
+             * The assigned ROLE NAME, never the raw `role` enum.
+             *
+             * This used to fall back to `user.role`, which printed the database
+             * value `master_admin` in a column whose every other cell holds a
+             * role an operator created and can assign. It reads as a role that
+             * exists and is simply missing from the dropdown.
+             *
+             * `0036_administrator_role.sql` gives every master admin the
+             * `Administrator` role, so the lookup now succeeds for them. The
+             * remaining fallback is for an admin with per-admin permissions and
+             * no role at all — a real state the API supports — and it says so
+             * in words rather than leaking the enum.
+             */}
+            {roles.find((r) => r.id === user.roleId)?.name ?? t('adminUsers.customPermissions')}
           </span>
         ),
       // A role dropdown is not something to sort a directory by, and the header
@@ -127,6 +164,10 @@ export function AdminDirectoryTable({
     },
     {
       header: t('settings.colStatus'),
+      // Sorted on the underlying `status` field, not the rendered pill —
+      // otherwise the comparator has nothing to read, since `cell` returns JSX.
+      sortable: true,
+      sortKey: 'status',
       // READ, not assumed — see the note on the component. A hardcoded "Active"
       // here once showed a suspended administrator as trustworthy.
       cell: (user) => {

@@ -44,7 +44,23 @@ import { t } from '@/lib/i18n';
 export function ExportButton({
   resource,
   filters,
-  formats = ['csv', 'xlsx'],
+  /*
+   * CSV ONLY, deliberately.
+   *
+   * The default used to be `['csv', 'xlsx']`, which put an "Export as Excel"
+   * item in every one of these menus. The backend supports no such thing: no
+   * spreadsheet library is installed, and `format=xlsx` is answered with a 400
+   * naming csv as the supported value (R-2.5 — never a silent substitution).
+   *
+   * So the menu offered an option that could only ever fail. Removing it is the
+   * honest fix; adding xlsx to the API is the other one, and it is a real
+   * decision (a dependency, and a second serialiser to keep in step with the
+   * CSV columns) rather than something to slip in behind a menu item.
+   *
+   * With one format the component renders a plain button rather than a
+   * dropdown — see `single` below — so there is no menu of one.
+   */
+  formats = ['csv'],
   disabled = false,
   label,
 }: {
@@ -56,6 +72,8 @@ export function ExportButton({
    *
    * Typed as non-empty, so "an export button offering no formats" — a control
    * that could only ever do nothing — cannot be constructed.
+   *
+   * Only `csv` is served today; see the default above before passing `xlsx`.
    */
   formats?: [ExportFormat, ...ExportFormat[]];
   /** Set when there is provably nothing to export, e.g. an empty result. */
@@ -136,6 +154,16 @@ export function ExportButton({
           className="h-9"
           disabled={disabled || busy}
           onClick={() => void run(formats[0])}
+          /*
+           * The scope note follows the control.
+           *
+           * It lived in the dropdown, which a single-format export no longer
+           * renders — so the one sentence answering "did I get the page or
+           * everything?" would have disappeared with the menu. A `title` is a
+           * weaker home than a menu label, but a weaker home is not the same as
+           * none, and this is the claim an operator checks after clicking.
+           */
+          title={t('export.scopeNote')}
         >
           {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />

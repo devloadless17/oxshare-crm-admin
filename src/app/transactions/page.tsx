@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import api from '@/lib/api';
@@ -8,15 +9,19 @@ import type {
   RejectionReason,
   WithdrawalListResponse,
   WithdrawalRow,
+  WithdrawalSortKey,
   WithdrawalState,
 } from '@/lib/api/admin';
+import { WITHDRAWAL_SORT_KEYS } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
-import { useCursorPages } from '@/hooks/use-cursor-pages';
+import { PageLoader } from '@/components/ui/loader';
+import { useTableQueryState } from '@/hooks/use-table-query-state';
+import { pageParam } from '@/lib/page-param';
 import {
   Select,
   SelectTrigger,
@@ -67,7 +72,26 @@ const FILTERS: Array<{ value: WithdrawalState | ''; labelKey: MessageKey }> = [
   { value: 'rejected', labelKey: 'withdrawals.stateRejected' },
 ];
 
+/** A column may only claim to be sortable if the API will actually sort by it. */
+const sortableBy = (key: WithdrawalSortKey) => ({
+  sortable: true as const,
+  sortKey: key,
+});
+
+/*
+ * `useSearchParams()` requires a Suspense boundary at prerender or
+ * `npm run build` fails — and `next dev` does NOT, so CI is where you find out.
+ * Same shape as `clients/page.tsx`.
+ */
 export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<PageLoader label={t('withdrawals.loading')} />}>
+      <TransactionsPageContent />
+    </Suspense>
+  );
+}
+
+function TransactionsPageContent() {
   /*
    * TWO permissions, not one — R-5.4.
    *
@@ -87,17 +111,27 @@ export default function TransactionsPage() {
   const queryClient = useQueryClient();
 
   /*
-   * Cursor navigation, not numbered pages — PLATFORM-CONVENTIONS R-2.4.
+   * Numbered pages, and the state that drives them lives in the URL.
    *
-   * The withdrawal QUEUE is worked down by an admin while clients keep
-   * submitting — the concurrent-insert case offset paging gets wrong. A skipped
-   * withdrawal is one nobody actions, and nothing about it looks wrong.
+   * The state filter moved there with the page number. It was `useState`, so
+   * "the pending queue" was not a link an operator could send anyone, and the
+   * browser's Back button left the screen rather than undoing the filter — the
+   * same argument `use-table-query-state` makes for the client list.
    *
-   * "Jump to page N" is gone because a cursor names a row rather than an
-   * ordinal. Filters are the real navigation here.
+   * R-2.4's concurrent-insert hazard is real on this queue and is the reason
+   * the cursor path still exists on the endpoint. It is not what an admin
+   * working the queue actually hit: with Previous/Next alone there was no way
+   * back to a page they had left, and the sort below could not be offered at
+   * all, because a cursor encodes the ordering that minted it and the API
+   * refuses a mismatched one with a 400.
    */
-  const pages = useCursorPages();
-  const [filter, setFilter] = React.useState<WithdrawalState | ''>('');
+  const url = useTableQueryState();
+  const page = pageParam(url.get('page'));
+  const filter = (url.get('state') || '') as WithdrawalState | '';
+
+  const sortKey = WITHDRAWAL_SORT_KEYS.includes(url.sort.key as WithdrawalSortKey)
+    ? (url.sort.key as WithdrawalSortKey)
+    : undefined;
 
   const [rejectTarget, setRejectTarget] = React.useState<WithdrawalRow | null>(null);
   const [settleTarget, setSettleTarget] = React.useState<WithdrawalRow | null>(null);
@@ -105,13 +139,19 @@ export default function TransactionsPage() {
   const [reasonNote, setReasonNote] = React.useState('');
   const [providerRef, setProviderRef] = React.useState('');
 
-  const query = useResource<WithdrawalListResponse>(
-    ['admin', 'withdrawals', pages.cursor ?? 'first', filter],
-    (signal) =>
-      api.admin.getWithdrawals(
-        { limit: PAGE_SIZE, cursor: pages.cursor, state: filter || undefined },
-        signal,
-      ),
+  const params = {
+    limit: PAGE_SIZE,
+    page,
+    state: filter || undefined,
+    sort: sortKey,
+    // Withheld when nothing is sorted. `order` alone describes an ordering of
+    // no column, and sending it would also make two identical result sets
+    // cache under different query keys.
+    order: sortKey ? url.sort.order : undefined,
+  };
+
+  const query = useResource<WithdrawalListResponse>(['admin', 'withdrawals', params], (signal) =>
+    api.admin.getWithdrawals(params, signal),
   );
 
   /*
@@ -197,9 +237,15 @@ export default function TransactionsPage() {
 
   const busy = approve.isPending || reject.isPending || settle.isPending;
   const rows = query.data?.items ?? [];
-  // `nextCursor`, not `total`: the server only counts on request, because
-  // counting is a full scan of the filtered set (R-2.4).
-  const nextCursor = query.data?.nextCursor ?? null;
+  /*
+   * `total` and `counts` are different numbers and both are needed.
+   *
+   * `total` counts the CURRENT filter and is what the pager divides into pages.
+   * `counts` groups every state over the full set and is what the filter tabs
+   * show — so the Pending tab keeps its badge while Rejected is on screen.
+   * Using either for the other's job makes one of them wrong.
+   */
+  const total = query.data?.total ?? 0;
   const counts = query.data?.counts ?? {};
 
   const listError = approve.isError
@@ -209,6 +255,12 @@ export default function TransactionsPage() {
   const columns: Column<WithdrawalRow>[] = [
     {
       header: t('withdrawals.colClient'),
+      // Sorts by EMAIL, which is what the endpoint's `userEmail` key orders on.
+      // The cell leads with the name, so this is a deliberate mismatch between
+      // what is read and what is ordered — email is the unique, always-present
+      // one, and grouping a queue by it puts a client's requests together,
+      // which is the reason to sort this column at all.
+      ...sortableBy('userEmail'),
       cell: (w) => (
         <div className="min-w-0">
           <div className="font-medium text-foreground">
@@ -222,25 +274,22 @@ export default function TransactionsPage() {
       header: t('withdrawals.colAmount'),
       align: 'right',
       /*
-       * NOT sortable, deliberately.
+       * Sortable NOW, and only because the endpoint does the ordering.
        *
-       * A `money` comparator exists and is correct — it compares decimals rather
-       * than text, after the queue once sorted 9.00 above 100.00. The problem is
-       * scope, not arithmetic: this list is cursor-paginated, no list endpoint
-       * accepts a sort parameter (R-2.5), so sorting here orders the 25 rows on
-       * screen. "The largest withdrawal" would mean the largest of 25.
+       * This column was deliberately unsortable for as long as the sort was
+       * client-side: it would have ordered the 25 rows on screen, so "the
+       * largest withdrawal" meant the largest of 25 — on the screen where an
+       * admin authorises a payout, and where "largest pending" is exactly the
+       * question asked before deciding what to scrutinise.
        *
-       * On every other column that misreading costs a moment of confusion. On
-       * this one it is the screen where an admin authorises a payout, and
-       * "largest pending" is exactly the question an operator asks before
-       * deciding what to scrutinise. DataTable shows a scope note wherever a
-       * client-side sort is active, but a note beside a wrong answer is a weaker
-       * control than not offering the wrong answer.
-       *
-       * Restore `sortable: true` with `sortKey: 'amount'` and `sortType: 'money'`
-       * once the endpoint sorts server-side.
+       * `WITHDRAWAL_SORT_COLUMNS.amount` maps to the `NUMERIC(28,8)` column, so
+       * the database compares decimals and the answer covers the whole filtered
+       * set. No `sortType: 'money'` is needed or wanted — that comparator drives
+       * the client-side fallback, which `onSortChange` switches off entirely.
+       * The amounts still reach the DOM as untouched strings (§6.1); sorting
+       * happens where the numbers are, not here.
        */
-      sortable: false,
+      ...sortableBy('amount'),
       /*
        * Rendered VERBATIM — the API sends money as a string (§6.1).
        *
@@ -263,8 +312,17 @@ export default function TransactionsPage() {
     },
     {
       header: t('withdrawals.colDestination'),
-      sortable: true,
-      sortKey: 'destination',
+      /*
+       * NOT sortable — the API has no `destination` sort key.
+       *
+       * This header claimed `sortKey: 'destination'` and no handler was passed,
+       * so clicking it reordered the 25 rows on screen and presented that as
+       * the queue. It cannot simply be pointed at the server either:
+       * `WITHDRAWAL_SORT_COLUMNS` has no such entry, and R-2.5 makes an
+       * unrecognised sort a 400 rather than a silent fallback — so declaring it
+       * would replace a wrong order with an error page.
+       */
+      sortable: false,
       cell: (w) => (
         <>
           <div
@@ -279,8 +337,7 @@ export default function TransactionsPage() {
     },
     {
       header: t('withdrawals.colState'),
-      sortable: true,
-      sortKey: 'state',
+      ...sortableBy('state'),
       cell: (w) => (
         <>
           <span
@@ -307,9 +364,17 @@ export default function TransactionsPage() {
     },
     {
       header: t('withdrawals.colRequested'),
-      sortable: true,
-      sortKey: 'requestedAt',
-      sortType: 'date',
+      /*
+       * `createdAt`, not `requestedAt`, and the difference is the whole point
+       * of the allowlist: the column renders `w.requestedAt`, but the key the
+       * endpoint accepts for that ordering is `createdAt` — they are the same
+       * instant under two names, and the header used to send the one the API
+       * has never heard of.
+       *
+       * No `sortType: 'date'`: that comparator belongs to the client-side
+       * fallback, which `onSortChange` switches off.
+       */
+      ...sortableBy('createdAt'),
       cell: (w) => formatDateTime(w.requestedAt),
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
@@ -448,11 +513,11 @@ export default function TransactionsPage() {
                 key={f.value || 'all'}
                 type="button"
                 onClick={() => {
-                  // Back to the first page: a cursor names a row in the
-                  // PREVIOUS filter's ordering, so carrying it across would
-                  // page from a position that no longer means anything.
-                  pages.reset();
-                  setFilter(f.value);
+                  // The state and the page are written together, so the filter
+                  // change always lands on page one. Page 4 of "pending" is
+                  // usually past the end of "rejected", and an empty table
+                  // reads as an empty queue rather than as an overshoot.
+                  url.set({ state: f.value || undefined, page: undefined });
                 }}
                 aria-pressed={filter === f.value}
                 className={`h-8 rounded-md px-3 text-xs font-semibold transition-colors ${
@@ -507,14 +572,22 @@ export default function TransactionsPage() {
               message={filter ? t('withdrawals.emptyFiltered') : t('withdrawals.empty')}
             />
           }
-          cursorPagination={{
-            pageNumber: pages.pageNumber,
+          sortColumn={sortKey}
+          sortDirection={url.sort.order}
+          /*
+           * Server-side, which is what makes the amount column safe to offer at
+           * all — see the note on it above. The page is dropped with the sort:
+           * reordering renumbers every page, so position 26–50 after a sort
+           * holds different withdrawals than it did before.
+           */
+          onSortChange={(key, order) => {
+            url.set({ sort: key ?? undefined, order: order ?? undefined, page: undefined });
+          }}
+          pagination={{
+            page,
             pageSize: PAGE_SIZE,
-            showing: rows.length,
-            canGoBack: pages.canGoBack,
-            canGoForward: Boolean(nextCursor),
-            onBack: pages.goBack,
-            onNext: () => pages.goNext(nextCursor),
+            total,
+            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
             noun: [t('withdrawals.noun'), t('withdrawals.nounPlural')],
           }}
         />

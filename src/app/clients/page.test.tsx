@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import ClientsPage from './page';
@@ -45,15 +45,50 @@ const searchParams = { current: new URLSearchParams() };
  * would then be asserting against a screen that behaves nothing like the real
  * one — and would keep passing if the wiring broke.
  */
+/*
+ * …and the write-back has to RE-RENDER, not merely be stored.
+ *
+ * The filter inputs are controlled (`value={values.q}` in client-filters.tsx),
+ * so their displayed text comes from the URL rather than from local state. A
+ * mock that only mutates `searchParams.current` updates the value the next
+ * render would read — but nothing schedules that render, so the box stays
+ * frozen at its first character and typing "alpha" sends `q=a`.
+ *
+ * `useSyncExternalStore` makes the mock what the real router is: a store that
+ * components subscribe to. Each `replace` bumps the snapshot and every
+ * subscriber re-renders, so the input advances a character at a time exactly as
+ * it does in the browser.
+ */
+const listeners = new Set<() => void>();
+
 const replace = vi.fn((url: string) => {
   searchParams.current = new URLSearchParams(url.split('?')[1] ?? '');
+  // React requires a CHANGED snapshot to re-render; the URLSearchParams
+  // identity alone is not enough because getSnapshot must be cheap and stable.
+  snapshot += 1;
+  for (const notify of listeners) notify();
 });
 
-vi.mock('next/navigation', () => ({
-  useSearchParams: () => searchParams.current,
-  usePathname: () => '/clients',
-  useRouter: () => ({ replace, push: vi.fn(), refresh: vi.fn() }),
-}));
+let snapshot = 0;
+
+vi.mock('next/navigation', async () => {
+  const { useSyncExternalStore } = await import('react');
+  return {
+    useSearchParams: () => {
+      useSyncExternalStore(
+        (onChange: () => void) => {
+          listeners.add(onChange);
+          return () => listeners.delete(onChange);
+        },
+        () => snapshot,
+        () => snapshot,
+      );
+      return searchParams.current;
+    },
+    usePathname: () => '/clients',
+    useRouter: () => ({ replace, push: vi.fn(), refresh: vi.fn() }),
+  };
+});
 
 const permissions = { current: ['*'] as string[] };
 
@@ -104,6 +139,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   permissions.current = ['*'];
   searchParams.current = new URLSearchParams();
+  // Bumped rather than zeroed: a stale subscriber from the previous test would
+  // see an unchanged snapshot and skip the render that clears its inputs.
+  snapshot += 1;
+  listeners.clear();
   getClients.mockResolvedValue(page([client()]));
   getTags.mockResolvedValue([]);
   setClientStatus.mockResolvedValue(client({ status: 'suspended' }));
@@ -126,13 +165,25 @@ describe('client directory — listing', () => {
   });
 });
 
+/**
+ * Open a row's three-dot menu and pick an item.
+ *
+ * Suspend used to be a button sitting in the Actions cell. It is now behind the
+ * shared `RowActions` trigger, which is named for its row — so this takes the
+ * same two steps the operator now does.
+ */
+async function chooseRowAction(user: ReturnType<typeof userEvent.setup>, item: RegExp) {
+  await user.click(await screen.findByRole('button', { name: /actions for/i }));
+  await user.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: item }));
+}
+
 describe('client directory — suspension', () => {
   it('asks before suspending, and does nothing if declined', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
 
-    await user.click(await screen.findByRole('button', { name: /^suspend$/i }));
+    await chooseRowAction(user, /^suspend$/i);
 
     expect(confirmSpy).toHaveBeenCalled();
     // Suspension logs the client out immediately; a mis-click must not reach the API.
@@ -145,7 +196,7 @@ describe('client directory — suspension', () => {
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
 
-    await user.click(await screen.findByRole('button', { name: /^suspend$/i }));
+    await chooseRowAction(user, /^suspend$/i);
 
     await waitFor(() => expect(setClientStatus).toHaveBeenCalledTimes(1));
     // `(id, status)`, not an axios `(url, body)` pair — the call moved behind
@@ -159,7 +210,7 @@ describe('client directory — suspension', () => {
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
 
-    await user.click(await screen.findByRole('button', { name: /^suspend$/i }));
+    await chooseRowAction(user, /^suspend$/i);
 
     // Acting on the wrong row is the mistake this text exists to prevent.
     expect(confirmSpy.mock.calls[0]?.[0]).toContain('client@oxshare.com');
@@ -172,7 +223,7 @@ describe('client directory — suspension', () => {
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
 
-    await user.click(await screen.findByRole('button', { name: /reactivate/i }));
+    await chooseRowAction(user, /reactivate/i);
 
     // Only the destructive direction is guarded. Asking here would be friction
     // with nothing to protect.
@@ -189,8 +240,15 @@ describe('client directory — permission gating', () => {
     renderWithProviders(<ClientsPage />);
 
     await screen.findByText('client@oxshare.com');
-    expect(screen.queryByRole('button', { name: /^suspend$/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /reactivate/i })).toBeNull();
+    /*
+     * The whole Actions column is gone, so the assertion is against the row
+     * TRIGGER rather than against a "Suspend" button.
+     *
+     * Querying for the button by name would now pass whatever the permissions
+     * were — no such button exists on any code path since suspend moved into
+     * the menu — which is a test that has stopped watching the thing it names.
+     */
+    expect(screen.queryByRole('button', { name: /actions for/i })).toBeNull();
   });
 
   it('still lists clients read-only without users.suspend', async () => {
@@ -287,16 +345,54 @@ describe('finding a client — search, filters and sort reach the API', () => {
     expect(getClients.mock.calls.at(-1)?.[0]?.sort).toBeUndefined();
   });
 
-  it('pages forward with the cursor the server returned', async () => {
-    getClients.mockResolvedValue(page([client()], { nextCursor: 'cursor-two' }));
+  /*
+   * Paging is by PAGE NUMBER now, not by cursor, and the number is in the URL.
+   *
+   * The test this replaces asserted that "next" sent back the `nextCursor` the
+   * server returned. That was right for a cursor walk and is the wrong contract
+   * now: a cursor cannot express "page 7", so an operator had no way back to a
+   * page they had left and no link they could share.
+   */
+  it('asks for the total, which numbered pages cannot be drawn without', async () => {
+    renderWithProviders(<ClientsPage />);
+
+    await waitFor(() => expect(getClients).toHaveBeenCalled());
+    // `ClientListResponseDto.total` is optional — the endpoint counts only when
+    // asked. Without this the pager has no page count and hides the whole list
+    // behind page one.
+    expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ withTotal: true });
+  });
+
+  it('pages forward by NUMBER, and puts the page in the URL', async () => {
+    // 3 pages at 25 a page, so the numbered buttons render.
+    getClients.mockResolvedValue(page([client()], { total: 70 }));
     renderWithProviders(<ClientsPage />);
     await screen.findByText('client@oxshare.com');
 
-    await userEvent.click(screen.getByRole('button', { name: /next/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Page 2' }));
 
-    await waitFor(() =>
-      expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ cursor: 'cursor-two' }),
-    );
+    await waitFor(() => expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ page: 2 }));
+    // In the URL, so a refresh and the Back button both land where the operator
+    // was rather than back at page one.
+    expect(searchParams.current.get('page')).toBe('2');
+  });
+
+  it('returns to page ONE when a filter changes', async () => {
+    getClients.mockResolvedValue(page([client()], { total: 70 }));
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+    await waitFor(() => expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ page: 2 }));
+
+    /*
+     * Page 7 of the old filter is rarely page 7 of the new one and is very
+     * often past the end of it — which renders as an empty table and reads as
+     * "no clients match", not as "you are too far down the list".
+     */
+    await userEvent.type(screen.getByRole('searchbox'), 'alpha');
+
+    await waitFor(() => expect(searchParams.current.get('page')).toBeNull());
   });
 });
 

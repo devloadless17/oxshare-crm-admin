@@ -11,14 +11,15 @@ export interface TableQueryState {
   sort: { key?: string; order: 'asc' | 'desc' };
   /** Merge a patch; empty values remove their key. */
   set: (patch: Record<string, string | string[] | undefined>) => void;
-  setSort: (key: string, order: 'asc' | 'desc') => void;
+  /** `null` on both clears the sort entirely — see the implementation. */
+  setSort: (key: string | null, order: 'asc' | 'desc' | null) => void;
   clear: () => void;
   /** Whether anything is filtered — for showing a "clear filters" control. */
   isFiltered: boolean;
 }
 
 /**
- * Table FILTERS live in the URL. The cursor does not.
+ * Table filters, sort and PAGE NUMBER all live in the URL.
  *
  * ── Why filters belong there ────────────────────────────────────────────────
  *
@@ -32,12 +33,24 @@ export interface TableQueryState {
  * not. And today, changing a filter is invisible to browser history, so Back
  * leaves the page entirely — which is worse than either alternative.
  *
- * ── Why the cursor does not ─────────────────────────────────────────────────
+ * ── Why the PAGE NUMBER belongs there too ───────────────────────────────────
  *
- * `use-cursor-pages.ts` already argues this at length: a cursor is an opaque
- * server-owned token naming a ROW, not something a person should be pasting or
- * having go stale in a history entry from last week. A shared link lands on
- * page one, which is correct.
+ * It did not, once. The paginated tables navigated by CURSOR — an opaque,
+ * server-owned token naming a ROW — and the argument for keeping that out of
+ * the URL was sound on its own terms: it is not something a person should paste
+ * or have go stale in a history entry from last week.
+ *
+ * What it cost was everything a page number is for. A cursor cannot express
+ * "page 7", so an operator had Previous/Next and no way back to where they had
+ * been; a refresh, a shared link and the Back button all returned them to page
+ * one. `?page=7` survives all three, and it is an ORDINAL — meaningless to
+ * paste into a different filter, but harmless there too, since a page past the
+ * end of a list renders as an empty one rather than an error.
+ *
+ * Every caller therefore writes the page and the filter TOGETHER, dropping the
+ * page whenever a filter or the sort changes — see `pageParam` in
+ * `lib/page-param.ts` for the read side. `isFiltered` below excludes `page` for
+ * the same reason: paging is not filtering.
  *
  * ── `replace`, not `push` ───────────────────────────────────────────────────
  *
@@ -86,8 +99,17 @@ export function useTableQueryState(): TableQueryState {
     [searchParams, write],
   );
 
+  /*
+   * `null` clears the sort — the third click of the asc → desc → off cycle.
+   *
+   * Both params are dropped together rather than one being left behind: a
+   * lingering `order=desc` with no `sort` is a URL that means nothing, and the
+   * API is entitled to 400 on it. `set` deletes any key it is handed
+   * `undefined`, so this is the same write path as every other filter.
+   */
   const setSort = useCallback(
-    (key: string, order: 'asc' | 'desc') => set({ sort: key, order }),
+    (key: string | null, order: 'asc' | 'desc' | null) =>
+      set({ sort: key ?? undefined, order: order ?? undefined }),
     [set],
   );
 
@@ -99,10 +121,16 @@ export function useTableQueryState(): TableQueryState {
     return { key, order: raw === 'asc' ? ('asc' as const) : ('desc' as const) };
   }, [searchParams]);
 
-  // `cursor` and `limit` are paging, not filtering — a list showing page three
-  // of an unfiltered table must not offer to "clear filters".
+  // `page`, `cursor` and `limit` are paging, not filtering — a list showing
+  // page three of an unfiltered table must not offer to "clear filters".
+  //
+  // `page` joined this list when the tables moved from cursors to numbered
+  // pages: without it, walking to page 2 of an unfiltered list lit up the
+  // "clear filters" control, which then appeared to do nothing an operator had
+  // asked for.
   const isFiltered = useMemo(
-    () => [...searchParams.keys()].some((key) => key !== 'cursor' && key !== 'limit'),
+    () =>
+      [...searchParams.keys()].some((key) => key !== 'page' && key !== 'cursor' && key !== 'limit'),
     [searchParams],
   );
 

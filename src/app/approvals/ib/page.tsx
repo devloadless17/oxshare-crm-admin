@@ -159,9 +159,24 @@ export default function PartnerApprovalsPage() {
     [status],
   );
 
+  /*
+   * NO COLUMN HERE SORTS, and every one says so explicitly.
+   *
+   * `GET /admin/ib/applications` accepts `status`, `page` and `limit` and
+   * nothing else — the store hardcodes `ORDER BY submitted_at DESC`. DataTable
+   * treats a column as sortable unless told otherwise, deriving a key from the
+   * header text, so silence would turn all four of these into sort buttons that
+   * reorder the current page and present it as the queue.
+   *
+   * This list is also paginated, which is what makes that the damaging kind of
+   * wrong: "the longest-waiting application" would mean the longest-waiting of
+   * the twenty-five on screen. When the endpoint gains a sort allowlist, mirror
+   * it as a `sortableBy()` helper the way `client-columns.tsx` does.
+   */
   const columns: Column<Row>[] = [
     {
       header: t('partnerReview.colApplicant'),
+      sortable: false,
       cell: (row) => (
         <div className="min-w-0">
           {/* The client, not just their name — a reviewer deciding whether to
@@ -178,6 +193,7 @@ export default function PartnerApprovalsPage() {
     },
     {
       header: t('partnerReview.colSubmitted'),
+      sortable: false,
       cell: (row) => {
         const days = daysWaiting(row.application);
         return (
@@ -194,6 +210,7 @@ export default function PartnerApprovalsPage() {
     },
     {
       header: t('partnerReview.colVolume'),
+      sortable: false,
       // Labelled as self-reported. It is a number the applicant typed, and a
       // bare figure in a table reads as something the platform measured.
       cell: (row) =>
@@ -205,6 +222,7 @@ export default function PartnerApprovalsPage() {
     },
     {
       header: t('partnerReview.colStatus'),
+      sortable: false,
       cell: (row) => <StatusBadge status={row.application.status} />,
     },
     actionsColumn<Row>((row) => {

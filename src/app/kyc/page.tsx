@@ -16,6 +16,7 @@ import { BatchProgress } from '@/components/batch-actions';
 import { ExportButton } from '@/components/export-button';
 import { useDebounced } from '@/hooks/use-debounced';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { KYC_SORT_KEYS, type KycSortKey } from '@/lib/api/admin';
 import { t } from '@/lib/i18n';
 
 type KycStatus =
@@ -98,22 +99,44 @@ function daysWaiting(row: KycRow): number | null {
   return Math.max(0, Math.floor(elapsed / 86_400_000));
 }
 
+/** A column may only claim to be sortable if the API will actually sort by it. */
+const sortableBy = (key: KycSortKey) => ({
+  sortable: true as const,
+  sortKey: key,
+});
+
 export default function AdminKycPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
+  /**
+   * The sort, as the API's own two parameters.
+   *
+   * `null` is a real state and not a missing value: it is the third click of
+   * DataTable's asc → desc → off cycle, and it means "drop both parameters and
+   * let the endpoint apply its own default" — `submittedAt desc`, the queue
+   * order. Substituting that default here instead would look identical on
+   * screen and be a different request.
+   */
+  const [sort, setSort] = useState<{ key: KycSortKey; order: 'asc' | 'desc' } | null>(null);
 
   const debouncedSearch = useDebounced(search.trim());
 
-  // Server-side filtering/search/pagination; counts come from the API over
-  // the full set, so tab counts stay correct while a filter is active.
+  // Server-side filtering/search/sorting/pagination; counts come from the API
+  // over the full set, so tab counts stay correct while a filter is active.
   const query = useResource<KycListResponse>(
-    ['kyc', page, pageSize, filter, debouncedSearch],
+    ['kyc', page, pageSize, filter, debouncedSearch, sort?.key, sort?.order],
     async (signal) => {
       const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
       if (filter) params.set('status', filter);
       if (debouncedSearch) params.set('q', debouncedSearch);
+      // Both halves or neither — `order` alone describes an ordering of no
+      // column, and the API is entitled to reject it.
+      if (sort) {
+        params.set('sort', sort.key);
+        params.set('order', sort.order);
+      }
       return (await api.get<KycListResponse>(`/admin/kyc?${params}`, { signal })).data;
     },
   );
@@ -194,8 +217,16 @@ export default function AdminKycPage() {
   const columns: Column<KycRow>[] = [
     {
       header: t('kycReview.colUser'),
-      sortable: true,
-      sortKey: 'userId',
+      /*
+       * Sorts by EMAIL. The header used to declare `sortKey: 'userId'`, which
+       * the endpoint has never accepted — and even if it had, ordering a review
+       * queue by opaque UUID is not a question anybody asks.
+       *
+       * `userEmail` is the allowlisted key that means what a reader of this
+       * column wants: it groups a person's submissions together and is unique
+       * and always present, which the displayed name is neither.
+       */
+      ...sortableBy('userEmail'),
       cell: (row) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-xs text-primary-foreground">
@@ -212,16 +243,23 @@ export default function AdminKycPage() {
     },
     {
       header: t('kycReview.colCountry'),
-      sortable: true,
-      sortKey: 'country',
+      /*
+       * NOT sortable — the API has no `country` key for this list.
+       *
+       * The value is read from `personalInfo`, which is a JSON blob on the
+       * submission rather than a column, so there is nothing for the database
+       * to order by. R-2.5 makes an unrecognised sort a 400, so declaring this
+       * would turn a header click into an error page. It was a client-side
+       * reorder of the rows on screen until now.
+       */
+      sortable: false,
       cell: (row) => (
         <span className="text-muted-foreground">{row.personalInfo?.country ?? '—'}</span>
       ),
     },
     {
       header: t('kycReview.colStatus'),
-      sortable: true,
-      sortKey: 'status',
+      ...sortableBy('status'),
       cell: (row) => (
         <span
           className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
@@ -237,8 +275,15 @@ export default function AdminKycPage() {
     },
     {
       header: t('kycReview.colSubmitted'),
-      sortable: true,
-      sortKey: 'submittedAt',
+      /*
+       * The one sort this queue most needs, and now a real one.
+       *
+       * Ascending puts the LONGEST-waiting submission first. The cell's
+       * "waiting N days" warning exists because the default newest-first order
+       * sinks the oldest unreviewed submissions to the bottom — this makes the
+       * fix reachable across the whole queue rather than within one page.
+       */
+      ...sortableBy('submittedAt'),
       cell: (row) => {
         const waiting = daysWaiting(row);
         return (
@@ -266,8 +311,14 @@ export default function AdminKycPage() {
     },
     {
       header: t('kycReview.colReviewed'),
-      sortable: true,
-      sortKey: 'reviewedAt',
+      /*
+       * NOT sortable — `reviewedAt` is not in `KYC_SORT_COLUMNS`.
+       *
+       * It reads like an obvious sibling of `submittedAt`, which is exactly why
+       * it is called out: the allowlist offers `createdAt` and `submittedAt` and
+       * no third date. Sending `reviewedAt` would be a 400, not a fallback.
+       */
+      sortable: false,
       cell: (row) => (
         <span className="text-xs text-muted-foreground">
           {row.reviewedAt ? new Date(row.reviewedAt).toLocaleDateString() : '—'}
@@ -277,6 +328,10 @@ export default function AdminKycPage() {
     {
       header: t('kycReview.colAction'),
       align: 'right',
+      // DataTable treats a column as sortable unless told otherwise, so without
+      // this the Actions header becomes a sort button on a key the API has
+      // never heard of.
+      sortable: false,
       cell: (row) => (
         <Link
           href={`/kyc/${row.userId}`}
@@ -392,6 +447,33 @@ export default function AdminKycPage() {
           empty={
             <EmptyState icon={FileCheck} message="No submissions match the current filters." />
           }
+          sortColumn={sort?.key}
+          sortDirection={sort?.order}
+          /*
+           * Server-side. Passing this also switches DataTable out of its
+           * client-side path, which is what the columns above were quietly
+           * relying on — three of them claimed keys the endpoint never
+           * accepted, so the queue reordered its 25 visible rows and presented
+           * that as the backlog.
+           *
+           * `setPage(1)` because reordering renumbers every page: the rows at
+           * positions 26–50 under the new sort are not the ones that were there
+           * under the old.
+           */
+          onSortChange={(key, order) => {
+            /*
+             * Checked against the allowlist rather than cast to it.
+             *
+             * Only allowlisted columns are marked sortable, so this should
+             * always hold — but `key` arrives as a bare string, and a cast
+             * would make a future column with a typo'd key compile cleanly and
+             * 400 at runtime. Falling back to `null` means an unrecognised key
+             * clears the sort instead, which is a state the endpoint accepts.
+             */
+            const next = KYC_SORT_KEYS.find((allowed) => allowed === key);
+            setSort(next && order ? { key: next, order } : null);
+            setPage(1);
+          }}
           pagination={{
             page,
             pageSize,
