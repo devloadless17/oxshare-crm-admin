@@ -421,11 +421,14 @@ export default function AdminDashboardPage() {
               onRetry={recentKyc.refetch}
               error={recentKyc.error}
               errorMessage={t('adminDashboard.kycQueueFailed')}
+              fill
             >
               {reviewQueue.length === 0 ? (
-                <p className="p-6 pt-0 text-center text-sm text-muted-foreground">
-                  {t('adminDashboard.kycQueueEmpty')}
-                </p>
+                <div className="flex min-h-0 flex-1 items-center justify-center p-6 pt-0">
+                  <p className="text-center text-sm text-muted-foreground">
+                    {t('adminDashboard.kycQueueEmpty')}
+                  </p>
+                </div>
               ) : (
                 <ul className="divide-y divide-border border-t border-border">
                   {reviewQueue.map((submission) => (
