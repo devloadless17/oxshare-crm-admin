@@ -10,6 +10,10 @@ import {
   UserCog,
   FileCheck,
   Coins,
+  ArrowLeftRight,
+  Wallet,
+  CandlestickChart,
+  CreditCard,
   Handshake,
   Layers,
   ClipboardList,
@@ -154,9 +158,24 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
     ],
   },
+  /*
+   * Finance, in the order the work happens: the queue an operator clears daily
+   * first, then the things that configure it.
+   *
+   * Wallets and Trading accounts have no endpoint behind them and render
+   * BackendPending. They are listed because they are pages that EXIST and say
+   * what they are waiting for — which is the opposite of the `comingSoon`
+   * badges removed above, where the link led nowhere at all.
+   */
   {
     title: 'nav.section.finance',
-    items: [{ label: 'nav.currencies', href: '/currencies', icon: Coins }],
+    items: [
+      { label: 'nav.transactions', href: '/transactions', icon: ArrowLeftRight },
+      { label: 'nav.wallets', href: '/wallets', icon: Wallet },
+      { label: 'nav.tradingAccounts', href: '/trading-accounts', icon: CandlestickChart },
+      { label: 'nav.paymentMethods', href: '/payment-methods', icon: CreditCard },
+      { label: 'nav.currencies', href: '/currencies', icon: Coins },
+    ],
   },
   {
     title: 'nav.section.administration',

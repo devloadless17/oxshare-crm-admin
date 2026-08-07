@@ -25,10 +25,32 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/kyc/builder', requirement: { permission: 'kyc.edit' } }, // edits the KYC config itself
   { prefix: '/kyc', requirement: { permission: 'kyc.review' } },
   { prefix: '/clients', requirement: { permission: 'users.view' } },
-  // `/trading-accounts` and `/payouts` were listed here with no `page.tsx`
-  // behind either. Removed with their sidebar entries: `canAccess` denies an
-  // unlisted path (see the `!match` branch below), which is the correct answer
-  // for a route that does not exist. Re-add both when the pages are built.
+  /*
+   * `withdrawals.view`, not `withdrawals.approve`. Seeing the payout queue and
+   * deciding on it are separate powers — each button checks its own — so
+   * gating the route on the write key would hide the whole screen from an
+   * operator who may only look, and from one who may settle but not approve.
+   */
+  { prefix: '/transactions', requirement: { permission: 'withdrawals.view' } },
+  /*
+   * These three read the same money surface, so they share its read key rather
+   * than minting one no existing role holds. `/wallets` and `/trading-accounts`
+   * have no endpoint behind them yet and render BackendPending; they are listed
+   * here because `canAccess` denies an unlisted path, so a page with no route
+   * requirement shows the "no access" panel instead of itself — and the honest
+   * "this is not built" is the thing worth showing.
+   */
+  { prefix: '/wallets', requirement: { permission: 'withdrawals.view' } },
+  { prefix: '/trading-accounts', requirement: { permission: 'withdrawals.view' } },
+  // `payments.view` reads the list; the page checks `payments.manage` before it
+  // draws any write control, and the API refuses the writes regardless.
+  { prefix: '/payment-methods', requirement: { permission: 'payments.view' } },
+  // `/payouts` is still listed nowhere and has no `page.tsx`: `canAccess`
+  // denies an unlisted path (see the `!match` branch below), which is the
+  // correct answer for a route that does not exist. `/trading-accounts` was in
+  // the same position and is back above — as a page that exists and states
+  // which endpoint it is waiting for, which is a different thing from a link
+  // to nothing.
   { prefix: '/roles', requirement: { permission: 'roles.view' } },
   /*
    * `tags.view` OR `users.view` would be the honest requirement — anyone who

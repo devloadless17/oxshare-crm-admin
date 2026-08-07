@@ -839,6 +839,203 @@ export interface paths {
         patch: operations["AdminIbLevelsController_update"];
         trace?: never;
     };
+    "/v1/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in client's wallets — balance, on_hold and available, all as strings */
+        get: operations["WalletController_myWallets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/wallet/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in client's own ledger entries */
+        get: operations["WalletController_myLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deposit methods available to this client
+         * @description Enabled methods with configured pay-to details, in the operator’s chosen order. A method the operator has not finished setting up is absent rather than shown as unusable.
+         */
+        get: operations["PaymentsController_listMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Declare an incoming deposit and get the reference to quote on the transfer
+         * @description Creates a PENDING deposit. No balance changes until the operator confirms the money arrived. The returned reference is what reconciles the payment to this request.
+         */
+        post: operations["PaymentsController_requestDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/withdrawals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request a withdrawal — requires KYC level 1; reserves the amount on hold */
+        post: operations["PaymentsController_requestWithdrawal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/withdrawals/otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a confirmation code for one specific withdrawal (FR-CORE-08)
+         * @description The code is bound to the exact amount, currency, destination and provider supplied here. Changing any of them before submitting makes the code invalid, which is what stops a code obtained for a small withdrawal from authorising a large one.
+         */
+        post: operations["PaymentsController_sendWithdrawalOtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in client's own transactions */
+        get: operations["PaymentsController_myTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in client's own wallet <-> trading-account transfers */
+        get: operations["PaymentsController_myTransfers"];
+        put?: never;
+        /**
+         * Transfer between the wallet and a live trading account — requires KYC level 1
+         * @description wallet_to_account holds the amount immediately and debits it on settlement. account_to_wallet credits nothing until the bridge confirms MT5 was debited — the CRM never shows money it has not received. Demo accounts are refused.
+         */
+        post: operations["PaymentsController_requestTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every payment method, configured or not
+         * @description Includes disabled methods and ones with no pay-to details — managing those is the point of the screen. Clients see a narrower list: GET /payments/methods returns only what is enabled AND configured.
+         */
+        get: operations["AdminPaymentMethodsController_list"];
+        put?: never;
+        /**
+         * Add a payment method
+         * @description A method with no `payTo` is created but never offered to clients — see the service. That is deliberate: an account number nobody has filled in cannot receive money, and inventing one is how money leaves and does not arrive.
+         */
+        post: operations["AdminPaymentMethodsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-methods/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a payment method
+         * @description Refuses one that any deposit references — disabling is almost always what was meant, and it keeps the history readable while stopping new deposits.
+         */
+        delete: operations["AdminPaymentMethodsController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a payment method
+         * @description PATCH, and `key` itself is not editable: it is the primary key and `transactions.method_key` references it, so renaming is a data migration rather than an edit.
+         */
+        patch: operations["AdminPaymentMethodsController_update"];
+        trace?: never;
+    };
     "/v1/kyc/config": {
         parameters: {
             query?: never;
@@ -1758,25 +1955,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/ip-allowlist": {
+    "/v1/admin/withdrawals": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** The IP allowlist, whether it is being enforced, and your own address */
-        get: operations["AdminIpAllowlistController_list"];
+        /** Withdrawal requests with per-state counts (amounts are strings) */
+        get: operations["AdminMoneyController_listWithdrawals"];
         put?: never;
-        /** Add an address or range to the allowlist */
-        post: operations["AdminIpAllowlistController_add"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/ip-allowlist/{id}": {
+    "/v1/admin/withdrawals/{id}/approve": {
         parameters: {
             query?: never;
             header?: never;
@@ -1786,8 +1982,82 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove a rule from the allowlist */
-        delete: operations["AdminIpAllowlistController_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Approve a pending withdrawal — funds stay on hold until settlement */
+        patch: operations["AdminMoneyController_approveWithdrawal"];
+        trace?: never;
+    };
+    "/v1/admin/withdrawals/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Reject a pending withdrawal — releases the hold, emails the client */
+        patch: operations["AdminMoneyController_rejectWithdrawal"];
+        trace?: never;
+    };
+    "/v1/admin/withdrawals/{id}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark an approved withdrawal paid — posts the debit and clears the hold
+         * @description Requires `withdrawals.settle`, which is separate from `withdrawals.approve` so the two steps can be granted to different people (separation of duties, R-5.4).
+         */
+        patch: operations["AdminMoneyController_settleWithdrawal"];
+        trace?: never;
+    };
+    "/v1/admin/reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run reconciliation now and return the report (§12.2)
+         * @description The same check the hourly job runs: every wallet balance against the sum of its own ledger, and every confirmed accrual against the entry that should have credited it. Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed.
+         */
+        get: operations["AdminMoneyController_reconcile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Append-only ledger, filterable for reconciliation */
+        get: operations["AdminMoneyController_listLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1852,6 +2122,8 @@ export interface components {
             country?: string;
             /** @example +1234567890 */
             phone?: string;
+            /** @example K7M2PQR9 */
+            referralCode?: string;
         };
         RegistrationResponseDto: {
             /** @example Registration successful. Please check your email to verify your account. */
@@ -2172,6 +2444,254 @@ export interface components {
              *     ]
              */
             order: number[];
+        };
+        WalletDto: {
+            id: string;
+            userId: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /**
+             * @description Decimal string (§6.1).
+             * @example 700.00000000
+             */
+            balance: string;
+            /**
+             * @description Reserved against pending withdrawals.
+             * @example 0.00000000
+             */
+            onHold: string;
+            /**
+             * @description balance − onHold, computed server-side so both sides agree.
+             * @example 700.00000000
+             */
+            available: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        LedgerEntryDto: {
+            id: string;
+            walletId: string;
+            userId: string;
+            /** @description Signed monetary value as a string */
+            amount: string;
+            /** @description Running balance after this entry, as a string */
+            balanceAfter: string;
+            /** @enum {string} */
+            entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment";
+            referenceType: string;
+            referenceId: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        LedgerListResponseDto: {
+            items: components["schemas"]["LedgerEntryDto"][];
+            nextCursor: string | null;
+            /** @description Total matching entries, ignoring pagination. */
+            total: number;
+            page: number;
+            limit: number;
+        };
+        PaymentMethodDto: {
+            /**
+             * @description A stable machine key. Never renamed.
+             * @example whish
+             */
+            key: string;
+            /** @example Whish Money */
+            name: string;
+            /**
+             * @description Decides the deposit FLOW, so a screen branches on this rather than on the key — a screen that checks `key === "whish"` needs editing every time a method is added.
+             * @enum {string}
+             */
+            kind: "manual" | "gateway" | "crypto";
+            /** @example USD */
+            currency: string;
+            logoUrl: string | null;
+            /** @description What the client must do, in the operator's words. Rendered verbatim. */
+            instructions: string | null;
+            /** @description The account the client sends to. A method with none is NOT offered — see PaymentMethodsService.listAvailable. */
+            payTo: string | null;
+            minAmount: string | null;
+            maxAmount: string | null;
+            enabled: boolean;
+            sortOrder: number;
+        };
+        RequestDepositDto: {
+            /** @example 500.00000000 */
+            amount: string;
+            /**
+             * @description Must be an enabled currency — see GET /currencies.
+             * @example USD
+             */
+            currency: string;
+            /**
+             * @description How the client is sending the money. Decides which instructions they are shown.
+             * @example whish
+             */
+            method: string;
+            /** @description A live trading account of the caller, to fund once the deposit is confirmed. */
+            destinationTradingAccountId?: string;
+        };
+        DepositRequestDto: {
+            /** @description The transaction id. Also shown on /transactions. */
+            id: string;
+            /**
+             * @description Quote this on the transfer. It is what reconciles the payment to this request.
+             * @example OX-7F3A21
+             */
+            reference: string;
+            /** @example 500.00000000 */
+            amount: string;
+            /** @example USD */
+            currency: string;
+            /**
+             * @description The `payment_methods.key` used.
+             * @example whish
+             */
+            method: string;
+            /**
+             * @description Always `pending`. Nothing is credited until the operator confirms receipt.
+             * @example pending
+             */
+            state: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RequestWithdrawalDto: {
+            /** @example 300.00000000 */
+            amount: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** @description Payout target, e.g. an IBAN or a USDT address. */
+            destination: string;
+            /** @enum {string} */
+            provider: "whish" | "usdt";
+            /**
+             * @description Six-digit confirmation code. Required while the withdrawal OTP control is on.
+             * @example 482913
+             */
+            otp?: string;
+        };
+        TransactionDto: {
+            id: string;
+            userId: string;
+            walletId: string;
+            /** @enum {string} */
+            direction: "deposit" | "withdrawal";
+            /**
+             * @description Decimal string (§6.1).
+             * @example 300.00000000
+             */
+            amount: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** @enum {string} */
+            state: "pending" | "approved" | "success" | "failure" | "rejected";
+            /** @enum {string} */
+            provider?: "whish" | "usdt";
+            /** @description The provider's own reference. Backs UNIQUE(provider, provider_ref), which is what makes settlement idempotent in the database (§6.3). */
+            providerRef?: string | null;
+            destination?: string | null;
+            rejectionReason?: string | null;
+            reviewedBy?: string | null;
+            /** Format: date-time */
+            reviewedAt?: string | null;
+            /** Format: date-time */
+            settledAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RequestWithdrawalOtpDto: {
+            /** @example 300.00000000 */
+            amount: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** @description Payout target, e.g. an IBAN or a USDT address. */
+            destination: string;
+            /** @enum {string} */
+            provider: "whish" | "usdt";
+        };
+        WithdrawalOtpResponseDto: {
+            /** @example A confirmation code has been sent to your email address. */
+            message: string;
+            /** @description False when the operator has the withdrawal-OTP control switched off; the withdrawal may then be submitted without a code. */
+            required: boolean;
+        };
+        RequestTransferDto: {
+            /** @description A live trading account belonging to the caller. */
+            tradingAccountId: string;
+            /** @enum {string} */
+            direction: "wallet_to_account" | "account_to_wallet";
+            /**
+             * @description Decimal string, up to 8 places.
+             * @example 250.00
+             */
+            amount: string;
+            /** @example USD */
+            currency: string;
+        };
+        TransferDto: {
+            id: string;
+            userId: string;
+            walletId: string;
+            tradingAccountId: string;
+            /** @enum {string} */
+            direction: "wallet_to_account" | "account_to_wallet";
+            /**
+             * @description Decimal string (§6.1).
+             * @example 250.00000000
+             */
+            amount: string;
+            /** @example USD */
+            currency: string;
+            /**
+             * @description pending until the MT5 bridge confirms. A wallet_to_account transfer holds the amount while pending; an account_to_wallet one credits nothing until it settles.
+             * @enum {string}
+             */
+            state: "pending" | "settled" | "failed";
+            failureReason?: string | null;
+            /** Format: date-time */
+            settledAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CreatePaymentMethodDto: {
+            /** @example whish */
+            key: string;
+            /** @example Whish Money */
+            name: string;
+            /** @enum {string} */
+            kind: "manual" | "gateway" | "crypto";
+            /** @example USD */
+            currency: string;
+            logoUrl?: string;
+            /** @description Shown verbatim on the deposit screen. */
+            instructions?: string;
+            /** @description The Whish number, IBAN or wallet address. */
+            payTo?: string;
+            /** @example 10.00 */
+            minAmount?: string;
+            /** @example 5000.00 */
+            maxAmount?: string;
+            /** @default true */
+            enabled: boolean;
+            /** @default 0 */
+            sortOrder: number;
+        };
+        UpdatePaymentMethodDto: {
+            name?: string;
+            /** @enum {string} */
+            kind?: "manual" | "gateway" | "crypto";
+            currency?: string;
+            logoUrl?: string;
+            instructions?: string;
+            payTo?: string;
+            minAmount?: string;
+            maxAmount?: string;
+            enabled?: boolean;
+            sortOrder?: number;
         };
         KycFieldConfigDto: {
             /** @example f-1 */
@@ -2846,33 +3366,51 @@ export interface components {
             /** @description Whether the control is in force. Turning one OFF is audited and alerted — see AdminSecuritySettingsController. */
             enabled: boolean;
         };
-        IpAllowlistRuleDto: {
+        WithdrawalUserDto: {
             id: string;
-            /** @example 203.0.113.0/24 */
-            cidr: string;
-            /** @example Beirut office */
-            label: string;
-            createdBy: string;
-            createdAt: string;
+            email: string;
+            firstName: string;
+            lastName: string;
         };
-        IpAllowlistStatusDto: {
-            /** @description False while the list is empty. An empty list deliberately means the feature is OFF, so the deploy that adds the table cannot lock every administrator out (RBAC-08). */
-            enforced: boolean;
-            /** @description The requesting admin's own address, so the UI can warn before a lockout. */
-            yourIp: string | null;
-            rules: components["schemas"]["IpAllowlistRuleDto"][];
+        WithdrawalRowDto: {
+            id: string;
+            /** @description Monetary value — always a string, never a number */
+            amount: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** @enum {string} */
+            state: "pending" | "approved" | "success" | "failure" | "rejected";
+            provider: string;
+            providerRef?: string | null;
+            destination?: string | null;
+            rejectionReason?: string | null;
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            reviewedAt?: string | null;
+            /** Format: date-time */
+            settledAt?: string | null;
+            user: components["schemas"]["WithdrawalUserDto"];
         };
-        AddIpAllowlistRuleDto: {
-            /**
-             * @description IPv4 address or CIDR range. A bare address is stored as /32.
-             * @example 203.0.113.0/24
-             */
-            cidr: string;
-            /**
-             * @description Why this rule exists — an unlabelled list becomes unmaintainable.
-             * @example Beirut office
-             */
-            label: string;
+        WithdrawalListResponseDto: {
+            items: components["schemas"]["WithdrawalRowDto"][];
+            nextCursor: string | null;
+            total: number;
+            page: number;
+            limit: number;
+            counts: {
+                [key: string]: number;
+            };
+        };
+        WithdrawalRejectDto: {
+            /** @description Free-text reason, when not using a configured reasonId. */
+            reason?: string;
+            /** @description Id of a configured rejection reason. */
+            reasonId?: string;
+        };
+        SettleWithdrawalDto: {
+            /** @example wise-tx-9f3a1c */
+            providerRef: string;
         };
         ErrorResponseDto: {
             /**
@@ -4045,6 +4583,292 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbLevelDto"];
+                };
+            };
+        };
+    };
+    WalletController_myWallets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletDto"][];
+                };
+            };
+        };
+    };
+    WalletController_myLedger: {
+        parameters: {
+            query: {
+                entryType: string;
+                limit: string;
+                cursor: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerListResponseDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_listMethods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethodDto"][];
+                };
+            };
+        };
+    };
+    PaymentsController_requestDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended deposit, reused only when retrying that same one. Without it a double-clicked button files two declarations for one transfer, and the operator reconciling the bank statement has to guess which is real (R-5.2). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestDepositDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositRequestDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_requestWithdrawal: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended withdrawal, reused only when retrying that same one. Without it a double-clicked button creates two withdrawals and places two holds (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestWithdrawalDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_sendWithdrawalOtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestWithdrawalOtpDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalOtpResponseDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_myTransactions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionDto"][];
+                };
+            };
+        };
+    };
+    PaymentsController_myTransfers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"][];
+                };
+            };
+        };
+    };
+    PaymentsController_requestTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended transfer, reused only when retrying that same one. */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestTransferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentMethodsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethodDto"][];
+                };
+            };
+        };
+    };
+    AdminPaymentMethodsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePaymentMethodDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethodDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentMethodsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminPaymentMethodsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePaymentMethodDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethodDto"];
                 };
             };
         };
@@ -5397,9 +6221,14 @@ export interface operations {
             };
         };
     };
-    AdminIpAllowlistController_list: {
+    AdminMoneyController_listWithdrawals: {
         parameters: {
-            query?: never;
+            query: {
+                state: string;
+                page: string;
+                limit: string;
+                cursor: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5411,38 +6240,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
+                    "application/json": components["schemas"]["WithdrawalListResponseDto"];
                 };
             };
         };
     };
-    AdminIpAllowlistController_add: {
+    AdminMoneyController_approveWithdrawal: {
         parameters: {
             query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddIpAllowlistRuleDto"];
+            header: {
+                /** @description A unique value per intended action, reused only when retrying that same one. The state guards below make a REPLAYED CAUSE a no-op; this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
             };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_remove: {
-        parameters: {
-            query?: never;
-            header?: never;
             path: {
                 id: string;
             };
@@ -5455,7 +6264,106 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
+                    "application/json": components["schemas"]["WithdrawalRowDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_rejectWithdrawal: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended action, reused only when retrying that same one. The state guards below make a REPLAYED CAUSE a no-op; this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WithdrawalRejectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalRowDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_settleWithdrawal: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended action, reused only when retrying that same one. The state guards below make a REPLAYED CAUSE a no-op; this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleWithdrawalDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalRowDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_reconcile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminMoneyController_listLedger: {
+        parameters: {
+            query: {
+                userId: string;
+                walletId: string;
+                entryType: string;
+                page: string;
+                limit: string;
+                cursor: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerListResponseDto"];
                 };
             };
         };

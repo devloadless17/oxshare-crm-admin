@@ -150,7 +150,14 @@ export const messages = {
   'invite.submitting': 'Activating account…',
   'invite.failed': 'Failed to accept invite.',
 
-  // ── Withdrawals (ADM-03) ──────────────────────────────────────────────────
+  /*
+   * ── Withdrawals (ADM-03) ─────────────────────────────────────────────────
+   *
+   * These survived the money teardown as orphans and are reused rather than
+   * re-minted under a `transactions.*` prefix. The screen is at /transactions
+   * because that is what an operator calls the queue; the DOMAIN is still
+   * withdrawals, which is what these keys name.
+   */
   'withdrawals.title': 'Withdrawals',
   'withdrawals.colClient': 'Client',
   'withdrawals.colAmount': 'Amount',
@@ -189,19 +196,106 @@ export const messages = {
   'withdrawals.tabPending': 'Pending Review',
   'withdrawals.tabApproved': 'Approved / Paid',
   'withdrawals.tabRejected': 'Rejected / Failed',
+  'withdrawals.loading': 'Loading withdrawal requests',
+  'withdrawals.loadFailed': 'Could not load withdrawal requests.',
+  'withdrawals.caption': 'Client withdrawal requests',
+  'withdrawals.empty': 'No withdrawal requests yet.',
+  'withdrawals.emptyFiltered': 'No withdrawals in this state.',
+  'withdrawals.rejectFailed': 'Could not reject the withdrawal.',
+  'withdrawals.settleFailed': 'Could not mark the withdrawal paid.',
+  'withdrawals.rejecting': 'Rejecting…',
+  'withdrawals.confirmRejection': 'Confirm rejection',
+  'withdrawals.posting': 'Posting…',
+  'withdrawals.confirmPayment': 'Confirm payment',
+  'withdrawals.additionalNote': 'Additional note (optional)',
+  'withdrawals.noteHint': 'The client reads this. Say what would make a new request succeed.',
+  'withdrawals.rejectIntro':
+    '{email} · {amount} {currency}. The hold is released, the client is emailed the reason, and they may submit a new request.',
+  'withdrawals.settleIntro':
+    '{email} · {amount} {currency}. This posts the debit to the ledger and clears the hold. It cannot be undone — corrections are compensating ledger entries.',
+  'withdrawals.settledOn': 'Settled {date}',
+  'withdrawals.reviewedOn': 'Reviewed {date}',
+  'withdrawals.reasonsUnavailable':
+    'The configured reasons could not be loaded. A written reason still works.',
+  'withdrawals.noun': 'request',
+  'withdrawals.nounPlural': 'requests',
 
-  // ── Ledger (ADM-13) ───────────────────────────────────────────────────────
-  'ledger.title': 'Ledger',
-  'ledger.subtitle':
-    'Every money movement, append-only. Each row records the running balance it produced — corrections are new compensating entries, never edits.',
-  'ledger.allTypes': 'All Entry Types',
-  'ledger.filterUser': 'Filter by user ID…',
-  'ledger.colWhen': 'When',
-  'ledger.colType': 'Type',
-  'ledger.colAmount': 'Amount',
-  'ledger.colBalanceAfter': 'Balance After',
-  'ledger.colCausedBy': 'Caused By',
-  'ledger.colClient': 'Client',
+  // ── Payment methods ───────────────────────────────────────────────────────
+  'paymentMethods.title': 'Payment methods',
+  'paymentMethods.subtitle':
+    'How clients can send money in. A method with no pay-to account is not offered to them, whatever its status says.',
+  'paymentMethods.create': 'Add method',
+  'paymentMethods.loading': 'Loading payment methods',
+  'paymentMethods.loadFailed': 'Could not load the payment methods.',
+  'paymentMethods.caption': 'Configured deposit methods',
+  'paymentMethods.empty': 'No payment methods configured. Clients cannot deposit until one is.',
+  'paymentMethods.colKey': 'Key',
+  'paymentMethods.colName': 'Name',
+  'paymentMethods.colKind': 'Kind',
+  'paymentMethods.colCurrency': 'Currency',
+  'paymentMethods.colLimits': 'Limits',
+  'paymentMethods.colStatus': 'Status',
+  'paymentMethods.colActions': 'Actions',
+  'paymentMethods.kindManual': 'Manual',
+  'paymentMethods.kindGateway': 'Gateway',
+  'paymentMethods.kindCrypto': 'Crypto',
+  'paymentMethods.statusEnabled': 'Enabled',
+  'paymentMethods.statusDisabled': 'Disabled',
+  // The whole point of the payTo field, said where it can be seen. A method
+  // missing it is enabled, looks configured, and silently accepts nobody.
+  'paymentMethods.notOffered': 'Not offered to clients',
+  'paymentMethods.notOfferedWhy': 'No pay-to account is set, so clients are never shown this.',
+  'paymentMethods.noLimits': 'No limits',
+  'paymentMethods.minOnly': 'Min {min}',
+  'paymentMethods.maxOnly': 'Max {max}',
+  'paymentMethods.minMax': '{min} – {max}',
+  'paymentMethods.edit': 'Edit',
+  'paymentMethods.editAria': 'Edit {name}',
+  'paymentMethods.delete': 'Delete',
+  'paymentMethods.deleteAria': 'Delete {name}',
+  'paymentMethods.createTitle': 'Add a payment method',
+  'paymentMethods.editTitle': 'Edit payment method',
+  'paymentMethods.key': 'Key',
+  'paymentMethods.keyHint': 'Lower-case, no spaces. Stored transactions reference it.',
+  'paymentMethods.keyLocked': 'Fixed — transactions already reference this key.',
+  'paymentMethods.name': 'Display name',
+  'paymentMethods.nameHint': 'What the client sees.',
+  'paymentMethods.kind': 'Kind',
+  'paymentMethods.kindHint':
+    'Decides the deposit flow the client is given, not just the label on it.',
+  'paymentMethods.currency': 'Currency',
+  'paymentMethods.logoUrl': 'Logo URL',
+  'paymentMethods.instructions': 'Instructions',
+  'paymentMethods.instructionsHint': 'Shown to the client verbatim. Say exactly what to do.',
+  'paymentMethods.payTo': 'Pay-to account',
+  'paymentMethods.payToHint':
+    'The Whish number, IBAN or wallet address. Leave it empty and this method is never shown to a client.',
+  'paymentMethods.minAmount': 'Minimum',
+  'paymentMethods.maxAmount': 'Maximum',
+  'paymentMethods.amountHint': 'Leave empty for no limit.',
+  'paymentMethods.sortOrder': 'Sort order',
+  'paymentMethods.sortOrderHint': 'Lower numbers appear first on the deposit screen.',
+  'paymentMethods.enabled': 'Offered to clients',
+  'paymentMethods.enabledHint':
+    'Disabling stops new deposits. Existing transactions keep their history.',
+  'paymentMethods.save': 'Save',
+  'paymentMethods.saving': 'Saving…',
+  'paymentMethods.saveFailed': 'Could not save the payment method.',
+  'paymentMethods.deleteFailed': 'Could not delete the payment method.',
+  'paymentMethods.confirmDeleteTitle': 'Delete {name}?',
+  'paymentMethods.confirmDeleteBody':
+    'This only works if no client has ever used it. If any have, the API will refuse and tell you to disable it instead — which keeps their transaction history readable.',
+  'paymentMethods.readOnly': 'You do not have permission to change these.',
+
+  // ── Wallets and trading accounts — no endpoint yet ────────────────────────
+  'wallets.title': 'Client wallets',
+  'wallets.subtitle':
+    'Balances and holds, per client and currency. Nothing is shown here until the endpoint exists — a zero would be indistinguishable from a real one.',
+  'wallets.pendingTitle': 'Waiting on the wallet listing endpoint',
+  'tradingAccounts.title': 'Trading accounts',
+  'tradingAccounts.subtitle':
+    'MT5 logins, their group and leverage, per client. MetaTrader is the system of record; this screen reads it once the endpoint exists.',
+  'tradingAccounts.pendingTitle': 'Waiting on the trading-account listing endpoint',
 
   // ── Audit log (D-21) ──────────────────────────────────────────────────────
   'audit.title': 'Audit Log',
@@ -823,9 +917,9 @@ export const messages = {
   'kycBuilder.moveStepDown': 'Move Step Down',
   'kycBuilder.removeField': 'Remove Field',
   'kyc.searchAria': 'Search submissions by name or email',
-  'ledger.filterClientEntries': "Filter this client's entries",
-  'ledger.filterAllEntryTypes': 'All Entry Types',
-  'ledger.filterByUserIdAria': 'Filter by client user ID',
+  // The `ledger.*` keys went with the ledger screen. `getLedger` is back in
+  // lib/api/admin.ts and the endpoint exists, but no page renders it yet, and a
+  // catalogue entry with no call site is a string nobody can find.
   'login.emailPlaceholder': 'admin@oxshare.com',
   'withdrawals.rejectTitle': 'Reject Withdrawal',
   'withdrawals.markPaidTitle': 'Mark Withdrawal Paid',
@@ -861,6 +955,13 @@ export const messages = {
   // one meant a migration plus a release; it is operator data now, and this is
   // the screen that owns it.
   'nav.currencies': 'Currencies',
+  // The Finance section's other entries. "Transactions" rather than
+  // "Withdrawals" because that is what an operator calls the queue they work
+  // down; the domain underneath is still withdrawals.
+  'nav.transactions': 'Transactions',
+  'nav.paymentMethods': 'Payment methods',
+  'nav.wallets': 'Wallets',
+  'nav.tradingAccounts': 'Trading accounts',
   'currencies.title': 'Currencies',
   'currencies.subtitle':
     'The money this platform can hold. Disabling one stops new wallets and deposits in it; existing balances stay readable.',

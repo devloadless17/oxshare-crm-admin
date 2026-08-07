@@ -102,6 +102,47 @@ describe('canAccess', () => {
     expect(canAccess(subAdmin, '/partners')).toBe(false);
   });
 
+  describe('the money screens', () => {
+    const withPerms = (permissions: string[]): AdminProfile => ({ ...subAdmin, permissions });
+
+    it('gates the payout queue on withdrawals.VIEW, not on the write keys', () => {
+      /*
+       * The route is the weaker of the three keys on purpose. An operator who
+       * may settle but not approve, or who may only look, still needs the
+       * screen — each button checks its own permission inside. Gating the
+       * route on `withdrawals.approve` would hide the queue from the person
+       * whose job is paying out of it.
+       */
+      expect(canAccess(withPerms(['withdrawals.view']), '/transactions')).toBe(true);
+      expect(canAccess(withPerms(['withdrawals.approve']), '/transactions')).toBe(false);
+      expect(canAccess(withPerms(['withdrawals.settle']), '/transactions')).toBe(false);
+      expect(canAccess(subAdmin, '/transactions')).toBe(false);
+    });
+
+    it('opens the two endpoint-less screens to the same key that reads money', () => {
+      // Both render BackendPending. They are declared so `canAccess` admits
+      // them at all — an undeclared route is denied, and "not built yet" is
+      // more useful to an operator than "no access".
+      expect(canAccess(withPerms(['withdrawals.view']), '/wallets')).toBe(true);
+      expect(canAccess(withPerms(['withdrawals.view']), '/trading-accounts')).toBe(true);
+      expect(canAccess(subAdmin, '/wallets')).toBe(false);
+      expect(canAccess(subAdmin, '/trading-accounts')).toBe(false);
+    });
+
+    it('gates payment methods on payments.view, with manage checked inside', () => {
+      expect(canAccess(withPerms(['payments.view']), '/payment-methods')).toBe(true);
+      // Holding only the write key does not open the screen: `payments.manage`
+      // governs the controls, and the API grants the list on `payments.view`.
+      expect(canAccess(withPerms(['payments.manage']), '/payment-methods')).toBe(false);
+    });
+
+    it('is reachable by the master admin', () => {
+      for (const path of ['/transactions', '/wallets', '/trading-accounts', '/payment-methods']) {
+        expect(canAccess(master, path)).toBe(true);
+      }
+    });
+  });
+
   it('kyc builder needs kyc.edit even though /kyc is permitted', () => {
     expect(canAccess(subAdmin, '/kyc/builder')).toBe(false);
     expect(canAccess({ ...subAdmin, permissions: ['kyc.edit'] }, '/kyc/builder')).toBe(true);
@@ -188,8 +229,17 @@ describe('assertPermissionKeysExist', () => {
     'roles.view',
     'roles.manage',
     'settings.view',
-    // The IB module replaced trading/withdrawals/partners/payouts/ledger/
-    // commissions when the money and commission surface was torn out.
+    // The money layer came back, so its keys are catalog keys again. All five
+    // exist in the backend's config/permissions.json — `withdrawals.approve`
+    // and `withdrawals.settle` are separate there precisely so approving and
+    // paying can be granted to different people (R-5.4).
+    'withdrawals.view',
+    'withdrawals.approve',
+    'withdrawals.settle',
+    'payments.view',
+    'payments.manage',
+    // The IB module replaced trading/partners/payouts/commissions when the
+    // commission surface was torn out.
     'ib.view',
     'ib.manage',
     'ib.approve',

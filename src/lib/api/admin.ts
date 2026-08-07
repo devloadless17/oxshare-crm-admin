@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, idempotent } from './client';
 import type { components } from './types.gen';
 
 // Types are ALIASES of the schemas generated from the backend's Swagger
@@ -19,8 +19,6 @@ export type RejectionReason = components['schemas']['RejectionReasonResponseDto'
  * 'partner' arrived.
  */
 export type RejectionContext = RejectionReason['context'];
-export type IpAllowlistStatus = components['schemas']['IpAllowlistStatusDto'];
-export type IpAllowlistRule = components['schemas']['IpAllowlistRuleDto'];
 export type KycSubmission = components['schemas']['KycSubmissionDto'];
 export type KycListResponse = components['schemas']['KycListResponseDto'];
 export type ClientRow = components['schemas']['ClientRowDto'];
@@ -74,6 +72,24 @@ export interface IbApplicationPage {
   total: number;
   counts: Record<IbApplicationStatus, number>;
 }
+// ── The money surface (ADM-03, ADM-13) ──────────────────────────────────────
+
+export type WithdrawalRow = components['schemas']['WithdrawalRowDto'];
+export type WithdrawalListResponse = components['schemas']['WithdrawalListResponseDto'];
+/**
+ * The five states a withdrawal can be in, read off the row rather than written
+ * out — a state added on the backend then reaches the `STATE_META` map as a
+ * missing-key compile error rather than rendering as a raw enum string.
+ */
+export type WithdrawalState = WithdrawalRow['state'];
+export type LedgerEntry = components['schemas']['LedgerEntryDto'];
+export type LedgerListResponse = components['schemas']['LedgerListResponseDto'];
+export type PaymentMethod = components['schemas']['PaymentMethodDto'];
+export type CreatePaymentMethod = components['schemas']['CreatePaymentMethodDto'];
+export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'];
+/** manual | gateway | crypto — the deposit FLOW, which is what a screen branches on. */
+export type PaymentMethodKind = PaymentMethod['kind'];
+
 export type CreateIbLevel = components['schemas']['CreateIbLevelDto'];
 export type UpdateIbLevel = components['schemas']['UpdateIbLevelDto'];
 export type CreateCurrency = components['schemas']['CreateCurrencyDto'];
@@ -556,20 +572,159 @@ export const adminApi = {
     return data;
   },
 
-  // RBAC-08 — the admin IP allowlist.
-  async getIpAllowlist(): Promise<IpAllowlistStatus> {
-    const { data } = await apiClient.get<IpAllowlistStatus>('/admin/ip-allowlist');
+  // ── Withdrawals (ADM-03 / §8.4) ───────────────────────────────────────────
+
+  /**
+   * The withdrawal queue, cursor-paginated, with per-state counts.
+   *
+   * `counts` groups over the FULL filtered set rather than the page, so the
+   * filter bar stays correct whatever page is on screen. `total` is not relied
+   * on: counting is opt-in on this endpoint because it is a full scan (R-2.4).
+   *
+   * Every `amount` in the response is a STRING and must reach the DOM as one —
+   * §6.1. Nothing here parses it, and neither should a caller.
+   */
+  async getWithdrawals(
+    params: { state?: string; limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ): Promise<WithdrawalListResponse> {
+    const query = new URLSearchParams({ limit: String(params.limit) });
+    // Omitted rather than sent blank: `?state=` is a different request from no
+    // state at all, and the API reads the empty string as a filter.
+    if (params.state) query.set('state', params.state);
+    if (params.cursor) query.set('cursor', params.cursor);
+    const { data } = await apiClient.get<WithdrawalListResponse>(
+      `/admin/withdrawals?${query.toString()}`,
+      { signal },
+    );
     return data;
   },
 
-  async addIpAllowlistRule(dto: { cidr: string; label: string }): Promise<IpAllowlistStatus> {
-    const { data } = await apiClient.post<IpAllowlistStatus>('/admin/ip-allowlist', dto);
+  /*
+   * All three writes take an idempotency KEY from the caller — R-5.2.
+   *
+   * It is a parameter rather than something generated here because the key must
+   * express one intended action on one row: approving withdrawal X is a single
+   * intent, so a double-click and a retry after a failed request are the same
+   * operation and must collapse to one. A key minted inside these functions
+   * would be fresh per call, which presents each click as new — the exact bug
+   * the header exists to prevent.
+   */
+  async approveWithdrawal(id: string, key: string): Promise<WithdrawalRow> {
+    const { data } = await apiClient.patch<WithdrawalRow>(
+      `/admin/withdrawals/${id}/approve`,
+      {},
+      idempotent(key),
+    );
     return data;
   },
 
-  async removeIpAllowlistRule(id: string) {
-    const { data } = await apiClient.delete<{ message: string }>(`/admin/ip-allowlist/${id}`);
+  /**
+   * Reject, releasing the hold and emailing the client.
+   *
+   * `reasonId` names a configured reason and `reason` is a free-text note; the
+   * API accepts either or both, and the screen requires at least one — a
+   * rejection the client cannot understand is one they will simply resubmit.
+   */
+  async rejectWithdrawal(
+    id: string,
+    body: { reasonId?: string; reason?: string },
+    key: string,
+  ): Promise<WithdrawalRow> {
+    const { data } = await apiClient.patch<WithdrawalRow>(
+      `/admin/withdrawals/${id}/reject`,
+      body,
+      idempotent(key),
+    );
     return data;
+  },
+
+  /**
+   * Mark an approved withdrawal paid — posts the debit and clears the hold.
+   *
+   * `withdrawals.settle`, deliberately separate from `withdrawals.approve` so
+   * the two steps can be granted to different people (separation of duties,
+   * R-5.4). `providerRef` is required: it is the only link between our ledger
+   * entry and the payment the provider actually made, and reconciliation has
+   * nothing to match on without it.
+   */
+  async settleWithdrawal(id: string, providerRef: string, key: string): Promise<WithdrawalRow> {
+    const { data } = await apiClient.patch<WithdrawalRow>(
+      `/admin/withdrawals/${id}/settle`,
+      { providerRef },
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * The append-only ledger, filterable for reconciliation.
+   *
+   * Requires `withdrawals.view`. Amounts and running balances are strings, and
+   * a correction is a new compensating entry — there is no update or delete
+   * here because there is none in the database either (§6.4).
+   */
+  async getLedger(
+    params: {
+      userId?: string;
+      walletId?: string;
+      entryType?: string;
+      page?: number;
+      limit?: number;
+      cursor?: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<LedgerListResponse> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== '') query.set(key, String(value));
+    }
+    const { data } = await apiClient.get<LedgerListResponse>(`/admin/ledger?${query.toString()}`, {
+      signal,
+    });
+    return data;
+  },
+
+  // ── Payment methods ───────────────────────────────────────────────────────
+
+  /**
+   * Every configured method, including disabled and half-configured ones.
+   *
+   * Unlike the portal's list, which returns only what a client may actually
+   * use: managing them is the point of this screen, and a method you cannot see
+   * is one you cannot finish setting up. A method with no `payTo` is NOT
+   * offered to clients — the screen flags that, because it is otherwise
+   * invisible until somebody asks why nobody is depositing.
+   */
+  async getPaymentMethods(signal?: AbortSignal): Promise<PaymentMethod[]> {
+    const { data } = await apiClient.get<PaymentMethod[]>('/admin/payment-methods', { signal });
+    return data;
+  },
+
+  async createPaymentMethod(body: CreatePaymentMethod): Promise<PaymentMethod> {
+    const { data } = await apiClient.post<PaymentMethod>('/admin/payment-methods', body);
+    return data;
+  },
+
+  /**
+   * PATCH, and `key` is absent from the body: it is the stable machine key that
+   * stored transactions reference, so renaming it would orphan their provider
+   * history rather than edit a label. `name` is the field an operator changes.
+   */
+  async updatePaymentMethod(key: string, body: UpdatePaymentMethod): Promise<PaymentMethod> {
+    const { data } = await apiClient.patch<PaymentMethod>(`/admin/payment-methods/${key}`, body);
+    return data;
+  },
+
+  /**
+   * Only ever succeeds for a method nobody has used.
+   *
+   * The API refuses one with transactions against it and says "Disable it
+   * instead" — surface that verbatim. Disabling is what "we no longer offer
+   * Whish" means on a system that has to keep the history of what it took.
+   */
+  async deletePaymentMethod(key: string): Promise<void> {
+    await apiClient.delete(`/admin/payment-methods/${key}`);
   },
 
   async getRejectionReasons(context: RejectionContext): Promise<RejectionReason[]> {
