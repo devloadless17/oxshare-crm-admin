@@ -520,6 +520,144 @@
   .slide-in-from-right-2 {
     --tw-enter-translate-x: 0.5rem;
   }
+
+  /*
+   * ── EXIT ──────────────────────────────────────────────────────────────────
+   *
+   * There were no exit animations at all, and their absence was not neutral:
+   * the notification sheet ENTERED with a slide and then vanished on close,
+   * which reads as the panel breaking rather than closing. A one-way animation
+   * is worse than none, because the first half sets an expectation the second
+   * half denies.
+   *
+   * Radix drives these through `data-[state=closed]`, and it is what makes them
+   * possible at all — it holds the element mounted until the animation ends
+   * rather than unmounting on the click. Without a defined exit animation there
+   * is nothing to wait for, so the element simply goes.
+   *
+   * Same composition as the enter set above: `animate-out` runs the keyframe,
+   * each modifier sets one custom property the keyframe reads.
+   */
+  @keyframes exit {
+    to {
+      opacity: var(--tw-exit-opacity, 1);
+      transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0)
+        scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), 1);
+    }
+  }
+
+  .animate-out {
+    animation-name: exit;
+    /* Faster than the 150ms enter, deliberately. A panel the user has just
+       dismissed should get out of the way; matching the entry speed makes a
+       closed panel feel like it is arguing. */
+    animation-duration: 120ms;
+    animation-fill-mode: both;
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  }
+
+  .fade-out,
+  .fade-out-0 {
+    --tw-exit-opacity: 0;
+  }
+
+  .zoom-out-95 {
+    --tw-exit-scale: 0.95;
+  }
+
+  .slide-out-to-left-full {
+    --tw-exit-translate-x: -100%;
+  }
+  .slide-out-to-right-full {
+    --tw-exit-translate-x: 100%;
+  }
+}
+
+/*
+ * ── The loader ──────────────────────────────────────────────────────────────
+ *
+ * It spins. Always, in every motion setting, and the media query below is what
+ * makes that true rather than what breaks it.
+ *
+ * The blanket `prefers-reduced-motion` rule at the foot of this file sets
+ * `animation-duration: 0.001ms !important` and `animation-iteration-count: 1`
+ * on EVERYTHING. That is right for decorative motion and fatal here: it does
+ * not slow a spinner, it finishes it instantly and leaves a frozen arc. So a
+ * spinner with no override does not spin at all for anyone whose OS has
+ * "reduce motion" on — which is exactly what was reported.
+ *
+ * The override re-asserts the rotation at higher specificity (`.loader-spin`
+ * beats `*`) with `!important` to match. Same keyframes, same speed, both
+ * settings. A progress indicator is not decoration: it is the only thing on
+ * screen saying the app has not hung, and freezing it removes the message
+ * rather than calming it.
+ *
+ * An opacity pulse was used here for the reduced-motion case and is gone —
+ * rotation is what a loader is expected to do, and the fade read as a bounce.
+ * `role="status"` on the wrapper carries the same message to assistive tech.
+ */
+@keyframes loader-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loader-spin {
+  transform-origin: center;
+  animation: loader-rotate 750ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-spin {
+    /* Beats the blanket rule below. Without this the spinner is static. */
+    animation-name: loader-rotate !important;
+    animation-duration: 750ms !important;
+    animation-timing-function: linear !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/*
+ * ── Structural motion, kept under reduced motion ────────────────────────────
+ *
+ * The blanket rule at the foot of this file kills every transition and
+ * animation in the product. That is the right default for decoration and wrong
+ * for the three cases below, each of which uses motion to explain WHERE
+ * something went rather than to decorate it:
+ *
+ *   .motion-slide   the sidebar collapsing to its rail, and the mobile drawer.
+ *                   Snapping between 16rem and 5rem does not read as "the same
+ *                   panel, narrower"; it reads as the navigation being replaced.
+ *   .animate-in     a panel arriving from an edge — the notification sheet, the
+ *   .animate-out    dialogs. Without the slide a sheet appears to teleport over
+ *                   the page, and the exit is what tells the user it went back
+ *                   to the edge it came from rather than closing the page.
+ *
+ * This is a deliberate, narrow override of a user preference, so it is worth
+ * being honest about the trade: someone who set "reduce motion" for vestibular
+ * reasons still gets these three. They are short (120–300ms), they are opacity
+ * and position rather than scale or spin, and there is no parallax or bounce —
+ * which is the category the preference is really aimed at. Everything else in
+ * the product still honours it.
+ *
+ * `!important` and a class beat the blanket rule's `*`. Adding a fourth case
+ * means adding a selector here; if this list grows much past that, the blanket
+ * rule is the thing to reconsider rather than the exceptions.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .motion-slide {
+    transition-duration: 300ms !important;
+  }
+
+  .animate-in,
+  .animate-out {
+    animation-duration: 150ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .animate-out {
+    animation-duration: 120ms !important;
+  }
 }
 
 /* Custom Scrollbars */

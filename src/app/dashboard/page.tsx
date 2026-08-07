@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ChevronRight, FileCheck, Loader2, Users } from 'lucide-react';
-import { Loader } from '@/components/ui/loader';
+import { PageLoader } from '@/components/ui/loader';
 import api from '@/lib/api';
 import type { KycListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
@@ -100,7 +100,7 @@ export default function AdminDashboardPage() {
           </div>
           {status === 'loading' ? (
             <div className="p-8 flex justify-center" role="status" aria-live="polite">
-              <Loader text="Loading KYC queue..." />
+              <PageLoader label="Loading KYC queue…" />
             </div>
           ) : status === 'error' || status === 'unavailable' ? (
             <div className="p-6 text-center space-y-2" role="alert">

@@ -14,7 +14,7 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState } from '@/components/data-table';
-import { Loader } from '@/components/ui/loader';
+import { PageLoader } from '@/components/ui/loader';
 import { useCursorPages } from '@/hooks/use-cursor-pages';
 import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
@@ -49,7 +49,7 @@ const FIELD_LABELS: Record<string, string> = {
  */
 export default function ClientsPage() {
   return (
-    <Suspense fallback={<Loader fullPage text={t('clients.loading')} />}>
+    <Suspense fallback={<PageLoader label={t('clients.loading')} />}>
       <ClientsPageContent />
     </Suspense>
   );
@@ -148,43 +148,45 @@ function ClientsPageContent() {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('clients.title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t('clients.subtitle')}</p>
       </div>
 
-      <ClientFilters
-        values={{
-          q: url.get('q'),
-          type: url.get('type'),
-          status: url.get('status'),
-          level: url.get('level'),
-          country: url.get('country'),
-          tag: url.get('tag'),
-        }}
-        tags={tagsQuery.data ?? []}
-        canViewTags={canViewTags}
-        countries={countries}
-        hiddenFilters={maskedFields}
-        isFiltered={url.isFiltered}
-        onChange={(patch) => {
-          // Any filter change invalidates the cursor: it names a position in
-          // the PREVIOUS result set.
-          pages.reset();
-          url.set(patch);
-        }}
-        onClear={() => {
-          pages.reset();
-          url.clear();
-        }}
-      />
+      <div className="shrink-0">
+        <ClientFilters
+          values={{
+            q: url.get('q'),
+            type: url.get('type'),
+            status: url.get('status'),
+            level: url.get('level'),
+            country: url.get('country'),
+            tag: url.get('tag'),
+          }}
+          tags={tagsQuery.data ?? []}
+          canViewTags={canViewTags}
+          countries={countries}
+          hiddenFilters={maskedFields}
+          isFiltered={url.isFiltered}
+          onChange={(patch) => {
+            // Any filter change invalidates the cursor: it names a position in
+            // the PREVIOUS result set.
+            pages.reset();
+            url.set(patch);
+          }}
+          onClear={() => {
+            pages.reset();
+            url.clear();
+          }}
+        />
+      </div>
 
       <MaskedFieldsNotice labels={maskedFieldLabels(maskedFields, FIELD_LABELS)} />
 
       {setStatusMutation.isError && (
         <div
-          className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
           role="alert"
         >
           {apiErrorMessage(setStatusMutation.error, t('clients.statusFailed'))}
@@ -198,8 +200,10 @@ function ClientsPageContent() {
         onRetry={query.refetch}
         errorMessage={t('clients.loadFailed')}
         error={query.error}
+        fill
       >
         <DataTable
+          fill
           caption={t('clients.caption')}
           columns={columns}
           rows={rows}

@@ -21,20 +21,20 @@ import {
   Lock,
   ChevronLeft,
   ChevronRight,
-  Bell,
   Search,
   Menu,
   X,
   Shield,
   Tags,
   Activity,
-  Loader2,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { UserMenu } from './user-menu';
+import { NotificationsSheet } from './notifications-sheet';
 import { useAdmin } from '@/context/AdminAuthContext';
 import api from '@/lib/api';
 import { canAccess, hasPermission } from '@/lib/permissions';
+import { PageLoader } from '@/components/ui/loader';
 import { t, type MessageKey } from '@/lib/i18n';
 
 interface NavItem {
@@ -264,8 +264,74 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   // second render pass after every navigation just to flip a boolean.
   const closeMobile = () => setMobileOpen(false);
 
+  /*
+   * ── The three states that render INSTEAD of the console ──────────────────
+   *
+   * These used to render inside `<main>`, so the sidebar, the header, the nav
+   * and the account menu all painted around a spinner — a full console frame
+   * for a visitor who may have no session at all, drawn before anything had
+   * confirmed there was one.
+   *
+   * That is the same bug the content-area comment below describes, one level
+   * out: it held back the CHILDREN and let the chrome through. The chrome is
+   * the part that enumerates what exists — every section this admin may reach,
+   * and by omission the ones they may not — so drawing it first and correcting
+   * it afterwards is a UI leak on a shared back-office machine, and it
+   * contradicts the deny-by-default posture in permissions.ts.
+   *
+   * The portal reached the same conclusion for the same reason; `RequireAuth`
+   * returns a full-screen loader rather than the portal shell, and its comment
+   * records that a flash of chrome behind a redirect undoes the point of
+   * holding the paint.
+   *
+   * The PERMISSION denial stays inside the shell further down, deliberately.
+   * By then the operator is signed in and the nav is theirs to see — the
+   * refusal is about one route, not about whether they belong here at all.
+   */
+  if (isLoading) {
+    // `srOnly`: this screen is deliberately anonymous. A visible "loading your
+    // session" is a claim about a session that, for some of the people looking
+    // at it, does not exist.
+    return <PageLoader label={t('session.loading')} srOnly fullScreen />;
+  }
+
+  if (isUnreachable) {
+    return <SessionUnreachable onRetry={() => void retry()} />;
+  }
+
+  if (!admin) {
+    /*
+     * The 401 interceptor is already navigating to /login; this is what the
+     * frame shows in the meantime.
+     *
+     * Reachable because proxy.ts admits a request on the mere PRESENCE of the
+     * refresh cookie — it has no signing key and cannot verify one — so a dead
+     * cookie gets past the gate, `GET /admin/auth/me` 401s, and `admin` settles
+     * as null. `admin` is the only authoritative signal here: it is the one
+     * that came from the server.
+     */
+    return <PageLoader label={t('session.loading')} srOnly fullScreen />;
+  }
+
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    /*
+     * `h-screen`, not `min-h-screen`.
+     *
+     * A table that fills the page and scrolls INSIDE itself needs a bounded
+     * height to fill, and `min-height` does not bound anything — it sets a
+     * floor and lets content grow past it. With `min-h-screen` a `h-full` chain
+     * below resolves against `auto` and collapses to content height, so the
+     * table grew the document and the page scrolled instead of the table.
+     *
+     * The cost of bounding it is that `<main>` becomes the scroll container for
+     * ordinary pages, which is why it carries `overflow-y-auto` below.
+     *
+     * `h-dvh` over `h-screen` on the small breakpoint would be the better unit
+     * on mobile browsers whose toolbars retract; it is deliberately not used
+     * yet because `dvh` reflows on every toolbar transition and this app's
+     * sticky table header visibly jitters through it.
+     */
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Mobile Overlay */}
       {mobileOpen && (
         <div
@@ -275,8 +341,22 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Sidebar */}
+      {/*
+        `transition-[width,transform]`, not `transition-all`.
+
+        Two properties actually move here: the WIDTH on desktop collapse, and
+        the TRANSFORM on the mobile drawer. `transition-all` animated those and
+        also every colour on the panel — so switching theme with the sidebar on
+        screen faded the background over 300ms while the rest of the page
+        changed instantly, and every hover inside it was competing with a
+        300ms transition it did not ask for.
+
+        `motion-slide` keeps the slide alive under `prefers-reduced-motion` —
+        see the note in globals.css. Snapping between 16rem and 5rem does not
+        read as the same panel getting narrower; it reads as a replacement.
+      */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-border bg-card text-card-foreground transition-all duration-300 ${
+        className={`motion-slide fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-border bg-card text-card-foreground transition-[width,transform] duration-300 ease-in-out ${
           collapsed ? 'w-20' : 'w-64'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
@@ -432,7 +512,14 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
          * Tags column and the admin directory a Scope column — 77px and 36px of
          * horizontal page scroll respectively.
          */
-        className={`flex min-w-0 flex-1 flex-col transition-all duration-300 ${
+        /*
+         * The content pane's left inset tracks the sidebar's width, so the two
+         * must animate over the SAME duration and easing or the content visibly
+         * lags behind the panel it is supposed to be attached to. Only
+         * `padding` moves here — `transition-all` was also animating the
+         * background on a theme switch.
+         */
+        className={`motion-slide flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ease-in-out ${
           collapsed ? 'lg:pl-20' : 'lg:pl-64'
         }`}
       >
@@ -480,15 +567,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               something IS wrong it is still there, green, being wrong.
             */}
 
-            {/* Notifications */}
-            <button
-              type="button"
-              className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground hover:bg-muted focus-outline"
-              title={t('nav.notifications')}
-            >
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
-            </button>
+            {/*
+              The bell used to be a `<button>` with no handler and a permanent
+              unread dot — a control that did nothing beside an indicator that
+              always said there was something. Both are gone: it opens a panel
+              now, and the panel is honest that notifications are not live.
+            */}
+            <NotificationsSheet />
 
             {/*
               The theme toggle used to live here — a two-button light/dark
@@ -507,83 +592,31 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page Content Container — uniform small padding, edge-to-edge layout for all admin pages */}
-        <main className="flex-1 p-4 md:p-5 overflow-y-auto w-full max-w-full">
+        {/*
+         * Page Content Container — uniform small padding, edge-to-edge layout.
+         *
+         * `min-h-0` is the twin of the `min-w-0` above and fails the same way.
+         * A flex child's default `min-height: auto` refuses to shrink below its
+         * content, so without this `flex-1` cannot actually bound this element:
+         * a tall page pushes `<main>` past the viewport, `overflow-y-auto` finds
+         * nothing to clip, and any `h-full` descendant resolves against a height
+         * that is really "as tall as the content". That is precisely the state
+         * where a full-height table silently becomes a full-LENGTH one.
+         */}
+        <main className="flex min-h-0 w-full max-w-full flex-1 flex-col overflow-y-auto p-4 md:p-5">
           {/*
-           * FOUR states, not three — and the fourth is the one that was missing.
+           * ONE state here now, not four.
            *
-           * `isLoading` used to fall through to `children`, so a forbidden page
-           * mounted and fired its queries during the identity round trip — every
-           * one guaranteed to come back 403 — and only then was replaced by the
-           * panel below. Holding the frame until the answer arrives costs one
-           * spinner and removes a burst of requests that exist only to fail.
+           * `isLoading`, `isUnreachable` and `!admin` moved ABOVE the shell —
+           * see the block before this component's `return`. They are answers to
+           * "is there a session at all", and rendering the console frame around
+           * them drew a back-office for a visitor who might not have one.
            *
-           * That fix left `!isLoading && admin === null` still falling through,
-           * which is reachable and worse: proxy.ts admits a request on the mere
-           * PRESENCE of the refresh cookie — it has no signing key and cannot
-           * verify one — so a cookie that is present but dead (revoked by a
-           * logout elsewhere, killed by refresh-token reuse detection, or from a
-           * deleted admin) gets past the gate, `GET /admin/auth/me` 401s, and
-           * `admin` settles as null with `retry: false`. The page body then
-           * rendered with `canAccess` never called.
-           *
-           * Nothing leaked — every request behind it 401s — but the shell, the
-           * controls and the empty states of a route this visitor may have no
-           * permission for were drawn, until the interceptor's redirect landed a
-           * round trip later. On a shared back-office machine that is a UI leak
-           * of what exists, and it contradicts the deny-by-default posture two
-           * files away in permissions.ts.
-           *
-           * `admin` is the ONLY authoritative signal here: it is the one that
-           * came from the server. The refresh cookie and the CSRF cookie are
-           * redirect hints, and hints do not get to decide what renders.
+           * What is left is the one refusal that belongs inside the frame: a
+           * signed-in operator reaching a route their role does not cover. The
+           * nav is legitimately theirs to see; only this page is not.
            */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-24" role="status">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
-              <span className="sr-only">{t('session.loading')}</span>
-            </div>
-          ) : isUnreachable ? (
-            /*
-             * FIVE states now, and this is the one that was missing.
-             *
-             * `!admin` below assumes the 401 interceptor is on its way to
-             * /login. That is true when the answer was 401 and false for every
-             * other failure — the API down, a 500, a timeout, an offline
-             * moment — because there is no 401 to intercept. Those all landed
-             * in the spinner below and stayed there: no error, no retry, no way
-             * to reach the sign-in page. Stopping the backend was enough to
-             * reproduce it.
-             *
-             * The distinction is made in `AdminAuthContext`, which is the only
-             * place that can see WHY the request failed.
-             */
-            <div
-              className="flex flex-col items-center justify-center py-24 text-center gap-3"
-              role="alert"
-            >
-              <Shield className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
-              <h2 className="text-lg font-bold text-foreground">{t('session.unreachableTitle')}</h2>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                {t('session.unreachableBody')}
-              </p>
-              <button
-                type="button"
-                onClick={() => void retry()}
-                className="text-sm font-semibold text-link hover:underline focus-outline rounded-sm"
-              >
-                {t('session.retry')}
-              </button>
-            </div>
-          ) : !admin ? (
-            <div className="flex items-center justify-center py-24" role="status">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
-              {/* The 401 interceptor is already navigating to /login; this is
-                  what the frame shows in the meantime, and it is deliberately
-                  not the children. */}
-              <span className="sr-only">{t('session.loading')}</span>
-            </div>
-          ) : !canAccess(admin, pathname ?? '') ? (
+          {!canAccess(admin, pathname ?? '') ? (
             <div
               className="flex flex-col items-center justify-center py-24 text-center gap-3"
               role="alert"
@@ -603,6 +636,43 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           )}
         </main>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The API did not answer, and the operator is told so rather than signed out.
+ *
+ * Full screen rather than inside the console, for the same reason the loading
+ * state is: this is a pre-session state, and drawing a back-office frame around
+ * "we cannot reach the server" claims a session nobody has confirmed.
+ *
+ * Deliberately says nothing about the session being invalid. `!admin` below
+ * assumes the 401 interceptor is on its way to /login, which is true when the
+ * answer was 401 and false for every other failure — the API down, a 500, a
+ * timeout, an offline moment — because there is no 401 to intercept. Those all
+ * used to land in the spinner and stay there: no error, no retry, no way to
+ * reach the sign-in page. Stopping the backend was enough to reproduce it.
+ *
+ * The distinction is made in `AdminAuthContext`, which is the only place that
+ * can see WHY the request failed.
+ */
+function SessionUnreachable({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-8 text-center"
+      role="alert"
+    >
+      <Shield className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+      <h2 className="text-lg font-bold text-foreground">{t('session.unreachableTitle')}</h2>
+      <p className="max-w-sm text-sm text-muted-foreground">{t('session.unreachableBody')}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="cursor-pointer rounded-sm text-sm font-semibold text-link hover:underline focus-outline"
+      >
+        {t('session.retry')}
+      </button>
     </div>
   );
 }

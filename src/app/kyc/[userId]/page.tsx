@@ -5,7 +5,7 @@ import type { components } from '@/lib/api/types.gen';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import { Loader } from '@/components/ui/loader';
+import { PageLoader } from '@/components/ui/loader';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useResource } from '@/hooks/use-resource';
@@ -161,7 +161,7 @@ export default function KycDetailPage() {
     }
   };
 
-  if (loading) return <Loader text={t('kycReview.loading')} fullPage />;
+  if (loading) return <PageLoader label={t('kycReview.loading')} />;
   if (loadError || !data)
     return (
       <div className="detail-loading">
