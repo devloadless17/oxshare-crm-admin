@@ -187,9 +187,6 @@ function ClientsPageContent() {
             q: url.get('q'),
             type: url.get('type'),
             status: url.get('status'),
-            level: url.get('level'),
-            kycStatus: url.get('kycStatus'),
-            emailVerified: url.get('emailVerified'),
             tag: url.get('tag'),
           }}
           tags={tagsQuery.data ?? []}

@@ -34,6 +34,7 @@ import { UserMenu } from './user-menu';
 import { NotificationsSheet } from './notifications-sheet';
 import { useAdmin } from '@/context/AdminAuthContext';
 import api from '@/lib/api';
+import type { KycListResponse } from '@/lib/api/admin';
 import { canAccess, hasPermission } from '@/lib/permissions';
 import { PageLoader } from '@/components/ui/loader';
 import { t, type MessageKey } from '@/lib/i18n';
@@ -125,7 +126,10 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'nav.section.clients',
     items: [
       { label: 'nav.clients', href: '/clients', icon: Users },
-      { label: 'nav.kyc', href: '/kyc', icon: FileCheck },
+      /*
+       * The KYC REVIEW QUEUE moved to Approvals; this is the BUILDER, which is
+       * configuration rather than a decision waiting on somebody.
+       */
       { label: 'nav.kycBuilder', href: '/kyc/builder', icon: ClipboardList },
       // ADM-14. A tag decides which admins can SEE a client, so it is a
       // property of the client rather than a console-level object.
@@ -143,14 +147,26 @@ const NAV_SECTIONS: NavSection[] = [
    * DropdownMenuSub for a single link would be machinery serving one entry.
    *
    * It sits above Partners because a queue is checked daily and a payout ladder
-   * is edited rarely. KYC review is deliberately NOT moved here yet: it lives
-   * under Clients, `activeNavHref` matches on longest prefix across every
-   * section, and moving a route between groups is a change worth making on its
-   * own rather than inside this one.
+   * is edited rarely.
+   *
+   * ALL THREE QUEUES LIVE HERE NOW — KYC review came from Clients and the
+   * withdrawal desk from Finance. What they have in common is not their subject
+   * but their shape: each is a list of things a person must decide, each one
+   * counted in the badge beside it, and an operator starting their day wants
+   * the total of that in one place rather than assembled from three sections.
+   *
+   * `activeNavHref` matches on longest prefix across every section, so moving a
+   * route between groups needs no other change — `/kyc/builder` stays under
+   * Clients and still highlights correctly, because `/kyc` here is an exact
+   * entry and the builder's own path is longer.
    */
   {
     title: 'nav.section.approvals',
-    items: [{ label: 'nav.partnerApprovals', href: '/approvals/ib', icon: Handshake }],
+    items: [
+      { label: 'nav.kyc', href: '/kyc', icon: FileCheck },
+      { label: 'nav.partnerApprovals', href: '/approvals/ib', icon: Handshake },
+      { label: 'nav.transactions', href: '/transactions', icon: ArrowLeftRight },
+    ],
   },
   {
     title: 'nav.section.partners',
@@ -171,7 +187,12 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'nav.section.finance',
     items: [
-      { label: 'nav.transactions', href: '/transactions', icon: ArrowLeftRight },
+      /*
+       * The withdrawal desk is NOT here any more — it moved to Approvals, with
+       * the other two queues. What remains under Finance is the things an
+       * operator reads or configures rather than decides: balances, accounts,
+       * the methods and currencies the desk operates in.
+       */
       { label: 'nav.wallets', href: '/wallets', icon: Wallet },
       { label: 'nav.tradingAccounts', href: '/trading-accounts', icon: CandlestickChart },
       { label: 'nav.paymentMethods', href: '/payment-methods', icon: CreditCard },
@@ -235,7 +256,57 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     // shows no badge, which is the same as none pending.
     retry: false,
   });
-  const pendingCount = pendingApplications.data?.counts.pending ?? 0;
+
+  /*
+   * The other two queues, counted the same way and for the same reason.
+   *
+   * `limit: 1` on all three: the count comes from the response envelope, so a
+   * page of rows nobody will render is pure waste on every screen in the
+   * console. Each is gated on the permission its endpoint requires, so a
+   * restricted admin fires no request that would 403 on every page load.
+   *
+   * KYC counts `submitted` AND `under_review` together — both mean a reviewer
+   * has to look, and counting only the first understates the queue by
+   * everything already picked up.
+   */
+  const canReviewKyc = hasPermission(admin, 'kyc.review') || hasPermission(admin, 'kyc.view');
+  const pendingKyc = useQuery({
+    queryKey: ['admin', 'kyc', 'pending-count'],
+    queryFn: async () =>
+      (await api.get<KycListResponse>('/admin/kyc?status=submitted&limit=1')).data,
+    enabled: canReviewKyc,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+
+  const canSeeWithdrawals = hasPermission(admin, 'withdrawals.view');
+  const pendingWithdrawals = useQuery({
+    queryKey: ['admin', 'withdrawals', 'pending-count'],
+    queryFn: () => api.admin.getWithdrawals({ state: 'pending', limit: 1 }),
+    enabled: canSeeWithdrawals,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+
+  /*
+   * One href → count map, so the nav does not grow a conditional per queue.
+   * A zero is left out entirely: `NavItem.badge` treats `undefined` as "draw
+   * nothing", and a red `0` beside a cleared queue is an alarm about nothing.
+   */
+  const ibPending = pendingApplications.data?.counts.pending || undefined;
+
+  const kycPending =
+    (pendingKyc.data?.counts?.['submitted'] ?? 0) +
+      (pendingKyc.data?.counts?.['under_review'] ?? 0) || undefined;
+
+  /*
+   * `counts.pending`, not `total`. Both read the same today because the query
+   * filters to `state=pending` — but `counts` is the per-state map the endpoint
+   * computes over the WHOLE set, so it stays correct if that filter is ever
+   * relaxed, while `total` would silently start counting every withdrawal ever
+   * made.
+   */
+  const withdrawalsPending = pendingWithdrawals.data?.counts?.['pending'] || undefined;
 
   /**
    * The nav, with live values applied.
@@ -251,13 +322,24 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     () =>
       NAV_SECTIONS.map((section) => ({
         ...section,
-        items: section.items.map((item) =>
-          item.href === '/approvals/ib' && pendingCount > 0
-            ? { ...item, badge: pendingCount }
-            : item,
-        ),
+        items: section.items.map((item) => {
+          /*
+           * A zero is left out entirely: `NavItem.badge` treats `undefined` as
+           * "draw nothing", and a red `0` beside a cleared queue is an alarm
+           * about the absence of work.
+           */
+          const badge =
+            item.href === '/approvals/ib'
+              ? ibPending
+              : item.href === '/kyc'
+                ? kycPending
+                : item.href === '/transactions'
+                  ? withdrawalsPending
+                  : undefined;
+          return badge ? { ...item, badge } : item;
+        }),
       })),
-    [pendingCount],
+    [ibPending, kycPending, withdrawalsPending],
   );
 
   // Sign-out and its failure message moved into `UserMenu` with the rest of the
@@ -482,8 +564,19 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                         }`}
                       />
                       {!collapsed && <span className="flex-1 truncate">{t(item.label)}</span>}
+                      {/*
+                       * A red circle, because it counts WORK WAITING rather
+                       * than labelling the item — the queue badges are the only
+                       * thing in this nav that should pull the eye.
+                       *
+                       * `min-w-5` with `px-1.5` keeps a single digit perfectly
+                       * round and lets three digits grow into a pill instead of
+                       * being clipped. `tabular-nums` stops the badge changing
+                       * width as a count ticks between digits of different
+                       * widths, which reads as the nav twitching.
+                       */}
                       {!collapsed && item.badge && (
-                        <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-link">
+                        <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-destructive-foreground">
                           {item.badge}
                         </span>
                       )}

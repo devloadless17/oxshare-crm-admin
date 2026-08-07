@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { ClientTagWithCount } from '@/lib/api/admin';
-import { CLIENT_KYC_STATUSES } from '@/lib/api/admin';
 import {
   Select,
   SelectContent,
@@ -12,27 +11,25 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
-import type { MessageKey } from '@/lib/i18n/messages';
 
+/**
+ * The filters this bar renders — and only those.
+ *
+ * `level`, `emailVerified` and `kycStatus` were removed from the type along
+ * with their controls. Leaving them would describe a component that accepts
+ * values it has no way to show or change, which is how a filter comes to be set
+ * in the URL with nothing on screen admitting the list is filtered.
+ *
+ * The KYC labels that lived here went with them. They are still needed for the
+ * COLUMN, and they live in `client-columns.tsx` where that column is built —
+ * one copy, next to its only remaining use.
+ */
 export interface ClientFilterValues {
   q: string;
   type: string;
   status: string;
-  level: string;
-  kycStatus: string;
-  emailVerified: string;
   tag: string;
 }
-
-/** One label per KYC state, keyed off the API's own enum. */
-const KYC_STATUS_LABELS: Record<(typeof CLIENT_KYC_STATUSES)[number], MessageKey> = {
-  not_started: 'clients.kycNotStarted',
-  in_progress: 'clients.kycInProgress',
-  submitted: 'clients.kycSubmitted',
-  under_review: 'clients.kycUnderReview',
-  approved: 'clients.kycApproved',
-  rejected: 'clients.kycRejected',
-};
 
 /**
  * The client list's filter bar.
@@ -109,39 +106,25 @@ export function ClientFilters({
         ]}
       />
 
-      <FilterSelect
-        value={values.kycStatus}
-        onChange={(v) => onChange({ kycStatus: v })}
-        placeholder={t('clients.allKycStatuses')}
-        // Built from the API's own enum rather than a hand-written list, so a
-        // state added on the backend appears here or fails to compile — it
-        // never silently leaves a segment of clients unfindable.
-        options={CLIENT_KYC_STATUSES.map((status) => ({
-          value: status,
-          label: t(KYC_STATUS_LABELS[status]),
-        }))}
-      />
-
-      <FilterSelect
-        value={values.emailVerified}
-        onChange={(v) => onChange({ emailVerified: v })}
-        placeholder={t('clients.allEmailVerified')}
-        options={[
-          { value: 'true', label: t('clients.emailVerifiedYes') },
-          { value: 'false', label: t('clients.emailVerifiedNo') },
-        ]}
-      />
-
-      <FilterSelect
-        value={values.level}
-        onChange={(v) => onChange({ level: v })}
-        placeholder={t('clients.allLevels')}
-        options={[
-          { value: '0', label: t('clients.levelUnverified') },
-          { value: '1', label: t('clients.levelVerified') },
-        ]}
-      />
-
+      {/*
+       * THREE FILTERS REMOVED at the operator's request: KYC status, email
+       * verified, and verification LEVEL.
+       *
+       * The columns all remain — this bar narrows the list, it does not decide
+       * what the list shows. What is gone is the ability to filter BY those
+       * three, which had accumulated into three controls asking overlapping
+       * versions of "how far through verification is this person": `level` is
+       * 0/1 and cannot tell a rejected client from one who never applied,
+       * `emailVerified` answers a different question than both, and `kycStatus`
+       * answers it in six states.
+       *
+       * Account status stays, because it answers the one question this screen
+       * is for: may this person sign in.
+       *
+       * The backend still accepts all three parameters, so a saved link
+       * carrying `?kycStatus=` keeps working — it simply cannot be built from
+       * the UI any more.
+       */}
       {/*
        * A SELECT, at the operator's request — it was a row of toggle chips.
        *

@@ -278,9 +278,24 @@ export function DataTable<T>({
    *
    * `group-hover` works here because the `<tr>` carries `group`.
    */
+  /*
+   * THE DIVIDER IS A SHADOW, NOT A BORDER.
+   *
+   * `border-s` did not show until the table was scrolled fully right. Under
+   * `border-collapse: collapse` a border belongs to the EDGE SHARED by two
+   * cells, not to either cell — so it stays behind with the column the pinned
+   * cell has floated away from, and only lines up again when scrolling ends
+   * and the two are adjacent once more.
+   *
+   * `inset 1px 0 0` paints inside the cell itself, so it travels with it and
+   * marks the boundary the whole time there is something scrolling underneath.
+   * `-1px` on the `end` side would be the RTL equivalent; the inset start edge
+   * is correct in both directions here because the column pins to `end-0` and
+   * the divider belongs on its leading edge.
+   */
   const stickyCellClass = (isSelected: boolean) =>
     [
-      'sticky end-0 z-10 border-s border-border/60',
+      'sticky end-0 z-10 shadow-[inset_1px_0_0_var(--color-border)]',
       isSelected
         ? 'bg-[color-mix(in_oklab,var(--color-primary)_5%,var(--color-card))] group-hover:bg-[color-mix(in_oklab,var(--color-primary)_10%,var(--color-card))]'
         : 'bg-card group-hover:bg-[color-mix(in_oklab,var(--color-muted)_40%,var(--color-card))]',
@@ -528,14 +543,29 @@ export function DataTable<T>({
                          The pinned column adds only its position and border;
                          its background is the same one, so the header reads as
                          a single bar rather than a patched-together strip. */
-                      className={`${headerCellBg} px-4 py-3 font-semibold ${
+                      /*
+                       * `whitespace-nowrap` on every header.
+                       *
+                       * A wrapped column title makes the header row two lines
+                       * tall for the sake of one column, and the extra height is
+                       * paid on every screen whether or not it wraps. The table
+                       * already scrolls horizontally (`overflow-auto` on the
+                       * region), so the honest answer to "this does not fit" is
+                       * a scrollbar rather than a taller, ragged header.
+                       */
+                      className={`${headerCellBg} whitespace-nowrap px-4 py-3 font-semibold ${
                         c.align === 'right'
                           ? 'text-right'
                           : c.align === 'center'
                             ? 'text-center'
                             : 'text-left'
                       } ${
-                        c.sticky === 'end' ? 'sticky end-0 z-10 border-s border-border/60' : ''
+                        /* A shadow, not a border — see `stickyCellClass`. The
+                           header cell needs the same treatment or its divider
+                           detaches from the body's while scrolling. */
+                        c.sticky === 'end'
+                          ? 'sticky end-0 z-10 shadow-[inset_1px_0_0_var(--color-border)]'
+                          : ''
                       } ${c.headerClassName ?? ''}`}
                     >
                       {isSortable && sortKey ? (
@@ -650,7 +680,18 @@ export function DataTable<T>({
                       {columns.map((c, colIdx) => (
                         <td
                           key={colIdx}
-                          className={`px-4 py-3.5 align-middle ${
+                          /*
+                           * And on every cell, for the same reason: a row whose
+                           * height depends on which of its values happened to be
+                           * long makes a list impossible to scan, because the
+                           * eye has no fixed rhythm to follow.
+                           *
+                           * A cell that genuinely needs to wrap — a long note,
+                           * say — opts back in with `cellClassName:
+                           * 'whitespace-normal'`, which lands after this in the
+                           * class list and therefore wins.
+                           */
+                          className={`whitespace-nowrap px-4 py-3.5 align-middle ${
                             c.align === 'right'
                               ? 'text-right'
                               : c.align === 'center'
@@ -702,13 +743,21 @@ export function DataTable<T>({
 
           {/* Integrated Pagination Footer — cursor where the list can change
               underneath the reader (R-2.4), offset only where it cannot. */}
+          {/*
+           * HORIZONTAL padding only, and no border.
+           *
+           * Both pagination components already carry their own `py-3` and their
+           * own `border-t`. Repeating either here stacked them: two rules a
+           * pixel apart with a band of dead space between, which reads as an
+           * empty row the table forgot to fill.
+           */}
           {cursorPagination && (
-            <div className="border-t border-border px-4 bg-muted/20">
+            <div className="px-4 bg-muted/20">
               <CursorPagination {...cursorPagination} />
             </div>
           )}
           {!cursorPagination && pagination && (
-            <div className="border-t border-border px-4 bg-muted/20">
+            <div className="px-4 bg-muted/20">
               <Pagination
                 page={pagination.page}
                 pageSize={pagination.pageSize}
