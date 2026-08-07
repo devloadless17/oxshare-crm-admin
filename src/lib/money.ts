@@ -70,3 +70,32 @@ export function isZeroMoney(value: string): boolean {
     return false;
   }
 }
+
+/**
+ * Order two monetary strings: negative when `a < b`, matching `Array.sort`.
+ *
+ * Exists because sorting money is where the coercion ban is easiest to forget.
+ * The two obvious alternatives are both wrong:
+ *
+ *  - `Number(a) - Number(b)` loses precision before the comparison happens —
+ *    `Number('12345678901234567.89')` is already inexact, and it is a lint error
+ *    on money paths for that reason.
+ *  - `a.localeCompare(b)` compares text, so '9.00000000' sorts ABOVE
+ *    '100.00000000'. That is the specific bug admin's `sortType: 'money'` was
+ *    added to close, and a client sorting their own transactions by amount would
+ *    hit it on the first list containing both single- and triple-digit values.
+ *
+ * An unparseable value falls back to a text comparison rather than throwing: a
+ * bad row is a data problem, and it must not take down a render — the same
+ * choice `formatMoney` makes with its fallback.
+ *
+ * `compareValues(a, b, 'money')` in lib/table-sort.ts is the DataTable's route
+ * to the same rule; this is the direct one, for a caller sorting a plain array.
+ */
+export function compareMoney(a: string, b: string): number {
+  try {
+    return new Decimal(a).comparedTo(new Decimal(b));
+  } catch {
+    return a.localeCompare(b);
+  }
+}
