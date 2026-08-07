@@ -127,6 +127,26 @@ export interface DataTableProps<T> {
     noun?: [string, string];
   };
   /**
+   * Page the rows this table is HOLDING, with the same footer as everyone else.
+   *
+   * For the endpoints that return their whole list — tags, currencies, payment
+   * methods, roles, admin users. They had no pager at all, so `fill` gave them
+   * the inert "Showing all N" bar: two grey arrows and a count, a different
+   * shape and height from the real footer next door. Two tables that differ
+   * only in which footer they drew is exactly the inconsistency this component
+   * exists to remove.
+   *
+   * Client-side is CORRECT here and nowhere else: the rows held are the entire
+   * dataset, so paging them is a view concern and "page 2" means what it says.
+   * A server-paginated list must keep using `pagination` — see the scope note
+   * that sorting carries for the same reason.
+   */
+  clientPagination?: {
+    /** Rows per page. Defaults to 25, matching the server-side lists. */
+    pageSize?: number;
+    noun?: [string, string];
+  };
+  /**
    * Cursor pagination — Previous/Next over a keyset endpoint.
    *
    * The correct choice for anything that grows or is written to while being
@@ -169,6 +189,7 @@ export function DataTable<T>({
   sortDirection: controlledSortDirection,
   onSortChange,
   pagination,
+  clientPagination,
   cursorPagination,
 }: DataTableProps<T>) {
   // Local states for uncontrolled usage
@@ -255,6 +276,39 @@ export function DataTable<T>({
       return sortDir === 'asc' ? result : -result;
     });
   }, [rows, sortCol, sortDir, onSortChange, sortTypes]);
+
+  /*
+   * Client-side paging, applied AFTER sorting and never before it.
+   *
+   * Sorting a page and then paging the result would order twenty-five rows and
+   * call it the ordering of the whole list — the exact failure R-2.5 names.
+   * Because these tables hold the entire dataset, sorting first and slicing
+   * second gives a true ordering, so a client-side sort is honest here in a way
+   * it is not on a server-paginated screen.
+   */
+  const [clientPage, setClientPage] = React.useState(1);
+  const [clientPageSize, setClientPageSize] = React.useState(clientPagination?.pageSize ?? 25);
+
+  /*
+   * The page is CLAMPED during render, not corrected by an effect.
+   *
+   * Deleting the last tag on page 3 leaves `clientPage` past the end, and the
+   * table would render empty with no way back. Fixing that with an effect costs
+   * a second render pass and shows the empty state for a frame first;
+   * `react-hooks/set-state-in-effect` is pointing at exactly that. Deriving the
+   * value means the out-of-range page is simply never rendered.
+   *
+   * `clientPage` stays as it is, so an operator who deletes a row on page 3 of
+   * 5 is still on page 3 rather than being thrown to the end.
+   */
+  const clientTotalPages = Math.max(1, Math.ceil(sortedRows.length / clientPageSize));
+  const safeClientPage = Math.min(clientPage, clientTotalPages);
+
+  const pagedRows = React.useMemo(() => {
+    if (!clientPagination) return sortedRows;
+    const start = (safeClientPage - 1) * clientPageSize;
+    return sortedRows.slice(start, start + clientPageSize);
+  }, [clientPagination, sortedRows, safeClientPage, clientPageSize]);
 
   /*
    * True when the operator is looking at a sort that covers only this page.
@@ -613,7 +667,9 @@ export function DataTable<T>({
                 </tr>
               )}
 
-              {sortedRows.map((row) => {
+              {/* `pagedRows` is `sortedRows` verbatim unless `clientPagination`
+                  is set, so every other table renders exactly as before. */}
+              {pagedRows.map((row) => {
                 const key = rowKey(row);
                 const isSelected = selectedKeys.includes(key);
                 const isExpanded = expandedKeys.includes(key);
@@ -756,6 +812,30 @@ export function DataTable<T>({
               <CursorPagination {...cursorPagination} />
             </div>
           )}
+          {/*
+           * The SAME pager as a server-paginated table, driven by local state.
+           * `Pagination` only needs page/total/pageSize, so it does not care
+           * where the numbers come from — which is what lets these tables look
+           * identical to the others rather than nearly so.
+           */}
+          {!cursorPagination && !pagination && clientPagination && (
+            <div className="px-4 bg-muted/20">
+              <Pagination
+                page={safeClientPage}
+                pageSize={clientPageSize}
+                total={sortedRows.length}
+                onPageChange={setClientPage}
+                onPageSizeChange={(size) => {
+                  setClientPageSize(size);
+                  // Back to page one: page 4 of 25-per-page is past the end at
+                  // 100-per-page, which renders as an empty table.
+                  setClientPage(1);
+                }}
+                noun={clientPagination.noun}
+              />
+            </div>
+          )}
+
           {!cursorPagination && pagination && (
             <div className="px-4 bg-muted/20">
               <Pagination
@@ -782,7 +862,7 @@ export function DataTable<T>({
            * has nothing to say here, and an empty bar under it would be
            * decoration that costs vertical space on every settings screen.
            */}
-          {fill && !cursorPagination && !pagination && (
+          {fill && !cursorPagination && !pagination && !clientPagination && (
             <div className="flex items-center justify-between border-t border-border bg-muted/20 px-4 py-2.5">
               <span className="text-[11px] text-muted-foreground">
                 {t('pagination.showingAll', { count: rows.length })}

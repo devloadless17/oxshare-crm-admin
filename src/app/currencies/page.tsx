@@ -50,6 +50,13 @@ import { t } from '@/lib/i18n';
  * is what a brand-new client's first wallet opens in, so the platform must
  * always have one — the API refuses to clear the flag and only ever MOVES it.
  */
+/*
+ * This endpoint returns its whole list, so the rows held ARE the dataset and
+ * paging them locally is a view concern. It gives the screen the same footer as
+ * the server-paginated tables rather than the inert bar it drew before.
+ */
+const CURRENCY_PAGING = { noun: ['currency', 'currencies'] as [string, string] };
+
 export default function CurrenciesPage() {
   const { admin } = useAdmin();
   // Currencies are operator configuration of the same class as the download
@@ -298,6 +305,7 @@ export default function CurrenciesPage() {
           rowKey={(c) => c.code}
           dimmed={query.isFetching}
           empty={<EmptyState icon={Coins} message={t('currencies.empty')} />}
+          clientPagination={CURRENCY_PAGING}
         />
       </AsyncBoundary>
 

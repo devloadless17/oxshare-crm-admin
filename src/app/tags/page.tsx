@@ -49,6 +49,18 @@ import { t } from '@/lib/i18n';
  * fill`, the same treatment `/clients` and `/kyc` use, so a failed load says so
  * rather than rendering as an empty vocabulary.
  */
+/*
+ * `GET /admin/tags` returns every tag in one response, so the rows this table
+ * holds ARE the dataset and paging them is a view concern rather than a lie
+ * about scope. It is what gives this screen the same footer — numbered pages,
+ * First/Last, rows-per-page — as the server-paginated tables next to it, in
+ * place of the inert "Showing all N" bar it drew before.
+ *
+ * A module constant, not an inline object: a fresh `{}` every render would be a
+ * new prop identity on every keystroke elsewhere in the page.
+ */
+const TAG_PAGING = { noun: ['tag', 'tags'] as [string, string] };
+
 export default function TagsPage() {
   const { admin } = useAdmin();
   const canManage = hasPermission(admin, 'tags.manage');
@@ -228,6 +240,7 @@ export default function TagsPage() {
           rowKey={(tag) => tag.id}
           dimmed={query.isFetching}
           empty={<EmptyState icon={TagsIcon} message={t('tags.empty')} />}
+          clientPagination={TAG_PAGING}
         />
       </AsyncBoundary>
 

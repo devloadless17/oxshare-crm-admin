@@ -44,6 +44,14 @@ export interface DirectoryCapabilities {
  * second boundary inside this component would render a spinner against data
  * that is already resolved.
  */
+/*
+ * `GET /admin/users` returns the whole directory, so the rows held ARE the
+ * dataset — which is also why the client-side SORT on this table is honest
+ * (see the note on `columns` below). Paging them locally follows from the same
+ * fact, and gives this screen the footer every other table has.
+ */
+const ADMIN_PAGING = { noun: ['administrator', 'administrators'] as [string, string] };
+
 export function AdminDirectoryTable({
   admins,
   roles,
@@ -279,6 +287,7 @@ export function AdminDirectoryTable({
       columns={columns}
       rows={admins}
       rowKey={(user) => user.id}
+      clientPagination={ADMIN_PAGING}
     />
   );
 }

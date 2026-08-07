@@ -61,6 +61,13 @@ const KIND_LABELS: Record<PaymentMethodKind, MessageKey> = {
  * surfaced verbatim rather than replaced with a generic failure — the same rule
  * the currencies screen follows for its 409.
  */
+/*
+ * This endpoint returns its whole list, so the rows held ARE the dataset and
+ * paging them locally is a view concern. It gives the screen the same footer as
+ * the server-paginated tables rather than the inert bar it drew before.
+ */
+const METHOD_PAGING = { noun: ['method', 'methods'] as [string, string] };
+
 export default function PaymentMethodsPage() {
   const { admin } = useAdmin();
   const canManage = hasPermission(admin, 'payments.manage');
@@ -322,6 +329,7 @@ export default function PaymentMethodsPage() {
           rowKey={(m) => m.key}
           dimmed={query.isFetching}
           empty={<EmptyState icon={CreditCard} message={t('paymentMethods.empty')} />}
+          clientPagination={METHOD_PAGING}
         />
       </AsyncBoundary>
 

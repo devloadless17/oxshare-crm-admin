@@ -54,6 +54,13 @@ import { t } from '@/lib/i18n';
  * link to /admin-users. The last one was a shortcut to a screen already in the
  * sidebar; the first two described the list instead of showing it.
  */
+/*
+ * This endpoint returns its whole list, so the rows held ARE the dataset and
+ * paging them locally is a view concern. It gives the screen the same footer as
+ * the server-paginated tables rather than the inert bar it drew before.
+ */
+const ROLE_PAGING = { noun: ['role', 'roles'] as [string, string] };
+
 export default function RolesPage() {
   const { admin } = useAdmin();
   const canManageRoles = hasPermission(admin, 'roles.manage');
@@ -244,6 +251,7 @@ export default function RolesPage() {
           rows={roles}
           rowKey={(role) => role.id}
           dimmed={query.isFetching}
+          clientPagination={ROLE_PAGING}
           empty={
             /*
              * Not `EmptyState`: this one carries a HINT as well as a message. A
