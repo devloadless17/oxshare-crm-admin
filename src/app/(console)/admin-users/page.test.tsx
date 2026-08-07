@@ -322,8 +322,16 @@ describe('editing one administrator (FR-RBAC-02)', () => {
     await user.click(screen.getByLabelText(/access/i));
     await user.click(await screen.findByRole('option', { name: /individual permissions/i }));
 
-    // Grant one the admin does not currently hold.
-    await user.click(await screen.findByRole('button', { name: /view ledger/i }));
+    /*
+     * Grant one the admin does not currently hold.
+     *
+     * `checkbox`, not `button`: the permission matrix rows were icon buttons
+     * carrying `aria-pressed` and are now real `Checkbox` controls, which Radix
+     * renders as `role="checkbox"`. The query moved with the markup — a toggle
+     * button and a checkbox are genuinely different things to a screen reader,
+     * and this assertion is about the one the component now is.
+     */
+    await user.click(await screen.findByRole('checkbox', { name: /view ledger/i }));
     await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());

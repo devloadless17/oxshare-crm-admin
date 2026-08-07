@@ -98,6 +98,9 @@ export type LedgerEntry = components['schemas']['LedgerEntryDto'];
 export type LedgerListResponse = components['schemas']['LedgerListResponseDto'];
 export type ReconciliationReport = components['schemas']['ReconciliationReportDto'];
 export type WalletDiscrepancy = components['schemas']['WalletDiscrepancyDto'];
+export type ApiKey = components['schemas']['ApiKeyDto'];
+/** The create response — the ONLY moment `plaintext` is ever populated. */
+export type IssuedApiKey = components['schemas']['IssuedApiKeyDto'];
 export type PaymentMethod = components['schemas']['PaymentMethodDto'];
 export type CreatePaymentMethod = components['schemas']['CreatePaymentMethodDto'];
 export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'];
@@ -1022,6 +1025,35 @@ export const adminApi = {
    */
   async getReconciliation(signal?: AbortSignal): Promise<ReconciliationReport> {
     const { data } = await apiClient.get<ReconciliationReport>('/admin/reconciliation', { signal });
+    return data;
+  },
+
+  // ── API keys (master admin only) ──────────────────────────────────────────
+
+  async listApiKeys(signal?: AbortSignal): Promise<ApiKey[]> {
+    const { data } = await apiClient.get<ApiKey[]>('/admin/api-keys', { signal });
+    return data;
+  },
+
+  /**
+   * Issue a key. The `plaintext` in the response is the ONLY copy that will
+   * ever exist — only a hash is stored, so it cannot be shown again.
+   *
+   * The caller MUST surface it immediately. Dropping it on the floor means the
+   * operator has to revoke the key and issue another.
+   */
+  async createApiKey(body: {
+    name: string;
+    permissions: string[];
+    expiresAt: string | null;
+  }): Promise<IssuedApiKey> {
+    const { data } = await apiClient.post<IssuedApiKey>('/admin/api-keys', body);
+    return data;
+  },
+
+  /** Revoke. Immediate — the guard reads `revoked_at` on every request. */
+  async revokeApiKey(id: string): Promise<ApiKey> {
+    const { data } = await apiClient.delete<ApiKey>(`/admin/api-keys/${id}`);
     return data;
   },
 

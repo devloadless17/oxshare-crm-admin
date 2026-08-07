@@ -11,6 +11,7 @@ import {
   FileCheck,
   Coins,
   Scale,
+  KeyRound,
   ArrowLeftRight,
   Wallet,
   CandlestickChart,
@@ -210,6 +211,9 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'nav.auditLog', href: '/audit-log', icon: Activity },
       // Lock, not Settings: that icon reads as "configuration of a thing", and
       // this is the console's own configuration.
+      // Machine credentials for the admin API. In Administration rather than
+      // Finance: it configures who may reach this console, not what it holds.
+      { label: 'nav.apiKeys', href: '/api-keys', icon: KeyRound },
       { label: 'nav.settings', href: '/settings', icon: Lock },
     ],
   },
@@ -557,7 +561,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                       } ${collapsed ? 'justify-center px-0' : ''}`}
                     >
                       <Icon
-                        className={`h-5 w-5 shrink-0 transition-transform group-hover:scale-110 ${
+                        className={`h-5 w-5 shrink-0 ${
                           isActive
                             ? 'text-link'
                             : 'text-muted-foreground group-hover:text-foreground'

@@ -644,6 +644,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ib/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An approved partner's own dashboard — level, earnings, referred clients, sub-partners
+         * @description Everything the partner area renders, in one request, because these figures are read together and a count from one instant beside a total from another is a screen that contradicts itself.
+         *
+         *     404s for a client who is not a partner: zeroes across the board would render as a partner dashboard belonging to somebody who is not one. Call GET /ib/status first.
+         *
+         *     IMPORTANT — `earnings.engineLive` is FALSE today. The commission engine was removed in migration 0028 and nothing writes commission entries yet, so the totals are true reads of an empty ledger rather than computed results. A client MUST label them as such instead of presenting a calculated-looking zero.
+         */
+        get: operations["IbController_overviewForMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ib/apply": {
         parameters: {
             query?: never;
@@ -1102,6 +1126,46 @@ export interface paths {
         };
         /** The signed-in client's own ledger entries */
         get: operations["WalletController_myLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in client's trading accounts, live first then demo
+         * @description The whole list, unpaginated — a client holds a handful of accounts rather than a growing log. Balances are decimal STRINGS (§6.1) and are the CRM-held figure, not MT5 equity: there is no bridge, so equity, margin and open positions are deliberately absent rather than fabricated.
+         */
+        get: operations["TradingController_myAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts/transferable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The accounts a transfer from the wallet may credit — live and active only
+         * @description Narrows what the transfer screen OFFERS. It does not become the check: `TransfersService` still refuses a demo, suspended or closed destination, because a second opinion about the same question is a second thing to drift.
+         */
+        get: operations["TradingController_myTransferableAccounts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2103,6 +2167,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every API key, newest first (master admin only)
+         * @description Includes revoked and expired keys. The secret is never returned — `prefix` is the non-secret leading characters, which is what makes two keys distinguishable on screen.
+         */
+        get: operations["AdminApiKeysController_list"];
+        put?: never;
+        /**
+         * Issue a new API key (master admin only)
+         * @description The response carries the plaintext key, and it is the ONLY time it is ever available: only a SHA-256 hash is stored, so it cannot be shown again or recovered. An admin may only grant permissions they hold themselves.
+         */
+        post: operations["AdminApiKeysController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke an API key (master admin only) */
+        delete: operations["AdminApiKeysController_revoke"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/security-settings": {
         parameters: {
             query?: never;
@@ -2715,6 +2820,72 @@ export interface components {
             eligible: boolean;
             ineligibleReason: string | null;
         };
+        IbLevelSummaryDto: {
+            /** @example 1 */
+            level: number;
+            /** @example Master Partner */
+            name: string;
+            /** @enum {string} */
+            payoutModel: "revenue_share" | "per_lot";
+            /**
+             * @description A percentage under revenue_share, an amount per lot under per_lot — read `payoutModel` before rendering it. A decimal string, never a number.
+             * @example 70.0000
+             */
+            rateValue: string;
+            /** @description How many direct partners this level may recruit. Null means unlimited. */
+            maxDirectPartners: number | null;
+        };
+        IbEarningsDto: {
+            /**
+             * @description Lifetime credited earnings, as a decimal string (§6.1). Summed from ledger commission, rebate and payout entries — never computed on the fly.
+             * @example 0.00000000
+             */
+            lifetime: string;
+            /**
+             * @description Credited in the last 30 days. Same source as `lifetime`.
+             * @example 0.00000000
+             */
+            last30Days: string;
+            /**
+             * @description The currency the totals are stated in.
+             * @example USD
+             */
+            currency: string;
+            /** @description FALSE means no commission engine has run — the totals are true but structurally zero, and must be labelled as such rather than shown as a computed result. See the DTO note. */
+            engineLive: boolean;
+        };
+        IbReferredClientDto: {
+            userId: string;
+            /** @description The client's display name. Their EMAIL is deliberately absent — a partner is owed attribution, not their referrals' contact details. */
+            name: string;
+            /** @description Whether this client has completed identity verification. */
+            verified: boolean;
+            /**
+             * Format: date-time
+             * @description When they registered under the code.
+             */
+            since: string;
+        };
+        IbSubPartnerDto: {
+            userId: string;
+            name: string;
+            /** @example 2 */
+            level: number;
+            /** @description A suspended sub-partner keeps their tree and stops earning. */
+            active: boolean;
+            /** Format: date-time */
+            since: string;
+        };
+        IbOverviewDto: {
+            level: components["schemas"]["IbLevelSummaryDto"] | null;
+            earnings: components["schemas"]["IbEarningsDto"];
+            /** @description Newest first. The whole list — a partner may read every client they introduced. */
+            referredClients: components["schemas"]["IbReferredClientDto"][];
+            /** @description Partners directly beneath this one. */
+            subPartners: components["schemas"]["IbSubPartnerDto"][];
+            /** @description How many referred clients have completed KYC — the ones who can actually fund. */
+            verifiedReferredCount: number;
+        };
         CreateIbApplicationDto: {
             /** @description Why the client wants to introduce business. Shown to the reviewer verbatim. */
             motivation?: string;
@@ -3057,6 +3228,28 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+        };
+        TradingAccountDto: {
+            id: string;
+            /** @description The MT5 login, once there is an MT5 to issue one. Null until a bridge assigns it — a string rather than a number because leading zeros are significant. */
+            login: string | null;
+            mt5Group: string | null;
+            /** @enum {string} */
+            environment: "live" | "demo";
+            /** @description The account's own currency, which need not match the wallet's. */
+            currency: string;
+            /**
+             * @description Decimal string (§6.1). The CRM-held balance — see the DTO note: this is what a transfer credits, and it becomes an MT5 mirror when the bridge lands. Not equity.
+             * @example 1250.00000000
+             */
+            balance: string;
+            tier: string | null;
+            /** @description The leverage ratio denominator — 500 means 1:500. Null when unset. */
+            leverage: number | null;
+            /** @enum {string} */
+            status: "active" | "suspended" | "closed";
+            /** Format: date-time */
+            createdAt: string;
         };
         KycFieldConfigDto: {
             /** @example f-1 */
@@ -3725,6 +3918,69 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+        };
+        ApiKeyDto: {
+            id: string;
+            /** @example Nightly reporting job */
+            name: string;
+            /**
+             * @description The non-secret leading characters. Never enough to authenticate with.
+             * @example oxs_live_a1b2c3
+             */
+            prefix: string;
+            /**
+             * @example [
+             *       "users.view"
+             *     ]
+             */
+            permissions: string[];
+            /** @description Null when the creating admin has been deleted. */
+            createdByName: string | null;
+            /**
+             * Format: date-time
+             * @description Null means this key never expires.
+             */
+            expiresAt: string | null;
+            /**
+             * Format: date-time
+             * @description Set once revoked; the row is kept for the audit.
+             */
+            revokedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Best effort, written at most once an hour — an update per request would put a write on the hot path of every integration.
+             */
+            lastUsedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CreateApiKeyDto: {
+            /**
+             * @description What this key is for. Shown in the key list.
+             * @example Nightly reporting job
+             */
+            name: string;
+            /**
+             * @description Permission keys from config/permissions.json. An admin may only grant permissions they themselves hold; only a master admin may grant "*". At least one is required — a key with none can authenticate but do nothing.
+             * @example [
+             *       "users.view",
+             *       "withdrawals.view"
+             *     ]
+             */
+            permissions: string[];
+            /**
+             * @description ISO 8601. Omit or send null for a key that never expires — stated rather than defaulted, because a key that silently stops working at 3am is worse than one somebody chose to make permanent.
+             * @example 2027-01-01T00:00:00.000Z
+             */
+            expiresAt?: Record<string, never>;
+        };
+        IssuedApiKeyDto: {
+            key: components["schemas"]["ApiKeyDto"];
+            /**
+             * @description THE PLAINTEXT KEY, shown exactly once. Never stored, never recoverable, never logged.
+             * @example oxs_live_x7Kd9…
+             */
+            plaintext: string;
         };
         SecuritySwitchDto: {
             /**
@@ -4922,6 +5178,25 @@ export interface operations {
             };
         };
     };
+    IbController_overviewForMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbOverviewDto"];
+                };
+            };
+        };
+    };
     IbController_apply: {
         parameters: {
             query?: never;
@@ -5573,6 +5848,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LedgerListResponseDto"];
+                };
+            };
+        };
+    };
+    TradingController_myAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountDto"][];
+                };
+            };
+        };
+    };
+    TradingController_myTransferableAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountDto"][];
                 };
             };
         };
@@ -7054,6 +7367,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminApiKeysController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyDto"][];
+                };
+            };
+        };
+    };
+    AdminApiKeysController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApiKeyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedApiKeyDto"];
+                };
+            };
+        };
+    };
+    AdminApiKeysController_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyDto"];
                 };
             };
         };

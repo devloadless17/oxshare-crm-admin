@@ -961,6 +961,8 @@ export const messages = {
   'settings.permissionMatrix': 'Permission Matrix ({count} {noun} granted)',
   'settings.action': 'action',
   'settings.actions': 'actions',
+  'settings.selectAll': 'Select all',
+  'settings.clearAll': 'Clear all',
 
   'builder.subtitle':
     'Customize, add, edit, or disable steps and fields for client identity verification onboarding.',
@@ -1134,6 +1136,61 @@ export const messages = {
   // on a money system already knows, and the screen answers exactly the
   // question that word asks.
   'nav.reconciliation': 'Reconciliation',
+  'nav.apiKeys': 'API keys',
+
+  // ── API keys ───────────────────────────────────────────────────────────────
+  'apiKeys.title': 'API keys',
+  'apiKeys.subtitle':
+    'Machine credentials for the admin API. A key carries its own permissions and is not tied to any administrator’s account.',
+  'apiKeys.loading': 'Loading keys…',
+  'apiKeys.loadFailed': 'Could not load the API keys.',
+  'apiKeys.create': 'New API key',
+  'apiKeys.caption': 'API keys, newest first',
+  'apiKeys.empty': 'No API keys yet.',
+  'apiKeys.column.name': 'Name',
+  'apiKeys.column.key': 'Key',
+  'apiKeys.column.permissions': 'Permissions',
+  'apiKeys.column.createdBy': 'Created by',
+  'apiKeys.column.lastUsed': 'Last used',
+  'apiKeys.column.expires': 'Expires',
+  'apiKeys.column.status': 'Status',
+  'apiKeys.status.active': 'Active',
+  'apiKeys.status.revoked': 'Revoked',
+  'apiKeys.status.expired': 'Expired',
+  'apiKeys.never': 'Never',
+  'apiKeys.revoke': 'Revoke',
+  'apiKeys.revokeConfirm':
+    'Revoke “{name}”? Anything using this key stops working immediately, and it cannot be restored.',
+  'apiKeys.revokeFailed': 'Could not revoke the key.',
+
+  // The create form.
+  'apiKeys.form.title': 'New API key',
+  'apiKeys.form.name': 'Name',
+  'apiKeys.form.namePlaceholder': 'Nightly reporting job',
+  'apiKeys.form.nameHelp': 'What this key is for. Shown in the list.',
+  'apiKeys.form.permissions': 'Permissions',
+  'apiKeys.form.permissionsHelp':
+    'What this key may do. You can only grant permissions you hold yourself.',
+  'apiKeys.form.expiry': 'Expires',
+  'apiKeys.form.expiryHelp':
+    'Leave unset for a key that never expires. The key stays usable through the whole of the chosen day.',
+  'apiKeys.form.clearExpiry': 'Clear',
+  'apiKeys.form.submit': 'Create key',
+  'apiKeys.form.creating': 'Creating…',
+  'apiKeys.form.cancel': 'Cancel',
+  'apiKeys.form.failed': 'Could not create the key.',
+
+  /*
+   * The one-time reveal. The copy has to be unambiguous: the plaintext is not
+   * stored in any recoverable form, so an operator who closes this without
+   * copying has to revoke and re-issue.
+   */
+  'apiKeys.reveal.title': 'Copy your key now',
+  'apiKeys.reveal.body':
+    'This is the only time this key will be shown. It is stored as a hash, so it cannot be displayed again or recovered — if you lose it, revoke this key and create another.',
+  'apiKeys.reveal.copy': 'Copy',
+  'apiKeys.reveal.copied': 'Copied',
+  'apiKeys.reveal.done': 'I’ve copied it',
 
   // ── Reconciliation (§12.2) ─────────────────────────────────────────────────
   'reconciliation.title': 'Reconciliation',

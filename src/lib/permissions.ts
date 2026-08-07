@@ -105,6 +105,16 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * a scoped admin the ids of clients they were specifically denied.
    */
   { prefix: '/reconciliation', requirement: { masterOnly: true } },
+  /*
+   * Master admin only, matching the controller exactly.
+   *
+   * Not a permission key, and deliberately: issuing a key creates standing
+   * access to the admin API with no login and no session lifetime, carrying any
+   * permission its creator holds. That is the same "should not be delegatable
+   * at all" category as the security switches — make it a permission and it
+   * eventually lands on a role called "Operations".
+   */
+  { prefix: '/api-keys', requirement: { masterOnly: true } },
   { prefix: '/invite', requirement: { permission: 'users.create' } },
   { prefix: '/dashboard', requirement: null },
   // `requirement: null` is "any authenticated admin", stated rather than
