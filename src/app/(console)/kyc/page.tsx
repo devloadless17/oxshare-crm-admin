@@ -394,7 +394,20 @@ export default function AdminKycPage() {
             pageSize,
             total,
             onPageChange: setPage,
-            onPageSizeChange: setPageSize,
+            /*
+             * The reset is the CALLER's job, and this used to lean on the pager
+             * to do it. `Pagination` called `onPageChange(1)` right after this
+             * handler, which worked for a `useState` page like this one and
+             * silently destroyed the new size on every URL-backed table — two
+             * `router.replace` writes in one tick, the second built from a
+             * snapshot without the first's limit. That call is gone, so the
+             * page is dropped here: page 4 at 25 a page is past the end at 100
+             * a page, which renders as an empty queue.
+             */
+            onPageSizeChange: (size) => {
+              setPageSize(size);
+              setPage(1);
+            },
             noun: ['submission', 'submissions'],
           }}
         />

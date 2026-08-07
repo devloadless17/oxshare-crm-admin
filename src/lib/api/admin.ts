@@ -388,6 +388,62 @@ export type AuditEntry = components['schemas']['AuditEntryDto'];
 export type AuditListResponse = components['schemas']['AuditListResponseDto'];
 export type AuditAction = components['schemas']['AuditActionDto'];
 
+/**
+ * The columns `GET /admin/audit-log` will sort by, mirroring the backend's
+ * `AUDIT_SORT_COLUMNS` (store/audit-log.store.ts).
+ *
+ * The trail used to accept no `sort` at all — it ordered by `created_at DESC,
+ * id DESC` and nothing else — so every column on the screen was correctly
+ * marked `sortable: false`. Three of them can now be ordered on the server.
+ *
+ * Note what is ABSENT: `subjectType`, `subjectId` and `details`. The first is a
+ * declared FILTER but not a sort key, and the other two are a free-text id and
+ * a JSON blob. R-2.5 makes an unrecognised sort a 400 rather than a silent
+ * fallback, so those columns must keep declaring `sortable: false`.
+ */
+export const AUDIT_SORT_KEYS = ['createdAt', 'action', 'actorEmail'] as const;
+export type AuditSortKey = (typeof AUDIT_SORT_KEYS)[number];
+
+/**
+ * The columns `GET /admin/ib/applications` will sort by, mirroring the
+ * backend's `IB_APPLICATION_SORT_COLUMNS` (store/ib.store.ts).
+ *
+ * The applicant columns come from the `users` INNER JOIN the queue already does
+ * to display a name and email, so ordering by them costs no extra join.
+ *
+ * There is no `expectedVolume` key — it is a self-reported free-text field
+ * rather than an indexed column — so that column stays `sortable: false`.
+ */
+export const IB_APPLICATION_SORT_KEYS = [
+  'submittedAt',
+  'status',
+  'userEmail',
+  'userFirstName',
+] as const;
+export type IbApplicationSortKey = (typeof IB_APPLICATION_SORT_KEYS)[number];
+
+/**
+ * The columns `GET /admin/ib/partners` will sort by, mirroring the backend's
+ * `IB_PARTNER_SORT_COLUMNS` (store/ib.store.ts).
+ *
+ * `level` sorts as the INTEGER it is. That is worth stating because the obvious
+ * alternative — ordering by the joined level NAME — would put "Level 10" before
+ * "Level 2" as text, which is the kind of ordering that looks plausible enough
+ * to ship.
+ *
+ * There is no `parentIbUserId` key: the partner column renders "Direct" or
+ * "Has parent" rather than the id, so a sort on it would order by opaque UUID
+ * and answer a question nobody asked.
+ */
+export const IB_PARTNER_SORT_KEYS = [
+  'approvedAt',
+  'level',
+  'referralCode',
+  'userEmail',
+  'userFirstName',
+] as const;
+export type IbPartnerSortKey = (typeof IB_PARTNER_SORT_KEYS)[number];
+
 // Request bodies, aliased too. These were hand-written until the backend moved
 // its inline controller DTOs into dto/ files with @ApiProperty — before that they
 // generated as `Record<string, never>` and there was nothing to alias, so the
@@ -538,13 +594,24 @@ export const adminApi = {
    * separately from the rows would promise twelve pending and show four.
    */
   async getIbApplications(
-    params: { status?: IbApplicationStatus; page?: number; limit?: number },
+    params: {
+      status?: IbApplicationStatus;
+      page?: number;
+      limit?: number;
+      sort?: IbApplicationSortKey;
+      order?: 'asc' | 'desc';
+    },
     signal?: AbortSignal,
   ): Promise<IbApplicationPage> {
     const query = new URLSearchParams();
     if (params.status) query.set('status', params.status);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
+    // Both halves or neither. `order` alone describes an ordering of no column,
+    // and the endpoint is entitled to reject it — the caller withholds `order`
+    // when `sort` is absent, and this only has to not reintroduce it.
+    if (params.sort) query.set('sort', params.sort);
+    if (params.sort && params.order) query.set('order', params.order);
     const { data } = await apiClient.get<IbApplicationPage>(
       `/admin/ib/applications?${query.toString()}`,
       { signal },
@@ -590,12 +657,20 @@ export const adminApi = {
   // ── Partners, once approved ───────────────────────────────────────────────
 
   async getIbPartners(
-    params: { page?: number; limit?: number },
+    params: {
+      page?: number;
+      limit?: number;
+      sort?: IbPartnerSortKey;
+      order?: 'asc' | 'desc';
+    },
     signal?: AbortSignal,
   ): Promise<IbPartnerPage> {
     const query = new URLSearchParams();
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
+    // Both halves or neither — see `getIbApplications` above.
+    if (params.sort) query.set('sort', params.sort);
+    if (params.sort && params.order) query.set('order', params.order);
     const { data } = await apiClient.get<IbPartnerPage>(`/admin/ib/partners?${query.toString()}`, {
       signal,
     });

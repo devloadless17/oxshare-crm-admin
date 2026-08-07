@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 import {
@@ -27,6 +28,13 @@ export function Pagination({
   /** Singular/plural label, e.g. ['entry', 'entries']. */
   noun?: [string, string];
 }) {
+  /*
+   * `useId`, not a constant: two pagers can be on one screen (a page with two
+   * tables), and a duplicated id would point both triggers' accessible name at
+   * whichever label the document happened to contain first.
+   */
+  const rowsPerPageLabelId = useId();
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const startItem = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const endItem = Math.min(total, page * pageSize);
@@ -79,7 +87,17 @@ export function Pagination({
         </span>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">
+          {/*
+           * The visible label is ASSOCIATED with the control, not merely next
+           * to it.
+           *
+           * The trigger renders only the number, so without this it announced
+           * as an unnamed combobox reading "25" — one of several on a screen,
+           * with nothing to say which was rows-per-page. `aria-labelledby`
+           * makes the text that is already on screen the accessible name rather
+           * than duplicating it into an `aria-label` that could drift from it.
+           */}
+          <span id={rowsPerPageLabelId} className="text-xs font-medium text-muted-foreground">
             {t('pagination.rowsPerPage')}
           </span>
           {(() => {
@@ -94,11 +112,38 @@ export function Pagination({
                   // See the note in cursor-pagination.tsx.
                   // eslint-disable-next-line no-restricted-syntax
                   const newSize = Number(val);
+                  /*
+                   * ONE call, and the RESET IS THE HANDLER'S JOB.
+                   *
+                   * This used to be `onPageSizeChange?.(newSize)` followed by
+                   * `onPageChange(1)`, which silently discarded the size on
+                   * every URL-backed table. Both handlers write the query
+                   * string through `useTableQueryState.set`, and both read the
+                   * SAME `searchParams` snapshot — the one from the render that
+                   * is still on screen. So the second `replace` was built from
+                   * a URL that did not contain the new limit and overwrote the
+                   * first: the operator picked 100, the address bar ended up
+                   * with neither `limit` nor `page`, and the table redrew at 25.
+                   *
+                   * Two writes cannot be merged from here, because this
+                   * component cannot see the caller's URL state. So the page
+                   * change is not made here at all: every caller writes the
+                   * size and the page TOGETHER in one `set`, dropping the page,
+                   * which is the same shape every filter on these screens
+                   * already uses. `clientPagination` does the equivalent with
+                   * its two `useState` setters in `data-table.tsx`.
+                   *
+                   * The reset is still REQUIRED of a caller — page 4 at 25 a
+                   * page is past the end at 100 a page, which renders as an
+                   * empty table and reads as "no results".
+                   */
                   onPageSizeChange?.(newSize);
-                  onPageChange(1); // Reset to first page when size changes
                 }}
               >
-                <SelectTrigger className="h-8 w-20 px-2.5 text-xs font-semibold">
+                <SelectTrigger
+                  aria-labelledby={rowsPerPageLabelId}
+                  className="h-8 w-20 px-2.5 text-xs font-semibold"
+                >
                   <SelectValue placeholder={String(pageSize)}>{pageSize}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>

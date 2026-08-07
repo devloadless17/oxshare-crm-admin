@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import AuditLogPage from './page';
@@ -212,6 +212,190 @@ describe('audit log — filtering happens server-side', () => {
     await waitFor(() => expect(get).toHaveBeenCalled());
     const url = get.mock.calls[0]?.[0] as string;
     expect(url).toMatch(/action=kyc\.approve/);
+  });
+});
+
+/**
+ * THE ROWS-PER-PAGE SELECTOR USED TO DO NOTHING.
+ *
+ * The pager rendered its `<Select>` on every one of these tables, but the page
+ * passed no `onPageSizeChange` and sent a hardcoded `limit`. So the control
+ * opened, took a choice, closed — and the next request asked for 25 rows again.
+ * From the operator's side that is indistinguishable from a broken screen.
+ */
+describe('audit log — the rows-per-page selector reaches the API', () => {
+  /**
+   * Pick a size from the pager's own `<Select>`.
+   *
+   * By its accessible NAME rather than by index among the comboboxes: the
+   * action filter is the other one, and an index would silently start asserting
+   * about the wrong control the moment a filter is added or removed. The name
+   * comes from the visible "Rows per page:" label, which the trigger now points
+   * at with `aria-labelledby` — it announced as an unnamed combobox before.
+   */
+  async function choosePageSize(user: ReturnType<typeof userEvent.setup>, size: string) {
+    await user.click(await screen.findByRole('combobox', { name: /rows per page/i }));
+    await user.click(await screen.findByRole('option', { name: size }));
+  }
+
+  it('sends a new limit when the size changes', async () => {
+    const user = userEvent.setup();
+    get.mockResolvedValue({ data: page([entry()], 500) });
+    renderWithProviders(<AuditLogPage />);
+    await screen.findByText(/admin@oxshare\.com/);
+
+    await choosePageSize(user, '100');
+
+    await waitFor(() => {
+      const url = get.mock.calls.at(-1)?.[0] as string;
+      expect(url).toMatch(/limit=100/);
+    });
+  });
+
+  /**
+   * THE HALF THAT IS EASY TO GET WRONG.
+   *
+   * Page 4 at 25 a page is past the end at 100 a page. Keeping the page number
+   * across a size change renders an empty table, which reads as "no entries
+   * match" rather than as "you are beyond the end of the list".
+   */
+  it('RESETS to page one, so the new size cannot land past the end', async () => {
+    const user = userEvent.setup();
+    get.mockResolvedValue({ data: page([entry()], 500) });
+    renderWithProviders(<AuditLogPage />);
+    await screen.findByText(/admin@oxshare\.com/);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Page 4' }));
+    await waitFor(() => expect(searchParams.current.get('page')).toBe('4'));
+
+    await choosePageSize(user, '100');
+
+    // The page comes out of the URL entirely rather than being pinned to 1 —
+    // `url.set` drops a key handed `undefined`, so page one leaves a clean URL.
+    await waitFor(() => expect(searchParams.current.get('page')).toBeNull());
+    const url = get.mock.calls.at(-1)?.[0] as string;
+    expect(url).toMatch(/page=1/);
+    expect(url).toMatch(/limit=100/);
+  });
+
+  it('honours a limit from the URL, so a shared link opens the same view', async () => {
+    searchParams.current = new URLSearchParams('limit=50');
+    renderWithProviders(<AuditLogPage />);
+
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    expect(get.mock.calls.at(-1)?.[0] as string).toMatch(/limit=50/);
+  });
+
+  it('CLAMPS a hand-edited limit the API would refuse', async () => {
+    // The backend caps `limit` at 100, so passing 5000 through would turn a
+    // stale bookmark into an error page instead of a list.
+    searchParams.current = new URLSearchParams('limit=5000');
+    renderWithProviders(<AuditLogPage />);
+
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    const url = get.mock.calls.at(-1)?.[0] as string;
+    expect(url).not.toMatch(/limit=5000/);
+    expect(url).toMatch(/limit=25/);
+  });
+});
+
+/**
+ * THE SORT USED TO BE A LIE — R-2.5.
+ *
+ * This screen was honest for as long as the endpoint accepted no `sort`: every
+ * column said `sortable: false`. The endpoint now allowlists three keys, so
+ * those three headers must reach the API, and the other two must still refuse
+ * to offer an ordering the endpoint would answer 400 to.
+ */
+describe('audit log — sorting reaches the API', () => {
+  it('SENDS the sort instead of reordering the current page', async () => {
+    renderWithProviders(<AuditLogPage />);
+    await screen.findByText(/admin@oxshare\.com/);
+
+    await userEvent.click(screen.getByRole('button', { name: /^action$/i }));
+
+    await waitFor(() => {
+      const url = get.mock.calls.at(-1)?.[0] as string;
+      expect(url).toMatch(/sort=action/);
+      expect(url).toMatch(/order=asc/);
+    });
+  });
+
+  it('drops BOTH params when the column is cycled back off', async () => {
+    /*
+     * The third click of asc → desc → unsorted. A lingering `order=desc` with
+     * no `sort` is a URL that means nothing, and the API is entitled to 400 on
+     * it — so the two come out together and the trail returns to its own
+     * `created_at DESC` default rather than to a guess this screen substituted.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<AuditLogPage />);
+    await screen.findByText(/admin@oxshare\.com/);
+
+    const header = () => screen.getByRole('button', { name: /^action$/i });
+    await user.click(header()); // asc
+    await waitFor(() => expect(searchParams.current.get('sort')).toBe('action'));
+    await user.click(header()); // desc
+    await waitFor(() => expect(searchParams.current.get('order')).toBe('desc'));
+    await user.click(header()); // off
+
+    await waitFor(() => expect(searchParams.current.get('sort')).toBeNull());
+    expect(searchParams.current.get('order')).toBeNull();
+    const url = get.mock.calls.at(-1)?.[0] as string;
+    expect(url).not.toMatch(/sort=/);
+    expect(url).not.toMatch(/order=/);
+  });
+
+  it('returns to page ONE when the sort changes', async () => {
+    // Reordering renumbers every page, so positions 26–50 under the new sort
+    // are not the entries that were there under the old.
+    get.mockResolvedValue({ data: page([entry()], 500) });
+    renderWithProviders(<AuditLogPage />);
+    await screen.findByText(/admin@oxshare\.com/);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Page 4' }));
+    await waitFor(() => expect(searchParams.current.get('page')).toBe('4'));
+
+    await userEvent.click(screen.getByRole('button', { name: /^action$/i }));
+
+    await waitFor(() => expect(searchParams.current.get('page')).toBeNull());
+  });
+
+  it('reads an existing sort out of the URL and asks the API for it', async () => {
+    searchParams.current = new URLSearchParams('sort=actorEmail&order=asc');
+    renderWithProviders(<AuditLogPage />);
+
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    const url = get.mock.calls.at(-1)?.[0] as string;
+    expect(url).toMatch(/sort=actorEmail/);
+    expect(url).toMatch(/order=asc/);
+  });
+
+  it('IGNORES a sort key the API does not accept', async () => {
+    // A stale bookmark or a hand-edited URL. R-2.5 makes an unrecognised sort a
+    // 400, never a silent fallback, so passing it through would turn a saved
+    // link into an error page instead of a list.
+    searchParams.current = new URLSearchParams('sort=details&order=asc');
+    renderWithProviders(<AuditLogPage />);
+
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    const url = get.mock.calls.at(-1)?.[0] as string;
+    expect(url).not.toMatch(/sort=/);
+  });
+
+  it('offers NO sort on the columns outside the allowlist', async () => {
+    /*
+     * `subjectType` is a declared FILTER on this endpoint but not a sort key,
+     * and `details` is a JSON blob. Both read like plausible sort keys, which is
+     * exactly why the absence is pinned: a header claiming either would 400.
+     */
+    renderWithProviders(<AuditLogPage />);
+    await screen.findByText(/admin@oxshare\.com/);
+
+    for (const name of [/^subject$/i, /^details$/i]) {
+      const header = screen.getByRole('columnheader', { name });
+      expect(within(header).queryByRole('button')).toBeNull();
+    }
   });
 });
 

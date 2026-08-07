@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpDown, Copy, Handshake, Layers, PauseCircle, PlayCircle, User } from 'lucide-react';
 import api from '@/lib/api';
-import type { IbLevel, IbPartnerPage } from '@/lib/api/admin';
+import type { IbLevel, IbPartnerPage, IbPartnerSortKey } from '@/lib/api/admin';
+import { IB_PARTNER_SORT_KEYS } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
@@ -29,6 +30,9 @@ import { t } from '@/lib/i18n';
 
 /** One row of `GET /admin/ib/partners` — the account, its user, its level name. */
 type PartnerRowData = IbPartnerPage['rows'][number];
+
+/** A column may only claim to be sortable if the API will actually sort by it. */
+const sortableBy = (key: IbPartnerSortKey) => ({ sortable: true as const, sortKey: key });
 
 /**
  * The partner list, rebuilt.
@@ -58,14 +62,42 @@ export default function PartnersPage() {
 
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(25);
+  /**
+   * The sort, as the API's own two parameters.
+   *
+   * `null` is a real state and not a missing value: it is the third click of
+   * DataTable's asc → desc → off cycle, and it means "drop both parameters and
+   * let the endpoint apply its own default" — `approvedAt desc`, newest
+   * approval first. Substituting that default here instead would look identical
+   * on screen and be a different request.
+   *
+   * Local state rather than the URL, matching the rest of this screen's paging.
+   * The URL-backed tables (`/clients`, `/wallets`) each sit behind a `Suspense`
+   * boundary because `useSearchParams()` requires one at prerender; this page
+   * has none, so moving its state there is a change to the page's shape rather
+   * than a two-line edit, and is left for whenever its filters need linking to.
+   */
+  const [sort, setSort] = React.useState<{ key: IbPartnerSortKey; order: 'asc' | 'desc' } | null>(
+    null,
+  );
 
   const [changingLevel, setChangingLevel] = React.useState<PartnerRowData | null>(null);
   const [reassigning, setReassigning] = React.useState<PartnerRowData | null>(null);
   const [suspending, setSuspending] = React.useState<PartnerRowData | null>(null);
   const [copyFailed, setCopyFailed] = React.useState(false);
 
-  const query = useResource<IbPartnerPage>(['admin', 'ib-partners', page, pageSize], (signal) =>
-    api.admin.getIbPartners({ page, limit: pageSize }, signal),
+  /*
+   * The sort is in the KEY as well as the request. A parameter missing from the
+   * key makes React Query serve the previous ordering's cached page under the
+   * new sort — rows that do not match what the header claims.
+   */
+  const query = useResource<IbPartnerPage>(
+    ['admin', 'ib-partners', page, pageSize, sort?.key, sort?.order],
+    (signal) =>
+      api.admin.getIbPartners(
+        { page, limit: pageSize, sort: sort?.key, order: sort?.order },
+        signal,
+      ),
   );
 
   /*
@@ -142,22 +174,29 @@ export default function PartnersPage() {
     null;
 
   /*
-   * NO COLUMN HERE SORTS, and every one says so explicitly.
+   * FOUR of these sort, and the fifth says explicitly that it does not.
    *
-   * `GET /admin/ib/partners` accepts `page` and `limit` and nothing else — the
-   * store hardcodes `ORDER BY approved_at DESC`. DataTable treats a column as
-   * sortable unless told otherwise, deriving a key from the header text, so
-   * silence would turn all five of these into sort buttons that reorder the
-   * page on screen and present it as the partner list.
+   * This list accepted `page` and `limit` and nothing else when the screen was
+   * built, so every column was correctly `sortable: false`. The endpoint now
+   * carries an `IB_PARTNER_SORT_COLUMNS` allowlist, and `sortableBy` takes an
+   * `IbPartnerSortKey` — so the allowlist is enforced by the compiler here
+   * rather than by reading a comment.
    *
-   * When the endpoint gains a sort allowlist, mirror it as a `sortableBy()`
-   * helper the way `client-columns.tsx` does, rather than marking these
-   * sortable one at a time.
+   * DataTable treats a column as sortable unless told otherwise, deriving a key
+   * from the header text, so the one column outside the allowlist must still
+   * say so: R-2.5 makes an unrecognised sort a 400 rather than a silent
+   * fallback, which is an error page instead of rows.
    */
   const columns: Column<PartnerRowData>[] = [
     {
       header: t('partners.colName'),
-      sortable: false,
+      /*
+       * Sorts by the partner's FIRST NAME — `userFirstName`, the key the
+       * endpoint orders on. Deliberately not a concatenated full name: the
+       * index is on the column, and a `first || ' ' || last` expression would
+       * need its own expression index (the backend's own note on this map).
+       */
+      ...sortableBy('userFirstName'),
       cell: ({ account, user }) => (
         <span className="flex flex-wrap items-center gap-2">
           <Link
@@ -178,7 +217,7 @@ export default function PartnersPage() {
     },
     {
       header: t('partners.colEmail'),
-      sortable: false,
+      ...sortableBy('userEmail'),
       cell: ({ user }) => user.email,
       cellClassName: 'text-muted-foreground',
     },
@@ -187,18 +226,30 @@ export default function PartnersPage() {
       // operator recognises; the number is an implementation detail they should
       // not have to translate.
       header: t('partners.colLevel'),
-      sortable: false,
+      /*
+       * Sorts on the INTEGER `level`, not on the level NAME the cell leads
+       * with. That is the whole reason this key exists rather than one on the
+       * joined name: ordering by text would put "Level 10" before "Level 2".
+       */
+      ...sortableBy('level'),
       cell: ({ account, levelName }) =>
         t('partners.levelLine', { level: String(account.level), name: levelName }),
     },
     {
       header: t('partners.colReferralCode'),
-      sortable: false,
+      ...sortableBy('referralCode'),
       cell: ({ account }) => account.referralCode,
       cellClassName: 'font-mono tracking-wide text-muted-foreground',
     },
     {
       header: t('partners.colParent'),
+      /*
+       * NOT sortable — `parentIbUserId` is absent from the endpoint's
+       * allowlist, and there would be little point if it were: this cell
+       * renders "Direct" or "Has parent", so the ordering an operator would
+       * expect from clicking it is by that distinction, while the underlying
+       * column holds an opaque UUID.
+       */
       sortable: false,
       cell: ({ account }) =>
         account.parentIbUserId ? t('partners.hasParent') : t('partners.direct'),
@@ -290,7 +341,7 @@ export default function PartnersPage() {
       <AsyncBoundary
         status={query.status}
         label={t('partners.loading')}
-        endpoints={['GET /admin/ib/partners?page&limit']}
+        endpoints={['GET /admin/ib/partners?page&limit&sort&order']}
         onRetry={query.refetch}
         errorMessage={t('partners.loadFailed')}
         error={query.error}
@@ -304,6 +355,33 @@ export default function PartnersPage() {
           rowKey={(partner) => partner.account.userId}
           dimmed={query.isFetching}
           empty={<EmptyState icon={Handshake} message={t('partners.empty')} />}
+          sortColumn={sort?.key}
+          sortDirection={sort?.order}
+          /*
+           * Server-side. Passing this also switches DataTable out of its
+           * client-side path, so a header click orders the whole partner list
+           * rather than the twenty-five rows on screen — which on a paginated
+           * list is the difference between "the highest-level partner" and "the
+           * highest-level partner on this page".
+           *
+           * `setPage(1)` because reordering renumbers every page: the rows at
+           * positions 26–50 under the new sort are not the ones that were there
+           * under the old.
+           */
+          onSortChange={(key, order) => {
+            /*
+             * Checked against the allowlist rather than cast to it.
+             *
+             * Only allowlisted columns are marked sortable, so this should
+             * always hold — but `key` arrives as a bare string, and a cast
+             * would make a future column with a typo'd key compile cleanly and
+             * 400 at runtime. Falling back to `null` clears the sort instead,
+             * which is a state the endpoint accepts.
+             */
+            const next = IB_PARTNER_SORT_KEYS.find((allowed) => allowed === key);
+            setSort(next && order ? { key: next, order } : null);
+            setPage(1);
+          }}
           /*
            * The pager moved INTO the table's footer, where it is always on
            * screen rather than however many rows below the fold. Same page,

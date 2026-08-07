@@ -12,7 +12,7 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { pageParam } from '@/lib/page-param';
+import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState } from '@/components/data-table';
 import { PageLoader } from '@/components/ui/loader';
@@ -21,8 +21,6 @@ import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
 import { clientColumns } from '@/components/clients/client-columns';
 import { t } from '@/lib/i18n';
-
-const PAGE_SIZE = 25;
 
 /**
  * Catalog key → what an operator calls it, for the "hidden columns" notice.
@@ -79,6 +77,19 @@ function ClientsPageContent() {
    */
   const page = pageParam(url.get('page'));
   /*
+   * The ROWS-PER-PAGE selector, in the URL beside the page number.
+   *
+   * It was a hardcoded constant with no `onPageSizeChange` passed, so the
+   * control in the pager's footer rendered, opened, and did nothing at all —
+   * the operator picked 100 and kept getting 25. It belongs in the URL for the
+   * same reason the page number does: "page 3 at 100 a page" has to survive a
+   * refresh and a shared link, and the two numbers are meaningless apart.
+   *
+   * `limitParam` clamps to the four sizes the pager offers — a hand-edited
+   * `?limit=5000` would otherwise be a request the API rejects (it caps at 100).
+   */
+  const pageSize = limitParam(url.get('limit'));
+  /*
    * The URL is already debounced by the search box itself — it keeps local
    * state and writes `?q=` on a timer, because a fully URL-controlled input
    * loses characters to the router's async `replace` (see client-filters.tsx).
@@ -93,7 +104,7 @@ function ClientsPageContent() {
     : undefined;
 
   const params = {
-    limit: PAGE_SIZE,
+    limit: pageSize,
     page,
     withTotal: true,
     q: debouncedSearch,
@@ -262,12 +273,30 @@ function ClientsPageContent() {
           }}
           pagination={{
             page,
-            pageSize: PAGE_SIZE,
+            pageSize,
             total,
             // `String(next)`, and `undefined` for page one: `url.set` drops a
             // key it is handed `undefined`, so returning to the first page
             // leaves a clean URL rather than a trailing `?page=1`.
             onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
+            /*
+             * THE SIZE AND THE PAGE ARE WRITTEN TOGETHER, and the page is
+             * DROPPED.
+             *
+             * Page 4 at 25 a page is past the end at 100 a page, which renders
+             * as an empty table and reads as "no clients match" rather than as
+             * "you are beyond the end of the list". The same argument the
+             * filters make one line above.
+             *
+             * `undefined` for the default size, so the common case leaves no
+             * `?limit=25` behind — a clean URL is what makes "am I filtered?"
+             * answerable from the address bar.
+             */
+            onPageSizeChange: (size) =>
+              url.set({
+                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
+                page: undefined,
+              }),
             noun: [t('clients.nounOne'), t('clients.nounMany')],
           }}
         />

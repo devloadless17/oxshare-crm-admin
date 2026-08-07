@@ -3,7 +3,8 @@
 import { Suspense } from 'react';
 import { ScrollText } from 'lucide-react';
 import api from '@/lib/api';
-import type { AuditEntry, AuditListResponse } from '@/lib/api/admin';
+import type { AuditEntry, AuditListResponse, AuditSortKey } from '@/lib/api/admin';
+import { AUDIT_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
@@ -16,12 +17,14 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { pageParam } from '@/lib/page-param';
+import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { t } from '@/lib/i18n';
 
 // D-21: append-only admin action log. Read-only view — there is deliberately
 // no edit or delete anywhere in this flow.
-const PAGE_SIZE = 25;
+
+/** A column may only claim to be sortable if the API will actually sort by it. */
+const sortableBy = (key: AuditSortKey) => ({ sortable: true as const, sortKey: key });
 
 /*
  * The action list is FETCHED, not written here.
@@ -73,14 +76,49 @@ function AuditLogPageContent() {
    * at the END, so a reader walking backwards through history is not stepping
    * over rows being inserted ahead of them.
    *
-   * THIS SCREEN HAS NO COLUMN SORTING, and that is not an omission: the
-   * endpoint hardcodes `ORDER BY created_at DESC, id DESC` and accepts no
-   * `sort` parameter at all. Every column below is therefore explicitly
-   * `sortable: false` — see the note on the columns.
+   * THE SORT IS NOW REAL, and it is server-side.
+   *
+   * This screen used to have no column sorting at all, and that was correct at
+   * the time: the endpoint hardcoded `ORDER BY created_at DESC, id DESC` and
+   * accepted no `sort` parameter, so every column said `sortable: false`. The
+   * endpoint has since grown an `AUDIT_SORT_COLUMNS` allowlist of three keys,
+   * and those three columns now order the whole trail rather than the
+   * twenty-five rows on screen — which on an investigation screen is the
+   * difference between "the first time this admin did this" and "the first time
+   * on this page".
    */
   const url = useTableQueryState();
   const page = pageParam(url.get('page'));
+  /*
+   * The rows-per-page selector, in the URL beside the page number.
+   *
+   * It rendered and did nothing: the pager drew the control but no
+   * `onPageSizeChange` was passed and the limit was a constant. `limitParam`
+   * clamps to the four sizes the pager offers, so a hand-edited `?limit=5000`
+   * cannot become a request the API rejects — it caps at 100.
+   */
+  const pageSize = limitParam(url.get('limit'));
   const action = url.get('action');
+  /*
+   * The SUBJECT TYPE filter, honoured from the URL though no control offers it.
+   *
+   * `GET /admin/audit-log` declares `subjectType` as a query parameter and the
+   * store filters on it, but this screen renders no picker for it — there is no
+   * endpoint serving the vocabulary of subject types the way
+   * `/admin/audit-log/actions` serves the action list, and inventing a
+   * hardcoded one is the exact defect the action filter was rebuilt to remove.
+   * Reading it here means a link that names one resolves to the segment it
+   * names rather than silently widening to the whole trail.
+   */
+  const subjectType = url.get('subjectType');
+
+  /*
+   * Checked against the allowlist rather than cast to it. A stale bookmark or a
+   * hand-edited URL carrying `?sort=details` would otherwise reach the endpoint
+   * and come back a 400 — R-2.5 makes an unrecognised sort an error, never a
+   * silent fallback — so an unrecognised key is simply not a sort.
+   */
+  const sortKey = AUDIT_SORT_KEYS.find((allowed) => allowed === url.sort.key);
 
   /*
    * Its own resource, so a failure here degrades the FILTER rather than the
@@ -92,14 +130,27 @@ function AuditLogPageContent() {
   );
   const actionOptions = actionsQuery.data ?? [];
 
+  /*
+   * Every parameter that shapes the request is in the KEY as well as the query
+   * string. A parameter missing from the key makes React Query serve the
+   * previous ordering's cached page under the new sort — which on an audit
+   * trail is a screen showing rows that do not match what the header claims.
+   */
   const { status, data, error, isFetching, refetch } = useResource<AuditListResponse>(
-    ['audit-log', page, action],
+    ['audit-log', page, pageSize, action, subjectType, sortKey, sortKey ? url.sort.order : null],
     async (signal) => {
       const params = new URLSearchParams({
         page: String(page),
-        limit: String(PAGE_SIZE),
+        limit: String(pageSize),
       });
       if (action) params.set('action', action);
+      if (subjectType) params.set('subjectType', subjectType);
+      // Both halves or neither — `order` alone describes an ordering of no
+      // column, and the API is entitled to reject it.
+      if (sortKey) {
+        params.set('sort', sortKey);
+        params.set('order', url.sort.order);
+      }
       const res = await api.get<AuditListResponse>(`/admin/audit-log?${params}`, { signal });
       return res.data;
     },
@@ -112,23 +163,29 @@ function AuditLogPageContent() {
   const total = data?.total ?? 0;
 
   /*
-   * EVERY column here is explicitly `sortable: false`.
+   * THREE of these sort, and the other two say explicitly that they do not.
    *
    * DataTable treats a column as sortable unless told otherwise — it derives a
-   * sort key from the header text when none is given — so silence would turn
-   * all five of these into sort buttons. `GET /admin/audit-log` accepts no
-   * `sort` parameter and orders by `created_at DESC, id DESC` in the store, so
-   * a header that appeared to sort could only ever have reordered the 25 rows
-   * on screen and presented that as the trail.
+   * sort key from the header text when none is given — so silence on the last
+   * two would turn them into sort buttons on keys the endpoint has never heard
+   * of. R-2.5 makes an unrecognised sort a 400 rather than a silent fallback, so
+   * that is an error page rather than a wrong order.
    *
-   * When the endpoint gains a sort allowlist, this is the file to change:
-   * mirror the allowlist as a `sortableBy()` helper the way `client-columns.tsx`
-   * does, rather than marking columns sortable one at a time.
+   * `sortableBy` takes an `AuditSortKey`, so the allowlist is enforced at
+   * compile time here rather than by reading this comment.
    */
   const columns: Column<AuditEntry>[] = [
     {
       header: t('audit.colWhen'),
-      sortable: false,
+      /*
+       * The trail's own default ordering, now reachable in both directions.
+       *
+       * Ascending is the useful one and is why this is worth sorting at all:
+       * the log is newest-first, so the FIRST time something happened — which
+       * is what an investigation is usually looking for — was previously on the
+       * last page of however many there were.
+       */
+      ...sortableBy('createdAt'),
       cell: (e) => new Date(e.createdAt).toLocaleString(),
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
@@ -147,7 +204,13 @@ function AuditLogPageContent() {
        * all of them would be noise that hides the one row that is not.
        */
       header: t('audit.colActor'),
-      sortable: false,
+      /*
+       * Sorts by the actor's EMAIL, which is the key the endpoint orders on.
+       * The cell also renders the IP address and the actor kind; neither is a
+       * sort key, and grouping one administrator's actions together is the
+       * reason to sort this column at all.
+       */
+      ...sortableBy('actorEmail'),
       cell: (e) => (
         <>
           <div className="text-foreground">{e.actorEmail}</div>
@@ -167,7 +230,7 @@ function AuditLogPageContent() {
     },
     {
       header: t('audit.colAction'),
-      sortable: false,
+      ...sortableBy('action'),
       cell: (e) => (
         <span
           className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold font-mono ${
@@ -180,6 +243,13 @@ function AuditLogPageContent() {
     },
     {
       header: t('audit.colSubject'),
+      /*
+       * NOT sortable — neither `subjectType` nor `subjectId` is in
+       * `AUDIT_SORT_COLUMNS`. `subjectType` is accepted as a FILTER and reads
+       * like an obvious sort key, which is exactly why it is called out here:
+       * the two parameter lists are different, and sending it as a sort would
+       * be a 400 rather than a fallback.
+       */
       sortable: false,
       cell: (e) => (
         <>
@@ -196,6 +266,8 @@ function AuditLogPageContent() {
     },
     {
       header: t('audit.colDetails'),
+      // NOT sortable — `details` is a JSON blob, so there is no ordering of it
+      // the endpoint could honour and no key for one in the allowlist.
       sortable: false,
       cell: (e) =>
         e.details ? (
@@ -241,7 +313,7 @@ function AuditLogPageContent() {
       <AsyncBoundary
         status={status}
         label="Loading audit log"
-        endpoints={['GET /admin/audit-log?page&limit&action']}
+        endpoints={['GET /admin/audit-log?page&limit&action&subjectType&sort&order']}
         onRetry={refetch}
         errorMessage="Failed to load the audit log."
         error={error}
@@ -270,11 +342,36 @@ function AuditLogPageContent() {
            * old `rows.length > 0` guard is not lost: an empty result renders the
            * `empty` state instead of the table, footer included.
            */
+          sortColumn={sortKey}
+          sortDirection={url.sort.order}
+          /*
+           * Server-side, which is what makes these headers honest. Passing this
+           * also switches DataTable out of its client-side path, so the three
+           * sortable columns order the whole trail rather than the page.
+           *
+           * The page is dropped with the sort: reordering renumbers every page,
+           * so positions 26–50 under the new ordering are not the entries that
+           * were there under the old. `key` is `null` on the third click — the
+           * cycle back to unsorted — and both params leave the URL together,
+           * which returns the trail to its own `created_at DESC` default rather
+           * than to a guess this screen substituted.
+           */
+          onSortChange={(key, order) => {
+            url.set({ sort: key ?? undefined, order: order ?? undefined, page: undefined });
+          }}
           pagination={{
             page,
-            pageSize: PAGE_SIZE,
+            pageSize,
             total,
             onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
+            // The size and the page are written together, and the page is
+            // dropped: page 4 at 25 a page is past the end at 100 a page, which
+            // renders as an empty table and reads as an empty trail.
+            onPageSizeChange: (size) =>
+              url.set({
+                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
+                page: undefined,
+              }),
             noun: ['entry', 'entries'],
           }}
         />

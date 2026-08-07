@@ -474,6 +474,69 @@ describe('finding a client — search, filters and sort reach the API', () => {
     expect(searchParams.current.get('page')).toBe('2');
   });
 
+  /**
+   * THE ROWS-PER-PAGE SELECTOR USED TO DO NOTHING.
+   *
+   * The pager rendered its `<Select>`, but this page passed no
+   * `onPageSizeChange` and sent a hardcoded `limit: 25`. The control opened,
+   * took a choice, closed — and the next request asked for 25 rows again.
+   *
+   * A second, subtler defect sat behind it: `Pagination` used to call
+   * `onPageSizeChange` and then `onPageChange(1)`, and both write the query
+   * string from the SAME `searchParams` snapshot. The second `replace`
+   * therefore overwrote the first and the size was discarded even once the
+   * handler existed. The reset is the caller's job now, done in one `set`.
+   */
+  it('sends a new limit when the rows-per-page size changes', async () => {
+    const user = userEvent.setup();
+    getClients.mockResolvedValue(page([client()], { total: 500 }));
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    await user.click(await screen.findByRole('combobox', { name: /rows per page/i }));
+    await user.click(await screen.findByRole('option', { name: '100' }));
+
+    await waitFor(() => expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ limit: 100 }));
+  });
+
+  it('RESETS to page one when the size changes, so it cannot land past the end', async () => {
+    // Page 4 at 25 a page is past the end at 100 a page, which renders as an
+    // empty table and reads as "no clients match".
+    const user = userEvent.setup();
+    getClients.mockResolvedValue(page([client()], { total: 500 }));
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    await user.click(screen.getByRole('button', { name: 'Page 4' }));
+    await waitFor(() => expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ page: 4 }));
+
+    await user.click(await screen.findByRole('combobox', { name: /rows per page/i }));
+    await user.click(await screen.findByRole('option', { name: '100' }));
+
+    await waitFor(() => expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ limit: 100 }));
+    // Both halves of the fix: the new size AND page one, in the same request.
+    expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ page: 1, limit: 100 });
+    expect(searchParams.current.get('page')).toBeNull();
+  });
+
+  it('honours a limit from the URL, so a shared link opens the same view', async () => {
+    searchParams.current = new URLSearchParams('limit=50');
+    renderWithProviders(<ClientsPage />);
+
+    await waitFor(() => expect(getClients).toHaveBeenCalled());
+    expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ limit: 50 });
+  });
+
+  it('CLAMPS a hand-edited limit the API would refuse', async () => {
+    // The endpoint caps `limit` at 100, so passing 5000 through would turn a
+    // stale bookmark into an error page instead of a list.
+    searchParams.current = new URLSearchParams('limit=5000');
+    renderWithProviders(<ClientsPage />);
+
+    await waitFor(() => expect(getClients).toHaveBeenCalled());
+    expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ limit: 25 });
+  });
+
   it('returns to page ONE when a filter changes', async () => {
     getClients.mockResolvedValue(page([client()], { total: 70 }));
     renderWithProviders(<ClientsPage />);

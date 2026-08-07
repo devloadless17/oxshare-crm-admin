@@ -14,7 +14,7 @@ import { TRADING_ACCOUNT_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { pageParam } from '@/lib/page-param';
+import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
@@ -55,7 +55,6 @@ import { t, type MessageKey } from '@/lib/i18n';
  * `sortable: false` — R-2.5 makes an unrecognised sort a 400 rather than a
  * silent fallback.
  */
-const PAGE_SIZE = 25;
 
 const ENVIRONMENT_LABELS: Record<TradingAccountEnvironment, MessageKey> = {
   live: 'tradingAccounts.envLive',
@@ -97,6 +96,15 @@ export default function TradingAccountsPage() {
 function TradingAccountsPageContent() {
   const url = useTableQueryState();
   const page = pageParam(url.get('page'));
+  /*
+   * The rows-per-page selector, in the URL beside the page number.
+   *
+   * It rendered and did nothing: the pager drew the control but no
+   * `onPageSizeChange` was passed and the limit was a constant. `limitParam`
+   * clamps to the four sizes the pager offers, so a hand-edited `?limit=5000`
+   * cannot become a request the API rejects — it caps at 100.
+   */
+  const pageSize = limitParam(url.get('limit'));
 
   /*
    * Read back through the API's own unions rather than passed as bare strings.
@@ -116,7 +124,7 @@ function TradingAccountsPageContent() {
     : undefined;
 
   const params = {
-    limit: PAGE_SIZE,
+    limit: pageSize,
     page,
     userId: userId || undefined,
     environment,
@@ -362,9 +370,18 @@ function TradingAccountsPageContent() {
           }}
           pagination={{
             page,
-            pageSize: PAGE_SIZE,
+            pageSize,
             total,
             onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
+            // The size and the page are written together, and the page is
+            // dropped: page 4 at 25 a page is past the end at 100 a page, which
+            // renders as an empty table and reads as "no accounts" rather than
+            // as an overshoot.
+            onPageSizeChange: (size) =>
+              url.set({
+                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
+                page: undefined,
+              }),
             noun: [t('tradingAccounts.noun'), t('tradingAccounts.nounPlural')],
           }}
         />

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, Handshake, X } from 'lucide-react';
 import api from '@/lib/api';
-import type { IbApplicationPage, IbApplicationStatus } from '@/lib/api/admin';
+import type { IbApplicationPage, IbApplicationSortKey, IbApplicationStatus } from '@/lib/api/admin';
+import { IB_APPLICATION_SORT_KEYS } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
@@ -46,6 +47,9 @@ type Row = IbApplicationPage['rows'][number];
  */
 const STALE_AFTER_DAYS = 5;
 
+/** A column may only claim to be sortable if the API will actually sort by it. */
+const sortableBy = (key: IbApplicationSortKey) => ({ sortable: true as const, sortKey: key });
+
 const TABS: Array<{ value: IbApplicationStatus | ''; labelKey: Parameters<typeof t>[0] }> = [
   { value: 'pending', labelKey: 'partnerReview.tabPending' },
   { value: 'approved', labelKey: 'partnerReview.tabApproved' },
@@ -63,11 +67,38 @@ export default function PartnerApprovalsPage() {
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(25);
   const [rejecting, setRejecting] = React.useState<Row | null>(null);
+  /**
+   * The sort, as the API's own two parameters.
+   *
+   * `null` is a real state and not a missing value: it is the third click of
+   * DataTable's asc → desc → off cycle, and it means "drop both parameters and
+   * let the endpoint apply its own default" — `submittedAt desc`, the queue
+   * order. Substituting that default here instead would look identical on
+   * screen and be a different request.
+   */
+  const [sort, setSort] = React.useState<{
+    key: IbApplicationSortKey;
+    order: 'asc' | 'desc';
+  } | null>(null);
 
+  /*
+   * The sort is in the KEY as well as the request. A parameter missing from the
+   * key makes React Query serve the previous ordering's cached page under the
+   * new sort — rows that do not match what the header claims.
+   */
   const query = useResource<IbApplicationPage>(
-    ['admin', 'ib-applications', status, page, pageSize],
+    ['admin', 'ib-applications', status, page, pageSize, sort?.key, sort?.order],
     (signal) =>
-      api.admin.getIbApplications({ status: status || undefined, page, limit: pageSize }, signal),
+      api.admin.getIbApplications(
+        {
+          status: status || undefined,
+          page,
+          limit: pageSize,
+          sort: sort?.key,
+          order: sort?.order,
+        },
+        signal,
+      ),
   );
 
   const invalidate = () =>
@@ -132,23 +163,30 @@ export default function PartnerApprovalsPage() {
   );
 
   /*
-   * NO COLUMN HERE SORTS, and every one says so explicitly.
+   * THREE of these sort, and the fourth says explicitly that it does not.
    *
-   * `GET /admin/ib/applications` accepts `status`, `page` and `limit` and
-   * nothing else — the store hardcodes `ORDER BY submitted_at DESC`. DataTable
-   * treats a column as sortable unless told otherwise, deriving a key from the
-   * header text, so silence would turn all four of these into sort buttons that
-   * reorder the current page and present it as the queue.
+   * This queue accepted `status`, `page` and `limit` and nothing else when the
+   * screen was built, so every column was correctly `sortable: false`. The
+   * endpoint now carries an `IB_APPLICATION_SORT_COLUMNS` allowlist, and
+   * `sortableBy` takes an `IbApplicationSortKey` — so the allowlist is enforced
+   * by the compiler here rather than by reading a comment.
    *
-   * This list is also paginated, which is what makes that the damaging kind of
-   * wrong: "the longest-waiting application" would mean the longest-waiting of
-   * the twenty-five on screen. When the endpoint gains a sort allowlist, mirror
-   * it as a `sortableBy()` helper the way `client-columns.tsx` does.
+   * The list is paginated, which is what made the old behaviour the damaging
+   * kind of wrong and what makes the server-side sort worth having: "the
+   * longest-waiting application" now means the longest-waiting of all of them
+   * rather than of the twenty-five on screen.
    */
   const columns: Column<Row>[] = [
     {
       header: t('partnerReview.colApplicant'),
-      sortable: false,
+      /*
+       * Sorts by the applicant's FIRST NAME — `userFirstName`, the key the
+       * endpoint orders on, and what the cell leads with. `userEmail` is the
+       * other allowlisted applicant key; it is not offered as a second header
+       * because the email is a sub-line of this same column rather than a
+       * column of its own.
+       */
+      ...sortableBy('userFirstName'),
       cell: (row) => (
         <div className="min-w-0">
           {/* The client, not just their name — a reviewer deciding whether to
@@ -165,7 +203,15 @@ export default function PartnerApprovalsPage() {
     },
     {
       header: t('partnerReview.colSubmitted'),
-      sortable: false,
+      /*
+       * The one sort this queue most needs, and now a real one.
+       *
+       * Ascending puts the LONGEST-waiting application first. The cell's
+       * "waiting N days" warning exists because the default newest-first order
+       * sinks the oldest undecided applications to the bottom — this makes the
+       * fix reachable across the whole queue rather than within one page.
+       */
+      ...sortableBy('submittedAt'),
       cell: (row) => {
         const days = daysWaiting(row.application);
         return (
@@ -182,6 +228,13 @@ export default function PartnerApprovalsPage() {
     },
     {
       header: t('partnerReview.colVolume'),
+      /*
+       * NOT sortable — `expectedVolume` is absent from the endpoint's
+       * allowlist. It is a number the applicant TYPED, stored as free text
+       * rather than as an indexed numeric column, so there is no ordering of it
+       * the database could offer — and ordering self-reported figures would
+       * rank applications by how large a claim somebody made anyway.
+       */
       sortable: false,
       // Labelled as self-reported. It is a number the applicant typed, and a
       // bare figure in a table reads as something the platform measured.
@@ -194,7 +247,7 @@ export default function PartnerApprovalsPage() {
     },
     {
       header: t('partnerReview.colStatus'),
-      sortable: false,
+      ...sortableBy('status'),
       cell: (row) => <StatusBadge status={row.application.status} />,
     },
     actionsColumn<Row>((row) => {
@@ -334,7 +387,7 @@ export default function PartnerApprovalsPage() {
       <AsyncBoundary
         status={query.status}
         label={t('partnerReview.loading')}
-        endpoints={['GET /admin/ib/applications?status&page&limit']}
+        endpoints={['GET /admin/ib/applications?status&page&limit&sort&order']}
         onRetry={query.refetch}
         errorMessage={t('partnerReview.loadFailed')}
         error={query.error}
@@ -362,6 +415,31 @@ export default function PartnerApprovalsPage() {
            */
           dimmed={query.isFetching}
           empty={<EmptyState icon={Handshake} message={t('partnerReview.empty')} />}
+          sortColumn={sort?.key}
+          sortDirection={sort?.order}
+          /*
+           * Server-side. Passing this also switches DataTable out of its
+           * client-side path, so a header click orders the whole queue rather
+           * than the twenty-five rows on screen.
+           *
+           * `setPage(1)` because reordering renumbers every page: the rows at
+           * positions 26–50 under the new sort are not the ones that were there
+           * under the old.
+           */
+          onSortChange={(key, order) => {
+            /*
+             * Checked against the allowlist rather than cast to it.
+             *
+             * Only allowlisted columns are marked sortable, so this should
+             * always hold — but `key` arrives as a bare string, and a cast
+             * would make a future column with a typo'd key compile cleanly and
+             * 400 at runtime. Falling back to `null` clears the sort instead,
+             * which is a state the endpoint accepts.
+             */
+            const next = IB_APPLICATION_SORT_KEYS.find((allowed) => allowed === key);
+            setSort(next && order ? { key: next, order } : null);
+            setPage(1);
+          }}
           pagination={{
             page,
             pageSize,
