@@ -394,8 +394,8 @@ export default function TransactionsPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('withdrawals.heading')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('withdrawals.subtitle')}</p>
       </div>
@@ -403,7 +403,7 @@ export default function TransactionsPage() {
       {/* Counts come from the same response as the rows and group over the FULL
           filtered set, so a summary card never disagrees with the table. */}
       {query.status === 'ready' && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid shrink-0 gap-4 sm:grid-cols-3">
           {[
             {
               label: t('withdrawals.tabPending'),
@@ -441,7 +441,7 @@ export default function TransactionsPage() {
       )}
 
       {query.status === 'ready' && (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
           <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
             {FILTERS.map((f) => (
               <button
@@ -492,8 +492,10 @@ export default function TransactionsPage() {
         onRetry={query.refetch}
         errorMessage={t('withdrawals.loadFailed')}
         error={query.error}
+        fill
       >
         <DataTable
+          fill
           caption={t('withdrawals.caption')}
           columns={columns}
           rows={rows}
@@ -522,7 +524,7 @@ export default function TransactionsPage() {
         Both dialogs are owned by the PAGE, not by the row.
         A dialog mounted per row means one copy per row, and the copy unmounts
         mid-transition when a refetch replaces the list — the rule
-        `rbac/role-row.tsx` records.
+        `components/row-actions.tsx` records.
       */}
 
       {/* Reject — reason from the configurable list (FR-ADM-03) */}

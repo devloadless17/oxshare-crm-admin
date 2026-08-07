@@ -3,15 +3,19 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Handshake } from 'lucide-react';
+import { Check, Handshake, X } from 'lucide-react';
 import api from '@/lib/api';
 import type { IbApplicationPage, IbApplicationStatus } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
+import { useSequentialMutation } from '@/hooks/use-sequential-mutation';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { BatchProgress } from '@/components/batch-actions';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { RowActions, actionsColumn, type RowAction } from '@/components/row-actions';
+import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
 import { PartnerRejectDialog } from '@/components/ib/partner-reject-dialog';
 import { t } from '@/lib/i18n';
@@ -89,6 +93,72 @@ export default function PartnerApprovalsPage() {
   const counts = query.data?.counts;
   const total = query.data?.total ?? 0;
 
+  /*
+   * WHICH application is being approved, not merely THAT one is.
+   *
+   * `approve.variables` is the id passed to the in-flight `mutate`, so the
+   * spinner lands on the row being decided. The button this replaced disabled
+   * itself on every pending row during any approval, which read as the whole
+   * queue freezing over one decision.
+   *
+   * Rejection is not here: it goes through a dialog that owns its own saving
+   * state, so the row is not what the operator is waiting on.
+   */
+  const approvingId = approve.isPending ? approve.variables : undefined;
+
+  const [selected, setSelected] = React.useState<string[]>([]);
+
+  /*
+   * Batch approve is a LOOP over the single-application route, and the UI is
+   * honest about it — see hooks/use-sequential-mutation.ts.
+   *
+   * ONLY APPROVE. Rejection takes a reason from a configured list
+   * (`PartnerRejectDialog`), and a batch reject would either apply one person's
+   * reason to everybody or send none — a rejection record that does not say why
+   * a specific applicant was refused is worse than no batch at all.
+   */
+  const batch = useSequentialMutation<Row>((row) =>
+    api.admin.approveIbApplication(row.application.id),
+  );
+
+  /*
+   * Only PENDING rows are approvable. A selection made on the "All" tab spans
+   * decided applications, and sending those would produce a row of refusals
+   * that look like batch failures rather than what they are — rows that were
+   * never eligible.
+   */
+  const approvableRows = rows.filter(
+    (r) => selected.includes(r.application.id) && r.application.status === 'pending',
+  );
+
+  const approveSelected = async () => {
+    if (approvableRows.length === 0) return;
+    if (!window.confirm(t('batch.confirmApprove', { count: approvableRows.length }))) return;
+
+    await batch.run(approvableRows);
+    setSelected([]);
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'ib-applications'] });
+  };
+
+  /** Names a row in the failure list by its applicant, not its id. */
+  const describeRow = (row: Row) =>
+    `${row.user.firstName} ${row.user.lastName}`.trim() || row.user.email;
+
+  /*
+   * The export carries the STATUS TAB, not the page.
+   *
+   * Same filter the list query is built from, so "export what I am looking at"
+   * cannot drift from what is on screen. Paging is deliberately absent — the
+   * export layer strips it anyway, and a file containing the twenty-five rows on
+   * display while the button says it exports the queue is an audit problem.
+   * "All" is an empty param set rather than `status=`, which the API would read
+   * as a status of empty string.
+   */
+  const exportFilters = React.useMemo(
+    () => new URLSearchParams(status ? { status } : {}),
+    [status],
+  );
+
   const columns: Column<Row>[] = [
     {
       header: t('partnerReview.colApplicant'),
@@ -137,58 +207,98 @@ export default function PartnerApprovalsPage() {
       header: t('partnerReview.colStatus'),
       cell: (row) => <StatusBadge status={row.application.status} />,
     },
-    {
-      header: t('partnerReview.colActions'),
-      sortable: false,
-      cell: (row) => {
-        if (row.application.status !== 'pending') {
-          return (
-            <span className="text-xs text-muted-foreground">
-              {row.application.reviewedAt ? formatDate(row.application.reviewedAt) : '—'}
-            </span>
-          );
-        }
+    actionsColumn<Row>((row) => {
+      /*
+       * A DECIDED application has no actions — it has a date.
+       *
+       * Approve and reject exist only for `pending`; the API refuses them on
+       * anything else. So a settled row shows WHEN it was settled instead, which
+       * is the only thing left worth reading in this column.
+       */
+      if (row.application.status !== 'pending') {
         return (
-          <div className="flex flex-wrap items-center gap-2">
-            {canApprove && (
-              <button
-                type="button"
-                onClick={() => approve.mutate(row.application.id)}
-                disabled={approve.isPending}
-                className="inline-flex h-8 items-center rounded-md bg-success px-3 text-xs font-semibold text-success-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
-              >
-                {t('partnerReview.approve')}
-              </button>
-            )}
-            {canReject && (
-              <button
-                type="button"
-                onClick={() => setRejecting(row)}
-                className="inline-flex h-8 items-center rounded-md border border-destructive/40 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 focus-outline"
-              >
-                {t('partnerReview.reject')}
-              </button>
-            )}
-            {!canApprove && !canReject && (
-              <span className="text-xs text-muted-foreground">{t('partnerReview.readOnly')}</span>
-            )}
-          </div>
+          <span className="text-xs text-muted-foreground">
+            {row.application.reviewedAt ? formatDate(row.application.reviewedAt) : '—'}
+          </span>
         );
-      },
-    },
+      }
+
+      /*
+       * Each entry checks its OWN permission.
+       *
+       * `ib.approve` and `ib.reject` are distinct, so an admin may hold one and
+       * not the other — a reviewer allowed to turn applications down but not to
+       * create partners should see exactly one entry. An admin with neither gets
+       * an empty array, and `RowActions` renders nothing at all rather than a
+       * trigger whose menu is empty.
+       */
+      const items: RowAction[] = [
+        ...(canApprove
+          ? [
+              {
+                label: t('partnerReview.approve'),
+                icon: Check,
+                onSelect: () => approve.mutate(row.application.id),
+              },
+            ]
+          : []),
+        ...(canReject
+          ? [
+              {
+                label: t('partnerReview.reject'),
+                icon: X,
+                destructive: true,
+                separatorBefore: true,
+                // Opens the page's dialog rather than rejecting outright: a
+                // rejection carries a reason the client reads.
+                onSelect: () => setRejecting(row),
+              },
+            ]
+          : []),
+      ];
+
+      // Said once, where the buttons used to be. A reviewer with neither
+      // permission would otherwise see a blank cell and no reason for it.
+      if (items.length === 0) {
+        return <span className="text-xs text-muted-foreground">{t('partnerReview.readOnly')}</span>;
+      }
+
+      return (
+        <RowActions
+          label={t('table.rowActions', {
+            name: `${row.user.firstName} ${row.user.lastName}`,
+          })}
+          busy={approvingId === row.application.id}
+          items={items}
+        />
+      );
+    }, t('partnerReview.colActions')),
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('partnerReview.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('partnerReview.subtitle')}</p>
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('partnerReview.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('partnerReview.subtitle')}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            resource="ib/applications"
+            filters={exportFilters}
+            disabled={rows.length === 0}
+          />
+        </div>
       </div>
 
       {/* Counts come from the same response as the rows and are scoped
           identically, so a restricted admin is never promised more than they
           will be shown. */}
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label={t('partnerReview.title')}>
+      <div
+        className="flex shrink-0 flex-wrap gap-2"
+        role="tablist"
+        aria-label={t('partnerReview.title')}
+      >
         {TABS.map((tab) => {
           const active = status === tab.value;
           const count = tab.value ? counts?.[tab.value] : undefined;
@@ -225,9 +335,22 @@ export default function PartnerApprovalsPage() {
       {approve.isError && (
         <div
           role="alert"
-          className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
         >
           {apiErrorMessage(approve.error, t('partnerReview.approveFailed'))}
+        </div>
+      )}
+
+      {/*
+        The batch outcome survives the selection that produced it.
+        DataTable's selection bar unmounts when the selection clears — which is
+        the last thing a finished batch does — so a partial failure reported
+        only in there would disappear at the moment it became the sole record
+        of which applications did not go through.
+      */}
+      {!batch.isRunning && batch.hasFailures && (
+        <div className="shrink-0">
+          <BatchProgress state={batch} onCancel={batch.cancel} describe={describeRow} />
         </div>
       )}
 
@@ -238,12 +361,33 @@ export default function PartnerApprovalsPage() {
         onRetry={query.refetch}
         errorMessage={t('partnerReview.loadFailed')}
         error={query.error}
+        fill
       >
         <DataTable
+          fill
           caption={t('partnerReview.caption')}
           columns={columns}
           rows={rows}
           rowKey={(row) => row.application.id}
+          /* Selection only where it can lead somewhere: an admin without
+             `ib.approve` has no batch action to reach. */
+          selectable={canApprove}
+          selectedRowKeys={selected}
+          onSelectionChange={setSelected}
+          renderBatchActions={() =>
+            batch.isRunning ? (
+              <BatchProgress state={batch} onCancel={batch.cancel} describe={describeRow} />
+            ) : (
+              <button
+                type="button"
+                onClick={() => void approveSelected()}
+                disabled={approvableRows.length === 0}
+                className="rounded bg-primary/15 px-2 py-1 font-medium transition-colors hover:bg-primary/20 disabled:opacity-40"
+              >
+                {t('batch.approveSelected')} ({approvableRows.length})
+              </button>
+            )
+          }
           dimmed={query.isFetching}
           empty={<EmptyState icon={Handshake} message={t('partnerReview.empty')} />}
           pagination={{
@@ -263,7 +407,7 @@ export default function PartnerApprovalsPage() {
         Owned by the PAGE, not by the row.
         A dialog mounted per row means one copy per row, and the copy unmounts
         mid-transition when a refetch replaces the list — the same rule
-        `rbac/role-row.tsx` records for its confirmation dialog.
+        `components/row-actions.tsx` records for its confirmation dialog.
       */}
       <PartnerRejectDialog
         open={rejecting !== null}

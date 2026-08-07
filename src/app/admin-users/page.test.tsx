@@ -139,6 +139,45 @@ const sub = (over: Record<string, unknown> = {}) => ({
 /** The <tr> for a given email, so assertions are scoped to one person. */
 const rowFor = (email: string) => screen.getByText(email).closest('tr')!;
 
+/**
+ * Open one administrator's three-dot menu and choose an item from it.
+ *
+ * Edit, Send reset link and Suspend used to be buttons sitting in the row,
+ * reachable in one click. They are now behind the shared `RowActions` trigger,
+ * so every test that acts on a row takes the two steps the operator now takes —
+ * which is the point of the menu: suspending an administrator is no longer one
+ * stray click away from editing them.
+ *
+ * The trigger is named for its ROW (`table.rowActions` → "Actions for X"), so
+ * this finds the right one on a directory with several.
+ */
+async function chooseRowAction(rowName: RegExp, itemName: RegExp) {
+  await userEvent.click(
+    screen.getByRole('button', { name: new RegExp(`actions for ${rowName.source}`, 'i') }),
+  );
+  // Scoped to the menu: Radix renders it in a portal, and an unscoped query
+  // would also match same-named controls elsewhere on the page.
+  await userEvent.click(
+    within(await screen.findByRole('menu')).getByRole('menuitem', { name: itemName }),
+  );
+}
+
+/**
+ * The menu items offered on one row, without choosing any.
+ *
+ * The gating assertions are about ABSENCE, and absence is only observable once
+ * the menu is open — a row whose every action is filtered out renders no trigger
+ * at all (see `RowActions`), which is itself the answer for those cases.
+ */
+async function openRowMenu(rowName: RegExp) {
+  const trigger = screen.queryByRole('button', {
+    name: new RegExp(`actions for ${rowName.source}`, 'i'),
+  });
+  if (!trigger) return null;
+  await userEvent.click(trigger);
+  return within(await screen.findByRole('menu'));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   permissions.current = ['*'];
@@ -203,7 +242,8 @@ describe('suspending an administrator', () => {
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    expect(screen.queryByRole('button', { name: /suspend/i })).toBeNull();
+    const menu = await openRowMenu(/sub admin/);
+    expect(menu?.queryByRole('menuitem', { name: /suspend/i }) ?? null).toBeNull();
   });
 
   it('is never offered on yourself or on a master admin', async () => {
@@ -211,21 +251,22 @@ describe('suspending an administrator', () => {
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    expect(
-      within(rowFor('admin@oxshare.com')).queryByRole('button', { name: /suspend/i }),
-    ).toBeNull();
-    expect(
-      within(rowFor('sub@oxshare.com')).getByRole('button', { name: /suspend/i }),
-    ).toBeInTheDocument();
+    // The master row still has a trigger — `Send reset link` is deliberately
+    // NOT gated on master (D-44) — but suspend must not be among its items.
+    const masterMenu = await openRowMenu(/master admin/);
+    expect(masterMenu?.queryByRole('menuitem', { name: /suspend/i }) ?? null).toBeNull();
+    await userEvent.keyboard('{Escape}');
+
+    const subMenu = await openRowMenu(/sub admin/);
+    expect(subMenu?.getByRole('menuitem', { name: /suspend/i })).toBeInTheDocument();
   });
 
   it('asks before suspending, and does nothing if declined', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await user.click(within(rowFor('sub@oxshare.com')).getByRole('button', { name: /suspend/i }));
+    await chooseRowAction(/sub admin/, /suspend/i);
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(setAdminStatus).not.toHaveBeenCalled();
@@ -234,11 +275,10 @@ describe('suspending an administrator', () => {
 
   it('suspends once confirmed', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await user.click(within(rowFor('sub@oxshare.com')).getByRole('button', { name: /suspend/i }));
+    await chooseRowAction(/sub admin/, /suspend/i);
 
     await waitFor(() => expect(setAdminStatus).toHaveBeenCalledWith('a-2', 'suspended'));
     confirmSpy.mockRestore();
@@ -248,13 +288,10 @@ describe('suspending an administrator', () => {
     // Reversibility is the reason suspension exists instead of deletion.
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     getAdminUsers.mockResolvedValue([master, sub({ status: 'suspended' })]);
-    const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await user.click(
-      within(rowFor('sub@oxshare.com')).getByRole('button', { name: /reactivate/i }),
-    );
+    await chooseRowAction(/sub admin/, /reactivate/i);
 
     await waitFor(() => expect(setAdminStatus).toHaveBeenCalledWith('a-2', 'active'));
     confirmSpy.mockRestore();
@@ -267,7 +304,8 @@ describe('editing one administrator (FR-RBAC-02)', () => {
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    expect(within(rowFor('sub@oxshare.com')).queryByRole('button', { name: /^edit$/i })).toBeNull();
+    const menu = await openRowMenu(/sub admin/);
+    expect(menu?.queryByRole('menuitem', { name: /^edit$/i }) ?? null).toBeNull();
   });
 
   it('sends INDIVIDUAL permissions, not a role id', async () => {
@@ -278,7 +316,7 @@ describe('editing one administrator (FR-RBAC-02)', () => {
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await user.click(within(rowFor('sub@oxshare.com')).getByRole('button', { name: /^edit$/i }));
+    await chooseRowAction(/sub admin/, /^edit$/i);
 
     // Switch from the role to individual permissions.
     await user.click(screen.getByLabelText(/access/i));
@@ -302,7 +340,7 @@ describe('editing one administrator (FR-RBAC-02)', () => {
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await user.click(within(rowFor('sub@oxshare.com')).getByRole('button', { name: /^edit$/i }));
+    await chooseRowAction(/sub admin/, /^edit$/i);
     await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     await new Promise((r) => setTimeout(r, 50));
@@ -381,7 +419,7 @@ describe('client scope and field visibility', () => {
   const openEditor = async () => {
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
-    await userEvent.click(screen.getByRole('button', { name: /^edit$/i }));
+    await chooseRowAction(/sub admin/, /^edit$/i);
     return within(await screen.findByRole('dialog'));
   };
 

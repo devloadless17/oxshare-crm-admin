@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Coins, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Coins, Eye, EyeOff, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import type { Currency } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -11,6 +11,8 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { RowActions, actionsColumn } from '@/components/row-actions';
+import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
 import {
   CurrencyFormModal,
@@ -106,6 +108,23 @@ export default function CurrenciesPage() {
     onSuccess: invalidate,
   });
 
+  /*
+   * WHICH currency is mid-mutation, not merely THAT one is.
+   *
+   * Three different mutations act on a row, so the busy row is whichever one is
+   * in flight. Read from `variables` — the argument passed to the running
+   * `mutate` — rather than tracked in state, which would be a second copy of
+   * something React Query already knows and could drift from it. Note the two
+   * shapes: `toggleEnabled` takes the row, the other two take the code.
+   */
+  const busyCode = deleteCurrency.isPending
+    ? deleteCurrency.variables
+    : setDefault.isPending
+      ? setDefault.variables
+      : toggleEnabled.isPending
+        ? toggleEnabled.variables?.code
+        : undefined;
+
   const openCreate = () => {
     setEditing(undefined);
     saveCurrency.reset();
@@ -162,67 +181,56 @@ export default function CurrenciesPage() {
     },
     ...(canManage
       ? [
-          {
-            header: t('currencies.colActions'),
-            sortable: false,
-            cell: (c: Currency) => (
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEdit(c)}
-                  aria-label={t('currencies.editAria', { code: c.code })}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-semibold hover:bg-muted focus-outline"
-                >
-                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t('currencies.edit')}
-                </button>
+          actionsColumn<Currency>(
+            (c) => (
+              <RowActions
+                label={t('table.rowActions', { name: c.code })}
+                busy={busyCode === c.code}
+                items={[
+                  { label: t('currencies.edit'), icon: Pencil, onSelect: () => openEdit(c) },
 
-                {/*
-                  Disabling the DEFAULT is refused by the API — the platform
-                  would have no currency to open a new client's wallet in. The
-                  control is hidden rather than shown-and-refused because,
-                  unlike delete, the reason is structural and permanent: it
-                  never becomes possible without first moving the default.
-                */}
-                {!c.isDefault && (
-                  <button
-                    type="button"
-                    onClick={() => toggleEnabled.mutate(c)}
-                    disabled={toggleEnabled.isPending}
-                    className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-50 focus-outline"
-                  >
-                    {c.enabled ? t('currencies.disable') : t('currencies.enable')}
-                  </button>
-                )}
-
-                {/* Only an ENABLED currency can become the default: the default
-                    must be usable, and the API enforces the same pairing. */}
-                {!c.isDefault && c.enabled && (
-                  <button
-                    type="button"
-                    onClick={() => setDefault.mutate(c.code)}
-                    disabled={setDefault.isPending}
-                    className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-50 focus-outline"
-                  >
-                    {t('currencies.makeDefault')}
-                  </button>
-                )}
-
-                {!c.isDefault && (
-                  <button
-                    type="button"
-                    onClick={() => confirmDelete(c)}
-                    disabled={deleteCurrency.isPending}
-                    aria-label={t('currencies.deleteAria', { code: c.code })}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-destructive/40 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 focus-outline"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    {t('currencies.delete')}
-                  </button>
-                )}
-              </div>
+                  /*
+                   * Every entry below is withheld for the DEFAULT currency, and
+                   * withheld rather than disabled. The reasons are structural
+                   * and permanent, not transient: the platform must always have
+                   * a usable default to open a new client's first wallet in, so
+                   * the default can be neither disabled, nor re-defaulted, nor
+                   * deleted until the default has first been MOVED. A disabled
+                   * control that can never become enabled from this row is
+                   * worse than its absence.
+                   */
+                  ...(c.isDefault
+                    ? []
+                    : [
+                        {
+                          label: c.enabled ? t('currencies.disable') : t('currencies.enable'),
+                          icon: c.enabled ? EyeOff : Eye,
+                          onSelect: () => toggleEnabled.mutate(c),
+                        },
+                        // Only an ENABLED currency can become the default: the
+                        // default must be usable, and the API enforces the pairing.
+                        ...(c.enabled
+                          ? [
+                              {
+                                label: t('currencies.makeDefault'),
+                                icon: Star,
+                                onSelect: () => setDefault.mutate(c.code),
+                              },
+                            ]
+                          : []),
+                        {
+                          label: t('currencies.delete'),
+                          icon: Trash2,
+                          destructive: true,
+                          separatorBefore: true,
+                          onSelect: () => confirmDelete(c),
+                        },
+                      ]),
+                ]}
+              />
             ),
-          },
+            t('currencies.colActions'),
+          ),
         ]
       : []),
   ];
@@ -243,27 +251,30 @@ export default function CurrenciesPage() {
     null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('currencies.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('currencies.subtitle')}</p>
         </div>
-        {canManage && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 focus-outline"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            {t('currencies.create')}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportButton resource="currencies" disabled={(query.data ?? []).length === 0} />
+          {canManage && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 focus-outline"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {t('currencies.create')}
+            </button>
+          )}
+        </div>
       </div>
 
       {mutationError && (
         <div
-          className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
           role="alert"
         >
           {mutationError}
@@ -277,8 +288,10 @@ export default function CurrenciesPage() {
         onRetry={query.refetch}
         errorMessage={t('currencies.loadFailed')}
         error={query.error}
+        fill
       >
         <DataTable
+          fill
           caption={t('currencies.caption')}
           columns={columns}
           rows={query.data ?? []}

@@ -14,7 +14,6 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { CursorPagination } from '@/components/cursor-pagination';
 import { useCursorPages } from '@/hooks/use-cursor-pages';
 import { t } from '@/lib/i18n';
 
@@ -165,13 +164,13 @@ export default function AuditLogPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('audit.title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t('audit.subtitle')}</p>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         <Select
           value={action || 'all'}
           onValueChange={(val) => {
@@ -200,8 +199,10 @@ export default function AuditLogPage() {
         onRetry={refetch}
         errorMessage="Failed to load the audit log."
         error={error}
+        fill
       >
         <DataTable
+          fill
           caption="Admin actions, newest first"
           columns={columns}
           rows={rows}
@@ -213,21 +214,27 @@ export default function AuditLogPage() {
               message={action ? 'No entries for this action.' : 'No admin actions recorded yet.'}
             />
           }
+          /*
+           * The pager belongs to the TABLE FRAME, not to the page below it.
+           *
+           * It used to be a sibling rendered under the table, which in fill mode
+           * would put it below a scroll region that owns the remaining height —
+           * i.e. off screen. Same props, same values; DataTable renders it in
+           * the footer, outside the row scroll, so it is always reachable. The
+           * old `rows.length > 0` guard is not lost: an empty result renders the
+           * `empty` state instead of the table, footer included.
+           */
+          cursorPagination={{
+            pageNumber: pages.pageNumber,
+            pageSize: PAGE_SIZE,
+            showing: rows.length,
+            canGoBack: pages.canGoBack,
+            canGoForward: Boolean(nextCursor),
+            onBack: pages.goBack,
+            onNext: () => pages.goNext(nextCursor),
+            noun: ['entry', 'entries'],
+          }}
         />
-        {rows.length > 0 && (
-          <div className="mt-6">
-            <CursorPagination
-              pageNumber={pages.pageNumber}
-              pageSize={PAGE_SIZE}
-              showing={rows.length}
-              canGoBack={pages.canGoBack}
-              canGoForward={Boolean(nextCursor)}
-              onBack={pages.goBack}
-              onNext={() => pages.goNext(nextCursor)}
-              noun={['entry', 'entries']}
-            />
-          </div>
-        )}
       </AsyncBoundary>
     </div>
   );

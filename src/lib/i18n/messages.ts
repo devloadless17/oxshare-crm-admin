@@ -657,6 +657,14 @@ export const messages = {
   'roles.rowActions': 'Actions for {name}',
   'roles.empty': 'No roles yet.',
   'roles.emptyHint': 'Create one to describe what a group of admins may do.',
+  // Column headers, added when the row stack became a DataTable. The row
+  // components carried no headers — a stacked row labels itself by layout — so
+  // these are the one thing the conversion genuinely had to name.
+  'roles.caption': 'Custom roles',
+  'roles.colName': 'Role',
+  'roles.colDescription': 'Description',
+  'roles.colPermissions': 'Permissions',
+  'roles.colActions': 'Actions',
   // Delete confirmation. Names the role and states the one thing that blocks
   // the delete, because "still assigned" is the failure an operator hits.
   'roles.deleteTitle': 'Delete “{name}”?',
@@ -896,6 +904,67 @@ export const messages = {
 
   // ── Table chrome ──────────────────────────────────────────────────────────
   'table.clearSelection': 'Clear selection',
+  'table.colActions': 'Actions',
+  /*
+   * The inert footer's only sentence, on a table with no pagination.
+   *
+   * "Showing all N" rather than "N rows": it answers the question the greyed
+   * arrows beside it would otherwise raise, which is whether there is more
+   * somewhere else.
+   */
+  'pagination.showingAll': 'Showing all {count}',
+  /*
+   * The trigger names its ROW, not just "actions".
+   *
+   * Every row has one of these, so an accessible name of "Actions" produces a
+   * column of identical announcements with no way to tell which record is about
+   * to be acted on — the same failure the selection checkbox had.
+   */
+  'table.rowActions': 'Actions for {name}',
+
+  // ── Export ────────────────────────────────────────────────────────────────
+  'export.button': 'Export',
+  'export.exporting': 'Exporting…',
+  'export.csv': 'Export as CSV',
+  'export.xlsx': 'Export as Excel',
+  /*
+   * Stated because it is the question an operator asks after clicking: did I
+   * get the twenty-five rows on screen, or everything matching my filters?
+   * The answer is everything, because the export is a server-side query — and
+   * an export that silently returned one page would be found out during an
+   * audit rather than here.
+   */
+  'export.scopeNote': 'Exports every row matching the current filters, not just this page.',
+  'export.failed': 'Could not export. Please try again.',
+  'export.empty': 'There is nothing to export.',
+  /*
+   * Shown in place of the button once a 404 proves the route is not built.
+   * Names the state, not a failure — the `title` attribute carries the endpoint
+   * so the missing route is discoverable from the UI, same as BackendPending.
+   */
+  'export.unavailable': 'Export not available yet',
+
+  // ── Batch actions ─────────────────────────────────────────────────────────
+  /*
+   * These say "one at a time" out loud, because the operation IS one at a time
+   * — there is no bulk endpoint, so a batch is N separate requests that can
+   * half-succeed. See hooks/use-sequential-mutation.ts.
+   */
+  'batch.progress': 'Processing {done} of {total}…',
+  'batch.stop': 'Stop',
+  /* BOTH numbers: "2 failed" alone leaves "did the other eight go through?" */
+  'batch.partial': '{done} completed, {failed} could not be processed.',
+  'batch.rowFailed': 'This row was refused.',
+  'batch.approveSelected': 'Approve selected',
+  'batch.rejectSelected': 'Reject selected',
+  /*
+   * Named on the button, because the count is the consequence. "Approve" beside
+   * a selection of forty is a very different act from the same word beside one,
+   * and each of the forty is an individual irreversible decision.
+   */
+  'batch.confirmApprove':
+    'Approve {count} application(s)? Each is submitted separately and cannot be undone.',
+  'batch.confirmReject': 'Reject {count} application(s)? Each is submitted separately.',
 
   // ── Shared / generic ──────────────────────────────────────────────────────
   'common.retry': 'Try again',
@@ -1144,6 +1213,17 @@ export const messages = {
   'partners.empty': 'No partners yet. Approved applications appear here.',
   'partners.actionFailed': 'That change could not be made.',
 
+  // Column headers, added when the row stack became a DataTable. The stacked row
+  // ran level, referral code and placement together on one line separated by
+  // dots; as columns each needs a label of its own.
+  'partners.caption': 'Introducing brokers',
+  'partners.colName': 'Partner',
+  'partners.colEmail': 'Email',
+  'partners.colLevel': 'Level',
+  'partners.colReferralCode': 'Referral code',
+  'partners.colParent': 'Parent',
+  'partners.colActions': 'Actions',
+
   'partners.levelLine': 'Level {level} — {name}',
   'partners.direct': 'Direct partner',
   'partners.hasParent': 'Has a parent partner',
@@ -1173,6 +1253,25 @@ export const messages = {
     'They keep their referral code and everybody beneath them, and stop earning. You can reactivate them at any time.',
   'partners.confirmReactivateTitle': 'Reactivate this partner?',
   'partners.confirmReactivateBody': 'They will start earning again from their current level.',
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+  // Placeholder copy, and it says so. There is no notifications endpoint; these
+  // rows describe what WILL land here rather than inventing queue items, because
+  // a fabricated "3 withdrawals awaiting approval" sends an operator to an empty
+  // queue and teaches them to distrust the next real one.
+  'notifications.open': 'Open notifications',
+  'notifications.title': 'Notifications',
+  'notifications.previewNotice':
+    'Notifications are not live yet. This panel shows what will appear here.',
+  'notifications.sampleAdminPreviewTitle': 'Coming soon',
+  'notifications.sampleAdminPreviewBody':
+    'Alerts about work waiting on you will appear here once notifications are wired up.',
+  'notifications.sampleAdminKycTitle': 'Verification queue',
+  'notifications.sampleAdminKycBody':
+    'You will be told when a client submits documents for review.',
+  'notifications.sampleAdminPartnerTitle': 'Partner applications',
+  'notifications.sampleAdminPartnerBody':
+    'You will be told when a client applies to the partner programme.',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */

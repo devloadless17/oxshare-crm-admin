@@ -138,13 +138,35 @@ describe('creating', () => {
   });
 });
 
+/**
+ * Open a row's three-dot menu and choose an item from it.
+ *
+ * Delete used to be a button sitting in the row, reachable in one click. It is
+ * now behind the shared `RowActions` trigger, so every test that acts on a row
+ * needs the two steps the operator now takes — which is the point of the menu:
+ * destroying a tag is no longer one stray click away from editing it.
+ *
+ * The trigger is named for its ROW (`table.rowActions` → "Actions for X"), so
+ * this finds the right one on a table with several.
+ */
+async function chooseRowAction(rowName: RegExp, itemName: RegExp) {
+  await userEvent.click(
+    screen.getByRole('button', { name: new RegExp(`actions for ${rowName.source}`, 'i') }),
+  );
+  // Scoped to the menu: Radix renders it in a portal, and an unscoped query
+  // would also match same-named controls elsewhere on the page.
+  await userEvent.click(
+    within(await screen.findByRole('menu')).getByRole('menuitem', { name: itemName }),
+  );
+}
+
 describe('deleting', () => {
   it('names the CONSEQUENCES before doing it', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderWithProviders(<TagsPage />);
     await screen.findByText('High risk');
 
-    await userEvent.click(screen.getByRole('button', { name: /delete high risk/i }));
+    await chooseRowAction(/high risk/, /delete/i);
 
     const message = confirm.mock.calls[0]?.[0] as string;
     // How many clients lose the label…
@@ -163,7 +185,7 @@ describe('deleting', () => {
     renderWithProviders(<TagsPage />);
     await screen.findByText('High risk');
 
-    await userEvent.click(screen.getByRole('button', { name: /delete high risk/i }));
+    await chooseRowAction(/high risk/, /delete/i);
 
     await waitFor(() => expect(deleteTag).toHaveBeenCalledWith('tag-1'));
     confirm.mockRestore();
@@ -188,7 +210,7 @@ describe('deleting', () => {
 
     renderWithProviders(<TagsPage />);
     await screen.findByText('High risk');
-    await userEvent.click(screen.getByRole('button', { name: /delete high risk/i }));
+    await chooseRowAction(/high risk/, /delete/i);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/every client instead of none/i);
     confirm.mockRestore();

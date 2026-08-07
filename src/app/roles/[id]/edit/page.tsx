@@ -31,7 +31,7 @@ import { t } from '@/lib/i18n';
  * ── Two refusals that are NOT errors ──────────────────────────────────────
  *
  * A missing id and a system role both render a message rather than a form.
- * A system role is refused by the backend, and `role-row.tsx` offers no Edit
+ * A system role is refused by the backend, and the roles table offers no Edit
  * action for one — but the URL is still typeable, and "the form saved and then
  * 403'd" is a worse answer than "this cannot be edited".
  */

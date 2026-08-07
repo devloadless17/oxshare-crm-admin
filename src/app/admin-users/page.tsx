@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import type { AdminUser, Role } from '@/lib/api/admin';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { ExportButton } from '@/components/export-button';
 import { AdminDirectoryTable } from '@/components/rbac/admin-directory-table';
 import { AdminFormModal, type AdminFormValues } from '@/components/rbac/admin-form-modal';
 import { PendingInvitesPanel } from '@/components/rbac/pending-invites-panel';
@@ -140,14 +141,15 @@ export default function AdminUsersPage() {
         : '';
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex shrink-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('adminUsers.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t('adminUsers.subtitle')}</p>
         </div>
 
         <div className="flex items-center gap-2">
+          <ExportButton resource="admin-users" disabled={adminUsers.length === 0} />
           {canViewRoles && (
             <Link
               href="/roles"
@@ -171,13 +173,25 @@ export default function AdminUsersPage() {
 
       {banner && (
         <div
-          className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
           role="alert"
         >
           {banner}
         </div>
       )}
 
+      {/*
+       * ONE of the two tables fills, and it is the directory.
+       *
+       * Two `fill` tables in the same flex column both claim `flex-1` and split
+       * the height between them, so each gets its own scrollbar and neither is
+       * comfortable to read. The directory is the unbounded list — it grows with
+       * the organisation and is the reason an operator came here — so it takes
+       * the remaining height. Outstanding invites are a short, transient list
+       * that is usually empty, so the panel below stays at its natural height
+       * (`shrink-0`) and the page does not reserve space for rows that are
+       * normally not there.
+       */}
       <AsyncBoundary
         status={query.status}
         label="Loading admin users"
@@ -185,9 +199,10 @@ export default function AdminUsersPage() {
         onRetry={query.refetch}
         errorMessage="Failed to load admin users."
         error={query.error}
+        fill
       >
-        <div className="space-y-6">
-          <div className="rounded-xl border border-border bg-card p-5 shadow-xs">
+        <div className="flex min-h-0 flex-1 flex-col gap-6">
+          <div className="shrink-0 rounded-xl border border-border bg-card p-5 shadow-xs">
             <h2 className="text-base font-semibold">{t('settings.directoryTitle')}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{t('settings.directoryHint')}</p>
           </div>
@@ -208,7 +223,9 @@ export default function AdminUsersPage() {
       </AsyncBoundary>
 
       {/* Owns its own query — see the note in the panel. */}
-      <PendingInvitesPanel canRevoke={canInvite} />
+      <div className="shrink-0">
+        <PendingInvitesPanel canRevoke={canInvite} />
+      </div>
 
       {editing && (
         <AdminFormModal

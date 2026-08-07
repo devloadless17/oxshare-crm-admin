@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Role } from '@/lib/api/admin';
-import { RoleRow } from '@/components/rbac/role-row';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { DataTable, type Column } from '@/components/data-table';
+import { RowActions, actionsColumn } from '@/components/row-actions';
+import { ExportButton } from '@/components/export-button';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -28,16 +30,16 @@ import { t } from '@/lib/i18n';
 /**
  * RBAC-01/02 — what a role may do.
  *
- * ── One list, not a grid of tiles ─────────────────────────────────────────
+ * ── One table, not a grid of tiles ────────────────────────────────────────
  *
- * Every role is a row in a single bordered card with a max height and its own
- * scroll. The previous version was a two-column grid of tiles, each printing
- * every granted permission as a chip — so a `*` role rendered eighty chips, the
- * tiles went ragged as roles differed in size, and the page grew without bound.
- * A count replaces the chips; the detail lives on the edit page.
+ * Every role is a row of the shared `DataTable`. Two versions ago this was a
+ * two-column grid of tiles, each printing every granted permission as a chip —
+ * so a `*` role rendered eighty chips, the tiles went ragged as roles differed
+ * in size, and the page grew without bound. A count replaces the chips; the
+ * detail lives on the edit page.
  *
- * The card scrolls rather than the document, so the heading and the Create
- * button stay put while an operator reads down a long list.
+ * The table scrolls rather than the document (`fill`), so the heading and the
+ * Create button stay put while an operator reads down a long list.
  *
  * ── What this page no longer fetches ──────────────────────────────────────
  *
@@ -74,9 +76,9 @@ export default function RolesPage() {
    *
    * Filtered HERE rather than asked of the API: `GET /admin/roles` is shared
    * with the admin directory, which assigns roles and therefore does need the
-   * system ones. `role-row.tsx` still handles `isSystem` — the backend can add
-   * another system role at any time, and it should not become editable here by
-   * the accident of this filter changing.
+   * system ones. The Name column and the actions column below still handle
+   * `isSystem` — the backend can add another system role at any time, and it
+   * should not become editable here by the accident of this filter changing.
    */
   const roles = (query.data ?? []).filter((role) => !role.isSystem);
 
@@ -100,24 +102,93 @@ export default function RolesPage() {
 
   const deletingId = deleteRole.isPending ? deleteRole.variables?.id : null;
 
+  const columns: Column<Role>[] = [
+    {
+      header: t('roles.colName'),
+      cell: (role) => (
+        <span className="flex items-center gap-2">
+          <span className="font-semibold text-foreground">{role.name}</span>
+          {role.isSystem && (
+            <span className="shrink-0 rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link">
+              {t('settings.systemRole')}
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      header: t('roles.colDescription'),
+      cell: (role) => role.description || t('roles.noDescription'),
+      cellClassName: 'text-muted-foreground',
+    },
+    {
+      /*
+       * A count, not the keys. A `*` role prints eighty permission chips and
+       * the detail belongs on the edit page — this column says how much a role
+       * carries, and the edit page says what.
+       */
+      header: t('roles.colPermissions'),
+      cell: (role) => t('settings.assignedPermissions', { count: role.permissions.length }),
+      cellClassName: 'text-muted-foreground',
+    },
+    ...(canManageRoles
+      ? [
+          actionsColumn<Role>(
+            (role) =>
+              /*
+               * A SYSTEM role gets no menu at all, rather than a disabled one.
+               *
+               * It cannot be edited or deleted by anyone — the backend refuses
+               * both — so offering a control that only ever explains itself is
+               * worse than the absence of one. `RowActions` renders nothing on
+               * an empty `items`, which is exactly this case.
+               */
+              role.isSystem ? null : (
+                <RowActions
+                  label={t('roles.rowActions', { name: role.name })}
+                  busy={deletingId === role.id}
+                  items={[
+                    {
+                      label: t('common.edit'),
+                      icon: Pencil,
+                      href: `/roles/${role.id}/edit`,
+                    },
+                    {
+                      label: t('common.delete'),
+                      icon: Trash2,
+                      destructive: true,
+                      onSelect: () => setPendingDelete(role),
+                    },
+                  ]}
+                />
+              ),
+            t('roles.colActions'),
+          ),
+        ]
+      : []),
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">{t('roles.title')}</h1>
 
-        {canManageRoles && (
-          <Button asChild size="sm">
-            <Link href="/roles/new">
-              <Plus />
-              {t('settings.createRole')}
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportButton resource="roles" disabled={roles.length === 0} />
+          {canManageRoles && (
+            <Button asChild size="sm">
+              <Link href="/roles/new">
+                <Plus />
+                {t('settings.createRole')}
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {banner && (
         <div
-          className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
           role="alert"
         >
           {banner}
@@ -131,34 +202,27 @@ export default function RolesPage() {
         onRetry={query.refetch}
         errorMessage={t('roles.loadFailed')}
         error={query.error}
+        fill
       >
-        {roles.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card p-10 text-center">
-            <p className="text-sm font-semibold text-foreground">{t('roles.empty')}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{t('roles.emptyHint')}</p>
-          </div>
-        ) : (
-          /*
-           * `max-h-[70vh]` rather than a pixel height: the console is used on
-           * laptop and desktop screens that differ by hundreds of pixels, and a
-           * fixed height either wastes a tall screen or overflows a short one.
-           * `divide-y` draws the separator between rows and NOT after the last,
-           * which a per-row bottom border would.
-           */
-          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
-            <div className="max-h-[70vh] divide-y divide-border overflow-y-auto">
-              {roles.map((role) => (
-                <RoleRow
-                  key={role.id}
-                  role={role}
-                  canManage={canManageRoles}
-                  onDelete={setPendingDelete}
-                  deleting={deletingId === role.id}
-                />
-              ))}
+        <DataTable
+          fill
+          caption={t('roles.caption')}
+          columns={columns}
+          rows={roles}
+          rowKey={(role) => role.id}
+          dimmed={query.isFetching}
+          empty={
+            /*
+             * Not `EmptyState`: this one carries a HINT as well as a message. A
+             * fresh install has exactly the system roles and nothing else, and
+             * that is the moment the prompt to create one is most useful.
+             */
+            <div className="rounded-xl border border-border bg-card p-10 text-center">
+              <p className="text-sm font-semibold text-foreground">{t('roles.empty')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('roles.emptyHint')}</p>
             </div>
-          </div>
-        )}
+          }
+        />
       </AsyncBoundary>
 
       {/*

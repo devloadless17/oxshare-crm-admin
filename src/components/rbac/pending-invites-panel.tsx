@@ -1,10 +1,12 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { MailWarning } from 'lucide-react';
+import { MailWarning, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { PendingInvite } from '@/lib/api/admin';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { DataTable, type Column } from '@/components/data-table';
+import { RowActions, actionsColumn } from '@/components/row-actions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
@@ -41,6 +43,55 @@ export function PendingInvitesPanel({ canRevoke }: { canRevoke: boolean }) {
 
   const revokingId = revoke.isPending ? revoke.variables?.id : null;
 
+  const columns: Column<PendingInvite>[] = [
+    {
+      header: t('settings.colAdministrator'),
+      cell: (invite) => (
+        <span className="inline-flex items-center gap-2">
+          <MailWarning className="h-3.5 w-3.5 text-warning shrink-0" />
+          {invite.name}
+        </span>
+      ),
+      cellClassName: 'font-semibold text-foreground',
+    },
+    {
+      header: t('settings.colEmail'),
+      cell: (invite) => invite.email,
+      cellClassName: 'font-mono text-muted-foreground',
+    },
+    {
+      header: t('adminUsers.colInvited'),
+      cell: (invite) => new Date(invite.createdAt).toLocaleDateString(),
+      cellClassName: 'text-muted-foreground',
+    },
+    {
+      header: t('adminUsers.colExpires'),
+      cell: (invite) => new Date(invite.expiresAt).toLocaleString(),
+      cellClassName: 'text-muted-foreground',
+    },
+    ...(canRevoke
+      ? [
+          actionsColumn<PendingInvite>(
+            (invite) => (
+              <RowActions
+                label={t('table.rowActions', { name: invite.name })}
+                busy={revokingId === invite.id}
+                items={[
+                  {
+                    label: t('adminUsers.revoke'),
+                    icon: Trash2,
+                    destructive: true,
+                    onSelect: () => handleRevoke(invite),
+                  },
+                ]}
+              />
+            ),
+            t('adminUsers.colActions'),
+          ),
+        ]
+      : []),
+  ];
+
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-border bg-card p-5 shadow-xs">
@@ -72,50 +123,12 @@ export function PendingInvitesPanel({ canRevoke }: { canRevoke: boolean }) {
             {t('adminUsers.pendingNone')}
           </div>
         ) : (
-          <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
-            <table className="w-full text-xs text-left">
-              <thead className="border-b border-border bg-muted/40 font-semibold text-muted-foreground uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-3">{t('settings.colAdministrator')}</th>
-                  <th className="px-6 py-3">{t('settings.colEmail')}</th>
-                  <th className="px-6 py-3">{t('adminUsers.colInvited')}</th>
-                  <th className="px-6 py-3">{t('adminUsers.colExpires')}</th>
-                  {canRevoke && <th className="px-6 py-3">{t('adminUsers.colActions')}</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {invites.map((invite) => (
-                  <tr key={invite.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-foreground">
-                      <span className="inline-flex items-center gap-2">
-                        <MailWarning className="h-3.5 w-3.5 text-warning shrink-0" />
-                        {invite.name}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-muted-foreground">{invite.email}</td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {new Date(invite.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {new Date(invite.expiresAt).toLocaleString()}
-                    </td>
-                    {canRevoke && (
-                      <td className="px-6 py-4">
-                        <button
-                          type="button"
-                          onClick={() => handleRevoke(invite)}
-                          disabled={revokingId === invite.id}
-                          className="h-8 px-3 rounded-lg border border-destructive/30 text-[11px] font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus-outline"
-                        >
-                          {t('adminUsers.revoke')}
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            caption={t('adminUsers.pendingTitle')}
+            columns={columns}
+            rows={invites}
+            rowKey={(invite) => invite.id}
+          />
         )}
       </AsyncBoundary>
     </div>

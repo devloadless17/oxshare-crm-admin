@@ -1,13 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/lib/api/types.gen';
 import Link from 'next/link';
 import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
+import { useSequentialMutation } from '@/hooks/use-sequential-mutation';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { BatchProgress } from '@/components/batch-actions';
+import { ExportButton } from '@/components/export-button';
 import { useDebounced } from '@/hooks/use-debounced';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { t } from '@/lib/i18n';
@@ -72,6 +78,19 @@ const STALE_AFTER_DAYS = 3;
  * Only `submitted` and `under_review` are waiting: a client still filling in
  * their details is not queued, and a decided one is not waiting.
  */
+/**
+ * How a row is named in a batch failure list.
+ *
+ * The person, not the id — "Amina Haddad — already approved" is a sentence a
+ * reviewer can act on, while a UUID means opening the row to find out who it
+ * was. Falls back to the email, then the id, because a submission whose profile
+ * has not loaded still has to be identifiable when it fails.
+ */
+function describeRow(row: KycRow): string {
+  const name = [row.user?.firstName, row.user?.lastName].filter(Boolean).join(' ');
+  return name || row.user?.email || row.userId;
+}
+
 function daysWaiting(row: KycRow): number | null {
   if (row.status !== 'submitted' && row.status !== 'under_review') return null;
   if (!row.submittedAt) return null;
@@ -99,10 +118,78 @@ export default function AdminKycPage() {
     },
   );
 
+  /*
+   * The list's own filters, minus paging — the export layer strips page/limit
+   * itself, but building them from the same two pieces of state is what keeps
+   * "export what I am looking at" true when a filter is added later.
+   */
+  const exportFilters = new URLSearchParams();
+  if (filter) exportFilters.set('status', filter);
+  if (debouncedSearch) exportFilters.set('q', debouncedSearch);
+
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
   const counts = query.data?.counts ?? {};
   const loading = query.status === 'loading';
+
+  const { admin } = useAdmin();
+  const canApprove = hasPermission(admin, 'kyc.approve');
+  const queryClient = useQueryClient();
+
+  const [selected, setSelected] = useState<string[]>([]);
+
+  /*
+   * Batch approve is a LOOP, and the UI says so.
+   *
+   * There is no bulk KYC route — approval is `PATCH /admin/kyc/:userId/approve`,
+   * one identity at a time, which is right: each approval is a separate
+   * regulated decision with its own audit entry. So this sends them in
+   * sequence and reports per-row outcomes rather than a single success.
+   *
+   * ONLY APPROVE IS OFFERED. Rejection needs a reason per submission — the
+   * detail page makes the reviewer pick one — and a batch reject would either
+   * invent a shared reason or send an empty one, which is a compliance record
+   * that says nothing about why a specific person was refused.
+   */
+  const batch = useSequentialMutation<KycRow>(async (row) => {
+    await api.patch(`/admin/kyc/${row.userId}/approve`);
+  });
+
+  const approveSelected = async () => {
+    const chosen = rows.filter((r) => selected.includes(r.userId));
+    if (chosen.length === 0) return;
+    if (!window.confirm(t('batch.confirmApprove', { count: chosen.length }))) return;
+
+    await batch.run(chosen);
+    setSelected([]);
+    await queryClient.invalidateQueries({ queryKey: ['kyc'] });
+  };
+
+  /*
+   * Only rows that CAN be approved are offered. A selection spanning approved
+   * and rejected rows would send requests the API refuses one at a time, and
+   * present the refusals as failures of the batch rather than of the choice.
+   */
+  const approvable = rows.filter(
+    (r) => selected.includes(r.userId) && r.status === 'submitted',
+  ).length;
+
+  const renderBatchActions = () => (
+    <>
+      {batch.isRunning ? (
+        <BatchProgress state={batch} onCancel={batch.cancel} describe={describeRow} />
+      ) : (
+        <button
+          type="button"
+          onClick={() => void approveSelected()}
+          disabled={approvable === 0}
+          className="rounded bg-primary/15 px-2 py-1 font-medium transition-colors hover:bg-primary/20 disabled:opacity-40"
+        >
+          {t('batch.approveSelected')} ({approvable})
+        </button>
+      )}
+    </>
+  );
 
   const columns: Column<KycRow>[] = [
     {
@@ -204,19 +291,36 @@ export default function AdminKycPage() {
   ];
 
   return (
-    <div className="w-full space-y-6">
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex shrink-0 flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('kycReview.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {t('kycReview.totalSubmissions', { count: counts['all'] ?? 0 })}
           </p>
         </div>
+        {/* The same filters the list is showing, so "export what I am looking
+            at" is the query the screen already built rather than a second one. */}
+        <ExportButton resource="kyc" filters={exportFilters} disabled={total === 0} />
       </div>
 
+      {/*
+       * The batch outcome lives OUTSIDE the table's selection bar.
+       *
+       * That bar disappears when the selection clears, which is exactly what a
+       * finished batch does — so a partial failure reported inside it would
+       * vanish at the moment it became the only record of which rows did not go
+       * through.
+       */}
+      {!batch.isRunning && batch.hasFailures && (
+        <div className="shrink-0">
+          <BatchProgress state={batch} onCancel={batch.cancel} describe={describeRow} />
+        </div>
+      )}
+
       {/* Filters & Search */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+      <div className="flex shrink-0 flex-col sm:flex-row items-stretch sm:items-center gap-4">
         <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
           {FILTERS.map((f) => (
             <button
@@ -270,13 +374,18 @@ export default function AdminKycPage() {
         onRetry={query.refetch}
         errorMessage="Failed to load the review queue. This is NOT an empty queue — submissions may be waiting."
         error={query.error}
+        fill
       >
         <DataTable
+          fill
           caption="KYC Submissions"
           columns={columns}
           rows={rows}
           rowKey={(row) => row.userId}
-          selectable={true}
+          selectable={canApprove}
+          selectedRowKeys={selected}
+          onSelectionChange={setSelected}
+          renderBatchActions={renderBatchActions}
           loading={loading}
           loadingText="Loading KYC submissions..."
           dimmed={query.isFetching}

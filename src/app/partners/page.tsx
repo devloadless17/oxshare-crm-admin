@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Handshake } from 'lucide-react';
+import { ArrowUpDown, Copy, Handshake, Layers, PauseCircle, PlayCircle, User } from 'lucide-react';
 import api from '@/lib/api';
 import type { IbLevel, IbPartnerPage } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -10,7 +11,9 @@ import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
-import { Pagination } from '@/components/pagination';
+import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { RowActions, actionsColumn } from '@/components/row-actions';
+import { ExportButton } from '@/components/export-button';
 import { Modal } from '@/components/ui/modal';
 import {
   AlertDialog,
@@ -22,8 +25,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { PartnerRow, type PartnerRowData } from '@/components/ib/partner-row';
 import { t } from '@/lib/i18n';
+
+/** One row of `GET /admin/ib/partners` — the account, its user, its level name. */
+type PartnerRowData = IbPartnerPage['rows'][number];
 
 /**
  * The partner list, rebuilt.
@@ -35,9 +40,16 @@ import { t } from '@/lib/i18n';
  * ## Every dialog is owned by the PAGE
  *
  * Three of them: change level, reassign parent, confirm suspension. None live
- * in the row. A per-row dialog mounts one copy per partner and unmounts
+ * in the row. A per-row dialog would mount one copy per partner and unmount
  * mid-transition when the list refetches after a successful action — the rule
- * `rbac/role-row.tsx` records, applied to three dialogs instead of one.
+ * `components/row-actions.tsx` records, applied to three dialogs instead of one.
+ *
+ * ## There is no Remove
+ *
+ * Deleting a partner would orphan every client attributed to them and every
+ * partner beneath them, so the API has no such route. Suspend is the answer,
+ * and it is offered instead rather than shown disabled — a control that only
+ * ever explains why it cannot be used is worse than its absence.
  */
 export default function PartnersPage() {
   const { admin } = useAdmin();
@@ -129,17 +141,120 @@ export default function PartnersPage() {
     (toggleActive.isError && apiErrorMessage(toggleActive.error, t('partners.actionFailed'))) ||
     null;
 
+  const columns: Column<PartnerRowData>[] = [
+    {
+      header: t('partners.colName'),
+      cell: ({ account, user }) => (
+        <span className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/clients/${user.id}`}
+            className="font-semibold text-link hover:underline focus-outline"
+          >
+            {user.firstName} {user.lastName}
+          </Link>
+          {/* Suspension is stated on the row rather than only in the menu. It
+              is the one thing about a partner somebody scanning needs to see. */}
+          {!account.active && (
+            <span className="shrink-0 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
+              {t('partners.suspended')}
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      header: t('partners.colEmail'),
+      cell: ({ user }) => user.email,
+      cellClassName: 'text-muted-foreground',
+    },
+    {
+      // The level's NAME, not just its number — "Master Partner" is what an
+      // operator recognises; the number is an implementation detail they should
+      // not have to translate.
+      header: t('partners.colLevel'),
+      cell: ({ account, levelName }) =>
+        t('partners.levelLine', { level: String(account.level), name: levelName }),
+    },
+    {
+      header: t('partners.colReferralCode'),
+      cell: ({ account }) => account.referralCode,
+      cellClassName: 'font-mono tracking-wide text-muted-foreground',
+    },
+    {
+      header: t('partners.colParent'),
+      cell: ({ account }) =>
+        account.parentIbUserId ? t('partners.hasParent') : t('partners.direct'),
+      cellClassName: 'text-muted-foreground',
+    },
+    ...(canManage
+      ? [
+          actionsColumn<PartnerRowData>(
+            (partner) => (
+              <RowActions
+                label={t('partners.rowActions', {
+                  name: `${partner.user.firstName} ${partner.user.lastName}`,
+                })}
+                busy={busyUserId === partner.account.userId}
+                menuClassName="w-56"
+                items={[
+                  {
+                    label: t('partners.viewClient'),
+                    icon: User,
+                    href: `/clients/${partner.user.id}`,
+                  },
+                  {
+                    label: t('partners.copyLink'),
+                    icon: Copy,
+                    onSelect: () => copyLink(partner),
+                  },
+                  {
+                    label: t('partners.changeLevel'),
+                    icon: Layers,
+                    separatorBefore: true,
+                    onSelect: () => setChangingLevel(partner),
+                  },
+                  {
+                    label: t('partners.reassignParent'),
+                    icon: ArrowUpDown,
+                    onSelect: () => setReassigning(partner),
+                  },
+                  /*
+                   * Suspend is destructive-coloured; reactivate is not. They are
+                   * the same control, but only one of them stops somebody being
+                   * paid.
+                   */
+                  {
+                    label: partner.account.active
+                      ? t('partners.suspend')
+                      : t('partners.reactivate'),
+                    icon: partner.account.active ? PauseCircle : PlayCircle,
+                    destructive: partner.account.active,
+                    separatorBefore: true,
+                    onSelect: () => setSuspending(partner),
+                  },
+                ]}
+              />
+            ),
+            t('partners.colActions'),
+          ),
+        ]
+      : []),
+  ];
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('partners.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('partners.subtitle')}</p>
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('partners.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('partners.subtitle')}</p>
+        </div>
+        <ExportButton resource="ib/partners" disabled={rows.length === 0} />
       </div>
 
       {mutationError && (
         <div
           role="alert"
-          className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
         >
           {mutationError}
         </div>
@@ -148,7 +263,7 @@ export default function PartnersPage() {
       {copyFailed && (
         <div
           role="alert"
-          className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning"
+          className="shrink-0 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning"
         >
           {t('partners.copyFailed')}
         </div>
@@ -161,43 +276,33 @@ export default function PartnersPage() {
         onRetry={query.refetch}
         errorMessage={t('partners.loadFailed')}
         error={query.error}
+        fill
       >
-        <div className="rounded-xl border border-border bg-card">
-          {rows.length === 0 ? (
-            <div className="p-10 text-center">
-              <Handshake className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
-              <p className="mt-3 text-sm text-muted-foreground">{t('partners.empty')}</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {rows.map((partner) => (
-                <PartnerRow
-                  key={partner.account.userId}
-                  partner={partner}
-                  canManage={canManage}
-                  busy={busyUserId === partner.account.userId}
-                  onChangeLevel={setChangingLevel}
-                  onReassignParent={setReassigning}
-                  onToggleActive={setSuspending}
-                  onCopyLink={copyLink}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {total > pageSize && (
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            total={total}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
+        <DataTable
+          fill
+          caption={t('partners.caption')}
+          columns={columns}
+          rows={rows}
+          rowKey={(partner) => partner.account.userId}
+          dimmed={query.isFetching}
+          empty={<EmptyState icon={Handshake} message={t('partners.empty')} />}
+          /*
+           * The pager moved INTO the table's footer, where it is always on
+           * screen rather than however many rows below the fold. Same page,
+           * pageSize and total as before; changing the size returns to page 1
+           * because page 4 of the old size names different rows under the new.
+           */
+          pagination={{
+            page,
+            pageSize,
+            total,
+            onPageChange: setPage,
+            onPageSizeChange: (size) => {
               setPageSize(size);
               setPage(1);
-            }}
-          />
-        )}
+            },
+          }}
+        />
       </AsyncBoundary>
 
       <ChangeLevelDialog

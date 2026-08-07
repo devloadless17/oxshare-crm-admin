@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { PendingInvitesPanel } from './pending-invites-panel';
@@ -82,20 +82,40 @@ describe('what the panel shows', () => {
   });
 });
 
+/**
+ * Open a row's three-dot menu and choose an item from it.
+ *
+ * Revoke used to be a button sitting in the row, reachable in one click. It is
+ * now behind the shared `RowActions` trigger, so a test that acts on a row takes
+ * the two steps the operator now takes. The trigger is named for its ROW
+ * (`table.rowActions` → "Actions for X"), so this finds the right one on a table
+ * with several.
+ */
+async function chooseRowAction(rowName: RegExp, itemName: RegExp) {
+  await userEvent.click(
+    screen.getByRole('button', { name: new RegExp(`actions for ${rowName.source}`, 'i') }),
+  );
+  // Scoped to the menu: Radix renders it in a portal, and an unscoped query
+  // would also match same-named controls elsewhere on the page.
+  await userEvent.click(
+    within(await screen.findByRole('menu')).getByRole('menuitem', { name: itemName }),
+  );
+}
+
 describe('revoking', () => {
   it('is not offered without the permission to create invites', async () => {
     renderWithProviders(<PendingInvitesPanel canRevoke={false} />);
     await screen.findByText('newbie@oxshare.com');
-    expect(screen.queryByRole('button', { name: /revoke/i })).toBeNull();
+    // The whole actions column is withheld, so there is no trigger to open.
+    expect(screen.queryByRole('button', { name: /actions for/i })).toBeNull();
   });
 
   it('asks before revoking, and does nothing if declined', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const user = userEvent.setup();
     renderWithProviders(<PendingInvitesPanel canRevoke />);
     await screen.findByText('newbie@oxshare.com');
 
-    await user.click(screen.getByRole('button', { name: /revoke/i }));
+    await chooseRowAction(/new bie/, /revoke/i);
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(revokeInvite).not.toHaveBeenCalled();
@@ -104,11 +124,10 @@ describe('revoking', () => {
 
   it('revokes by id once confirmed', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const user = userEvent.setup();
     renderWithProviders(<PendingInvitesPanel canRevoke />);
     await screen.findByText('newbie@oxshare.com');
 
-    await user.click(screen.getByRole('button', { name: /revoke/i }));
+    await chooseRowAction(/new bie/, /revoke/i);
 
     await waitFor(() => expect(revokeInvite).toHaveBeenCalledWith('inv-1'));
     confirmSpy.mockRestore();
@@ -121,11 +140,10 @@ describe('revoking', () => {
         response: { status: 400, data: { message: 'This invite has already been accepted.' } },
       }),
     );
-    const user = userEvent.setup();
     renderWithProviders(<PendingInvitesPanel canRevoke />);
     await screen.findByText('newbie@oxshare.com');
 
-    await user.click(screen.getByRole('button', { name: /revoke/i }));
+    await chooseRowAction(/new bie/, /revoke/i);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/already been accepted/i);
     confirmSpy.mockRestore();
