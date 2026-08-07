@@ -9,10 +9,8 @@ import type { IbApplicationPage, IbApplicationStatus } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { useSequentialMutation } from '@/hooks/use-sequential-mutation';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
-import { BatchProgress } from '@/components/batch-actions';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn, type RowAction } from '@/components/row-actions';
 import { ExportButton } from '@/components/export-button';
@@ -106,43 +104,17 @@ export default function PartnerApprovalsPage() {
    */
   const approvingId = approve.isPending ? approve.variables : undefined;
 
-  const [selected, setSelected] = React.useState<string[]>([]);
-
   /*
-   * Batch approve is a LOOP over the single-application route, and the UI is
-   * honest about it — see hooks/use-sequential-mutation.ts.
+   * There is no batch approve here any more, and no selection column with it.
    *
-   * ONLY APPROVE. Rejection takes a reason from a configured list
-   * (`PartnerRejectDialog`), and a batch reject would either apply one person's
-   * reason to everybody or send none — a rejection record that does not say why
-   * a specific applicant was refused is worse than no batch at all.
+   * It was a LOOP over the single-application route driven by checkboxes —
+   * `useSequentialMutation` plus a `BatchProgress` bar — which bought
+   * sequencing and honest partial-failure reporting rather than atomicity.
+   * Removed on request; the row menu still approves one application at a time,
+   * which is the gesture this queue is worked with. Rejection was never
+   * batchable: it carries a reason the applicant reads, and one reason applied
+   * to everybody is worse than no batch.
    */
-  const batch = useSequentialMutation<Row>((row) =>
-    api.admin.approveIbApplication(row.application.id),
-  );
-
-  /*
-   * Only PENDING rows are approvable. A selection made on the "All" tab spans
-   * decided applications, and sending those would produce a row of refusals
-   * that look like batch failures rather than what they are — rows that were
-   * never eligible.
-   */
-  const approvableRows = rows.filter(
-    (r) => selected.includes(r.application.id) && r.application.status === 'pending',
-  );
-
-  const approveSelected = async () => {
-    if (approvableRows.length === 0) return;
-    if (!window.confirm(t('batch.confirmApprove', { count: approvableRows.length }))) return;
-
-    await batch.run(approvableRows);
-    setSelected([]);
-    await queryClient.invalidateQueries({ queryKey: ['admin', 'ib-applications'] });
-  };
-
-  /** Names a row in the failure list by its applicant, not its id. */
-  const describeRow = (row: Row) =>
-    `${row.user.firstName} ${row.user.lastName}`.trim() || row.user.email;
 
   /*
    * The export carries the STATUS TAB, not the page.
@@ -359,19 +331,6 @@ export default function PartnerApprovalsPage() {
         </div>
       )}
 
-      {/*
-        The batch outcome survives the selection that produced it.
-        DataTable's selection bar unmounts when the selection clears — which is
-        the last thing a finished batch does — so a partial failure reported
-        only in there would disappear at the moment it became the sole record
-        of which applications did not go through.
-      */}
-      {!batch.isRunning && batch.hasFailures && (
-        <div className="shrink-0">
-          <BatchProgress state={batch} onCancel={batch.cancel} describe={describeRow} />
-        </div>
-      )}
-
       <AsyncBoundary
         status={query.status}
         label={t('partnerReview.loading')}
@@ -387,25 +346,20 @@ export default function PartnerApprovalsPage() {
           columns={columns}
           rows={rows}
           rowKey={(row) => row.application.id}
-          /* Selection only where it can lead somewhere: an admin without
-             `ib.approve` has no batch action to reach. */
-          selectable={canApprove}
-          selectedRowKeys={selected}
-          onSelectionChange={setSelected}
-          renderBatchActions={() =>
-            batch.isRunning ? (
-              <BatchProgress state={batch} onCancel={batch.cancel} describe={describeRow} />
-            ) : (
-              <button
-                type="button"
-                onClick={() => void approveSelected()}
-                disabled={approvableRows.length === 0}
-                className="rounded bg-primary/15 px-2 py-1 font-medium transition-colors hover:bg-primary/20 disabled:opacity-40"
-              >
-                {t('batch.approveSelected')} ({approvableRows.length})
-              </button>
-            )
-          }
+          /*
+           * NO SELECTION COLUMN, on request.
+           *
+           * The checkboxes drove one batch action — approve — which was a LOOP
+           * over the single-application route rather than a batch endpoint, so
+           * it bought sequencing and a progress bar rather than atomicity. Each
+           * application is still approvable from its own row menu, which is the
+           * gesture this queue is actually worked with.
+           *
+           * `selectable`, `selectedRowKeys`, `onSelectionChange`,
+           * `renderBatchActions` and the `useSequentialMutation` machinery
+           * behind them are removed together — a selection with nothing to act
+           * on is a column of controls that does nothing.
+           */
           dimmed={query.isFetching}
           empty={<EmptyState icon={Handshake} message={t('partnerReview.empty')} />}
           pagination={{

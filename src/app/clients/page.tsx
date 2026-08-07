@@ -78,6 +78,14 @@ function ClientsPageContent() {
    * pager can only draw one page.
    */
   const page = pageParam(url.get('page'));
+  /*
+   * The URL is already debounced by the search box itself — it keeps local
+   * state and writes `?q=` on a timer, because a fully URL-controlled input
+   * loses characters to the router's async `replace` (see client-filters.tsx).
+   * This second debounce is what keeps the QUERY KEY from changing on the same
+   * tick the URL does, so a "clear filters" that also drops `q` produces one
+   * request rather than two.
+   */
   const debouncedSearch = useDebounced(url.get('q').trim());
 
   const sortKey = CLIENT_SORT_KEYS.includes(url.sort.key as ClientSortKey)
@@ -90,9 +98,20 @@ function ClientsPageContent() {
     withTotal: true,
     q: debouncedSearch,
     type: url.get('type'),
+    // The ACCOUNT state. `kycStatus` and `emailVerified` are the other two
+    // things a reader might call a status, and all three are separate filters
+    // because they answer separate questions.
     status: url.get('status'),
     level: url.get('level'),
+    /*
+     * Read but no longer OFFERED — the country filter was removed at the
+     * operator's request. A URL somebody bookmarked still has to resolve to
+     * the segment it names, and the endpoint still accepts the parameter, so
+     * dropping it here would silently widen a saved link.
+     */
     country: url.get('country'),
+    kycStatus: url.get('kycStatus'),
+    emailVerified: url.get('emailVerified'),
     tag: url.get('tag'),
     sort: sortKey,
     // Withheld when nothing is sorted. `order` alone describes an ordering of
@@ -137,16 +156,16 @@ function ClientsPageContent() {
   const actingId = setStatusMutation.isPending ? setStatusMutation.variables?.client.id : null;
 
   /*
-   * Countries offered by the filter come from the ROWS ON SCREEN.
+   * There is no `countries` list any more, and no country FILTER.
    *
-   * Not an ISO-3166 list: `users.country` is free text written by the KYC flow,
-   * so a canonical list would offer values no client actually carries and omit
-   * the ones they do. Not a `SELECT DISTINCT` endpoint either, yet — that is
-   * the right answer and it is a backend change; this keeps the filter honest
-   * about what it can promise in the meantime.
+   * It was built from the countries present in the rows on screen —
+   * `users.country` is free text written by the KYC flow, so there was no
+   * vocabulary to offer and a canonical ISO list would have offered values no
+   * client carries. That made the options change as the operator paged, and a
+   * country visible in the table was frequently one the filter did not list.
+   * Removed at the operator's request; the COLUMN stays, because reading where
+   * a client is from is useful on its own.
    */
-  const countries = [...new Set(rows.map((c) => c.country).filter((c): c is string => !!c))].sort();
-
   const columns = clientColumns({
     canSuspend,
     canViewTags,
@@ -169,12 +188,12 @@ function ClientsPageContent() {
             type: url.get('type'),
             status: url.get('status'),
             level: url.get('level'),
-            country: url.get('country'),
+            kycStatus: url.get('kycStatus'),
+            emailVerified: url.get('emailVerified'),
             tag: url.get('tag'),
           }}
           tags={tagsQuery.data ?? []}
           canViewTags={canViewTags}
-          countries={countries}
           hiddenFilters={maskedFields}
           isFiltered={url.isFiltered}
           onChange={(patch) => {

@@ -34,11 +34,16 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/transactions', requirement: { permission: 'withdrawals.view' } },
   /*
    * These three read the same money surface, so they share its read key rather
-   * than minting one no existing role holds. `/wallets` and `/trading-accounts`
-   * have no endpoint behind them yet and render BackendPending; they are listed
-   * here because `canAccess` denies an unlisted path, so a page with no route
-   * requirement shows the "no access" panel instead of itself — and the honest
-   * "this is not built" is the thing worth showing.
+   * than minting one no existing role holds — `withdrawals.view` is in the
+   * backend catalog, which is what stops these routes becoming silently
+   * master-admin-only the way invented keys did to `/partners`.
+   *
+   * `/wallets` and `/trading-accounts` were listed here while they still
+   * rendered BackendPending, because `canAccess` denies an unlisted path and a
+   * page with no route requirement shows the "no access" panel instead of
+   * itself. Both now list real rows off `AdminHoldingsController`, and both are
+   * reads only — the pages draw no write control, and the API refuses writes
+   * regardless.
    */
   { prefix: '/wallets', requirement: { permission: 'withdrawals.view' } },
   { prefix: '/trading-accounts', requirement: { permission: 'withdrawals.view' } },
@@ -48,9 +53,9 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   // `/payouts` is still listed nowhere and has no `page.tsx`: `canAccess`
   // denies an unlisted path (see the `!match` branch below), which is the
   // correct answer for a route that does not exist. `/trading-accounts` was in
-  // the same position and is back above — as a page that exists and states
-  // which endpoint it is waiting for, which is a different thing from a link
-  // to nothing.
+  // the same position once and is back above — first as a page that named the
+  // endpoint it was waiting for, now as one that lists rows off it. Either is a
+  // different thing from a link to nothing.
   { prefix: '/roles', requirement: { permission: 'roles.view' } },
   /*
    * `tags.view` OR `users.view` would be the honest requirement — anyone who
@@ -90,6 +95,16 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/settings', requirement: { permission: 'roles.manage' } },
   { prefix: '/admin-users', requirement: { permission: 'users.view' } },
   { prefix: '/audit-log', requirement: { masterOnly: true } },
+  /*
+   * Master admin only, matching `GET /admin/reconciliation` exactly.
+   *
+   * Not a permission key, and that is the backend's reasoning carried across:
+   * the report names clients and there is no correct way to scope it. Narrowing
+   * it to a sub-admin's territory would report "balanced" over a slice — the
+   * opposite of what a reconciliation is for — while leaving it open would hand
+   * a scoped admin the ids of clients they were specifically denied.
+   */
+  { prefix: '/reconciliation', requirement: { masterOnly: true } },
   { prefix: '/invite', requirement: { permission: 'users.create' } },
   { prefix: '/dashboard', requirement: null },
   // `requirement: null` is "any authenticated admin", stated rather than

@@ -10,6 +10,7 @@ import {
   UserCog,
   FileCheck,
   Coins,
+  Scale,
   ArrowLeftRight,
   Wallet,
   CandlestickChart,
@@ -175,6 +176,9 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'nav.tradingAccounts', href: '/trading-accounts', icon: CandlestickChart },
       { label: 'nav.paymentMethods', href: '/payment-methods', icon: CreditCard },
       { label: 'nav.currencies', href: '/currencies', icon: Coins },
+      // Master-admin only (see permissions.ts), so it simply does not render
+      // for a sub-admin — `canAccess` filters this list.
+      { label: 'nav.reconciliation', href: '/reconciliation', icon: Scale },
     ],
   },
   {

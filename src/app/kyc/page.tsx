@@ -1,18 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import type { components } from '@/lib/api/types.gen';
 import Link from 'next/link';
 import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
-import { useAdmin } from '@/context/AdminAuthContext';
-import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { useSequentialMutation } from '@/hooks/use-sequential-mutation';
 import { AsyncBoundary } from '@/components/async-boundary';
-import { BatchProgress } from '@/components/batch-actions';
 import { ExportButton } from '@/components/export-button';
 import { useDebounced } from '@/hooks/use-debounced';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
@@ -79,19 +74,6 @@ const STALE_AFTER_DAYS = 3;
  * Only `submitted` and `under_review` are waiting: a client still filling in
  * their details is not queued, and a decided one is not waiting.
  */
-/**
- * How a row is named in a batch failure list.
- *
- * The person, not the id — "Amina Haddad — already approved" is a sentence a
- * reviewer can act on, while a UUID means opening the row to find out who it
- * was. Falls back to the email, then the id, because a submission whose profile
- * has not loaded still has to be identifiable when it fails.
- */
-function describeRow(row: KycRow): string {
-  const name = [row.user?.firstName, row.user?.lastName].filter(Boolean).join(' ');
-  return name || row.user?.email || row.userId;
-}
-
 function daysWaiting(row: KycRow): number | null {
   if (row.status !== 'submitted' && row.status !== 'under_review') return null;
   if (!row.submittedAt) return null;
@@ -155,65 +137,16 @@ export default function AdminKycPage() {
   const counts = query.data?.counts ?? {};
   const loading = query.status === 'loading';
 
-  const { admin } = useAdmin();
-  const canApprove = hasPermission(admin, 'kyc.approve');
-  const queryClient = useQueryClient();
-
-  const [selected, setSelected] = useState<string[]>([]);
-
   /*
-   * Batch approve is a LOOP, and the UI says so.
+   * NO SELECTION, AND NO BATCH APPROVE — removed at the operator's request.
    *
-   * There is no bulk KYC route — approval is `PATCH /admin/kyc/:userId/approve`,
-   * one identity at a time, which is right: each approval is a separate
-   * regulated decision with its own audit entry. So this sends them in
-   * sequence and reports per-row outcomes rather than a single success.
-   *
-   * ONLY APPROVE IS OFFERED. Rejection needs a reason per submission — the
-   * detail page makes the reviewer pick one — and a batch reject would either
-   * invent a shared reason or send an empty one, which is a compliance record
-   * that says nothing about why a specific person was refused.
+   * The queue selects work; it does not decide it. Every approval here was
+   * already a separate regulated decision with its own audit entry (there is no
+   * bulk route — `PATCH /admin/kyc/:userId/approve` is one identity at a time),
+   * and a checkbox column made "approve twenty identities" one click away from
+   * a stray shift-click. Reviewing happens on the detail screen, which is where
+   * the documents are.
    */
-  const batch = useSequentialMutation<KycRow>(async (row) => {
-    await api.patch(`/admin/kyc/${row.userId}/approve`);
-  });
-
-  const approveSelected = async () => {
-    const chosen = rows.filter((r) => selected.includes(r.userId));
-    if (chosen.length === 0) return;
-    if (!window.confirm(t('batch.confirmApprove', { count: chosen.length }))) return;
-
-    await batch.run(chosen);
-    setSelected([]);
-    await queryClient.invalidateQueries({ queryKey: ['kyc'] });
-  };
-
-  /*
-   * Only rows that CAN be approved are offered. A selection spanning approved
-   * and rejected rows would send requests the API refuses one at a time, and
-   * present the refusals as failures of the batch rather than of the choice.
-   */
-  const approvable = rows.filter(
-    (r) => selected.includes(r.userId) && r.status === 'submitted',
-  ).length;
-
-  const renderBatchActions = () => (
-    <>
-      {batch.isRunning ? (
-        <BatchProgress state={batch} onCancel={batch.cancel} describe={describeRow} />
-      ) : (
-        <button
-          type="button"
-          onClick={() => void approveSelected()}
-          disabled={approvable === 0}
-          className="rounded bg-primary/15 px-2 py-1 font-medium transition-colors hover:bg-primary/20 disabled:opacity-40"
-        >
-          {t('batch.approveSelected')} ({approvable})
-        </button>
-      )}
-    </>
-  );
-
   const columns: Column<KycRow>[] = [
     {
       header: t('kycReview.colUser'),
@@ -360,20 +293,6 @@ export default function AdminKycPage() {
         <ExportButton resource="kyc" filters={exportFilters} disabled={total === 0} />
       </div>
 
-      {/*
-       * The batch outcome lives OUTSIDE the table's selection bar.
-       *
-       * That bar disappears when the selection clears, which is exactly what a
-       * finished batch does — so a partial failure reported inside it would
-       * vanish at the moment it became the only record of which rows did not go
-       * through.
-       */}
-      {!batch.isRunning && batch.hasFailures && (
-        <div className="shrink-0">
-          <BatchProgress state={batch} onCancel={batch.cancel} describe={describeRow} />
-        </div>
-      )}
-
       {/* Filters & Search */}
       <div className="flex shrink-0 flex-col sm:flex-row items-stretch sm:items-center gap-4">
         <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
@@ -437,10 +356,6 @@ export default function AdminKycPage() {
           columns={columns}
           rows={rows}
           rowKey={(row) => row.userId}
-          selectable={canApprove}
-          selectedRowKeys={selected}
-          onSelectionChange={setSelected}
-          renderBatchActions={renderBatchActions}
           loading={loading}
           loadingText="Loading KYC submissions..."
           dimmed={query.isFetching}

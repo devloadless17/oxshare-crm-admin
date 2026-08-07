@@ -304,6 +304,15 @@ export function DataTable<T>({
    */
   const headerCellBg = 'bg-[color-mix(in_oklab,var(--color-muted)_60%,var(--color-card))]';
 
+  /**
+   * How many `<td>`s a full-width row needs — the data columns plus whichever
+   * of the two leading utility columns are on. Used by the empty row below, and
+   * by the expanded-row cell further down; it was computed inline there with
+   * the expand column hardcoded as `+ 1`, which was right only because that
+   * cell is rendered exclusively when `renderExpandedRow` exists.
+   */
+  const totalColumnCount = columns.length + (selectable ? 1 : 0) + (renderExpandedRow ? 1 : 0);
+
   const allKeys = React.useMemo(() => rows.map(rowKey), [rows, rowKey]);
   const isAllSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeys.includes(k));
   const isSomeSelected = selectedKeys.length > 0 && !isAllSelected;
@@ -356,9 +365,35 @@ export function DataTable<T>({
     );
   }
 
-  // Render Empty State
-  if (rows.length === 0 && empty) {
-    return fill ? <div className={`${fillFrame} justify-center`}>{empty}</div> : <>{empty}</>;
+  /*
+   * EMPTY IS A STATE OF THE TABLE, NOT A REPLACEMENT FOR IT.
+   *
+   * This used to return the `empty` node on its own and throw the table away —
+   * so a filter that matched nothing swapped a full-height frame with column
+   * headers and a pager for a short card floating in a tall blank page. Three
+   * things went with it: the frame, the header row (which is what tells the
+   * operator WHAT was searched), and the footer (which is what tells them the
+   * count is zero rather than the list being broken). The screen changed shape
+   * between "loading", "empty" and "has rows", which is the same
+   * controls-move-under-the-cursor problem `fillFrame` exists to prevent, one
+   * state further along.
+   *
+   * So the empty message is rendered INSIDE `<tbody>` as one cell spanning
+   * every column, and the ordinary return below carries on drawing the frame,
+   * the header and the footer. `EmptyState` grows to fill that cell and centres
+   * itself in it — see the component at the foot of this file.
+   *
+   * Only in `fill` mode. A document-flow table is as tall as its rows, so there
+   * is no height to fill and no shape to preserve; the bare card is still the
+   * right answer there, and that is the branch below.
+   */
+  const isEmpty = rows.length === 0 && Boolean(empty);
+  if (isEmpty && !fill) {
+    // The card the `empty` node used to draw for itself. It moved out of
+    // `EmptyState` because in fill mode the node sits INSIDE the table's frame
+    // and a card there would be a border inside a border — so the one case that
+    // still needs a frame supplies it here.
+    return <div className="rounded-xl border border-border bg-card shadow-2xs">{empty}</div>;
   }
 
   return (
@@ -411,7 +446,21 @@ export function DataTable<T>({
          * so the header must be inside THIS box rather than inside the page.
          */}
         <div className={fill ? 'min-h-0 flex-1 overflow-auto' : 'contents'}>
-          <table className="w-full text-xs md:text-sm text-left border-collapse">
+          {/*
+           * `h-full` ONLY while empty, and it is load-bearing there.
+           *
+           * A `<table>` is as tall as its rows, so the empty row's own `h-full`
+           * has nothing to resolve against without it and the message sits
+           * against the header rather than in the middle. It is deliberately
+           * NOT applied when there are rows: a table stretched past its content
+           * distributes the surplus across its rows, so three rows in a tall
+           * frame would render as three enormously padded ones.
+           */}
+          <table
+            className={`w-full text-xs md:text-sm text-left border-collapse ${
+              fill && isEmpty ? 'h-full' : ''
+            }`}
+          >
             {caption && <caption className="sr-only">{caption}</caption>}
             <thead
               className={`border-b border-border text-muted-foreground uppercase text-[11px] font-semibold tracking-wider select-none ${
@@ -516,6 +565,24 @@ export function DataTable<T>({
             </thead>
 
             <tbody className="divide-y divide-border/60">
+              {/*
+               * The empty message, as a row that spans every column.
+               *
+               * `h-full` on the `<tr>` and the `<td>` is what lets the message
+               * centre VERTICALLY: a table row is as tall as its content by
+               * default, so without it the card would sit against the header
+               * with the rest of the frame empty below it. The chain needs the
+               * table itself to be full height too, which is `h-full` on
+               * `<table>` in fill mode — see the element above.
+               */}
+              {isEmpty && (
+                <tr className="h-full">
+                  <td colSpan={totalColumnCount} className="h-full p-0 align-middle">
+                    {empty}
+                  </td>
+                </tr>
+              )}
+
               {sortedRows.map((row) => {
                 const key = rowKey(row);
                 const isSelected = selectedKeys.includes(key);
@@ -601,7 +668,7 @@ export function DataTable<T>({
                     {/* Expanded Row Content */}
                     {renderExpandedRow && isExpanded && (
                       <tr className="bg-muted/30 border-b border-border/80">
-                        <td colSpan={columns.length + (selectable ? 1 : 0) + 1} className="p-4">
+                        <td colSpan={totalColumnCount} className="p-4">
                           <div className="rounded-lg border border-border/60 bg-card p-4 shadow-2xs animate-in fade-in-50">
                             {renderExpandedRow(row)}
                           </div>
@@ -698,11 +765,27 @@ export function DataTable<T>({
   );
 }
 
-/** Centered empty state component */
+/**
+ * The "nothing here" message, centred in whatever box it is given.
+ *
+ * ## It no longer draws its own card
+ *
+ * It used to be `rounded-xl border bg-card p-12` — a card, because it was
+ * rendered INSTEAD of the table and had to supply its own frame. In `fill` mode
+ * `DataTable` now renders it inside the table body instead (see the empty row
+ * there), so a bordered card here would paint a second border inside the table's
+ * own: a box in a box, with the column headers above it.
+ *
+ * `h-full` plus `flex … items-center justify-center` is what centres it on both
+ * axes inside that cell. `min-h-[12rem]` is the floor for the document-flow
+ * case, where `DataTable` still returns this on its own and there is no height
+ * to fill — without it a bare message would be a single line of text with no
+ * presence at all.
+ */
 export function EmptyState({ icon: Icon, message }: { icon: React.ElementType; message: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-12 text-center space-y-3 shadow-2xs">
-      <Icon className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
+    <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-3 p-12 text-center">
+      <Icon className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
       <p className="text-sm font-medium text-muted-foreground">{message}</p>
     </div>
   );

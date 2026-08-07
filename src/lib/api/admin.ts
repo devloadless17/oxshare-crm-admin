@@ -23,6 +23,18 @@ export type KycSubmission = components['schemas']['KycSubmissionDto'];
 export type KycListResponse = components['schemas']['KycListResponseDto'];
 export type ClientRow = components['schemas']['ClientRowDto'];
 export type ClientListResponse = components['schemas']['ClientListResponseDto'];
+/**
+ * The six identity-verification states, read off the row rather than written
+ * out — a state added on the backend then reaches the label and colour maps as
+ * a missing-key compile error rather than rendering as a raw enum string.
+ *
+ * NOT a synonym for `status`, which is the ACCOUNT state (may this person sign
+ * in), nor for `verificationLevel`, which is the TIER a decision granted. All
+ * three are separate columns on the client list for exactly that reason: a
+ * rejected submission leaves the level at 0, exactly where a client who never
+ * applied sits, and those are opposite pieces of work for a reviewer.
+ */
+export type ClientKycStatus = ClientRow['kycStatus'];
 export type ClientProfile = components['schemas']['ClientProfileDto'];
 export type ClientTag = components['schemas']['ClientTagDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
@@ -84,6 +96,8 @@ export type WithdrawalListResponse = components['schemas']['WithdrawalListRespon
 export type WithdrawalState = WithdrawalRow['state'];
 export type LedgerEntry = components['schemas']['LedgerEntryDto'];
 export type LedgerListResponse = components['schemas']['LedgerListResponseDto'];
+export type ReconciliationReport = components['schemas']['ReconciliationReportDto'];
+export type WalletDiscrepancy = components['schemas']['WalletDiscrepancyDto'];
 export type PaymentMethod = components['schemas']['PaymentMethodDto'];
 export type CreatePaymentMethod = components['schemas']['CreatePaymentMethodDto'];
 export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'];
@@ -128,14 +142,49 @@ export interface ClientListParams {
   withTotal?: boolean;
   q?: string;
   type?: string;
+  /**
+   * The ACCOUNT state — `active | pending | suspended`, i.e. whether this person
+   * may sign in. Deliberately not a verification state: `pending` here says the
+   * account is not yet active and says nothing at all about documents. Read
+   * `kycStatus` and `emailVerified` for those.
+   */
   status?: string;
   level?: string;
+  /**
+   * Still accepted by the endpoint, and still sent when a saved link carries it
+   * — the client list no longer OFFERS a country control, but a URL somebody
+   * bookmarked must keep resolving to the segment it named.
+   */
   country?: string;
+  /**
+   * One of the six `ClientKycStatus` values. An unrecognised one is a 400
+   * naming the six, never a silent fallback — so this is only ever set from a
+   * value that came out of the enum.
+   */
+  kycStatus?: string;
+  /** `'true' | 'false'` as a string: it travels as a query parameter. */
+  emailVerified?: string;
   /** Tag SLUG, not id — a rename must not break a link somebody saved. */
   tag?: string;
   sort?: ClientSortKey;
   order?: 'asc' | 'desc';
 }
+
+/**
+ * The six KYC states, in the order a submission moves through them.
+ *
+ * Derived-checked against `ClientKycStatus` by the `satisfies` below, so a
+ * state added on the backend fails to compile here rather than quietly missing
+ * from the filter — which would leave a segment of clients unfindable.
+ */
+export const CLIENT_KYC_STATUSES = [
+  'not_started',
+  'in_progress',
+  'submitted',
+  'under_review',
+  'approved',
+  'rejected',
+] as const satisfies readonly ClientKycStatus[];
 
 /**
  * The columns `GET /admin/withdrawals` will sort by, mirroring the backend's
@@ -165,6 +214,91 @@ export interface WithdrawalListParams {
   limit: number;
   page?: number;
   sort?: WithdrawalSortKey;
+  order?: 'asc' | 'desc';
+}
+
+// ── Holdings: wallets and trading accounts (AdminHoldingsController) ─────────
+//
+// Aliases, like the rest of this surface. `balance`, `onHold` and every other
+// monetary field on these rows is a STRING and must reach the DOM as one —
+// §6.1. Nothing here parses one, and neither should a caller.
+
+export type WalletRow = components['schemas']['WalletRowDto'];
+export type WalletListResponse = components['schemas']['WalletListResponseDto'];
+export type TradingAccountRow = components['schemas']['TradingAccountRowDto'];
+export type TradingAccountListResponse = components['schemas']['TradingAccountListResponseDto'];
+/**
+ * live | demo, and active | suspended | closed — read off the ROW rather than
+ * written out, so an environment or status added on the backend arrives as a
+ * missing-key compile error in the label maps rather than as a raw enum string
+ * on the screen.
+ */
+export type TradingAccountEnvironment = TradingAccountRow['environment'];
+export type TradingAccountStatus = TradingAccountRow['status'];
+
+/**
+ * The columns `GET /admin/wallets` will sort by, mirroring the endpoint's own
+ * `sort` enum in the OpenAPI document.
+ *
+ * `balance` IS here and is safe to offer for the same reason the withdrawal
+ * queue's `amount` is: the server orders on the `NUMERIC(28,8)` column, so this
+ * is a true decimal ordering rather than the text comparison a client-side sort
+ * would do — which put '100.00000000' below '9.00000000'.
+ *
+ * There is no `onHold` and no `updatedAt` key. A column outside this list must
+ * declare `sortable: false`: R-2.5 makes an unrecognised sort a 400 rather than
+ * a silent fallback, so a header claiming one would produce an error page
+ * instead of rows.
+ */
+export const WALLET_SORT_KEYS = [
+  'createdAt',
+  'balance',
+  'currency',
+  'userEmail',
+  'userFirstName',
+] as const;
+export type WalletSortKey = (typeof WALLET_SORT_KEYS)[number];
+
+export interface WalletListParams {
+  limit: number;
+  page?: number;
+  userId?: string;
+  /** Exact match on the wallet code, e.g. `USD`. Not a substring search. */
+  currency?: string;
+  sort?: WalletSortKey;
+  order?: 'asc' | 'desc';
+}
+
+/**
+ * The columns `GET /admin/trading-accounts` will sort by.
+ *
+ * `login` is nullable and the endpoint pins NULLS LAST in both directions, so
+ * sorting by it groups the accounts MT5 has not issued a login for at the end
+ * rather than interleaving them — which is the useful answer, since "no login
+ * yet" is a state rather than a value.
+ *
+ * There is no `tier`, no `leverage` and no `mt5Group` key, so those columns
+ * must declare `sortable: false`.
+ */
+export const TRADING_ACCOUNT_SORT_KEYS = [
+  'createdAt',
+  'balance',
+  'login',
+  'currency',
+  'status',
+  'environment',
+  'userEmail',
+  'userFirstName',
+] as const;
+export type TradingAccountSortKey = (typeof TRADING_ACCOUNT_SORT_KEYS)[number];
+
+export interface TradingAccountListParams {
+  limit: number;
+  page?: number;
+  userId?: string;
+  environment?: TradingAccountEnvironment;
+  status?: TradingAccountStatus;
+  sort?: TradingAccountSortKey;
   order?: 'asc' | 'desc';
 }
 
@@ -210,6 +344,46 @@ export function clientListSearchParams(params: ClientListParams): URLSearchParam
   }
   return query;
 }
+// ── Dashboard statistics (GET /admin/stats/*) ───────────────────────────────
+//
+// Aliases, like everything else on this surface. The overview in particular has
+// to be one: its four sections are OPTIONAL and each is present only when the
+// caller holds the matching permission, so a hand-written interface that made
+// them required would compile away the exact distinction the endpoint exists to
+// draw — "hidden from you" versus "there are none".
+
+export type StatsOverview = components['schemas']['StatsOverviewDto'];
+export type ClientStats = components['schemas']['ClientStatsDto'];
+export type KycStats = components['schemas']['KycStatsDto'];
+export type WithdrawalStats = components['schemas']['WithdrawalStatsDto'];
+export type IbStats = components['schemas']['IbStatsDto'];
+/**
+ * One withdrawal state with its count and summed amount.
+ *
+ * `totalAmount` is a STRING and stays one — the same rule as every other amount
+ * on this surface (§6.1). A chart may convert it to plot a bar; nothing may
+ * convert it to display one.
+ */
+export type WithdrawalStateTotal = components['schemas']['WithdrawalStateTotalDto'];
+
+export type RegistrationSeries = components['schemas']['RegistrationSeriesDto'];
+export type RegistrationPoint = components['schemas']['RegistrationPointDto'];
+export type KycTrendSeries = components['schemas']['KycTrendSeriesDto'];
+export type KycTrendPoint = components['schemas']['KycTrendPointDto'];
+export type WithdrawalVolumeSeries = components['schemas']['WithdrawalVolumeSeriesDto'];
+export type WithdrawalVolumePoint = components['schemas']['WithdrawalVolumePointDto'];
+
+/**
+ * The window every time series is asked for, in days.
+ *
+ * A union rather than `number`: the API answers 400 for anything outside 1–365
+ * (R-2.5 — never a silent clamp), and the period selector offers exactly three
+ * presets. Typing it this way means a fourth preset is a compile error at the
+ * selector rather than a 400 at runtime.
+ */
+export const STATS_WINDOWS = [7, 30, 90] as const;
+export type StatsWindow = (typeof STATS_WINDOWS)[number];
+
 export type AuditEntry = components['schemas']['AuditEntryDto'];
 export type AuditListResponse = components['schemas']['AuditListResponseDto'];
 export type AuditAction = components['schemas']['AuditActionDto'];
@@ -760,6 +934,86 @@ export const adminApi = {
     return data;
   },
 
+  /**
+   * Run the §12.2 reconciliation now and return its report.
+   *
+   * MASTER ADMIN ONLY, and deliberately not filterable: a reconciliation that
+   * reports "balanced" over a subset of clients is the opposite of what a
+   * reconciliation is for. See the backend controller.
+   *
+   * Read-only. A discrepancy is REPORTED, never repaired — an automatic
+   * correction would write a compensating entry for a cause nobody diagnosed,
+   * turning a detectable problem into a permanent one that looks deliberate.
+   */
+  async getReconciliation(signal?: AbortSignal): Promise<ReconciliationReport> {
+    const { data } = await apiClient.get<ReconciliationReport>('/admin/reconciliation', { signal });
+    return data;
+  },
+
+  // ── Holdings: wallets and trading accounts ────────────────────────────────
+
+  /**
+   * Every client wallet, with its owner.
+   *
+   * `balance` and `onHold` are NUMERIC(28,8) and cross the boundary as STRINGS.
+   * Nothing here coerces them and nothing downstream should: `Number()` on a
+   * value of that width loses precision before formatting even starts (§6.1).
+   * That is also why `sort=balance` is worth having — the ordering happens on
+   * the SQL column, so "the largest balance" is the largest of all of them
+   * rather than the largest of the twenty-five on screen.
+   *
+   * `withTotal` is sent unconditionally, because numbered pages cannot be drawn
+   * without a count. The endpoint also serves `?cursor=` and R-2.4's
+   * concurrent-insert hazard is real on any growing list — but a cursor cannot
+   * express "page 7", and it encodes the ordering that minted it, so offering
+   * both the sort and a cursor is not possible. Same trade as the client list.
+   */
+  async getWallets(params: WalletListParams, signal?: AbortSignal): Promise<WalletListResponse> {
+    const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
+    if (params.page !== undefined) query.set('page', String(params.page));
+    // Omitted rather than sent blank: `?currency=` is a different request from
+    // no currency at all, and the API reads the empty string as a filter.
+    if (params.userId) query.set('userId', params.userId);
+    if (params.currency) query.set('currency', params.currency);
+    // Both halves or neither. `order` alone describes an ordering of no column.
+    if (params.sort) {
+      query.set('sort', params.sort);
+      if (params.order) query.set('order', params.order);
+    }
+    const { data } = await apiClient.get<WalletListResponse>(`/admin/wallets?${query.toString()}`, {
+      signal,
+    });
+    return data;
+  },
+
+  /**
+   * Every client trading account, with its owner.
+   *
+   * `balance` is a STRING for the same reason as a wallet's, and is CRM-owned
+   * until the MT5 bridge lands. `login` is NULL until MetaTrader issues one and
+   * is a string rather than a number because leading zeros are significant to
+   * the bridge — so it is rendered, never parsed.
+   */
+  async getTradingAccounts(
+    params: TradingAccountListParams,
+    signal?: AbortSignal,
+  ): Promise<TradingAccountListResponse> {
+    const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
+    if (params.page !== undefined) query.set('page', String(params.page));
+    if (params.userId) query.set('userId', params.userId);
+    if (params.environment) query.set('environment', params.environment);
+    if (params.status) query.set('status', params.status);
+    if (params.sort) {
+      query.set('sort', params.sort);
+      if (params.order) query.set('order', params.order);
+    }
+    const { data } = await apiClient.get<TradingAccountListResponse>(
+      `/admin/trading-accounts?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
   // ── Payment methods ───────────────────────────────────────────────────────
 
   /**
@@ -893,6 +1147,82 @@ export const adminApi = {
    * the ones somebody would come looking for. Same rule as the permission and
    * client-field catalogs (R-4.5): the frontend never invents a key.
    */
+  // ── Dashboard statistics ──────────────────────────────────────────────────
+
+  /**
+   * The headline counters, in ONE request covering four permission domains.
+   *
+   * Every section is optional and comes back only for an admin who holds its
+   * key — `sections` lists what actually arrived, so the dashboard reads that
+   * list rather than probing for `undefined`. A caller with none of the four
+   * still gets a 200 with an empty `sections`, not a 403: the endpoint itself
+   * is open to any admin, and it is the CONTENT that is gated. That is what
+   * lets one screen serve every role without a card that always fails.
+   *
+   * `scoped` says the numbers cover only this admin's own clients. A headline
+   * total shown to a scoped admin without saying so invites it to be read as a
+   * platform total, so the screen must surface it.
+   */
+  async getStatsOverview(signal?: AbortSignal): Promise<StatsOverview> {
+    const { data } = await apiClient.get<StatsOverview>('/admin/stats/overview', { signal });
+    return data;
+  },
+
+  /**
+   * Registrations per day, zero-filled across the whole window.
+   *
+   * The zero-fill is the point: a series carrying only the days that had
+   * registrations draws the gaps closed, so an outage renders as steady growth.
+   */
+  async getRegistrationSeries(
+    days: StatsWindow,
+    signal?: AbortSignal,
+  ): Promise<RegistrationSeries> {
+    const query = new URLSearchParams({ days: String(days) });
+    const { data } = await apiClient.get<RegistrationSeries>(
+      `/admin/stats/registrations?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /**
+   * KYC submissions and approvals per day.
+   *
+   * The two series bucket on DIFFERENT columns — `submitted_at` and
+   * `reviewed_at` — so a submission made Monday and approved Thursday counts
+   * once in each, on its own day. They are therefore not a funnel over one
+   * cohort and must not be stacked; two lines on one axis is the honest form.
+   */
+  async getKycTrend(days: StatsWindow, signal?: AbortSignal): Promise<KycTrendSeries> {
+    const query = new URLSearchParams({ days: String(days) });
+    const { data } = await apiClient.get<KycTrendSeries>(
+      `/admin/stats/kyc-trend?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /**
+   * Withdrawal amount and count per day, bucketed on when each was REQUESTED.
+   *
+   * `totalAmount` is a string summed by Postgres over NUMERIC(28,8) — never
+   * parsed on the way here, and only ever parsed at a chart's plotting
+   * boundary. Requested rather than settled, because that is the only date a
+   * pending or rejected withdrawal has.
+   */
+  async getWithdrawalVolume(
+    days: StatsWindow,
+    signal?: AbortSignal,
+  ): Promise<WithdrawalVolumeSeries> {
+    const query = new URLSearchParams({ days: String(days) });
+    const { data } = await apiClient.get<WithdrawalVolumeSeries>(
+      `/admin/stats/withdrawal-volume?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
   async getAuditActions(signal?: AbortSignal): Promise<AuditAction[]> {
     const { data } = await apiClient.get<AuditAction[]>('/admin/audit-log/actions', { signal });
     return data;

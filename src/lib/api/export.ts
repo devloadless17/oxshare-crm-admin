@@ -27,9 +27,11 @@ import { apiClient } from './client';
  * rather than a second, drifting filter language. The response is a file body
  * with `Content-Disposition: attachment; filename=…`.
  *
- * NONE OF THESE ENDPOINTS EXIST YET. `useExport` surfaces a 404 as its own
- * state (`unavailable`) and the export button renders as unavailable rather
- * than broken — the same rule `BackendPending` follows for whole screens.
+ * MOST OF THESE ENDPOINTS DO NOT EXIST YET — `wallets` and `trading-accounts`
+ * are the two that have shipped. The button surfaces a 404 as its own state
+ * (`unavailable`) rather than as a failure, so the remainder render as not-built
+ * instead of broken — the same rule `BackendPending` follows for whole screens,
+ * and the reason no call site has to know which of these is live today.
  */
 export type ExportResource =
   | 'clients'
@@ -42,7 +44,12 @@ export type ExportResource =
   | 'ib/applications'
   | 'ib/partners'
   | 'admin-users'
-  | 'roles';
+  | 'roles'
+  // These two DO exist — `GET /admin/wallets/export` and
+  // `/admin/trading-accounts/export`, both CSV-only, both taking the same
+  // filters as their list endpoint. See the note above about the rest.
+  | 'wallets'
+  | 'trading-accounts';
 
 export type ExportFormat = 'csv' | 'xlsx';
 

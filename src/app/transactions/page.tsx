@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import api from '@/lib/api';
 import type {
   RejectionReason,
@@ -19,6 +19,7 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import { ExportButton } from '@/components/export-button';
 import { PageLoader } from '@/components/ui/loader';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { pageParam } from '@/lib/page-param';
@@ -252,6 +253,22 @@ function TransactionsPageContent() {
     ? apiErrorMessage(approve.error, t('withdrawals.approveFailed'))
     : null;
 
+  /*
+   * The list query's own filters, minus paging — which `fetchExport` strips
+   * anyway, so this only has to avoid ADDING them.
+   *
+   * `state` alone. The sort is deliberately not carried: the export is a file
+   * defined by WHICH rows it holds, and the order they arrive in is a property
+   * of the screen. Sending it would also make the same set of rows produce two
+   * different downloads depending on which header was last clicked. An empty
+   * param set for the "All" tab rather than `state=`, which the API reads as a
+   * state of empty string.
+   */
+  const exportFilters = React.useMemo(
+    () => new URLSearchParams(filter ? { state: filter } : {}),
+    [filter],
+  );
+
   const columns: Column<WithdrawalRow>[] = [
     {
       header: t('withdrawals.colClient'),
@@ -460,50 +477,30 @@ function TransactionsPageContent() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('withdrawals.heading')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('withdrawals.subtitle')}</p>
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('withdrawals.heading')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('withdrawals.subtitle')}</p>
+        </div>
+        {/*
+          The export carries the STATE FILTER, not the page.
+          Same params the list query is built from, so "export what I am looking
+          at" cannot drift from what is on screen. Paging is deliberately absent
+          — `fetchExport` strips it anyway, and a file holding the twenty-five
+          rows on display while the button claims to export the queue is an
+          audit problem rather than a cosmetic one.
+        */}
+        <ExportButton resource="withdrawals" filters={exportFilters} disabled={total === 0} />
       </div>
 
-      {/* Counts come from the same response as the rows and group over the FULL
-          filtered set, so a summary card never disagrees with the table. */}
-      {query.status === 'ready' && (
-        <div className="grid shrink-0 gap-4 sm:grid-cols-3">
-          {[
-            {
-              label: t('withdrawals.tabPending'),
-              value: counts['pending'] ?? 0,
-              Icon: Clock,
-              tone: 'text-warning bg-warning/10',
-            },
-            {
-              label: t('withdrawals.tabApproved'),
-              value: (counts['approved'] ?? 0) + (counts['success'] ?? 0),
-              Icon: CheckCircle2,
-              tone: 'text-success bg-success/10',
-            },
-            {
-              label: t('withdrawals.tabRejected'),
-              value: (counts['rejected'] ?? 0) + (counts['failure'] ?? 0),
-              Icon: XCircle,
-              tone: 'text-destructive bg-destructive/10',
-            },
-          ].map(({ label, value, Icon, tone }) => (
-            <div
-              key={label}
-              className="flex items-center justify-between rounded-xl border border-border bg-card p-5 shadow-xs"
-            >
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">{label}</p>
-                <p className="mt-1 text-2xl font-bold tabular">{value}</p>
-              </div>
-              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${tone}`}>
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/*
+        The three summary cards that sat here are gone, on request.
+
+        They counted `pending`, `approved + success` and `rejected + failure`
+        from the response's own `counts` — which the filter tabs below already
+        show, per state, without collapsing two states into one number. The
+        tabs are also actionable; the cards were not.
+      */}
 
       {query.status === 'ready' && (
         <div className="flex shrink-0 flex-wrap items-center gap-3">

@@ -29,6 +29,25 @@ import { t } from '@/lib/i18n';
  *
  * Assignment happens where the work is — on a client's profile — not here. This
  * screen answers "what segments exist and how big are they".
+ *
+ * ── THERE ARE NO FILTERS HERE, AND THAT IS NOT AN OVERSIGHT ─────────────────
+ *
+ * `GET /admin/tags` takes no query parameters at all — `AdminTagsController.list()`
+ * has an empty signature and returns the whole vocabulary in one response. So
+ * there is nothing for a filter control to drive: it could only filter the rows
+ * already in the browser, which is the client-side-filtering lie R-2.5 names
+ * (it looks identical to filtering the dataset and is wrong the moment the list
+ * outgrows one response).
+ *
+ * A tag vocabulary is also the one list here that does not grow without bound —
+ * ADM-14 is segmentation, not folksonomy — so paging and filtering it would be
+ * machinery for a problem this screen does not have. If the vocabulary ever
+ * does outgrow a single response, the filter and the endpoint's parameters
+ * arrive TOGETHER; a control the server cannot honour is worse than none.
+ *
+ * The table itself is the shared one: `DataTable fill` inside `AsyncBoundary
+ * fill`, the same treatment `/clients` and `/kyc` use, so a failed load says so
+ * rather than rendering as an empty vocabulary.
  */
 export default function TagsPage() {
   const { admin } = useAdmin();

@@ -249,8 +249,14 @@ export default function RolesPage() {
              * Not `EmptyState`: this one carries a HINT as well as a message. A
              * fresh install has exactly the system roles and nothing else, and
              * that is the moment the prompt to create one is most useful.
+             *
+             * No card of its own any more. `DataTable` in `fill` mode renders
+             * this INSIDE the table frame now, so the border and background it
+             * used to draw would be a second card nested in the first. It
+             * matches `EmptyState`'s shape instead — fill the cell, centre on
+             * both axes.
              */
-            <div className="rounded-xl border border-border bg-card p-10 text-center">
+            <div className="flex h-full min-h-[12rem] flex-col items-center justify-center p-10 text-center">
               <p className="text-sm font-semibold text-foreground">{t('roles.empty')}</p>
               <p className="mt-1 text-xs text-muted-foreground">{t('roles.emptyHint')}</p>
             </div>

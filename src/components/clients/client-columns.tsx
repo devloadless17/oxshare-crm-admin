@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Eye, PauseCircle, PlayCircle } from 'lucide-react';
-import type { ClientRow, ClientSortKey } from '@/lib/api/admin';
+import type { ClientKycStatus, ClientRow, ClientSortKey } from '@/lib/api/admin';
 import { CLIENT_SORT_KEYS } from '@/lib/api/admin';
 import type { Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
@@ -20,6 +20,30 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive'> = {
   active: 'success',
   pending: 'warning',
   suspended: 'destructive',
+};
+
+/**
+ * The KYC decision, as a badge.
+ *
+ * Keyed on `ClientKycStatus` — the API's own enum — so a state added on the
+ * backend is a missing-key compile error here rather than a row rendering the
+ * raw string `under_review` at an operator.
+ *
+ * The colours say what a reviewer should DO. `submitted` and `under_review` are
+ * warning because they are the two states that mean work is queued and someone
+ * is waiting; `not_started` and `in_progress` are muted because nothing is
+ * owed — the client has not asked for a decision yet.
+ */
+const KYC_STATUS_META: Record<
+  ClientKycStatus,
+  { variant: 'default' | 'success' | 'warning' | 'destructive'; label: string }
+> = {
+  not_started: { variant: 'default', label: t('clients.kycNotStarted') },
+  in_progress: { variant: 'default', label: t('clients.kycInProgress') },
+  submitted: { variant: 'warning', label: t('clients.kycSubmitted') },
+  under_review: { variant: 'warning', label: t('clients.kycUnderReview') },
+  approved: { variant: 'success', label: t('clients.kycApproved') },
+  rejected: { variant: 'destructive', label: t('clients.kycRejected') },
 };
 
 /** A column may only claim to be sortable if the API will actually sort by it. */
@@ -95,6 +119,9 @@ export function clientColumns({
       cell: (c) => TYPE_LABELS[c.type] ?? c.type,
     },
     {
+      // The ACCOUNT state, and only that: whether this person may sign in.
+      // Named "Account status" on the header because the row now carries a KYC
+      // status beside it, and "Status" alone invited the two to be confused.
       header: t('clients.colStatus'),
       ...sortableBy('status'),
       cell: (c) => (
@@ -104,16 +131,45 @@ export function clientColumns({
       ),
     },
     {
-      header: t('clients.colKycLevel'),
-      ...sortableBy('verificationLevel'),
+      /*
+       * THE KYC DECISION — this replaced the "KYC level" column.
+       *
+       * The level is a TIER (0 or 1) and it could not tell "never applied" from
+       * "applied and was refused": a rejection leaves the level at 0, exactly
+       * where a client who has done nothing sits. Those are opposite pieces of
+       * work — one needs chasing, the other has already been decided — and the
+       * column that was on screen showed both as "L0 · Unverified".
+       */
+      header: t('clients.colKycStatus'),
+      // NOT sortable: `kycStatus` is not in the backend's
+      // `CLIENT_SORT_COLUMNS`. It is joined from `kyc_submissions` rather than
+      // being a column on `users`, and R-2.5 makes an unrecognised sort a 400
+      // rather than a silent fallback — so declaring it would turn a header
+      // click into an error page instead of rows.
+      sortable: false,
+      cell: (c) => {
+        const meta = KYC_STATUS_META[c.kycStatus];
+        return <Badge variant={meta.variant}>{meta.label}</Badge>;
+      },
+    },
+    {
+      /*
+       * Whether the client confirmed the address they registered with — and it
+       * is a column of its own rather than a shade of the KYC one on purpose.
+       *
+       * An unconfirmed email is a SELF-SERVICE problem: the client clicks a
+       * link and it is fixed, and nobody needs to look at a document. Folding
+       * it into KYC would send an operator chasing paperwork for somebody who
+       * only ever needed to open their inbox.
+       */
+      header: t('clients.colEmailVerified'),
+      // NOT sortable — `emailVerified` is absent from `CLIENT_SORT_COLUMNS`
+      // for the same reason as `kycStatus` above.
+      sortable: false,
       cell: (c) => (
-        <span
-          className={`text-xs font-semibold ${
-            c.verificationLevel >= 1 ? 'text-success' : 'text-muted-foreground'
-          }`}
-        >
-          {c.verificationLevel >= 1 ? t('clients.levelVerified') : t('clients.levelUnverified')}
-        </span>
+        <Badge variant={c.emailVerified ? 'success' : 'default'}>
+          {c.emailVerified ? t('clients.emailVerifiedYes') : t('clients.emailVerifiedNo')}
+        </Badge>
       ),
     },
   );

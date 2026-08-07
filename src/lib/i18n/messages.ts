@@ -287,15 +287,72 @@ export const messages = {
     'This only works if no client has ever used it. If any have, the API will refuse and tell you to disable it instead — which keeps their transaction history readable.',
   'paymentMethods.readOnly': 'You do not have permission to change these.',
 
-  // ── Wallets and trading accounts — no endpoint yet ────────────────────────
+  // ── Wallets (GET /admin/wallets) ──────────────────────────────────────────
+  // These screens rendered BackendPending until the holdings endpoints shipped.
+  // The `*.pendingTitle` keys went with the placeholders.
   'wallets.title': 'Client wallets',
   'wallets.subtitle':
-    'Balances and holds, per client and currency. Nothing is shown here until the endpoint exists — a zero would be indistinguishable from a real one.',
-  'wallets.pendingTitle': 'Waiting on the wallet listing endpoint',
+    'Every client wallet, with its balance and whatever is held against a pending transfer. Balances are shown exactly as the ledger stores them.',
+  'wallets.loading': 'Loading wallets', // spinner label
+  'wallets.loadFailed': 'Could not load the wallets.',
+  'wallets.caption': 'Client wallets, with their owner and balance', // sr-only table caption
+  'wallets.empty': 'No wallets yet.',
+  'wallets.emptyFiltered': 'No wallets match these filters.',
+  'wallets.colOwner': 'Client',
+  'wallets.colCurrency': 'Currency',
+  'wallets.colBalance': 'Balance',
+  'wallets.colOnHold': 'On hold',
+  'wallets.colOpened': 'Opened',
+  'wallets.filterCurrency': 'Currency',
+  'wallets.filterCurrencyAll': 'All currencies',
+  'wallets.filterClient': 'Client ID',
+  'wallets.filterClientPlaceholder': 'Paste a client ID',
+  'wallets.filterClientHint': 'An exact client id — this is not a name search.',
+  'wallets.clearFilters': 'Clear filters',
+  'wallets.noun': 'wallet', // pager: "1–25 of 40 wallets"
+  'wallets.nounPlural': 'wallets',
+  // Said next to the on-hold column, because "available" is not a field the API
+  // sends: it is balance − onHold, and that subtraction belongs in decimal
+  // arithmetic on the server rather than in JS on these strings.
+  'wallets.onHoldNote': 'Reserved against a pending transfer.',
+
+  // ── Trading accounts (GET /admin/trading-accounts) ────────────────────────
   'tradingAccounts.title': 'Trading accounts',
   'tradingAccounts.subtitle':
-    'MT5 logins, their group and leverage, per client. MetaTrader is the system of record; this screen reads it once the endpoint exists.',
-  'tradingAccounts.pendingTitle': 'Waiting on the trading-account listing endpoint',
+    'Every client trading account, live and demo, with its MT5 login once MetaTrader has issued one.',
+  'tradingAccounts.loading': 'Loading trading accounts', // spinner label
+  'tradingAccounts.loadFailed': 'Could not load the trading accounts.',
+  'tradingAccounts.caption': 'Client trading accounts, with their owner and balance',
+  'tradingAccounts.empty': 'No trading accounts yet.',
+  'tradingAccounts.emptyFiltered': 'No trading accounts match these filters.',
+  'tradingAccounts.colOwner': 'Client',
+  'tradingAccounts.colLogin': 'MT5 login',
+  'tradingAccounts.colEnvironment': 'Environment',
+  'tradingAccounts.colCurrency': 'Currency',
+  'tradingAccounts.colBalance': 'Balance',
+  'tradingAccounts.colLeverage': 'Leverage',
+  'tradingAccounts.colStatus': 'Status',
+  'tradingAccounts.colOpened': 'Opened',
+  // NOT an em-dash in an empty cell: a login is genuinely absent until the
+  // bridge assigns one, and a blank reads as a rendering fault instead.
+  'tradingAccounts.noLogin': 'Not assigned',
+  'tradingAccounts.envLive': 'Live',
+  'tradingAccounts.envDemo': 'Demo',
+  'tradingAccounts.statusActive': 'Active',
+  'tradingAccounts.statusSuspended': 'Suspended',
+  'tradingAccounts.statusClosed': 'Closed',
+  'tradingAccounts.filterEnvironment': 'Environment',
+  'tradingAccounts.filterEnvironmentAll': 'Live and demo',
+  'tradingAccounts.filterStatus': 'Status',
+  'tradingAccounts.filterStatusAll': 'All statuses',
+  'tradingAccounts.filterClient': 'Client ID',
+  'tradingAccounts.filterClientPlaceholder': 'Paste a client ID',
+  'tradingAccounts.filterClientHint': 'An exact client id — this is not a name search.',
+  'tradingAccounts.clearFilters': 'Clear filters',
+  'tradingAccounts.noun': 'account', // pager: "1–25 of 40 accounts"
+  'tradingAccounts.nounPlural': 'accounts',
+  // `leverage` is nullable — it is unset until MT5 assigns a group.
+  'tradingAccounts.noLeverage': 'Not set',
 
   // ── Audit log (D-21) ──────────────────────────────────────────────────────
   'audit.title': 'Audit Log',
@@ -343,6 +400,13 @@ export const messages = {
   'clients.title': 'Clients',
   'clients.subtitle': 'Filterable client base — type, status, verification level',
   'clients.allTypes': 'All Types',
+  // Still rendered by `components/clients/client-filters.tsx`, which is being
+  // reworked concurrently — the key stays until that call site says otherwise.
+  // `clients.allCountries` is gone with the country FILTER it labelled. The
+  // options were built from the rows on screen — `users.country` is free text,
+  // so there was no vocabulary to offer — which meant they changed as the
+  // operator paged and a country visible in the table was often one the filter
+  // did not list. `clients.colCountry` stays: the COLUMN is still there.
   'clients.typeIndividual': 'Individual',
   'clients.typeReferral': 'Referral',
   'clients.typePartner': 'Partner / IB',
@@ -357,12 +421,48 @@ export const messages = {
   'clients.colName': 'Name',
   'clients.colEmail': 'Email',
   'clients.colType': 'Type',
-  'clients.colStatus': 'Status',
+  /*
+   * "Account status" rather than plain "Status", on the column AND the filter.
+   *
+   * The list now shows three things a reader could reasonably call a status —
+   * the account state, the KYC decision, and whether the email was confirmed —
+   * and the account one is the only that decides whether somebody can sign in.
+   * Leaving it named "Status" invited it to be read as "verified", which is the
+   * mistake that made an operator suspend the wrong client.
+   */
+  'clients.colStatus': 'Account status',
+  'clients.allStatusesAccount': 'All account states',
+  /*
+   * The KYC DECISION, distinct from `clients.colKycLevel` (the tier a decision
+   * granted) which this replaced on the table. A rejected submission leaves the
+   * level at 0, so the level alone cannot tell "never applied" from "refused" —
+   * and those are opposite pieces of work for a reviewer.
+   */
+  'clients.colKycStatus': 'KYC status',
+  'clients.allKycStatuses': 'All KYC statuses',
+  'clients.kycNotStarted': 'Not started',
+  'clients.kycInProgress': 'In progress',
+  'clients.kycSubmitted': 'Submitted',
+  'clients.kycUnderReview': 'Under review',
+  'clients.kycApproved': 'Approved',
+  'clients.kycRejected': 'Rejected',
+  /*
+   * Email confirmation, which is NOT a KYC state — an unconfirmed address is a
+   * self-service problem the client can fix themselves, while a KYC decision is
+   * work queued for a reviewer. Showing them in one column would send an
+   * operator chasing documents for somebody who only needs to click a link.
+   */
+  'clients.colEmailVerified': 'Email verified',
+  'clients.allEmailVerified': 'Email verified: any',
+  'clients.emailVerifiedYes': 'Verified',
+  'clients.emailVerifiedNo': 'Not verified',
   'clients.colKycLevel': 'KYC Level',
   'clients.colTags': 'Tags',
   'clients.unnamed': 'Unnamed',
   'clients.tagFilterLabel': 'Tag',
-  'clients.allCountries': 'All countries',
+  /* The "clear the tag filter" option — the select's equivalent of a second
+     click on a chip, which is how the chips used to be cleared. */
+  'clients.allTags': 'All tags',
   'clients.clearFilters': 'Clear filters',
   'clients.searchLabel': 'Search clients by name or email',
   'clients.levelVerified': 'L1 · Verified',
@@ -954,26 +1054,23 @@ export const messages = {
   'export.unavailable': 'Export not available yet',
 
   // ── Batch actions ─────────────────────────────────────────────────────────
-  /*
-   * These say "one at a time" out loud, because the operation IS one at a time
-   * — there is no bulk endpoint, so a batch is N separate requests that can
-   * half-succeed. See hooks/use-sequential-mutation.ts.
-   */
-  'batch.progress': 'Processing {done} of {total}…',
-  'batch.stop': 'Stop',
-  /* BOTH numbers: "2 failed" alone leaves "did the other eight go through?" */
-  'batch.partial': '{done} completed, {failed} could not be processed.',
-  'batch.rowFailed': 'This row was refused.',
-  'batch.approveSelected': 'Approve selected',
-  'batch.rejectSelected': 'Reject selected',
-  /*
-   * Named on the button, because the count is the consequence. "Approve" beside
-   * a selection of forty is a very different act from the same word beside one,
-   * and each of the forty is an individual irreversible decision.
-   */
-  'batch.confirmApprove':
-    'Approve {count} application(s)? Each is submitted separately and cannot be undone.',
-  'batch.confirmReject': 'Reject {count} application(s)? Each is submitted separately.',
+  //
+  // GONE, together with the machinery they labelled.
+  //
+  // The `batch.*` keys described a sequential-loop progress bar
+  // (`hooks/use-sequential-mutation.ts`, `components/batch-actions.tsx`) driven
+  // by selection checkboxes on the KYC and partner-application queues. BOTH
+  // selection columns were removed on request, which left the hook, the
+  // component and these strings with no call site at all — so all three were
+  // deleted rather than left behind. A catalogue entry nobody renders is a
+  // string somebody later rebuilds a feature around.
+  //
+  // Note what these never were: a bulk endpoint. Approval is one row at a time
+  // on both queues (`PATCH /admin/kyc/:userId/approve`,
+  // `PATCH /admin/ib/applications/:id/approve`), so the loop bought sequencing
+  // and honest partial-failure reporting, never atomicity. If a real batch
+  // route ever exists, these strings come back WITH it — a loop over a
+  // single-row endpoint should not get them back.
 
   // ── Shared / generic ──────────────────────────────────────────────────────
   'common.retry': 'Try again',
@@ -1033,6 +1130,40 @@ export const messages = {
   // one meant a migration plus a release; it is operator data now, and this is
   // the screen that owns it.
   'nav.currencies': 'Currencies',
+  // "Reconciliation", not "Ledger check": it is the accounting term an operator
+  // on a money system already knows, and the screen answers exactly the
+  // question that word asks.
+  'nav.reconciliation': 'Reconciliation',
+
+  // ── Reconciliation (§12.2) ─────────────────────────────────────────────────
+  'reconciliation.title': 'Reconciliation',
+  'reconciliation.subtitle':
+    'Every wallet balance checked against the sum of its own ledger entries.',
+  'reconciliation.loading': 'Checking the ledger…',
+  'reconciliation.loadFailed': 'Could not run the reconciliation.',
+  'reconciliation.runNow': 'Run now',
+  'reconciliation.running': 'Checking…',
+  'reconciliation.ok.title': 'The books balance',
+  'reconciliation.ok.body':
+    'All {count} wallet(s) agree with their ledgers to the cent, and every confirmed accrual has been credited.',
+  /*
+   * The mismatch copy names the NEXT ACTION, and deliberately does not offer to
+   * fix anything. A repair here would write a compensating entry for a cause
+   * nobody has diagnosed — the discrepancy stops being visible without ever
+   * having been explained.
+   */
+  'reconciliation.mismatch.title': 'The ledger and the balances disagree',
+  'reconciliation.mismatch.body':
+    'Investigate before making any correction. Nothing here is repaired automatically: a compensating entry written for an undiagnosed cause hides the problem instead of fixing it.',
+  'reconciliation.checkedAt': 'Checked {count} wallet(s) · last run {at}',
+  'reconciliation.caption': 'Wallets whose balance does not match their ledger',
+  'reconciliation.empty': 'No discrepancies — every wallet matches its ledger.',
+  'reconciliation.column.client': 'Client',
+  'reconciliation.column.wallet': 'Wallet',
+  'reconciliation.column.currency': 'Currency',
+  'reconciliation.column.balance': 'Wallet balance',
+  'reconciliation.column.ledgerSum': 'Ledger sum',
+  'reconciliation.column.difference': 'Difference',
   // The Finance section's other entries. "Transactions" rather than
   // "Withdrawals" because that is what an operator calls the queue they work
   // down; the domain underneath is still withdrawals.
@@ -1281,6 +1412,99 @@ export const messages = {
   'notifications.sampleAdminPartnerTitle': 'Partner applications',
   'notifications.sampleAdminPartnerBody':
     'You will be told when a client applies to the partner programme.',
+
+  // ── Dashboard (GET /admin/stats/*) ────────────────────────────────────────
+  //
+  // Every number on this screen is a real COUNT or SUM from the stats
+  // endpoints. Each section is permission-gated on the API and hidden here when
+  // the caller lacks the key, so several of these strings are only ever seen by
+  // some roles.
+  'dashboard.subtitle': 'Platform activity at a glance', // page strapline
+  'dashboard.periodLabel': 'Reporting period', // radiogroup accessible name
+  'dashboard.periodDays': 'Last {days} days', // 7 / 30 / 90 preset
+  'dashboard.scopedNotice':
+    'These figures cover only the clients assigned to you, not the whole platform.', // `scoped: true`
+  'dashboard.noSections':
+    'Your role does not include any of the areas this dashboard reports on. Ask an administrator for client, verification, withdrawal or partner access.', // `sections` came back empty
+  'dashboard.chartTableHint':
+    'Every value in this chart is also listed in the panel beside it or in the linked queue.', // sr-only relief route
+  'dashboard.refreshing': 'Updating figures…', // sr-only, during a refetch
+
+  // Headline tiles
+  'dashboard.tileTotalClients': 'Total clients',
+  'dashboard.tileTotalClientsHint': 'Every client you can see',
+  'dashboard.tileNewThisMonth': 'New this month',
+  'dashboard.tileNewThisMonthHint': '{today} today · {week} this week',
+  'dashboard.tileVerified': 'Verified clients',
+  'dashboard.tileVerifiedHint': '{notVerified} still unverified',
+  'dashboard.tilePendingKyc': 'KYC awaiting review',
+  'dashboard.tilePendingKycHint': 'Submitted and under review',
+  'dashboard.tilePendingWithdrawals': 'Withdrawals pending',
+  'dashboard.tilePendingWithdrawalsHint': '{amount} held',
+  'dashboard.tilePartners': 'IB partners',
+  'dashboard.tilePartnersHint': '{pending} applications waiting',
+
+  // Registrations chart
+  'dashboard.registrationsTitle': 'Client registrations',
+  'dashboard.registrationsDescription': 'New accounts per day over the selected period',
+  'dashboard.registrationsSeries': 'Registrations',
+  'dashboard.registrationsTotal': '{count} registered in this period',
+  'dashboard.registrationsError': 'Could not load the registration series.',
+  'dashboard.registrationsLoading': 'Loading registrations',
+
+  // KYC trend chart
+  'dashboard.kycTrendTitle': 'Verification throughput',
+  'dashboard.kycTrendDescription': 'Submissions against approvals — the gap is the backlog',
+  'dashboard.kycSubmitted': 'Submitted',
+  'dashboard.kycApproved': 'Approved',
+  'dashboard.kycTrendError': 'Could not load the verification trend.',
+  'dashboard.kycTrendLoading': 'Loading verification trend',
+
+  // KYC funnel
+  'dashboard.kycFunnelTitle': 'Verification stages',
+  'dashboard.kycFunnelDescription': 'Where every client currently sits',
+  'dashboard.kycClientsInStage': 'Clients',
+  'dashboard.kycNotStarted': 'Not started',
+  'dashboard.kycInProgress': 'In progress',
+  'dashboard.kycStatusSubmitted': 'Submitted',
+  'dashboard.kycUnderReview': 'Under review',
+  'dashboard.kycStatusApproved': 'Approved',
+  'dashboard.kycRejected': 'Rejected',
+
+  // Client status donut
+  'dashboard.clientSplitTitle': 'Account status',
+  'dashboard.clientSplitDescription': 'How the client base divides today',
+  'dashboard.statusActive': 'Active',
+  'dashboard.statusPending': 'Pending',
+  'dashboard.statusSuspended': 'Suspended',
+  'dashboard.clientsUnit': 'Clients',
+  'dashboard.noClientsYet': 'No clients yet.',
+
+  // Withdrawal charts
+  'dashboard.withdrawalVolumeTitle': 'Withdrawal volume',
+  'dashboard.withdrawalVolumeDescription': 'Value requested per day, by request date',
+  'dashboard.withdrawalVolumeTotal': '{amount} requested across {count} withdrawals',
+  'dashboard.withdrawalValue': 'Value',
+  'dashboard.withdrawalRequests': 'Requests',
+  'dashboard.withdrawalVolumeError': 'Could not load withdrawal volume.',
+  'dashboard.withdrawalVolumeLoading': 'Loading withdrawal volume',
+  'dashboard.withdrawalStateTitle': 'Withdrawals by state',
+  'dashboard.withdrawalStateDescription': 'Everything on the books, not just this period',
+  'dashboard.withdrawalPending': 'Pending',
+  'dashboard.withdrawalApproved': 'Approved',
+  'dashboard.withdrawalSuccess': 'Paid',
+  'dashboard.withdrawalFailure': 'Failed',
+  'dashboard.withdrawalRejected': 'Rejected',
+  'dashboard.requestCount': '{count} requests',
+  'dashboard.noWithdrawalsYet': 'No withdrawals yet.',
+
+  // Overview resource
+  'dashboard.overviewError': 'Could not load the headline figures.',
+  'dashboard.overviewLoading': 'Loading dashboard figures',
+
+  // Recent KYC list
+  'dashboard.recentKycTitle': 'Latest submissions',
+  'dashboard.recentKycDescription': 'Newest first — open one to review it',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */

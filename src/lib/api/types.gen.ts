@@ -583,6 +583,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/currencies/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export every currency as CSV, including disabled ones */
+        get: operations["AdminCurrenciesController_exportCurrencies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/currencies/{code}": {
         parameters: {
             query?: never;
@@ -667,6 +684,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ib/applications/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the partner application queue as CSV
+         * @description The same `status` filter as GET /admin/ib/applications, over every matching row rather than one page. Respects the reviewing admin’s client scope.
+         */
+        get: operations["AdminIbController_exportApplications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ib/applications/{id}/approve": {
         parameters: {
             query?: never;
@@ -719,6 +756,26 @@ export interface paths {
          * @description Joined to the person and their level, newest approval first.
          */
         get: operations["AdminIbController_listPartners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ib/partners/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the partner list as CSV
+         * @description Every partner the acting admin may see, joined to the person and their level. The list takes no filters, so neither does its export.
+         */
+        get: operations["AdminIbController_exportPartners"];
         put?: never;
         post?: never;
         delete?: never;
@@ -837,40 +894,6 @@ export interface paths {
          * @description PATCH, and `level` itself is not editable: it is the primary key and partner records reference it, so renumbering is a data migration rather than an edit.
          */
         patch: operations["AdminIbLevelsController_update"];
-        trace?: never;
-    };
-    "/v1/wallet": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The signed-in client's wallets — balance, on_hold and available, all as strings */
-        get: operations["WalletController_myWallets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/wallet/ledger": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The signed-in client's own ledger entries */
-        get: operations["WalletController_myLedger"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/v1/payments/methods": {
@@ -1012,6 +1035,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/payment-methods/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export every payment method as CSV, configured or not */
+        get: operations["AdminPaymentMethodsController_exportPaymentMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/payment-methods/{key}": {
         parameters: {
             query?: never;
@@ -1034,6 +1074,40 @@ export interface paths {
          * @description PATCH, and `key` itself is not editable: it is the primary key and `transactions.method_key` references it, so renaming is a data migration rather than an edit.
          */
         patch: operations["AdminPaymentMethodsController_update"];
+        trace?: never;
+    };
+    "/v1/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in client's wallets — balance, on_hold and available, all as strings */
+        get: operations["WalletController_myWallets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/wallet/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in client's own ledger entries */
+        get: operations["WalletController_myLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/kyc/config": {
@@ -1444,6 +1518,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/clients/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered client list as CSV
+         * @description Takes the SAME filters as GET /admin/clients and covers every matching row rather than one page. Paging parameters are not accepted. Client scope and field masking apply exactly as they do to the list.
+         */
+        get: operations["AdminClientsController_exportClients"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/clients/{id}": {
         parameters: {
             query?: never;
@@ -1493,6 +1587,23 @@ export interface paths {
         put?: never;
         /** Create a client tag */
         post: operations["AdminTagsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tags/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export the client tag vocabulary as CSV */
+        get: operations["AdminTagsController_exportTags"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1561,6 +1672,26 @@ export interface paths {
         };
         /** List all KYC submissions, optionally filtered by status */
         get: operations["AdminComplianceController_listKyc"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/kyc/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered KYC review queue as CSV
+         * @description The same `status` and `q` filters as GET /admin/kyc, over every matching row rather than one page. Carries the queue’s columns only — not the full submission.
+         */
+        get: operations["AdminComplianceController_exportKyc"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1812,6 +1943,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/roles/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export the RBAC role definitions as CSV */
+        get: operations["AdminRbacController_exportRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/roles/{id}": {
         parameters: {
             query?: never;
@@ -1839,6 +1987,23 @@ export interface paths {
         };
         /** List admin accounts (requires users.view) */
         get: operations["AdminRbacController_listAdmins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/admin-users/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export the administrator directory as CSV */
+        get: operations["AdminRbacController_exportAdmins"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1901,6 +2066,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/audit-log/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered admin action log as CSV (master admin only)
+         * @description The same `action` and `subjectType` filters as GET /admin/audit-log, over every matching row rather than one page. The `details` column is the jsonb payload, serialised whole.
+         */
+        get: operations["AdminAuditController_exportAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/audit-log": {
         parameters: {
             query?: never;
@@ -1948,6 +2133,26 @@ export interface paths {
          * @description Every change is written to the admin action log with its before and after value, and turning a control OFF raises an alert — once at the moment of the change, and again on every request made while it stays off.
          */
         put: operations["AdminSecuritySettingsController_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/withdrawals/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered withdrawal queue as CSV
+         * @description The same `state` filter as GET /admin/withdrawals, over every matching row rather than one page. Amounts are the exact decimal strings the ledger holds — never rounded, never locale-formatted (§6.1).
+         */
+        get: operations["AdminMoneyController_exportWithdrawals"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2055,6 +2260,166 @@ export interface paths {
         };
         /** Append-only ledger, filterable for reconciliation */
         get: operations["AdminMoneyController_listLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/stats/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard headline counters (clients, KYC, withdrawals, IB)
+         * @description Each section is gated on its own permission and is ABSENT when the caller lacks it — deliberately different from present-and-zero, so a screen can distinguish "hidden from you" from "there are none". `sections` lists what came back. Every counter is a real COUNT/SUM in SQL, restricted to the clients this administrator may see; `scoped` says whether that restriction is in force. Withdrawal amounts are STRINGS.
+         */
+        get: operations["AdminStatsController_getOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/stats/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Registrations per day for the last N days
+         * @description Zero-filled: every calendar day in the window is present, and a day with no registrations comes back as 0 rather than being omitted. A chart fed only the days that have data draws the gaps closed and shows steady growth through an outage.
+         */
+        get: operations["AdminStatsController_getRegistrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/stats/kyc-trend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * KYC submissions and approvals per day for the last N days
+         * @description Zero-filled like the registration series. `submitted` buckets on submitted_at and `approved` on reviewed_at where the status is approved — a submission made Monday and approved Thursday counts once in each, on its own day. A rejection reviewed that day is NOT counted as an approval.
+         */
+        get: operations["AdminStatsController_getKycTrend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/stats/withdrawal-volume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Withdrawal amount and count per day for the last N days
+         * @description Zero-filled; a day with no withdrawals is `{count: 0, totalAmount: "0"}`. Amounts are STRINGS summed by Postgres over NUMERIC(28,8) and cast to text — never parsed into a JavaScript number anywhere on the path (ARCHITECTURE §6.1). Bucketed on when the withdrawal was requested, the only date defined for a pending or rejected one.
+         */
+        get: operations["AdminStatsController_getWithdrawalVolume"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/wallets/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered wallet list as CSV
+         * @description The same `userId` and `currency` filters as GET /admin/wallets, over every matching row rather than one page. Balances are the exact decimal strings the column holds — never rounded, never locale-formatted (§6.1). Client scope applies exactly as it does to the list.
+         */
+        get: operations["AdminHoldingsController_exportWallets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/wallets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every client wallet, with its owner (balances are strings)
+         * @description `balance` and `onHold` are NUMERIC(28,8) and cross this boundary as STRINGS. Do not coerce them: Number() on a value of this width loses precision before formatting even starts (§6.1).
+         */
+        get: operations["AdminHoldingsController_listWallets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trading-accounts/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered trading-account list as CSV
+         * @description The same filters as GET /admin/trading-accounts, over every matching row rather than one page. Balances are the exact decimal strings the column holds. Client scope applies exactly as it does to the list.
+         */
+        get: operations["AdminHoldingsController_exportTradingAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trading-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every client trading account, with its owner (balances are strings)
+         * @description `balance` is CRM-owned until the MT5 bridge lands and crosses this boundary as a STRING. `login` is NULL until MT5 issues one, and is a string rather than a number because leading zeros are significant to the bridge.
+         */
+        get: operations["AdminHoldingsController_listTradingAccounts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2445,54 +2810,6 @@ export interface components {
              */
             order: number[];
         };
-        WalletDto: {
-            id: string;
-            userId: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
-            /**
-             * @description Decimal string (§6.1).
-             * @example 700.00000000
-             */
-            balance: string;
-            /**
-             * @description Reserved against pending withdrawals.
-             * @example 0.00000000
-             */
-            onHold: string;
-            /**
-             * @description balance − onHold, computed server-side so both sides agree.
-             * @example 700.00000000
-             */
-            available: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        LedgerEntryDto: {
-            id: string;
-            walletId: string;
-            userId: string;
-            /** @description Signed monetary value as a string */
-            amount: string;
-            /** @description Running balance after this entry, as a string */
-            balanceAfter: string;
-            /** @enum {string} */
-            entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment";
-            referenceType: string;
-            referenceId: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
-            /** Format: date-time */
-            createdAt: string;
-        };
-        LedgerListResponseDto: {
-            items: components["schemas"]["LedgerEntryDto"][];
-            nextCursor: string | null;
-            /** @description Total matching entries, ignoring pagination. */
-            total: number;
-            page: number;
-            limit: number;
-        };
         PaymentMethodDto: {
             /**
              * @description A stable machine key. Never renamed.
@@ -2692,6 +3009,54 @@ export interface components {
             maxAmount?: string;
             enabled?: boolean;
             sortOrder?: number;
+        };
+        WalletDto: {
+            id: string;
+            userId: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /**
+             * @description Decimal string (§6.1).
+             * @example 700.00000000
+             */
+            balance: string;
+            /**
+             * @description Reserved against pending withdrawals.
+             * @example 0.00000000
+             */
+            onHold: string;
+            /**
+             * @description balance − onHold, computed server-side so both sides agree.
+             * @example 700.00000000
+             */
+            available: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        LedgerEntryDto: {
+            id: string;
+            walletId: string;
+            userId: string;
+            /** @description Signed monetary value as a string */
+            amount: string;
+            /** @description Running balance after this entry, as a string */
+            balanceAfter: string;
+            /** @enum {string} */
+            entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment";
+            referenceType: string;
+            referenceId: string;
+            /** @enum {string} */
+            currency: "USD" | "USDT";
+            /** Format: date-time */
+            createdAt: string;
+        };
+        LedgerListResponseDto: {
+            items: components["schemas"]["LedgerEntryDto"][];
+            nextCursor: string | null;
+            /** @description Total matching entries, ignoring pagination. */
+            total: number;
+            page: number;
+            limit: number;
         };
         KycFieldConfigDto: {
             /** @example f-1 */
@@ -2974,9 +3339,22 @@ export interface components {
             lastName?: string;
             /** @enum {string} */
             type: "individual" | "referral" | "partner";
-            /** @enum {string} */
+            /**
+             * @description The ACCOUNT state, and only that: whether this person may sign in. It is deliberately not a verification state — read `emailVerified` and `kycStatus` for those. "pending" here means the account itself is not yet active, and says nothing about documents.
+             * @enum {string}
+             */
             status: "active" | "pending" | "suspended";
-            /** @enum {number} */
+            /** @description Whether the client confirmed the address they registered with. Separate from KYC: an unconfirmed email is a self-service problem the client can fix, while a KYC decision is work for a reviewer. */
+            emailVerified: boolean;
+            /**
+             * @description The client's identity-verification state, joined from kyc_submissions. Total: a client who never began verification reads as 'not_started' rather than null.
+             * @enum {string}
+             */
+            kycStatus: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
+            /**
+             * @description The verification TIER the account has reached (0 or 1), which gates what the client may do. Not a synonym for `kycStatus`: a rejected submission leaves the level at 0, and the reason lives in the status.
+             * @enum {number}
+             */
             verificationLevel: 0 | 1;
             country?: string;
             /** Format: date-time */
@@ -3411,6 +3789,239 @@ export interface components {
         SettleWithdrawalDto: {
             /** @example wise-tx-9f3a1c */
             providerRef: string;
+        };
+        WalletDiscrepancyDto: {
+            walletId: string;
+            userId: string;
+            currency: string;
+            /**
+             * @description What the wallet row claims. Monetary value — always a string.
+             * @example 150.00000000
+             */
+            balance: string;
+            /**
+             * @description What its ledger entries actually sum to. Monetary value — always a string.
+             * @example 149.00000000
+             */
+            ledgerSum: string;
+            /**
+             * @description balance − ledgerSum, SIGNED so the direction is visible: positive means the wallet claims more than the ledger justifies. Monetary value — always a string.
+             * @example 1.00000000
+             */
+            difference: string;
+        };
+        ReconciliationReportDto: {
+            /** @description When this run completed (ISO 8601). */
+            checkedAt: string;
+            /** @description How many wallets were compared against their ledgers. */
+            walletsChecked: number;
+            /** @description Empty when every wallet agrees with its ledger. */
+            walletDiscrepancies: components["schemas"]["WalletDiscrepancyDto"][];
+            /** @description True when nothing is wrong. Read this rather than testing the array length — it is the field the service decides, and a future check can make it false without adding a wallet discrepancy. */
+            balanced: boolean;
+        };
+        ClientRegistrationWindowDto: {
+            /** @description Registered since midnight UTC today. */
+            today: number;
+            /** @description Registered since the start of the current ISO week (UTC). */
+            thisWeek: number;
+            /** @description Registered since the first of the current month (UTC). */
+            thisMonth: number;
+        };
+        ClientStatusCountsDto: {
+            active: number;
+            pending: number;
+            suspended: number;
+        };
+        ClientVerificationCountsDto: {
+            /** @description verification_level >= 1. */
+            verified: number;
+            /** @description verification_level < 1. */
+            notVerified: number;
+        };
+        ClientStatsDto: {
+            /** @description Every client visible to the calling admin. */
+            total: number;
+            registered: components["schemas"]["ClientRegistrationWindowDto"];
+            byStatus: components["schemas"]["ClientStatusCountsDto"];
+            byVerification: components["schemas"]["ClientVerificationCountsDto"];
+        };
+        KycStatsDto: {
+            /**
+             * @description Submission count per kyc_status (not_started, in_progress, submitted, under_review, approved, rejected). ALL of them are always present; a status with no submissions is 0, never absent — absent and zero look identical to a chart and mean opposite things to a reviewer.
+             * @example {
+             *       "not_started": 0,
+             *       "in_progress": 0,
+             *       "submitted": 0,
+             *       "under_review": 0,
+             *       "approved": 0,
+             *       "rejected": 0
+             *     }
+             */
+            byStatus: {
+                [key: string]: number;
+            };
+        };
+        WithdrawalStateTotalDto: {
+            /** @enum {string} */
+            state: "pending" | "approved" | "success" | "failure" | "rejected";
+            count: number;
+            /**
+             * @description Monetary value — ALWAYS a string, never a number. NUMERIC(28,8) at rest; Number()/parseFloat on this field truncates past 2^53 (ARCHITECTURE §6.1).
+             * @example 12500.00000000
+             */
+            totalAmount: string;
+        };
+        WithdrawalStatsDto: {
+            /** @description One entry per transaction_state, always all of them, covering withdrawals only (direction = withdrawal). Deposits are excluded. */
+            byState: components["schemas"]["WithdrawalStateTotalDto"][];
+        };
+        IbStatsDto: {
+            /**
+             * @description Application count per ib_application_status (pending, approved, rejected). All values always present.
+             * @example {
+             *       "pending": 0,
+             *       "approved": 0,
+             *       "rejected": 0
+             *     }
+             */
+            applications: {
+                [key: string]: number;
+            };
+            /** @description Rows in ib_accounts — partners on the books, active or not. */
+            partners: number;
+        };
+        StatsOverviewDto: {
+            /** @description Present only with users.view. ABSENT — not zeroed — otherwise. */
+            clients?: components["schemas"]["ClientStatsDto"];
+            /** @description Present only with kyc.view or kyc.review. ABSENT otherwise. */
+            kyc?: components["schemas"]["KycStatsDto"];
+            /** @description Present only with withdrawals.view. ABSENT otherwise. */
+            withdrawals?: components["schemas"]["WithdrawalStatsDto"];
+            /** @description Present only with ib.view. ABSENT otherwise. */
+            ib?: components["schemas"]["IbStatsDto"];
+            /**
+             * @description The sections this response actually carries, so a screen reads a list rather than probing for undefined keys.
+             * @example [
+             *       "clients",
+             *       "kyc"
+             *     ]
+             */
+            sections: string[];
+            /** @description True when the calling admin is restricted to a subset of clients, in which case every number above counts only THEIR clients. A screen showing a headline total to a scoped admin without saying so invites it to be read as a platform total. */
+            scoped: boolean;
+        };
+        RegistrationPointDto: {
+            /**
+             * @description UTC calendar day, YYYY-MM-DD.
+             * @example 2026-08-01
+             */
+            date: string;
+            /** @description Registrations that day. 0 for a day with none — never omitted. */
+            count: number;
+        };
+        RegistrationSeriesDto: {
+            /** @description The window actually served, echoed back. */
+            days: number;
+            /** @description Exactly `days` entries, oldest first, one per calendar day with no gaps. */
+            points: components["schemas"]["RegistrationPointDto"][];
+            /** @description True when these counts cover only the actor’s own clients. */
+            scoped: boolean;
+        };
+        KycTrendPointDto: {
+            /** @example 2026-08-01 */
+            date: string;
+            /** @description Submissions whose submitted_at falls on this day. */
+            submitted: number;
+            /** @description Submissions REVIEWED on this day whose status is approved. A rejection reviewed the same day is not counted here. */
+            approved: number;
+        };
+        KycTrendSeriesDto: {
+            days: number;
+            /** @description Exactly `days` entries, no gaps. */
+            points: components["schemas"]["KycTrendPointDto"][];
+            scoped: boolean;
+        };
+        WithdrawalVolumePointDto: {
+            /** @example 2026-08-01 */
+            date: string;
+            /** @description Withdrawal requests created that day. */
+            count: number;
+            /**
+             * @description Monetary value — ALWAYS a string, never a number (§6.1). "0" for a day with no withdrawals, never null.
+             * @example 4200.50000000
+             */
+            totalAmount: string;
+        };
+        WithdrawalVolumeSeriesDto: {
+            days: number;
+            /** @description Exactly `days` entries, no gaps. Bucketed on when the withdrawal was REQUESTED (created_at), which is the only date defined for a pending or rejected request. */
+            points: components["schemas"]["WithdrawalVolumePointDto"][];
+            scoped: boolean;
+        };
+        HoldingOwnerDto: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+        };
+        WalletRowDto: {
+            id: string;
+            /**
+             * @description Monetary value — ALWAYS a string, never a number. NUMERIC(28,8) exceeds what a JavaScript number represents exactly, so Number()/parseFloat lose value before any formatting starts (§6.1).
+             * @example 250.00000000
+             */
+            balance: string;
+            /**
+             * @description Reserved against a pending transfer — a string for the same reason as `balance`. Available = balance − onHold, and that subtraction belongs in decimal arithmetic.
+             * @example 0.00000000
+             */
+            onHold: string;
+            /** @example USD */
+            currency: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            user: components["schemas"]["HoldingOwnerDto"];
+        };
+        WalletListResponseDto: {
+            items: components["schemas"]["WalletRowDto"][];
+            nextCursor: string | null;
+            total: number;
+            page: number;
+            limit: number;
+        };
+        TradingAccountRowDto: {
+            id: string;
+            /** @description The MT5 login, once there is an MT5 to issue one. NULL until assigned, and a STRING rather than a number because leading zeros are significant to the bridge. */
+            login?: string | null;
+            mt5Group?: string | null;
+            /** @enum {string} */
+            environment: "live" | "demo";
+            /** @example USD */
+            currency: string;
+            /**
+             * @description Monetary value — ALWAYS a string. CRM-owned until the MT5 bridge lands, at which point it becomes a mirror of MT5 or is removed (see the schema comment).
+             * @example 1000.00000000
+             */
+            balance: string;
+            tier?: string | null;
+            leverage?: number | null;
+            /** @enum {string} */
+            status: "active" | "suspended" | "closed";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            user: components["schemas"]["HoldingOwnerDto"];
+        };
+        TradingAccountListResponseDto: {
+            items: components["schemas"]["TradingAccountRowDto"][];
+            nextCursor: string | null;
+            total: number;
+            page: number;
+            limit: number;
         };
         ErrorResponseDto: {
             /**
@@ -4226,6 +4837,28 @@ export interface operations {
             };
         };
     };
+    AdminCurrenciesController_exportCurrencies: {
+        parameters: {
+            query?: {
+                format?: "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file, named `currencies-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
     AdminCurrenciesController_remove: {
         parameters: {
             query?: never;
@@ -4314,10 +4947,12 @@ export interface operations {
     };
     AdminIbController_list: {
         parameters: {
-            query: {
-                status: string;
-                page: string;
-                limit: string;
+            query?: {
+                status?: "pending" | "approved" | "rejected";
+                page?: string;
+                limit?: string;
+                sort?: "submittedAt" | "status" | "userEmail" | "userFirstName";
+                order?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -4330,6 +4965,29 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AdminIbController_exportApplications: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                status?: "pending" | "approved" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file, named `ib-applications-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
             };
         };
     };
@@ -4385,9 +5043,11 @@ export interface operations {
     };
     AdminIbController_listPartners: {
         parameters: {
-            query: {
-                page: string;
-                limit: string;
+            query?: {
+                page?: string;
+                limit?: string;
+                sort?: "approvedAt" | "level" | "referralCode" | "userEmail" | "userFirstName";
+                order?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -4400,6 +5060,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AdminIbController_exportPartners: {
+        parameters: {
+            query?: {
+                format?: "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file, named `ib-partners-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
             };
         };
     };
@@ -4583,48 +5265,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbLevelDto"];
-                };
-            };
-        };
-    };
-    WalletController_myWallets: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WalletDto"][];
-                };
-            };
-        };
-    };
-    WalletController_myLedger: {
-        parameters: {
-            query: {
-                entryType: string;
-                limit: string;
-                cursor: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LedgerListResponseDto"];
                 };
             };
         };
@@ -4829,6 +5469,28 @@ export interface operations {
             };
         };
     };
+    AdminPaymentMethodsController_exportPaymentMethods: {
+        parameters: {
+            query?: {
+                format?: "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file, named `payment-methods-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
     AdminPaymentMethodsController_remove: {
         parameters: {
             query?: never;
@@ -4869,6 +5531,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentMethodDto"];
+                };
+            };
+        };
+    };
+    WalletController_myWallets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletDto"][];
+                };
+            };
+        };
+    };
+    WalletController_myLedger: {
+        parameters: {
+            query: {
+                entryType: string;
+                limit: string;
+                cursor: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerListResponseDto"];
                 };
             };
         };
@@ -5381,6 +6085,10 @@ export interface operations {
                 level?: 0 | 1;
                 /** @description Exact match on the country tag. */
                 country?: string;
+                /** @description Omit to include both. Distinct from KYC — see ClientRowDto. */
+                emailVerified?: "true" | "false";
+                /** @description `not_started` matches clients with no submission row at all. */
+                kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
                 sort?: "createdAt" | "email" | "firstName" | "status" | "type" | "verificationLevel" | "country";
@@ -5398,6 +6106,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminClientsController_exportClients: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                /** @description Search email and name. */
+                q?: string;
+                type?: "individual" | "referral" | "partner";
+                status?: "active" | "pending" | "suspended";
+                level?: 0 | 1;
+                /** @description Exact match on the country tag. */
+                country?: string;
+                /** @description Omit to include both. Distinct from KYC — see ClientRowDto. */
+                emailVerified?: "true" | "false";
+                /** @description `not_started` matches clients with no submission row at all. */
+                kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
+                /** @description Tag SLUG, not id (ADM-14). */
+                tag?: string;
+                sort?: "createdAt" | "email" | "firstName" | "status" | "type" | "verificationLevel" | "country";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `clients-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
         };
@@ -5484,6 +6229,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientTagDto"];
+                };
+            };
+        };
+    };
+    AdminTagsController_exportTags: {
+        parameters: {
+            query?: {
+                format?: "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file, named `tags-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
         };
@@ -5599,11 +6366,14 @@ export interface operations {
     };
     AdminComplianceController_listKyc: {
         parameters: {
-            query: {
-                status: string;
-                q: string;
-                page: string;
-                limit: string;
+            query?: {
+                status?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
+                /** @description Search applicant email and name. */
+                q?: string;
+                page?: string;
+                limit?: string;
+                sort?: "submittedAt" | "status" | "createdAt" | "userEmail" | "userFirstName";
+                order?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -5617,6 +6387,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KycListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminComplianceController_exportKyc: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                status?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
+                /** @description Search email and name. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `kyc-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
         };
@@ -5978,7 +6773,10 @@ export interface operations {
     };
     AdminRbacController_listRoles: {
         parameters: {
-            query?: never;
+            query?: {
+                sort?: "name" | "createdAt";
+                order?: "asc" | "desc";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6014,6 +6812,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoleResponseDto"];
+                };
+            };
+        };
+    };
+    AdminRbacController_exportRoles: {
+        parameters: {
+            query?: {
+                format?: "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file, named `roles-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
         };
@@ -6066,19 +6886,53 @@ export interface operations {
     };
     AdminRbacController_listAdmins: {
         parameters: {
-            query?: never;
+            query?: {
+                sort?: "name" | "email" | "role" | "status" | "createdAt";
+                order?: "asc" | "desc";
+                /** @description Opting into paging switches the response to the envelope shape. */
+                page?: string;
+                limit?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
+            /** @description A bare array by default. With `page` or `limit`, the paginated envelope `{ items, total, page, limit }` instead. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminProfileDto"][];
+                    "application/json": components["schemas"]["AdminProfileDto"][] | {
+                        items: components["schemas"]["AdminProfileDto"][];
+                        total: number;
+                        page: number;
+                        limit: number;
+                    };
+                };
+            };
+        };
+    };
+    AdminRbacController_exportAdmins: {
+        parameters: {
+            query?: {
+                format?: "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file, named `admin-users-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
         };
@@ -6152,14 +7006,41 @@ export interface operations {
             };
         };
     };
+    AdminAuditController_exportAuditLog: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                action?: string;
+                subjectType?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `audit-log-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
     AdminAuditController_listAuditLog: {
         parameters: {
-            query: {
-                page: string;
-                limit: string;
-                cursor: string;
-                action: string;
-                subjectType: string;
+            query?: {
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                action?: string;
+                subjectType?: string;
+                sort?: "createdAt" | "action" | "actorEmail";
+                order?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -6221,13 +7102,41 @@ export interface operations {
             };
         };
     };
+    AdminMoneyController_exportWithdrawals: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `withdrawals-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
     AdminMoneyController_listWithdrawals: {
         parameters: {
-            query: {
-                state: string;
-                page: string;
-                limit: string;
-                cursor: string;
+            query?: {
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Legacy offset paging. Prefer cursor. */
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description amount sorts on the NUMERIC column in SQL — never cast, never in JS (§6). */
+                sort?: "createdAt" | "amount" | "state" | "userEmail" | "userFirstName";
+                order?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -6338,7 +7247,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ReconciliationReportDto"];
+                };
             };
         };
     };
@@ -6364,6 +7275,211 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LedgerListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminStatsController_getOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatsOverviewDto"];
+                };
+            };
+        };
+    };
+    AdminStatsController_getRegistrations: {
+        parameters: {
+            query?: {
+                /** @description Window length, 1–365. Defaults to 30. An out-of-range or non-integer value is a 400 naming the range — never a silent clamp (R-2.5). */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationSeriesDto"];
+                };
+            };
+        };
+    };
+    AdminStatsController_getKycTrend: {
+        parameters: {
+            query?: {
+                /** @description Window length, 1–365. Defaults to 30. Out of range is a 400 (R-2.5). */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycTrendSeriesDto"];
+                };
+            };
+        };
+    };
+    AdminStatsController_getWithdrawalVolume: {
+        parameters: {
+            query?: {
+                /** @description Window length, 1–365. Defaults to 30. Out of range is a 400 (R-2.5). */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalVolumeSeriesDto"];
+                };
+            };
+        };
+    };
+    AdminHoldingsController_exportWallets: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                /** @description Wallets of one client. */
+                userId?: string;
+                /** @description Exact match on the wallet code. */
+                currency?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `wallets-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
+    AdminHoldingsController_listWallets: {
+        parameters: {
+            query?: {
+                /** @description Wallets of one client. */
+                userId?: string;
+                /** @description Exact match on the wallet code. */
+                currency?: string;
+                /** @description Legacy offset paging. Prefer cursor. */
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description Counting is a full scan. */
+                withTotal?: string;
+                /** @description balance sorts on the NUMERIC column in SQL — never cast, never in JS (§6). */
+                sort?: "createdAt" | "balance" | "currency" | "userEmail" | "userFirstName";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminHoldingsController_exportTradingAccounts: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                /** @description Accounts of one client. */
+                userId?: string;
+                environment?: "live" | "demo";
+                status?: "active" | "suspended" | "closed";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `trading-accounts-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
+    AdminHoldingsController_listTradingAccounts: {
+        parameters: {
+            query?: {
+                /** @description Accounts of one client. */
+                userId?: string;
+                environment?: "live" | "demo";
+                status?: "active" | "suspended" | "closed";
+                /** @description Legacy offset paging. Prefer cursor. */
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description Counting is a full scan. */
+                withTotal?: string;
+                /** @description login is nullable and pins NULLS LAST in both directions. */
+                sort?: "createdAt" | "balance" | "login" | "currency" | "status" | "environment" | "userEmail" | "userFirstName";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountListResponseDto"];
                 };
             };
         };

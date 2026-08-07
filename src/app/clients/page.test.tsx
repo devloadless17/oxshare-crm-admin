@@ -61,12 +61,35 @@ const searchParams = { current: new URLSearchParams() };
  */
 const listeners = new Set<() => void>();
 
-const replace = vi.fn((url: string) => {
+/**
+ * How long the mock router takes to APPLY a `replace`.
+ *
+ * `0` means synchronous, which is what most tests here want and what the mock
+ * has always done. The real `router.replace` is NOT synchronous — it schedules
+ * a navigation and `useSearchParams()` keeps returning the old value until it
+ * lands — and that gap is the entire mechanism behind the lost-characters bug
+ * the search box had. A test that only ever runs the synchronous mock cannot
+ * tell a URL-controlled input from a locally-controlled one, because with zero
+ * latency there is no window in which the stale value can be re-applied.
+ *
+ * Set it per-test (see "typing survives a slow router") to get the real thing.
+ */
+const routerLatencyMs = { current: 0 };
+
+const applyUrl = (url: string) => {
   searchParams.current = new URLSearchParams(url.split('?')[1] ?? '');
   // React requires a CHANGED snapshot to re-render; the URLSearchParams
   // identity alone is not enough because getSnapshot must be cheap and stable.
   snapshot += 1;
   for (const notify of listeners) notify();
+};
+
+const replace = vi.fn((url: string) => {
+  if (routerLatencyMs.current === 0) {
+    applyUrl(url);
+    return;
+  }
+  setTimeout(() => applyUrl(url), routerLatencyMs.current);
 });
 
 let snapshot = 0;
@@ -114,7 +137,15 @@ function client(over: Record<string, unknown> = {}) {
     firstName: 'John',
     lastName: 'Doe',
     type: 'individual',
+    // The ACCOUNT state — whether this person may sign in. Distinct from the
+    // two verification fields below, which is the whole point of the change
+    // these fixtures cover.
     status: 'active',
+    // Both are non-optional on every real row: `kycStatus` is TOTAL (a client
+    // who never began reads 'not_started', never null), so a fixture omitting
+    // them would describe a response the API does not send.
+    emailVerified: true,
+    kycStatus: 'approved',
     verificationLevel: 1,
     createdAt: '2026-08-03T14:51:46.899Z',
     ...over,
@@ -138,6 +169,7 @@ function page(rows: Record<string, unknown>[], over: Record<string, unknown> = {
 beforeEach(() => {
   vi.clearAllMocks();
   permissions.current = ['*'];
+  routerLatencyMs.current = 0;
   searchParams.current = new URLSearchParams();
   // Bumped rather than zeroed: a stale subscriber from the previous test would
   // see an unchanged snapshot and skip the render that clears its inputs.
@@ -287,6 +319,71 @@ describe('finding a client — search, filters and sort reach the API', () => {
     expect(url).toContain('q=alpha');
   });
 
+  /**
+   * THE BUG THIS PINS: the search box used to LOSE CHARACTERS.
+   *
+   * It was fully controlled by the URL — `value={values.q}`, with every
+   * keystroke doing a `router.replace`. `replace` is asynchronous, so between
+   * the keypress and the re-render the input still held the PREVIOUS value;
+   * React re-applied that stale value to a controlled input and the character
+   * was gone. Typing at any speed sent a subset of what was typed.
+   *
+   * The box keeps LOCAL state now and writes the URL on a debounce, so the term
+   * that reaches the API is the whole term. Asserting the last request rather
+   * than the last `replace` is deliberate: what matters is not that a URL was
+   * written but that the SERVER was asked for "alexandra" — a box that dropped
+   * letters would ask for "aeadra" and still have written a URL.
+   */
+  it('reaches the API with the WHOLE term, not a subset of the keystrokes', async () => {
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    await userEvent.type(screen.getByRole('searchbox'), 'alexandra');
+
+    // Long enough that a dropped character is overwhelmingly likely if the
+    // input is fighting the router: nine keystrokes, each its own round trip
+    // under the old wiring.
+    await waitFor(() => expect(getClients.mock.calls.at(-1)?.[0]?.q).toBe('alexandra'), {
+      timeout: 3000,
+    });
+    // And the box still shows what was typed — the other half of the bug was
+    // the operator watching their own text disappear as they typed it.
+    expect(screen.getByRole('searchbox')).toHaveValue('alexandra');
+  });
+
+  /**
+   * THE REGRESSION TEST FOR THE LOST CHARACTERS — and the one that needs a SLOW
+   * router to mean anything.
+   *
+   * The box was fully controlled by the URL: `value={values.q}`, every keystroke
+   * doing a `router.replace`. `replace` is asynchronous, so between the keypress
+   * and the navigation landing, `useSearchParams()` still returned the PREVIOUS
+   * value — React re-applied that stale value to the controlled input and the
+   * character the operator had just typed was gone. What reached the API was
+   * some subset of what was typed, and the operator watched their own text
+   * disappear as they wrote it.
+   *
+   * With `routerLatencyMs` at 0 this passes either way, which is exactly why the
+   * default mock never caught it. At 50ms the round trip is slower than typing,
+   * which is the real condition, and a URL-controlled input drops letters here.
+   */
+  it('keeps every character when the router is SLOW to apply the URL', async () => {
+    routerLatencyMs.current = 50;
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    // `delay: 10` types faster than the 50ms router — the ordering that made
+    // the old input lose characters.
+    await userEvent.type(screen.getByRole('searchbox'), 'alexandra', { delay: 10 });
+
+    // The box shows what was typed, in full. This is the half the operator sees.
+    expect(screen.getByRole('searchbox')).toHaveValue('alexandra');
+    // …and the whole term is what the server is eventually asked for.
+    await waitFor(() => expect(getClients.mock.calls.at(-1)?.[0]?.q).toBe('alexandra'), {
+      timeout: 4000,
+    });
+  });
+
   it('puts a filter in the URL, so a segment can be linked to', async () => {
     // The forcing requirement: `/tags` shows a client count per tag and has to
     // make it clickable.
@@ -396,6 +493,151 @@ describe('finding a client — search, filters and sort reach the API', () => {
   });
 });
 
+/**
+ * THREE THINGS A READER MIGHT CALL "STATUS", and they are not the same thing.
+ *
+ * `status` is the ACCOUNT state (may this person sign in), `kycStatus` is the
+ * identity decision, and `emailVerified` is a self-service step the client can
+ * complete themselves. The list used to show a "KYC level" column instead of
+ * the decision, which could not tell "never applied" from "applied and was
+ * refused" — a rejection leaves the level at 0, exactly where someone who has
+ * done nothing sits. Those are opposite pieces of work for a reviewer.
+ */
+describe('verification is shown separately from the account state', () => {
+  it('shows the KYC DECISION, not just the tier it granted', async () => {
+    getClients.mockResolvedValue(page([client({ kycStatus: 'rejected', verificationLevel: 0 })]));
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    // The row that the old "KYC level" column rendered as "L0 · Unverified" —
+    // indistinguishable from a client who never applied.
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
+  });
+
+  it('shows email verification as its own column, distinct from KYC', async () => {
+    // An unconfirmed email is fixed by the client clicking a link; a KYC
+    // decision is work for a reviewer. Folding them together would send an
+    // operator chasing documents for somebody who only needed their inbox.
+    getClients.mockResolvedValue(page([client({ emailVerified: false, kycStatus: 'approved' })]));
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    expect(screen.getByRole('columnheader', { name: /email verified/i })).toBeInTheDocument();
+    expect(screen.getByText('Not verified')).toBeInTheDocument();
+    // The KYC decision is still its own, opposite, value on the same row.
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+  });
+
+  it('passes kycStatus and emailVerified through to the API', async () => {
+    searchParams.current = new URLSearchParams('kycStatus=under_review&emailVerified=false');
+    renderWithProviders(<ClientsPage />);
+
+    await waitFor(() => expect(getClients).toHaveBeenCalled());
+    expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({
+      kycStatus: 'under_review',
+      emailVerified: 'false',
+    });
+  });
+
+  it('does NOT offer a sort on either — the API has no such key', async () => {
+    /*
+     * Neither is in the backend's `CLIENT_SORT_COLUMNS`: both are joined or
+     * derived rather than columns on `users`. R-2.5 makes an unrecognised sort
+     * a 400 rather than a silent fallback, so a sortable header here would turn
+     * a click into an error page instead of rows.
+     */
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    for (const name of [/^kyc status$/i, /^email verified$/i]) {
+      const header = screen.getByRole('columnheader', { name });
+      expect(within(header).queryByRole('button')).toBeNull();
+    }
+  });
+});
+
+/**
+ * The tag filter is a SELECT, at the operator's request — it was a row of
+ * toggle chips.
+ *
+ * Still ONE tag at a time, which the select makes structural rather than a
+ * convention: the API takes a single `?tag=`, because AND and OR are both
+ * plausible readings of a multi-tag filter and shipping the wrong one silently
+ * is worse than not shipping it (D-15).
+ */
+describe('the tag filter', () => {
+  beforeEach(() => {
+    getTags.mockResolvedValue([
+      { id: 't-1', slug: 'high-risk', label: 'High risk', color: null, clientCount: 4 },
+      { id: 't-2', slug: 'vip', label: 'VIP', color: null, clientCount: 2 },
+    ]);
+  });
+
+  it('is a select rather than a row of chips', async () => {
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    const trigger = await screen.findByLabelText(/all tags/i);
+    // A combobox, not a set of pressable chips — the chips were `aria-pressed`
+    // buttons, so their absence is what "it is no longer chips" means.
+    expect(trigger).toHaveAttribute('role', 'combobox');
+    expect(screen.queryByRole('button', { pressed: false })).toBeNull();
+  });
+
+  it('filters by tag SLUG, not id — a rename must not break a saved link', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    await user.click(await screen.findByLabelText(/all tags/i));
+    await user.click(await screen.findByRole('option', { name: /high risk/i }));
+
+    await waitFor(() =>
+      expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ tag: 'high-risk' }),
+    );
+  });
+
+  it('offers an "all tags" option that CLEARS the filter', async () => {
+    // The select's equivalent of the second click that used to clear a chip.
+    searchParams.current = new URLSearchParams('tag=high-risk');
+    const user = userEvent.setup();
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    await user.click(await screen.findByLabelText(/all tags/i));
+    await user.click(await screen.findByRole('option', { name: /^all tags$/i }));
+
+    await waitFor(() => expect(searchParams.current.get('tag')).toBeNull());
+  });
+});
+
+/**
+ * The country FILTER is gone; the country COLUMN is not.
+ *
+ * Its options were built from the twenty-five rows on screen — `users.country`
+ * is free text written by the KYC flow, so there was no vocabulary to offer —
+ * which meant they changed as the operator paged and a country visible in the
+ * table was frequently one the filter did not list. Removed on request.
+ */
+describe('the country filter', () => {
+  it('is not offered any more', async () => {
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    expect(screen.queryByLabelText(/all countries/i)).toBeNull();
+  });
+
+  it('still HONOURS ?country= from a link somebody saved', async () => {
+    // The endpoint still accepts the parameter. Dropping it here would silently
+    // widen a bookmarked URL into a list it never named.
+    searchParams.current = new URLSearchParams('country=Lebanon');
+    renderWithProviders(<ClientsPage />);
+
+    await waitFor(() => expect(getClients).toHaveBeenCalled());
+    expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ country: 'Lebanon' });
+  });
+});
+
 describe('a masked field', () => {
   it('loses its whole COLUMN, not just its values', async () => {
     /*
@@ -409,7 +651,14 @@ describe('a masked field', () => {
     renderWithProviders(<ClientsPage />);
     await screen.findByText('John Doe');
 
-    expect(screen.queryByRole('columnheader', { name: /email/i })).not.toBeInTheDocument();
+    // ANCHORED. A loose `/email/i` now also matches the "Email verified"
+    // column, which is a different field and is NOT masked here — so the
+    // unanchored query would fail against a correctly masked table.
+    expect(screen.queryByRole('columnheader', { name: /^email$/i })).not.toBeInTheDocument();
+    // The address itself is gone from the row, while the separate
+    // email-VERIFICATION column survives: masking hides the value, not the fact
+    // that the client confirmed it.
+    expect(screen.getByRole('columnheader', { name: /^email verified$/i })).toBeInTheDocument();
   });
 
   it('SAYS the column is hidden, rather than leaving it silently absent', async () => {
@@ -424,11 +673,35 @@ describe('a masked field', () => {
   });
 
   it('drops the FILTER for a masked field too', async () => {
-    // A control for a field you cannot read back can only produce confusion.
-    getClients.mockResolvedValue(page([client()], { maskedFields: ['client.country'] }));
+    /*
+     * A control for a field you cannot read back can only produce confusion: it
+     * either does nothing visible (the column is gone) or it quietly narrows
+     * the list on a value the operator has no way to see.
+     *
+     * Asserted against TAGS rather than country. This case used to name the
+     * country filter, which no longer exists on any code path — so the test
+     * passed whatever `hiddenFilters` did, and had stopped watching the thing
+     * it names. Tags are the remaining maskable field with a filter.
+     */
+    getTags.mockResolvedValue([
+      { id: 't-1', slug: 'high-risk', label: 'High risk', color: null, clientCount: 4 },
+    ]);
+    getClients.mockResolvedValue(page([client()], { maskedFields: ['client.tags'] }));
     renderWithProviders(<ClientsPage />);
     await screen.findByText('John Doe');
 
-    expect(screen.queryByText(/all countries/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/all tags/i)).toBeNull();
+  });
+
+  it('keeps that filter when the field is NOT masked', async () => {
+    // The other half — otherwise the assertion above passes on a filter bar
+    // that never renders a tag control at all.
+    getTags.mockResolvedValue([
+      { id: 't-1', slug: 'high-risk', label: 'High risk', color: null, clientCount: 4 },
+    ]);
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('John Doe');
+
+    expect(await screen.findByLabelText(/all tags/i)).toBeInTheDocument();
   });
 });
