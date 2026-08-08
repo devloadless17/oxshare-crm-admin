@@ -104,8 +104,15 @@ export type IssuedApiKey = components['schemas']['IssuedApiKeyDto'];
 export type PaymentMethod = components['schemas']['PaymentMethodDto'];
 export type CreatePaymentMethod = components['schemas']['CreatePaymentMethodDto'];
 export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'];
-/** manual | gateway | crypto — the deposit FLOW, which is what a screen branches on. */
-export type PaymentMethodKind = PaymentMethod['kind'];
+/*
+ * `PaymentMethodKind` is GONE, with the column behind it (migration 0043).
+ *
+ * It read `manual | gateway | crypto` and claimed to be the deposit FLOW. It was
+ * really a fact about the backend's own integrations, and this console asked an
+ * operator to pick it from a dropdown — a question about our code, put to
+ * somebody who cannot answer it and whose wrong answer routed clients down the
+ * wrong deposit path. The server derives the flow from the key now.
+ */
 
 export type CreateIbLevel = components['schemas']['CreateIbLevelDto'];
 export type UpdateIbLevel = components['schemas']['UpdateIbLevelDto'];
@@ -1147,21 +1154,55 @@ export const adminApi = {
    * stored transactions reference, so renaming it would orphan their provider
    * history rather than edit a label. `name` is the field an operator changes.
    */
+  /**
+   * Upload a logo and get back a URL to save on the method.
+   *
+   * Returns the URL only — it does NOT write it to the method. The operator is
+   * still editing a form they may cancel, and an upload that mutated the row
+   * would change what every client sees before Save was pressed.
+   *
+   * ## `Content-Type` must be UNSET, and unsetting it takes an explicit
+   * `undefined`
+   *
+   * `apiClient` is created with a blanket `headers: { 'Content-Type':
+   * 'application/json' }` — right for every other call in this file, and fatal
+   * for this one. A multipart body needs a `boundary` token in its content type
+   * and only the browser can generate it, so with the JSON header inherited the
+   * request arrives with no boundary, Multer parses no parts, and the endpoint
+   * answers "No file was uploaded" for a request that plainly carried one.
+   *
+   * Passing `undefined` DELETES the inherited header rather than overriding it
+   * with an empty string; axios then inspects the `FormData` body and fills in
+   * `multipart/form-data; boundary=…` itself.
+   */
+  async uploadPaymentMethodLogo(file: File): Promise<{ logoUrl: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await apiClient.post<{ logoUrl: string }>(
+      '/admin/payment-methods/logo',
+      form,
+      { headers: { 'Content-Type': undefined } },
+    );
+    return data;
+  },
+
   async updatePaymentMethod(key: string, body: UpdatePaymentMethod): Promise<PaymentMethod> {
     const { data } = await apiClient.patch<PaymentMethod>(`/admin/payment-methods/${key}`, body);
     return data;
   },
 
-  /**
-   * Only ever succeeds for a method nobody has used.
+  /*
+   * `deletePaymentMethod` is GONE, along with the endpoint behind it.
    *
-   * The API refuses one with transactions against it and says "Disable it
-   * instead" — surface that verbatim. Disabling is what "we no longer offer
-   * Whish" means on a system that has to keep the history of what it took.
+   * `transactions.method_key` is a RESTRICT foreign key, so deleting only ever
+   * succeeded for a method nobody had used and threw a conflict on every method
+   * that mattered — a control whose working case was the uninteresting one.
+   *
+   * Disabling is what it was reached for: `updatePaymentMethod(key, { enabled:
+   * false })` removes the method from the client portal immediately and the API
+   * refuses new deposits through it, while every historical transaction keeps a
+   * readable method name instead of pointing at a row that no longer exists.
    */
-  async deletePaymentMethod(key: string): Promise<void> {
-    await apiClient.delete(`/admin/payment-methods/${key}`);
-  },
 
   async getRejectionReasons(context: RejectionContext): Promise<RejectionReason[]> {
     const { data } = await apiClient.get<RejectionReason[]>(

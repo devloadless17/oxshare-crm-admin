@@ -72,6 +72,8 @@ TWINS=(
   src/components/theme-toggle.tsx
   src/lib/utils.ts
   src/lib/money.ts
+  src/lib/asset-url.ts
+  src/lib/asset-url.test.ts
   src/lib/i18n/index.ts
   src/lib/i18n/locale-storage.ts
   src/components/locale-direction.tsx

@@ -222,8 +222,17 @@ export const messages = {
 
   // ── Payment methods ───────────────────────────────────────────────────────
   'paymentMethods.title': 'Payment methods',
+  /*
+   * The pay-to sentence is gone with the field.
+   *
+   * It read "a method with no pay-to account is not offered to them, whatever
+   * its status says" — a real rule at the time, and false now: the admin surface
+   * is name, key, logo and an enabled toggle, so being enabled IS being offered.
+   * Copy describing a check the code no longer performs is worse than none,
+   * because an operator reads it and goes looking for a field to fill in.
+   */
   'paymentMethods.subtitle':
-    'How clients can send money in. A method with no pay-to account is not offered to them, whatever its status says.',
+    'How clients can send money in. Enabling a method offers it in the client portal; disabling it stops new deposits and keeps existing history readable.',
   'paymentMethods.create': 'Add method',
   'paymentMethods.loading': 'Loading payment methods',
   'paymentMethods.loadFailed': 'Could not load the payment methods.',
@@ -231,28 +240,38 @@ export const messages = {
   'paymentMethods.empty': 'No payment methods configured. Clients cannot deposit until one is.',
   'paymentMethods.colKey': 'Key',
   'paymentMethods.colName': 'Name',
-  'paymentMethods.colKind': 'Kind',
   'paymentMethods.colCurrency': 'Currency',
-  'paymentMethods.colLimits': 'Limits',
   'paymentMethods.colStatus': 'Status',
   'paymentMethods.colActions': 'Actions',
-  'paymentMethods.kindManual': 'Manual',
-  'paymentMethods.kindGateway': 'Gateway',
-  'paymentMethods.kindCrypto': 'Crypto',
+  /*
+   * `colKind`, `kindManual`, `kindGateway` and `kindCrypto` are GONE with the
+   * column (migration 0043). They printed our own integration's classification
+   * in a table an operator reads to answer one question — is this on? — and the
+   * word "Manual" beside a live gateway was actively wrong for a whole release.
+   *
+   * `colLimits`, `noLimits`, `minOnly`, `maxOnly` and `minMax` went with the
+   * per-method bound columns in 0042.
+   */
   'paymentMethods.statusEnabled': 'Enabled',
   'paymentMethods.statusDisabled': 'Disabled',
-  // The whole point of the payTo field, said where it can be seen. A method
-  // missing it is enabled, looks configured, and silently accepts nobody.
-  'paymentMethods.notOffered': 'Not offered to clients',
-  'paymentMethods.notOfferedWhy': 'No pay-to account is set, so clients are never shown this.',
-  'paymentMethods.noLimits': 'No limits',
-  'paymentMethods.minOnly': 'Min {min}',
-  'paymentMethods.maxOnly': 'Max {max}',
-  'paymentMethods.minMax': '{min} – {max}',
+  // The row action, named plainly. It matches the Status column beside it —
+  // "Enabled"/"Disabled" — so the verb and the state read as the same idea.
+  'paymentMethods.enable': 'Enable',
+  'paymentMethods.disable': 'Disable',
+  // The logo is UPLOADED now, not linked. A pasted URL meant every client's
+  // deposit screen loaded an image from a host the operator did not control.
+  'paymentMethods.logo': 'Logo',
+  'paymentMethods.logoUpload': 'Upload logo',
+  'paymentMethods.logoReplace': 'Replace logo',
+  'paymentMethods.logoRemove': 'Remove',
+  'paymentMethods.logoUploading': 'Uploading…',
+  // SVG included: brand marks arrive as vector, and the server has always
+  // accepted it. The old wording listed three types and quietly excluded the one
+  // an operator was most likely to have.
+  'paymentMethods.logoHint': 'SVG, PNG, JPEG or WebP, up to 1MB. Shown beside the method name.',
+  'paymentMethods.logoUploadFailed': 'Could not upload that image. Please try another file.',
   'paymentMethods.edit': 'Edit',
   'paymentMethods.editAria': 'Edit {name}',
-  'paymentMethods.delete': 'Delete',
-  'paymentMethods.deleteAria': 'Delete {name}',
   'paymentMethods.createTitle': 'Add a payment method',
   'paymentMethods.editTitle': 'Edit payment method',
   'paymentMethods.key': 'Key',
@@ -260,32 +279,37 @@ export const messages = {
   'paymentMethods.keyLocked': 'Fixed — transactions already reference this key.',
   'paymentMethods.name': 'Display name',
   'paymentMethods.nameHint': 'What the client sees.',
-  'paymentMethods.kind': 'Kind',
-  'paymentMethods.kindHint':
-    'Decides the deposit flow the client is given, not just the label on it.',
   'paymentMethods.currency': 'Currency',
-  'paymentMethods.logoUrl': 'Logo URL',
-  'paymentMethods.instructions': 'Instructions',
-  'paymentMethods.instructionsHint': 'Shown to the client verbatim. Say exactly what to do.',
-  'paymentMethods.payTo': 'Pay-to account',
-  'paymentMethods.payToHint':
-    'The Whish number, IBAN or wallet address. Leave it empty and this method is never shown to a client.',
-  'paymentMethods.minAmount': 'Minimum',
-  'paymentMethods.maxAmount': 'Maximum',
-  'paymentMethods.amountHint': 'Leave empty for no limit.',
-  'paymentMethods.sortOrder': 'Sort order',
-  'paymentMethods.sortOrderHint': 'Lower numbers appear first on the deposit screen.',
-  'paymentMethods.enabled': 'Offered to clients',
-  'paymentMethods.enabledHint':
-    'Disabling stops new deposits. Existing transactions keep their history.',
+  'paymentMethods.currencyPlaceholder': 'Choose a currency…',
+  /*
+   * The CONSEQUENCE, not a description of the field. An operator picking a
+   * currency is deciding which of the client's wallets their money lands in, and
+   * nothing downstream converts — there is no FX source in this system.
+   */
+  'paymentMethods.currencyHint':
+    'What deposits through this method are denominated in, and the wallet they land in. Nothing converts.',
+  'paymentMethods.currencyLoadFailed':
+    'Could not load the platform currencies. Reopen this dialog to try again.',
   'paymentMethods.save': 'Save',
   'paymentMethods.saving': 'Saving…',
   'paymentMethods.saveFailed': 'Could not save the payment method.',
-  'paymentMethods.deleteFailed': 'Could not delete the payment method.',
-  'paymentMethods.confirmDeleteTitle': 'Delete {name}?',
-  'paymentMethods.confirmDeleteBody':
-    'This only works if no client has ever used it. If any have, the API will refuse and tell you to disable it instead — which keeps their transaction history readable.',
   'paymentMethods.readOnly': 'You do not have permission to change these.',
+  /*
+   * ── Keys deleted with the fields behind them ──────────────────────────────
+   *
+   * `instructions*`, `payTo*`, `minAmount`, `maxAmount`, `amountHint` — columns
+   * dropped in migration 0042.
+   * `kind`, `kindHint` — column dropped in 0043.
+   * `notOffered`, `notOfferedWhy` — described the pay-to rule, which no longer
+   * exists: being enabled IS being offered.
+   * `delete*`, `confirmDelete*` — there is no delete endpoint, by design.
+   * `logoUrl`, `sortOrder*`, `enabled*` — no longer form fields; the logo is an
+   * upload and offering a method is a row action.
+   *
+   * Listed rather than silently removed because each was live copy, and a
+   * string that reappears without its field is how a form grows a control the
+   * API ignores.
+   */
 
   // ── Wallets (GET /admin/wallets) ──────────────────────────────────────────
   // These screens rendered BackendPending until the holdings endpoints shipped.
