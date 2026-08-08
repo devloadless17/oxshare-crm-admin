@@ -19,6 +19,7 @@ import {
 import { CreditWalletModal } from '@/components/wallets/credit-wallet-modal';
 import { EmptySection, ProfileCard } from './profile-cards';
 import { t } from '@/lib/i18n';
+import { formatMoney, isZeroMoney } from '@/lib/money';
 
 /**
  * A client's wallets, on their profile — with the three things an operator can
@@ -145,15 +146,21 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
                 <div>
                   <div className="font-mono text-xs font-semibold">{w.currency}</div>
                   {/*
-                    VERBATIM — §6.1. `balance` is a NUMERIC(28,8) string and
-                    nothing on this path may coerce it; a plausible-looking
-                    rounded figure on the screen an operator uses to decide
-                    whether a wallet is empty is worse than an ugly exact one.
+                    FORMATTED through decimal.js, never coerced (§6.1) — the
+                    same treatment as the wallets list, so a balance reads the
+                    same on both screens.
+
+                    `isZeroMoney` rather than `!== '0.00000000'`: the second is a
+                    string comparison that breaks the moment the API answers '0'
+                    or '0.0', and it would then render "· 0 held" on every wallet.
                   */}
                   <div className="font-mono text-[11px] text-muted-foreground">
-                    {w.balance}
-                    {w.onHold !== '0.00000000' && (
-                      <span title={t('wallets.onHoldNote')}> · {w.onHold} held</span>
+                    {formatMoney(w.balance, w.currency)}
+                    {!isZeroMoney(w.onHold) && (
+                      <span title={t('wallets.onHoldNote')}>
+                        {' '}
+                        · {formatMoney(w.onHold, w.currency)} held
+                      </span>
                     )}
                   </div>
                 </div>

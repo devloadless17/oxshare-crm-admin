@@ -1461,6 +1461,41 @@ export const messages = {
   'partnerReview.rejectFailed': 'The application could not be rejected.',
 
   // ── Partners ──────────────────────────────────────────────────────────────
+  // ── Commissions (the partner accrual ledger) ──────────────────────────────
+  // The screen that did not exist: the engine wrote an accrual on every settled
+  // deposit and nothing read one back.
+  'nav.commissions': 'Commissions',
+  'commissions.title': 'Commissions',
+  'commissions.subtitle':
+    'Every partner commission, with the deposit it was calculated from. Pending is what the engine has worked out; confirmed is what has been credited.',
+  'commissions.loading': 'Loading commissions',
+  'commissions.loadFailed': 'Could not load the commissions.',
+  'commissions.empty': 'No commissions have been accrued yet.',
+  'commissions.colDate': 'When',
+  'commissions.colPartner': 'Partner (earned)',
+  'commissions.colClient': 'Client (generated)',
+  // The working, so a partner disputing a figure can be answered from the row.
+  'commissions.colBasis': 'Deposit x rate',
+  'commissions.colAmount': 'Commission',
+  'commissions.colLevel': 'Level',
+  'commissions.colStatus': 'Status',
+  'commissions.filterStatus': 'Status',
+  'commissions.filterStatusAll': 'All statuses',
+  'commissions.clearFilters': 'Clear',
+  'commissions.noun': 'commission',
+  'commissions.nounPlural': 'commissions',
+  // Calculated but NOT yet credited. Kept distinct from confirmed everywhere,
+  // because quoting a partner a pending figure as though it were paid is the
+  // mistake this wording exists to prevent.
+  'commissions.status.pending': 'Pending',
+  'commissions.status.confirmed': 'Confirmed',
+  'commissions.status.reversed': 'Reversed',
+
+  // Confirmed and pending kept apart: quoting a partner a pending figure as
+  // though it were paid is the mistake this wording exists to prevent.
+  'partners.colEarnings': 'Earned',
+  'partners.pendingSuffix': 'pending',
+  'partners.pendingHint': 'Calculated by the engine but not yet credited.',
   'partners.title': 'Partners',
   'partners.subtitle': 'Approved introducing brokers, their placement, and their referral code.',
   'partners.loading': 'Loading partners…',

@@ -173,6 +173,9 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'nav.section.partners',
     items: [
       { label: 'nav.partners', href: '/partners', icon: Handshake },
+      /* The ledger sits between the partners who earn and the ladder that sets
+         the rates — the order the questions are actually asked in. */
+      { label: 'nav.commissions', href: '/commissions', icon: Coins },
       { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
     ],
   },

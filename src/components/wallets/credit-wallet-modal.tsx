@@ -4,6 +4,7 @@ import * as React from 'react';
 import type { WalletRow } from '@/lib/api/admin';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
+import { formatMoney } from '@/lib/money';
 
 /**
  * Put money into a client's wallet by hand.
@@ -116,8 +117,11 @@ function CreditForm({
         </div>
         <div className="mt-1.5 flex items-baseline justify-between gap-3">
           <span className="text-muted-foreground">{t('wallets.creditCurrentBalance')}</span>
+          {/* Formatted, not coerced — this is a figure the operator reads to
+              sanity-check "add 250" against, so it should look like the wallets
+              list they came from rather than a raw 8dp column. */}
           <span className="font-mono font-semibold text-foreground">
-            {wallet.balance} {wallet.currency}
+            {formatMoney(wallet.balance, wallet.currency)}
           </span>
         </div>
       </div>

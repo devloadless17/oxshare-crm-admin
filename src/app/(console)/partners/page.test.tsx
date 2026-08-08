@@ -47,7 +47,15 @@ vi.mock('@/context/AdminAuthContext', () => ({
   }),
 }));
 
-function partner(over: { userId?: string; level?: number; email?: string } = {}) {
+function partner(
+  over: {
+    userId?: string;
+    level?: number;
+    email?: string;
+    confirmed?: string;
+    pending?: string;
+  } = {},
+) {
   const userId = over.userId ?? 'u-1';
   return {
     account: {
@@ -65,6 +73,12 @@ function partner(over: { userId?: string; level?: number; email?: string } = {})
       lastName: 'Ner',
     },
     levelName: 'Introducing Broker',
+    /*
+     * The API sums these per partner and always sends both, defaulting to '0'
+     * when there are no accruals — so a fixture without them is a shape the
+     * endpoint cannot produce, and the earnings column would crash on it.
+     */
+    earnings: { confirmed: over.confirmed ?? '0', pending: over.pending ?? '0' },
   };
 }
 
@@ -84,6 +98,36 @@ describe('partner list — listing', () => {
     renderWithProviders(<PartnersPage />);
 
     expect(await screen.findByText('partner@oxshare.com')).toBeInTheDocument();
+  });
+
+  /**
+   * CONFIRMED AND PENDING ARE SHOWN APART, and never added together.
+   *
+   * Confirmed is money the platform has credited; pending is what the engine
+   * calculated and has not paid. A single "earned" figure would let an operator
+   * quote a partner a number that has not settled — which is the dispute this
+   * column exists to avoid rather than cause.
+   *
+   * The sum is asserted ABSENT for that reason: `$1,750.00` is the plausible
+   * wrong answer somebody would reach for.
+   */
+  it('shows confirmed and pending earnings separately, never summed', async () => {
+    getIbPartners.mockResolvedValue(
+      page([partner({ confirmed: '1000.00000000', pending: '750.00000000' })]),
+    );
+    renderWithProviders(<PartnersPage />);
+
+    expect(await screen.findByText('$1,000.00')).toBeInTheDocument();
+    expect(screen.getByText(/\$750\.00/)).toBeInTheDocument();
+    expect(screen.queryByText('$1,750.00')).toBeNull();
+  });
+
+  /** Nothing earned renders a zero, not a blank cell — absence of data and a
+      balance of nothing are different statements. */
+  it('renders zero earnings rather than an empty cell', async () => {
+    renderWithProviders(<PartnersPage />);
+
+    expect(await screen.findByText('$0.00')).toBeInTheDocument();
   });
 });
 

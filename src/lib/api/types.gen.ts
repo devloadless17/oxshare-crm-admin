@@ -768,6 +768,26 @@ export interface paths {
         patch: operations["AdminIbController_reject"];
         trace?: never;
     };
+    "/v1/admin/ib/accruals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Partner commission accruals, filterable
+         * @description Every accrual with the partner who earned it and the client whose deposit generated it. `totals` sums by status across the whole filtered set, as decimal strings (§6.1).
+         */
+        get: operations["AdminIbController_listAccruals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ib/partners": {
         parameters: {
             query?: never;
@@ -2405,6 +2425,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/wallets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every client wallet, with its owner (balances are strings)
+         * @description `balance` and `onHold` are NUMERIC(28,8) and cross this boundary as STRINGS. Do not coerce them: Number() on a value of this width loses precision before formatting even starts (§6.1).
+         */
+        get: operations["AdminHoldingsController_listWallets"];
+        put?: never;
+        /**
+         * Open a wallet for a client
+         * @description Idempotent: opening one that already exists returns it rather than failing. The currency must be one the platform holds and has enabled.
+         */
+        post: operations["AdminMoneyController_openWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/wallets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Close an empty, unused wallet
+         * @description Refuses a wallet with a balance, with funds on hold, or with any history against it — a wallet is the anchor its ledger entries point at.
+         */
+        delete: operations["AdminMoneyController_closeWallet"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/withdrawals/{id}/approve": {
         parameters: {
             query?: never;
@@ -2588,26 +2652,6 @@ export interface paths {
          * @description The same `userId` and `currency` filters as GET /admin/wallets, over every matching row rather than one page. Balances are the exact decimal strings the column holds — never rounded, never locale-formatted (§6.1). Client scope applies exactly as it does to the list.
          */
         get: operations["AdminHoldingsController_exportWallets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/wallets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Every client wallet, with its owner (balances are strings)
-         * @description `balance` and `onHold` are NUMERIC(28,8) and cross this boundary as STRINGS. Do not coerce them: Number() on a value of this width loses precision before formatting even starts (§6.1).
-         */
-        get: operations["AdminHoldingsController_listWallets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4244,6 +4288,15 @@ export interface components {
             /** @example Goodwill adjustment for the failed 4 August transfer. */
             reason: string;
         };
+        OpenWalletDto: {
+            /** Format: uuid */
+            userId: string;
+            /**
+             * @description Must be a currency the platform holds and has enabled.
+             * @example USD
+             */
+            currency: string;
+        };
         WithdrawalRejectDto: {
             /** @description Free-text reason, when not using a configured reasonId. */
             reason?: string;
@@ -5521,6 +5574,33 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["IbApplicationDto"];
                 };
+            };
+        };
+    };
+    AdminIbController_listAccruals: {
+        parameters: {
+            query?: {
+                page?: string;
+                limit?: string;
+                /** @description Restrict to one partner. */
+                ibUserId?: string;
+                /** @description Restrict to one client. */
+                clientUserId?: string;
+                status?: "pending" | "confirmed" | "reversed";
+                sort?: "createdAt" | "amount" | "status" | "level";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -7858,6 +7938,82 @@ export interface operations {
             };
         };
     };
+    AdminHoldingsController_listWallets: {
+        parameters: {
+            query?: {
+                /** @description Wallets of one client. */
+                userId?: string;
+                /** @description Exact match on the wallet code. */
+                currency?: string;
+                /** @description Legacy offset paging. Prefer cursor. */
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description Counting is a full scan. */
+                withTotal?: string;
+                /** @description balance sorts on the NUMERIC column in SQL — never cast, never in JS (§6). */
+                sort?: "createdAt" | "balance" | "currency" | "userEmail" | "userFirstName";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_openWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenWalletDto"];
+            };
+        };
+        responses: {
+            /** @description The wallet, new or existing. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminMoneyController_closeWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wallet was closed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AdminMoneyController_approveWithdrawal: {
         parameters: {
             query?: never;
@@ -8090,40 +8246,6 @@ export interface operations {
                 };
                 content: {
                     "text/csv": string;
-                };
-            };
-        };
-    };
-    AdminHoldingsController_listWallets: {
-        parameters: {
-            query?: {
-                /** @description Wallets of one client. */
-                userId?: string;
-                /** @description Exact match on the wallet code. */
-                currency?: string;
-                /** @description Legacy offset paging. Prefer cursor. */
-                page?: string;
-                limit?: string;
-                /** @description Opaque keyset cursor (R-2.4). */
-                cursor?: string;
-                /** @description Counting is a full scan. */
-                withTotal?: string;
-                /** @description balance sorts on the NUMERIC column in SQL — never cast, never in JS (§6). */
-                sort?: "createdAt" | "balance" | "currency" | "userEmail" | "userFirstName";
-                order?: "asc" | "desc";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WalletListResponseDto"];
                 };
             };
         };

@@ -126,28 +126,37 @@ beforeEach(() => {
 
 describe('wallets — the money rule', () => {
   /**
-   * The whole reason this screen renders strings.
+   * ⚠️ THE RULE CHANGED FROM "verbatim" TO "formatted but never coerced", and
+   * this test is what keeps the second half honest.
    *
-   * `Number('12345678901234567.89012345')` is wrong before formatting even
-   * starts, and NUMERIC(28,8) is wider than a JS number holds exactly. A balance
-   * that has been through a float looks right until the eighth decimal place,
-   * which is precisely where nobody checks.
+   * It used to assert the raw string reached the DOM, which meant every balance
+   * on the screen read `1000.00000000` — eight decimal places of nothing in the
+   * column an operator scans. Formatting fixed the display; the risk it
+   * introduces is that somebody reaches for `Number(x).toFixed(2)` to do it.
+   *
+   * So the assertion is a value a FLOAT CANNOT HOLD.
+   * `Number('12345678901234567.89012345')` is `12345678901234568` — already
+   * wrong before formatting starts. decimal.js keeps the digits, so the
+   * formatted output must end `...567.89`, and the float's `...568.00` must be
+   * absent. A balance through a float looks right until the place nobody checks.
    */
-  it('renders the balance as the exact string the API sent', async () => {
+  it('formats without coercing — a value no float could hold survives', async () => {
     getWallets.mockResolvedValue(page([wallet({ balance: '12345678901234567.89012345' })]));
     renderWithProviders(<WalletsPage />);
 
-    expect(await screen.findByText('12345678901234567.89012345')).toBeInTheDocument();
+    expect(await screen.findByText('$12,345,678,901,234,567.89')).toBeInTheDocument();
+    // What `Number()` would have produced. Its absence is the real assertion.
+    expect(screen.queryByText('$12,345,678,901,234,568.00')).toBeNull();
   });
 
-  it('renders the held amount verbatim too, alongside the balance', async () => {
+  it('formats the held amount the same way as the balance', async () => {
     getWallets.mockResolvedValue(
       page([wallet({ balance: '700.00000000', onHold: '150.50000000' })]),
     );
     renderWithProviders(<WalletsPage />);
 
-    expect(await screen.findByText('700.00000000')).toBeInTheDocument();
-    expect(screen.getByText('150.50000000')).toBeInTheDocument();
+    expect(await screen.findByText('$700.00')).toBeInTheDocument();
+    expect(screen.getByText('$150.50')).toBeInTheDocument();
   });
 
   /**
@@ -162,8 +171,8 @@ describe('wallets — the money rule', () => {
     );
     renderWithProviders(<WalletsPage />);
 
-    await screen.findByText('700.00000000');
-    expect(screen.queryByText('549.5')).toBeNull();
+    await screen.findByText('$700.00');
+    expect(screen.queryByText('$549.50')).toBeNull();
     expect(screen.queryByText('549.50000000')).toBeNull();
   });
 });

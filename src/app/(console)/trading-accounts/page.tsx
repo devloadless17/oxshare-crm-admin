@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t, type MessageKey } from '@/lib/i18n';
+import { formatMoney } from '@/lib/money';
 
 /**
  * Client trading accounts — `GET /admin/trading-accounts`.
@@ -213,8 +214,16 @@ function TradingAccountsPageContent() {
       // `sortType: 'money'` — that comparator drives the client-side fallback,
       // which `onSortChange` switches off.
       ...sortableBy('balance'),
-      // Rendered VERBATIM. §6.1 — see the file header.
-      cell: (a) => a.balance,
+      /*
+       * FORMATTED through decimal.js, never coerced (§6.1).
+       *
+       * A list an operator SCANS to compare accounts, so it follows the wallets
+       * screen: two places and thousands separators instead of a raw
+       * `1000.00000000`. Deliberately not the withdrawals queue's rule — there
+       * the exact string is kept, because authorising one specific payout is a
+       * different job from comparing a column of balances.
+       */
+      cell: (a) => formatMoney(a.balance, a.currency),
       cellClassName: 'font-mono font-semibold text-foreground whitespace-nowrap tabular',
     },
     {

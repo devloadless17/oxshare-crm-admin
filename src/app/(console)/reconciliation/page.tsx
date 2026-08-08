@@ -61,6 +61,19 @@ export default function ReconciliationPage() {
         header: t('reconciliation.column.currency'),
         cell: (row) => row.currency,
       },
+      /*
+       * ⚠️ RAW, at the stored 8dp — deliberately NOT `formatMoney`, unlike the
+       * wallets and trading-account lists.
+       *
+       * This screen exists to find a wallet whose balance disagrees with the sum
+       * of its ledger entries. Rounding both sides to two places would hide the
+       * very thing it looks for: a drift in the eighth decimal would render as
+       * two identical numbers and a difference of `$0.00`.
+       *
+       * The rule across the console is therefore about the JOB, not the screen —
+       * format where an operator SCANS and compares balances, keep the exact
+       * string where they RECONCILE, or authorise one specific payout.
+       */
       {
         key: 'balance',
         header: t('reconciliation.column.balance'),

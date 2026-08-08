@@ -102,13 +102,25 @@ beforeEach(() => {
 });
 
 describe('trading accounts — the money rule', () => {
-  it('renders the balance as the exact string the API sent', async () => {
+  /**
+   * ⚠️ The rule is "FORMATTED, never coerced". It was "verbatim", and rendering
+   * the raw column meant every balance read `1000.00000000` in a list an
+   * operator scans to compare accounts.
+   *
+   * The assertion is a value a FLOAT CANNOT HOLD, because that is precisely the
+   * risk formatting introduces: `Number('12345678901234567.89012345')` is
+   * `12345678901234568`, wrong before any rounding begins. decimal.js keeps the
+   * digits, so the output ends `...567.89` and the float's `...568.00` appears
+   * nowhere on the page.
+   */
+  it('formats without coercing — a value no float could hold survives', async () => {
     getTradingAccounts.mockResolvedValue(
       page([account({ balance: '12345678901234567.89012345' })]),
     );
     renderWithProviders(<TradingAccountsPage />);
 
-    expect(await screen.findByText('12345678901234567.89012345')).toBeInTheDocument();
+    expect(await screen.findByText('$12,345,678,901,234,567.89')).toBeInTheDocument();
+    expect(screen.queryByText('$12,345,678,901,234,568.00')).toBeNull();
   });
 });
 

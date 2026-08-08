@@ -66,6 +66,19 @@ export interface IbPartnerPage {
     account: IbAccount;
     user: { id: string; email: string; firstName: string; lastName: string };
     levelName: string;
+    /**
+     * What this partner has earned, summed by the SERVER across all their
+     * accruals — decimal strings (§6.1), never numbers.
+     *
+     * Two figures rather than one total, and deliberately so: `confirmed` is
+     * money the platform has credited, `pending` is what the engine has
+     * calculated and not yet paid. Collapsing them would let an operator quote
+     * a partner a figure that has not settled.
+     *
+     * A partner with no accruals reports '0' for both rather than being absent,
+     * so a caller never has to distinguish "nothing earned" from "no data".
+     */
+    earnings: { confirmed: string; pending: string };
   }>;
   total: number;
 }
@@ -234,6 +247,55 @@ export interface WithdrawalListParams {
 // §6.1. Nothing here parses one, and neither should a caller.
 
 export type WalletRow = components['schemas']['WalletRowDto'];
+
+/**
+ * One partner commission, with both people it concerns.
+ *
+ * ## ⚠️ HAND-DECLARED, and this is the gap
+ *
+ * `GET /admin/ib/accruals` composes its response in the store rather than
+ * returning a DTO class, so Swagger emits no named schema and
+ * openapi-typescript has nothing to alias. Per the repo rule, it is written out
+ * here and the gap is named so it gets replaced rather than forgotten: adding an
+ * `IbAccrualPageDto` on the controller makes this an alias and deletes the
+ * duplication.
+ *
+ * Everything monetary is a STRING (§6.1). `amount` is what the partner earned,
+ * `baseAmount` the deposit it was calculated from, `rateValue` the percentage
+ * applied — all three shown, because a commission nobody can recompute is one
+ * nobody can dispute.
+ */
+export interface IbAccrual {
+  accrual: {
+    id: string;
+    status: 'pending' | 'confirmed' | 'reversed';
+    amount: string;
+    baseAmount: string;
+    rateValue: string;
+    currency: string;
+    level: number;
+    depth: number;
+    sourceType: string;
+    sourceId: string;
+    createdAt: string;
+    confirmedAt: string | null;
+  };
+  /** The partner being PAID. */
+  partner: { id: string; email: string; firstName: string | null; lastName: string | null };
+  /** The client whose deposit GENERATED it — a different person. */
+  client: { id: string; email: string; firstName: string | null; lastName: string | null };
+}
+
+export interface IbAccrualPage {
+  rows: IbAccrual[];
+  total: number;
+  /** Summed in SQL across the whole filtered set, not the page. */
+  totals: { status: string; amount: string }[];
+}
+
+/** The sort keys `GET /admin/ib/accruals` accepts — mirrors the API allow-list. */
+export const IB_ACCRUAL_SORT_KEYS = ['createdAt', 'amount', 'status', 'level'] as const;
+export type IbAccrualSortKey = (typeof IB_ACCRUAL_SORT_KEYS)[number];
 /** One movement of a client's money — what `creditWallet` answers with. */
 export type Transaction = components['schemas']['TransactionDto'];
 /**
@@ -990,6 +1052,33 @@ export const adminApi = {
    * different key from `wallets.credit`: this creates an empty container and
    * moves no money.
    */
+  /**
+   * The commission ledger — every accrual, filterable.
+   *
+   * ⚠️ Nothing read `ib_accruals` before this: the engine wrote a row on every
+   * settled deposit and no screen, endpoint or export ever read one back, so
+   * "what do we owe our partners" could only be answered from the database.
+   *
+   * `totals` is summed by the SERVER across the whole filtered set. Adding a
+   * page of decimal strings in the browser would be both the wrong number (one
+   * page) and the wrong arithmetic (floats).
+   */
+  async getIbAccruals(
+    params: {
+      page?: number;
+      limit?: number;
+      ibUserId?: string;
+      clientUserId?: string;
+      status?: string;
+      sort?: IbAccrualSortKey;
+      order?: 'asc' | 'desc';
+    },
+    signal?: AbortSignal,
+  ): Promise<IbAccrualPage> {
+    const { data } = await apiClient.get<IbAccrualPage>('/admin/ib/accruals', { params, signal });
+    return data;
+  },
+
   async openWallet(body: { userId: string; currency: string }): Promise<WalletRow> {
     const { data } = await apiClient.post<WalletRow>('/admin/wallets', body);
     return data;

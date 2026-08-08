@@ -26,18 +26,26 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+import { formatMoney } from '@/lib/money';
 
 /**
  * Client wallets — `GET /admin/wallets`.
  *
  * ## MONEY RULE (ARCHITECTURE §6.1)
  *
- * `balance` and `onHold` arrive as decimal STRINGS and reach the DOM as the
- * same strings. Nothing on this screen calls `Number()`, `parseFloat` or
- * `Intl.NumberFormat` — `NUMERIC(28,8)` exceeds what a JavaScript number holds
- * exactly, so a coercion loses value before any formatting starts. On a screen
- * whose entire purpose is telling an operator what a client is owed, a
- * plausible-looking wrong number is worse than an ugly right one.
+ * `balance` and `onHold` arrive as decimal STRINGS and are never COERCED.
+ * Nothing on this screen calls `Number()`, `parseFloat` or `Intl.NumberFormat` —
+ * `NUMERIC(28,8)` exceeds what a JavaScript number holds exactly, so a
+ * conversion loses value before any formatting starts. On a screen whose whole
+ * purpose is telling an operator what a client is owed, a plausible-looking
+ * wrong number is worse than an ugly right one.
+ *
+ * FORMATTING IS NOT COERCION, and this file used to conflate the two. It
+ * rendered the raw column on the grounds that the strings must "reach the DOM
+ * unchanged", which meant every balance read `1000.00000000`. `formatMoney`
+ * does the rounding in decimal.js and returns a string, so the value is never a
+ * float at any point — the rule is kept and the column becomes readable.
+ * `$1,000.00` is the same number, said to a person.
  *
  * There is deliberately no "available" column either. Available is
  * `balance − onHold`, and that subtraction belongs in decimal arithmetic on the
@@ -221,8 +229,16 @@ function WalletsPageContent() {
        * the client-side fallback, which `onSortChange` switches off entirely.
        */
       ...sortableBy('balance'),
-      // Rendered VERBATIM. §6.1 — see the file header.
-      cell: (w) => w.balance,
+      /*
+       * FORMATTED through decimal.js — not coerced. See the file header for why
+       * those are different things.
+       *
+       * This rendered the raw column, so every row read `1000.00000000`: eight
+       * decimal places of nothing, in the column an operator scans to compare
+       * balances. The stored scale belongs to the ledger; two places and
+       * thousands separators belong to the person reading the screen.
+       */
+      cell: (w) => formatMoney(w.balance, w.currency),
       cellClassName: 'font-mono font-semibold text-foreground whitespace-nowrap tabular',
     },
     {
@@ -239,7 +255,7 @@ function WalletsPageContent() {
         // can move, and rendering it identically to the balance invites reading
         // the two as one number.
         <span title={t('wallets.onHoldNote')} className="text-muted-foreground">
-          {w.onHold}
+          {formatMoney(w.onHold, w.currency)}
         </span>
       ),
       cellClassName: 'font-mono whitespace-nowrap tabular',

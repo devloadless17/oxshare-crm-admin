@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { t } from '@/lib/i18n';
+import { formatMoney, isZeroMoney } from '@/lib/money';
 
 /** One row of `GET /admin/ib/partners` — the account, its user, its level name. */
 type PartnerRowData = IbPartnerPage['rows'][number];
@@ -240,6 +241,39 @@ export default function PartnersPage() {
       ...sortableBy('referralCode'),
       cell: ({ account }) => account.referralCode,
       cellClassName: 'font-mono tracking-wide text-muted-foreground',
+    },
+    {
+      /*
+       * WHAT THEY HAVE EARNED — the first question anybody opening this screen
+       * has, and the list could not answer it at all.
+       *
+       * Confirmed and pending are two figures rather than one total, because
+       * they are different promises: confirmed is money the platform has
+       * credited, pending is what the engine has calculated and not yet paid. A
+       * single number would let an operator quote a partner a figure that has
+       * not settled.
+       *
+       * NOT sortable — the endpoint's allow-list has no earnings key (these come
+       * from a grouped sub-query, not a column), and R-2.5 makes an unrecognised
+       * sort a 400 rather than a silent fallback, so a header offering one would
+       * render an error page instead of rows.
+       */
+      header: t('partners.colEarnings'),
+      align: 'right',
+      sortable: false,
+      cell: ({ earnings }) => (
+        <div className="leading-tight">
+          <div className="font-semibold text-foreground">
+            {formatMoney(earnings.confirmed, 'USD')}
+          </div>
+          {!isZeroMoney(earnings.pending) && (
+            <div className="text-[11px] text-warning" title={t('partners.pendingHint')}>
+              +{formatMoney(earnings.pending, 'USD')} {t('partners.pendingSuffix')}
+            </div>
+          )}
+        </div>
+      ),
+      cellClassName: 'font-mono whitespace-nowrap tabular',
     },
     {
       header: t('partners.colParent'),
