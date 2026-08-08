@@ -73,6 +73,10 @@ TWINS=(
   src/lib/utils.ts
   src/lib/money.ts
   src/lib/asset-url.ts
+  src/lib/table-sort.ts
+  src/components/data-table.tsx
+  src/components/pagination.tsx
+  src/components/cursor-pagination.tsx
   src/lib/asset-url.test.ts
   src/lib/i18n/index.ts
   src/lib/i18n/locale-storage.ts
