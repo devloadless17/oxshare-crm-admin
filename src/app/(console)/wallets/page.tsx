@@ -1,7 +1,9 @@
 'use client';
 
+import * as React from 'react';
 import { Suspense } from 'react';
-import { Wallet } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { PlusCircle, Wallet } from 'lucide-react';
 import api from '@/lib/api';
 import type { Currency, WalletListResponse, WalletRow, WalletSortKey } from '@/lib/api/admin';
 import { WALLET_SORT_KEYS } from '@/lib/api/admin';
@@ -12,6 +14,9 @@ import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
+import { RowActions, actionsColumn } from '@/components/row-actions';
+import { CreditWalletModal } from '@/components/wallets/credit-wallet-modal';
+import { apiErrorMessage } from '@/lib/api/errors';
 import { PageLoader } from '@/components/ui/loader';
 import {
   Select,
@@ -73,6 +78,7 @@ function WalletsPageContent() {
    * operator can paste into a ticket, and the browser's Back button has to undo
    * a filter rather than leave the screen.
    */
+  const queryClient = useQueryClient();
   const url = useTableQueryState();
   const page = pageParam(url.get('page'));
   /*
@@ -144,6 +150,46 @@ function WalletsPageContent() {
     ...(currency ? { currency } : {}),
   });
 
+  /*
+   * The wallet being credited, and the error from the last attempt.
+   *
+   * The MUTATION's own error is not used for display, because it is cleared on
+   * the next attempt while the modal stays open — the operator would see their
+   * message vanish as they retried. This holds the last one until they change
+   * something.
+   */
+  const [crediting, setCrediting] = React.useState<WalletRow | undefined>();
+  const [creditError, setCreditError] = React.useState<string | undefined>();
+
+  const credit = useMutation({
+    mutationFn: (values: { amount: string; reason: string }) =>
+      api.admin.creditWallet(
+        {
+          userId: crediting!.user.id,
+          amount: values.amount,
+          currency: crediting!.currency,
+          reason: values.reason,
+        },
+        /*
+         * ONE key per intended credit, minted when the modal opens rather than
+         * per attempt — `crediting.id` plus the wallet's current balance, so a
+         * retry of the same submission reuses it and a SECOND, deliberate credit
+         * of the same client gets a new one (the balance has moved).
+         *
+         * The server stores it as `provider_ref`, so this is what makes a
+         * double-click credit once in the DATABASE rather than only in a cache.
+         */
+        `credit:${crediting!.id}:${crediting!.balance}`,
+      ),
+    onSuccess: () => {
+      setCrediting(undefined);
+      setCreditError(undefined);
+      // The balance and the client's transaction list both changed.
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'wallets'] });
+    },
+    onError: (error) => setCreditError(apiErrorMessage(error, t('wallets.creditFailed'))),
+  });
+
   const columns: Column<WalletRow>[] = [
     {
       header: t('wallets.colOwner'),
@@ -205,13 +251,35 @@ function WalletsPageContent() {
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
     /*
-     * NO ACTIONS COLUMN, deliberately.
+     * ONE ACTION, where there used to be none.
      *
-     * `AdminHoldingsController` exposes reads only — there is no endpoint that
-     * credits, debits, freezes or closes a wallet from here, and adjustments go
-     * through the ledger as compensating entries (§6.4). A three-dot menu would
-     * have to invent something to put in it.
+     * This column's absence was documented as deliberate — "there is no endpoint
+     * that credits, debits, freezes or closes a wallet from here" — and that was
+     * true and was also the largest hole in the product: a client could file a
+     * manual deposit and NOTHING could confirm it, so money could leave the
+     * platform and could not enter it.
+     *
+     * `POST /admin/wallets/credit` closes that, and this is its only entry
+     * point. Debit, freeze and close still do not exist and are still right to
+     * omit: a reduction is a compensating entry through the ledger (§6.4), never
+     * a button that edits a balance.
      */
+    actionsColumn<WalletRow>((w) => (
+      <RowActions
+        label={t('table.rowActions', { name: w.user.email })}
+        busy={credit.isPending && crediting?.id === w.id}
+        items={[
+          {
+            label: t('wallets.creditAction'),
+            icon: PlusCircle,
+            onSelect: () => {
+              setCreditError(undefined);
+              setCrediting(w);
+            },
+          },
+        ]}
+      />
+    )),
   ];
 
   const isFiltered = Boolean(userId || currency);
@@ -280,6 +348,17 @@ function WalletsPageContent() {
         error={query.error}
         fill
       >
+        <CreditWalletModal
+          wallet={crediting}
+          saving={credit.isPending}
+          error={creditError}
+          onClose={() => {
+            setCrediting(undefined);
+            setCreditError(undefined);
+          }}
+          onSubmit={(values) => credit.mutate(values)}
+        />
+
         <DataTable
           fill
           caption={t('wallets.caption')}

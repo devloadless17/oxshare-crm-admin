@@ -234,6 +234,17 @@ export interface WithdrawalListParams {
 // §6.1. Nothing here parses one, and neither should a caller.
 
 export type WalletRow = components['schemas']['WalletRowDto'];
+/** One movement of a client's money — what `creditWallet` answers with. */
+export type Transaction = components['schemas']['TransactionDto'];
+/**
+ * `transaction.provider` for money an admin placed by hand.
+ *
+ * The one provider value a screen may recognise by name: such a row has no
+ * `methodKey` and no `methodName` (it went through no payment method), so
+ * without this it renders as having no source at all. Mirrors the constant of
+ * the same name in the backend and in the portal — all three must agree.
+ */
+export const MANUAL_ADMIN_PROVIDER = 'manual_admin';
 export type WalletListResponse = components['schemas']['WalletListResponseDto'];
 export type TradingAccountRow = components['schemas']['TradingAccountRowDto'];
 export type TradingAccountListResponse = components['schemas']['TradingAccountListResponseDto'];
@@ -944,6 +955,59 @@ export const adminApi = {
    * would be fresh per call, which presents each click as new — the exact bug
    * the header exists to prevent.
    */
+  /**
+   * Put money into a client's wallet by hand.
+   *
+   * ⚠️ The only way funds can ARRIVE without a payment provider. Until this
+   * existed a client's manual deposit sat `pending` for ever, because the API
+   * had approve/reject/settle for withdrawals and no deposit action at all.
+   *
+   * Writes a successful DEPOSIT transaction and a ledger entry, so the credit
+   * shows on the client's own statement, and emails them the amount and reason.
+   *
+   * `key` is not only replay protection at the HTTP layer: the server stores it
+   * as the transaction's `provider_ref`, where `UNIQUE(provider, provider_ref)`
+   * enforces it — so a double-submitted form converges on ONE credit in the
+   * database. Pass a value that identifies the INTENT, not the attempt.
+   */
+  async creditWallet(
+    body: { userId: string; amount: string; currency: string; reason: string },
+    key: string,
+  ): Promise<{ transaction: Transaction; replayed: boolean }> {
+    const { data } = await apiClient.post<{ transaction: Transaction; replayed: boolean }>(
+      '/admin/wallets/credit',
+      body,
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * Open a wallet for a client in a currency they do not hold one in.
+   *
+   * Idempotent server-side — opening one that exists returns it — so a
+   * double-press is a no-op rather than an error. `wallets.manage`, which is a
+   * different key from `wallets.credit`: this creates an empty container and
+   * moves no money.
+   */
+  async openWallet(body: { userId: string; currency: string }): Promise<WalletRow> {
+    const { data } = await apiClient.post<WalletRow>('/admin/wallets', body);
+    return data;
+  },
+
+  /**
+   * Close an EMPTY, UNUSED wallet.
+   *
+   * Refused with a readable reason if it holds a balance, has funds on hold, or
+   * has any ledger entry, transaction or transfer against it — a wallet is the
+   * anchor its history points at. Callers should surface the API's own message
+   * rather than a generic one: it names the figure or the count, which is the
+   * part the operator can act on.
+   */
+  async closeWallet(id: string): Promise<void> {
+    await apiClient.delete(`/admin/wallets/${id}`);
+  },
+
   async approveWithdrawal(id: string, key: string): Promise<WithdrawalRow> {
     const { data } = await apiClient.patch<WithdrawalRow>(
       `/admin/withdrawals/${id}/approve`,

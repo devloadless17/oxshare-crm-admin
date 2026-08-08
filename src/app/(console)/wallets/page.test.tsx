@@ -321,18 +321,43 @@ describe('wallets — filtering and sorting reach the API', () => {
   });
 });
 
-describe('wallets — no write actions', () => {
+describe('wallets — one write action, and only one', () => {
   /**
-   * `AdminHoldingsController` exposes reads only: there is no endpoint that
-   * credits, debits, freezes or closes a wallet, and adjustments go through the
-   * ledger as compensating entries (§6.4). A row menu here would have to invent
-   * its entries, and an operator would reasonably expect them to work.
+   * ⚠️ THIS SUITE USED TO ASSERT THE OPPOSITE, and was right at the time.
+   *
+   * It pinned "offers no per-row action menu", reasoning that
+   * `AdminHoldingsController` exposed reads only. That was true — and it was
+   * also the largest hole in the product: a client could file a manual deposit
+   * and nothing could confirm it, so money could leave the platform and could
+   * not enter it.
+   *
+   * `POST /admin/wallets/credit` now exists and this screen is its only entry
+   * point, so the ABSENCE of an actions column is no longer the property worth
+   * pinning. What replaces it is narrower and still worth pinning: exactly one
+   * action, and specifically not the destructive ones.
    */
-  it('offers no per-row action menu', async () => {
+  it('offers the credit action', async () => {
     renderWithProviders(<WalletsPage />);
     await screen.findByText('client@example.com');
 
-    expect(screen.queryByRole('columnheader', { name: /actions/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /adjust|credit|debit|freeze/i })).toBeNull();
+    expect(screen.getByRole('columnheader', { name: /actions/i })).toBeInTheDocument();
+  });
+
+  /**
+   * Debit, freeze and close must NOT appear.
+   *
+   * Reducing a balance is a compensating entry through the ledger (§6.4), never
+   * a button that edits a number — and no endpoint backs any of them, so a menu
+   * item would be one an operator reasonably expects to work.
+   */
+  it('offers no debit, freeze or close', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<WalletsPage />);
+    await screen.findByText('client@example.com');
+
+    await user.click(screen.getByRole('button', { name: /actions for/i }));
+
+    expect(await screen.findByRole('menuitem', { name: /add funds/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /debit|freeze|close|remove/i })).toBeNull();
   });
 });

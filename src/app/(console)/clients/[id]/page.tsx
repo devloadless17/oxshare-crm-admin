@@ -14,6 +14,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { Badge } from '@/components/ui/badge';
 import { ToggleList } from '@/components/ui/toggle-list';
 import { ClientTagChips } from '@/components/clients/client-tag-chips';
+import { ClientWalletsPanel } from '@/components/clients/profile/client-wallets-panel';
 import {
   ClientNotFound,
   EmptySection,
@@ -183,6 +184,17 @@ export default function ClientProfilePage() {
                   )}
                 </div>
               </ProfileCard>
+
+              {/*
+                The client's WALLETS, with the operator actions on them.
+
+                Its own component and its own request: `GET /admin/clients/:id`
+                returns identity and compliance, not money, and the two are
+                behind different permissions — so fetching wallets here means an
+                admin without `wallets.view` still gets the profile they are
+                entitled to instead of a failed page.
+              */}
+              <ClientWalletsPanel userId={profile.id} />
 
               <ProfileCard
                 title={t('clientProfile.sectionKyc')}

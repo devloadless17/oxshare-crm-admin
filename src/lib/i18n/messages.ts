@@ -340,6 +340,25 @@ export const messages = {
   // arithmetic on the server rather than in JS on these strings.
   'wallets.onHoldNote': 'Reserved against a pending transfer.',
 
+  // ── Crediting a wallet by hand ────────────────────────────────────────────
+  // The only control in the console that CREATES money, so the copy is written
+  // to slow the operator down: it names the client, shows the balance they are
+  // adding to, and says out loud that the reason reaches the client.
+  'wallets.creditAction': 'Add funds',
+  'wallets.creditTitle': 'Add funds to this wallet',
+  'wallets.creditClient': 'Client',
+  'wallets.creditCurrentBalance': 'Current balance',
+  'wallets.creditAmount': 'Amount to add ({currency})',
+  'wallets.creditAmountHint': 'Up to 8 decimal places. Credited exactly as entered.',
+  'wallets.creditReason': 'Reason',
+  'wallets.creditReasonPlaceholder': 'Goodwill adjustment for the failed 4 August transfer.',
+  // Says where it goes, because an operator who does not know the client reads
+  // it writes a different sentence.
+  'wallets.creditReasonHint': 'Recorded in the audit log and sent to the client in their email.',
+  'wallets.creditConfirm': 'Add funds',
+  'wallets.crediting': 'Adding…',
+  'wallets.creditFailed': 'Could not add the funds. Nothing was credited.',
+
   // ── Trading accounts (GET /admin/trading-accounts) ────────────────────────
   'tradingAccounts.title': 'Trading accounts',
   'tradingAccounts.subtitle':
@@ -607,6 +626,21 @@ export const messages = {
   'clientProfile.noDocuments': 'No documents uploaded.',
   'clientProfile.noTradingAccounts': 'No trading accounts yet.',
   'clientProfile.noTagsAvailable': 'No tags exist yet. Create one on the Client Tags screen.',
+
+  // ── The client's wallets, on their profile ────────────────────────────────
+  'clientProfile.walletsTitle': 'Wallets',
+  'clientProfile.noWallets': 'This client holds no wallets.',
+  'clientProfile.walletOpen': 'Open wallet',
+  'clientProfile.walletOpening': 'Opening…',
+  'clientProfile.walletCurrencyPlaceholder': 'Currency',
+  'clientProfile.walletOpenFailed': 'Could not open the wallet.',
+  // Named per currency: several identical bins down a list announce as "button"
+  // with nothing to say which wallet each one closes.
+  'clientProfile.walletClose': 'Close the {currency} wallet',
+  // States the rule up front, so the operator learns it from the control rather
+  // than from a refusal after pressing it.
+  'clientProfile.walletCloseHint': 'Only an empty, unused wallet can be closed.',
+  'clientProfile.walletCloseFailed': 'Could not close the wallet.',
   'clientProfile.parentIb': 'Introduced by',
   'clientProfile.noParentIb': 'Not introduced by a partner.',
   'clientProfile.referredClients': 'Clients introduced',
