@@ -95,9 +95,17 @@ export default function NewApiKeyPage() {
   const canSubmit = name.trim().length > 0 && permissions.length > 0 && !create.isPending;
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Scrolls; the action bar below does not. */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+    /*
+     * NO inner scroll container, deliberately.
+     *
+     * This was `h-full` with an `overflow-y-auto` wrapper, which gave the form
+     * its own scrollbar nested inside the one `<main>` already has — two bars
+     * on one screen, and the inner one detached from the page. The page scrolls
+     * now; the action bar below stays put via `sticky`, which needs no scroll
+     * container of its own because `<main>` is the one it sticks within.
+     */
+    <div className="flex flex-col">
+      <div>
         <div className="space-y-6 pb-6">
           <div>
             <Link
@@ -158,28 +166,65 @@ export default function NewApiKeyPage() {
               <label htmlFor="key-expiry" className="text-xs font-semibold">
                 {t('apiKeys.form.expiry')}
               </label>
-              <div className="mt-1.5 flex items-center gap-2">
+              {/*
+               * The trigger takes the FULL column width, like the Name input
+               * beside it — the Clear control sits inside it rather than
+               * stealing width from the row.
+               */}
+              <div className="relative mt-1.5">
                 <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    {/*
-                     * `flex-1`, not `inline-flex`: the trigger fills its column
-                     * like the Name input fills the other one. A control sized
-                     * to its own text made the two halves of the row visibly
-                     * mismatched, and left the date cramped against the icon.
-                     */}
-                    <button
-                      id="key-expiry"
-                      type="button"
-                      className="focus-outline flex h-9 flex-1 items-center gap-2 rounded-lg border border-input bg-background px-3 text-left text-sm"
-                    >
-                      <CalendarIcon
-                        className="h-4 w-4 shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                      {expiresAt ? expiresAt.toLocaleDateString() : t('apiKeys.never')}
-                    </button>
+                  {/*
+                   * `PopoverTrigger` renders a real <button> itself — Base UI,
+                   * not Radix, so there is no `asChild` and no wrapper element
+                   * to style around.
+                   *
+                   * `w-full`, not `flex-1`: `flex-1` only fills what the row
+                   * leaves over, and the Clear control was taking a share, so
+                   * the field never matched the Name input beside it.
+                   *
+                   * `active:!scale-100` opts out of the global
+                   * `button:active { transform: scale(.985) }` in globals.css.
+                   * A press animation reads as "this did something" on a submit
+                   * button; on a control that only opens a popover it makes the
+                   * whole field flinch.
+                   *
+                   * `cursor-pointer` because a <button> defaults to the arrow
+                   * cursor, and this one is styled to look like an input.
+                   */}
+                  <PopoverTrigger
+                    id="key-expiry"
+                    type="button"
+                    className="focus-outline flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 pr-20 text-left text-sm active:!scale-100"
+                  >
+                    <CalendarIcon
+                      className="h-4 w-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    {expiresAt ? expiresAt.toLocaleDateString() : t('apiKeys.never')}
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  {/*
+                   * `w-auto` so the panel takes the calendar's own width rather
+                   * than the shared `w-72`, which was narrower than the grid
+                   * wants and squeezed the columns together.
+                   *
+                   * `[--tw-enter-scale:1] [--tw-exit-scale:1]` drops the shared
+                   * panel's 95% zoom on open/close, keeping only the fade. On a
+                   * menu that zoom reads as the panel arriving from the trigger;
+                   * on a calendar it visibly resizes a 7-column grid mid-
+                   * animation, so the dates slide under the pointer on the way
+                   * in and shrink away on the way out.
+                   *
+                   * Set as the custom properties the `enter`/`exit` keyframes in
+                   * globals.css read, NOT as `zoom-in-100`/`zoom-out-100`: that
+                   * utility set is hand-written there rather than coming from
+                   * `tailwindcss-animate`, and only the `-95` steps exist. A
+                   * `-100` class would compile to nothing and silently leave the
+                   * zoom in place.
+                   */}
+                  <PopoverContent
+                    className="w-auto p-0 [--tw-enter-scale:1] [--tw-exit-scale:1]"
+                    align="start"
+                  >
                     <Calendar
                       mode="single"
                       selected={expiresAt}
@@ -199,11 +244,17 @@ export default function NewApiKeyPage() {
                   </PopoverContent>
                 </Popover>
 
+                {/*
+                 * Clear sits INSIDE the field, right-aligned, rather than
+                 * beside it — which is what lets the trigger be full width. The
+                 * trigger's `pr-20` reserves the space so a long date can never
+                 * run underneath this.
+                 */}
                 {expiresAt && (
                   <button
                     type="button"
                     onClick={() => setExpiresAt(undefined)}
-                    className="focus-outline inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-accent"
+                    className="focus-outline absolute right-1.5 top-1/2 inline-flex -translate-y-1/2 cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground active:!"
                   >
                     <X className="h-3.5 w-3.5" aria-hidden="true" />
                     {t('apiKeys.form.clearExpiry')}
@@ -248,29 +299,36 @@ export default function NewApiKeyPage() {
       </div>
 
       {/*
-       * The action bar is pinned to the bottom of the viewport, not the bottom
-       * of the form.
+       * A floating PILL, centred — not a full-width bar.
        *
-       * The permission catalog is long enough to scroll on any screen, so a
-       * submit button at the end of the document is one an operator has to go
-       * looking for — after they have already made the decision. Right-aligned
-       * because that is where this console puts a form's primary action.
+       * The bar version spanned the viewport and needed negative margins to
+       * cancel `<main>`'s padding, which is a lot of machinery for two buttons.
+       * This is `w-fit mx-auto`: it sizes to its own content, sits in the middle
+       * of the page, and floats over the form rather than cutting it in half
+       * with a full-width rule.
+       *
+       * `pointer-events-none` on the sticky wrapper with `pointer-events-auto`
+       * on the pill: the wrapper spans the width to do the centring, and
+       * without this it would swallow clicks on the form beneath it either side
+       * of the buttons.
        */}
-      <div className="sticky bottom-0 flex shrink-0 items-center justify-end gap-2 border-t border-border bg-background py-4">
-        <Link
-          href="/api-keys"
-          className="focus-outline inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-semibold hover:bg-accent"
-        >
-          {t('apiKeys.form.cancel')}
-        </Link>
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={() => create.mutate()}
-          className="focus-outline h-9 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {create.isPending ? t('apiKeys.form.creating') : t('apiKeys.form.submit')}
-        </button>
+      <div className="pointer-events-none sticky bottom-4 z-10 mt-4 flex justify-center">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur">
+          <Link
+            href="/api-keys"
+            className="focus-outline inline-flex h-9 items-center rounded-full px-4 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            {t('apiKeys.form.cancel')}
+          </Link>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() => create.mutate()}
+            className="focus-outline h-9 rounded-full bg-primary px-5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {create.isPending ? t('apiKeys.form.creating') : t('apiKeys.form.submit')}
+          </button>
+        </div>
       </div>
     </div>
   );

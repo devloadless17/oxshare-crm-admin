@@ -79,25 +79,36 @@ export function PermissionMatrix({
           const moduleAllSelected = moduleKeys.every((key) => selected.includes(key));
           return (
             <div key={modKey} className="rounded-lg border border-border bg-muted/20 p-4 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-bold text-foreground text-xs">{mod.moduleName}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] text-muted-foreground">{mod.description}</span>
-                  {onSelectAll && (
-                    // Per module as well as overall: granting "everything under
-                    // Clients" is the shape of the decision an operator actually
-                    // makes, and doing it one box at a time is where they stop
-                    // reading what they are granting.
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => onSelectAll(moduleKeys, !moduleAllSelected)}
-                      className="focus-outline shrink-0 text-[11px] font-semibold text-link hover:underline disabled:opacity-50"
-                    >
-                      {moduleAllSelected ? t('settings.clearAll') : t('settings.selectAll')}
-                    </button>
-                  )}
+              {/*
+               * The description sits UNDER the title, not beside it.
+               *
+               * They were siblings on one row, so a long description was
+               * squeezed against the select-all control and wrapped mid-phrase
+               * — and the eye had to travel across the card to find the
+               * sentence explaining the heading it just read. Title then
+               * description is the order they are read in.
+               */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-foreground">{mod.moduleName}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    {mod.description}
+                  </p>
                 </div>
+                {onSelectAll && (
+                  // Per module as well as overall: granting "everything under
+                  // Clients" is the shape of the decision an operator actually
+                  // makes, and doing it one box at a time is where they stop
+                  // reading what they are granting.
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onSelectAll(moduleKeys, !moduleAllSelected)}
+                    className="focus-outline shrink-0 text-[11px] font-semibold text-link hover:underline disabled:opacity-50"
+                  >
+                    {moduleAllSelected ? t('settings.clearAll') : t('settings.selectAll')}
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-2 xl:grid-cols-3">

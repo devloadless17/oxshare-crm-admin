@@ -124,9 +124,27 @@ export function PageLoader({
     <div
       role="status"
       aria-live="polite"
+      /*
+       * CENTRED IN THE PAGE, not parked under the heading.
+       *
+       * The in-page variant used to be `py-16` — padding, not height — so the
+       * spinner sat a fixed distance from the top of whatever space it was given
+       * and read as content that had loaded rather than as a page still working.
+       * On a tall screen it was stranded near the top with the rest empty.
+       *
+       * `min-h-[60vh]` gives it real height to centre within, and matches the
+       * empty states on the portal's /transactions and /accounts so a screen
+       * does not jump when it finishes loading into "nothing here".
+       *
+       * VIEWPORT units rather than `h-full`: the portal layout is `min-h-screen`
+       * with no unbroken `h-full` chain from <html> down, so a percentage height
+       * has nothing to resolve against and silently collapses to its content.
+       * This app's layout does have that chain, but the file is a TWIN and one
+       * expression has to be correct in both — `vh` is.
+       */
       className={cn(
         'flex flex-col items-center justify-center gap-3 text-center',
-        fullScreen ? 'min-h-screen bg-background' : 'py-16',
+        fullScreen ? 'min-h-screen bg-background' : 'min-h-[60vh]',
         className,
       )}
     >
