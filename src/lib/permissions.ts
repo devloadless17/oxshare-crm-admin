@@ -18,7 +18,24 @@ import type { AdminProfile } from '@/context/AdminAuthContext';
  *
  * Matching is case-insensitive, exactly like the backend's PermissionsGuard.
  */
-export type RouteRequirement = { permission: string } | { masterOnly: true } | null; // any authenticated admin
+export type RouteRequirement =
+  | { permission: string }
+  /**
+   * ANY ONE of these opens the route.
+   *
+   * For a screen whose keys do not imply one another. Nothing in this system
+   * says that holding `settings.manage` also grants `settings.view` — the
+   * backend guard matches keys literally — so a role given only "Change
+   * settings" was locked out of the screen it was granted the power to change.
+   * That reads as a broken permission rather than a missing second checkbox.
+   *
+   * Deliberately NOT a general "all of these" counterpart: a route requirement
+   * is the weakest key that makes the screen worth opening, and each control
+   * inside checks its own before drawing.
+   */
+  | { anyOf: string[] }
+  | { masterOnly: true }
+  | null; // any authenticated admin
 
 // Order matters: more specific prefixes first (matched with startsWith).
 const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement }> = [
@@ -88,11 +105,28 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   // `ib.view` to see the list; the row menu checks `ib.manage` before it draws,
   // and the API refuses the writes regardless.
   { prefix: '/partners', requirement: { permission: 'ib.view' } },
-  // roles.MANAGE, not roles.view. /settings is now the RBAC-08 network allowlist
-  // and the security controls; when both were the "Network" tab they were shown
-  // only to an admin holding roles.manage, so requiring roles.view here would
-  // newly expose which networks are trusted to every read-only admin.
-  { prefix: '/settings', requirement: { permission: 'roles.manage' } },
+  /*
+   * `settings.view` — the family this screen is actually made of.
+   *
+   * This required `roles.manage`, which was correct while /settings WAS the
+   * RBAC-08 network allowlist: showing which networks are trusted to every
+   * read-only admin would have been a real exposure. That tab was removed, and
+   * the requirement was not moved with it — so the route and the page it gates
+   * ended up asking for different things entirely.
+   *
+   * The symptom is worth recording, because it reads as a broken screen rather
+   * than a misconfigured one: granting a role `settings.manage` did nothing at
+   * all, because the ROUTE still demanded `roles.manage`; granting
+   * `roles.manage` opened the route onto a page whose every panel then refused,
+   * because each of those checks `settings.*`. Two ways to be denied by a
+   * screen you were deliberately given.
+   *
+   * The weaker key on purpose, matching /partners and /payment-methods above:
+   * the route says who may LOOK, and each panel checks its own write key
+   * (`settings.manage`, and master-admin for SMTP) before drawing a control.
+   * The API enforces both independently.
+   */
+  { prefix: '/settings', requirement: { anyOf: ['settings.view', 'settings.manage'] } },
   { prefix: '/admin-users', requirement: { permission: 'users.view' } },
   { prefix: '/audit-log', requirement: { masterOnly: true } },
   /*
@@ -197,6 +231,9 @@ export function canAccess(admin: AdminProfile | null, path: string): boolean {
   if (!match) return false;
   if (match.requirement === null) return true;
   if ('masterOnly' in match.requirement) return isMasterAdmin(admin);
+  if ('anyOf' in match.requirement) {
+    return match.requirement.anyOf.some((key) => hasPermission(admin, key));
+  }
   return hasPermission(admin, match.requirement.permission);
 }
 
@@ -209,9 +246,14 @@ export function canAccess(admin: AdminProfile | null, path: string): boolean {
  */
 export function assertPermissionKeysExist(catalogKeys: string[]): string[] {
   const known = new Set(catalogKeys.map(normalizeKey));
-  const referenced = ROUTE_REQUIREMENTS.map((r) =>
-    r.requirement && 'permission' in r.requirement ? r.requirement.permission : null,
-  ).filter((k): k is string => k !== null);
+  // Both shapes, or an `anyOf` route could carry an orphan key and this check —
+  // whose whole job is to catch exactly that — would report the route as clean.
+  const referenced = ROUTE_REQUIREMENTS.flatMap((r) => {
+    if (!r.requirement) return [];
+    if ('permission' in r.requirement) return [r.requirement.permission];
+    if ('anyOf' in r.requirement) return r.requirement.anyOf;
+    return [];
+  });
 
   const orphans = [...new Set(referenced.filter((k) => !known.has(normalizeKey(k))))];
   if (orphans.length > 0 && process.env.NODE_ENV !== 'production') {

@@ -44,13 +44,14 @@ export default function EditRolePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  /*
+   * The roles list and the permission catalog. `GET /admin/client-fields` was
+   * fetched here too, for the field-masking section that has been removed — a
+   * role is a set of permissions and nothing else.
+   */
   const query = useResource(['roles', 'edit', roleId], async () => {
-    const [roles, catalog, fieldCatalog] = await Promise.all([
-      api.admin.getRoles(),
-      api.admin.getPermissions(),
-      api.admin.getClientFields(),
-    ]);
-    return { role: roles.find((r) => r.id === roleId) ?? null, catalog, fieldCatalog };
+    const [roles, catalog] = await Promise.all([api.admin.getRoles(), api.admin.getPermissions()]);
+    return { role: roles.find((r) => r.id === roleId) ?? null, catalog };
   });
 
   const role = query.data?.role ?? null;
@@ -96,7 +97,7 @@ export default function EditRolePage() {
         <AsyncBoundary
           status={query.status}
           label={t('common.loading')}
-          endpoints={['GET /admin/roles', 'GET /admin/permissions', 'GET /admin/client-fields']}
+          endpoints={['GET /admin/roles', 'GET /admin/permissions']}
           onRetry={query.refetch}
           errorMessage={t('roles.loadFailed')}
           error={query.error}
@@ -122,7 +123,6 @@ export default function EditRolePage() {
               key={role.id}
               initial={role}
               catalog={query.data?.catalog ?? {}}
-              fieldCatalog={query.data?.fieldCatalog ?? {}}
               busy={save.isPending}
               error={save.isError ? apiErrorMessage(save.error, t('roles.saveFailed')) : ''}
               submitLabel={t('roles.saveEdit')}

@@ -34,13 +34,14 @@ export default function NewRolePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const query = useResource(['role-form-catalogs'], async () => {
-    const [catalog, fieldCatalog] = await Promise.all([
-      api.admin.getPermissions(),
-      api.admin.getClientFields(),
-    ]);
-    return { catalog, fieldCatalog };
-  });
+  /*
+   * The permission catalog alone. `GET /admin/client-fields` was fetched
+   * alongside it for the field-masking section, which has been removed — a role
+   * is a set of permissions and nothing else.
+   */
+  const query = useResource(['role-form-catalogs'], async () => ({
+    catalog: await api.admin.getPermissions(),
+  }));
 
   const save = useMutation({
     mutationFn: (values: RoleFormValues) => api.admin.createRole(values),
@@ -83,14 +84,13 @@ export default function NewRolePage() {
         <AsyncBoundary
           status={query.status}
           label={t('common.loading')}
-          endpoints={['GET /admin/permissions', 'GET /admin/client-fields']}
+          endpoints={['GET /admin/permissions']}
           onRetry={query.refetch}
           errorMessage={t('roles.loadFailed')}
           error={query.error}
         >
           <RoleForm
             catalog={query.data?.catalog ?? {}}
-            fieldCatalog={query.data?.fieldCatalog ?? {}}
             busy={save.isPending}
             error={save.isError ? apiErrorMessage(save.error, t('roles.saveFailed')) : ''}
             submitLabel={t('roles.saveNew')}

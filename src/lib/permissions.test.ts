@@ -175,14 +175,32 @@ describe('canAccess', () => {
     expect(canAccess({ ...subAdmin, permissions: ['users.view'] }, '/admin-users')).toBe(true);
   });
 
-  it('/settings needs roles.MANAGE, not roles.view', () => {
-    // Reading roles and deciding which networks may reach the admin API are
-    // different powers. Before the three-way split, /settings held roles behind
-    // roles.view AND the RBAC-08 allowlist behind a tab rendered only for
-    // roles.manage. Roles moved to /roles, so if /settings had kept roles.view
-    // it would newly expose the trusted-network list to every read-only admin.
-    expect(canAccess({ ...subAdmin, permissions: ['roles.view'] }, '/settings')).toBe(false);
-    expect(canAccess({ ...subAdmin, permissions: ['roles.manage'] }, '/settings')).toBe(true);
+  it('/settings is gated on the family it is made of, not on roles.*', () => {
+    /*
+     * The regression this pins: the route asked for `roles.manage` while every
+     * panel on the page checks `settings.*`, so the screen had two ways to deny
+     * somebody who had been deliberately given it. Granting `settings.manage`
+     * did nothing, because the route still wanted `roles.manage`; granting
+     * `roles.manage` opened the route onto a page that then refused every
+     * control.
+     *
+     * `roles.manage` was right while /settings WAS the RBAC-08 network
+     * allowlist — that tab was removed and the requirement was not moved with
+     * it.
+     */
+    expect(canAccess({ ...subAdmin, permissions: ['settings.view'] }, '/settings')).toBe(true);
+    /*
+     * EITHER key opens it. Nothing in this system says `settings.manage`
+     * implies `settings.view` — the backend guard matches keys literally — so a
+     * role given only "Change settings" was locked out of the screen it was
+     * granted the power to change, which reads as a broken permission rather
+     * than a missing second checkbox.
+     */
+    expect(canAccess({ ...subAdmin, permissions: ['settings.manage'] }, '/settings')).toBe(true);
+    // Managing roles says nothing about operational settings, in either
+    // direction — these are unrelated powers and the route no longer conflates
+    // them.
+    expect(canAccess({ ...subAdmin, permissions: ['roles.manage'] }, '/settings')).toBe(false);
     expect(canAccess(master, '/settings')).toBe(true);
   });
 
@@ -245,6 +263,11 @@ describe('assertPermissionKeysExist', () => {
     'roles.view',
     'roles.manage',
     'settings.view',
+    // BOTH settings keys, because `/settings` accepts either — and an `anyOf`
+    // route whose second key is an orphan is exactly the drift this check
+    // exists to catch, so the fixture has to carry both for the clean case to
+    // mean anything.
+    'settings.manage',
     // The money layer came back, so its keys are catalog keys again. All five
     // exist in the backend's config/permissions.json — `withdrawals.approve`
     // and `withdrawals.settle` are separate there precisely so approving and

@@ -3,9 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
-import type { ClientFieldGroup, PermissionModule, Role } from '@/lib/api/admin';
+import type { PermissionModule, Role } from '@/lib/api/admin';
 import { PermissionMatrix } from './permission-matrix';
-import { ToggleList } from '@/components/ui/toggle-list';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n';
 
@@ -13,8 +12,21 @@ export interface RoleFormValues {
   name: string;
   description?: string;
   permissions: string[];
-  /** RBAC-03 — client fields holders of this role may not see. */
-  maskedFields: string[];
+  /*
+   * No `maskedFields`.
+   *
+   * A role is a set of PERMISSIONS. The field-masking half — which client
+   * fields holders of this role may not see — has been removed from the
+   * console: it was a second, parallel access model that had to be reasoned
+   * about alongside permissions on every screen, and it was configurable in two
+   * places (here, and per-administrator) with different semantics in each.
+   *
+   * `PUT /admin/roles/:id` still accepts `maskedFields` and the API still
+   * enforces whatever is stored, so a role that carries one keeps it: omitting
+   * the field from the request leaves it untouched rather than clearing it.
+   * Existing masks are therefore still applied and no longer editable from any
+   * screen — a data cleanup, not a UI one.
+   */
 }
 
 /**
@@ -41,30 +53,29 @@ export interface RoleFormValues {
  * — so nothing catches a mis-click on the sidebar. Worth knowing before someone
  * reports it as a bug.
  *
- * ── Why masking belongs HERE, on the role ─────────────────────────────────
+ * ── A role is PERMISSIONS, and nothing else ───────────────────────────────
  *
- * It is a property of the JOB. "Support agents do not see phone numbers" is the
- * same kind of statement as "support agents cannot approve withdrawals", and
- * the two belong on the same screen: an operator answering "what can a support
- * agent do and see" should not have to open twenty individual admins and diff
- * them.
+ * There was a second section here for field masking — which client fields
+ * holders of this role may not see — argued for on the grounds that it is a
+ * property of the job, like a permission. It was removed along with its
+ * per-administrator counterpart in the admin editor.
  *
- * It also resolves LIVE, exactly as permissions do, so adding a field here
- * blinds every holder on their next request with no re-login.
+ * The reason is that it was a SECOND access model running beside the first,
+ * with its own vocabulary, its own catalog fetch and its own override
+ * semantics, and every screen that showed client data had to reason about
+ * both. One model answers "what may this person do", and that is the one this
+ * form configures.
  */
 export function RoleForm({
   initial,
   catalog,
-  fieldCatalog,
   busy,
   error,
   submitLabel,
   onSubmit,
 }: {
-  initial?: Pick<Role, 'name' | 'description' | 'permissions' | 'maskedFields'>;
+  initial?: Pick<Role, 'name' | 'description' | 'permissions'>;
   catalog: Record<string, PermissionModule>;
-  /** RBAC-03 vocabulary, fetched — the frontend invents no keys (R-4.5). */
-  fieldCatalog: Record<string, ClientFieldGroup>;
   busy: boolean;
   error: string;
   submitLabel: string;
@@ -73,7 +84,6 @@ export function RoleForm({
   const [name, setName] = React.useState(initial?.name ?? '');
   const [description, setDescription] = React.useState(initial?.description ?? '');
   const [permissions, setPermissions] = React.useState<string[]>(initial?.permissions ?? []);
-  const [maskedFields, setMaskedFields] = React.useState<string[]>(initial?.maskedFields ?? []);
 
   const toggle = (key: string) =>
     setPermissions((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
@@ -85,7 +95,6 @@ export function RoleForm({
       name: name.trim(),
       description: description.trim() || undefined,
       permissions,
-      maskedFields,
     });
   };
 
@@ -126,48 +135,6 @@ export function RoleForm({
       {/* The matrix is shared with the admin editor (RBAC-02), so a role and a
           direct grant always offer the same vocabulary. */}
       <PermissionMatrix catalog={catalog} selected={permissions} onToggle={toggle} />
-
-      {/*
-       * A <details> with an always-visible summary, matching the admin editor.
-       * Collapsed because most roles hide nothing — but the summary line is on
-       * screen before it is opened, because RBAC-03's failure mode is granting
-       * visibility you did not realise you granted.
-       */}
-      <details className="rounded-lg border border-border bg-card p-3">
-        <summary className="cursor-pointer list-none text-xs font-semibold focus-outline">
-          <span className="flex items-center justify-between gap-3">
-            {t('roles.maskSection')}
-            <span className="text-[11px] font-normal text-muted-foreground">
-              {maskedFields.length === 0
-                ? t('roles.maskSummaryNone')
-                : t('roles.maskSummary', { count: maskedFields.length })}
-            </span>
-          </span>
-        </summary>
-        <div className="pt-3">
-          <p className="mb-2 text-[11px] text-muted-foreground">{t('roles.maskHint')}</p>
-          <ToggleList
-            options={Object.values(fieldCatalog)
-              .flatMap((group) => group.fields)
-              .map((field) => ({
-                value: field.key,
-                label: field.label,
-                hint: field.key,
-                // Shown and disabled WITH the reason, never omitted: an operator
-                // hunting for "why can I not hide the status column" needs the
-                // answer where they are looking.
-                disabledReason: field.maskable ? undefined : field.reason,
-              }))}
-            selected={maskedFields}
-            onToggle={(key) =>
-              setMaskedFields((prev) =>
-                prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-              )
-            }
-            disabled={busy}
-          />
-        </div>
-      </details>
 
       {error && (
         <div
