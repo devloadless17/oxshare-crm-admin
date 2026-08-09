@@ -53,8 +53,21 @@ export default function ClientProfilePage() {
   const canViewDocs =
     hasPermission(admin, 'kyc.documents.view') || hasPermission(admin, 'kyc.review');
   const canViewTrading = hasPermission(admin, 'trading.view');
-  const canViewPartners = hasPermission(admin, 'partners.view');
-  const canAssignTags = hasPermission(admin, 'tags.assign');
+  /*
+   * `ib.view`, because `partners.view` NEVER EXISTED.
+   *
+   * It was invented here and never added to the backend catalog, so no role
+   * could hold it and this panel was hidden from everybody — including from
+   * the wildcard holders, once the wildcard stopped being honoured. The
+   * permissions module documents this exact class of drift at the top; this
+   * is the last instance of it.
+   */
+  const canViewPartners = hasPermission(admin, 'ib.view');
+  // Tagging a CLIENT is a client permission now, not a tag-vocabulary one:
+  // `tags.*` is who may edit the vocabulary, `clients.tag` is who may put one
+  // on somebody. A tag decides which admins can see a client, so the two are
+  // genuinely different powers.
+  const canAssignTags = hasPermission(admin, 'clients.tag');
 
   const query = useResource<ClientProfile>(['client', clientId], (signal) =>
     api.admin.getClient(clientId, signal),

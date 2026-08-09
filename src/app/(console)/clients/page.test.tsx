@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { answerConfirm, expectNoConfirm } from '@/test/confirm';
 import ClientsPage from './page';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * The client directory, and the one destructive action on it.
@@ -12,7 +13,7 @@ import ClientsPage from './page';
  * this screen is deliberate and worth pinning: suspending asks for confirmation,
  * reactivating does not. Only the direction that takes access away needs a guard.
  *
- * Also pins that suspension is gated on users.suspend. Client-side gating is UX
+ * Also pins that suspension is gated on clients.suspend. Client-side gating is UX
  * rather than security — PermissionsGuard answers 403 independently — but a missing
  * gate implies the permission model is wider than it is.
  */
@@ -114,7 +115,7 @@ vi.mock('next/navigation', async () => {
   };
 });
 
-const permissions = { current: ['*'] as string[] };
+const permissions = { current: ALL_PERMISSIONS };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -169,7 +170,7 @@ function page(rows: Record<string, unknown>[], over: Record<string, unknown> = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  permissions.current = ['*'];
+  permissions.current = ALL_PERMISSIONS;
   routerLatencyMs.current = 0;
   searchParams.current = new URLSearchParams();
   // Bumped rather than zeroed: a stale subscriber from the previous test would
@@ -266,8 +267,8 @@ describe('client directory — suspension', () => {
 });
 
 describe('client directory — permission gating', () => {
-  it('shows no suspend control without users.suspend', async () => {
-    permissions.current = ['users.view'];
+  it('shows no suspend control without clients.suspend', async () => {
+    permissions.current = ['clients.view'];
     renderWithProviders(<ClientsPage />);
 
     await screen.findByText('client@oxshare.com');
@@ -282,8 +283,8 @@ describe('client directory — permission gating', () => {
     expect(screen.queryByRole('button', { name: /actions for/i })).toBeNull();
   });
 
-  it('still lists clients read-only without users.suspend', async () => {
-    permissions.current = ['users.view'];
+  it('still lists clients read-only without clients.suspend', async () => {
+    permissions.current = ['clients.view'];
     renderWithProviders(<ClientsPage />);
 
     expect(await screen.findByText('client@oxshare.com')).toBeInTheDocument();

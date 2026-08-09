@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import AdminSettingsPage from './page';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * /settings — three tabs over three independently-guarded resources.
@@ -61,7 +62,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace, push: vi.fn(), refresh: vi.fn() }),
 }));
 
-const identity = { role: 'master_admin', permissions: ['*'] as string[] };
+const identity = { role: 'master_admin', permissions: ALL_PERMISSIONS };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -83,7 +84,7 @@ vi.mock('@/context/AdminAuthContext', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   identity.role = 'master_admin';
-  identity.permissions = ['*'];
+  identity.permissions = ALL_PERMISSIONS;
   search.current = new URLSearchParams();
 
   getPlatformLinks.mockResolvedValue([]);
@@ -118,7 +119,7 @@ describe('which tabs an admin is offered', () => {
     // The API answers 403 for anyone but a master admin. Offering the tab would
     // be offering a screen that always fails.
     identity.role = 'sub_admin';
-    identity.permissions = ['settings.manage', 'roles.manage'];
+    identity.permissions = ['settings.edit', 'roles.edit'];
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
@@ -158,7 +159,7 @@ describe('the active tab comes from the URL', () => {
     // Synchronous on purpose: the assertion is that the SMTP query never starts,
     // and awaiting anything first would give it a chance to.
     identity.role = 'sub_admin';
-    identity.permissions = ['settings.manage'];
+    identity.permissions = ['settings.edit'];
     search.current = new URLSearchParams('tab=email');
     renderWithProviders(<AdminSettingsPage />);
 

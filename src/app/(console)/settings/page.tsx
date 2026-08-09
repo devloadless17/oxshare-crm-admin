@@ -9,7 +9,7 @@ import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
 import { useAdmin } from '@/context/AdminAuthContext';
-import { hasPermission, isMasterAdmin } from '@/lib/permissions';
+import { hasPermission } from '@/lib/permissions';
 import { t } from '@/lib/i18n';
 
 /**
@@ -59,8 +59,26 @@ function AdminSettingsContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const canManageSettings = hasPermission(admin, 'settings.manage');
-  const isMaster = isMasterAdmin(admin);
+  const canManageSettings = hasPermission(admin, 'settings.edit');
+  /*
+   * SMTP and the security switches were MASTER-ADMIN-ONLY, and there is no
+   * master admin any more — no role sits above another, so "not delegatable at
+   * all" had to become a key somebody can be given deliberately.
+   *
+   * They stay separate from `settings.edit` rather than folding into it: mail
+   * credentials and the security switches are a different order of trust from
+   * the support email, and one grant covering all three is how the narrow one
+   * gets handed out for the sake of the broad one.
+   */
+  const canViewSmtp = hasPermission(admin, 'settings.smtp.view');
+  const canEditSmtp = hasPermission(admin, 'settings.smtp.edit');
+  /*
+   * `settings.security.view` / `.edit` exist in the catalog and are read
+   * NOWHERE on this page, because the security tab they were minted for was
+   * removed with the RBAC-08 network allowlist. They are not referenced here
+   * rather than being read into unused constants: a flag nothing gates is the
+   * shape a permission bug takes.
+   */
 
   const tabs = React.useMemo<TabDefinition[]>(() => {
     const all: (TabDefinition | null)[] = [
@@ -69,7 +87,13 @@ function AdminSettingsContent() {
         label: t('settings.tabGeneral'),
         icon: <Building2 className="h-4 w-4" aria-hidden="true" />,
       },
-      isMaster
+      /*
+       * The SMTP tab, on `settings.smtp.view` rather than on being the master
+       * admin. Same tab, same panel; the difference is that somebody can now be
+       * given it deliberately instead of it being reachable by exactly one
+       * hard-coded account.
+       */
+      canViewSmtp
         ? {
             value: 'email',
             label: t('settings.tabEmail'),
@@ -83,7 +107,7 @@ function AdminSettingsContent() {
       },
     ];
     return all.filter((tab): tab is TabDefinition => tab !== null);
-  }, [isMaster]);
+  }, [canViewSmtp]);
 
   /*
    * An unknown or forbidden `?tab=` falls back to the first tab rather than
@@ -123,7 +147,14 @@ function AdminSettingsContent() {
 
         {/* Master admin only, and the API refuses anyone else regardless. */}
         <TabPanel value="email" activeValue={active} idPrefix="settings">
-          <SmtpSettingsPanel />
+          {/*
+            Gated like the other two panels. It took no prop before, because the
+            TAB was master-admin-only and reaching the panel at all was the
+            permission. Now that `settings.smtp.view` opens the tab, viewing and
+            changing mail credentials are separable — and without this a
+            read-only holder would get editable fields that 403 on save.
+          */}
+          <SmtpSettingsPanel canManage={canEditSmtp} />
         </TabPanel>
 
         <TabPanel value="platforms" activeValue={active} idPrefix="settings">

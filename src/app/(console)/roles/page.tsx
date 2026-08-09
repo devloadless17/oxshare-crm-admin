@@ -64,7 +64,15 @@ const ROLE_PAGING = { noun: ['role', 'roles'] as [string, string] };
 
 export default function RolesPage() {
   const { admin } = useAdmin();
-  const canManageRoles = hasPermission(admin, 'roles.manage');
+  /*
+   * `roles.manage` bundled all three verbs. Deleting a role is the one that
+   * cannot be undone and the one the API guards hardest — it refuses the write
+   * that would leave nobody able to manage roles or administrators at all.
+   */
+  const canCreateRoles = hasPermission(admin, 'roles.create');
+  const canEditRoles = hasPermission(admin, 'roles.edit');
+  const canDeleteRoles = hasPermission(admin, 'roles.delete');
+  const canManageRoles = canEditRoles || canDeleteRoles;
 
   /** The role awaiting delete confirmation — also what the dialog names. */
   const [pendingDelete, setPendingDelete] = React.useState<Role | null>(null);
@@ -217,7 +225,10 @@ export default function RolesPage() {
 
         <div className="flex items-center gap-2">
           <ExportButton resource="roles" disabled={roles.length === 0} />
-          {canManageRoles && (
+          {/* `roles.create`. /roles/new gates on the same key, so the button and
+              the page it opens agree — the mismatch this whole change exists to
+              remove. */}
+          {canCreateRoles && (
             <Button asChild size="sm">
               <Link href="/roles/new">
                 <Plus />

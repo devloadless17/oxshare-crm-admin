@@ -39,7 +39,15 @@ import { t } from '@/lib/i18n';
  */
 export default function IbLevelsPage() {
   const { admin } = useAdmin();
-  const canManage = hasPermission(admin, 'ib.manage');
+  /*
+   * `ib.manage` split into per-verb keys. The tree draws Add, Edit, Delete,
+   * reorder and the enable toggle off this one flag, so it is the union — each
+   * control the tree renders is still refused by the API independently.
+   */
+  const canCreate = hasPermission(admin, 'ib.levels.create');
+  const canEdit = hasPermission(admin, 'ib.levels.edit');
+  const canDelete = hasPermission(admin, 'ib.levels.delete');
+  const canManage = canCreate || canEdit || canDelete;
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 

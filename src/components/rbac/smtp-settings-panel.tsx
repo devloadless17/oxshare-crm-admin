@@ -43,7 +43,7 @@ import { t } from '@/lib/i18n';
  * empty and the hint says what empty means. Sending `undefined` — which is what
  * an untouched field produces below — is what keeps the stored password.
  */
-export function SmtpSettingsPanel() {
+export function SmtpSettingsPanel({ canManage }: { canManage: boolean }) {
   const settings = useResource<SmtpSettings>(['smtp-settings'], () => adminApi.getSmtpSettings());
 
   return (
@@ -64,13 +64,13 @@ export function SmtpSettingsPanel() {
         errorMessage={apiErrorMessage(settings.error, t('smtp.loadFailed'))}
         error={settings.error}
       >
-        {settings.data && <SmtpForm settings={settings.data} />}
+        {settings.data && <SmtpForm settings={settings.data} canManage={canManage} />}
       </AsyncBoundary>
     </section>
   );
 }
 
-function SmtpForm({ settings }: { settings: SmtpSettings }) {
+function SmtpForm({ settings, canManage }: { settings: SmtpSettings; canManage: boolean }) {
   const [host, setHost] = React.useState(settings.host);
   const [port, setPort] = React.useState(String(settings.port));
   const [username, setUsername] = React.useState(settings.username ?? '');
@@ -127,7 +127,16 @@ function SmtpForm({ settings }: { settings: SmtpSettings }) {
     secure !== settings.secure ||
     password !== '';
 
-  const busy = save.isPending;
+  /*
+   * `!canManage` disables every field, matching the general and platform panels.
+   *
+   * This panel took no permission at all before, because reaching it WAS the
+   * permission — the tab was master-admin-only. `settings.smtp.view` and
+   * `settings.smtp.edit` are separate keys, so a holder of the first now opens
+   * a form they may read and not save, and editable fields that 403 on submit
+   * would be a worse answer than fields that say so up front.
+   */
+  const busy = save.isPending || !canManage;
 
   return (
     <form

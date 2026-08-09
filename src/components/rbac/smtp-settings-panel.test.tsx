@@ -53,7 +53,9 @@ beforeEach(() => {
 
 /** Waits for the form to have loaded before interacting with it. */
 async function renderPanel() {
-  renderWithProviders(<SmtpSettingsPanel />);
+  // `canManage` is required now: the panel took no permission before, because
+  // reaching its tab WAS the permission (master-admin-only).
+  renderWithProviders(<SmtpSettingsPanel canManage />);
   await screen.findByLabelText(/^host$/i);
 }
 

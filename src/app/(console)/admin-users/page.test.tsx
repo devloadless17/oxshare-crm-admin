@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { answerConfirm } from '@/test/confirm';
 import AdminUsersPage from './page';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * FR-RBAC-07 — the directory, and who may do what to whom.
@@ -64,7 +65,7 @@ vi.mock('@/lib/api', () => {
   return { api, default: api };
 });
 
-const permissions = { current: ['*'] as string[] };
+const permissions = { current: ALL_PERMISSIONS };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -103,7 +104,7 @@ const ROLES = [
     id: 'r-sys',
     name: 'Master Admin',
     description: 'Everything',
-    permissions: ['*'],
+    permissions: ALL_PERMISSIONS,
     isSystem: true,
     createdAt: '2026-08-01T00:00:00.000Z',
   },
@@ -115,7 +116,7 @@ const master = {
   name: 'Master Admin',
   role: 'master_admin',
   status: 'active',
-  permissions: ['*'],
+  permissions: ALL_PERMISSIONS,
   maskedFields: [],
   scopedTags: [],
   createdAt: '2026-08-01T00:00:00.000Z',
@@ -181,7 +182,7 @@ async function openRowMenu(rowName: RegExp) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  permissions.current = ['*'];
+  permissions.current = ALL_PERMISSIONS;
   getRoles.mockResolvedValue(ROLES);
   getAdminUsers.mockResolvedValue([master, sub()]);
   getPermissions.mockResolvedValue({
@@ -317,8 +318,8 @@ describe('outstanding invites, in the directory', () => {
   });
 
   it('is not offered without the permission to create invites', async () => {
-    // `users.view` reads the invite; only `users.create` may revoke it.
-    permissions.current = ['users.view'];
+    // `admins.view` reads the invite; only `admins.create` may revoke it.
+    permissions.current = ['admins.view'];
     getPendingInvites.mockResolvedValue([invite()]);
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('newbie@oxshare.com');
@@ -340,8 +341,8 @@ describe('outstanding invites, in the directory', () => {
 });
 
 describe('suspending an administrator', () => {
-  it('is not offered without users.suspend', async () => {
-    permissions.current = ['users.view', 'users.edit'];
+  it('is not offered without admins.suspend', async () => {
+    permissions.current = ['admins.view', 'admins.edit'];
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
@@ -404,8 +405,8 @@ describe('suspending an administrator', () => {
 });
 
 describe('editing one administrator (FR-RBAC-02)', () => {
-  it('is not offered without users.edit', async () => {
-    permissions.current = ['users.view', 'users.suspend'];
+  it('is not offered without admins.edit', async () => {
+    permissions.current = ['admins.view', 'admins.suspend'];
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
@@ -560,13 +561,13 @@ describe('client scope', () => {
     return within(await screen.findByRole('dialog'));
   };
 
-  it('is not offered without users.scope', async () => {
+  it('is not offered without admins.scope', async () => {
     /*
-     * A SEPARATE permission from `users.edit`. Reusing that would mean anyone
+     * A SEPARATE permission from `admins.edit`. Reusing that would mean anyone
      * who can rename an administrator can also widen that administrator's view
      * of the entire client base — not the same size of act.
      */
-    permissions.current = ['users.view', 'users.edit'];
+    permissions.current = ['admins.view', 'admins.edit'];
     const dialog = await openEditor();
 
     expect(dialog.queryByText(/client scope/i)).not.toBeInTheDocument();

@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import DashboardPage from './page';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * The dashboard.
@@ -52,7 +53,7 @@ vi.mock('@/lib/api', () => {
   return { api, default: api };
 });
 
-const permissions = { current: ['*'] as string[] };
+const permissions = { current: ALL_PERMISSIONS };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -133,7 +134,7 @@ const days = (count: number, make: (index: number) => Record<string, unknown>) =
 
 beforeEach(() => {
   vi.clearAllMocks();
-  permissions.current = ['*'];
+  permissions.current = ALL_PERMISSIONS;
   getStatsOverview.mockResolvedValue(overview());
   getRegistrationSeries.mockResolvedValue({
     days: 30,
@@ -228,7 +229,7 @@ describe('permission gating', () => {
     // `withdrawals.view` absent: the withdrawal panels must not mount and the
     // request must never be made. A card that mounts only to render a 403
     // reads as a broken dashboard.
-    permissions.current = ['users.view', 'kyc.review'];
+    permissions.current = ['clients.view', 'kyc.review'];
     renderWithProviders(<DashboardPage />);
 
     await screen.findByRole('link', { name: /total clients/i });
@@ -237,7 +238,7 @@ describe('permission gating', () => {
   });
 
   it('still renders the sections the admin can see', async () => {
-    permissions.current = ['users.view'];
+    permissions.current = ['clients.view'];
     renderWithProviders(<DashboardPage />);
 
     expect(await screen.findByRole('link', { name: /total clients 1,204/i })).toBeInTheDocument();
@@ -288,7 +289,7 @@ describe('first load', () => {
      * the spinner on screen permanently for exactly the operators whose
      * permissions keep that query from ever running.
      */
-    permissions.current = ['users.view'];
+    permissions.current = ['clients.view'];
     renderWithProviders(<DashboardPage />);
 
     expect(await screen.findByRole('link', { name: /total clients 1,204/i })).toBeInTheDocument();

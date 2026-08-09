@@ -73,6 +73,18 @@ export function UserMenu({
   const [firstWord, ...restWords] = name.split(/\s+/).filter(Boolean);
   const initials = initialsOf(firstWord, restWords.at(-1));
 
+  /*
+   * The role's name, or a stated absence — never a fallback to the email.
+   *
+   * `roleName` is undefined for an administrator on no role, which is a real
+   * state: access can also live as a per-admin permission snapshot, and the
+   * seeded account was in exactly that position until backend 0045 put it on
+   * the Administrator role. Showing the email there would quietly restore the
+   * line this replaced; saying "no role" is the honest answer and is also a
+   * prompt to fix it.
+   */
+  const roleLabel = admin?.roleName ?? t('nav.noRole');
+
   /**
    * Log out, with the failure made visible instead of swallowed.
    *
@@ -115,8 +127,18 @@ export function UserMenu({
                 <span className="block truncate text-xs font-semibold text-foreground">
                   {name || t('nav.accountMenu')}
                 </span>
+                {/*
+                  The ROLE, not the email address.
+                  
+                  Both lines used to be identity — a name and the address it
+                  belongs to — which answers "who am I signed in as" twice and
+                  "what can I do here" never. In a console where every screen is
+                  permission-gated, the second question is the one an operator
+                  actually has, and the role is the answer to it: the name above
+                  already identifies the account.
+                */}
                 <span className="block truncate text-[11px] text-muted-foreground">
-                  {admin?.email ?? ''}
+                  {roleLabel}
                 </span>
               </span>
               <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -137,7 +159,7 @@ export function UserMenu({
             </Avatar>
             <div className="overflow-hidden">
               <p className="truncate text-xs font-semibold text-foreground">{name}</p>
-              <p className="truncate text-[11px] text-muted-foreground">{admin?.email ?? ''}</p>
+              <p className="truncate text-[11px] text-muted-foreground">{roleLabel}</p>
             </div>
           </div>
 

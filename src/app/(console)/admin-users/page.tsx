@@ -38,13 +38,17 @@ import { t } from '@/lib/i18n';
  */
 export default function AdminUsersPage() {
   const { admin } = useAdmin();
-  const canEditAdmins = hasPermission(admin, 'users.edit');
-  const canSuspend = hasPermission(admin, 'users.suspend');
+  const canEditAdmins = hasPermission(admin, 'admins.edit');
+  const canSuspend = hasPermission(admin, 'admins.suspend');
   // D-44. `users.create` is the admin-management grant in this catalogue — it is
   // what inviting an administrator requires. The API enforces the escalation
   // rule on top of it; this only decides whether to draw the button.
-  const canResetPassword = hasPermission(admin, 'users.create');
-  const canInvite = hasPermission(admin, 'users.create');
+  // `admins.reset` is its OWN key now. It was folded into `users.create`
+  // because both went through the invite endpoint (D-44) — so anyone who
+  // could invite could also mail an existing administrator a credential that
+  // signs them out everywhere, which is a different power.
+  const canResetPassword = hasPermission(admin, 'admins.reset');
+  const canInvite = hasPermission(admin, 'admins.create');
   const canViewRoles = hasPermission(admin, 'roles.view');
 
   const [editing, setEditing] = React.useState<AdminUser | null>(null);
@@ -334,7 +338,7 @@ export default function AdminUsersPage() {
            * mean anyone who can rename an administrator can also widen that
            * administrator's view of the entire client base.
            */
-          canScope={hasPermission(admin, 'users.scope')}
+          canScope={hasPermission(admin, 'admins.scope')}
           busy={saveAdmin.isPending}
           error={
             saveAdmin.isError

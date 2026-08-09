@@ -25,7 +25,14 @@ const METHOD_PAGING = { noun: ['method', 'methods'] as [string, string] };
 
 export default function PaymentMethodsPage() {
   const { admin } = useAdmin();
-  const canManage = hasPermission(admin, 'payments.manage');
+  /*
+   * There is no `payments.delete`: a method is DISABLED rather than removed,
+   * because deleting one would orphan every deposit that used it (0043). So the
+   * split is create and edit only, and the enable/disable toggle is an EDIT.
+   */
+  const canCreate = hasPermission(admin, 'payments.create');
+  const canEdit = hasPermission(admin, 'payments.edit');
+  const canManage = canCreate || canEdit;
   const queryClient = useQueryClient();
 
   const [editing, setEditing] = React.useState<PaymentMethod | undefined>(undefined);

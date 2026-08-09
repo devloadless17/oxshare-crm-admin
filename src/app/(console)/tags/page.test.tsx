@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { answerConfirm } from '@/test/confirm';
 import TagsPage from './page';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * ADM-14's vocabulary screen.
@@ -32,7 +33,7 @@ vi.mock('@/lib/api', () => {
   return { api, default: api };
 });
 
-const permissions = { current: ['*'] as string[] };
+const permissions = { current: ALL_PERMISSIONS };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -62,7 +63,7 @@ const tag = (over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  permissions.current = ['*'];
+  permissions.current = ALL_PERMISSIONS;
   getTags.mockResolvedValue([tag()]);
   createTag.mockResolvedValue(tag());
   updateTag.mockResolvedValue(tag());
@@ -97,8 +98,8 @@ describe('listing', () => {
 });
 
 describe('permission gating', () => {
-  it('hides create, edit and delete without tags.manage', async () => {
-    // Client-side gating is UX, not security — the API enforces `tags.manage`
+  it('hides create, edit and delete without tags.edit', async () => {
+    // Client-side gating is UX, not security — the API enforces `tags.edit`
     // independently — but offering a control that always 403s is worse than
     // not offering it.
     permissions.current = ['tags.view'];

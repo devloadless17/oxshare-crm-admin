@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import ClientsPage from './page';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * CHANGING ROWS-PER-PAGE MUST STICK.
@@ -81,7 +82,7 @@ vi.mock('@/context/AdminAuthContext', () => ({
       email: 'admin@oxshare.com',
       name: 'Master Admin',
       role: 'master_admin',
-      permissions: ['*'],
+      permissions: ALL_PERMISSIONS,
       createdAt: new Date().toISOString(),
     },
   }),

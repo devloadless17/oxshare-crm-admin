@@ -65,7 +65,16 @@ const TAG_PAGING = { noun: ['tag', 'tags'] as [string, string] };
 
 export default function TagsPage() {
   const { admin } = useAdmin();
-  const canManage = hasPermission(admin, 'tags.manage');
+  /*
+   * Split from `tags.manage`, which bundled all three verbs — so "may rename a
+   * tag" also meant "may delete the tag an administrator is scoped to", and an
+   * empty scope means UNRESTRICTED. That is a privilege change hiding inside an
+   * edit permission.
+   */
+  const canCreate = hasPermission(admin, 'tags.create');
+  const canEdit = hasPermission(admin, 'tags.edit');
+  const canDelete = hasPermission(admin, 'tags.delete');
+  const canManage = canEdit || canDelete;
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
@@ -226,7 +235,9 @@ export default function TagsPage() {
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="tags" disabled={(query.data ?? []).length === 0} />
-          {canManage && (
+          {/* The CREATE key — see `canManage` above, which is the union the row
+              menu is drawn from. */}
+          {canCreate && (
             <button
               type="button"
               onClick={openCreate}

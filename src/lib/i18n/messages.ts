@@ -76,6 +76,7 @@ export const messages = {
   'nav.logout': 'Logout',
   // Same strings as the portal's, because the account menu at the foot of the
   // sidebar is the same control. See components/layout/user-menu.tsx.
+  'nav.noRole': 'No role assigned',
   'nav.accountMenu': 'Account menu',
   'theme.label': 'Theme',
   'theme.light': 'Light',

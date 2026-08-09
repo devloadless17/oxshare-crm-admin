@@ -64,7 +64,21 @@ export default function CurrenciesPage() {
   // Currencies are operator configuration of the same class as the download
   // links and the brand name, so they share `settings.*` rather than minting a
   // key every existing role would lack. See the backend controller.
-  const canManage = hasPermission(admin, 'settings.manage');
+  /*
+   * THREE keys, not one — and no longer borrowed from `settings.*`.
+   *
+   * Currencies lived under `settings.manage`, which meant the grant that let
+   * somebody change the support email also let them DELETE a currency. They are
+   * their own module now, and create/edit/delete are separate: a `manage` key
+   * that bundles all three is how "may configure currencies" quietly became
+   * "may delete the one every wallet is denominated in".
+   */
+  const canCreate = hasPermission(admin, 'currencies.create');
+  const canEdit = hasPermission(admin, 'currencies.edit');
+  const canDelete = hasPermission(admin, 'currencies.delete');
+  // The row menu is drawn when ANY of its entries would be, and each entry
+  // checks its own key below.
+  const canManage = canEdit || canDelete;
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
@@ -306,7 +320,9 @@ export default function CurrenciesPage() {
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="currencies" disabled={(query.data ?? []).length === 0} />
-          {canManage && (
+          {/* `canCreate`, not the row-actions union: an operator who may edit a
+              currency but not add one should not be offered "New currency". */}
+          {canCreate && (
             <button
               type="button"
               onClick={openCreate}

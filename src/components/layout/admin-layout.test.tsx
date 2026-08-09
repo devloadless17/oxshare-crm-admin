@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/render';
 import { activeNavHref, AdminLayout } from './admin-layout';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * The layout has THREE states, and only two of them used to be handled.
@@ -36,7 +37,7 @@ const MASTER = {
   name: 'Master',
   email: 'master@test.local',
   role: 'master_admin',
-  permissions: ['*'],
+  permissions: ALL_PERMISSIONS,
 };
 
 /** A sub-admin who may see KYC and nothing else in FINANCIALS. */

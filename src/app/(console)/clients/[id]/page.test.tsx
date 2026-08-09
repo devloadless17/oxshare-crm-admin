@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/render';
 import ClientProfilePage from './page';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * FR-ADM-01's client profile.
@@ -38,7 +39,7 @@ vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'c-1' }),
 }));
 
-const permissions = { current: ['*'] as string[] };
+const permissions = { current: ALL_PERMISSIONS };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -79,7 +80,7 @@ const notFound = () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  permissions.current = ['*'];
+  permissions.current = ALL_PERMISSIONS;
   getClient.mockResolvedValue(profile());
   getTags.mockResolvedValue([]);
 });
@@ -124,7 +125,7 @@ describe('the documents section — the sharpest of the three absences', () => {
      * conclude none were uploaded — a statement about the client, when the
      * truth is a statement about the reviewer's permissions.
      */
-    permissions.current = ['users.view'];
+    permissions.current = ['clients.view'];
     getClient.mockResolvedValue(profile()); // API omits `documents` entirely
     renderWithProviders(<ClientProfilePage />);
 
@@ -162,15 +163,15 @@ describe('the documents section — the sharpest of the three absences', () => {
 
 describe('the other permission-gated sections', () => {
   it('hides trading accounts without trading.view', async () => {
-    permissions.current = ['users.view'];
+    permissions.current = ['clients.view'];
     renderWithProviders(<ClientProfilePage />);
 
     await screen.findByText('John Doe');
     expect(screen.getByText(/trading accounts are hidden/i)).toBeInTheDocument();
   });
 
-  it('hides referrals without partners.view', async () => {
-    permissions.current = ['users.view'];
+  it('hides referrals without ib.view', async () => {
+    permissions.current = ['clients.view'];
     renderWithProviders(<ClientProfilePage />);
 
     await screen.findByText('John Doe');

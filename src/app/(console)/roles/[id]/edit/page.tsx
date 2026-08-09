@@ -40,7 +40,7 @@ export default function EditRolePage() {
   const params = useParams<{ id: string }>();
   const roleId = params?.id ?? '';
   const { admin } = useAdmin();
-  const canManage = hasPermission(admin, 'roles.manage');
+  const canManage = hasPermission(admin, 'roles.edit');
   const router = useRouter();
   const queryClient = useQueryClient();
 

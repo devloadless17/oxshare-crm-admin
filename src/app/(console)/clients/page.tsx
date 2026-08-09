@@ -57,8 +57,8 @@ export default function ClientsPage() {
 
 function ClientsPageContent() {
   const { admin } = useAdmin();
-  const canSuspend = hasPermission(admin, 'users.suspend');
-  const canViewTags = hasPermission(admin, 'tags.view') || hasPermission(admin, 'users.view');
+  const canSuspend = hasPermission(admin, 'clients.suspend');
+  const canViewTags = hasPermission(admin, 'tags.view') || hasPermission(admin, 'clients.view');
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 

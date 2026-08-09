@@ -46,7 +46,15 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
 
-  const canManage = hasPermission(admin, 'wallets.manage');
+  /*
+   * `wallets.manage` was one of the three keys the API enforced and no catalog
+   * listed, so no role could ever hold it — opening and closing a wallet were
+   * master-admin-only by accident rather than by decision. They are two keys
+   * now, and both are grantable.
+   */
+  const canOpen = hasPermission(admin, 'wallets.create');
+  const canClose = hasPermission(admin, 'wallets.delete');
+  const canManage = canOpen || canClose;
   const canCredit = hasPermission(admin, 'wallets.credit');
 
   /*

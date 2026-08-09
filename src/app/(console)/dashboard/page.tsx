@@ -89,7 +89,7 @@ export default function AdminDashboardPage() {
   const { admin } = useAdmin();
   const [days, setDays] = React.useState<StatsWindow>(30);
 
-  const canViewClients = hasPermission(admin, 'users.view');
+  const canViewClients = hasPermission(admin, 'clients.view');
   const canReviewKyc = hasPermission(admin, 'kyc.review') || hasPermission(admin, 'kyc.view');
   const canViewWithdrawals = hasPermission(admin, 'withdrawals.view');
   const canViewIb = hasPermission(admin, 'ib.view');

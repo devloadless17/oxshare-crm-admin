@@ -1,13 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import type { AdminProfile } from '@/context/AdminAuthContext';
-import { assertPermissionKeysExist, canAccess, hasPermission, isMasterAdmin } from './permissions';
+import { assertPermissionKeysExist, canAccess, hasPermission } from './permissions';
 
-const master: AdminProfile = {
-  id: 'm1',
-  email: 'admin@oxshare.com',
-  name: 'Master',
-  role: 'master_admin',
-  permissions: ['*'],
+/**
+ * The route table and the key matcher, against the PER-PAGE catalog.
+ *
+ * Rewritten wholesale when backend 0044 replaced the old vocabulary: `users.*`
+ * split into `clients.*` and `admins.*`, every `manage` split into its verbs,
+ * currencies and payments left `settings.*`, and both the `*` wildcard and the
+ * master-admin tier were removed outright.
+ *
+ * There is no `master` fixture any more, and its absence is the point of the
+ * file. Every test here used to have a "…and the master admin reaches it"
+ * case, which passed because `hasPermission` returned true before it read
+ * anything — so the route table was never actually exercised for the one
+ * account that uses the console most.
+ */
+
+/** An admin holding exactly the keys named, and nothing else. */
+const base: AdminProfile = {
+  id: 's1',
+  email: 'sub@oxshare.com',
+  name: 'Sub',
+  role: 'sub_admin',
+  permissions: [],
   // Required since the API started admitting it. The directory used to render a
   // hardcoded "Active" badge because AdminProfileDto had no status field at all.
   status: 'active',
@@ -19,19 +35,30 @@ const master: AdminProfile = {
   createdAt: '2026-08-02T00:00:00.000Z',
 };
 
-// Exactly what the backend grants an invited sub-admin by default today.
-const subAdmin: AdminProfile = {
-  ...master,
-  id: 's1',
-  email: 'sub@oxshare.com',
-  name: 'Sub',
-  role: 'sub_admin',
-  permissions: ['kyc.review', 'users.view'],
-};
+const withPerms = (permissions: string[]): AdminProfile => ({ ...base, permissions });
+
+/** A reviewer who can read the client list — the common starting point below. */
+const subAdmin = withPerms(['kyc.review', 'clients.view']);
 
 describe('hasPermission', () => {
-  it('grants everything to the * wildcard', () => {
-    expect(hasPermission(master, 'anything.at-all')).toBe(true);
+  it('does NOT honour the * wildcard any more', () => {
+    /*
+     * The bug this pins, and the reason the whole file was rewritten.
+     *
+     * `hasPermission` short-circuited on `*` while the backend had already
+     * expanded every stored wildcard into real keys and stopped honouring the
+     * symbol. The two halves then disagreed in the worst direction: the seeded
+     * `admin@oxshare.com`, still holding `*`, was shown the entire sidebar,
+     * every dashboard tile and every route — and the API answered 403 to all of
+     * it. A console that looked complete and was empty, with no route denial
+     * anywhere, because `canAccess` had already been told yes.
+     *
+     * A stale `*` is a permission that no longer means anything, so it grants
+     * nothing.
+     */
+    const stale = withPerms(['*']);
+    expect(hasPermission(stale, 'clients.view')).toBe(false);
+    expect(canAccess(stale, '/clients')).toBe(false);
   });
 
   it('grants only explicitly held permissions', () => {
@@ -39,10 +66,19 @@ describe('hasPermission', () => {
     expect(hasPermission(subAdmin, 'ib.view')).toBe(false);
   });
 
+  it('does not treat a verb as implying its siblings', () => {
+    // `manage` used to bundle create/edit/delete. Splitting them is only worth
+    // anything if holding one grants exactly one.
+    const editor = withPerms(['tags.edit']);
+    expect(hasPermission(editor, 'tags.edit')).toBe(true);
+    expect(hasPermission(editor, 'tags.delete')).toBe(false);
+    expect(hasPermission(editor, 'tags.create')).toBe(false);
+    expect(hasPermission(editor, 'tags.view')).toBe(false);
+  });
+
   it('matches regardless of case (guard parity)', () => {
     expect(hasPermission(subAdmin, 'KYC.Review')).toBe(true);
-    const mixed = { ...subAdmin, permissions: ['KYC.Review'] };
-    expect(hasPermission(mixed, 'kyc.review')).toBe(true);
+    expect(hasPermission(withPerms(['KYC.Review']), 'kyc.review')).toBe(true);
   });
 
   it('does NOT treat the old colon spelling as the same key (guard parity)', () => {
@@ -60,8 +96,7 @@ describe('hasPermission', () => {
      * the drift assertPermissionKeysExist exists to catch.
      */
     expect(hasPermission(subAdmin, 'kyc:review')).toBe(false);
-    const legacy = { ...subAdmin, permissions: ['kyc:review'] };
-    expect(hasPermission(legacy, 'kyc.review')).toBe(false);
+    expect(hasPermission(withPerms(['kyc:review']), 'kyc.review')).toBe(false);
   });
 
   it('denies when unauthenticated', () => {
@@ -69,41 +104,29 @@ describe('hasPermission', () => {
   });
 });
 
-describe('isMasterAdmin', () => {
-  it('is true only for master_admin', () => {
-    expect(isMasterAdmin(master)).toBe(true);
-    expect(isMasterAdmin(subAdmin)).toBe(false);
-    expect(isMasterAdmin(null)).toBe(false);
-  });
-});
-
 describe('canAccess', () => {
-  it('master admin reaches every route', () => {
-    for (const path of [
-      '/dashboard',
-      '/clients',
-      '/kyc',
-      '/kyc/builder',
-      '/settings',
-      '/currencies',
-      '/audit-log',
-    ]) {
-      expect(canAccess(master, path)).toBe(true);
-    }
-  });
-
-  it('sub-admin reaches only what their permissions cover', () => {
+  it('reaches only what the held permissions cover', () => {
     expect(canAccess(subAdmin, '/dashboard')).toBe(true);
-    expect(canAccess(subAdmin, '/clients')).toBe(true); // users.view
+    expect(canAccess(subAdmin, '/clients')).toBe(true);
     expect(canAccess(subAdmin, '/kyc')).toBe(true);
     expect(canAccess(subAdmin, '/kyc/abc-123')).toBe(true); // detail page under /kyc
     expect(canAccess(subAdmin, '/withdrawals')).toBe(false);
     expect(canAccess(subAdmin, '/partners')).toBe(false);
   });
 
-  describe('the money screens', () => {
-    const withPerms = (permissions: string[]): AdminProfile => ({ ...subAdmin, permissions });
+  it('separates the client directory from the ADMIN directory', () => {
+    /*
+     * One key opened both lists. Granting somebody the client screen handed
+     * them the list of everyone who can approve a payout, and the two could not
+     * be granted apart at all.
+     */
+    expect(canAccess(withPerms(['clients.view']), '/clients')).toBe(true);
+    expect(canAccess(withPerms(['clients.view']), '/admin-users')).toBe(false);
+    expect(canAccess(withPerms(['admins.view']), '/admin-users')).toBe(true);
+    expect(canAccess(withPerms(['admins.view']), '/clients')).toBe(false);
+  });
 
+  describe('the money screens', () => {
     it('gates the payout queue on withdrawals.VIEW, not on the write keys', () => {
       /*
        * The route is the weaker of the three keys on purpose. An operator who
@@ -118,97 +141,111 @@ describe('canAccess', () => {
       expect(canAccess(subAdmin, '/transactions')).toBe(false);
     });
 
-    it('opens the two endpoint-less screens to the same key that reads money', () => {
-      // Both render BackendPending. They are declared so `canAccess` admits
-      // them at all — an undeclared route is denied, and "not built yet" is
-      // more useful to an operator than "no access".
-      expect(canAccess(withPerms(['withdrawals.view']), '/wallets')).toBe(true);
-      expect(canAccess(withPerms(['withdrawals.view']), '/trading-accounts')).toBe(true);
-      expect(canAccess(subAdmin, '/wallets')).toBe(false);
-      expect(canAccess(subAdmin, '/trading-accounts')).toBe(false);
+    it('gives wallets and trading accounts their OWN read keys', () => {
+      /*
+       * Both borrowed `withdrawals.view`, because the wallets module was
+       * entirely ungrantable — its three keys were enforced by the API and
+       * listed in no catalog. Sharing the payout queue's key meant "may review
+       * withdrawals" silently also meant "may see every client's balance".
+       */
+      expect(canAccess(withPerms(['wallets.view']), '/wallets')).toBe(true);
+      expect(canAccess(withPerms(['trading.view']), '/trading-accounts')).toBe(true);
+      expect(canAccess(withPerms(['withdrawals.view']), '/wallets')).toBe(false);
+      expect(canAccess(withPerms(['withdrawals.view']), '/trading-accounts')).toBe(false);
     });
 
-    it('gates payment methods on payments.view, with manage checked inside', () => {
+    it('gates payment methods on payments.view, with the writes checked inside', () => {
       expect(canAccess(withPerms(['payments.view']), '/payment-methods')).toBe(true);
-      // Holding only the write key does not open the screen: `payments.manage`
-      // governs the controls, and the API grants the list on `payments.view`.
-      expect(canAccess(withPerms(['payments.manage']), '/payment-methods')).toBe(false);
+      // Holding only a write key does not open the screen.
+      expect(canAccess(withPerms(['payments.edit']), '/payment-methods')).toBe(false);
     });
 
-    it('is reachable by the master admin', () => {
-      for (const path of ['/transactions', '/wallets', '/trading-accounts', '/payment-methods']) {
-        expect(canAccess(master, path)).toBe(true);
-      }
+    it('gates the commission ledger, which was previously unlisted', () => {
+      /*
+       * `/commissions` had no entry at all, and an unlisted path is DENIED — so
+       * the screen shipped unreachable for everybody. It was not caught on the
+       * author's first click, the way the deny-by-default rule promises,
+       * because the wildcard was still being honoured and `hasPermission`
+       * returned true before the route table was ever consulted.
+       */
+      expect(canAccess(withPerms(['ib.commissions.view']), '/commissions')).toBe(true);
+      expect(canAccess(withPerms(['ib.view']), '/commissions')).toBe(false);
     });
   });
 
   it('kyc builder needs kyc.edit even though /kyc is permitted', () => {
     expect(canAccess(subAdmin, '/kyc/builder')).toBe(false);
-    expect(canAccess({ ...subAdmin, permissions: ['kyc.edit'] }, '/kyc/builder')).toBe(true);
-    expect(canAccess(master, '/kyc/builder')).toBe(true);
+    expect(canAccess(withPerms(['kyc.edit']), '/kyc/builder')).toBe(true);
+  });
+
+  it('opens the KYC queue to a reader OR a reviewer', () => {
+    // Neither key implies the other, so requiring only `kyc.review` hid the
+    // queue from a compliance reader who may look and not decide.
+    expect(canAccess(withPerms(['kyc.view']), '/kyc')).toBe(true);
+    expect(canAccess(withPerms(['kyc.review']), '/kyc')).toBe(true);
+    expect(canAccess(withPerms(['kyc.documents.view']), '/kyc')).toBe(false);
+  });
+
+  it('gives currencies their own key rather than borrowing settings.view', () => {
+    // Currencies were stored under `settings.*`, which is how the grant to
+    // change a support email also carried the power to delete a currency.
+    expect(canAccess(withPerms(['currencies.view']), '/currencies')).toBe(true);
+    expect(canAccess(withPerms(['settings.view']), '/currencies')).toBe(false);
   });
 
   it('management sections follow their catalog permissions', () => {
     expect(canAccess(subAdmin, '/roles')).toBe(false);
-    expect(canAccess({ ...subAdmin, permissions: ['roles.view'] }, '/roles')).toBe(true);
-    // subAdmin already holds users.view, so the directory IS open to them.
-    expect(canAccess(subAdmin, '/admin-users')).toBe(true);
-    expect(canAccess({ ...subAdmin, permissions: ['kyc.review'] }, '/admin-users')).toBe(false);
+    expect(canAccess(withPerms(['roles.view']), '/roles')).toBe(true);
+    expect(canAccess(withPerms(['kyc.review']), '/admin-users')).toBe(false);
   });
 
   it('no longer lists /invite — inviting is a modal on the directory', () => {
     /*
-     * `/invite` was a page requiring `users.create`. It is a modal on
-     * `/admin-users` now, so the route requirement is gone and the button
-     * carries the permission instead.
+     * `/invite` was a page. It is a modal on `/admin-users` now, so the route
+     * requirement is gone and the button carries `admins.create` instead.
      *
      * An unlisted path is DENIED — the `/` entry is matched exactly, not as a
-     * prefix — so this holds even for a master admin. That is the safe
-     * direction and it costs nothing: there is no `page.tsx` there to reach.
+     * prefix — and there is no `page.tsx` there to reach either way.
      *
-     * `/invite/accept` is unaffected — it is public (`lib/public-paths.ts`)
-     * and renders outside `AdminLayout`, which is what calls `canAccess`.
+     * `/invite/accept` is unaffected: it is public (`lib/public-paths.ts`) and
+     * renders outside `AdminLayout`, which is what calls `canAccess`.
      */
-    expect(canAccess(master, '/invite')).toBe(false);
-    expect(canAccess({ ...subAdmin, permissions: ['users.create'] }, '/invite')).toBe(false);
-    // The directory, where inviting now lives, is still reachable.
-    expect(canAccess({ ...subAdmin, permissions: ['users.view'] }, '/admin-users')).toBe(true);
+    expect(canAccess(withPerms(['admins.create']), '/invite')).toBe(false);
+    expect(canAccess(withPerms(['admins.view']), '/admin-users')).toBe(true);
   });
 
   it('/settings is gated on the family it is made of, not on roles.*', () => {
     /*
      * The regression this pins: the route asked for `roles.manage` while every
      * panel on the page checks `settings.*`, so the screen had two ways to deny
-     * somebody who had been deliberately given it. Granting `settings.manage`
-     * did nothing, because the route still wanted `roles.manage`; granting
-     * `roles.manage` opened the route onto a page that then refused every
-     * control.
+     * somebody who had been deliberately given it.
      *
-     * `roles.manage` was right while /settings WAS the RBAC-08 network
-     * allowlist — that tab was removed and the requirement was not moved with
-     * it.
+     * EITHER key opens it. Nothing says `settings.edit` implies
+     * `settings.view` — the guard matches literally — so a role given only
+     * "Change settings" was locked out of the screen it was granted the power
+     * to change.
      */
-    expect(canAccess({ ...subAdmin, permissions: ['settings.view'] }, '/settings')).toBe(true);
-    /*
-     * EITHER key opens it. Nothing in this system says `settings.manage`
-     * implies `settings.view` — the backend guard matches keys literally — so a
-     * role given only "Change settings" was locked out of the screen it was
-     * granted the power to change, which reads as a broken permission rather
-     * than a missing second checkbox.
-     */
-    expect(canAccess({ ...subAdmin, permissions: ['settings.manage'] }, '/settings')).toBe(true);
-    // Managing roles says nothing about operational settings, in either
-    // direction — these are unrelated powers and the route no longer conflates
-    // them.
-    expect(canAccess({ ...subAdmin, permissions: ['roles.manage'] }, '/settings')).toBe(false);
-    expect(canAccess(master, '/settings')).toBe(true);
+    expect(canAccess(withPerms(['settings.view']), '/settings')).toBe(true);
+    expect(canAccess(withPerms(['settings.edit']), '/settings')).toBe(true);
+    expect(canAccess(withPerms(['roles.edit']), '/settings')).toBe(false);
   });
 
-  it('audit log stays master-only (no catalog key advertises it)', () => {
+  it('makes the three former master-only routes grantable', () => {
+    /*
+     * /audit-log, /reconciliation and /api-keys were `{ masterOnly: true }` —
+     * unreachable by any grant, on the reasoning that they should not be
+     * delegatable. With no tier above the model, a power nobody can be granted
+     * is a power exactly one hard-coded account has.
+     */
+    expect(canAccess(withPerms(['audit.view']), '/audit-log')).toBe(true);
+    expect(canAccess(withPerms(['reconciliation.view']), '/reconciliation')).toBe(true);
+    expect(canAccess(withPerms(['apikeys.view']), '/api-keys')).toBe(true);
+
+    // And they stay closed to everyone else — `audit.view` is not a master key
+    // by another name.
+    expect(canAccess(withPerms(['audit.view']), '/reconciliation')).toBe(false);
+    expect(canAccess(withPerms(['audit.view']), '/api-keys')).toBe(false);
     expect(canAccess(subAdmin, '/audit-log')).toBe(false);
-    expect(
-      canAccess({ ...subAdmin, permissions: ['users.view', 'roles.view'] }, '/audit-log'),
-    ).toBe(false);
   });
 
   it('DENIES an undeclared route rather than defaulting it open', () => {
@@ -219,12 +256,10 @@ describe('canAccess', () => {
      * was complete by discipline, which a reviewer cannot verify — a route that
      * forgot its entry is indistinguishable from one that never needed one.
      *
-     * `/payouts`, `/ledger`, `/commission-plans` and `/admin-users` are all
-     * committed scope still to be built, so this is a live path, not a
-     * hypothetical.
+     * `/commissions` proved it is a live path, not a hypothetical: it shipped
+     * with no entry and was unreachable.
      */
     expect(canAccess(subAdmin, '/some-future-page')).toBe(false);
-    expect(canAccess(master, '/some-future-page')).toBe(false);
     expect(canAccess(null, '/some-future-page')).toBe(false);
   });
 
@@ -244,50 +279,81 @@ describe('canAccess', () => {
   });
 
   it('prefix matching does not leak across sibling routes', () => {
-    expect(canAccess(subAdmin, '/invite/accept')).toBe(false); // under users.create-gated /invite
+    expect(canAccess(subAdmin, '/invite/accept')).toBe(false); // unlisted
   });
 });
 
 describe('assertPermissionKeysExist', () => {
-  // Every key the route table demands must exist in the backend catalog. A key
-  // that does not exist can never be granted, so the route silently becomes
-  // master-admin-only — which is exactly what happened to partners.view and
-  // payouts.review before they were added to permissions.json.
+  /*
+   * Every key the route table demands must exist in the backend catalog. A key
+   * that does not exist can never be granted, so the route becomes permanently
+   * unreachable — which is exactly what happened to `partners.view`, invented
+   * on the client profile and never added to `permissions.json`.
+   *
+   * This is the CURRENT catalog, per-page and per-verb. It is deliberately the
+   * full list rather than only the keys the route table names: the route table
+   * uses the read keys, and a fixture holding only those would not notice a
+   * write key disappearing from under a control.
+   */
   const CATALOG = [
-    'kyc.review',
-    'kyc.edit',
-    'users.view',
-    'users.create',
-    'users.edit',
-    'users.suspend',
+    'clients.view',
+    'clients.suspend',
+    'clients.tag',
+    'admins.view',
+    'admins.create',
+    'admins.edit',
+    'admins.suspend',
+    'admins.scope',
+    'admins.reset',
     'roles.view',
-    'roles.manage',
-    'settings.view',
-    // BOTH settings keys, because `/settings` accepts either — and an `anyOf`
-    // route whose second key is an orphan is exactly the drift this check
-    // exists to catch, so the fixture has to carry both for the clean case to
-    // mean anything.
-    'settings.manage',
-    // The money layer came back, so its keys are catalog keys again. All five
-    // exist in the backend's config/permissions.json — `withdrawals.approve`
-    // and `withdrawals.settle` are separate there precisely so approving and
-    // paying can be granted to different people (R-5.4).
+    'roles.create',
+    'roles.edit',
+    'roles.delete',
+    'kyc.view',
+    'kyc.documents.view',
+    'kyc.review',
+    'kyc.create',
+    'kyc.edit',
+    'kyc.delete',
+    'wallets.view',
+    'wallets.create',
+    'wallets.credit',
+    'wallets.delete',
     'withdrawals.view',
     'withdrawals.approve',
     'withdrawals.settle',
-    'payments.view',
-    'payments.manage',
-    // The IB module replaced trading/partners/payouts/commissions when the
-    // commission surface was torn out.
+    'trading.view',
     'ib.view',
-    'ib.manage',
     'ib.approve',
     'ib.reject',
-    // ADM-14. Added here the moment `/tags` gained a route requirement — a key
-    // referenced by the route table and absent from the catalog is a
-    // permanently unreachable page, which is the exact drift
-    // `assertPermissionKeysExist` exists to catch.
+    'ib.levels.create',
+    'ib.levels.edit',
+    'ib.levels.delete',
+    'ib.partners.edit',
+    'ib.partners.suspend',
+    'ib.commissions.view',
     'tags.view',
+    'tags.create',
+    'tags.edit',
+    'tags.delete',
+    'currencies.view',
+    'currencies.create',
+    'currencies.edit',
+    'currencies.delete',
+    'payments.view',
+    'payments.create',
+    'payments.edit',
+    'apikeys.view',
+    'apikeys.create',
+    'apikeys.revoke',
+    'settings.view',
+    'settings.edit',
+    'settings.smtp.view',
+    'settings.smtp.edit',
+    'settings.security.view',
+    'settings.security.edit',
+    'audit.view',
+    'reconciliation.view',
   ];
 
   it('reports nothing when every referenced key is in the catalog', () => {
@@ -295,8 +361,8 @@ describe('assertPermissionKeysExist', () => {
   });
 
   it('names the keys the backend does not define', () => {
-    const orphans = assertPermissionKeysExist(CATALOG.filter((k) => k !== 'settings.view'));
-    expect(orphans).toEqual(['settings.view']);
+    const orphans = assertPermissionKeysExist(CATALOG.filter((k) => k !== 'clients.view'));
+    expect(orphans).toEqual(['clients.view']);
   });
 
   it('folds case on catalog keys, the same way the guard does', () => {
@@ -304,39 +370,30 @@ describe('assertPermissionKeysExist', () => {
   });
 
   it('reports every route key as an orphan when the catalog uses the old spelling', () => {
-    // The useful failure. A backend still serving colon keys is now a real
-    // mismatch rather than something this file silently absorbs — and it
-    // surfaces here, in development, as the loud list assertPermissionKeysExist
-    // was built to print.
+    // The useful failure. A backend still serving colon keys is a real mismatch
+    // rather than something this file silently absorbs — and it surfaces here,
+    // in development, as the loud list `assertPermissionKeysExist` prints.
     const colonCatalog = CATALOG.map((k) => k.replace('.', ':'));
     expect(assertPermissionKeysExist(colonCatalog).length).toBeGreaterThan(0);
   });
 });
 
 describe('ADM-14 — the tags screen', () => {
-  const withPerms = (permissions: string[]): AdminProfile => ({ ...subAdmin, permissions });
-
   it('requires tags.view', () => {
     expect(canAccess(withPerms(['tags.view']), '/tags')).toBe(true);
-    // `users.view` reaches the client LIST and its tag chips (the API grants
+    // `clients.view` reaches the client LIST and its tag chips (the API grants
     // GET /admin/tags on either key), but not the management screen.
-    expect(canAccess(withPerms(['users.view']), '/tags')).toBe(false);
-  });
-
-  it('is reachable by the master admin', () => {
-    expect(canAccess(master, '/tags')).toBe(true);
+    expect(canAccess(withPerms(['clients.view']), '/tags')).toBe(false);
   });
 });
 
 describe('ADM-01 — the client profile', () => {
-  const withPerms = (permissions: string[]): AdminProfile => ({ ...subAdmin, permissions });
-
   it('inherits the client list requirement, via the prefix match', () => {
     // No separate entry: `/clients/<uuid>` matches the `/clients` prefix, so a
     // profile can never be reachable by someone who cannot reach the list it
     // is opened from.
     expect(
-      canAccess(withPerms(['users.view']), '/clients/a3f1c2d4-0000-4000-8000-000000000001'),
+      canAccess(withPerms(['clients.view']), '/clients/a3f1c2d4-0000-4000-8000-000000000001'),
     ).toBe(true);
     expect(
       canAccess(withPerms(['kyc.review']), '/clients/a3f1c2d4-0000-4000-8000-000000000001'),

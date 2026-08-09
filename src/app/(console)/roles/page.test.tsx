@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import RolesPage from './page';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * /roles — one scrollable list, and a real confirmation before a delete.
@@ -38,7 +39,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/roles',
 }));
 
-const identity = { permissions: ['*'] as string[] };
+const identity = { permissions: ALL_PERMISSIONS };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -58,7 +59,7 @@ const SUPPORT = {
   id: 'r-1',
   name: 'Support',
   description: 'Answers tickets',
-  permissions: ['users.view', 'kyc.review'],
+  permissions: ['clients.view', 'kyc.review'],
   maskedFields: [],
   isSystem: false,
 };
@@ -67,14 +68,14 @@ const SYSTEM = {
   id: 'r-0',
   name: 'Master Admin',
   description: 'Everything',
-  permissions: ['*'],
+  permissions: ALL_PERMISSIONS,
   maskedFields: [],
   isSystem: true,
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  identity.permissions = ['*'];
+  identity.permissions = ALL_PERMISSIONS;
   getRoles.mockResolvedValue([SYSTEM, SUPPORT]);
   deleteRole.mockResolvedValue({});
 });
@@ -121,7 +122,7 @@ describe('the list itself', () => {
     expect(await screen.findByText(/no roles yet/i)).toBeInTheDocument();
   });
 
-  it('hides the create button and every action menu without roles.manage', async () => {
+  it('hides the create button and every action menu without roles.edit', async () => {
     identity.permissions = ['roles.view'];
     renderWithProviders(<RolesPage />);
     await screen.findByText('Support');

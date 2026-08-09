@@ -1575,7 +1575,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Invite a new sub-admin with a role or explicit permissions (requires users.create) */
+        /** Invite a new sub-admin with a role or explicit permissions (requires admins.create) */
         post: operations["AdminAuthController_invite"];
         delete?: never;
         options?: never;
@@ -1590,7 +1590,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List outstanding invites (requires users.view) */
+        /** List outstanding invites (requires admins.view) */
         get: operations["AdminAuthController_listInvites"];
         put?: never;
         post?: never;
@@ -1611,7 +1611,7 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Revoke an outstanding invite (requires users.create)
+         * Revoke an outstanding invite (requires admins.create)
          * @description Kills the accept link immediately. Whoever may create an invite may cancel one — the undo for a mistyped address, on a 48-hour credential that creates an admin account.
          */
         delete: operations["AdminAuthController_revokeInvite"];
@@ -1758,7 +1758,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Suspend or reactivate a client account (requires users.suspend) */
+        /** Suspend or reactivate a client account (requires clients.suspend) */
         patch: operations["AdminClientsController_setClientStatus"];
         trace?: never;
     };
@@ -2085,7 +2085,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Permission catalog grouped by module (requires roles.view or users.view) */
+        /** Permission catalog grouped by module (requires roles.view or admins.view) */
         get: operations["AdminRbacController_getPermissions"];
         put?: never;
         post?: never;
@@ -2102,7 +2102,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Maskable client fields, grouped (requires roles.view or users.view) */
+        /** Maskable client fields, grouped (requires roles.view or admins.view) */
         get: operations["AdminRbacController_listClientFields"];
         put?: never;
         post?: never;
@@ -2119,7 +2119,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List RBAC roles (requires roles.view or users.view) */
+        /** List RBAC roles (requires roles.view or admins.view) */
         get: operations["AdminRbacController_listRoles"];
         put?: never;
         /** Create a custom role (requires roles.manage) */
@@ -2172,7 +2172,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List admin accounts (requires users.view) */
+        /** List admin accounts (requires admins.view) */
         get: operations["AdminRbacController_listAdmins"];
         put?: never;
         post?: never;
@@ -2212,7 +2212,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update an admin’s name, role, or permissions (requires users.edit) */
+        /** Update an admin’s name, role, or permissions (requires admins.edit) */
         patch: operations["AdminRbacController_updateAdmin"];
         trace?: never;
     };
@@ -2230,7 +2230,7 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Suspend or reactivate an administrator (requires users.suspend)
+         * Suspend or reactivate an administrator (requires admins.suspend)
          * @description Suspension takes effect on the target’s NEXT request — AdminGuard re-reads status on every call — and blocks login. Refused on your own account and on the master admin.
          */
         patch: operations["AdminRbacController_setAdminStatus"];
@@ -2298,13 +2298,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every API key, newest first (master admin only)
+         * Every API key, newest first
          * @description Includes revoked and expired keys. The secret is never returned — `prefix` is the non-secret leading characters, which is what makes two keys distinguishable on screen.
          */
         get: operations["AdminApiKeysController_list"];
         put?: never;
         /**
-         * Issue a new API key (master admin only)
+         * Issue a new API key
          * @description The response carries the plaintext key, and it is the ONLY time it is ever available: only a SHA-256 hash is stored, so it cannot be shown again or recovered. An admin may only grant permissions they hold themselves.
          */
         post: operations["AdminApiKeysController_create"];
@@ -2324,7 +2324,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Revoke an API key (master admin only) */
+        /** Revoke an API key */
         delete: operations["AdminApiKeysController_revoke"];
         options?: never;
         head?: never;
@@ -3680,6 +3680,7 @@ export interface components {
             role: "master_admin" | "sub_admin";
             permissions: string[];
             roleId?: string;
+            roleName?: string;
             /** @enum {string} */
             status: "active" | "suspended";
             maskedFields: string[];

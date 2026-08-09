@@ -22,12 +22,12 @@ import { RoleForm, type RoleFormValues } from './role-form';
  */
 
 const PERMISSIONS = {
-  users: {
+  clients: {
     moduleName: 'Clients',
     description: 'Client records',
     permissions: [
-      { key: 'users.view', label: 'View clients' },
-      { key: 'users.edit', label: 'Edit clients' },
+      { key: 'clients.view', label: 'View clients' },
+      { key: 'clients.suspend', label: 'Suspend clients' },
     ],
   },
 };
@@ -54,13 +54,13 @@ describe('the role editor', () => {
     // Rename a role, save, and everything it used to grant would vanish if the
     // form submitted the empty set it started with rather than the role's own.
     const { onSubmit } = renderForm({
-      initial: { name: 'Support', description: '', permissions: ['users.view'] },
+      initial: { name: 'Support', description: '', permissions: ['clients.view'] },
     });
 
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Support', permissions: ['users.view'] }),
+      expect.objectContaining({ name: 'Support', permissions: ['clients.view'] }),
     );
   });
 
@@ -69,15 +69,17 @@ describe('the role editor', () => {
       initial: { name: 'Support', description: '', permissions: [] },
     });
 
-    await userEvent.click(screen.getByRole('checkbox', { name: /edit clients/i }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /suspend clients/i }));
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ permissions: ['users.edit'] }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ permissions: ['clients.suspend'] }),
+    );
   });
 
   it('unticks a permission back off again', async () => {
     const { onSubmit } = renderForm({
-      initial: { name: 'Support', description: '', permissions: ['users.view'] },
+      initial: { name: 'Support', description: '', permissions: ['clients.view'] },
     });
 
     await userEvent.click(screen.getByRole('checkbox', { name: /view clients/i }));
@@ -95,7 +97,7 @@ describe('the role editor', () => {
      * matters, not absence from the screen.
      */
     const { onSubmit } = renderForm({
-      initial: { name: 'Support', description: '', permissions: ['users.view'] },
+      initial: { name: 'Support', description: '', permissions: ['clients.view'] },
     });
 
     expect(screen.queryByText(/field visibility/i)).toBeNull();

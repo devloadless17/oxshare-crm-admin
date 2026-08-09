@@ -77,7 +77,14 @@ const NO_PARENT = '__none__';
 
 export default function PartnersPage() {
   const { admin } = useAdmin();
-  const canManage = hasPermission(admin, 'ib.manage');
+  /*
+   * Changing a partner's level or parent is `ib.partners.edit`; suspending one
+   * is `ib.partners.suspend`. Both were `ib.manage`, which also carried the
+   * power to delete payout levels — an unrelated and far larger blast radius.
+   */
+  const canEditPartners = hasPermission(admin, 'ib.partners.edit');
+  const canSuspendPartners = hasPermission(admin, 'ib.partners.suspend');
+  const canManage = canEditPartners || canSuspendPartners;
   const queryClient = useQueryClient();
 
   const [page, setPage] = React.useState(1);

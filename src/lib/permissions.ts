@@ -34,14 +34,35 @@ export type RouteRequirement =
    * inside checks its own before drawing.
    */
   | { anyOf: string[] }
-  | { masterOnly: true }
   | null; // any authenticated admin
+
+/*
+ * `{ masterOnly: true }` is GONE, along with `isMasterAdmin`.
+ *
+ * There is no role above another any more (backend 0044): the `master_admin`
+ * enum value survives in the column only because Postgres cannot drop one
+ * without rewriting the type, and nothing reads it. Three routes used it —
+ * /audit-log, /reconciliation and /api-keys — on the reasoning that they were
+ * "not delegatable at all". That reasoning did not survive removing the tier
+ * it depended on: a power nobody can be granted is a power exactly one
+ * hard-coded account has, which is what the whole model moved away from.
+ *
+ * Each is a real key now (`audit.view`, `reconciliation.view`, `apikeys.view`),
+ * so the decision to hand it to somebody is one an operator makes and the audit
+ * log records.
+ */
 
 // Order matters: more specific prefixes first (matched with startsWith).
 const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement }> = [
   { prefix: '/kyc/builder', requirement: { permission: 'kyc.edit' } }, // edits the KYC config itself
-  { prefix: '/kyc', requirement: { permission: 'kyc.review' } },
-  { prefix: '/clients', requirement: { permission: 'users.view' } },
+  /*
+   * EITHER key opens the queue. `kyc.view` is the read key and `kyc.review` is
+   * the decide key, and neither implies the other — the guard matches keys
+   * literally — so requiring only the second hid the queue from a compliance
+   * reader who may look and not decide.
+   */
+  { prefix: '/kyc', requirement: { anyOf: ['kyc.view', 'kyc.review'] } },
+  { prefix: '/clients', requirement: { permission: 'clients.view' } },
   /*
    * `withdrawals.view`, not `withdrawals.approve`. Seeing the payout queue and
    * deciding on it are separate powers — each button checks its own — so
@@ -62,8 +83,8 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * reads only — the pages draw no write control, and the API refuses writes
    * regardless.
    */
-  { prefix: '/wallets', requirement: { permission: 'withdrawals.view' } },
-  { prefix: '/trading-accounts', requirement: { permission: 'withdrawals.view' } },
+  { prefix: '/wallets', requirement: { permission: 'wallets.view' } },
+  { prefix: '/trading-accounts', requirement: { permission: 'trading.view' } },
   // `payments.view` reads the list; the page checks `payments.manage` before it
   // draws any write control, and the API refuses the writes regardless.
   { prefix: '/payment-methods', requirement: { permission: 'payments.view' } },
@@ -89,7 +110,12 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * catch-all and rendered for any authenticated admin — the API still refused
    * their writes, but the screen should not have drawn for them at all.
    */
-  { prefix: '/currencies', requirement: { permission: 'settings.view' } },
+  /*
+   * Its OWN key now. Currencies were gated on `settings.view` because they were
+   * stored under `settings.*`, which is how the support-email grant also
+   * carried the power to delete a currency.
+   */
+  { prefix: '/currencies', requirement: { permission: 'currencies.view' } },
   // `ib.view` reads the ladder; `ib.manage` is what the page checks before it
   // renders any write control. Route access is the weaker of the two on
   // purpose — an operator who may see partners should be able to see the rules
@@ -105,6 +131,14 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   // `ib.view` to see the list; the row menu checks `ib.manage` before it draws,
   // and the API refuses the writes regardless.
   { prefix: '/partners', requirement: { permission: 'ib.view' } },
+  /*
+   * The commission ledger. It was NOT LISTED, and an unlisted path is denied —
+   * so the screen shipped unreachable for everybody, which is the failure mode
+   * the deny-by-default note below promises will be caught on the author's
+   * first click. It was not, because the wildcard was still being honoured and
+   * `hasPermission` returned true before the route table was ever consulted.
+   */
+  { prefix: '/commissions', requirement: { permission: 'ib.commissions.view' } },
   /*
    * `settings.view` — the family this screen is actually made of.
    *
@@ -126,29 +160,37 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * (`settings.manage`, and master-admin for SMTP) before drawing a control.
    * The API enforces both independently.
    */
-  { prefix: '/settings', requirement: { anyOf: ['settings.view', 'settings.manage'] } },
-  { prefix: '/admin-users', requirement: { permission: 'users.view' } },
-  { prefix: '/audit-log', requirement: { masterOnly: true } },
+  { prefix: '/settings', requirement: { anyOf: ['settings.view', 'settings.edit'] } },
   /*
-   * Master admin only, matching `GET /admin/reconciliation` exactly.
-   *
-   * Not a permission key, and that is the backend's reasoning carried across:
-   * the report names clients and there is no correct way to scope it. Narrowing
-   * it to a sub-admin's territory would report "balanced" over a slice — the
-   * opposite of what a reconciliation is for — while leaving it open would hand
-   * a scoped admin the ids of clients they were specifically denied.
+   * `admins.view`, not the old `users.view`, and that split is the point of the
+   * key: one permission used to open the client list AND the administrator
+   * directory, so granting somebody the clients screen handed them the list of
+   * everyone who can approve a payout.
    */
-  { prefix: '/reconciliation', requirement: { masterOnly: true } },
+  { prefix: '/admin-users', requirement: { permission: 'admins.view' } },
+  { prefix: '/audit-log', requirement: { permission: 'audit.view' } },
   /*
-   * Master admin only, matching the controller exactly.
+   * `reconciliation.view` — a real key, matching the controller.
    *
-   * Not a permission key, and deliberately: issuing a key creates standing
-   * access to the admin API with no login and no session lifetime, carrying any
-   * permission its creator holds. That is the same "should not be delegatable
-   * at all" category as the security switches — make it a permission and it
-   * eventually lands on a role called "Operations".
+   * The reasoning that made it master-only still holds and is now the reason
+   * the key is a NARROW one rather than part of `audit.view`: the report names
+   * clients and cannot be scoped. Narrowed to a sub-admin's territory it would
+   * report "balanced" over a slice, which is the opposite of what a
+   * reconciliation is for; left open it hands a scoped admin the ids of clients
+   * they were specifically denied. So it is grantable, and granting it is a
+   * decision about giving somebody sight of every client.
    */
-  { prefix: '/api-keys', requirement: { masterOnly: true } },
+  { prefix: '/reconciliation', requirement: { permission: 'reconciliation.view' } },
+  /*
+   * `apikeys.view` opens the list; `apikeys.create` and `apikeys.revoke` gate
+   * the writes, and the page checks each before drawing its control.
+   *
+   * Issuing a key creates standing access to the admin API with no login and no
+   * session lifetime, carrying any permission its creator holds — which is a
+   * strong argument for the key being rare, and none at all for it being
+   * ungrantable now that no account sits above the model.
+   */
+  { prefix: '/api-keys', requirement: { permission: 'apikeys.view' } },
   /*
    * There is no `/invite` entry any more, and no `/invite` page.
    *
@@ -193,13 +235,31 @@ function normalizeKey(key: string): string {
   return key.toLowerCase();
 }
 
-export function isMasterAdmin(admin: AdminProfile | null): boolean {
-  return admin?.role === 'master_admin';
-}
-
+/**
+ * Does this admin hold this key — literally, with no shortcuts.
+ *
+ * ## The wildcard is not honoured, and removing it is the whole fix
+ *
+ * This began `if (admin.permissions.includes('*')) return true`, matching a
+ * backend that had `isMaster()` and a `*` grant. Backend 0044 removed both:
+ * every stored `*` was EXPANDED into the real keys it stood for, and the guard
+ * now matches literally.
+ *
+ * While this short-circuit survived that change, the two halves disagreed in
+ * the worst possible direction. An admin still holding `*` — the seeded
+ * `admin@oxshare.com`, before the expansion reached their row — was shown the
+ * entire sidebar, every dashboard tile and every route, because this returned
+ * true for every key without reading the table below. The API answered 403 to
+ * all of it. The result was a console that looked complete and was empty: every
+ * page reachable, every page's data refused, and no route denial anywhere
+ * because `canAccess` had already been told yes.
+ *
+ * A stale `*` now grants nothing, which is the honest answer — it is a
+ * permission that no longer means anything, and treating it as "everything" is
+ * how the UI came to disagree with the API about who could do what.
+ */
 export function hasPermission(admin: AdminProfile | null, key: string): boolean {
   if (!admin) return false;
-  if (admin.permissions.includes('*')) return true;
   const wanted = normalizeKey(key);
   return admin.permissions.some((p) => normalizeKey(p) === wanted);
 }
@@ -230,7 +290,6 @@ export function canAccess(admin: AdminProfile | null, path: string): boolean {
   );
   if (!match) return false;
   if (match.requirement === null) return true;
-  if ('masterOnly' in match.requirement) return isMasterAdmin(admin);
   if ('anyOf' in match.requirement) {
     return match.requirement.anyOf.some((key) => hasPermission(admin, key));
   }

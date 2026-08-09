@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import PartnersPage from './page';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * The partner list.
@@ -30,7 +31,7 @@ vi.mock('@/lib/api', () => {
   return { api, default: api };
 });
 
-const permissions = { current: ['*'] as string[] };
+const permissions = { current: ALL_PERMISSIONS };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -88,7 +89,7 @@ function page(rows: ReturnType<typeof partner>[], total = rows.length) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  permissions.current = ['*'];
+  permissions.current = ALL_PERMISSIONS;
   getIbPartners.mockResolvedValue(page([partner()]));
   getIbLevels.mockResolvedValue([{ level: 1, name: 'Introducing Broker', enabled: true }]);
 });

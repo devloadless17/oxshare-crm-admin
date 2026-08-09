@@ -30,7 +30,7 @@ import { t } from '@/lib/i18n';
  */
 export default function NewRolePage() {
   const { admin } = useAdmin();
-  const canManage = hasPermission(admin, 'roles.manage');
+  const canManage = hasPermission(admin, 'roles.create');
   const router = useRouter();
   const queryClient = useQueryClient();
 
