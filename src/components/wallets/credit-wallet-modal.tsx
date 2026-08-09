@@ -147,7 +147,7 @@ function CreditForm({
           pattern="\d{1,20}(\.\d{1,8})?"
           placeholder="250.00"
           autoComplete="off"
-          className="focus-outline flex h-10 w-full rounded-lg border border-input bg-background px-3 font-mono text-sm"
+          className="focus-outline flex h-10 w-full rounded-lg border border-input bg-card px-3 font-mono text-sm"
         />
         <span className="block text-[11px] text-muted-foreground">
           {t('wallets.creditAmountHint')}
@@ -164,7 +164,7 @@ function CreditForm({
           maxLength={500}
           rows={3}
           placeholder={t('wallets.creditReasonPlaceholder')}
-          className="focus-outline w-full rounded-lg border border-input bg-background px-3 py-2 text-xs"
+          className="focus-outline w-full rounded-lg border border-input bg-card px-3 py-2 text-xs"
         />
         <span className="block text-[11px] text-muted-foreground">
           {t('wallets.creditReasonHint')}

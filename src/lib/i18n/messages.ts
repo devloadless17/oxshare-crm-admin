@@ -148,6 +148,9 @@ export const messages = {
   'invite.mismatch': 'Passwords do not match.',
   'invite.submit': 'Activate Account',
   'invite.submitting': 'Activating account…',
+  // The terminal state, held while the browser navigates. Not a toast: the page
+  // it would appear over is the one being replaced.
+  'invite.redirecting': 'Account activated — taking you to the dashboard…',
   'invite.failed': 'Failed to accept invite.',
 
   /*
@@ -610,6 +613,11 @@ export const messages = {
     'Restrict this administrator to clients carrying the selected tags. Everything about those clients — their KYC, withdrawals, ledger and documents — follows the same restriction.',
   'adminUsers.scopeTagHint': '{count} clients',
   'adminUsers.scopeNoTags': 'No tags exist yet. Create one on the Client Tags screen.',
+  // The select adds one tag at a time; the chosen ones sit beneath it as chips.
+  'adminUsers.scopeTagAdd': 'Add a tag…',
+  'adminUsers.scopeTagRemove': 'Remove {label}',
+  'adminUsers.scopeTagsAllChosen': 'Every tag is already on this administrator.',
+  'adminUsers.scopeTagsNoneChosen': 'No tags chosen.',
   'adminUsers.scopeEmptyWarning':
     'No tags selected means UNRESTRICTED — this administrator can see every client in the system.',
   'adminUsers.maskSection': 'Field visibility',
@@ -732,6 +740,25 @@ export const messages = {
 
   // ── Invite ────────────────────────────────────────────────────────────────
   'invite.title': 'Invite Admin',
+  // The CREATE flow, in a modal on the directory. Its keys are separate from
+  // the ACCEPT flow's above (`invite.submit` is "Activate Account" there, and
+  // `invite.failed` is about accepting) — one invite noun, two screens, and
+  // sharing a key between them would put the invitee's wording on the
+  // administrator's button.
+  'invite.modalHint':
+    'They receive an activation email and set their own password. The link expires after 48 hours.',
+  'invite.createSubmit': 'Send invite',
+  'invite.creating': 'Sending…',
+  'invite.createFailed': 'Failed to create the invite.',
+  'invite.bothRequired': 'A name and an email address are both required.',
+  // A role is REQUIRED: sending none makes the API fall back to a built-in
+  // permission list and create an administrator with no role at all.
+  'invite.roleRequired': 'Choose the role this administrator will hold.',
+  'invite.rolePlaceholder': 'Choose a role…',
+  'invite.noRoles':
+    'No assignable role exists yet. Create one on the Roles screen before inviting an administrator.',
+  'invite.invalidEmail': 'Enter a valid email address.',
+  'invite.copyFailed': 'Could not copy automatically — select the link and copy it manually.',
   'invite.sentNote': 'Invitation email sent. You can also share the link directly:',
   'invite.sendAnother': 'Send another invite',
   'invite.fullName': 'Full Name',
@@ -892,12 +919,13 @@ export const messages = {
   'adminUsers.rolesLink': 'Manage roles',
   'adminUsers.editTitle': 'Edit Administrator',
   'adminUsers.nameLabel': 'Full Name',
-  'adminUsers.accessLabel': 'Access',
-  'adminUsers.directOption': 'Individual permissions (no role)',
+  'adminUsers.accessLabel': 'Role',
+  // Only reachable on an account that predates roles being mandatory here — a
+  // real state, and one an operator should be prompted to fix rather than left
+  // to read as an empty control.
+  'adminUsers.rolePlaceholder': 'Choose a role…',
   'adminUsers.roleHint':
     'Permissions come from the role and follow it — editing the role changes this administrator too.',
-  'adminUsers.directHint':
-    'Permissions are set on this administrator alone. Choosing a role instead will replace them.',
   'adminUsers.edit': 'Edit',
   'adminUsers.sendResetLink': 'Send reset link',
   'resetPassword.title': 'Set a new password',
@@ -925,27 +953,45 @@ export const messages = {
   'adminUsers.roleChanged': '{name} is now {role}',
   'adminUsers.roleFailed': 'Could not change the administrator’s role.',
   'adminUsers.saveSucceeded': '{name} saved',
-  'adminUsers.suspend': 'Suspend',
-  'adminUsers.reactivate': 'Reactivate',
+  /*
+   * The ACTION is named for what it does to access; the STATE keeps the API's
+   * own word.
+   *
+   * Revoking an administrator is this, and there is no delete: every
+   * `audit_log` row points at an admin id, so removing the account would
+   * orphan the trail of every decision that account ever made. Suspension takes
+   * the access away on the next request and is reversible, which is the whole
+   * reason it exists instead of a delete — the control just now says so.
+   *
+   * `statusSuspended` deliberately does NOT follow the rename: `status` is
+   * `'suspended'` on the wire and in the database, and inventing a second word
+   * for it in the one column an operator scans would mean the screen and the
+   * API describe the same account differently.
+   */
+  'adminUsers.suspend': 'Revoke access',
+  'adminUsers.reactivate': 'Restore access',
   'adminUsers.statusSuspended': 'Suspended',
-  'adminUsers.confirmSuspendTitle': 'Suspend {name}?',
+  'adminUsers.confirmSuspendTitle': 'Revoke {name}’s access?',
   'adminUsers.confirmSuspend':
-    'They are signed out on their next request and cannot log in until reactivated.',
-  'adminUsers.confirmReactivateTitle': 'Reactivate {name}?',
+    'They are signed out on their next request and cannot log in until access is restored. The account and its audit trail are kept.',
+  'adminUsers.confirmReactivateTitle': 'Restore {name}’s access?',
   'adminUsers.confirmReactivate': 'They regain the access listed here.',
-  'adminUsers.suspendSucceeded': '{name} suspended',
-  'adminUsers.reactivateSucceeded': '{name} reactivated',
+  'adminUsers.suspendSucceeded': '{name}’s access revoked',
+  'adminUsers.reactivateSucceeded': '{name}’s access restored',
   'adminUsers.statusFailed': 'Could not change the administrator status.',
   'adminUsers.resetFailed': 'Could not send the reset link.',
   'adminUsers.colActions': 'Actions',
 
-  // Outstanding invites — sent, not yet accepted.
-  'adminUsers.pendingTitle': 'Outstanding Invites',
+  // Outstanding invites — sent, not yet accepted. They are rows in the
+  // DIRECTORY now rather than a panel of their own, so these describe a row.
   'adminUsers.pendingHint':
     'Sent but not yet accepted. The link creates an administrator account, so revoke one that went to the wrong address.',
-  'adminUsers.pendingNone': 'No outstanding invites.',
-  'adminUsers.colInvited': 'Invited',
-  'adminUsers.colExpires': 'Link expires',
+  'adminUsers.statusPending': 'Invite pending',
+  'adminUsers.pendingExpires': 'Link expires {date}',
+  // An invite may carry no role: the invitee is given individual permissions
+  // after they accept. Said in words rather than left as a blank cell.
+  'adminUsers.pendingRoleUnset': 'Set after accepting',
+  'adminUsers.scopeAfterAccept': 'After accepting',
   'adminUsers.revoke': 'Revoke',
   'adminUsers.confirmRevokeTitle': 'Revoke the invite for {email}?',
   'adminUsers.confirmRevoke':
@@ -1128,7 +1174,11 @@ export const messages = {
    * Replaces a fallback that printed the raw `master_admin` enum value into a
    * column of operator-created role names.
    */
-  'adminUsers.customPermissions': 'Custom permissions',
+  // Legacy accounts only. Per-person permission lists are no longer grantable
+  // from this console — access is a role — so a row with none is a state to
+  // fix, not a mode. It used to read "Custom permissions", which named it as an
+  // option somebody had chosen.
+  'adminUsers.noRole': 'No role assigned',
   /*
    * The inert footer's only sentence, on a table with no pagination.
    *
@@ -1220,6 +1270,8 @@ export const messages = {
   'pagination.lastTitle': 'Last Page',
   'pagination.lastAria': 'Go to Last Page',
   'common.close': 'Close',
+  'common.copy': 'Copy',
+  'common.copied': 'Copied',
   'common.cancel': 'Cancel',
   'common.saving': 'Saving…',
   'common.saveChanges': 'Save Changes',

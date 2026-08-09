@@ -160,7 +160,7 @@ export default function NewApiKeyPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t('apiKeys.form.namePlaceholder')}
                 maxLength={100}
-                className="focus-outline mt-1.5 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                className="focus-outline mt-1.5 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm"
               />
               <p className="mt-1.5 text-xs text-muted-foreground">{t('apiKeys.form.nameHelp')}</p>
             </div>
@@ -207,7 +207,7 @@ export default function NewApiKeyPage() {
                   <PopoverTrigger
                     id="key-expiry"
                     type="button"
-                    className="focus-outline flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 pr-20 text-left text-sm active:!scale-100"
+                    className="focus-outline flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-input bg-card px-3 pr-20 text-left text-sm active:!scale-100"
                   >
                     <CalendarIcon
                       className="h-4 w-4 shrink-0 text-muted-foreground"

@@ -166,7 +166,7 @@ function PaymentMethodForm({
             maxLength={40}
             pattern="[a-z0-9_-]+"
             placeholder="whish"
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 font-mono text-xs read-only:cursor-not-allowed read-only:opacity-60 focus-outline"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 font-mono text-xs read-only:cursor-not-allowed read-only:opacity-60 focus-outline"
           />
           <span className="block text-[11px] text-muted-foreground">
             {editing ? t('paymentMethods.keyLocked') : t('paymentMethods.keyHint')}
@@ -181,7 +181,7 @@ function PaymentMethodForm({
             required
             maxLength={80}
             placeholder="Whish Money"
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
           />
           <span className="block text-[11px] text-muted-foreground">
             {t('paymentMethods.nameHint')}

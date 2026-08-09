@@ -237,6 +237,108 @@ describe('the status column tells the truth', () => {
   });
 });
 
+/**
+ * Outstanding invites are ROWS in this directory, not a panel under it.
+ *
+ * An invite is a 48-hour bearer credential that CREATES an admin account, so it
+ * belongs in the answer to "who can get into this system?" rather than in a
+ * second list below it. What must survive the merge is that a pending row is
+ * NOT an account: nothing to suspend, no password to reset, nothing to edit
+ * until somebody accepts — and each cell says so rather than rendering a blank
+ * that reads as missing data.
+ */
+describe('outstanding invites, in the directory', () => {
+  const invite = (over: Record<string, unknown> = {}) => ({
+    id: 'inv-1',
+    email: 'newbie@oxshare.com',
+    name: 'New Bie',
+    roleId: 'r-1',
+    invitedBy: 'a-1',
+    createdAt: '2026-08-01T00:00:00.000Z',
+    expiresAt: '2026-08-03T00:00:00.000Z',
+    ...over,
+  });
+
+  it('lists one as a pending row, with the role it will grant', async () => {
+    getPendingInvites.mockResolvedValue([invite()]);
+    renderWithProviders(<AdminUsersPage />);
+
+    await screen.findByText('newbie@oxshare.com');
+    const row = within(rowFor('newbie@oxshare.com'));
+    expect(row.getByText(/invite pending/i)).toBeInTheDocument();
+    // The expiry is the half that decides what to do about it: a link dying
+    // tomorrow needs re-sending, not chasing.
+    expect(row.getByText(/link expires/i)).toBeInTheDocument();
+    expect(row.getByText('KYC Reviewer')).toBeInTheDocument();
+  });
+
+  it('says an invite with no role is settled after acceptance', async () => {
+    // An empty cell here would read as missing data on a screen about access.
+    getPendingInvites.mockResolvedValue([invite({ roleId: undefined })]);
+    renderWithProviders(<AdminUsersPage />);
+
+    await screen.findByText('newbie@oxshare.com');
+    expect(within(rowFor('newbie@oxshare.com')).getByText(/set after accepting/i)).toBeVisible();
+  });
+
+  it('offers revoke and nothing else — there is no account yet', async () => {
+    getPendingInvites.mockResolvedValue([invite()]);
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('newbie@oxshare.com');
+
+    const menu = await openRowMenu(/new bie/);
+    expect(menu?.getByRole('menuitem', { name: /revoke/i })).toBeInTheDocument();
+    expect(menu?.queryByRole('menuitem', { name: /suspend|edit|reset/i }) ?? null).toBeNull();
+  });
+
+  it('asks before revoking, and does nothing if declined', async () => {
+    getPendingInvites.mockResolvedValue([invite()]);
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('newbie@oxshare.com');
+
+    await chooseRowAction(/new bie/, /revoke/i);
+    // By EMAIL: the rows differ by little else, and revoking the wrong one
+    // sends a real person a dead link with no explanation.
+    const asked = await answerConfirm(userEvent, 'cancel');
+
+    expect(asked).toContain('newbie@oxshare.com');
+    expect(revokeInvite).not.toHaveBeenCalled();
+  });
+
+  it('revokes by id once confirmed', async () => {
+    getPendingInvites.mockResolvedValue([invite()]);
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('newbie@oxshare.com');
+
+    await chooseRowAction(/new bie/, /revoke/i);
+    await answerConfirm(userEvent, 'confirm');
+
+    await waitFor(() => expect(revokeInvite).toHaveBeenCalledWith('inv-1'));
+  });
+
+  it('is not offered without the permission to create invites', async () => {
+    // `users.view` reads the invite; only `users.create` may revoke it.
+    permissions.current = ['users.view'];
+    getPendingInvites.mockResolvedValue([invite()]);
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('newbie@oxshare.com');
+
+    const menu = await openRowMenu(/new bie/);
+    expect(menu?.queryByRole('menuitem', { name: /revoke/i }) ?? null).toBeNull();
+  });
+
+  it('keeps the directory when the invite list fails', async () => {
+    // Separate resources, so a failing invite list costs the invite rows and
+    // not the administrators an operator came to see.
+    getPendingInvites.mockRejectedValue(
+      Object.assign(new Error('boom'), { response: { status: 500, data: {} } }),
+    );
+    renderWithProviders(<AdminUsersPage />);
+
+    expect(await screen.findByText('sub@oxshare.com')).toBeInTheDocument();
+  });
+});
+
 describe('suspending an administrator', () => {
   it('is not offered without users.suspend', async () => {
     permissions.current = ['users.view', 'users.edit'];
@@ -244,7 +346,7 @@ describe('suspending an administrator', () => {
     await screen.findByText('sub@oxshare.com');
 
     const menu = await openRowMenu(/sub admin/);
-    expect(menu?.queryByRole('menuitem', { name: /suspend/i }) ?? null).toBeNull();
+    expect(menu?.queryByRole('menuitem', { name: /revoke access/i }) ?? null).toBeNull();
   });
 
   it('is never offered on yourself or on a master admin', async () => {
@@ -255,18 +357,18 @@ describe('suspending an administrator', () => {
     // The master row still has a trigger — `Send reset link` is deliberately
     // NOT gated on master (D-44) — but suspend must not be among its items.
     const masterMenu = await openRowMenu(/master admin/);
-    expect(masterMenu?.queryByRole('menuitem', { name: /suspend/i }) ?? null).toBeNull();
+    expect(masterMenu?.queryByRole('menuitem', { name: /revoke access/i }) ?? null).toBeNull();
     await userEvent.keyboard('{Escape}');
 
     const subMenu = await openRowMenu(/sub admin/);
-    expect(subMenu?.getByRole('menuitem', { name: /suspend/i })).toBeInTheDocument();
+    expect(subMenu?.getByRole('menuitem', { name: /revoke access/i })).toBeInTheDocument();
   });
 
   it('asks before suspending, and does nothing if declined', async () => {
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await chooseRowAction(/sub admin/, /suspend/i);
+    await chooseRowAction(/sub admin/, /revoke access/i);
     // Named for the row, so a misclick is caught before the account is cut off
     // rather than after.
     const asked = await answerConfirm(userEvent, 'cancel');
@@ -279,7 +381,7 @@ describe('suspending an administrator', () => {
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await chooseRowAction(/sub admin/, /suspend/i);
+    await chooseRowAction(/sub admin/, /revoke access/i);
     await answerConfirm(userEvent, 'confirm');
 
     await waitFor(() => expect(setAdminStatus).toHaveBeenCalledWith('a-2', 'suspended'));
@@ -291,7 +393,7 @@ describe('suspending an administrator', () => {
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await chooseRowAction(/sub admin/, /reactivate/i);
+    await chooseRowAction(/sub admin/, /restore access/i);
     // Unlike the client directory, this screen confirms BOTH directions: an
     // administrator's session is a privileged one, so restoring it is a
     // deliberate act too.
@@ -311,37 +413,47 @@ describe('editing one administrator (FR-RBAC-02)', () => {
     expect(menu?.queryByRole('menuitem', { name: /^edit$/i }) ?? null).toBeNull();
   });
 
-  it('sends INDIVIDUAL permissions, not a role id', async () => {
-    // The half of RBAC-02 that had no UI: the API always accepted a direct
-    // permission list, and the directory only ever sent roleId — so granting one
-    // extra permission to one person meant inventing a role for them.
+  /**
+   * ACCESS IS A ROLE. There is no per-person permission list.
+   *
+   * The modal used to offer "Individual permissions (no role)" and a matrix
+   * under it. The API accepts that shape and CLEARS the roleId when it does, so
+   * the result is an administrator whose access is a snapshot belonging to
+   * nobody: it does not track the role as the role is edited, it appears on no
+   * roles screen, and "who can approve withdrawals?" stops being answerable
+   * from the roles list. On a permission set that gates money movement, one
+   * place to look beats the convenience of granting one extra key.
+   */
+  it('offers roles only — no individual-permission escape hatch', async () => {
     const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
     await chooseRowAction(/sub admin/, /^edit$/i);
+    await user.click(screen.getByLabelText(/role/i));
 
-    // Switch from the role to individual permissions.
-    await user.click(screen.getByLabelText(/access/i));
-    await user.click(await screen.findByRole('option', { name: /individual permissions/i }));
+    expect(await screen.findByRole('option', { name: 'KYC Reviewer' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /individual permissions/i })).toBeNull();
+    // The matrix went with it — a checkbox per permission key.
+    expect(screen.queryByRole('checkbox', { name: /view ledger/i })).toBeNull();
+  });
 
-    /*
-     * Grant one the admin does not currently hold.
-     *
-     * `checkbox`, not `button`: the permission matrix rows were icon buttons
-     * carrying `aria-pressed` and are now real `Checkbox` controls, which Radix
-     * renders as `role="checkbox"`. The query moved with the markup — a toggle
-     * button and a checkbox are genuinely different things to a screen reader,
-     * and this assertion is about the one the component now is.
-     */
-    await user.click(await screen.findByRole('checkbox', { name: /view ledger/i }));
+  it('never sends a permissions array', async () => {
+    // The assertion that matters if the option is ever reintroduced by accident:
+    // whatever this modal saves, it is a roleId and never a permission list.
+    const user = userEvent.setup();
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+
+    await chooseRowAction(/sub admin/, /^edit$/i);
+    await user.click(screen.getByLabelText(/role/i));
+    await user.click(await screen.findByRole('option', { name: 'Finance Auditor' }));
     await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
     const [, body] = updateAdminUser.mock.calls[0] as [string, Record<string, unknown>];
-    expect(body['permissions']).toEqual(expect.arrayContaining(['kyc.review', 'ledger.view']));
-    // roleId and permissions are EXCLUSIVE on the API; sending both is incoherent.
-    expect(body).not.toHaveProperty('roleId');
+    expect(body).not.toHaveProperty('permissions');
+    expect(body['roleId']).toBe('r-2');
   });
 
   it('sends nothing at all when nothing was changed', async () => {
@@ -359,36 +471,49 @@ describe('editing one administrator (FR-RBAC-02)', () => {
   });
 });
 
-describe('reassigning a role from the table', () => {
-  it('sends the new role id when a different role is chosen', async () => {
+/**
+ * A role is changed in the EDIT MODAL, never from the row.
+ *
+ * The role column used to be a Select: one click on a dropdown, on a table row,
+ * rewrote an administrator's whole permission snapshot and landed an audit entry
+ * against a named person — no confirmation, and no sight of what the new role
+ * actually grants. These pin that the inline control is gone and that the
+ * deliberate path still works.
+ */
+describe('reassigning a role', () => {
+  it('offers no role control on the row itself', async () => {
+    renderWithProviders(<AdminUsersPage />);
+    await screen.findByText('sub@oxshare.com');
+
+    // The role is still SHOWN — it is the column an operator scans to answer
+    // "who can do what" — it is just not editable here.
+    const row = within(rowFor('sub@oxshare.com'));
+    expect(row.getByText('KYC Reviewer')).toBeInTheDocument();
+    expect(row.queryByRole('combobox')).toBeNull();
+  });
+
+  it('sends the new role id from the edit modal', async () => {
     const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await user.click(within(rowFor('sub@oxshare.com')).getByRole('combobox'));
+    await chooseRowAction(/sub admin/, /^edit$/i);
+    await user.click(screen.getByLabelText(/role/i));
     await user.click(await screen.findByRole('option', { name: 'Finance Auditor' }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     await waitFor(() => expect(updateAdminUser).toHaveBeenCalledWith('a-2', { roleId: 'r-2' }));
   });
 
-  it('sends NOTHING when reassigned to the role already held', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<AdminUsersPage />);
-    await screen.findByText('sub@oxshare.com');
-
-    await user.click(within(rowFor('sub@oxshare.com')).getByRole('combobox'));
-    await user.click(await screen.findByRole('option', { name: 'KYC Reviewer' }));
-
-    await new Promise((r) => setTimeout(r, 50));
-    expect(updateAdminUser).not.toHaveBeenCalled();
-  });
-
   it('does not offer a SYSTEM role as a reassignment target', async () => {
+    // A system role is not assignable, so offering it would be a control whose
+    // every use the API refuses.
     const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
-    await user.click(within(rowFor('sub@oxshare.com')).getByRole('combobox'));
+    await chooseRowAction(/sub admin/, /^edit$/i);
+    await user.click(screen.getByLabelText(/role/i));
     await screen.findByRole('option', { name: 'KYC Reviewer' });
     expect(screen.queryByRole('option', { name: 'Master Admin' })).toBeNull();
   });
@@ -406,20 +531,21 @@ describe('load failures', () => {
 });
 
 /**
- * RBAC-03 configuration, on the person.
+ * RBAC-03's client scope, on the person.
  *
- * Two properties carry this whole feature and both are the kind that get
- * "simplified" by someone who does not know why they are there:
+ * The property that carries this feature is the kind that gets "simplified" by
+ * someone who does not know why it is there: an EMPTY tag scope means
+ * UNRESTRICTED — every client — following RBAC-08's empty allowlist and D-10,
+ * so introducing the feature cannot blind every existing sub-admin. Both
+ * readings of "no tags" are plausible and one of them is a data breach, so the
+ * screen must SAY which it is.
  *
- *  1. An EMPTY tag scope means UNRESTRICTED — every client — following RBAC-08's
- *     empty allowlist and D-10, so introducing the feature cannot blind every
- *     existing sub-admin. Both readings are plausible and one of them is a data
- *     breach, so the screen must SAY which it is.
- *  2. `null` and `[]` are different masks. `null` follows the role; `[]` is an
- *     explicit "hide nothing for this person". Without the difference, an admin
- *     given an override could never be put back on their role.
+ * The per-administrator FIELD MASK that used to sit beside it is gone. A mask
+ * override attached to one person is the same shape of thing as a per-person
+ * permission list: an access rule that tracks no role and is invisible from the
+ * roles screen. Masks are a property of the role now.
  */
-describe('client scope and field visibility', () => {
+describe('client scope', () => {
   /*
    * Returns a query scoped TO THE DIALOG.
    *
@@ -447,32 +573,59 @@ describe('client scope and field visibility', () => {
     expect(dialog.queryByText(/field visibility/i)).not.toBeInTheDocument();
   });
 
-  it('summarises the current state WITHOUT being opened', async () => {
-    // RBAC-07's failure mode is granting access you did not realise you
-    // granted. A summary you cannot avoid reading is the point — which is why
-    // these are <details> with a visible summary rather than tabs.
+  it('shows the scope OPEN, with no disclosure to click through', async () => {
+    /*
+     * RBAC-07's failure mode is granting access you did not realise you
+     * granted. The scope used to be one of two `<details>` sections with
+     * summary lines; with the field-mask section gone there is one control
+     * left, and a disclosure triangle in front of it is a click between the
+     * operator and the only remaining decision.
+     */
     const dialog = await openEditor();
 
-    expect(dialog.getByText(/all clients/i)).toBeInTheDocument();
-    expect(dialog.getByText(/inherits the role/i)).toBeInTheDocument();
+    expect(dialog.getByText(/client scope/i)).toBeInTheDocument();
+    expect(dialog.getByRole('combobox', { name: /add a tag/i })).toBeInTheDocument();
+    // The mask section and its summary are gone entirely.
+    expect(dialog.queryByText(/field visibility/i)).toBeNull();
+    expect(dialog.queryByText(/inherits the role/i)).toBeNull();
   });
 
   it('WARNS that an empty scope means every client', async () => {
     const dialog = await openEditor();
-    await userEvent.click(dialog.getByText(/client scope/i));
 
     expect(dialog.getByRole('note')).toHaveTextContent(/UNRESTRICTED/i);
     expect(dialog.getByRole('note')).toHaveTextContent(/every client/i);
   });
 
   it('sends the chosen tags, and only when they changed', async () => {
+    // The scope is a SELECT that adds, plus a chip per chosen tag — not a grid
+    // of checkboxes. The vocabulary grows with the business, and the question
+    // this panel answers is "what is this person restricted to", which a wall
+    // of mostly-unticked boxes makes you assemble by scanning.
     const dialog = await openEditor();
-    await userEvent.click(dialog.getByText(/client scope/i));
-    await userEvent.click(dialog.getByRole('button', { name: /levant desk/i }));
+
+    await userEvent.click(dialog.getByRole('combobox', { name: /add a tag/i }));
+    await userEvent.click(await screen.findByRole('option', { name: /levant desk/i }));
+
     await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
 
     await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
     expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ scopedTagIds: ['tag-1'] });
+  });
+
+  it('takes a tag back off through its own chip', async () => {
+    // Removal lives on the chip, beside the thing being removed — the select
+    // only ever offers tags that are NOT already chosen, so it can never
+    // present an option that would silently do nothing.
+    const dialog = await openEditor();
+
+    await userEvent.click(dialog.getByRole('combobox', { name: /add a tag/i }));
+    await userEvent.click(await screen.findByRole('option', { name: /levant desk/i }));
+    await userEvent.click(dialog.getByRole('button', { name: /remove levant desk/i }));
+
+    await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
+    // Back to where it started, so there is nothing to send.
+    expect(updateAdminUser).not.toHaveBeenCalled();
   });
 
   it('sends NOTHING when the form is opened and closed unchanged', async () => {
@@ -484,45 +637,33 @@ describe('client scope and field visibility', () => {
     expect(updateAdminUser).not.toHaveBeenCalled();
   });
 
-  it('offers an unmaskable field DISABLED, with the reason', async () => {
-    // An operator hunting for "why can I not hide the status column" needs the
-    // answer where they are looking. Omitting the field entirely reads as a bug.
-    const dialog = await openEditor();
-    await userEvent.click(dialog.getByText(/field visibility/i));
-
-    const locked = dialog.getByRole('button', { name: /account status/i });
-    expect(locked).toBeDisabled();
-    expect(dialog.getByText(/suspend decisions are made from it/i)).toBeInTheDocument();
-  });
-
-  it('creates an override when a field is first hidden', async () => {
-    const dialog = await openEditor();
-    await userEvent.click(dialog.getByText(/field visibility/i));
-    await userEvent.click(dialog.getByRole('button', { name: /phone number/i }));
-    await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
-
-    await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
-    expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ maskedFields: ['client.phone'] });
-  });
-
-  it('sends NULL to put an administrator back on their role', async () => {
+  it('never sends a maskedFields override', async () => {
     /*
-     * The distinction the API makes and the UI must not lose: `null` clears the
-     * override, `[]` is an explicit "hide nothing for this person". Without a
-     * dedicated control the second is reachable and the first is not, so an
-     * override would be permanent.
+     * The per-person mask is gone from this modal, and this is the assertion
+     * that matters if it is ever reintroduced by accident: `null` and `[]` mean
+     * different things to the API — inherit the role, versus an explicit "hide
+     * nothing for this person" — and a screen that can produce either one
+     * without a control for both leaves an override nobody can clear.
+     *
+     * Opened on an administrator who ALREADY holds one, which is the case that
+     * would have re-sent it.
      */
     getAdminUsers.mockResolvedValue([
       master,
       sub({ maskedFields: ['client.phone'], maskedFieldsOverride: ['client.phone'] }),
     ]);
     const dialog = await openEditor();
-    await userEvent.click(dialog.getByText(/field visibility/i));
-    await userEvent.click(dialog.getByRole('button', { name: /follow the role again/i }));
+
+    expect(dialog.queryByRole('button', { name: /follow the role again/i })).toBeNull();
+    expect(dialog.queryByRole('button', { name: /phone number/i })).toBeNull();
+
+    await userEvent.click(dialog.getByRole('combobox', { name: /add a tag/i }));
+    await userEvent.click(await screen.findByRole('option', { name: /levant desk/i }));
     await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
 
     await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
-    expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ maskedFields: null });
+    // The scope change alone — the existing override is left exactly as it is.
+    expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ scopedTagIds: ['tag-1'] });
   });
 
   it('shows the master admin as exempt rather than configurable', async () => {

@@ -85,7 +85,6 @@ describe('canAccess', () => {
       '/kyc',
       '/kyc/builder',
       '/settings',
-      '/invite',
       '/currencies',
       '/audit-log',
     ]) {
@@ -155,8 +154,25 @@ describe('canAccess', () => {
     // subAdmin already holds users.view, so the directory IS open to them.
     expect(canAccess(subAdmin, '/admin-users')).toBe(true);
     expect(canAccess({ ...subAdmin, permissions: ['kyc.review'] }, '/admin-users')).toBe(false);
-    expect(canAccess(subAdmin, '/invite')).toBe(false); // needs users.create
-    expect(canAccess({ ...subAdmin, permissions: ['users.create'] }, '/invite')).toBe(true);
+  });
+
+  it('no longer lists /invite — inviting is a modal on the directory', () => {
+    /*
+     * `/invite` was a page requiring `users.create`. It is a modal on
+     * `/admin-users` now, so the route requirement is gone and the button
+     * carries the permission instead.
+     *
+     * An unlisted path is DENIED — the `/` entry is matched exactly, not as a
+     * prefix — so this holds even for a master admin. That is the safe
+     * direction and it costs nothing: there is no `page.tsx` there to reach.
+     *
+     * `/invite/accept` is unaffected — it is public (`lib/public-paths.ts`)
+     * and renders outside `AdminLayout`, which is what calls `canAccess`.
+     */
+    expect(canAccess(master, '/invite')).toBe(false);
+    expect(canAccess({ ...subAdmin, permissions: ['users.create'] }, '/invite')).toBe(false);
+    // The directory, where inviting now lives, is still reachable.
+    expect(canAccess({ ...subAdmin, permissions: ['users.view'] }, '/admin-users')).toBe(true);
   });
 
   it('/settings needs roles.MANAGE, not roles.view', () => {

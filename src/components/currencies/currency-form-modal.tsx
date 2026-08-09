@@ -141,7 +141,7 @@ function CurrencyForm({
             maxLength={10}
             pattern="[A-Za-z0-9]{2,10}"
             placeholder="EUR"
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 font-mono text-xs read-only:cursor-not-allowed read-only:opacity-60 focus-outline"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 font-mono text-xs read-only:cursor-not-allowed read-only:opacity-60 focus-outline"
           />
           <span className="block text-[11px] text-muted-foreground">
             {editing ? t('currencies.codeLocked') : t('currencies.codeHint')}
@@ -156,7 +156,7 @@ function CurrencyForm({
             required
             maxLength={8}
             placeholder="€"
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
           />
         </label>
       </div>
@@ -169,7 +169,7 @@ function CurrencyForm({
           required
           maxLength={80}
           placeholder="Euro"
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+          className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
         />
       </label>
 
@@ -182,7 +182,7 @@ function CurrencyForm({
             max={8}
             value={decimals}
             onChange={(e) => setDecimals(Number(e.target.value))}
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
           />
           <span className="block text-[11px] text-muted-foreground">
             {t('currencies.decimalsHint')}
@@ -196,7 +196,7 @@ function CurrencyForm({
             min={0}
             value={sortOrder}
             onChange={(e) => setSortOrder(Number(e.target.value))}
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
           />
           <span className="block text-[11px] text-muted-foreground">
             {t('currencies.orderHint')}

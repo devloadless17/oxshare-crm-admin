@@ -232,7 +232,7 @@ function GeneralForm({ settings, canManage }: { settings: GeneralSettings; canMa
 }
 
 const INPUT_CLASS =
-  'h-9 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60';
+  'h-9 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60';
 
 function Field({
   id,

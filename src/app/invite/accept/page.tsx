@@ -1,25 +1,75 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
+import Image from 'next/image';
+import { AlertCircle, Eye, EyeOff, Loader2, Lock } from 'lucide-react';
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/api/errors';
-import { t } from '@/lib/i18n';
 import { useAdmin } from '@/context/AdminAuthContext';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { PageLoader } from '@/components/ui/loader';
+import { t } from '@/lib/i18n';
 
+/**
+ * Set a password and activate an invited administrator account.
+ *
+ * ## It is the sign-in screen's twin, not a card of its own
+ *
+ * This page and `/login` are the two things a person meets before they have a
+ * session, and they used to look like they came from different products: this
+ * one was a rounded 24px card with a fade-in animation, an emoji, a pill badge
+ * and 160 lines of `<style jsx>` — its own input, its own button, its own error
+ * box, its own spinner. None of that tracked the theme tokens the rest of the
+ * console uses, so it drifted every time they changed.
+ *
+ * It is now the same shape as `/login`: the brand mark, a heading, and the form
+ * directly on the background — no card and no shadow — built from the same
+ * `Input`, `Label` and `Button` every other form in this app uses. A theme
+ * toggle sits in the corner because a visitor here has no console chrome to
+ * change it from, and the OS preference may not be the one they want to read a
+ * password field in.
+ *
+ * ## The token is checked BEFORE the form is offered
+ *
+ * `GET /admin/invite/validate` runs first, and the password fields render only
+ * once it answers. An expired, revoked or mistyped token gets a stated failure
+ * instead of a form that collects a password and then rejects it — and because
+ * validation is a query rather than an effect writing into the form's own error
+ * state, a bad token and a bad password can never be reported through the same
+ * box.
+ */
 function AcceptInviteContent() {
   const params = useSearchParams();
   const { admin, isLoading: sessionLoading } = useAdmin();
-  /*
-   */
   const token = params.get('token') ?? '';
 
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [password, setPassword] = React.useState('');
+  const [confirm, setConfirm] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  /*
+   * ACCEPTED, and on the way out — the flag that stops this screen calling a
+   * good invite invalid at the last moment.
+   *
+   * `window.location.assign` does not tear the page down synchronously, and the
+   * line before it scrubs the spent token out of the URL. Next patches
+   * `history.replaceState` to keep the router in step, so `useSearchParams`
+   * re-renders this component with no `token` — which lands in the `token === ''`
+   * branch below and paints "Invalid invite link." over a successful activation,
+   * for however long the navigation takes. The invite worked; the screen was
+   * reading a URL it had just emptied on purpose.
+   *
+   * Not solvable by scrubbing later: the token must leave the address bar, and
+   * every ordering puts a render between that and the navigation. A state that
+   * says "this succeeded" is the thing the render actually needs to know.
+   */
+  const [accepted, setAccepted] = React.useState(false);
 
   // Validating the token is a fetch, not an effect that assigns state. The old
   // version wrote the failure into the same `error` box the password form uses,
@@ -53,27 +103,40 @@ function AcceptInviteContent() {
    * signing out first the obvious move.
    */
   const signedInAsSomeoneElse = !sessionLoading && admin !== null;
-  const inviteError =
-    token === ''
-      ? 'Invalid invite link.'
+  /*
+   * An absent token and a rejected one are DIFFERENT failures and say so. A
+   * link truncated by a mail client loses the query string entirely, and
+   * "invalid or expired" would send that person hunting for a fresh invite when
+   * the one they hold is fine.
+   */
+  const inviteError = accepted
+    ? // Nothing about the link can be wrong once it has been spent — see
+      // `accepted`. Suppressed here rather than at the render site so no
+      // future branch can reintroduce the flash.
+      ''
+    : token === ''
+      ? t('invite.invalidLink')
       : validation.isError
-        ? apiErrorMessage(validation.error, 'Invalid or expired invite.')
+        ? apiErrorMessage(validation.error, t('invite.expired'))
         : '';
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(t('invite.tooShort'));
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setError(t('invite.mismatch'));
       return;
     }
     setError('');
     setLoading(true);
     try {
       await api.admin.acceptInvite(token, password);
+      // BEFORE the scrub below, which is what empties the URL this component
+      // re-reads. See the note on `accepted`.
+      setAccepted(true);
       /*
        * Take the token out of the address bar NOW — once it is spent.
        *
@@ -102,34 +165,78 @@ function AcceptInviteContent() {
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign('/dashboard');
     } catch (e: unknown) {
-      setError(apiErrorMessage(e, 'Failed to accept invite.'));
+      setError(apiErrorMessage(e, t('invite.failed')));
       setLoading(false);
     }
   };
 
   return (
-    <div className="accept-wrap">
-      <div className="accept-card">
-        {validating ? (
-          <>
-            <div className="spinner" />
-            <p>{t('invite.validating')}</p>
-          </>
+    <main className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      {/*
+       * A visitor here has no console chrome to change the theme from, and the
+       * OS preference is not always the one someone wants to type a password
+       * into. Same position as the sign-in screen's.
+       */}
+      <div className="absolute end-4 top-4">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-md space-y-6">
+        <div className="flex flex-col items-center space-y-2 text-center">
+          <Image
+            src="/oxshare-mark.svg"
+            // An SVG is already a vector, and Next refuses to optimize SVG
+            // without `dangerouslyAllowSVG` — see the same note on /login.
+            unoptimized
+            alt={t('app.name')}
+            width={44}
+            height={40}
+            className="h-11 w-11 object-contain"
+            priority
+          />
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {t('app.name')} <span className="text-muted-foreground">{t('app.adminSuffix')}</span>
+          </h1>
+        </div>
+
+        {accepted ? (
+          /*
+           * The account exists and the session is set; the browser is on its
+           * way to the dashboard. Re-rendering the password form underneath
+           * that navigation invites a second submit against a token that is now
+           * spent, which would fail — so the terminal state is a stated one.
+           */
+          <PageLoader label={t('invite.redirecting')} className="min-h-0" srOnly={false} />
+        ) : validating ? (
+          // The shared loader, so this screen spins the same way as every other
+          // one. `min-h-[60vh]` would push the mark off a short viewport, and
+          // the page is already centred, so it only needs the mark and label.
+          <PageLoader label={t('invite.validating')} className="min-h-0" />
         ) : inviteError ? (
-          <>
-            <div className="error-icon">{t('invite.iconWarn')}</div>
-            <h2>{t('invite.invalidTitle')}</h2>
-            <p>{inviteError}</p>
-          </>
-        ) : (
-          <>
-            <div className="welcome-icon">{t('invite.iconWave')}</div>
-            <h2>Welcome, {invite?.name}!</h2>
-            <p>
-              You&apos;ve been invited to join OXShare Admin. Set your password to activate your
-              account.
+          <div className="space-y-2 text-center">
+            <h2 className="text-base font-semibold text-foreground">{t('invite.invalidTitle')}</h2>
+            <p
+              className="flex items-start justify-center gap-2 text-sm text-muted-foreground"
+              role="alert"
+            >
+              <AlertCircle
+                className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
+                aria-hidden="true"
+              />
+              <span>{inviteError}</span>
             </p>
-            <div className="email-badge">{invite?.email}</div>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div className="space-y-1 text-center">
+              <h2 className="text-base font-semibold text-foreground">
+                {t('invite.welcome', { name: invite?.name ?? '' })}
+              </h2>
+              <p className="text-xs text-muted-foreground">{t('invite.body')}</p>
+              {/* The address the invite was sent to, so somebody activating on a
+                  shared machine can see WHOSE account they are creating. */}
+              <p className="font-mono text-xs text-link">{invite?.email}</p>
+            </div>
 
             {/*
              * Somebody else is signed in on this browser, and accepting will
@@ -137,237 +244,112 @@ function AcceptInviteContent() {
              * note above `signedInAsSomeoneElse`.
              */}
             {signedInAsSomeoneElse && (
-              <div role="alert" className="session-warning">
-                <p>{t('invite.sessionWarning', { email: admin?.email ?? '' })}</p>
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{t('invite.sessionWarning', { email: admin?.email ?? '' })}</span>
               </div>
             )}
 
-            <form className="form" onSubmit={(e) => void submit(e)}>
-              <div className="form-group">
-                <label htmlFor="new-password">{t('invite.newPassword')}</label>
-                <input
-                  id="new-password"
-                  type={showPassword ? 'text' : 'password'}
-                  className="form-input"
-                  placeholder={t('invite.passwordHint')}
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => {
-                    setError('');
-                    setPassword(e.target.value);
-                  }}
-                />
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{error}</span>
               </div>
-              <div className="form-group">
-                <label htmlFor="confirm-password">{t('invite.confirmPassword')}</label>
-                <input
-                  id="confirm-password"
-                  type={showPassword ? 'text' : 'password'}
-                  className="form-input"
-                  placeholder={t('invite.repeatPassword')}
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => {
-                    setError('');
-                    setConfirm(e.target.value);
-                  }}
-                />
-              </div>
-              <button
-                type="button"
-                className="toggle-visibility"
-                onClick={() => setShowPassword((s) => !s)}
-                aria-pressed={showPassword}
-              >
-                {showPassword ? 'Hide passwords' : 'Show passwords'}
-              </button>
-              {error && (
-                <div className="error-msg" role="alert">
-                  {error}
+            )}
+
+            <form onSubmit={(e) => void submit(e)} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-password">{t('invite.newPassword')}</Label>
+                <div className="relative">
+                  <Lock className="absolute start-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="new-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder={t('invite.passwordHint')}
+                    value={password}
+                    onChange={(e) => {
+                      setError('');
+                      setPassword(e.target.value);
+                    }}
+                    className="ps-9 pe-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-pressed={showPassword}
+                    // Both fields follow this one toggle, so the label is plural
+                    // — it is describing what the button does, not this field.
+                    aria-label={
+                      showPassword ? t('invite.hidePasswords') : t('invite.showPasswords')
+                    }
+                    className="focus-outline absolute end-3 top-2.5 rounded-sm text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
                 </div>
-              )}
-              <button className="submit-btn" type="submit" disabled={loading} aria-busy={loading}>
-                {loading ? 'Activating account...' : '🚀 Activate Account'}
-              </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-password">{t('invite.confirmPassword')}</Label>
+                <div className="relative">
+                  <Lock className="absolute start-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirm-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder={t('invite.repeatPassword')}
+                    value={confirm}
+                    onChange={(e) => {
+                      setError('');
+                      setConfirm(e.target.value);
+                    }}
+                    className="ps-9"
+                  />
+                </div>
+              </div>
+
+              {/*
+               * No `required` on either field: the form's own "too short" and
+               * "do not match" branches are the ones that must run, and native
+               * validation would block submit before they could — which is
+               * exactly how the old version made its own messages unreachable.
+               */}
+              <Button type="submit" disabled={loading} aria-busy={loading} className="w-full">
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    <span>{t('invite.submitting')}</span>
+                  </>
+                ) : (
+                  <span>{t('invite.submit')}</span>
+                )}
+              </Button>
             </form>
-          </>
+          </div>
         )}
       </div>
-
-      <style jsx>{`
-        .accept-wrap {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--background);
-          padding: 20px;
-        }
-        .accept-card {
-          background: var(--card);
-          border: 1px solid var(--border);
-          border-radius: 24px;
-          padding: 48px 40px;
-          max-width: 440px;
-          width: 100%;
-          text-align: center;
-          animation: fadeIn 0.4s ease both;
-        }
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(16px);
-          }
-        }
-        .spinner {
-          width: 40px;
-          height: 40px;
-          margin: 0 auto 20px;
-          border: 3px solid var(--muted);
-          border-top-color: var(--ring);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-        .error-icon,
-        .welcome-icon {
-          font-size: 3rem;
-          margin-bottom: 16px;
-        }
-        h2 {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: var(--foreground);
-          margin-bottom: 10px;
-        }
-        p {
-          color: var(--muted-foreground);
-          font-size: 0.9rem;
-          line-height: 1.6;
-          margin-bottom: 0;
-        }
-        /* The "somebody else is signed in" warning — see signedInAsSomeoneElse. */
-        .session-warning {
-          margin: 0 0 4px;
-          border: 1px solid color-mix(in srgb, var(--destructive) 35%, transparent);
-          background: color-mix(in srgb, var(--destructive) 10%, transparent);
-          border-radius: 10px;
-          padding: 10px 14px;
-          color: var(--destructive);
-          font-size: 0.8rem;
-          line-height: 1.45;
-          text-align: left;
-        }
-
-        .email-badge {
-          display: inline-block;
-          margin: 20px 0;
-          background: color-mix(in srgb, var(--primary) 10%, transparent);
-          border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
-          border-radius: 20px;
-          padding: 6px 18px;
-          color: var(--link);
-          font-size: 0.85rem;
-          font-weight: 600;
-        }
-        .form {
-          text-align: left;
-        }
-        .form-group {
-          margin-bottom: 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        label {
-          font-size: 0.82rem;
-          font-weight: 500;
-          color: var(--muted-foreground);
-        }
-        .form-input {
-          background: var(--background);
-          border: 1px solid var(--input);
-          border-radius: 10px;
-          padding: 12px 16px;
-          color: var(--foreground);
-          font-size: 0.93rem;
-          outline: none;
-          width: 100%;
-        }
-        .form-input:focus {
-          border-color: var(--ring);
-        }
-        .form-input::placeholder {
-          color: var(--muted-foreground);
-        }
-        .submit-btn:focus-visible,
-        .toggle-visibility:focus-visible {
-          outline: 2px solid var(--ring);
-          outline-offset: 2px;
-        }
-        .toggle-visibility {
-          background: none;
-          border: none;
-          color: var(--link);
-          font-size: 0.8rem;
-          cursor: pointer;
-          padding: 0;
-          margin-bottom: 14px;
-          text-align: left;
-        }
-        .toggle-visibility:hover {
-          text-decoration: underline;
-        }
-        .error-msg {
-          background: color-mix(in srgb, var(--destructive) 10%, transparent);
-          border: 1px solid color-mix(in srgb, var(--destructive) 25%, transparent);
-          border-radius: 10px;
-          padding: 10px 14px;
-          color: var(--destructive);
-          font-size: 0.83rem;
-          margin-bottom: 14px;
-        }
-        .submit-btn {
-          width: 100%;
-          background: var(--primary);
-          color: var(--primary-foreground);
-          border: none;
-          border-radius: 50px;
-          padding: 14px;
-          font-size: 0.95rem;
-          font-weight: 700;
-          cursor: pointer;
-          margin-top: 4px;
-        }
-        .submit-btn:hover {
-          background: var(--primary-hover);
-          transform: translateY(-1px);
-          box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 35%, transparent);
-        }
-        .submit-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          transform: none;
-        }
-      `}</style>
-    </div>
+    </main>
   );
 }
 
 export default function AcceptInvitePage() {
   return (
-    <Suspense
+    <React.Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground text-sm">
-          {t('invite.loadingParams')}
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <PageLoader label={t('invite.loadingParams')} className="min-h-0" />
         </div>
       }
     >
       <AcceptInviteContent />
-    </Suspense>
+    </React.Suspense>
   );
 }

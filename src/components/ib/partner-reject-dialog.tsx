@@ -175,7 +175,7 @@ function RejectForm({
           rows={3}
           maxLength={1000}
           placeholder={t('partnerReview.rejectNotePlaceholder')}
-          className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-xs leading-relaxed focus-outline"
+          className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-xs leading-relaxed focus-outline"
         />
         {/* The applicant reads the label and the note joined together, so the
             reviewer should know they are writing the second half of a sentence

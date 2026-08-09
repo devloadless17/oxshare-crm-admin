@@ -1,15 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import type {
-  AdminUser,
-  ClientFieldGroup,
-  ClientTagWithCount,
-  PermissionModule,
-  Role,
-} from '@/lib/api/admin';
-import { PermissionMatrix } from './permission-matrix';
-import { AdminFieldMaskPanel, AdminTagScopePanel } from './admin-visibility-panels';
+import type { AdminUser, ClientTagWithCount, Role } from '@/lib/api/admin';
+import { AdminTagScopePanel } from './admin-visibility-panels';
 import {
   Select,
   SelectTrigger,
@@ -22,7 +15,13 @@ import { t } from '@/lib/i18n';
 export interface AdminFormValues {
   name?: string;
   roleId?: string;
-  permissions?: string[];
+  /*
+   * No `permissions` field.
+   *
+   * `PATCH /admin/users/:id` still accepts a direct permission list — the API
+   * has not changed — but this console no longer sends one. Access here is a
+   * ROLE, always. See the note on the component.
+   */
   /** RBAC-03 mask override. `null` clears it — back to inheriting the role. */
   maskedFields?: string[] | null;
   /** RBAC-03 territory. An EMPTY ARRAY means unrestricted, not none. */
@@ -36,29 +35,32 @@ function sameSet(a: readonly string[], b: readonly string[]): boolean {
   return b.every((value) => left.has(value));
 }
 
-const DIRECT = '__direct__';
-
 /**
- * Edit one administrator — FR-RBAC-07's "edit" and FR-RBAC-02's per-sub-admin half.
+ * Edit one administrator — FR-RBAC-07's "edit" half.
  *
- * `PATCH /admin/users/:id` has always accepted `{ name, roleId, permissions }`.
- * The directory only ever sent `roleId`, so granting a single extra permission to
- * one person meant inventing a role for them — and the FSD asks for permissions
- * "assigned individually to a sub-admin", not only through roles.
+ * ## Access is a ROLE. There is no per-person permission list.
  *
- * THE RULE THIS UI MUST NOT HIDE: roleId and direct permissions are exclusive.
- * The API copies a role's permissions onto the admin and records the roleId, or
- * takes a direct list and clears the roleId — never both. An admin on a role
- * tracks that role as it is edited; one on direct grants does not. Presenting
- * them as two independent fields would let someone believe they had done both,
- * so the choice is a single control and the consequence is stated in the form.
+ * `PATCH /admin/users/:id` accepts either a `roleId` or a direct `permissions`
+ * array, and this modal used to offer both through one "Access" select: pick a
+ * role, or pick "Individual permissions" and tick a matrix. That option is gone
+ * and the matrix with it.
+ *
+ * The two grant paths are exclusive on the API — it copies a role's permissions
+ * onto the admin and records the roleId, or takes a direct list and CLEARS the
+ * roleId — and the second one produces an administrator whose access is a
+ * snapshot belonging to nobody. It does not track the role as the role is
+ * edited, it appears in no roles screen, and answering "who can approve
+ * withdrawals?" stops being a question about roles and becomes an audit of
+ * every individual account. On a permission set that gates money movement, one
+ * place to look is worth more than the convenience of granting one extra key.
+ *
+ * Needing a permission combination no role has is a signal to create the role,
+ * which is a screen this console already has.
  */
 export function AdminFormModal({
   admin,
   roles,
-  catalog,
   tags,
-  fieldCatalog,
   currentScope,
   canScope,
   busy,
@@ -68,10 +70,8 @@ export function AdminFormModal({
 }: {
   admin: AdminUser;
   roles: Role[];
-  catalog: Record<string, PermissionModule>;
-  /** RBAC-03 vocabularies, both fetched — the frontend invents no keys (R-4.5). */
+  /** The tag vocabulary, FETCHED — the frontend invents no keys (R-4.5). */
   tags: ClientTagWithCount[];
-  fieldCatalog: Record<string, ClientFieldGroup>;
   /** This admin's current territory, resolved server-side. */
   currentScope: string[];
   /** A separate permission from users.edit — see the panels. */
@@ -82,26 +82,17 @@ export function AdminFormModal({
   onClose: () => void;
 }) {
   const [name, setName] = React.useState(admin.name);
-  // '__direct__' rather than '' — an empty Select value is indistinguishable
-  // from "nothing chosen yet", and this is a deliberate choice with consequences.
-  const [source, setSource] = React.useState<string>(admin.roleId ?? DIRECT);
-  const [permissions, setPermissions] = React.useState<string[]>(admin.permissions ?? []);
-  const [scopedTagIds, setScopedTagIds] = React.useState<string[]>(currentScope);
   /*
-   * `null` is a real value here, not a placeholder: it is what puts this
-   * administrator back on their role's mask. An `undefined` state could not
-   * express it, and the operator would have no way to undo an override.
+   * Empty when this administrator holds no role — a real state for accounts
+   * created before roles were mandatory here. It shows as the select's
+   * placeholder, so the form reads as "no role chosen" rather than silently
+   * defaulting somebody onto the first role in the list.
    */
-  const [maskedFields, setMaskedFields] = React.useState<string[] | null>(
-    admin.maskedFieldsOverride ?? null,
-  );
+  const [roleId, setRoleId] = React.useState<string>(admin.roleId ?? '');
+  const [scopedTagIds, setScopedTagIds] = React.useState<string[]>(currentScope);
 
   const assignable = roles.filter((r) => !r.isSystem);
-  const usingDirect = source === DIRECT;
   const nameChanged = name.trim() !== admin.name;
-
-  const toggle = (key: string) =>
-    setPermissions((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,14 +102,9 @@ export function AdminFormModal({
     // named administrator.
     const values: AdminFormValues = {};
     if (nameChanged) values.name = name.trim();
-    if (usingDirect) {
-      values.permissions = permissions;
-    } else if (source !== admin.roleId) {
-      values.roleId = source;
-    }
+    if (roleId && roleId !== admin.roleId) values.roleId = roleId;
     /*
-     * The two visibility dimensions are compared as SETS, and only sent when
-     * they actually differ.
+     * The scope is compared as a SET, and only sent when it actually differs.
      *
      * A `scopedTagIds` echoed back unchanged is a whole-set replace on the
      * scope table and another audit row against a named administrator — and,
@@ -126,14 +112,6 @@ export function AdminFormModal({
      * otherwise make every save look like a change.
      */
     if (!sameSet(scopedTagIds, currentScope)) values.scopedTagIds = scopedTagIds;
-
-    const inheritingNow = maskedFields === null;
-    const inheritingBefore = (admin.maskedFieldsOverride ?? null) === null;
-    if (inheritingNow !== inheritingBefore) {
-      values.maskedFields = maskedFields;
-    } else if (maskedFields !== null && !sameSet(maskedFields, admin.maskedFieldsOverride ?? [])) {
-      values.maskedFields = maskedFields;
-    }
 
     if (Object.keys(values).length === 0) {
       onClose();
@@ -185,7 +163,7 @@ export function AdminFormModal({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3"
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3"
             />
           </div>
 
@@ -193,9 +171,13 @@ export function AdminFormModal({
             <label className="font-semibold" htmlFor="admin-source">
               {t('adminUsers.accessLabel')}
             </label>
-            <Select value={source} onValueChange={setSource}>
+            {/*
+             * Roles only. The "Individual permissions" option and the matrix
+             * under it are gone — see the note on this component.
+             */}
+            <Select value={roleId} onValueChange={setRoleId}>
               <SelectTrigger id="admin-source" className="mt-1 h-9 w-full text-xs">
-                <SelectValue />
+                <SelectValue placeholder={t('adminUsers.rolePlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {assignable.map((r) => (
@@ -203,97 +185,43 @@ export function AdminFormModal({
                     {r.name}
                   </SelectItem>
                 ))}
-                <SelectItem value={DIRECT}>{t('adminUsers.directOption')}</SelectItem>
               </SelectContent>
             </Select>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
-              {usingDirect ? t('adminUsers.directHint') : t('adminUsers.roleHint')}
-            </p>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">{t('adminUsers.roleHint')}</p>
           </div>
 
-          {/* Only when granting directly. Showing the matrix under a role would
-              imply the ticks are editable, when the role owns them and edits to
-              it overwrite whatever is shown here. */}
-          {usingDirect && (
-            <PermissionMatrix catalog={catalog} selected={permissions} onToggle={toggle} />
-          )}
-
           {/*
-           * `<details>` with an ALWAYS-VISIBLE summary, not tabs.
+           * OPEN, not behind a `<details>`.
            *
-           * RBAC-07's failure mode is granting access you did not realise you
-           * granted, and a tab hides the summary of the tab you are not on. A
-           * summary line you cannot avoid reading is the whole point — so
-           * "3 tags · 2 fields hidden" is on screen before anything is opened.
+           * The scope was one of two collapsed sections with summary lines, on
+           * the reasoning that a summary you cannot avoid reading beats a tab
+           * that hides one. That reasoning held while there were two of them;
+           * with the field-mask section gone there is exactly one thing here,
+           * and a disclosure triangle in front of a single control is a click
+           * between the operator and the only remaining decision — while still
+           * showing the same summary the control itself now shows as chips.
            *
-           * Native `<details>` is keyboard- and screen-reader-correct with no
-           * dependency, which is why this is not a Radix accordion.
+           * The FIELD VISIBILITY section is gone with it. A per-administrator
+           * mask override is the same shape of thing as a per-administrator
+           * permission list: an access rule attached to one person, tracking no
+           * role, invisible from the roles screen. Masks are set on the ROLE.
            */}
           {canScope && (
-            <div className="space-y-2 rounded-lg border border-border">
-              <details className="group p-3">
-                <summary className="cursor-pointer list-none font-semibold focus-outline">
-                  <span className="flex items-center justify-between gap-3">
-                    {t('adminUsers.scopeSection')}
-                    <span className="font-normal text-[11px] text-muted-foreground">
-                      {scopedTagIds.length === 0
-                        ? t('adminUsers.scopeSummaryAll')
-                        : t('adminUsers.scopeSummary', { count: scopedTagIds.length })}
-                    </span>
-                  </span>
-                </summary>
-                <div className="pt-3">
-                  <AdminTagScopePanel
-                    tags={tags}
-                    selected={scopedTagIds}
-                    onToggle={(tagId) =>
-                      setScopedTagIds((prev) =>
-                        prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
-                      )
-                    }
-                    disabled={busy}
-                    disabledReason={
-                      admin.role === 'master_admin' ? t('adminUsers.masterExempt') : undefined
-                    }
-                  />
-                </div>
-              </details>
-
-              <details className="group border-t border-border p-3">
-                <summary className="cursor-pointer list-none font-semibold focus-outline">
-                  <span className="flex items-center justify-between gap-3">
-                    {t('adminUsers.maskSection')}
-                    <span className="font-normal text-[11px] text-muted-foreground">
-                      {maskedFields === null
-                        ? t('adminUsers.maskSummaryInherited')
-                        : maskedFields.length === 0
-                          ? t('adminUsers.maskSummaryNone')
-                          : t('adminUsers.maskSummary', { count: maskedFields.length })}
-                    </span>
-                  </span>
-                </summary>
-                <div className="pt-3">
-                  <AdminFieldMaskPanel
-                    catalog={fieldCatalog}
-                    selected={maskedFields ?? []}
-                    inheriting={maskedFields === null}
-                    onResetToRole={() => setMaskedFields(null)}
-                    onToggle={(key) =>
-                      setMaskedFields((prev) => {
-                        // The first tick on an inheriting admin CREATES the
-                        // override, starting from what they can see today
-                        // rather than from nothing.
-                        const base = prev ?? [];
-                        return base.includes(key) ? base.filter((k) => k !== key) : [...base, key];
-                      })
-                    }
-                    disabled={busy}
-                    disabledReason={
-                      admin.role === 'master_admin' ? t('adminUsers.masterExempt') : undefined
-                    }
-                  />
-                </div>
-              </details>
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <p className="font-semibold">{t('adminUsers.scopeSection')}</p>
+              <AdminTagScopePanel
+                tags={tags}
+                selected={scopedTagIds}
+                onToggle={(tagId) =>
+                  setScopedTagIds((prev) =>
+                    prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
+                  )
+                }
+                disabled={busy}
+                disabledReason={
+                  admin.role === 'master_admin' ? t('adminUsers.masterExempt') : undefined
+                }
+              />
             </div>
           )}
 

@@ -296,7 +296,7 @@ function TradingAccountsPageContent() {
             // page one rather than past the end of the new result set.
             url.set({ userId: e.target.value, page: undefined });
           }}
-          className="h-9 w-64 rounded-lg border border-input bg-background px-3 font-mono text-xs focus-outline"
+          className="h-9 w-64 rounded-lg border border-input bg-card px-3 font-mono text-xs focus-outline"
         />
 
         <Select

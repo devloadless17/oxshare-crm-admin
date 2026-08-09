@@ -215,7 +215,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (value: strin
       onChange={(e) => setText(e.target.value)}
       placeholder={t('clients.searchPlaceholder')}
       aria-label={t('clients.searchLabel')}
-      className="h-9 w-full sm:w-72 rounded-lg border border-input bg-background px-3 text-sm focus-outline"
+      className="h-9 w-full sm:w-72 rounded-lg border border-input bg-card px-3 text-sm focus-outline"
     />
   );
 }

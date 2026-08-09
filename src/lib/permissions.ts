@@ -115,7 +115,23 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * eventually lands on a role called "Operations".
    */
   { prefix: '/api-keys', requirement: { masterOnly: true } },
-  { prefix: '/invite', requirement: { permission: 'users.create' } },
+  /*
+   * There is no `/invite` entry any more, and no `/invite` page.
+   *
+   * Inviting an administrator is a modal on `/admin-users`, gated on the same
+   * `users.create` this entry used to require — the button is only drawn for a
+   * caller who holds it, and the API enforces it regardless.
+   *
+   * Removing the entry makes `/invite` an UNLISTED path, which `canAccess`
+   * denies rather than waving through: the `/` entry below is matched exactly,
+   * not as a prefix. That is the safe direction and it costs nothing, because
+   * there is no `page.tsx` there to reach either way.
+   *
+   * `/invite/accept` is unaffected: it is reached with NO session by someone
+   * who has no account yet, so it is gated by `PUBLIC_PATHS` in
+   * `lib/public-paths.ts` rather than by anything here, and it renders outside
+   * `AdminLayout` — which is what calls `canAccess` in the first place.
+   */
   { prefix: '/dashboard', requirement: null },
   // `requirement: null` is "any authenticated admin", stated rather than
   // assumed — the frontend counterpart of the backend's @AnyAdmin(reason).

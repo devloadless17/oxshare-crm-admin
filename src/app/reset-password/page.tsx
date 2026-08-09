@@ -132,7 +132,7 @@ function ResetPasswordContent() {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus-outline"
+            className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
           />
         </div>
 
@@ -148,7 +148,7 @@ function ResetPasswordContent() {
             autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus-outline"
+            className="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
           />
         </div>
 

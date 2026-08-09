@@ -130,7 +130,7 @@ function TagForm({
             required
             maxLength={100}
             placeholder={t('tags.labelPlaceholder')}
-            className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm focus-outline"
+            className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
           />
           {tag && (
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -177,7 +177,7 @@ function TagForm({
             onChange={(e) => setDescription(e.target.value)}
             maxLength={500}
             placeholder={t('tags.descriptionPlaceholder')}
-            className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm focus-outline"
+            className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
           />
         </div>
 

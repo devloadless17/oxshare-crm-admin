@@ -104,7 +104,7 @@ export function RoleForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={busy}
-            className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 disabled:opacity-60"
+            className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 disabled:opacity-60"
           />
         </div>
         <div>
@@ -118,7 +118,7 @@ export function RoleForm({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             disabled={busy}
-            className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 disabled:opacity-60"
+            className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 disabled:opacity-60"
           />
         </div>
       </div>
@@ -178,6 +178,15 @@ export function RoleForm({
         </div>
       )}
 
+      {/*
+       * Cancel then Save, right-aligned, above a hairline — the same footer
+       * every modal in this console ends on, so the two screens that edit a
+       * role finish the same way as the ones that edit an administrator.
+       *
+       * Cancel is a LINK inside a Button (`asChild`), not a button that calls
+       * `router.back()`: this is a real route, and back is not the same thing as
+       * "return to the list" once someone has arrived from a bookmark.
+       */}
       <div className="flex justify-end gap-2 border-t border-border pt-4">
         <Button asChild variant="outline" size="sm">
           <Link href="/roles">{t('common.cancel')}</Link>

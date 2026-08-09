@@ -149,7 +149,7 @@ function IbLevelForm({
             onChange={(e) => setLevelNumber(Number(e.target.value))}
             readOnly={editing}
             required
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs read-only:cursor-not-allowed read-only:opacity-60 focus-outline"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs read-only:cursor-not-allowed read-only:opacity-60 focus-outline"
           />
           <span className="block text-[11px] text-muted-foreground">
             {editing ? t('ibLevels.levelLocked') : t('ibLevels.levelHint')}
@@ -164,7 +164,7 @@ function IbLevelForm({
             required
             maxLength={80}
             placeholder="Master Partner"
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
           />
         </label>
       </div>
@@ -202,7 +202,7 @@ function IbLevelForm({
               required
               inputMode="decimal"
               pattern="\d{1,8}(\.\d{1,4})?"
-              className="flex h-10 w-full rounded-lg border border-input bg-background pl-3 pr-10 text-xs tabular focus-outline"
+              className="flex h-10 w-full rounded-lg border border-input bg-card pl-3 pr-10 text-xs tabular focus-outline"
             />
             {/* The unit, always beside the number. "70" alone means 70% under
                 one model and $70 under the other. */}
@@ -223,7 +223,7 @@ function IbLevelForm({
             value={maxDirect}
             onChange={(e) => setMaxDirect(e.target.value)}
             placeholder={t('ibLevels.unlimited')}
-            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
           />
           <span className="block text-[11px] text-muted-foreground">
             {t('ibLevels.maxDirectHint')}

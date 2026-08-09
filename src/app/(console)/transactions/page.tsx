@@ -728,7 +728,7 @@ function TransactionsPageContent() {
             maxLength={500}
             value={reasonNote}
             onChange={(e) => setReasonNote(e.target.value)}
-            className="mt-1 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm focus-outline"
+            className="mt-1 w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-sm focus-outline"
             placeholder={t('withdrawals.reasonPlaceholder')}
           />
           <p className="mt-1 text-[11px] text-muted-foreground">{t('withdrawals.noteHint')}</p>
@@ -790,7 +790,7 @@ function TransactionsPageContent() {
             id="provider-ref"
             value={providerRef}
             onChange={(e) => setProviderRef(e.target.value)}
-            className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 font-mono text-sm focus-outline"
+            className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 font-mono text-sm focus-outline"
             placeholder={t('withdrawals.providerRefPlaceholder')}
           />
         </div>

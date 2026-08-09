@@ -139,7 +139,7 @@ function PlatformRow({ link, canManage }: { link: PlatformLink; canManage: boole
           }}
           disabled={!canManage || mutation.isPending}
           placeholder={t('platforms.urlPlaceholder')}
-          className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
         />
         <button
           type="button"
