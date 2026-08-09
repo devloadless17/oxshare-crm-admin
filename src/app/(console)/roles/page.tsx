@@ -25,6 +25,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -93,10 +94,11 @@ export default function RolesPage() {
     mutationFn: (role: Role) => api.admin.deleteRole(role.id),
     // An admin's effective permissions change when the role they hold is
     // deleted, so the directory's cache is stale from here too.
-    onSuccess: async () => {
+    onSuccess: async (_data, role) => {
       setPendingDelete(null);
       await queryClient.invalidateQueries({ queryKey: ['roles'] });
       await queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toastSuccess(t('roles.deleteSucceeded', { name: role.name }));
     },
     // Deliberately NOT closing on error. 409 "still assigned" is the common
     // outcome, and the operator needs to read it against the role they named.

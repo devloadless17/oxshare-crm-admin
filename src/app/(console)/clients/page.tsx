@@ -20,6 +20,8 @@ import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
 import { clientColumns } from '@/components/clients/client-columns';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -58,6 +60,7 @@ function ClientsPageContent() {
   const canSuspend = hasPermission(admin, 'users.suspend');
   const canViewTags = hasPermission(admin, 'tags.view') || hasPermission(admin, 'users.view');
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const url = useTableQueryState();
   /*
@@ -144,19 +147,37 @@ function ClientsPageContent() {
   const setStatusMutation = useMutation({
     mutationFn: ({ client, next }: { client: ClientRow; next: 'active' | 'suspended' }) =>
       api.admin.setClientStatus(client.id, next),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clients'] }),
+    onSuccess: async (_data, { client, next }) => {
+      await queryClient.invalidateQueries({ queryKey: ['clients'] });
+      const who = client.email ?? client.id;
+      toastSuccess(
+        next === 'suspended'
+          ? t('clients.suspendSucceeded', { email: who })
+          : t('clients.reactivateSucceeded', { email: who }),
+      );
+    },
+    /*
+     * This mutation had NO error handling. A refusal — the API declines to
+     * suspend a client outside the operator's tag scope — left the row exactly
+     * as it was, which is indistinguishable from the click not registering.
+     */
+    onError: (error) => toastError(error, t('clients.statusFailed')),
   });
 
-  const toggleStatus = (client: ClientRow) => {
+  const toggleStatus = async (client: ClientRow) => {
     const next = client.status === 'suspended' ? 'active' : 'suspended';
     // Suspension bites immediately server-side — live sessions die on the next
     // request — so confirm before pulling the trigger. Reactivating is not
     // confirmed: it restores access rather than removing it.
-    if (
-      next === 'suspended' &&
-      !window.confirm(t('clients.confirmSuspend', { email: client.email ?? client.id }))
-    ) {
-      return;
+    if (next === 'suspended') {
+      const email = client.email ?? client.id;
+      const ok = await confirm({
+        title: t('clients.confirmSuspendTitle', { email }),
+        description: t('clients.confirmSuspend', { email }),
+        confirmLabel: t('clients.suspend'),
+        destructive: true,
+      });
+      if (!ok) return;
     }
     setStatusMutation.mutate({ client, next });
   };
@@ -182,7 +203,7 @@ function ClientsPageContent() {
     canViewTags,
     maskedFields,
     actingId,
-    onToggleStatus: toggleStatus,
+    onToggleStatus: (client: ClientRow) => void toggleStatus(client),
   });
 
   return (

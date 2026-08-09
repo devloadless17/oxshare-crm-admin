@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
+import { answerConfirm } from '@/test/confirm';
 import { PendingInvitesPanel } from './pending-invites-panel';
 
 /**
@@ -111,30 +112,29 @@ describe('revoking', () => {
   });
 
   it('asks before revoking, and does nothing if declined', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderWithProviders(<PendingInvitesPanel canRevoke />);
     await screen.findByText('newbie@oxshare.com');
 
     await chooseRowAction(/new bie/, /revoke/i);
+    // By EMAIL: the invite rows differ by little else, and revoking the wrong
+    // one sends a person a dead link with no explanation.
+    const asked = await answerConfirm(userEvent, 'cancel');
 
-    expect(confirmSpy).toHaveBeenCalled();
+    expect(asked).toContain('newbie@oxshare.com');
     expect(revokeInvite).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it('revokes by id once confirmed', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderWithProviders(<PendingInvitesPanel canRevoke />);
     await screen.findByText('newbie@oxshare.com');
 
     await chooseRowAction(/new bie/, /revoke/i);
+    await answerConfirm(userEvent, 'confirm');
 
     await waitFor(() => expect(revokeInvite).toHaveBeenCalledWith('inv-1'));
-    confirmSpy.mockRestore();
   });
 
   it('surfaces a failed revoke instead of pretending it worked', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     revokeInvite.mockRejectedValue(
       Object.assign(new Error('nope'), {
         response: { status: 400, data: { message: 'This invite has already been accepted.' } },
@@ -144,8 +144,8 @@ describe('revoking', () => {
     await screen.findByText('newbie@oxshare.com');
 
     await chooseRowAction(/new bie/, /revoke/i);
+    await answerConfirm(userEvent, 'confirm');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/already been accepted/i);
-    confirmSpy.mockRestore();
   });
 });

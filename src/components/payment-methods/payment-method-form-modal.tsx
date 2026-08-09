@@ -8,6 +8,13 @@ import { apiErrorMessage } from '@/lib/api/errors';
 import { assetUrl } from '@/lib/asset-url';
 import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 
 export interface PaymentMethodFormValues {
@@ -196,7 +203,14 @@ function PaymentMethodForm({
         </button>
         <button
           type="submit"
-          disabled={saving}
+          /*
+           * `!currency` is what replaces the native `required` the currency
+           * `<select>` used to carry. Radix's Select is a button, not a form
+           * control, so the browser has nothing left to validate — without this
+           * the form would submit an empty currency, which is the silent 'USD'
+           * bug reversed rather than fixed. See `CurrencyField` below.
+           */
+          disabled={saving || !currency}
           className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
         >
           {saving ? t('paymentMethods.saving') : t('paymentMethods.save')}
@@ -243,26 +257,36 @@ function CurrencyField({ value, onChange }: { value: string; onChange: (code: st
   return (
     <label className="space-y-1.5">
       <span className="text-xs font-semibold text-foreground">{t('paymentMethods.currency')}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
+      {/*
+        The placeholder is the ABSENCE of a value, not an option carrying `''`.
+
+        The native version needed an empty `<option>` plus `required` so a
+        create could not submit whatever happened to be first in the list —
+        the silent `'USD'` this exists to stop. Radix gets there differently
+        and more directly: an unset value renders `SelectValue`'s placeholder
+        and there is no selectable item behind it, so "nothing chosen" is not a
+        state the operator can land on by accident.
+
+        `required` goes with it, because there is no form control for the
+        browser to validate any more. The submit button is gated on `currency`
+        being non-empty instead — see the form above.
+      */}
+      <Select
+        value={value === '' ? undefined : value}
+        onValueChange={onChange}
         disabled={usable.length === 0}
-        className="focus-outline flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {/*
-          An empty placeholder, so a create cannot submit whatever happens to be
-          first in the list. `required` refuses it, which is the whole point: the
-          previous silent 'USD' is exactly the value this stops being sent by
-          accident.
-        */}
-        <option value="">{t('paymentMethods.currencyPlaceholder')}</option>
-        {usable.map((currency) => (
-          <option key={currency.code} value={currency.code}>
-            {currency.code} — {currency.name}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger className="h-10 w-full text-xs">
+          <SelectValue placeholder={t('paymentMethods.currencyPlaceholder')} />
+        </SelectTrigger>
+        <SelectContent>
+          {usable.map((currency) => (
+            <SelectItem key={currency.code} value={currency.code} className="text-xs">
+              {currency.code} — {currency.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <span className="block text-[11px] text-muted-foreground">
         {/*
           The list failing to load is stated rather than shown as an empty

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, Wallet } from 'lucide-react';
+import { PlusCircle, Trash2, Wallet } from 'lucide-react';
 import api from '@/lib/api';
 import type { Currency, WalletListResponse, WalletRow, WalletSortKey } from '@/lib/api/admin';
 import { WALLET_SORT_KEYS } from '@/lib/api/admin';
@@ -15,8 +15,19 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
 import { RowActions, actionsColumn } from '@/components/row-actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { CreditWalletModal } from '@/components/wallets/credit-wallet-modal';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { toastSuccess } from '@/lib/toast';
 import { PageLoader } from '@/components/ui/loader';
 import {
   Select,
@@ -169,6 +180,40 @@ function WalletsPageContent() {
   const [crediting, setCrediting] = React.useState<WalletRow | undefined>();
   const [creditError, setCreditError] = React.useState<string | undefined>();
 
+  /** The wallet awaiting a close confirmation, and the API's last refusal. */
+  const [closing, setClosing] = React.useState<WalletRow | undefined>();
+  const [closeError, setCloseError] = React.useState<string | undefined>();
+
+  const close = useMutation({
+    mutationFn: (id: string) => api.admin.closeWallet(id),
+    onSuccess: (_data, id) => {
+      const wallet = closing;
+      setClosing(undefined);
+      setCloseError(undefined);
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'wallets'] });
+      toastSuccess(
+        t('wallets.closeSucceeded', { currency: wallet?.currency ?? id }),
+        wallet ? (wallet.user.email ?? undefined) : undefined,
+      );
+    },
+    /*
+     * The API's OWN message, never a generic one.
+     *
+     * A close is refused for four different reasons and each names the figure or
+     * the count: "This wallet holds $1,250.00 USD", "…has 3 historical records
+     * against it". Replacing that with "could not close the wallet" throws away
+     * the only part the operator can act on — and would leave them pressing the
+     * same button again.
+     *
+     * The dialog stays OPEN on failure so the message is read where the decision
+     * was made, and NO error toast is raised alongside it. Reporting one refusal
+     * in two places at once is not twice the feedback — it reads as two separate
+     * failures. The console-wide rule is that every write reports its outcome,
+     * not that every write raises a toast.
+     */
+    onError: (error) => setCloseError(apiErrorMessage(error, t('wallets.closeFailed'))),
+  });
+
   const credit = useMutation({
     mutationFn: (values: { amount: string; reason: string }) =>
       api.admin.creditWallet(
@@ -189,12 +234,26 @@ function WalletsPageContent() {
          */
         `credit:${crediting!.id}:${crediting!.balance}`,
       ),
-    onSuccess: () => {
+    onSuccess: (_data, values) => {
+      const wallet = crediting;
       setCrediting(undefined);
       setCreditError(undefined);
       // The balance and the client's transaction list both changed.
       void queryClient.invalidateQueries({ queryKey: ['admin', 'wallets'] });
+      /*
+       * The AMOUNT is in the toast, formatted, because this is the one action in
+       * the console that moves money on an operator's say-so alone. The modal
+       * closes on success, so without this the only confirmation that $500 —
+       * rather than $5,000 — was credited is a row in a table behind it.
+       */
+      toastSuccess(
+        t('wallets.creditSucceeded', {
+          amount: formatMoney(values.amount, wallet?.currency ?? 'USD'),
+        }),
+        wallet ? (wallet.user.email ?? undefined) : undefined,
+      );
     },
+    // Inline, and no toast — the modal stays open. Same reason as `close` above.
     onError: (error) => setCreditError(apiErrorMessage(error, t('wallets.creditFailed'))),
   });
 
@@ -267,7 +326,7 @@ function WalletsPageContent() {
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
     /*
-     * ONE ACTION, where there used to be none.
+     * TWO ACTIONS, where there used to be none.
      *
      * This column's absence was documented as deliberate — "there is no endpoint
      * that credits, debits, freezes or closes a wallet from here" — and that was
@@ -275,15 +334,21 @@ function WalletsPageContent() {
      * manual deposit and NOTHING could confirm it, so money could leave the
      * platform and could not enter it.
      *
-     * `POST /admin/wallets/credit` closes that, and this is its only entry
-     * point. Debit, freeze and close still do not exist and are still right to
-     * omit: a reduction is a compensating entry through the ledger (§6.4), never
-     * a button that edits a balance.
+     * ADD FUNDS is `POST /admin/wallets/credit`. CLOSE is
+     * `DELETE /admin/wallets/:id`, and only ever succeeds on an empty, unused
+     * wallet — the API refuses one holding a balance, one with funds on hold,
+     * and one with any ledger, transaction or transfer history against it.
+     *
+     * DEBIT and FREEZE still do not exist and are still right to omit: reducing
+     * a balance is a compensating entry through the ledger (§6.4), never a
+     * button that edits a number.
      */
     actionsColumn<WalletRow>((w) => (
       <RowActions
         label={t('table.rowActions', { name: w.user.email })}
-        busy={credit.isPending && crediting?.id === w.id}
+        busy={
+          (credit.isPending && crediting?.id === w.id) || (close.isPending && closing?.id === w.id)
+        }
         items={[
           {
             label: t('wallets.creditAction'),
@@ -291,6 +356,23 @@ function WalletsPageContent() {
             onSelect: () => {
               setCreditError(undefined);
               setCrediting(w);
+            },
+          },
+          {
+            label: t('wallets.closeAction'),
+            icon: Trash2,
+            /*
+             * Destructive, and behind a CONFIRMATION rather than fired from the
+             * menu. The API refuses a wallet that holds anything, so the damage
+             * is bounded — but "closed the wrong client's wallet" is still a
+             * support conversation, and a menu item one slip away from deleting
+             * a row is not how a money console should offer it.
+             */
+            destructive: true,
+            separatorBefore: true,
+            onSelect: () => {
+              setCloseError(undefined);
+              setClosing(w);
             },
           },
         ]}
@@ -364,6 +446,57 @@ function WalletsPageContent() {
         error={query.error}
         fill
       >
+        {/*
+          The close confirmation.
+          `onOpenChange` clears the error as well as the target, so reopening on
+          another wallet does not show the refusal that belonged to the last one.
+        */}
+        <AlertDialog
+          open={Boolean(closing)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setClosing(undefined);
+              setCloseError(undefined);
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t('wallets.closeConfirmTitle', { currency: closing?.currency ?? '' })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('wallets.closeConfirmBody', { email: closing?.user.email ?? '' })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            {closeError && (
+              <p
+                role="alert"
+                className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+              >
+                {closeError}
+              </p>
+            )}
+
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  // The dialog would close itself on click; the mutation decides
+                  // when to close it, so a refusal stays on screen.
+                  event.preventDefault();
+                  if (closing) close.mutate(closing.id);
+                }}
+                disabled={close.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {close.isPending ? t('wallets.closing') : t('wallets.closeConfirm')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <CreditWalletModal
           wallet={crediting}
           saving={credit.isPending}

@@ -4,7 +4,24 @@ import * as React from 'react';
 import api from '@/lib/api';
 import type { RejectionReason } from '@/lib/api/admin';
 import { Modal } from '@/components/ui/modal';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+
+/**
+ * The value carried by the "no catalogued reason" option.
+ *
+ * Radix reserves `''` for "nothing selected", so an item with that value is
+ * unreachable. Rejecting without picking from the catalogue is allowed — the
+ * free-text note carries the explanation — so this stands in for it and is
+ * mapped back to `''` before it leaves the component.
+ */
+const NO_REASON = '__none__';
 
 /**
  * Turning a partner application down, with a reason the applicant will read.
@@ -119,18 +136,33 @@ function RejectForm({
         <span className="text-xs font-semibold text-foreground">
           {t('partnerReview.rejectReason')}
         </span>
-        <select
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+        {/*
+          "No reason" carries the sentinel `NO_REASON`, not `''`.
+
+          Radix reserves `''` for "nothing selected", so an item with that value
+          is unreachable — and here it is a real choice rather than an unset
+          field: rejecting without a catalogued reason is allowed, with the free
+          text below carrying the explanation. Mapped back to `''` on the way
+          out, which is what the caller already expects.
+        */}
+        <Select
+          value={selected === '' ? NO_REASON : selected}
+          onValueChange={(value) => setSelected(value === NO_REASON ? '' : value)}
         >
-          <option value="">{t('partnerReview.rejectReasonNone')}</option>
-          {reasons.map((reason) => (
-            <option key={reason.id} value={reason.label}>
-              {reason.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-10 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_REASON} className="text-xs">
+              {t('partnerReview.rejectReasonNone')}
+            </SelectItem>
+            {reasons.map((reason) => (
+              <SelectItem key={reason.id} value={reason.label} className="text-xs">
+                {reason.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
 
       <label className="block space-y-1.5">

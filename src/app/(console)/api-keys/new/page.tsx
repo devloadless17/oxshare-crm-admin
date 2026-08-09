@@ -86,6 +86,19 @@ export default function NewApiKeyPage() {
             ).toISOString()
           : null,
       }),
+    /*
+     * The ONE mutation in this console with no success toast, and it is not an
+     * oversight.
+     *
+     * Success here navigates to `/api-keys?issued=…`, which opens the one-time
+     * reveal — a modal holding the plaintext key that will never be shown
+     * again. That modal IS the confirmation, and it is one the operator has to
+     * act on before dismissing. A toast sliding in over it would compete with
+     * the only chance they get to copy the secret.
+     *
+     * The error stays inline for the reason every other form's does: the page
+     * stays put, and the API names the field it refused.
+     */
     onSuccess: (result) => {
       router.replace(`/api-keys?issued=${encodeURIComponent(result.plaintext)}`);
     },

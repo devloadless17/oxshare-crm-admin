@@ -15,6 +15,8 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -48,6 +50,7 @@ export default function AdminUsersPage() {
   const [editing, setEditing] = React.useState<AdminUser | null>(null);
 
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-users'] });
 
   const query = useResource(['admin-users'], async () => {
@@ -77,39 +80,80 @@ export default function AdminUsersPage() {
   const assignRole = useMutation({
     mutationFn: ({ user, roleId }: { user: AdminUser; roleId: string }) =>
       api.admin.updateAdminUser(user.id, { roleId }),
-    onSuccess: invalidate,
+    onSuccess: async (_data, { user, roleId }) => {
+      await invalidate();
+      toastSuccess(
+        t('adminUsers.roleChanged', {
+          name: user.name,
+          // The role NAME, not the id an operator never sees. `roles` is the
+          // list the select was built from, so a miss here would mean the row
+          // was assigned a role that is not in it — worth showing as the id
+          // rather than as a blank.
+          role: roles.find((r) => r.id === roleId)?.name ?? roleId,
+        }),
+      );
+    },
+    onError: (error) => toastError(error, t('adminUsers.roleFailed')),
   });
 
   const saveAdmin = useMutation({
     mutationFn: ({ user, values }: { user: AdminUser; values: AdminFormValues }) =>
       api.admin.updateAdminUser(user.id, values),
-    onSuccess: async () => {
+    onSuccess: async (_data, { user }) => {
       setEditing(null);
       await invalidate();
+      toastSuccess(t('adminUsers.saveSucceeded', { name: user.name }));
     },
+    // Inline in the edit modal, which stays open on failure — the API refuses a
+    // self-edit or an over-grant and says which, and that has to be read beside
+    // the permission that caused it.
   });
 
   const setStatus = useMutation({
     mutationFn: (user: AdminUser) =>
       api.admin.setAdminStatus(user.id, user.status === 'suspended' ? 'active' : 'suspended'),
-    onSuccess: invalidate,
+    onSuccess: async (_data, user) => {
+      await invalidate();
+      // `user.status` is the value BEFORE the write, so the branch reads
+      // inverted: suspending someone who was active.
+      toastSuccess(
+        user.status === 'suspended'
+          ? t('adminUsers.reactivateSucceeded', { name: user.name })
+          : t('adminUsers.suspendSucceeded', { name: user.name }),
+      );
+    },
+    onError: (error) => toastError(error, t('adminUsers.statusFailed')),
   });
 
   const sendReset = useMutation({
     mutationFn: (user: AdminUser) => api.admin.sendAdminPasswordReset(user.id),
-    // Nothing in the directory changes, so nothing is invalidated. The result
-    // is an email; the only feedback available here is the banner below.
+    /*
+     * Nothing in the directory changes, so nothing is invalidated — and that is
+     * exactly why this one needed a toast most. The ONLY observable effect is an
+     * email arriving in somebody else's inbox: the row does not change, no
+     * spinner outlives the request, and the screen after a successful send was
+     * pixel-identical to the screen after a click that did nothing.
+     *
+     * `adminUsers.resetSent` has existed as a message key this whole time and
+     * was rendered by no component. This is its first use.
+     */
+    onSuccess: (_data, user) => toastSuccess(t('adminUsers.resetSent'), user.email),
+    onError: (error) => toastError(error, t('adminUsers.resetFailed')),
   });
 
-  const handleResetPassword = (user: AdminUser) => {
+  const handleResetPassword = async (user: AdminUser) => {
     /*
      * Confirmed, because this is not reversible from the operator's side: it
      * arms a credential that grants that person's account, and completing it
      * signs them out everywhere. The name is in the prompt so a misclick on the
      * wrong row is caught before the email goes out, not after.
      */
-    if (!window.confirm(t('adminUsers.confirmSendReset', { name: user.name }))) return;
-    sendReset.mutate(user);
+    const ok = await confirm({
+      title: t('adminUsers.confirmSendResetTitle', { name: user.name }),
+      description: t('adminUsers.confirmSendReset', { name: user.name }),
+      confirmLabel: t('adminUsers.confirmSendResetAction'),
+    });
+    if (ok) sendReset.mutate(user);
   };
 
   const handleAssignRole = (user: AdminUser, roleId: string) => {
@@ -120,25 +164,37 @@ export default function AdminUsersPage() {
     assignRole.mutate({ user, roleId });
   };
 
-  const handleToggleStatus = (user: AdminUser) => {
+  const handleToggleStatus = async (user: AdminUser) => {
     // Suspension signs someone out on their next request. Ask first — the same
     // guard role deletion gets, for the same reason.
-    const message =
-      user.status === 'suspended'
+    const suspended = user.status === 'suspended';
+    const ok = await confirm({
+      title: suspended
+        ? t('adminUsers.confirmReactivateTitle', { name: user.name })
+        : t('adminUsers.confirmSuspendTitle', { name: user.name }),
+      description: suspended
         ? t('adminUsers.confirmReactivate', { name: user.name })
-        : t('adminUsers.confirmSuspend', { name: user.name });
-    if (!window.confirm(message)) return;
-    setStatus.mutate(user);
+        : t('adminUsers.confirmSuspend', { name: user.name }),
+      confirmLabel: suspended ? t('adminUsers.reactivate') : t('adminUsers.suspend'),
+      destructive: !suspended,
+    });
+    if (ok) setStatus.mutate(user);
   };
 
-  // 403 for self-changes, over-grants, or acting on a master admin.
-  const banner = sendReset.isError
-    ? apiErrorMessage(sendReset.error, 'Could not send that reset link.')
-    : assignRole.isError
-      ? apiErrorMessage(assignRole.error, 'Failed to change the admin’s role.')
-      : setStatus.isError
-        ? apiErrorMessage(setStatus.error, 'Failed to change the administrator’s status.')
-        : '';
+  /*
+   * The 403 banner is GONE — those refusals are toasts now.
+   *
+   * The API refuses a self-change, an over-grant, or any action on a master
+   * admin, and its message names which. That message still reaches the operator
+   * verbatim (`toastError` prefers it over the fallback); it just no longer
+   * lands in a strip at the top of a page whose rows are below the fold, where
+   * it also outlived the action and could only ever show ONE of three
+   * mutations' errors — a chain of ternaries means a failed role change hid a
+   * failed suspension.
+   *
+   * The two English literals that were here are proper message keys now, which
+   * is the other thing the banner was quietly doing wrong.
+   */
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
@@ -170,15 +226,6 @@ export default function AdminUsersPage() {
           )}
         </div>
       </div>
-
-      {banner && (
-        <div
-          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-          role="alert"
-        >
-          {banner}
-        </div>
-      )}
 
       {/*
        * ONE of the two tables fills, and it is the directory.
@@ -216,8 +263,8 @@ export default function AdminUsersPage() {
             suspendingId={setStatus.isPending ? setStatus.variables?.id : null}
             onAssignRole={handleAssignRole}
             onEdit={setEditing}
-            onToggleStatus={handleToggleStatus}
-            onResetPassword={handleResetPassword}
+            onToggleStatus={(user) => void handleToggleStatus(user)}
+            onResetPassword={(user) => void handleResetPassword(user)}
           />
         </div>
       </AsyncBoundary>

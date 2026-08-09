@@ -24,13 +24,15 @@ import type { Currency, WalletListResponse, WalletRow } from '@/lib/api/admin';
  * a generic "failed to load" — which reads as a broken query rather than a broken
  * mock. That has cost real time twice; see admin/CLAUDE.md.
  */
-const { getWallets, getCurrencies } = vi.hoisted(() => ({
+const { getWallets, getCurrencies, closeWallet, creditWallet } = vi.hoisted(() => ({
   getWallets: vi.fn(),
   getCurrencies: vi.fn(),
+  closeWallet: vi.fn(),
+  creditWallet: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getWallets, getCurrencies } };
+  const api = { admin: { getWallets, getCurrencies, closeWallet, creditWallet } };
   return { api, default: api };
 });
 
@@ -122,6 +124,8 @@ beforeEach(() => {
   listeners.clear();
   getWallets.mockResolvedValue(page([wallet()]));
   getCurrencies.mockResolvedValue([currency('USD'), currency('EUR')]);
+  closeWallet.mockResolvedValue(undefined);
+  creditWallet.mockResolvedValue({ transaction: {}, replayed: false });
 });
 
 describe('wallets — the money rule', () => {
@@ -359,7 +363,7 @@ describe('wallets — one write action, and only one', () => {
    * a button that edits a number — and no endpoint backs any of them, so a menu
    * item would be one an operator reasonably expects to work.
    */
-  it('offers no debit, freeze or close', async () => {
+  it('offers add funds and close, and nothing else', async () => {
     const user = userEvent.setup();
     renderWithProviders(<WalletsPage />);
     await screen.findByText('client@example.com');
@@ -367,6 +371,45 @@ describe('wallets — one write action, and only one', () => {
     await user.click(screen.getByRole('button', { name: /actions for/i }));
 
     expect(await screen.findByRole('menuitem', { name: /add funds/i })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: /debit|freeze|close|remove/i })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: /close wallet/i })).toBeInTheDocument();
+    /*
+     * DEBIT and FREEZE must stay absent. Reducing a balance is a compensating
+     * entry through the ledger (§6.4), never a button that edits a number, and
+     * no endpoint backs either — so a menu item would be one an operator
+     * reasonably expects to work.
+     */
+    expect(screen.queryByRole('menuitem', { name: /debit|freeze/i })).toBeNull();
+  });
+
+  /**
+   * Closing is behind a CONFIRMATION, and the API's own refusal is shown in it.
+   *
+   * The endpoint refuses a wallet holding a balance, one with funds on hold, and
+   * one with history — each message naming the figure or the count. That
+   * sentence is the only part an operator can act on, so it is surfaced verbatim
+   * and the dialog stays open around it rather than closing on failure.
+   */
+  it('asks before closing, and shows the API refusal in the dialog', async () => {
+    const user = userEvent.setup();
+    closeWallet.mockRejectedValue(
+      Object.assign(new Error('conflict'), {
+        response: {
+          status: 409,
+          data: { message: 'This wallet holds 1250.00000000 USD. Move the balance out first.' },
+        },
+      }),
+    );
+    renderWithProviders(<WalletsPage />);
+    await screen.findByText('client@example.com');
+
+    await user.click(screen.getByRole('button', { name: /actions for/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /close wallet/i }));
+
+    // Nothing is deleted by opening the dialog.
+    expect(closeWallet).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: /^close wallet$/i }));
+
+    expect(await screen.findByText(/holds 1250\.00000000 USD/i)).toBeInTheDocument();
   });
 });

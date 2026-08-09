@@ -26,6 +26,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { formatMoney } from '@/lib/money';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { PageLoader } from '@/components/ui/loader';
 import { ChartCard } from '@/components/dashboard/chart-card';
 import { useChartTokens } from '@/components/dashboard/chart-theme';
 import { ClientSplitChart } from '@/components/dashboard/client-split-chart';
@@ -58,6 +59,11 @@ import { t } from '@/lib/i18n';
  * query would mean one failing endpoint blanks a dashboard that is four-fifths
  * fine — so a failure here costs exactly one card, which keeps its own retry
  * inside its own border.
+ *
+ * Their FIRST loads are still shown together, behind one page-level spinner —
+ * see the gate below. Separate resources are about how failure degrades, not
+ * about letting the screen assemble itself panel by panel in front of the
+ * operator.
  *
  * ## Permissions gate SECTIONS, not the page
  *
@@ -123,13 +129,52 @@ export default function AdminDashboardPage() {
     { enabled: canReviewKyc },
   );
 
+  /*
+   * ONE loader on first load, not eight.
+   *
+   * The five resources stay separate — that is what keeps a failure costing a
+   * single card — but their LOADING states are shown together. Rendering each
+   * panel the moment its own query settles meant the tiles appeared, then the
+   * grid reflowed as each chart landed, so the screen was still visibly
+   * assembling itself long after it looked ready. Nothing here is actionable
+   * until all of it is there, so the page waits as a whole and arrives as one.
+   *
+   * Only the ENABLED resources are counted. A React Query with `enabled: false`
+   * stays `isPending` forever, which `useResource` reports as `loading` — so
+   * including a query the admin's permissions never let run would hold the
+   * spinner on screen permanently for exactly the operators who can least
+   * afford to be told nothing.
+   *
+   * This gate is first-load only: switching the period keeps the previous data
+   * on screen (`placeholderData` in `useResource`), so those refetches are
+   * `isFetching` rather than `loading` and `ChartCard` dims them in place.
+   */
+  const gatedResources = [
+    overview,
+    ...(canViewClients ? [registrations] : []),
+    ...(canReviewKyc ? [kycTrend, recentKyc] : []),
+    ...(canViewWithdrawals ? [withdrawalVolume] : []),
+  ];
+
+  if (gatedResources.some((resource) => resource.status === 'loading')) {
+    /*
+     * `flex-1`, so the spinner sits in the middle of the PAGE.
+     *
+     * `PageLoader` centres itself within `min-h-[60vh]` — a floor, not a
+     * height. As a bare flex child of `<main>` (`flex min-h-0 flex-1 flex-col`)
+     * it takes that natural 60vh at the top of the column, which puts the
+     * spinner around 30vh: visibly above centre, with the rest of the console
+     * empty below it. Growing to fill the bounded main area makes "centred"
+     * mean centred in the space the page actually occupies.
+     */
+    return <PageLoader label={t('dashboard.pageLoading')} className="flex-1" />;
+  }
+
   const stats = overview.data;
   const clients = stats?.clients;
   const kyc = stats?.kyc;
   const withdrawals = stats?.withdrawals;
   const ib = stats?.ib;
-
-  const overviewLoading = overview.status === 'loading';
 
   /*
    * `pending` and `under_review` together — both mean "a reviewer has to look
@@ -154,9 +199,11 @@ export default function AdminDashboardPage() {
    * An admin holding none of the four keys gets a 200 with an empty `sections`
    * rather than a 403 — so the honest answer is a stated explanation, not an
    * empty grid that looks like a loading failure.
+   *
+   * No `|| loading` term any more: nothing below this point renders until the
+   * gate above has lifted, so this can no longer flash during a fetch.
    */
-  const hasAnySection =
-    canViewClients || canReviewKyc || canViewWithdrawals || canViewIb || overviewLoading;
+  const hasAnySection = canViewClients || canReviewKyc || canViewWithdrawals || canViewIb;
 
   return (
     <div className="space-y-6">

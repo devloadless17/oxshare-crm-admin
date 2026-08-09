@@ -10,7 +10,6 @@ import { IB_PARTNER_SORT_KEYS } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
@@ -26,6 +25,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { formatMoney, isZeroMoney } from '@/lib/money';
 
@@ -56,6 +64,17 @@ const sortableBy = (key: IbPartnerSortKey) => ({ sortable: true as const, sortKe
  * and it is offered instead rather than shown disabled — a control that only
  * ever explains why it cannot be used is worse than its absence.
  */
+/**
+ * The value carried by the "no parent" option in the reassign dialog.
+ *
+ * Radix's Select reserves `''` for "nothing selected", so an item with that
+ * value is unreachable — this is the sentinel that stands in for it, mapped
+ * back to `null` before the request goes out. A partner with no parent sits at
+ * the top of a chain and deals with the broker directly; it is a real choice,
+ * not an unset field.
+ */
+const NO_PARENT = '__none__';
+
 export default function PartnersPage() {
   const { admin } = useAdmin();
   const canManage = hasPermission(admin, 'ib.manage');
@@ -85,7 +104,6 @@ export default function PartnersPage() {
   const [changingLevel, setChangingLevel] = React.useState<PartnerRowData | null>(null);
   const [reassigning, setReassigning] = React.useState<PartnerRowData | null>(null);
   const [suspending, setSuspending] = React.useState<PartnerRowData | null>(null);
-  const [copyFailed, setCopyFailed] = React.useState(false);
 
   /*
    * The sort is in the KEY as well as the request. A parameter missing from the
@@ -116,28 +134,42 @@ export default function PartnersPage() {
   const changeLevel = useMutation({
     mutationFn: (input: { userId: string; level: number }) =>
       api.admin.changeIbPartnerLevel(input.userId, input.level),
-    onSuccess: async () => {
+    onSuccess: async (_data, input) => {
       setChangingLevel(null);
       await invalidate();
+      toastSuccess(t('partners.levelChanged', { level: String(input.level) }));
     },
+    onError: (error) => toastError(error, t('partners.actionFailed')),
   });
 
   const reassignParent = useMutation({
     mutationFn: (input: { userId: string; parentIbUserId: string | null }) =>
       api.admin.reassignIbPartnerParent(input.userId, input.parentIbUserId),
-    onSuccess: async () => {
+    onSuccess: async (_data, input) => {
       setReassigning(null);
       await invalidate();
+      // "Moved to the top of the chain" is a different fact from "moved under
+      // someone", and null is a real choice here rather than a cleared field.
+      toastSuccess(
+        input.parentIbUserId === null
+          ? t('partners.parentClearedSucceeded')
+          : t('partners.parentChangedSucceeded'),
+      );
     },
+    onError: (error) => toastError(error, t('partners.actionFailed')),
   });
 
   const toggleActive = useMutation({
     mutationFn: (input: { userId: string; active: boolean }) =>
       api.admin.setIbPartnerActive(input.userId, input.active),
-    onSuccess: async () => {
+    onSuccess: async (_data, input) => {
       setSuspending(null);
       await invalidate();
+      toastSuccess(
+        input.active ? t('partners.reinstatedSucceeded') : t('partners.suspendedSucceeded'),
+      );
     },
+    onError: (error) => toastError(error, t('partners.actionFailed')),
   });
 
   const rows = query.data?.rows ?? [];
@@ -155,24 +187,33 @@ export default function PartnersPage() {
     // follow, and this console is on a different host.
     const portal = process.env['NEXT_PUBLIC_PORTAL_URL'] ?? 'http://localhost:3000';
     const link = `${portal}/auth/register?ref=${partner.account.referralCode}`;
+    /*
+     * BOTH outcomes are reported now. The failure already was — as a banner —
+     * but a SUCCESSFUL copy said nothing at all, and "copy referral link" is
+     * the one action on this screen whose entire result lives in a clipboard
+     * the operator cannot see. Silence there is indistinguishable from the
+     * menu item doing nothing, which is exactly the complaint the failure
+     * banner existed to answer.
+     */
     navigator.clipboard.writeText(link).then(
-      () => setCopyFailed(false),
-      // Saying so beats a menu item that appears to do nothing, which is what
-      // a swallowed clipboard failure looks like from the outside.
-      () => setCopyFailed(true),
+      () => toastSuccess(t('partners.linkCopied')),
+      // No `toastError`: a clipboard rejection is a DOMException from the
+      // browser, not an API envelope, so there is no message to prefer and no
+      // request id to quote.
+      () => toast.error(t('partners.copyFailed'), { duration: 8000 }),
     );
   };
 
   /*
-   * The API's own refusal, verbatim. "That partner already sits beneath this
-   * one" and "already holds 3 of their 3" are the informative part — a generic
-   * message throws away the only fact the operator needs.
+   * The API's own refusal reaches the operator as a TOAST now.
+   *
+   * "That partner already sits beneath this one" and "already holds 3 of their
+   * 3" are still what they read — `toastError` prefers the API's message and
+   * uses the fallback only when there is none. The banner it replaces could
+   * show one of three mutations at a time (a chain of `||`), so a failed
+   * reassignment hid a failed suspension, and it outlived whichever action
+   * raised it.
    */
-  const mutationError =
-    (changeLevel.isError && apiErrorMessage(changeLevel.error, t('partners.actionFailed'))) ||
-    (reassignParent.isError && apiErrorMessage(reassignParent.error, t('partners.actionFailed'))) ||
-    (toggleActive.isError && apiErrorMessage(toggleActive.error, t('partners.actionFailed'))) ||
-    null;
 
   /*
    * FOUR of these sort, and the fifth says explicitly that it does not.
@@ -353,24 +394,6 @@ export default function PartnersPage() {
         </div>
         <ExportButton resource="ib/partners" disabled={rows.length === 0} />
       </div>
-
-      {mutationError && (
-        <div
-          role="alert"
-          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-        >
-          {mutationError}
-        </div>
-      )}
-
-      {copyFailed && (
-        <div
-          role="alert"
-          className="shrink-0 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning"
-        >
-          {t('partners.copyFailed')}
-        </div>
-      )}
 
       <AsyncBoundary
         status={query.status}
@@ -577,18 +600,23 @@ function ChangeLevelForm({
         <span className="text-xs font-semibold text-foreground">{t('partners.level')}</span>
         {/* `parseInt`, not `Number`, below: the money lint rule bans the latter
             outright and is right to be blunt rather than guess which strings are
-            amounts. A level is a small integer index, so this says so. */}
-        <select
-          value={level}
-          onChange={(e) => setLevel(parseInt(e.target.value, 10))}
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
-        >
-          {selectable.map((l) => (
-            <option key={l.level} value={l.level}>
-              {l.level} — {l.name}
-            </option>
-          ))}
-        </select>
+            amounts. A level is a small integer index, so this says so.
+
+            The VALUE is a string either way — Radix's Select is string-keyed,
+            the same as the `<select>` it replaces, which is why the parse is
+            still here and not something the swap removed. */}
+        <Select value={String(level)} onValueChange={(value) => setLevel(parseInt(value, 10))}>
+          <SelectTrigger className="h-10 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {selectable.map((l) => (
+              <SelectItem key={l.level} value={String(l.level)} className="text-xs">
+                {l.level} — {l.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
 
       <div className="flex justify-end gap-2 pt-1">
@@ -685,20 +713,35 @@ function ReassignParentForm({
 
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-foreground">{t('partners.parent')}</span>
-        <select
-          value={parentId}
-          onChange={(e) => setParentId(e.target.value)}
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+        {/*
+          "No parent" carries the sentinel `NO_PARENT`, not `''`.
+
+          Radix refuses an empty-string `SelectItem` value outright — it uses
+          `''` internally to mean "nothing selected", so an item with that value
+          would make the placeholder unreachable. The native `<select>` this
+          replaces was happy with `''`, and "no parent" is a REAL choice here
+          rather than an empty state: it means the partner deals with the broker
+          directly, at the top of a chain. The sentinel is mapped back to `null`
+          on the way out.
+        */}
+        <Select
+          value={parentId === '' ? NO_PARENT : parentId}
+          onValueChange={(value) => setParentId(value === NO_PARENT ? '' : value)}
         >
-          {/* "No parent" is a real choice, not an empty state — it means they
-              deal with the broker directly, at the top of a chain. */}
-          <option value="">{t('partners.noParent')}</option>
-          {selectable.map((c) => (
-            <option key={c.account.userId} value={c.account.userId}>
-              {c.user.firstName} {c.user.lastName} — {c.levelName}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-10 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_PARENT} className="text-xs">
+              {t('partners.noParent')}
+            </SelectItem>
+            {selectable.map((c) => (
+              <SelectItem key={c.account.userId} value={c.account.userId} className="text-xs">
+                {c.user.firstName} {c.user.lastName} — {c.levelName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <span className="block text-[11px] text-muted-foreground">{t('partners.parentHint')}</span>
       </label>
 

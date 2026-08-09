@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
+import { answerConfirm, expectNoConfirm } from '@/test/confirm';
 import ClientsPage from './page';
 
 /**
@@ -211,47 +212,46 @@ async function chooseRowAction(user: ReturnType<typeof userEvent.setup>, item: R
 
 describe('client directory — suspension', () => {
   it('asks before suspending, and does nothing if declined', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
 
     await chooseRowAction(user, /^suspend$/i);
+    await answerConfirm(user, 'cancel');
 
-    expect(confirmSpy).toHaveBeenCalled();
     // Suspension logs the client out immediately; a mis-click must not reach the API.
     expect(setClientStatus).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it('suspends once confirmed, sending status: suspended', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
 
     await chooseRowAction(user, /^suspend$/i);
+    await answerConfirm(user, 'confirm');
 
     await waitFor(() => expect(setClientStatus).toHaveBeenCalledTimes(1));
     // `(id, status)`, not an axios `(url, body)` pair — the call moved behind
     // `api.admin.setClientStatus` so the page no longer builds its own URLs.
     expect(setClientStatus).toHaveBeenCalledWith('c-1', 'suspended');
-    confirmSpy.mockRestore();
   });
 
   it('warns which client is being suspended, by email', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
 
     await chooseRowAction(user, /^suspend$/i);
+    const asked = await answerConfirm(user, 'cancel');
 
-    // Acting on the wrong row is the mistake this text exists to prevent.
-    expect(confirmSpy.mock.calls[0]?.[0]).toContain('client@oxshare.com');
-    confirmSpy.mockRestore();
+    // Acting on the wrong row is the mistake this text exists to prevent. The
+    // email is in the dialog's TITLE, and the body states the consequence —
+    // both are on screen at once, which is more than window.confirm's single
+    // string could carry.
+    expect(asked).toContain('client@oxshare.com');
+    expect(asked).toMatch(/logged out immediately/i);
   });
 
   it('reactivates WITHOUT a confirmation, since it restores access', async () => {
     getClients.mockResolvedValue(page([client({ status: 'suspended' })]));
-    const confirmSpy = vi.spyOn(window, 'confirm');
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
 
@@ -259,10 +259,9 @@ describe('client directory — suspension', () => {
 
     // Only the destructive direction is guarded. Asking here would be friction
     // with nothing to protect.
-    expect(confirmSpy).not.toHaveBeenCalled();
     await waitFor(() => expect(setClientStatus).toHaveBeenCalledTimes(1));
     expect(setClientStatus).toHaveBeenCalledWith('c-1', 'active');
-    confirmSpy.mockRestore();
+    expectNoConfirm();
   });
 });
 

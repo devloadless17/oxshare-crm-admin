@@ -253,6 +253,48 @@ describe('permission gating', () => {
   });
 });
 
+describe('first load', () => {
+  it('shows one spinner and nothing else until every panel has its data', async () => {
+    /*
+     * The SLOWEST endpoint sets the pace. The tiles come from an overview that
+     * resolves immediately and must still not appear while a chart is
+     * outstanding — a dashboard that assembles itself panel by panel, reflowing
+     * the grid as each one lands, is what the page-level gate exists to
+     * prevent.
+     */
+    let release!: (series: unknown) => void;
+    getWithdrawalVolume.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+
+    renderWithProviders(<DashboardPage />);
+
+    expect(await screen.findByRole('status')).toBeInTheDocument();
+    await waitFor(() => expect(getStatsOverview).toHaveBeenCalled());
+    expect(screen.queryByRole('link', { name: /total clients/i })).not.toBeInTheDocument();
+
+    release({ days: 30, scoped: false, points: [] });
+
+    expect(await screen.findByRole('link', { name: /total clients 1,204/i })).toBeInTheDocument();
+    // And the gate is gone once it lifts, rather than lingering beside the data.
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('does not wait on a series the admin has no permission for', async () => {
+    /*
+     * A disabled React Query stays `isPending` forever. Counting one would hold
+     * the spinner on screen permanently for exactly the operators whose
+     * permissions keep that query from ever running.
+     */
+    permissions.current = ['users.view'];
+    renderWithProviders(<DashboardPage />);
+
+    expect(await screen.findByRole('link', { name: /total clients 1,204/i })).toBeInTheDocument();
+  });
+});
+
 describe('degrading', () => {
   it('keeps the rest of the dashboard when one series fails', async () => {
     /*

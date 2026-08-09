@@ -8,6 +8,7 @@ import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { t } from '@/lib/i18n';
+import { formatMoney } from '@/lib/money';
 
 /**
  * Does the money add up — the §12.2 reconciliation, on screen.
@@ -61,37 +62,46 @@ export default function ReconciliationPage() {
         header: t('reconciliation.column.currency'),
         cell: (row) => row.currency,
       },
-      /*
-       * ⚠️ RAW, at the stored 8dp — deliberately NOT `formatMoney`, unlike the
-       * wallets and trading-account lists.
-       *
-       * This screen exists to find a wallet whose balance disagrees with the sum
-       * of its ledger entries. Rounding both sides to two places would hide the
-       * very thing it looks for: a drift in the eighth decimal would render as
-       * two identical numbers and a difference of `$0.00`.
-       *
-       * The rule across the console is therefore about the JOB, not the screen —
-       * format where an operator SCANS and compares balances, keep the exact
-       * string where they RECONCILE, or authorise one specific payout.
-       */
       {
         key: 'balance',
         header: t('reconciliation.column.balance'),
-        cell: (row) => <span className="font-mono text-xs tabular-nums">{row.balance}</span>,
+        /*
+         * FORMATTED, with the exact string on `title`.
+         *
+         * These two are the SIDES of the comparison and they are read to see
+         * roughly what the wallet holds; the `difference` column below is the
+         * finding, and that one stays exact. Hover gives the stored value on
+         * either side when the tail matters.
+         */
+        cell: (row) => (
+          <span className="font-mono text-xs tabular-nums" title={row.balance}>
+            {formatMoney(row.balance, row.currency)}
+          </span>
+        ),
       },
       {
         key: 'ledgerSum',
         header: t('reconciliation.column.ledgerSum'),
-        cell: (row) => <span className="font-mono text-xs tabular-nums">{row.ledgerSum}</span>,
+        cell: (row) => (
+          <span className="font-mono text-xs tabular-nums" title={row.ledgerSum}>
+            {formatMoney(row.ledgerSum, row.currency)}
+          </span>
+        ),
       },
       {
         /*
-         * Rendered verbatim, never reformatted or rounded. The whole value of
-         * this column is that it is the exact figure by which the books are
-         * wrong — `toFixed(2)` here would show a real 0.00000001 drift as 0.00
-         * and report "balanced" for the exact condition the screen exists to
-         * catch. It arrives as a string from a NUMERIC(28,8) column for the
-         * same reason (§6.1).
+         * ⚠️ THE ONE MONEY FIGURE IN THE CONSOLE THAT IS NOT ROUNDED, and the
+         * exception is deliberate.
+         *
+         * Every other amount an operator reads is formatted to two places,
+         * because eight decimal places of trailing zeros is noise. This column
+         * is the opposite case: it is the exact figure by which the books are
+         * wrong, and rounding it would render a real 0.00000001 drift as `$0.00`
+         * — reporting "balanced" for precisely the condition this screen exists
+         * to catch.
+         *
+         * The two columns it is derived from ARE formatted, with the exact value
+         * on hover, so the row stays readable while the finding stays true.
          */
         key: 'difference',
         header: t('reconciliation.column.difference'),

@@ -9,6 +9,8 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
@@ -64,6 +66,7 @@ export default function CurrenciesPage() {
   // key every existing role would lack. See the backend controller.
   const canManage = hasPermission(admin, 'settings.manage');
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [editing, setEditing] = React.useState<Currency | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
@@ -92,27 +95,54 @@ export default function CurrenciesPage() {
       }
       return api.admin.createCurrency(values);
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, values) => {
+      // `editing` is cleared below, so the code is read BEFORE that — on an
+      // update the form has no `code` field at all (it is the primary key).
+      const code = editing?.code ?? values.code;
       setFormOpen(false);
       setEditing(undefined);
       await invalidate();
+      toastSuccess(t('currencies.saveSucceeded', { code }));
     },
+    // Inline in the modal, which stays open — see the note above `deleteCurrency`.
   });
 
   const deleteCurrency = useMutation({
     mutationFn: (code: string) => api.admin.deleteCurrency(code),
-    onSuccess: invalidate,
+    onSuccess: async (_data, code) => {
+      await invalidate();
+      toastSuccess(t('currencies.deleteSucceeded', { code }));
+    },
+    onError: (error) => toastError(error, t('currencies.deleteFailed')),
   });
 
   const setDefault = useMutation({
     mutationFn: (code: string) => api.admin.updateCurrency(code, { isDefault: true }),
-    onSuccess: invalidate,
+    onSuccess: async (_data, code) => {
+      await invalidate();
+      toastSuccess(t('currencies.defaultSucceeded', { code }));
+    },
+    onError: (error) => toastError(error, t('currencies.saveFailed')),
   });
 
   const toggleEnabled = useMutation({
     mutationFn: (currency: Currency) =>
       api.admin.updateCurrency(currency.code, { enabled: !currency.enabled }),
-    onSuccess: invalidate,
+    onSuccess: async (_data, currency) => {
+      await invalidate();
+      /*
+       * States the NEW state, not the action. `!currency.enabled` is what was
+       * just written — echoing "disabled" after a click on "Disable" is the
+       * confirmation, and it is the half an operator scanning a long list
+       * actually needs.
+       */
+      toastSuccess(
+        currency.enabled
+          ? t('currencies.disabledSucceeded', { code: currency.code })
+          : t('currencies.enabledSucceeded', { code: currency.code }),
+      );
+    },
+    onError: (error) => toastError(error, t('currencies.saveFailed')),
   });
 
   /*
@@ -144,11 +174,16 @@ export default function CurrenciesPage() {
     setFormOpen(true);
   };
 
-  const confirmDelete = (currency: Currency) => {
+  const confirmDelete = async (currency: Currency) => {
     // Names the consequence and the alternative, rather than asking "are you
     // sure" about an operation the API may well refuse.
-    if (!window.confirm(t('currencies.confirmDelete', { code: currency.code }))) return;
-    deleteCurrency.mutate(currency.code);
+    const ok = await confirm({
+      title: t('currencies.confirmDeleteTitle', { code: currency.code }),
+      description: t('currencies.confirmDelete', { code: currency.code }),
+      confirmLabel: t('common.delete'),
+      destructive: true,
+    });
+    if (ok) deleteCurrency.mutate(currency.code);
   };
 
   const columns: Column<Currency>[] = [
@@ -230,7 +265,7 @@ export default function CurrenciesPage() {
                           icon: Trash2,
                           destructive: true,
                           separatorBefore: true,
-                          onSelect: () => confirmDelete(c),
+                          onSelect: () => void confirmDelete(c),
                         },
                       ]),
                 ]}
@@ -250,12 +285,17 @@ export default function CurrenciesPage() {
    * generic "something went wrong" would throw away the only explanation the
    * operator is going to get.
    */
-  const mutationError =
-    (deleteCurrency.isError &&
-      apiErrorMessage(deleteCurrency.error, t('currencies.deleteFailed'))) ||
-    (setDefault.isError && apiErrorMessage(setDefault.error, t('currencies.saveFailed'))) ||
-    (toggleEnabled.isError && apiErrorMessage(toggleEnabled.error, t('currencies.saveFailed'))) ||
-    null;
+  /*
+   * The row actions report through TOASTS now, not a banner above the table.
+   *
+   * The API's own refusal is still what an operator reads — `toastError` prefers
+   * `error.response.data.message` and falls back only when there is none, so
+   * "cannot delete: 3 wallets hold this currency" survives intact. What changed
+   * is WHERE: a banner at the top of the page is far from the row that was
+   * clicked, stays after the operator has moved on, and stacks badly when a
+   * second action fails. The form modal keeps its inline error, because it stays
+   * open and the refusal has to be read where the field can be fixed.
+   */
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
@@ -278,15 +318,6 @@ export default function CurrenciesPage() {
           )}
         </div>
       </div>
-
-      {mutationError && (
-        <div
-          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-          role="alert"
-        >
-          {mutationError}
-        </div>
-      )}
 
       <AsyncBoundary
         status={query.status}

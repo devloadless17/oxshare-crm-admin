@@ -9,6 +9,8 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { IbLevelFormModal, type IbLevelFormValues } from '@/components/ib/ib-level-form-modal';
 import { IbLevelTree } from '@/components/ib/ib-level-tree';
@@ -39,6 +41,7 @@ export default function IbLevelsPage() {
   const { admin } = useAdmin();
   const canManage = hasPermission(admin, 'ib.manage');
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [editing, setEditing] = React.useState<IbLevel | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
@@ -59,16 +62,25 @@ export default function IbLevelsPage() {
       }
       return api.admin.createIbLevel(values);
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, values) => {
+      // Read before `editing` is cleared — on an update the form omits `level`
+      // entirely, because it is the primary key.
+      const level = String(editing?.level ?? values.level);
       setFormOpen(false);
       setEditing(undefined);
       await invalidate();
+      toastSuccess(t('ibLevels.saveSucceeded', { level }));
     },
+    // Inline in the modal, which stays open — see the note above the return.
   });
 
   const deleteLevel = useMutation({
     mutationFn: (level: number) => api.admin.deleteIbLevel(level),
-    onSuccess: invalidate,
+    onSuccess: async (_data, level) => {
+      await invalidate();
+      toastSuccess(t('ibLevels.deleteSucceeded', { level: String(level) }));
+    },
+    onError: (error) => toastError(error, t('ibLevels.deleteFailed')),
   });
 
   /**
@@ -81,13 +93,30 @@ export default function IbLevelsPage() {
    */
   const reorder = useMutation({
     mutationFn: (order: number[]) => api.admin.reorderIbLevels(order),
-    onSuccess: invalidate,
+    onSuccess: async () => {
+      await invalidate();
+      toastSuccess(t('ibLevels.reorderSucceeded'));
+    },
+    onError: (error) => toastError(error, t('ibLevels.reorderFailed')),
   });
 
   const toggleEnabled = useMutation({
     mutationFn: (level: IbLevel) =>
       api.admin.updateIbLevel(level.level, { enabled: !level.enabled }),
-    onSuccess: invalidate,
+    onSuccess: async (_data, level) => {
+      await invalidate();
+      /*
+       * The NEW state, not the verb that was clicked. `level.enabled` is the
+       * value BEFORE the write, so the branch reads inverted on purpose —
+       * toggling an enabled level disables it.
+       */
+      toastSuccess(
+        level.enabled
+          ? t('ibLevels.disabledSucceeded', { level: String(level.level) })
+          : t('ibLevels.enabledSucceeded', { level: String(level.level) }),
+      );
+    },
+    onError: (error) => toastError(error, t('ibLevels.saveFailed')),
   });
 
   const rows = query.data ?? [];
@@ -108,12 +137,20 @@ export default function IbLevelsPage() {
     setFormOpen(true);
   };
 
-  const confirmDelete = (level: IbLevel) => {
-    if (
-      !window.confirm(t('ibLevels.confirmDelete', { level: String(level.level), name: level.name }))
-    )
-      return;
-    deleteLevel.mutate(level.level);
+  const confirmDelete = async (level: IbLevel) => {
+    const ok = await confirm({
+      title: t('ibLevels.confirmDeleteTitle', {
+        level: String(level.level),
+        name: level.name,
+      }),
+      description: t('ibLevels.confirmDelete', {
+        level: String(level.level),
+        name: level.name,
+      }),
+      confirmLabel: t('common.delete'),
+      destructive: true,
+    });
+    if (ok) deleteLevel.mutate(level.level);
   };
 
   /*
@@ -122,11 +159,18 @@ export default function IbLevelsPage() {
    * available" — and a generic "something went wrong" throws away the only
    * number the operator needs.
    */
-  const mutationError =
-    (deleteLevel.isError && apiErrorMessage(deleteLevel.error, t('ibLevels.deleteFailed'))) ||
-    (toggleEnabled.isError && apiErrorMessage(toggleEnabled.error, t('ibLevels.saveFailed'))) ||
-    (reorder.isError && apiErrorMessage(reorder.error, t('ibLevels.reorderFailed'))) ||
-    null;
+  /*
+   * The row actions report through TOASTS now, not a banner above the table.
+   *
+   * The API's own refusal is still what an operator reads — `toastError` prefers
+   * `error.response.data.message` and falls back only when there is none, so
+   * "the enabled levels would total 110%, at most 30% is available" survives
+   * intact. What changed is WHERE: a banner at the top of the page is far from
+   * the rung that was clicked, stays after the operator has moved on, and stacks
+   * badly when a second action fails. The form modal keeps its inline error,
+   * because it stays open and the refusal has to be read where the share can be
+   * corrected.
+   */
 
   return (
     <div className="space-y-6">
@@ -169,15 +213,6 @@ export default function IbLevelsPage() {
         </div>
       )}
 
-      {mutationError && (
-        <div
-          className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-          role="alert"
-        >
-          {mutationError}
-        </div>
-      )}
-
       <AsyncBoundary
         status={query.status}
         label={t('ibLevels.loading')}
@@ -198,7 +233,7 @@ export default function IbLevelsPage() {
             reordering={reorder.isPending}
             onEdit={openEdit}
             onToggle={(level) => toggleEnabled.mutate(level)}
-            onDelete={confirmDelete}
+            onDelete={(level) => void confirmDelete(level)}
             onReorder={(order) => reorder.mutate(order)}
             onAdd={openCreate}
           />

@@ -12,6 +12,7 @@ import { useResource } from '@/hooks/use-resource';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -43,9 +44,17 @@ export default function NewRolePage() {
 
   const save = useMutation({
     mutationFn: (values: RoleFormValues) => api.admin.createRole(values),
-    onSuccess: async () => {
+    onSuccess: async (_data, values) => {
       await queryClient.invalidateQueries({ queryKey: ['roles'] });
       router.push('/roles');
+      /*
+       * AFTER the navigation, and that is the point of a toast here rather than
+       * anything on this page: the form unmounts on success, so there is no
+       * component left to render a confirmation. The operator lands on the role
+       * list and has to find their new row to know it worked. The Toaster lives
+       * in the root layout, so it survives the route change.
+       */
+      toastSuccess(t('roles.createSucceeded', { name: values.name }));
     },
   });
 

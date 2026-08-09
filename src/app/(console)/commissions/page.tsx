@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
+import Decimal from 'decimal.js';
 import { Coins } from 'lucide-react';
 import api from '@/lib/api';
 import {
@@ -61,14 +62,35 @@ import { t } from '@/lib/i18n';
 const sortableBy = (key: IbAccrualSortKey) => ({ sortable: true as const, sortKey: key });
 
 /**
+ * `'70.0000'` → `'70'`, `'2.5000'` → `'2.5'`.
+ *
+ * A RATE, not money, so `formatMoney` is wrong for it: that pads to exactly two
+ * places and prefixes a currency symbol, and `70.00%` is as much noise as
+ * `70.0000%` was. The stored scale is four places because a rate can need them;
+ * one that does not should not display them.
+ *
+ * Through decimal.js rather than `parseFloat`, for the same reason as money —
+ * these are NUMERIC strings on a money path. `toFixed()` with no argument drops
+ * trailing zeros without going near a float.
+ */
+function formatRate(value: string): string {
+  try {
+    return new Decimal(value).toFixed();
+  } catch {
+    // An unparseable rate shows as it arrived rather than as NaN: the row stays
+    // readable and the odd value stays visible.
+    return value;
+  }
+}
+
+/**
  * A status, translated — falling back to the RAW value for one the app does not
  * know.
  *
  * `t()` takes a typed key and has no fallback, so a template-literal key would
  * be a compile error here and a blank cell at runtime if the enum ever grows.
- * An unfamiliar status must look unfamiliar rather than invisible: a new value
- * added server-side should be readable on this screen before anybody redeploys
- * the console.
+ * An unfamiliar status must look unfamiliar rather than invisible: a value added
+ * server-side should be readable here before anybody redeploys the console.
  */
 function statusLabel(status: string): string {
   if (status === 'confirmed') return t('commissions.status.confirmed');
@@ -157,7 +179,8 @@ function CommissionsPageContent() {
       align: 'right',
       cell: (r) => (
         <span className="text-xs text-muted-foreground">
-          {formatMoney(r.accrual.baseAmount, r.accrual.currency)} × {r.accrual.rateValue}%
+          {formatMoney(r.accrual.baseAmount, r.accrual.currency)} ×{' '}
+          {formatRate(r.accrual.rateValue)}%
         </span>
       ),
       cellClassName: 'font-mono whitespace-nowrap',

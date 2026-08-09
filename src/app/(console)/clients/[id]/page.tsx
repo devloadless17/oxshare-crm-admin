@@ -23,6 +23,7 @@ import {
   ProfileCard,
 } from '@/components/clients/profile/profile-cards';
 import { buildKycDocUrl } from '@/lib/kyc-doc-url';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -66,7 +67,25 @@ export default function ClientProfilePage() {
   const toggleTag = useMutation({
     mutationFn: ({ tagId, attached }: { tagId: string; attached: boolean }) =>
       attached ? api.admin.unassignTag(clientId, tagId) : api.admin.assignTag(clientId, tagId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['client', clientId] }),
+    onSuccess: async (_data, { tagId, attached }) => {
+      await queryClient.invalidateQueries({ queryKey: ['client', clientId] });
+      // The tag LABEL, not its uuid. `attached` is the state before the write,
+      // so the branch reads inverted — toggling an attached tag removes it.
+      const label = (tagsQuery.data ?? []).find((tag) => tag.id === tagId)?.label ?? tagId;
+      toastSuccess(
+        attached
+          ? t('clientProfile.tagRemoved', { label })
+          : t('clientProfile.tagAdded', { label }),
+      );
+    },
+    /*
+     * A tag is an ACCESS-CONTROL primitive here — `admin_client_tag_scopes`
+     * decides which administrators may see this client — so the API refuses an
+     * assignment that would take the client out of the operator's own scope.
+     * That refusal used to be swallowed entirely: the chip snapped back and
+     * nothing said why.
+     */
+    onError: (error) => toastError(error, t('clientProfile.tagFailed')),
   });
 
   /*

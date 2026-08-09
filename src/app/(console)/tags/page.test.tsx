@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
+import { answerConfirm } from '@/test/confirm';
 import TagsPage from './page';
 
 /**
@@ -162,13 +163,12 @@ async function chooseRowAction(rowName: RegExp, itemName: RegExp) {
 
 describe('deleting', () => {
   it('names the CONSEQUENCES before doing it', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderWithProviders(<TagsPage />);
     await screen.findByText('High risk');
 
     await chooseRowAction(/high risk/, /delete/i);
+    const message = await answerConfirm(userEvent, 'cancel');
 
-    const message = confirm.mock.calls[0]?.[0] as string;
     // How many clients lose the label…
     expect(message).toContain('4');
     // …and that an administrator restricted to it is affected. That is a
@@ -177,18 +177,16 @@ describe('deleting', () => {
     expect(message).toMatch(/administrator/i);
 
     expect(deleteTag).not.toHaveBeenCalled();
-    confirm.mockRestore();
   });
 
   it('deletes once confirmed', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderWithProviders(<TagsPage />);
     await screen.findByText('High risk');
 
     await chooseRowAction(/high risk/, /delete/i);
+    await answerConfirm(userEvent, 'confirm');
 
     await waitFor(() => expect(deleteTag).toHaveBeenCalledWith('tag-1'));
-    confirm.mockRestore();
   });
 
   it("surfaces the API's refusal verbatim", async () => {
@@ -197,7 +195,6 @@ describe('deleting', () => {
      * message explains the escalation a cascade would have caused. A generic
      * "failed to delete" would throw away the only explanation that exists.
      */
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     deleteTag.mockRejectedValue({
       response: {
         status: 409,
@@ -211,8 +208,8 @@ describe('deleting', () => {
     renderWithProviders(<TagsPage />);
     await screen.findByText('High risk');
     await chooseRowAction(/high risk/, /delete/i);
+    await answerConfirm(userEvent, 'confirm');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/every client instead of none/i);
-    confirm.mockRestore();
   });
 });

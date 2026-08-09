@@ -13,8 +13,6 @@ import {
   Trash2,
   Save,
   RotateCcw,
-  CheckCircle2,
-  AlertCircle,
   Sparkles,
   ChevronDown,
   ChevronUp,
@@ -30,6 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastSuccess } from '@/lib/toast';
+import { toast } from 'sonner';
 import { t } from '@/lib/i18n';
 
 /**
@@ -56,9 +57,7 @@ export default function KycBuilderPage() {
   // copy shows through — which is what makes Save and Reset simply drop it.
   const [draft, setDraft] = React.useState<KycStepConfig[] | null>(null);
   const [saving, setSaving] = React.useState(false);
-  const [toast, setToast] = React.useState<{ message: string; type: 'success' | 'error' } | null>(
-    null,
-  );
+  const confirm = useConfirm();
   const [expandedStep, setExpandedStep] = React.useState<string | null>(null);
 
   // New step modal state
@@ -82,9 +81,25 @@ export default function KycBuilderPage() {
   const expandedStepId =
     expandedStep === null && steps.length > 0 ? (steps[0]?.id ?? null) : expandedStep;
 
+  /*
+   * This screen grew its OWN toast before the console had one: a piece of
+   * state, a `setTimeout(4000)` to clear it, and a fixed-position div at the
+   * top of the JSX. It worked, and it was the only screen that had it — a
+   * success here looked nothing like a success anywhere else, and the timer
+   * leaked on unmount.
+   *
+   * `sonner` does all of it, so the local implementation is gone and this
+   * wrapper survives only as the shape the eight call sites below already use.
+   */
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
+    if (type === 'error') {
+      // Not `toastError`: these are LOCAL refusals ("that step is mandatory"),
+      // not API failures, so there is no error object to unwrap and no request
+      // id to quote.
+      toast.error(message, { duration: 8000 });
+      return;
+    }
+    toastSuccess(message);
   };
 
   // Save all step changes.
@@ -111,7 +126,13 @@ export default function KycBuilderPage() {
 
   // Reset to default configuration
   const handleReset = async () => {
-    if (!confirm('Are you sure you want to reset all KYC onboarding steps to defaults?')) return;
+    const ok = await confirm({
+      title: t('builder.confirmResetTitle'),
+      description: t('builder.confirmResetBody'),
+      confirmLabel: t('builder.resetDefaults'),
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       setSaving(true);
       await api.post('/admin/kyc-config/reset');
@@ -148,10 +169,10 @@ export default function KycBuilderPage() {
   const toggleStepEnabled = (id: string) => {
     const step = steps.find((s) => s.id === id);
     if (step && isMandatoryStep(step) && step.enabled) {
-      setToast({
-        message: `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be disabled.`,
-        type: 'error',
-      });
+      showNotification(
+        `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be disabled.`,
+        'error',
+      );
       return;
     }
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)));
@@ -226,17 +247,24 @@ export default function KycBuilderPage() {
     showNotification(`Added step "${newStep.title}". Remember to click Save All Changes!`);
   };
 
-  // Delete a step
-  const deleteStep = (id: string) => {
+  // Delete a step. `async` because the confirmation is a promise now rather
+  // than a blocking `window.confirm` — every caller must `void` it.
+  const deleteStep = async (id: string) => {
     const step = steps.find((s) => s.id === id);
     if (step && isMandatoryStep(step)) {
-      setToast({
-        message: `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be deleted.`,
-        type: 'error',
-      });
+      showNotification(
+        `"${step.title}" is required by the KYC spec (FR-CORE-15) and cannot be deleted.`,
+        'error',
+      );
       return;
     }
-    if (!confirm('Are you sure you want to delete this step?')) return;
+    const ok = await confirm({
+      title: t('builder.confirmDeleteStepTitle', { title: step?.title ?? '' }),
+      description: t('builder.confirmDeleteStepBody'),
+      confirmLabel: t('common.delete'),
+      destructive: true,
+    });
+    if (!ok) return;
     const filtered = steps.filter((s) => s.id !== id);
     const reindexed = filtered.map((s, idx) => ({ ...s, stepNumber: idx + 1 }));
     setSteps(reindexed);
@@ -245,26 +273,6 @@ export default function KycBuilderPage() {
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-12">
-      {/* Toast Banner */}
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`fixed top-20 end-8 z-50 flex items-center gap-3 rounded-xl border px-4 py-3 text-xs font-semibold shadow-2xl animate-in fade-in-0 slide-in-from-top-4 ${
-            toast.type === 'success'
-              ? 'border-success/30 bg-success/10 text-success'
-              : 'border-destructive/30 bg-destructive/10 text-destructive'
-          }`}
-        >
-          {toast.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-          ) : (
-            <AlertCircle className="h-4 w-4 shrink-0" />
-          )}
-          <span>{toast.message}</span>
-        </div>
-      )}
-
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         <div>
@@ -411,7 +419,7 @@ export default function KycBuilderPage() {
                     {/* Delete Step */}
                     <button
                       type="button"
-                      onClick={() => deleteStep(step.id)}
+                      onClick={() => void deleteStep(step.id)}
                       disabled={isMandatoryStep(step)}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 ms-1 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent focus-outline"
                       title={

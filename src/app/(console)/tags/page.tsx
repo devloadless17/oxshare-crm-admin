@@ -16,6 +16,8 @@ import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
 import { TagFormModal, type TagFormValues } from '@/components/tags/tag-form-modal';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -65,6 +67,7 @@ export default function TagsPage() {
   const { admin } = useAdmin();
   const canManage = hasPermission(admin, 'tags.manage');
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [editing, setEditing] = React.useState<ClientTag | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
@@ -76,16 +79,32 @@ export default function TagsPage() {
   const saveTag = useMutation({
     mutationFn: (values: TagFormValues) =>
       editing ? api.admin.updateTag(editing.id, values) : api.admin.createTag(values),
-    onSuccess: async () => {
+    onSuccess: async (_data, values) => {
       setFormOpen(false);
       setEditing(undefined);
       await invalidate();
+      toastSuccess(t('tags.saveSucceeded', { label: values.label }));
     },
+    /*
+     * No error TOAST: the form modal stays open on failure and renders
+     * `saveTag.error` beside the fields, which is where a validation refusal
+     * ("slug already taken") has to be read. Reporting it twice at once reads
+     * as two failures.
+     */
   });
 
   const deleteTag = useMutation({
-    mutationFn: (id: string) => api.admin.deleteTag(id),
-    onSuccess: invalidate,
+    mutationFn: (tag: ClientTagWithCount) => api.admin.deleteTag(tag.id),
+    onSuccess: async (_data, tag) => {
+      await invalidate();
+      toastSuccess(t('tags.deleteSucceeded', { label: tag.label }));
+    },
+    /*
+     * The API's own message first. A delete is refused while any administrator
+     * is scoped to the tag, and that refusal names them — replacing it with
+     * "failed to delete" leaves the operator with no idea what to unpick.
+     */
+    onError: (error) => toastError(error, t('tags.deleteFailed')),
   });
 
   /*
@@ -96,7 +115,7 @@ export default function TagsPage() {
    * every row's delete during any delete, which read as the whole table
    * freezing over one action.
    */
-  const deletingId = deleteTag.isPending ? deleteTag.variables : undefined;
+  const deletingId = deleteTag.isPending ? deleteTag.variables?.id : undefined;
 
   const openCreate = () => {
     setEditing(undefined);
@@ -110,7 +129,7 @@ export default function TagsPage() {
     setFormOpen(true);
   };
 
-  const confirmDelete = (tag: ClientTagWithCount) => {
+  const confirmDelete = async (tag: ClientTagWithCount) => {
     /*
      * The confirmation names the CONSEQUENCE, not "are you sure".
      *
@@ -120,11 +139,19 @@ export default function TagsPage() {
      * (an empty scope means UNRESTRICTED, so cascading would promote them to
      * seeing every client) — but saying so here means the operator learns it
      * before the refusal rather than from it.
+     *
+     * That consequence is the DESCRIPTION now rather than a second clause of
+     * one long `window.confirm` sentence, which is the whole argument for the
+     * dialog: the question is readable at a glance and the reasoning is still
+     * there under it.
      */
-    if (!window.confirm(t('tags.confirmDelete', { label: tag.label, count: tag.clientCount }))) {
-      return;
-    }
-    deleteTag.mutate(tag.id);
+    const ok = await confirm({
+      title: t('tags.confirmDeleteTitle', { label: tag.label }),
+      description: t('tags.confirmDelete', { label: tag.label, count: tag.clientCount }),
+      confirmLabel: t('tags.delete'),
+      destructive: true,
+    });
+    if (ok) deleteTag.mutate(tag);
   };
 
   const columns: Column<ClientTagWithCount>[] = [
@@ -179,7 +206,7 @@ export default function TagsPage() {
                     icon: Trash2,
                     destructive: true,
                     separatorBefore: true,
-                    onSelect: () => confirmDelete(tag),
+                    onSelect: () => void confirmDelete(tag),
                   },
                 ]}
               />

@@ -10,6 +10,7 @@ import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { assetUrl } from '@/lib/asset-url';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
@@ -61,19 +62,40 @@ export default function PaymentMethodsPage() {
       }
       return api.admin.createPaymentMethod({ ...body, key: values.key });
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, values) => {
+      // Read before `editing` is cleared: `key` is the primary key and an
+      // update's payload omits it.
+      const name = editing?.name ?? values.name;
       setFormOpen(false);
       setEditing(undefined);
       await invalidate();
+      toastSuccess(t('paymentMethods.saveSucceeded', { name }));
     },
+    // Inline in the form modal, which stays open on failure.
   });
 
   const toggleEnabled = useMutation({
     mutationFn: (method: PaymentMethod) =>
       api.admin.updatePaymentMethod(method.key, { enabled: !method.enabled }),
-    onSuccess: async () => {
+    onSuccess: async (_data, method) => {
       await invalidate();
+      /*
+       * The NEW state — `method.enabled` is the value before the write, so the
+       * branch reads inverted. This is the toggle that decides whether clients
+       * can deposit through a provider at all, so the confirmation says which
+       * way it went rather than only that something happened.
+       */
+      toastSuccess(
+        method.enabled
+          ? t('paymentMethods.disabledSucceeded', { name: method.name })
+          : t('paymentMethods.enabledSucceeded', { name: method.name }),
+      );
     },
+    /*
+     * This toggle had NO error handling: a failed enable left the switch in its
+     * old position with nothing said, which reads as the control being stuck.
+     */
+    onError: (error) => toastError(error, t('paymentMethods.saveFailed')),
   });
 
   const togglingKey = toggleEnabled.isPending ? toggleEnabled.variables?.key : undefined;

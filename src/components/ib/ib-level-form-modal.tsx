@@ -2,7 +2,15 @@
 
 import * as React from 'react';
 import type { IbLevel } from '@/lib/api/admin';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 
 export interface IbLevelFormValues {
@@ -163,14 +171,22 @@ function IbLevelForm({
 
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-foreground">{t('ibLevels.payoutModel')}</span>
-        <select
+        <Select
           value={payoutModel}
-          onChange={(e) => setPayoutModel(e.target.value as 'revenue_share' | 'per_lot')}
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-xs focus-outline"
+          onValueChange={(value) => setPayoutModel(value as 'revenue_share' | 'per_lot')}
         >
-          <option value="revenue_share">{t('ibLevels.modelRevenueShare')}</option>
-          <option value="per_lot">{t('ibLevels.modelPerLot')}</option>
-        </select>
+          <SelectTrigger className="h-10 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="revenue_share" className="text-xs">
+              {t('ibLevels.modelRevenueShare')}
+            </SelectItem>
+            <SelectItem value="per_lot" className="text-xs">
+              {t('ibLevels.modelPerLot')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <span className="block text-[11px] text-muted-foreground">
           {isPercentage ? t('ibLevels.modelRevenueShareHint') : t('ibLevels.modelPerLotHint')}
         </span>
@@ -215,22 +231,33 @@ function IbLevelForm({
         </label>
       </div>
 
-      <label className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 p-3">
-        <input
-          type="checkbox"
+      {/*
+        A `<div>` paired by `htmlFor`, NOT a wrapping `<label>`.
+
+        Radix renders a `<button role="checkbox">`, and a button's accessible
+        name comes from its CONTENT before its wrapper — the content here is a
+        decorative tick, so wrapping would leave the control announcing as
+        nothing while still toggling on click. `components/ui/checkbox.tsx`
+        spells out all three ways this differs from a native input.
+      */}
+      <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 p-3">
+        <Checkbox
+          id="ib-level-enabled"
           checked={enabled}
-          onChange={(e) => setEnabled(e.target.checked)}
-          className="mt-0.5 h-4 w-4 focus-outline"
+          // `boolean | 'indeterminate'` off Radix, and this state is a plain
+          // boolean — `=== true` is the coercion, not a redundant comparison.
+          onCheckedChange={(checked) => setEnabled(checked === true)}
+          className="mt-0.5"
         />
-        <span className="space-y-0.5">
+        <label htmlFor="ib-level-enabled" className="cursor-pointer space-y-0.5">
           <span className="block text-xs font-semibold text-foreground">
             {t('ibLevels.enabled')}
           </span>
           <span className="block text-[11px] leading-relaxed text-muted-foreground">
             {t('ibLevels.enabledHint')}
           </span>
-        </span>
-      </label>
+        </label>
+      </div>
 
       <div className="flex justify-end gap-2 pt-1">
         <button

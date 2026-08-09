@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
 import { cleanup, configure } from '@testing-library/react';
+import { toast } from 'sonner';
 
 /*
  * `findBy*` and `waitFor` poll for 5s, not testing-library's default 1s.
@@ -36,6 +37,15 @@ configure({ asyncUtilTimeout: 10_000 });
 // that reads as a flaky test rather than a missing teardown.
 afterEach(() => {
   cleanup();
+  /*
+   * Sonner's store is MODULE-level, so `cleanup()` does not reach it: it
+   * unmounts the host, and the toasts themselves sit in a module singleton that
+   * survives into the next test. The next `renderWithProviders` mounts a fresh
+   * host, which re-renders every toast still in that store — so a success
+   * message raised by one test can satisfy the assertion of another, and a
+   * suite passes on evidence from the wrong test. Dismissing empties the store.
+   */
+  toast.dismiss();
 });
 
 /*

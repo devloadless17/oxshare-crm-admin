@@ -174,6 +174,9 @@ export const messages = {
   'withdrawals.reject': 'Reject',
   'withdrawals.settle': 'Mark paid',
   'withdrawals.approveFailed': 'Failed to approve the withdrawal.',
+  'withdrawals.approveSucceeded': 'Withdrawal of {amount} approved',
+  'withdrawals.rejectSucceeded': 'Withdrawal of {amount} rejected',
+  'withdrawals.settleSucceeded': 'Withdrawal of {amount} marked paid',
 
   'withdrawals.heading': 'Withdrawal Requests',
   'withdrawals.subtitle':
@@ -293,6 +296,9 @@ export const messages = {
   'paymentMethods.save': 'Save',
   'paymentMethods.saving': 'Saving…',
   'paymentMethods.saveFailed': 'Could not save the payment method.',
+  'paymentMethods.saveSucceeded': '{name} saved',
+  'paymentMethods.enabledSucceeded': '{name} enabled',
+  'paymentMethods.disabledSucceeded': '{name} disabled',
   'paymentMethods.readOnly': 'You do not have permission to change these.',
   /*
    * ── Keys deleted with the fields behind them ──────────────────────────────
@@ -345,6 +351,17 @@ export const messages = {
   // to slow the operator down: it names the client, shows the balance they are
   // adding to, and says out loud that the reason reaches the client.
   'wallets.creditAction': 'Add funds',
+  // Only ever an EMPTY, unused wallet — the API refuses any other, naming the
+  // balance or the count of history. The copy says so up front so the operator
+  // learns the rule from the control rather than from a refusal.
+  'wallets.closeAction': 'Close wallet',
+  'wallets.closeConfirmTitle': 'Close this {currency} wallet?',
+  'wallets.closeConfirmBody':
+    'This removes the wallet from {email}. It only works on an empty wallet with no history — the API refuses any other, and says why.',
+  'wallets.closeConfirm': 'Close wallet',
+  'wallets.closing': 'Closing…',
+  'wallets.closeFailed': 'Could not close the wallet.',
+  'wallets.closeSucceeded': '{currency} wallet closed',
   'wallets.creditTitle': 'Add funds to this wallet',
   'wallets.creditClient': 'Client',
   'wallets.creditCurrentBalance': 'Current balance',
@@ -358,6 +375,10 @@ export const messages = {
   'wallets.creditConfirm': 'Add funds',
   'wallets.crediting': 'Adding…',
   'wallets.creditFailed': 'Could not add the funds. Nothing was credited.',
+  // The AMOUNT is in the confirmation, not just "funds added" — this is the one
+  // control in the console that moves money on an operator's say-so.
+  'wallets.creditSucceeded': '{amount} credited',
+  'wallets.openSucceeded': '{currency} wallet opened',
 
   // ── Trading accounts (GET /admin/trading-accounts) ────────────────────────
   'tradingAccounts.title': 'Trading accounts',
@@ -513,8 +534,13 @@ export const messages = {
   'clients.saving': 'Saving…',
   'clients.suspend': 'Suspend',
   'clients.reactivate': 'Reactivate',
+  'clients.confirmSuspendTitle': 'Suspend {email}?',
   'clients.confirmSuspend':
-    'Suspend {email}? They will be logged out immediately and unable to log back in.',
+    'They will be logged out immediately and unable to log back in until reactivated.',
+  'clients.confirmReactivateTitle': 'Reactivate {email}?',
+  'clients.confirmReactivate': 'They regain access and can log in again.',
+  'clients.suspendSucceeded': '{email} suspended',
+  'clients.reactivateSucceeded': '{email} reactivated',
   'clients.statusFailed': 'Failed to change the client status.',
   'clients.loading': 'Loading clients',
   'clients.loadFailed': 'Failed to load clients.',
@@ -544,8 +570,11 @@ export const messages = {
   'tags.editAria': 'Edit {label}',
   'tags.delete': 'Delete',
   'tags.deleteAria': 'Delete {label}',
+  'tags.confirmDeleteTitle': 'Delete the tag "{label}"?',
   'tags.confirmDelete':
-    'Delete "{label}"? It is on {count} client(s) and will be removed from all of them. Any administrator restricted to this tag would lose that restriction, so the server refuses while anyone is scoped to it.',
+    'It is on {count} client(s) and will be removed from all of them. Any administrator restricted to this tag would lose that restriction, so the server refuses while anyone is scoped to it.',
+  'tags.deleteSucceeded': 'Tag "{label}" deleted',
+  'tags.saveSucceeded': 'Tag "{label}" saved',
   'tags.deleteFailed': 'Failed to delete the tag.',
   'tags.labelField': 'Label',
   'tags.labelPlaceholder': 'High risk',
@@ -563,6 +592,9 @@ export const messages = {
   'tags.caption': 'Client tags',
   // ── FR-ADM-01 client profile ────────────────────────────────────────────
   // ── RBAC-07 visibility panels ───────────────────────────────────────────
+  'roles.createSucceeded': 'Role “{name}” created',
+  'roles.saveSucceeded': 'Role “{name}” saved',
+  'roles.deleteSucceeded': 'Role “{name}” deleted',
   'roles.maskSection': 'Client field visibility',
   'roles.maskSummary': '{count} field(s) hidden',
   'roles.maskSummaryNone': 'Nothing hidden',
@@ -633,6 +665,9 @@ export const messages = {
   'clientProfile.walletOpen': 'Open wallet',
   'clientProfile.walletOpening': 'Opening…',
   'clientProfile.walletCurrencyPlaceholder': 'Currency',
+  'clientProfile.tagAdded': 'Tag “{label}” added',
+  'clientProfile.tagRemoved': 'Tag “{label}” removed',
+  'clientProfile.tagFailed': 'Could not change that tag.',
   'clientProfile.walletOpenFailed': 'Could not open the wallet.',
   // Named per currency: several identical bins down a list announce as "button"
   // with nothing to say which wallet each one closes.
@@ -773,6 +808,12 @@ export const messages = {
   'kycStatus.rejected': 'Rejected',
 
   // ── KYC workflow builder ──────────────────────────────────────────────────
+  'builder.confirmResetTitle': 'Reset every KYC step to the defaults?',
+  'builder.confirmResetBody':
+    'This discards the current onboarding configuration on the server, not just your unsaved edits. Clients partway through onboarding answer the default steps from their next visit.',
+  'builder.confirmDeleteStepTitle': 'Delete the step “{title}”?',
+  'builder.confirmDeleteStepBody':
+    'It is removed from the draft only. Nothing changes for clients until you save.',
   'builder.section': 'KYC Management',
   'builder.title': 'KYC Onboarding Workflow Builder',
   'builder.resetDefaults': 'Reset Defaults',
@@ -876,15 +917,26 @@ export const messages = {
   'resetPassword.noTokenTitle': 'This link is incomplete',
   'resetPassword.noTokenBody':
     'Open the link from your email exactly as it was sent. If it has expired, ask an administrator to send another.',
+  'adminUsers.confirmSendResetTitle': 'Email {name} a password reset link?',
   'adminUsers.confirmSendReset':
-    'Email {name} a single-use link to set a new password? It expires in an hour, and using it signs them out everywhere.',
+    'The link is single-use and expires in an hour. Using it signs them out everywhere.',
+  'adminUsers.confirmSendResetAction': 'Send link',
   'adminUsers.resetSent': 'Reset link sent.',
+  'adminUsers.roleChanged': '{name} is now {role}',
+  'adminUsers.roleFailed': 'Could not change the administrator’s role.',
+  'adminUsers.saveSucceeded': '{name} saved',
   'adminUsers.suspend': 'Suspend',
   'adminUsers.reactivate': 'Reactivate',
   'adminUsers.statusSuspended': 'Suspended',
+  'adminUsers.confirmSuspendTitle': 'Suspend {name}?',
   'adminUsers.confirmSuspend':
-    'Suspend {name}? They are signed out on their next request and cannot log in until reactivated.',
-  'adminUsers.confirmReactivate': 'Reactivate {name}? They regain the access listed here.',
+    'They are signed out on their next request and cannot log in until reactivated.',
+  'adminUsers.confirmReactivateTitle': 'Reactivate {name}?',
+  'adminUsers.confirmReactivate': 'They regain the access listed here.',
+  'adminUsers.suspendSucceeded': '{name} suspended',
+  'adminUsers.reactivateSucceeded': '{name} reactivated',
+  'adminUsers.statusFailed': 'Could not change the administrator status.',
+  'adminUsers.resetFailed': 'Could not send the reset link.',
   'adminUsers.colActions': 'Actions',
 
   // Outstanding invites — sent, not yet accepted.
@@ -895,8 +947,11 @@ export const messages = {
   'adminUsers.colInvited': 'Invited',
   'adminUsers.colExpires': 'Link expires',
   'adminUsers.revoke': 'Revoke',
+  'adminUsers.confirmRevokeTitle': 'Revoke the invite for {email}?',
   'adminUsers.confirmRevoke':
-    'Revoke the invite for {email}? The link stops working immediately. You can send a new one afterwards.',
+    'The link stops working immediately. You can send a new one afterwards.',
+  'adminUsers.revokeSucceeded': 'Invite for {email} revoked',
+  'adminUsers.revokeFailed': 'Could not revoke the invite.',
 
   // ── Settings / RBAC ───────────────────────────────────────────────────────
   // /settings is a four-tab screen: General, Email, Platforms, Security. Roles
@@ -1217,9 +1272,12 @@ export const messages = {
   'apiKeys.status.expired': 'Expired',
   'apiKeys.never': 'Never',
   'apiKeys.revoke': 'Revoke',
+  'apiKeys.revokeConfirmTitle': 'Revoke “{name}”?',
   'apiKeys.revokeConfirm':
-    'Revoke “{name}”? Anything using this key stops working immediately, and it cannot be restored.',
+    'Anything using this key stops working immediately, and it cannot be restored.',
   'apiKeys.revokeFailed': 'Could not revoke the key.',
+  'apiKeys.revokeSucceeded': '“{name}” revoked',
+  'apiKeys.createSucceeded': 'API key “{name}” created',
 
   // The create form.
   'apiKeys.form.title': 'New API key',
@@ -1321,8 +1379,14 @@ export const messages = {
   'currencies.makeDefault': 'Make default',
   // Names the consequence and the alternative, rather than asking "are you
   // sure" about something the API refuses outright if any wallet exists.
+  'currencies.confirmDeleteTitle': 'Delete {code}?',
   'currencies.confirmDelete':
-    'Delete {code}? This is only possible while no client holds a wallet in it. To stop offering a currency that is in use, disable it instead.',
+    'This is only possible while no client holds a wallet in it. To stop offering a currency that is in use, disable it instead.',
+  'currencies.deleteSucceeded': '{code} deleted',
+  'currencies.defaultSucceeded': '{code} is now the default currency',
+  'currencies.enabledSucceeded': '{code} enabled',
+  'currencies.disabledSucceeded': '{code} disabled',
+  'currencies.saveSucceeded': '{code} saved',
 
   'currencies.code': 'Code',
   'currencies.codeHint': 'Letters and digits, e.g. EUR or USDT. Stored upper-case.',
@@ -1388,8 +1452,14 @@ export const messages = {
   'ibLevels.deleteAria': 'Remove level {level}',
   'ibLevels.enable': 'Enable',
   'ibLevels.disable': 'Disable',
+  'ibLevels.confirmDeleteTitle': 'Remove level {level} ({name})?',
   'ibLevels.confirmDelete':
-    'Remove level {level} ({name})? Partners already placed at this level keep their position, but no new partner can be placed here.',
+    'Partners already placed at this level keep their position, but no new partner can be placed here.',
+  'ibLevels.deleteSucceeded': 'Level {level} removed',
+  'ibLevels.reorderSucceeded': 'Payout chain reordered',
+  'ibLevels.enabledSucceeded': 'Level {level} enabled',
+  'ibLevels.disabledSucceeded': 'Level {level} disabled',
+  'ibLevels.saveSucceeded': 'Level {level} saved',
 
   'ibLevels.level': 'Level number',
   'ibLevels.levelHint': '1 is closest to the broker. Higher numbers sit further down the chain.',
@@ -1446,6 +1516,8 @@ export const messages = {
   'partnerReview.approve': 'Approve',
   'partnerReview.reject': 'Reject',
   'partnerReview.readOnly': 'View only',
+  'partnerReview.approveSucceeded': 'Partner application approved',
+  'partnerReview.rejectSucceeded': 'Partner application rejected',
   'partnerReview.approveFailed': 'The application could not be approved.',
 
   'partnerReview.rejectTitle': 'Reject this application',
@@ -1502,6 +1574,12 @@ export const messages = {
   'partners.loadFailed': 'Could not load partners.',
   'partners.empty': 'No partners yet. Approved applications appear here.',
   'partners.actionFailed': 'That change could not be made.',
+  'partners.levelChanged': 'Partner moved to level {level}',
+  'partners.parentChangedSucceeded': 'Partner reassigned',
+  'partners.parentClearedSucceeded': 'Partner moved to the top of the chain',
+  'partners.suspendedSucceeded': 'Partner suspended',
+  'partners.reinstatedSucceeded': 'Partner reinstated',
+  'partners.linkCopied': 'Referral link copied',
 
   // Column headers, added when the row stack became a DataTable. The stacked row
   // ran level, referral code and placement together on one line separated by
@@ -1579,6 +1657,7 @@ export const messages = {
   'dashboard.chartTableHint':
     'Every value in this chart is also listed in the panel beside it or in the linked queue.', // sr-only relief route
   'dashboard.refreshing': 'Updating figures…', // sr-only, during a refetch
+  'dashboard.pageLoading': 'Loading dashboard', // the whole-screen gate on first load
 
   // Headline tiles
   'dashboard.tileTotalClients': 'Total clients',

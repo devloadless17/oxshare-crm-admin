@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
+import { answerConfirm } from '@/test/confirm';
 import AdminUsersPage from './page';
 
 /**
@@ -262,39 +263,41 @@ describe('suspending an administrator', () => {
   });
 
   it('asks before suspending, and does nothing if declined', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
     await chooseRowAction(/sub admin/, /suspend/i);
+    // Named for the row, so a misclick is caught before the account is cut off
+    // rather than after.
+    const asked = await answerConfirm(userEvent, 'cancel');
 
-    expect(confirmSpy).toHaveBeenCalled();
+    expect(asked).toMatch(/sub admin/i);
     expect(setAdminStatus).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it('suspends once confirmed', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
     await chooseRowAction(/sub admin/, /suspend/i);
+    await answerConfirm(userEvent, 'confirm');
 
     await waitFor(() => expect(setAdminStatus).toHaveBeenCalledWith('a-2', 'suspended'));
-    confirmSpy.mockRestore();
   });
 
   it('offers Reactivate on a suspended admin, and sends active', async () => {
     // Reversibility is the reason suspension exists instead of deletion.
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     getAdminUsers.mockResolvedValue([master, sub({ status: 'suspended' })]);
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
 
     await chooseRowAction(/sub admin/, /reactivate/i);
+    // Unlike the client directory, this screen confirms BOTH directions: an
+    // administrator's session is a privileged one, so restoring it is a
+    // deliberate act too.
+    await answerConfirm(userEvent, 'confirm');
 
     await waitFor(() => expect(setAdminStatus).toHaveBeenCalledWith('a-2', 'active'));
-    confirmSpy.mockRestore();
   });
 });
 

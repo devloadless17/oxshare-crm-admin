@@ -7,6 +7,8 @@ import api from '@/lib/api';
 import type { Currency, WalletListResponse, WalletRow } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { toastError, toastSuccess } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import {
@@ -61,7 +63,20 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
     api.admin.getCurrencies(signal),
   );
 
-  const [error, setError] = React.useState<string | undefined>();
+  const confirm = useConfirm();
+
+  /*
+   * The credit modal's OWN error, and nothing else's.
+   *
+   * This used to be one `error` string shared by all three mutations and
+   * rendered as a banner at the top of the card. Open and close now report
+   * through toasts, which is where a result belongs when the control that
+   * produced it is a button in a list — the banner sat above the list and was
+   * easy to miss on a long profile, and it outlived the action that raised it.
+   * The credit modal keeps an inline message because it stays OPEN on failure,
+   * and a refusal has to be read where the amount can be corrected.
+   */
+  const [creditError, setCreditError] = React.useState<string | undefined>();
   const [crediting, setCrediting] = React.useState<WalletRow | undefined>();
   const [newCurrency, setNewCurrency] = React.useState('');
 
@@ -71,27 +86,29 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
 
   const open = useMutation({
     mutationFn: (currency: string) => api.admin.openWallet({ userId, currency }),
-    onSuccess: () => {
+    onSuccess: (_data, currency) => {
       setNewCurrency('');
-      setError(undefined);
       refresh();
+      toastSuccess(t('wallets.openSucceeded', { currency }));
     },
-    onError: (e) => setError(apiErrorMessage(e, t('clientProfile.walletOpenFailed'))),
+    onError: (e) => toastError(e, t('clientProfile.walletOpenFailed')),
   });
 
   const close = useMutation({
-    mutationFn: (id: string) => api.admin.closeWallet(id),
-    onSuccess: () => {
-      setError(undefined);
+    mutationFn: (wallet: WalletRow) => api.admin.closeWallet(wallet.id),
+    onSuccess: (_data, wallet) => {
       refresh();
+      toastSuccess(t('wallets.closeSucceeded', { currency: wallet.currency }));
     },
     /*
      * The API's OWN message, not a generic one. A close is refused for four
      * different reasons — a balance, funds on hold, history, or not found — and
      * each names the figure or the count. Replacing that with "could not close"
      * would throw away the only thing that tells the operator what to do next.
+     * `toastError` passes the fallback for the case where the API returned no
+     * message at all, and prefers the API's own whenever there is one.
      */
-    onError: (e) => setError(apiErrorMessage(e, t('clientProfile.walletCloseFailed'))),
+    onError: (e) => toastError(e, t('clientProfile.walletCloseFailed')),
   });
 
   const credit = useMutation({
@@ -107,13 +124,42 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
         // is derived from the balance rather than minted per attempt.
         `credit:${crediting!.id}:${crediting!.balance}`,
       ),
-    onSuccess: () => {
+    onSuccess: (_data, values) => {
+      const wallet = crediting;
       setCrediting(undefined);
-      setError(undefined);
+      setCreditError(undefined);
       refresh();
+      toastSuccess(
+        t('wallets.creditSucceeded', {
+          amount: formatMoney(values.amount, wallet?.currency ?? 'USD'),
+        }),
+      );
     },
-    onError: (e) => setError(apiErrorMessage(e, t('wallets.creditFailed'))),
+    // Inline only — the modal stays open, and one refusal reported twice reads
+    // as two failures.
+    onError: (e) => setCreditError(apiErrorMessage(e, t('wallets.creditFailed'))),
   });
+
+  /**
+   * Closing a wallet from here asked NOTHING before doing it.
+   *
+   * The wallets list page has always confirmed — same action, same API call,
+   * behind a dialog naming the currency and the client. This panel fired on the
+   * first click of a 28px icon button sitting directly beside "Add funds". The
+   * API refuses to close a wallet with a balance, funds on hold or any history,
+   * so the blast radius was bounded; that is a backstop, not a reason to skip
+   * asking, and it does not cover the case this is most likely to hit — an
+   * empty wallet the client is about to deposit into.
+   */
+  const requestClose = async (wallet: WalletRow) => {
+    const ok = await confirm({
+      title: t('wallets.closeConfirmTitle', { currency: wallet.currency }),
+      description: t('wallets.closeConfirmBody', { email: wallet.user.email ?? '—' }),
+      confirmLabel: t('wallets.closeConfirm'),
+      destructive: true,
+    });
+    if (ok) close.mutate(wallet);
+  };
 
   const rows = wallets.data?.items ?? [];
   const held = new Set(rows.map((w) => w.currency));
@@ -126,15 +172,6 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
 
   return (
     <ProfileCard title={t('clientProfile.walletsTitle')}>
-      {error && (
-        <div
-          role="alert"
-          className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-        >
-          {error}
-        </div>
-      )}
-
       {rows.length === 0 ? (
         <EmptySection message={t('clientProfile.noWallets')} />
       ) : (
@@ -171,7 +208,7 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
                   <button
                     type="button"
                     onClick={() => {
-                      setError(undefined);
+                      setCreditError(undefined);
                       setCrediting(w);
                     }}
                     className="focus-outline inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] font-semibold hover:bg-muted"
@@ -183,7 +220,7 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
                 {canManage && (
                   <button
                     type="button"
-                    onClick={() => close.mutate(w.id)}
+                    onClick={() => void requestClose(w)}
                     disabled={close.isPending}
                     /*
                       Named per WALLET, not "Close". Several identical buttons
@@ -234,7 +271,7 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
       <CreditWalletModal
         wallet={crediting}
         saving={credit.isPending}
-        error={credit.isError ? error : undefined}
+        error={credit.isError ? creditError : undefined}
         onClose={() => setCrediting(undefined)}
         onSubmit={(values) => credit.mutate(values)}
       />

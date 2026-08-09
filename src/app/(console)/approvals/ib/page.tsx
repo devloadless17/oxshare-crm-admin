@@ -17,6 +17,7 @@ import { RowActions, actionsColumn, type RowAction } from '@/components/row-acti
 import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
 import { PartnerRejectDialog } from '@/components/ib/partner-reject-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -106,7 +107,11 @@ export default function PartnerApprovalsPage() {
 
   const approve = useMutation({
     mutationFn: (id: string) => api.admin.approveIbApplication(id),
-    onSuccess: invalidate,
+    onSuccess: async () => {
+      await invalidate();
+      toastSuccess(t('partnerReview.approveSucceeded'));
+    },
+    onError: (error) => toastError(error, t('partnerReview.approveFailed')),
   });
 
   const reject = useMutation({
@@ -115,7 +120,10 @@ export default function PartnerApprovalsPage() {
     onSuccess: async () => {
       setRejecting(null);
       await invalidate();
+      toastSuccess(t('partnerReview.rejectSucceeded'));
     },
+    // Inline in the reject dialog, which stays open on failure so the reason
+    // can be corrected.
   });
 
   const rows = query.data?.rows ?? [];

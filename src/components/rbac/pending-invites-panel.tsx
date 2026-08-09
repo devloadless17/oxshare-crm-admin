@@ -9,6 +9,8 @@ import { DataTable, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -28,17 +30,33 @@ import { t } from '@/lib/i18n';
  */
 export function PendingInvitesPanel({ canRevoke }: { canRevoke: boolean }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const query = useResource(['admin-invites'], () => api.admin.getPendingInvites());
   const invites: PendingInvite[] = query.data ?? [];
 
   const revoke = useMutation({
     mutationFn: (invite: PendingInvite) => api.admin.revokeInvite(invite.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-invites'] }),
+    onSuccess: async (_data, invite) => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-invites'] });
+      toastSuccess(t('adminUsers.revokeSucceeded', { email: invite.email }));
+    },
+    /*
+     * This panel had NO error handling at all. A revoke that came back 403 —
+     * `users.create` is required and `users.view` is enough to see the row —
+     * left the invite sitting in the list with no explanation, which reads as
+     * the button being broken rather than as a permission the operator lacks.
+     */
+    onError: (error) => toastError(error, t('adminUsers.revokeFailed')),
   });
 
-  const handleRevoke = (invite: PendingInvite) => {
-    if (!window.confirm(t('adminUsers.confirmRevoke', { email: invite.email }))) return;
-    revoke.mutate(invite);
+  const handleRevoke = async (invite: PendingInvite) => {
+    const ok = await confirm({
+      title: t('adminUsers.confirmRevokeTitle', { email: invite.email }),
+      description: t('adminUsers.confirmRevoke', { email: invite.email }),
+      confirmLabel: t('adminUsers.revoke'),
+      destructive: true,
+    });
+    if (ok) revoke.mutate(invite);
   };
 
   const revokingId = revoke.isPending ? revoke.variables?.id : null;
@@ -81,7 +99,7 @@ export function PendingInvitesPanel({ canRevoke }: { canRevoke: boolean }) {
                     label: t('adminUsers.revoke'),
                     icon: Trash2,
                     destructive: true,
-                    onSelect: () => handleRevoke(invite),
+                    onSelect: () => void handleRevoke(invite),
                   },
                 ]}
               />

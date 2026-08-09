@@ -11,6 +11,7 @@ import { useResource } from '@/hooks/use-resource';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -56,12 +57,15 @@ export default function EditRolePage() {
 
   const save = useMutation({
     mutationFn: (values: RoleFormValues) => api.admin.updateRole(roleId, values),
-    onSuccess: async () => {
+    onSuccess: async (_data, values) => {
       await queryClient.invalidateQueries({ queryKey: ['roles'] });
       // A role's permissions decide what its holders may do, so the directory's
       // cache is stale from here too.
       await queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       router.push('/roles');
+      // After the navigation — the form unmounts, so the root-layout Toaster is
+      // the only thing left that can confirm the save. See roles/new.
+      toastSuccess(t('roles.saveSucceeded', { name: values.name }));
     },
   });
 

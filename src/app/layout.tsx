@@ -8,6 +8,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 
 import { AdminAuthProvider } from '@/context/AdminAuthContext';
 import { QueryProvider } from '@/components/query-provider';
+import { Toaster } from '@/components/ui/toaster';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -56,8 +58,14 @@ export default async function RootLayout({
         <ThemeProvider storageKey="oxshare-admin-theme" nonce={nonce}>
           <LocaleDirection />
           <QueryProvider>
-            <AdminAuthProvider>{children}</AdminAuthProvider>
+            <AdminAuthProvider>
+              {/* Wraps the tree because `useConfirm` is called from inside it.
+                  The Toaster below is not a provider and needs no such position
+                  — only `ThemeProvider`, whose resolved theme it reads. */}
+              <ConfirmProvider>{children}</ConfirmProvider>
+            </AdminAuthProvider>
           </QueryProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

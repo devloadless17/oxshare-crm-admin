@@ -8,6 +8,7 @@ import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { Checkbox } from '@/components/ui/checkbox';
+import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 
 /**
@@ -105,6 +106,15 @@ function SmtpForm({ settings }: { settings: SmtpSettings }) {
       setPassword('');
       window.setTimeout(() => setSaved(false), 2000);
       void queryClient.invalidateQueries({ queryKey: ['smtp-settings'] });
+      /*
+       * The button's own "Saved ✓" is a two-second state of the CONTROL; this
+       * is the console-wide record of the write, and the two are not the same
+       * signal — an operator who has already tabbed to the next field sees only
+       * the toast. The inline error below stays inline: it sits beside the save
+       * button, clears when the field is edited, and naming a rejected field is
+       * something a toast cannot do as well.
+       */
+      toastSuccess(t('smtp.saved'));
     },
     onError: (e: unknown) => setError(apiErrorMessage(e, t('smtp.updateFailed'))),
   });

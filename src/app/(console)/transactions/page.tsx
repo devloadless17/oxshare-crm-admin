@@ -32,6 +32,8 @@ import {
 } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 import { t, type MessageKey } from '@/lib/i18n';
+import { toastError, toastSuccess } from '@/lib/toast';
+import { formatMoney } from '@/lib/money';
 
 /**
  * ADM-03 / §8.4 — the withdrawal approval queue.
@@ -205,7 +207,24 @@ function TransactionsPageContent() {
   const approve = useMutation({
     mutationFn: (row: WithdrawalRow) =>
       api.admin.approveWithdrawal(row.id, intentKey('approve', row)),
-    onSuccess: invalidate,
+    onSuccess: async (_data, row) => {
+      await invalidate();
+      /*
+       * The AMOUNT and the CLIENT, not "approved".
+       *
+       * Approving is a click on one row of a queue that renumbers underneath
+       * the operator as rows leave the pending tab. Naming what was just
+       * approved is what makes a misclick visible in the second it happens,
+       * rather than at the next reconciliation.
+       */
+      toastSuccess(
+        t('withdrawals.approveSucceeded', {
+          amount: formatMoney(row.amount, row.currency),
+        }),
+        row.user?.email ?? undefined,
+      );
+    },
+    onError: (error) => toastError(error, t('withdrawals.approveFailed')),
   });
 
   const reject = useMutation({
@@ -218,19 +237,33 @@ function TransactionsPageContent() {
         },
         intentKey('reject', row),
       ),
-    onSuccess: async () => {
+    onSuccess: async (_data, row) => {
       closeReject();
       await invalidate();
+      toastSuccess(
+        t('withdrawals.rejectSucceeded', {
+          amount: formatMoney(row.amount, row.currency),
+        }),
+        row.user?.email ?? undefined,
+      );
     },
+    // Inline in the reject modal, which stays open on failure.
   });
 
   const settle = useMutation({
     mutationFn: (row: WithdrawalRow) =>
       api.admin.settleWithdrawal(row.id, providerRef.trim(), intentKey('settle', row)),
-    onSuccess: async () => {
+    onSuccess: async (_data, row) => {
       closeSettle();
       await invalidate();
+      toastSuccess(
+        t('withdrawals.settleSucceeded', {
+          amount: formatMoney(row.amount, row.currency),
+        }),
+        row.user?.email ?? undefined,
+      );
     },
+    // Inline in the settle modal, which stays open on failure.
   });
 
   const closeReject = () => {
@@ -257,9 +290,14 @@ function TransactionsPageContent() {
   const total = query.data?.total ?? 0;
   const counts = query.data?.counts ?? {};
 
-  const listError = approve.isError
-    ? apiErrorMessage(approve.error, t('withdrawals.approveFailed'))
-    : null;
+  /*
+   * A failed APPROVE is a toast now, not a line under the filter tabs.
+   *
+   * That line sat above a queue the operator scrolls, so a refusal on row
+   * forty was announced at the top of the screen — and it persisted, so it was
+   * still there after the next successful approval. The API's own message
+   * still reaches them verbatim through `toastError`.
+   */
 
   /*
    * The list query's own filters, minus paging — which `fetchExport` strips
@@ -316,22 +354,25 @@ function TransactionsPageContent() {
        */
       ...sortableBy('amount'),
       /*
-       * Rendered VERBATIM — the API sends money as a string (§6.1).
+       * FORMATTED through decimal.js — and this reverses an earlier decision.
        *
-       * Formatting this through lib/money.ts was tried and reverted. It rounds
-       * to 2dp for display, and the deleted page's tests pinned the opposite
-       * contract in two cases ("renders the amount as the string the API sent"
-       * and "keeps precision a float could not hold", asserting
-       * 12345678901234567.89012345 verbatim). On the screen where an admin
-       * authorises a payout, showing the exact amount the client asked for beats
-       * showing a tidier one.
+       * The amount was rendered verbatim on the reasoning that an admin
+       * authorising a payout should see the exact figure the client asked for.
+       * In practice every row read `100.00000000 USD`: eight decimal places of
+       * nothing, on the queue an operator clears daily. Precision that is always
+       * trailing zeros is not precision, it is noise, and it made the column
+       * harder to read for a case that has not arisen.
        *
-       * lib/money.ts is therefore for screens that summarise, not for this one.
+       * The guarantee that mattered is kept: `formatMoney` rounds in decimal.js
+       * and returns a string, so the value is never a float — a payout of
+       * 12345678901234567.89 still renders its real digits rather than the
+       * 12345678901234568 a `Number()` would produce.
+       *
+       * `title` carries the stored string, so the exact figure is one hover away
+       * on the rare row where the tail is not zeros.
        */
       cell: (w) => (
-        <>
-          {w.amount} <span className="text-xs text-muted-foreground">{w.currency}</span>
-        </>
+        <span title={`${w.amount} ${w.currency}`}>{formatMoney(w.amount, w.currency)}</span>
       ),
       cellClassName: 'font-mono font-semibold text-foreground whitespace-nowrap',
     },
@@ -542,11 +583,6 @@ function TransactionsPageContent() {
               </button>
             ))}
           </div>
-          {listError && (
-            <p className="text-xs font-semibold text-destructive" role="alert">
-              {listError}
-            </p>
-          )}
         </div>
       )}
 

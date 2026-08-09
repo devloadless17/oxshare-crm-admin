@@ -8,11 +8,12 @@ import api from '@/lib/api';
 import type { ApiKey } from '@/lib/api/admin';
 
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { Modal } from '@/components/ui/modal';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { Badge } from '@/components/ui/badge';
 import { t } from '@/lib/i18n';
 
@@ -45,6 +46,15 @@ type ApiKeyRow = ApiKey & { isExpired: boolean };
  */
 export default function ApiKeysPage() {
   const queryClient = useQueryClient();
+  /*
+   * Shadows the GLOBAL `window.confirm`, which is the point — and is why
+   * forgetting this line is not a silent bug. Without it `confirm({ title })`
+   * resolves to the browser's own function, which takes a string and returns a
+   * boolean, so it compiles as a call and fails on `.then`. TypeScript caught it
+   * here; on a plain-JS codebase it would have shipped as a dialog printing
+   * "[object Object]".
+   */
+  const confirm = useConfirm();
   /*
    * Expiry is resolved WHERE THE DATA ARRIVES, not during render.
    *
@@ -81,7 +91,6 @@ export default function ApiKeysPage() {
     if (typeof window === 'undefined') return null;
     return new URLSearchParams(window.location.search).get('issued');
   });
-  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -93,8 +102,11 @@ export default function ApiKeysPage() {
 
   const revoke = useMutation({
     mutationFn: (key: ApiKeyRow) => api.admin.revokeApiKey(key.id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['api-keys'] }),
-    onError: (err) => setError(apiErrorMessage(err, t('apiKeys.revokeFailed'))),
+    onSuccess: async (_data, key) => {
+      await queryClient.invalidateQueries({ queryKey: ['api-keys'] });
+      toastSuccess(t('apiKeys.revokeSucceeded', { name: key.name }));
+    },
+    onError: (err) => toastError(err, t('apiKeys.revokeFailed')),
   });
 
   const columns: Array<Column<ApiKeyRow>> = React.useMemo(
@@ -153,9 +165,14 @@ export default function ApiKeysPage() {
                 icon: Trash2,
                 destructive: true,
                 onSelect: () => {
-                  if (window.confirm(t('apiKeys.revokeConfirm', { name: row.name }))) {
-                    revoke.mutate(row);
-                  }
+                  void confirm({
+                    title: t('apiKeys.revokeConfirmTitle', { name: row.name }),
+                    description: t('apiKeys.revokeConfirm', { name: row.name }),
+                    confirmLabel: t('apiKeys.revoke'),
+                    destructive: true,
+                  }).then((ok) => {
+                    if (ok) revoke.mutate(row);
+                  });
                 },
               },
             ]}
@@ -163,7 +180,9 @@ export default function ApiKeysPage() {
         ),
       ),
     ],
-    [revoke],
+    // `confirm` is a `useCallback([])` from the provider and never changes
+    // identity, so listing it satisfies the rule without costing a rebuild.
+    [revoke, confirm],
   );
 
   return (
@@ -181,15 +200,6 @@ export default function ApiKeysPage() {
           {t('apiKeys.create')}
         </Link>
       </div>
-
-      {error && (
-        <div
-          className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-          role="alert"
-        >
-          {error}
-        </div>
-      )}
 
       <AsyncBoundary
         status={keys.status}
