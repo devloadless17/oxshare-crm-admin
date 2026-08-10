@@ -1792,6 +1792,73 @@ export const messages = {
   // Recent KYC list
   'dashboard.recentKycTitle': 'Latest submissions',
   'dashboard.recentKycDescription': 'Newest first — open one to review it',
+  // ── Profile ───────────────────────────────────────────────────────────────
+  // The administrator's own account. Every string here addresses the reader as
+  // the subject ("your password", "this device"), which is what distinguishes
+  // this screen from the admin directory, where the same nouns mean somebody
+  // else's account.
+  'profile.title': 'Your profile',
+  'profile.subtitle': 'Your account details, password and the devices you are signed in on.',
+
+  'profile.identityTitle': 'Account',
+  'profile.identitySubtitle':
+    'Your name, address and role are set by an administrator — ask one to change them.',
+  'profile.fieldName': 'Name',
+  'profile.fieldEmail': 'Email',
+  'profile.fieldRole': 'Role',
+  'profile.fieldStatus': 'Status',
+  'profile.fieldPermissions': 'Permissions',
+  'profile.fieldCreated': 'Member since',
+  'profile.permissionCount': '{count} granted',
+  'profile.statusActive': 'Active',
+  'profile.statusSuspended': 'Suspended',
+
+  'profile.photoUpload': 'Upload photo',
+  'profile.photoReplace': 'Replace photo',
+  'profile.photoRemove': 'Remove',
+  'profile.photoHint': 'JPEG, PNG or WebP, up to 2MB.',
+  'profile.photoUpdated': 'Photo updated.',
+  'profile.photoRemoved': 'Photo removed.',
+  'profile.photoFailed': 'That photo could not be uploaded.',
+  'profile.photoRemoveFailed': 'That photo could not be removed.',
+  'profile.photoTooLarge': 'That file is over 2MB. Choose a smaller one.',
+  'profile.photoRemoveTitle': 'Remove your photo?',
+  'profile.photoRemoveBody': 'Your initials will be shown instead. You can upload a new one later.',
+  'profile.photoRemoveConfirm': 'Remove photo',
+
+  'profile.passwordTitle': 'Password',
+  'profile.passwordSubtitle':
+    'Changing it signs you out everywhere else. You will stay signed in here.',
+  'profile.currentPassword': 'Current password',
+  'profile.newPassword': 'New password',
+  'profile.confirmPassword': 'Confirm new password',
+  'profile.passwordHint': 'At least 8 characters.',
+  'profile.passwordTooShort': 'Use at least {min} characters.',
+  'profile.passwordMismatch': 'These two do not match.',
+  'profile.passwordSave': 'Change password',
+  'profile.passwordSaving': 'Changing…',
+  'profile.passwordChanged': 'Password changed.',
+  'profile.passwordFailed': 'Your password could not be changed.',
+
+  'profile.sessionsTitle': 'Signed in on',
+  'profile.sessionsSubtitle':
+    'One entry per sign-in. End any you do not recognise, then change your password.',
+  'profile.sessionsLoading': 'Loading your sessions',
+  'profile.sessionsFailed': 'Could not load your sessions.',
+  'profile.sessionsEmpty': 'No other sessions.',
+  'profile.sessionCurrent': 'This device',
+  'profile.sessionMeta': 'Last active {when} · {ip}',
+  'profile.sessionUnknownDevice': 'Unrecognised device',
+  'profile.sessionUnknownIp': 'address not recorded',
+  'profile.sessionEnd': 'Sign out',
+  'profile.sessionEnded': 'That session has been signed out.',
+  'profile.sessionEndFailed': 'That session could not be signed out.',
+  'profile.sessionEndTitle': 'Sign out this device?',
+  'profile.sessionEndBody': 'Whoever is using {device} will have to sign in again.',
+  'profile.sessionEndConfirm': 'Sign it out',
+
+  // The account menu's link to the screen above.
+  'nav.profile': 'Profile',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */

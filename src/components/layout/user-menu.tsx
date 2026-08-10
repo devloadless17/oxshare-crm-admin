@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { useTheme } from 'next-themes';
-import { ChevronsUpDown, LogOut, Monitor, Moon, Sun } from 'lucide-react';
-import { Avatar, AvatarFallback, initialsOf } from '@/components/ui/avatar';
+import Link from 'next/link';
+import { ChevronsUpDown, LogOut, Monitor, Moon, Sun, UserCircle } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAdmin } from '@/context/AdminAuthContext';
+import { avatarSrc, initialsFor } from '@/lib/avatar';
 import { useHydrated } from '@/hooks/use-hydrated';
 import { t } from '@/lib/i18n';
 
@@ -40,13 +42,19 @@ import { t } from '@/lib/i18n';
  *
  * ── Where it differs from the portal's copy, and why ───────────────────────
  *
- * Not a twin file: it reads `useAdmin()` rather than `useUser()`, and there is
- * no Profile item because the console has no `/profile` route — adding a link
- * to a page that does not exist is the thing this sidebar pass is removing.
+ * Not a twin file: it reads `useAdmin()` rather than `useUser()`.
  *
- * No `AvatarImage` either. `Admin` carries no avatar field, so the image would
- * never have a src; initials are the whole of it. The portal keeps `AvatarImage`
- * because its profile work adds one.
+ * It used to differ in two more ways, and both were statements about what the
+ * console did not have yet rather than decisions. There was no Profile item
+ * because there was no `/profile` route, and no `AvatarImage` because `Admin`
+ * carried no avatar field. Both now exist — `/profile` and `avatarUrl` on
+ * `GET /admin/auth/me` — so both are here.
+ *
+ * The Profile link carries NO permission check, and that is deliberate rather
+ * than an oversight in a sidebar whose every other item is filtered: the route
+ * is `requirement: null` and each endpoint behind it is `@AnyAdmin`, because
+ * everything on it belongs to the caller. Wrapping it in `PermittedLink` would
+ * imply somebody could be denied their own password.
  */
 export function UserMenu({
   collapsed,
@@ -66,12 +74,13 @@ export function UserMenu({
 
   const name = admin?.name?.trim() ?? '';
   /*
-   * `initialsOf` takes first/last, and an admin has one `name` field. Splitting
-   * on whitespace gives "Master Admin" → MA and a single-word name → its first
-   * letter, which is what the old `name.charAt(0)` did.
+   * `initialsFor` lives in `lib/avatar.ts` now rather than being derived here.
+   * The profile screen renders the same face at a different size, and two
+   * copies of "split the one `name` field into initials" would be two answers
+   * to what an operator with a single-word name looks like.
    */
-  const [firstWord, ...restWords] = name.split(/\s+/).filter(Boolean);
-  const initials = initialsOf(firstWord, restWords.at(-1));
+  const initials = initialsFor(name);
+  const photo = avatarSrc(admin?.avatarUrl);
 
   /*
    * The role's name, or a stated absence — never a fallback to the email.
@@ -118,6 +127,7 @@ export function UserMenu({
           aria-label={t('nav.accountMenu')}
         >
           <Avatar>
+            <AvatarImage src={photo} alt="" />
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
 
@@ -155,6 +165,7 @@ export function UserMenu({
               to sign out of — which matters on a shared back-office machine. */}
           <div className="flex items-center gap-2.5 px-2 py-2">
             <Avatar className="h-8 w-8">
+              <AvatarImage src={photo} alt="" />
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div className="overflow-hidden">
@@ -164,6 +175,20 @@ export function UserMenu({
           </div>
 
           <DropdownMenuSeparator />
+
+          {/*
+            `asChild` so the item IS the anchor rather than wrapping one. A
+            `<div>` with an onClick that pushes would lose middle-click, ⌘-click
+            and "copy link address" — and this is the one menu entry an operator
+            might reasonably want to open in a second tab beside the screen they
+            are working on.
+          */}
+          <DropdownMenuItem asChild>
+            <Link href="/profile">
+              <UserCircle />
+              <span>{t('nav.profile')}</span>
+            </Link>
+          </DropdownMenuItem>
 
           <ThemeSubmenu />
 

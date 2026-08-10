@@ -114,6 +114,24 @@ describe('canAccess', () => {
     expect(canAccess(subAdmin, '/partners')).toBe(false);
   });
 
+  it('lets any signed-in administrator reach their OWN profile', () => {
+    /*
+     * `/profile` is the one route in the table with `requirement: null` and a
+     * real screen behind it, and it must stay that way. Everything on it — the
+     * password, the sessions, the photo — belongs to the caller, and each
+     * endpoint behind it is `@AnyAdmin` for the same reason. A permission key
+     * here would mean somebody could be denied the ability to change their own
+     * password, or to sign out a laptop they have just had stolen.
+     *
+     * `withPerms([])` is the assertion that matters: an administrator holding
+     * NOTHING still gets in.
+     */
+    expect(canAccess(withPerms([]), '/profile')).toBe(true);
+    expect(canAccess(subAdmin, '/profile')).toBe(true);
+    // Still denied with no session at all — ungated is not unauthenticated.
+    expect(canAccess(null, '/profile')).toBe(false);
+  });
+
   it('separates the client directory from the ADMIN directory', () => {
     /*
      * One key opened both lists. Granting somebody the client screen handed

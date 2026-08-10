@@ -208,6 +208,22 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * `lib/public-paths.ts` rather than by anything here, and it renders outside
    * `AdminLayout` — which is what calls `canAccess` in the first place.
    */
+  /*
+   * The one screen in this console that is deliberately UNGATED.
+   *
+   * Everything on it — the password, the sessions, the photo — belongs to the
+   * caller, and each endpoint behind it is `@AnyAdmin` for the same reason: an
+   * administrator whose role is one screen wide still has a credential to
+   * rotate and a stolen laptop to sign out. A permission key here would mean
+   * somebody could be denied the ability to change their own password, which is
+   * not a power anybody should be able to hand out or withhold.
+   *
+   * It is still LISTED rather than left to fall through, because an unlisted
+   * path is denied — see the `!match` branch — so omitting it would have made
+   * the profile unreachable for everyone, including the operator who is meant
+   * to reach it from the sidebar on every page.
+   */
+  { prefix: '/profile', requirement: null },
   { prefix: '/dashboard', requirement: null },
   // `requirement: null` is "any authenticated admin", stated rather than
   // assumed — the frontend counterpart of the backend's @AnyAdmin(reason).

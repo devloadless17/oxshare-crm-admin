@@ -27,6 +27,22 @@ export type AdminLoginDto = components['schemas']['AdminLoginDto'];
  */
 export type AdminLoginResponse = components['schemas']['AdminLoginResponseDto'];
 
+/** `POST /admin/auth/change-password` — the body. */
+export type AdminChangePasswordDto = components['schemas']['AdminChangePasswordDto'];
+
+/**
+ * One live session — one LOGIN, not one token row.
+ *
+ * `current` marks the session this browser is on. The profile screen labels it
+ * and hides its sign-out button, because ending it here would revoke the family
+ * while leaving the httpOnly cookies in place: the console would sit rendered
+ * until the next request 401'd. Sign out is the operation that does both.
+ */
+export type AdminSession = components['schemas']['AdminSessionDto'];
+
+/** Where a profile photo is served from, or `null` when there is none. */
+export type AdminAvatarResponse = components['schemas']['AdminAvatarResponseDto'];
+
 export const authApi = {
   async login(dto: AdminLoginDto) {
     const { data } = await apiClient.post<AdminLoginResponse>('/admin/auth/login', dto);
@@ -72,5 +88,54 @@ export const authApi = {
       await apiClient.post('/admin/auth/logout');
     }
     clearAdminSession();
+  },
+
+  // ── Self-service ──────────────────────────────────────────────────────────
+  //
+  // Every call below acts on the CALLER's own account and needs no permission,
+  // so the profile screen is the one console page with no `ROUTE_REQUIREMENTS`
+  // keys — see `permissions.ts`.
+
+  /**
+   * Change the password, and stay signed in.
+   *
+   * The server revokes EVERY session including this one and issues a fresh
+   * pair of cookies on the same response, so nothing here has to re-login. It
+   * does mean the CSRF token rotates: `apiClient` reads it per request rather
+   * than caching it, which is what makes the next call after this one work.
+   */
+  async changePassword(dto: AdminChangePasswordDto) {
+    const { data } = await apiClient.post<{ message: string }>('/admin/auth/change-password', dto);
+    return data;
+  },
+
+  async sessions(signal?: AbortSignal) {
+    const { data } = await apiClient.get<AdminSession[]>('/admin/auth/sessions', { signal });
+    return data;
+  },
+
+  async revokeSession(id: string) {
+    const { data } = await apiClient.delete<{ message: string }>(`/admin/auth/sessions/${id}`);
+    return data;
+  },
+
+  /**
+   * Upload the profile photo.
+   *
+   * No explicit `Content-Type`: the browser has to set it, because a multipart
+   * body is unparseable without the boundary token it appends to the header.
+   * Writing `multipart/form-data` by hand omits that boundary and the server
+   * rejects the body it was handed.
+   */
+  async uploadAvatar(file: File) {
+    const body = new FormData();
+    body.append('file', file);
+    const { data } = await apiClient.post<AdminAvatarResponse>('/admin/auth/me/avatar', body);
+    return data;
+  },
+
+  async removeAvatar() {
+    const { data } = await apiClient.delete<AdminAvatarResponse>('/admin/auth/me/avatar');
+    return data;
   },
 };
