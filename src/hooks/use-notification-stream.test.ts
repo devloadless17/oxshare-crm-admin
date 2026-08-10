@@ -43,6 +43,25 @@ class FakeEventSource {
   close(): void {
     this.closed = true;
   }
+
+  /**
+   * The connection the hook most recently opened.
+   *
+   * `instances[0]` is what every assertion below wants, and under
+   * `noUncheckedIndexedAccess` that expression is `FakeEventSource | undefined`
+   * — so nine call sites failed `tsc` while the suite passed, because vitest's
+   * transform does not typecheck. Nine `!` assertions would silence it and turn
+   * "the hook never opened a connection" into `Cannot read properties of
+   * undefined`, which names neither the hook nor the expectation.
+   *
+   * This throws with the reason instead, so the interesting failure — a change
+   * that stops the hook connecting at all — reports itself.
+   */
+  static latest(): FakeEventSource {
+    const source = FakeEventSource.instances.at(-1);
+    if (!source) throw new Error('The hook opened no EventSource connection.');
+    return source;
+  }
 }
 
 beforeEach(() => {
@@ -63,7 +82,7 @@ describe('useNotificationStream', () => {
     renderHook(() => useNotificationStream(vi.fn()));
 
     expect(FakeEventSource.instances).toHaveLength(1);
-    expect(FakeEventSource.instances[0].url).toBe('/api/admin/notifications/stream');
+    expect(FakeEventSource.latest().url).toBe('/api/admin/notifications/stream');
   });
 
   it('opens NOTHING while disabled', () => {
@@ -81,7 +100,7 @@ describe('useNotificationStream', () => {
     // fail. Until a frame arrives the caller must keep polling.
     expect(result.current.connected).toBe(false);
 
-    act(() => FakeEventSource.instances[0].emit('ping'));
+    act(() => FakeEventSource.latest().emit('ping'));
     expect(result.current.connected).toBe(true);
   });
 
@@ -89,7 +108,7 @@ describe('useNotificationStream', () => {
     const onEvent = vi.fn();
     const { result } = renderHook(() => useNotificationStream(onEvent));
 
-    act(() => FakeEventSource.instances[0].emit('notification'));
+    act(() => FakeEventSource.latest().emit('notification'));
 
     expect(onEvent).toHaveBeenCalledTimes(1);
     expect(result.current.connected).toBe(true);
@@ -97,11 +116,11 @@ describe('useNotificationStream', () => {
 
   it('reports NOT connected when the connection errors, so polling resumes', () => {
     const { result } = renderHook(() => useNotificationStream(vi.fn()));
-    act(() => FakeEventSource.instances[0].emit('ping'));
+    act(() => FakeEventSource.latest().emit('ping'));
 
     act(() => {
-      FakeEventSource.instances[0].readyState = 0;
-      FakeEventSource.instances[0].onerror?.();
+      FakeEventSource.latest().readyState = 0;
+      FakeEventSource.latest().onerror?.();
     });
 
     expect(result.current.connected).toBe(false);
@@ -115,8 +134,8 @@ describe('useNotificationStream', () => {
     renderHook(() => useNotificationStream(vi.fn()));
 
     act(() => {
-      FakeEventSource.instances[0].readyState = FakeEventSource.CLOSED;
-      FakeEventSource.instances[0].onerror?.();
+      FakeEventSource.latest().readyState = FakeEventSource.CLOSED;
+      FakeEventSource.latest().onerror?.();
     });
 
     // A closed connection never recovers by itself, so this is the one error
@@ -126,7 +145,7 @@ describe('useNotificationStream', () => {
 
   it('closes the connection on unmount', () => {
     const { unmount } = renderHook(() => useNotificationStream(vi.fn()));
-    const source = FakeEventSource.instances[0];
+    const source = FakeEventSource.latest();
 
     unmount();
 
@@ -155,7 +174,7 @@ describe('useNotificationStream', () => {
     });
 
     rerender({ handler: second });
-    act(() => FakeEventSource.instances[0].emit('notification'));
+    act(() => FakeEventSource.latest().emit('notification'));
 
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledTimes(1);
