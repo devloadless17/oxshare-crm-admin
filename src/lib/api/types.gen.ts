@@ -1716,7 +1716,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Change your own display name */
+        patch: operations["AdminAuthController_updateProfile"];
         trace?: never;
     };
     "/v1/admin/invite": {
@@ -4012,6 +4013,14 @@ export interface components {
             /** @description Single-use token from the password reset email. */
             token: string;
             password: string;
+        };
+        AdminUpdateProfileDto: {
+            /** @example Ada Lovelace */
+            name: string;
+        };
+        AdminProfileNameDto: {
+            /** @example Ada Lovelace */
+            name: string;
         };
         AdminChangePasswordDto: {
             currentPassword: string;
@@ -7093,6 +7102,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminProfileDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUpdateProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProfileNameDto"];
                 };
             };
         };

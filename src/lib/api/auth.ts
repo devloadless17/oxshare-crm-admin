@@ -30,6 +30,9 @@ export type AdminLoginResponse = components['schemas']['AdminLoginResponseDto'];
 /** `POST /admin/auth/change-password` — the body. */
 export type AdminChangePasswordDto = components['schemas']['AdminChangePasswordDto'];
 
+/** `PATCH /admin/auth/me` — the body. The display name, and nothing else. */
+export type AdminUpdateProfileDto = components['schemas']['AdminUpdateProfileDto'];
+
 /**
  * One live session — one LOGIN, not one token row.
  *
@@ -109,6 +112,19 @@ export const authApi = {
     return data;
   },
 
+  /**
+   * Change the display name.
+   *
+   * The API trims before storing, so the value that comes back is the value
+   * that was saved — which is why the response is read rather than assumed. A
+   * form echoing its own input would show " Ada " as saved when "Ada" is what
+   * every other screen will show.
+   */
+  async updateProfile(dto: AdminUpdateProfileDto) {
+    const { data } = await apiClient.patch<{ name: string }>('/admin/auth/me', dto);
+    return data;
+  },
+
   async sessions(signal?: AbortSignal) {
     const { data } = await apiClient.get<AdminSession[]>('/admin/auth/sessions', { signal });
     return data;
@@ -122,15 +138,30 @@ export const authApi = {
   /**
    * Upload the profile photo.
    *
-   * No explicit `Content-Type`: the browser has to set it, because a multipart
-   * body is unparseable without the boundary token it appends to the header.
-   * Writing `multipart/form-data` by hand omits that boundary and the server
-   * rejects the body it was handed.
+   * `Content-Type: undefined` is DELETING a default, not omitting a header, and
+   * the upload does not work without it.
+   *
+   * A multipart body is unparseable without the `boundary` token that only the
+   * sender can generate, and axios generates it — but only when the header is
+   * unset. `apiClient` sets `'Content-Type': 'application/json'` as an instance
+   * default, so axios saw the field already filled, left it alone, and posted a
+   * `FormData` body labelled as JSON. Multer then found no multipart request to
+   * parse, the handler's own `if (!file)` fired, and the API answered
+   * `400 VALIDATION_FAILED: No file was uploaded.` — which reads as "the file
+   * did not reach the server" and sends you looking at the file input.
+   *
+   * `undefined` removes the instance default for this one request and lets
+   * axios do its job. Writing `'multipart/form-data'` by hand does NOT work
+   * either: that header carries no boundary, so the server has the same
+   * unparseable body by a different route. The portal's `accountApi.uploadAvatar`
+   * carries the same line for the same reason.
    */
   async uploadAvatar(file: File) {
     const body = new FormData();
     body.append('file', file);
-    const { data } = await apiClient.post<AdminAvatarResponse>('/admin/auth/me/avatar', body);
+    const { data } = await apiClient.post<AdminAvatarResponse>('/admin/auth/me/avatar', body, {
+      headers: { 'Content-Type': undefined },
+    });
     return data;
   },
 

@@ -1815,6 +1815,12 @@ export const messages = {
   'profile.statusActive': 'Active',
   'profile.statusSuspended': 'Suspended',
 
+  'profile.nameSave': 'Save name',
+  'profile.nameSaving': 'Saving…',
+  'profile.nameSavedShort': 'Saved',
+  'profile.nameSaved': 'Your name has been updated.',
+  'profile.nameFailed': 'Your name could not be changed.',
+
   'profile.photoUpload': 'Upload photo',
   'profile.photoReplace': 'Replace photo',
   'profile.photoRemove': 'Remove',
