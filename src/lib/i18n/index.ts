@@ -56,7 +56,12 @@ export function direction(locale: Locale = currentLocale()): 'ltr' | 'rtl' {
 }
 
 /** Values substituted into a message's `{placeholders}`. */
-export type MessageVars = Record<string, string | number>;
+/**
+ * `undefined` is ALLOWED, and is the documented failure mode below: a var the
+ * caller could not supply leaves its `{placeholder}` visible rather than
+ * rendering an empty gap. The type says so because `t()` already implements it.
+ */
+export type MessageVars = Record<string, string | number | undefined>;
 
 /**
  * Look up a message and fill in its placeholders.

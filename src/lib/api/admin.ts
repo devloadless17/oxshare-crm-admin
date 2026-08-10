@@ -570,6 +570,12 @@ export type SmtpSettings = components['schemas']['SmtpSettingsDto'];
 export type UpdateSmtpSettings = components['schemas']['UpdateSmtpSettingsDto'];
 export type SmtpTestResult = components['schemas']['SmtpTestResultDto'];
 
+// ── Notifications — the bell ───────────────────────────────────────────────
+export type AdminNotification = components['schemas']['NotificationDto'];
+export type AdminNotificationPage = components['schemas']['NotificationListResponseDto'];
+export type NotificationUnreadCount = components['schemas']['NotificationUnreadCountDto'];
+export type NotificationsMarkAllRead = components['schemas']['NotificationsMarkAllReadResponseDto'];
+
 export const adminApi = {
   /** Master admin only — the API answers 403 for anyone else. */
   async getSecuritySettings(): Promise<SecuritySwitch[]> {
@@ -1540,6 +1546,44 @@ export const adminApi = {
     const { data } = await apiClient.get<Record<string, ClientFieldGroup>>('/admin/client-fields', {
       signal,
     });
+    return data;
+  },
+
+  // ── Notifications — the bell ─────────────────────────────────────────────
+  // Own-feed reads: the recipient is the session, so there is no id or filter
+  // to pass beyond paging. `cursor`/`limit` are accepted now so a later
+  // load-more is a UI-only change.
+  async getNotifications(
+    params: { cursor?: string; limit?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<AdminNotificationPage> {
+    const query = new URLSearchParams();
+    if (params.cursor) query.set('cursor', params.cursor);
+    if (params.limit) query.set('limit', String(params.limit));
+    const { data } = await apiClient.get<AdminNotificationPage>(
+      `/admin/notifications?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  async getNotificationsUnreadCount(signal?: AbortSignal): Promise<NotificationUnreadCount> {
+    const { data } = await apiClient.get<NotificationUnreadCount>(
+      '/admin/notifications/unread-count',
+      { signal },
+    );
+    return data;
+  },
+
+  async markNotificationRead(id: string): Promise<AdminNotification> {
+    const { data } = await apiClient.post<AdminNotification>(`/admin/notifications/${id}/read`);
+    return data;
+  },
+
+  async markAllNotificationsRead(): Promise<NotificationsMarkAllRead> {
+    const { data } = await apiClient.post<NotificationsMarkAllRead>(
+      '/admin/notifications/read-all',
+    );
     return data;
   },
 };

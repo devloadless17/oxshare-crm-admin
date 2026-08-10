@@ -4,18 +4,15 @@
  */
 
 export interface paths {
-    "/health": {
+    "/v1/notifications": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Liveness — is the process up? Checks no dependencies, by design.
-         * @description Dependency-free deliberately: restarting a healthy process because the database is briefly slow turns a blip into an outage. Use /health/ready to decide whether to send traffic.
-         */
-        get: operations["HealthController_liveness"];
+        /** The signed-in client's notification feed, newest first */
+        get: operations["NotificationsController_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -24,17 +21,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/health/ready": {
+    "/v1/notifications/unread-count": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Readiness — can this instance actually serve? Probes every dependency. */
-        get: operations["HealthController_readiness"];
+        /** Unread notifications for the signed-in client — the badge number */
+        get: operations["NotificationsController_unreadCount"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark one notification read. Idempotent. */
+        post: operations["NotificationsController_markRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark every unread notification read. Idempotent. */
+        post: operations["NotificationsController_markAllRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in admin's notification feed, newest first */
+        get: operations["AdminNotificationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unread notifications for the signed-in admin — the badge number */
+        get: operations["AdminNotificationsController_unreadCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark one notification read. Idempotent. */
+        post: operations["AdminNotificationsController_markRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark every unread notification read. Idempotent. */
+        post: operations["AdminNotificationsController_markAllRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -480,6 +579,43 @@ export interface paths {
         post: operations["AuthController_uploadAvatar[1]"];
         /** Remove your profile photo */
         delete: operations["AuthController_removeAvatar[1]"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liveness — is the process up? Checks no dependencies, by design.
+         * @description Dependency-free deliberately: restarting a healthy process because the database is briefly slow turns a blip into an outage. Use /health/ready to decide whether to send traffic.
+         */
+        get: operations["HealthController_liveness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readiness — can this instance actually serve? Probes every dependency. */
+        get: operations["HealthController_readiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2704,47 +2840,40 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        LivenessDto: {
-            /** @example ok */
-            status: string;
-            /** @example 2026-08-04T10:13:00.563Z */
-            timestamp: string;
+        NotificationDto: {
+            id: string;
             /**
-             * @description Seconds since the process started.
-             * @example 1284
+             * @description Catalogue slug, e.g. 'withdrawal.approved'. Render client-side; unknown kinds get a generic fallback.
+             * @example withdrawal.approved
              */
-            uptimeSeconds: number;
+            kind: string;
+            /**
+             * @description Structured payload for the kind — ids, amounts (as strings), reasons. Never another client’s identifiers.
+             * @example {
+             *       "transactionId": "a6e1…",
+             *       "amount": "25.00000000",
+             *       "currency": "USD"
+             *     }
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /** @description Null while unread. */
+            readAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
         };
-        DependencyHealthDto: {
-            /** @example postgres */
-            name: string;
-            /**
-             * @description 'not_configured' is deliberately distinct from 'down': a dependency we have not wired yet is not a fault, but hiding it would make this endpoint claim a coverage it does not have.
-             * @enum {string}
-             */
-            status: "up" | "down" | "not_configured";
-            /**
-             * @description Round-trip time in milliseconds.
-             * @example 3
-             */
-            latencyMs?: number;
-            /** @description Why it is down. Never carries a connection string or credentials. */
-            detail?: string;
-            /**
-             * @description Whether a failure here makes the whole instance unready (503).
-             * @example true
-             */
-            required: boolean;
+        NotificationListResponseDto: {
+            items: components["schemas"]["NotificationDto"][];
+            nextCursor: string | null;
         };
-        ReadinessDto: {
-            /**
-             * @description 'not_ready' is served with HTTP 503 so a load balancer acts on it.
-             * @enum {string}
-             */
-            status: "ready" | "not_ready";
-            /** @example 2026-08-04T10:13:00.563Z */
-            timestamp: string;
-            dependencies: components["schemas"]["DependencyHealthDto"][];
+        NotificationUnreadCountDto: {
+            /** @description Unread rows for the caller. The bell badge number. */
+            count: number;
+        };
+        NotificationsMarkAllReadResponseDto: {
+            /** @description Rows marked read by this call. 0 when everything already was. */
+            updated: number;
         };
         RegisterDto: {
             /** @example John */
@@ -2882,6 +3011,48 @@ export interface components {
              * @example /uploads/avatars/6f1c...c2.png
              */
             avatarUrl?: string | null;
+        };
+        LivenessDto: {
+            /** @example ok */
+            status: string;
+            /** @example 2026-08-04T10:13:00.563Z */
+            timestamp: string;
+            /**
+             * @description Seconds since the process started.
+             * @example 1284
+             */
+            uptimeSeconds: number;
+        };
+        DependencyHealthDto: {
+            /** @example postgres */
+            name: string;
+            /**
+             * @description 'not_configured' is deliberately distinct from 'down': a dependency we have not wired yet is not a fault, but hiding it would make this endpoint claim a coverage it does not have.
+             * @enum {string}
+             */
+            status: "up" | "down" | "not_configured";
+            /**
+             * @description Round-trip time in milliseconds.
+             * @example 3
+             */
+            latencyMs?: number;
+            /** @description Why it is down. Never carries a connection string or credentials. */
+            detail?: string;
+            /**
+             * @description Whether a failure here makes the whole instance unready (503).
+             * @example true
+             */
+            required: boolean;
+        };
+        ReadinessDto: {
+            /**
+             * @description 'not_ready' is served with HTTP 503 so a load balancer acts on it.
+             * @enum {string}
+             */
+            status: "ready" | "not_ready";
+            /** @example 2026-08-04T10:13:00.563Z */
+            timestamp: string;
+            dependencies: components["schemas"]["DependencyHealthDto"][];
         };
         PlatformLinkDto: {
             /**
@@ -4591,9 +4762,15 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    HealthController_liveness: {
+    NotificationsController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description Pass 'true' to see only unread. */
+                unread?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4605,12 +4782,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LivenessDto"];
+                    "application/json": components["schemas"]["NotificationListResponseDto"];
                 };
             };
         };
     };
-    HealthController_readiness: {
+    NotificationsController_unreadCount: {
         parameters: {
             query?: never;
             header?: never;
@@ -4619,22 +4796,136 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Every required dependency is up. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReadinessDto"];
+                    "application/json": components["schemas"]["NotificationUnreadCountDto"];
                 };
             };
-            /** @description At least one required dependency is down. Same body, 503 status. */
-            503: {
+        };
+    };
+    NotificationsController_markRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReadinessDto"];
+                    "application/json": components["schemas"]["NotificationDto"];
+                };
+            };
+        };
+    };
+    NotificationsController_markAllRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsMarkAllReadResponseDto"];
+                };
+            };
+        };
+    };
+    AdminNotificationsController_list: {
+        parameters: {
+            query?: {
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description Pass 'true' to see only unread. */
+                unread?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminNotificationsController_unreadCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationUnreadCountDto"];
+                };
+            };
+        };
+    };
+    AdminNotificationsController_markRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationDto"];
+                };
+            };
+        };
+    };
+    AdminNotificationsController_markAllRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsMarkAllReadResponseDto"];
                 };
             };
         };
@@ -5227,6 +5518,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AvatarResponseDto"];
+                };
+            };
+        };
+    };
+    HealthController_liveness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LivenessDto"];
+                };
+            };
+        };
+    };
+    HealthController_readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every required dependency is up. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessDto"];
+                };
+            };
+            /** @description At least one required dependency is down. Same body, 503 status. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessDto"];
                 };
             };
         };

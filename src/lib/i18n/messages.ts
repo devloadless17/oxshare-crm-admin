@@ -1676,23 +1676,28 @@ export const messages = {
   'partners.confirmReactivateBody': 'They will start earning again from their current level.',
 
   // ── Notifications ─────────────────────────────────────────────────────────
-  // Placeholder copy, and it says so. There is no notifications endpoint; these
-  // rows describe what WILL land here rather than inventing queue items, because
-  // a fabricated "3 withdrawals awaiting approval" sends an operator to an empty
-  // queue and teaches them to distrust the next real one.
+  // The LIVE bell — `GET /admin/notifications` and its three siblings. The
+  // per-kind pairs (`kind<PascalKind>Title/Body`) mirror the backend's event
+  // catalogue via `components/layout/notification-kinds.ts`; an event this
+  // file has no pair for renders as `fallbackTitle`, never a raw slug.
   'notifications.open': 'Open notifications',
   'notifications.title': 'Notifications',
-  'notifications.previewNotice':
-    'Notifications are not live yet. This panel shows what will appear here.',
-  'notifications.sampleAdminPreviewTitle': 'Coming soon',
-  'notifications.sampleAdminPreviewBody':
-    'Alerts about work waiting on you will appear here once notifications are wired up.',
-  'notifications.sampleAdminKycTitle': 'Verification queue',
-  'notifications.sampleAdminKycBody':
-    'You will be told when a client submits documents for review.',
-  'notifications.sampleAdminPartnerTitle': 'Partner applications',
-  'notifications.sampleAdminPartnerBody':
-    'You will be told when a client applies to the partner programme.',
+  'notifications.loading': 'Loading notifications',
+  'notifications.loadFailed': 'Could not load notifications.',
+  'notifications.emptyTitle': 'Nothing yet',
+  'notifications.emptyBody': 'Alerts about work waiting on you will appear here.',
+  'notifications.unreadCountLabel': '{count} unread',
+  'notifications.markAllRead': 'Mark all as read',
+  'notifications.markAllReadFailed': 'Could not mark notifications as read.',
+  'notifications.itemUnread': 'Unread',
+  'notifications.recentNotice': 'Showing your {count} most recent notifications.',
+  'notifications.fallbackTitle': 'Notification',
+  'notifications.kindWithdrawalRequestedTitle': 'Withdrawal requested',
+  'notifications.kindWithdrawalRequestedBody': 'A client requested a withdrawal of {amount}.',
+  'notifications.kindKycSubmittedTitle': 'KYC submitted',
+  'notifications.kindKycSubmittedBody': 'A client submitted documents for review.',
+  'notifications.kindPartnerAppliedTitle': 'Partner application',
+  'notifications.kindPartnerAppliedBody': 'A client applied to the partner programme.',
 
   // ── Dashboard (GET /admin/stats/*) ────────────────────────────────────────
   //

@@ -1,117 +1,293 @@
 'use client';
 
 import * as React from 'react';
-import { Bell, FileCheck, Handshake, Info } from 'lucide-react';
+import Link from 'next/link';
+import { Bell } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { t, type MessageKey } from '@/lib/i18n';
+import { AsyncBoundary } from '@/components/async-boundary';
+import { useResource } from '@/hooks/use-resource';
+import { api } from '@/lib/api';
+import type { AdminNotification } from '@/lib/api/admin';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { canAccess } from '@/lib/permissions';
+import { t } from '@/lib/i18n';
+import { toastError } from '@/lib/toast';
+import { relativeTime } from '@/lib/relative-time';
+import { resolveKind } from './notification-kinds';
 
 /**
- * The notification bell, and the panel behind it.
+ * The notification bell, and the panel behind it — live since the
+ * `GET /admin/notifications` feed landed. (This file's previous version showed
+ * labelled sample rows and said so; the migration its doc comment promised —
+ * SAMPLES → `useResource`, `previewNotice` → a real empty state — is this.)
  *
  * TWIN in intent with the portal's `layout/notifications-sheet.tsx` — same
- * component shape, same refusal to fabricate events — but NOT a twin file: the
- * sample rows are about work queues here and about a client's own account
- * there, so the copy cannot be shared.
+ * component shape — but NOT a twin file: the kind catalogues are disjoint
+ * (work-queue events here, account events there).
  *
- * ## Why the content is placeholder, and why it says so
+ * ## The badge polls; the list fetches on open
  *
- * There is no notifications table, no endpoint and nothing emitting events. The
- * bell that used to sit in `admin-layout.tsx` had no handler at all and a
- * permanent unread dot implying items that did not exist — a status light that
- * never changes, which is the thing this product has removed twice already.
+ * The unread count lives up here, beside the trigger, on the same 60-second /
+ * `retry: false` cadence as the sidebar's queue badges — and like them it is
+ * NOT drawn when the count is zero or unknown: a badge that cannot be counted
+ * is a badge that is not drawn. The list itself lives inside `SheetContent`,
+ * which Radix unmounts when closed, so opening the panel naturally fetches a
+ * fresh page — no imperative refetch choreography.
  *
- * The panel opens with a plain statement that notifications are not live, and
- * the rows beneath it are descriptions of what WILL arrive here rather than
- * invented queue items. That distinction matters more on this side than on the
- * portal's: a fabricated "3 withdrawals awaiting approval" sends an operator to
- * a queue that is empty, and the next real one gets the same shrug.
+ * ## Read is EXPLICIT, never a side effect of opening
  *
- * There is also NO unread count, for the same reason there is no dot.
- *
- * When `GET /admin/notifications` lands: replace `SAMPLES` with a `useResource`
- * call, render through `<AsyncBoundary>`, delete `previewNotice`, and let the
- * empty state be a real one.
+ * Opening the panel does not mark anything read. Auto-mark-on-open destroys
+ * the only unread signal before anything was actually read — the "status
+ * light that lies" this product has removed twice. Clicking a row marks that
+ * row; "Mark all as read" is a button.
  */
 
-interface SampleNotification {
-  id: string;
-  icon: React.ElementType;
-  title: MessageKey;
-  body: MessageKey;
-}
-
-const SAMPLES: SampleNotification[] = [
-  {
-    id: 'preview',
-    icon: Info,
-    title: 'notifications.sampleAdminPreviewTitle',
-    body: 'notifications.sampleAdminPreviewBody',
-  },
-  {
-    id: 'kyc',
-    icon: FileCheck,
-    title: 'notifications.sampleAdminKycTitle',
-    body: 'notifications.sampleAdminKycBody',
-  },
-  {
-    id: 'partner',
-    icon: Handshake,
-    title: 'notifications.sampleAdminPartnerTitle',
-    body: 'notifications.sampleAdminPartnerBody',
-  },
-];
+const COUNT_KEY = ['admin', 'notifications', 'unread-count'] as const;
+const LIST_KEY = ['admin', 'notifications'] as const;
+const PAGE_SIZE = 30;
 
 export function NotificationsSheet() {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = React.useState(false);
+
+  const count = useQuery({
+    queryKey: COUNT_KEY,
+    queryFn: ({ signal }) => api.admin.getNotificationsUnreadCount(signal),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const unread = count.data?.count;
+
   return (
-    <Sheet>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        // A fresh count on open, so the badge and the list the reader is
+        // about to see agree with each other.
+        if (next) void queryClient.invalidateQueries({ queryKey: COUNT_KEY });
+      }}
+    >
       {/*
         Icon-only, so it needs a name: without one a screen reader announces
         "button" and the only route to this panel is unreachable to anyone not
-        looking at it. Sized to match the controls beside it so the header reads
-        as one row rather than several shapes.
+        looking at it. Sized to match the controls beside it.
       */}
       <SheetTrigger
-        aria-label={t('notifications.open')}
+        aria-label={
+          unread
+            ? `${t('notifications.open')} — ${t('notifications.unreadCountLabel', { count: unread })}`
+            : t('notifications.open')
+        }
         className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-border text-foreground transition-colors hover:bg-muted focus-outline"
       >
         <Bell className="h-4 w-4" aria-hidden="true" />
+        {unread ? (
+          <span
+            aria-hidden="true"
+            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+          >
+            {unread > 9 ? '9+' : unread}
+          </span>
+        ) : null}
       </SheetTrigger>
 
       <SheetContent side="right" className="gap-0">
         <SheetHeader>
           <SheetTitle>{t('notifications.title')}</SheetTitle>
-          <SheetDescription>{t('notifications.previewNotice')}</SheetDescription>
+          <SheetDescription className="sr-only">{t('notifications.open')}</SheetDescription>
         </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto p-3">
-          <ul className="space-y-2">
-            {SAMPLES.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li
-                  key={item.id}
-                  className="flex gap-3 rounded-lg border border-border bg-muted/30 p-3"
-                >
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-xs font-semibold text-foreground">{t(item.title)}</p>
-                    <p className="text-xs leading-relaxed text-muted-foreground">{t(item.body)}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+        {/* Mounted only while open — see the component note. */}
+        <NotificationsList unreadCount={unread ?? 0} />
       </SheetContent>
     </Sheet>
+  );
+}
+
+function NotificationsList({ unreadCount }: { unreadCount: number }) {
+  const queryClient = useQueryClient();
+
+  const query = useResource([...LIST_KEY, 'list'], (signal) =>
+    api.admin.getNotifications({ limit: PAGE_SIZE }, signal),
+  );
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: LIST_KEY });
+
+  /*
+   * Per-row mark-read, fired alongside navigation and NEVER toasted on
+   * failure: an error toast interrupting a navigation the operator asked for
+   * reports the failure of something they didn't ask for. An unread row that
+   * stays unread is silently retriable on the next visit.
+   */
+  const markRead = useMutation({
+    mutationFn: (id: string) => api.admin.markNotificationRead(id),
+    onSuccess: () => void invalidate(),
+  });
+
+  /*
+   * No success toast: the rows visibly re-rendering read and the badge
+   * clearing IS the outcome report — a toast over a panel the operator is
+   * looking at is noise (the tags form takes the same stance on error
+   * placement). Failure does toast, because nothing else would say so.
+   */
+  const markAllRead = useMutation({
+    mutationFn: () => api.admin.markAllNotificationsRead(),
+    onSuccess: () => void invalidate(),
+    onError: (error) => toastError(error, t('notifications.markAllReadFailed')),
+  });
+
+  const items = query.data?.items ?? [];
+  /*
+   * Derived from the rows the operator can SEE, OR-ed with the polled count:
+   * gating on the count alone let a failed count poll (`retry: false`) hide
+   * the button above a list of visibly-unread rows.
+   */
+  // Gated on `ready` as well: rendering it over the error or BackendPending
+  // card offers a button that would clear rows the operator never saw.
+  const hasUnread =
+    query.status === 'ready' && (unreadCount > 0 || items.some((item) => !item.readAt));
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {hasUnread && (
+        <div className="flex justify-end border-b border-border px-3 py-2">
+          <button
+            type="button"
+            onClick={() => markAllRead.mutate()}
+            disabled={markAllRead.isPending}
+            className="cursor-pointer text-xs font-medium text-primary hover:underline disabled:opacity-50 focus-outline"
+          >
+            {t('notifications.markAllRead')}
+          </button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto p-3">
+        <AsyncBoundary
+          status={query.status}
+          label={t('notifications.loading')}
+          endpoints={['GET /admin/notifications']}
+          onRetry={query.refetch}
+          errorMessage={t('notifications.loadFailed')}
+          error={query.error}
+          fill
+        >
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center gap-1 py-10 text-center">
+              <Bell className="mb-2 h-5 w-5 text-muted-foreground" aria-hidden="true" />
+              <p className="text-sm font-medium text-foreground">{t('notifications.emptyTitle')}</p>
+              <p className="text-xs text-muted-foreground">{t('notifications.emptyBody')}</p>
+            </div>
+          ) : (
+            <>
+              <ul className="space-y-2">
+                {items.map((item) => (
+                  <NotificationRow
+                    key={item.id}
+                    item={item}
+                    onRead={() => {
+                      if (!item.readAt) markRead.mutate(item.id);
+                    }}
+                  />
+                ))}
+              </ul>
+              {query.data?.nextCursor ? (
+                <p className="pt-3 text-center text-[11px] text-muted-foreground">
+                  {t('notifications.recentNotice', { count: items.length })}
+                </p>
+              ) : null}
+            </>
+          )}
+        </AsyncBoundary>
+      </div>
+    </div>
+  );
+}
+
+function NotificationRow({ item, onRead }: { item: AdminNotification; onRead: () => void }) {
+  const { admin } = useAdmin();
+  const config = resolveKind(item.kind);
+  const Icon = config?.icon ?? Bell;
+  const unread = !item.readAt;
+  /*
+   * The deep link renders only when this admin can actually open it. The
+   * fan-out filters on the ACTION permission (`withdrawals.approve`), but the
+   * queue routes gate on the VIEW keys — a role granting approve without view
+   * would otherwise click through to the "no access" panel. The row stays,
+   * link-less: the information was addressed to them; the navigation was not.
+   */
+  const href = config?.href && canAccess(admin, config.href) ? config.href : undefined;
+
+  const body = (
+    <>
+      <span
+        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${unread ? 'bg-primary/15' : 'bg-primary/10'} text-primary`}
+      >
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1 space-y-1">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="text-xs font-semibold text-foreground">
+            {config ? t(config.titleKey) : t('notifications.fallbackTitle')}
+            {unread && <span className="sr-only"> — {t('notifications.itemUnread')}</span>}
+          </span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {relativeTime(item.createdAt)}
+          </span>
+        </span>
+        {config ? (
+          <span className="block text-xs leading-relaxed text-muted-foreground">
+            {t(config.bodyKey, config.vars?.(item.params))}
+          </span>
+        ) : null}
+      </span>
+      {unread && (
+        <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+      )}
+    </>
+  );
+
+  const rowClass = `flex gap-3 rounded-lg border border-border p-3 ${unread ? 'bg-primary/5' : 'bg-muted/30'}`;
+
+  /*
+   * A known kind navigates to the screen the event is actioned on; the sheet
+   * closes with it (SheetClose). An unknown kind — a backend newer than this
+   * deploy — renders as a plain row: generic title and timestamp, never a raw
+   * slug.
+   */
+  if (href) {
+    return (
+      <li>
+        <SheetClose asChild>
+          <Link
+            href={href}
+            onClick={onRead}
+            className={`${rowClass} transition-colors hover:bg-muted focus-outline`}
+          >
+            {body}
+          </Link>
+        </SheetClose>
+      </li>
+    );
+  }
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onRead}
+        className={`${rowClass} w-full cursor-pointer text-left transition-colors hover:bg-muted focus-outline`}
+      >
+        {body}
+      </button>
+    </li>
   );
 }
