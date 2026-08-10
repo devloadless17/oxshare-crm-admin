@@ -1692,6 +1692,8 @@ export const messages = {
   'notifications.itemUnread': 'Unread',
   'notifications.recentNotice': 'Showing your {count} most recent notifications.',
   'notifications.fallbackTitle': 'Notification',
+  'notifications.soundOn': 'Notification sound is on',
+  'notifications.soundOff': 'Notification sound is off',
   'notifications.kindWithdrawalRequestedTitle': 'Withdrawal requested',
   'notifications.kindWithdrawalRequestedBody': 'A client requested a withdrawal of {amount}.',
   'notifications.kindKycSubmittedTitle': 'KYC submitted',

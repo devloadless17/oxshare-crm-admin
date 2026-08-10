@@ -1535,6 +1535,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/uploads/admin-avatars/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Serve an administrator's own profile photo */
+        get: operations["UploadsController_serveAdminAvatar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/uploads/payment-logos/{file}": {
         parameters: {
             query?: never;
@@ -6822,6 +6839,25 @@ export interface operations {
         };
     };
     UploadsController_serveAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UploadsController_serveAdminAvatar: {
         parameters: {
             query?: never;
             header?: never;
