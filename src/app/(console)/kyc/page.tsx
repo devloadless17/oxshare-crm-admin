@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import type { components } from '@/lib/api/types.gen';
-import Link from 'next/link';
 import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,7 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { KYC_SORT_KEYS, type KycSortKey } from '@/lib/api/admin';
 import { t } from '@/lib/i18n';
+import { PermittedLink } from '@/components/permitted-link';
 
 type KycStatus =
   'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
@@ -266,14 +266,14 @@ export default function AdminKycPage() {
       // never heard of.
       sortable: false,
       cell: (row) => (
-        <Link
+        <PermittedLink
           href={`/kyc/${row.userId}`}
           className="inline-flex items-center gap-1 font-semibold text-xs text-link hover:underline focus-outline rounded-sm"
           aria-label={`Review KYC submission of ${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim()}
         >
           <span>{t('kycReview.review')}</span>
           <ChevronRight className="h-4 w-4" />
-        </Link>
+        </PermittedLink>
       ),
     },
   ];

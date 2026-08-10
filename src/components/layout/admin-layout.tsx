@@ -37,6 +37,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import api from '@/lib/api';
 import type { KycListResponse } from '@/lib/api/admin';
 import { canAccess, hasPermission } from '@/lib/permissions';
+import { AccessDenied } from '@/components/access-denied';
 import { PageLoader } from '@/components/ui/loader';
 import { t, type MessageKey } from '@/lib/i18n';
 
@@ -720,24 +721,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
            * signed-in operator reaching a route their role does not cover. The
            * nav is legitimately theirs to see; only this page is not.
            */}
-          {!canAccess(admin, pathname ?? '') ? (
-            <div
-              className="flex flex-col items-center justify-center py-24 text-center gap-3"
-              role="alert"
-            >
-              <Shield className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
-              <h2 className="text-lg font-bold text-foreground">{t('session.deniedTitle')}</h2>
-              <p className="text-sm text-muted-foreground max-w-sm">{t('session.deniedBody')}</p>
-              <Link
-                href="/dashboard"
-                className="text-sm font-semibold text-link hover:underline focus-outline rounded-sm"
-              >
-                {t('session.backToDashboard')}
-              </Link>
-            </div>
-          ) : (
-            children
-          )}
+          {/*
+           * One component, so the refusal reads the same wherever it appears —
+           * this route gate, and any page that denies a section of itself.
+           */}
+          {!canAccess(admin, pathname ?? '') ? <AccessDenied /> : children}
         </main>
       </div>
     </div>

@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, Handshake, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -19,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { PartnerRejectDialog } from '@/components/ib/partner-reject-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { PermittedLink } from '@/components/permitted-link';
 
 /**
  * The partner application queue.
@@ -199,12 +199,12 @@ export default function PartnerApprovalsPage() {
         <div className="min-w-0">
           {/* The client, not just their name — a reviewer deciding whether to
               pay somebody wants to see the account behind the request. */}
-          <Link
+          <PermittedLink
             href={`/clients/${row.user.id}`}
             className="font-semibold text-link hover:underline focus-outline"
           >
             {row.user.firstName} {row.user.lastName}
-          </Link>
+          </PermittedLink>
           <p className="truncate text-xs text-muted-foreground">{row.user.email}</p>
         </div>
       ),

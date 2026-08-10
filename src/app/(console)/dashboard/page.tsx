@@ -40,6 +40,7 @@ import { StatTile } from '@/components/dashboard/stat-tile';
 import { WithdrawalStateChart } from '@/components/dashboard/withdrawal-state-chart';
 import { WithdrawalVolumeChart } from '@/components/dashboard/withdrawal-volume-chart';
 import { t } from '@/lib/i18n';
+import { PermittedLink } from '@/components/permitted-link';
 
 /**
  * The back-office dashboard.
@@ -480,7 +481,7 @@ export default function AdminDashboardPage() {
                 <ul className="divide-y divide-border border-t border-border">
                   {reviewQueue.map((submission) => (
                     <li key={submission.userId}>
-                      <Link
+                      <PermittedLink
                         href={`/kyc/${submission.userId}`}
                         className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-accent/40 focus-outline"
                       >
@@ -501,7 +502,7 @@ export default function AdminDashboardPage() {
                             ? new Date(submission.submittedAt).toLocaleDateString()
                             : ''}
                         </span>
-                      </Link>
+                      </PermittedLink>
                     </li>
                   ))}
                 </ul>

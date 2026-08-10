@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Eye, PauseCircle, PlayCircle } from 'lucide-react';
 import type { ClientKycStatus, ClientRow, ClientSortKey } from '@/lib/api/admin';
 import { CLIENT_SORT_KEYS } from '@/lib/api/admin';
@@ -9,6 +8,7 @@ import { MaskedValue } from '@/components/masked-value';
 import { isMasked } from '@/lib/masking';
 import { ClientTagChips } from './client-tag-chips';
 import { t } from '@/lib/i18n';
+import { PermittedLink } from '@/components/permitted-link';
 
 const TYPE_LABELS: Record<string, string> = {
   individual: t('clients.typeIndividual'),
@@ -95,9 +95,12 @@ export function clientColumns({
         // The entry point to the profile (FR-ADM-01). A row that opens
         // something is the one affordance a directory needs, and putting it on
         // the name means no extra column.
-        <Link href={`/clients/${c.id}`} className="text-link hover:underline focus-outline">
+        <PermittedLink
+          href={`/clients/${c.id}`}
+          className="text-link hover:underline focus-outline"
+        >
           {[c.firstName, c.lastName].filter(Boolean).join(' ') || t('clients.unnamed')}
-        </Link>
+        </PermittedLink>
       ),
       cellClassName: 'font-medium',
     });

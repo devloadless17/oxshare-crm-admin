@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpDown, Copy, Handshake, Layers, PauseCircle, PlayCircle, User } from 'lucide-react';
 import api from '@/lib/api';
@@ -36,6 +35,7 @@ import {
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { formatMoney, isZeroMoney } from '@/lib/money';
+import { PermittedLink } from '@/components/permitted-link';
 
 /** One row of `GET /admin/ib/partners` — the account, its user, its level name. */
 type PartnerRowData = IbPartnerPage['rows'][number];
@@ -248,12 +248,12 @@ export default function PartnersPage() {
       ...sortableBy('userFirstName'),
       cell: ({ account, user }) => (
         <span className="flex flex-wrap items-center gap-2">
-          <Link
+          <PermittedLink
             href={`/clients/${user.id}`}
             className="font-semibold text-link hover:underline focus-outline"
           >
             {user.firstName} {user.lastName}
-          </Link>
+          </PermittedLink>
           {/* Suspension is stated on the row rather than only in the menu. It
               is the one thing about a partner somebody scanning needs to see. */}
           {!account.active && (

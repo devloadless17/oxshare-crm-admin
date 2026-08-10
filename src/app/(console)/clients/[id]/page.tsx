@@ -25,6 +25,7 @@ import {
 import { buildKycDocUrl } from '@/lib/kyc-doc-url';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { PermittedLink } from '@/components/permitted-link';
 
 /**
  * FR-ADM-01's full client profile.
@@ -254,12 +255,12 @@ export default function ClientProfilePage() {
                     </div>
                     {hasPermission(admin, 'kyc.review') && (
                       <div className="col-span-2">
-                        <Link
+                        <PermittedLink
                           href={`/kyc/${profile.id}`}
                           className="text-xs font-semibold text-link hover:underline focus-outline"
                         >
                           {t('clientProfile.openKycReview')}
-                        </Link>
+                        </PermittedLink>
                       </div>
                     )}
                   </dl>
@@ -335,14 +336,14 @@ export default function ClientProfilePage() {
                     </p>
                     {profile.referrer ? (
                       <p className="mt-0.5 text-sm">
-                        <Link
+                        <PermittedLink
                           href={`/clients/${profile.referrer.ibUserId}`}
                           className="text-link hover:underline focus-outline"
                         >
                           {[profile.referrer.firstName, profile.referrer.lastName]
                             .filter(Boolean)
                             .join(' ')}
-                        </Link>
+                        </PermittedLink>
                         {!profile.referrer.active && (
                           <Badge variant="warning" className="ms-2">
                             {t('clientProfile.attributionInactive')}
@@ -362,12 +363,12 @@ export default function ClientProfilePage() {
                       <ul className="mt-1 space-y-1">
                         {profile.referredClients.map((referred) => (
                           <li key={referred.clientUserId}>
-                            <Link
+                            <PermittedLink
                               href={`/clients/${referred.clientUserId}`}
                               className="text-xs text-link hover:underline focus-outline"
                             >
                               {[referred.firstName, referred.lastName].filter(Boolean).join(' ')}
-                            </Link>
+                            </PermittedLink>
                           </li>
                         ))}
                       </ul>

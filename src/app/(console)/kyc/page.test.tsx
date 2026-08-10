@@ -16,6 +16,35 @@ import KycQueuePage from './page';
 
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
 
+/*
+ * The reviewer this file is about, stated rather than inherited.
+ *
+ * `renderWithProviders` deliberately supplies no AdminAuthProvider, so a screen
+ * that reads identity needs the test to name one. This became load-bearing when
+ * each row's link started checking whether the viewer may open the destination
+ * (`PermittedLink`): without a session there is no link to assert on, and the
+ * queue's own row link is the thing under test here.
+ *
+ * `kyc.view` and nothing else — the queue's route requirement, and enough to
+ * reach a submission. It deliberately does NOT hold `clients.view`, which is the
+ * case the link gating exists for.
+ */
+vi.mock('@/context/AdminAuthContext', () => ({
+  useAdmin: () => ({
+    admin: {
+      id: 'a-1',
+      email: 'reviewer@oxshare.com',
+      name: 'KYC Reviewer',
+      role: 'sub_admin',
+      status: 'active',
+      permissions: ['kyc.view', 'kyc.review'],
+      maskedFields: [],
+      scopedTags: [],
+      createdAt: '2026-08-01T00:00:00.000Z',
+    },
+  }),
+}));
+
 // Both exports — lib/api/index.ts exposes `api` named AND default. Mocking only
 // `default` leaves the named one undefined and the page renders its generic
 // failure state, which reads as a broken query rather than a broken mock.
