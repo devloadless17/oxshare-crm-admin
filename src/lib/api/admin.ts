@@ -1630,6 +1630,30 @@ export const adminApi = {
   },
 
   /**
+   * Live balances for the accounts on one page, keyed by account id.
+   *
+   * POST because the ids are a list of UUIDs — twenty-five of them is roughly
+   * 900 characters of query string, which is inside some URL limits and not
+   * all, and a truncated list would refresh some rows and silently not others.
+   *
+   * An account MT5 will not answer for is ABSENT from the result rather than
+   * null. The caller falls back to the cached figure for those, which is why
+   * the two cases have to be distinguishable.
+   */
+  async getLiveBalances(
+    accountIds: string[],
+    signal?: AbortSignal,
+  ): Promise<Record<string, string>> {
+    if (accountIds.length === 0) return {};
+    const { data } = await apiClient.post<Record<string, string>>(
+      '/admin/trading-accounts/live-balances',
+      { accountIds },
+      { signal },
+    );
+    return data;
+  },
+
+  /**
    * Live balance and margin from MT5, rather than the cached `balance` column.
    *
    * Null when the account has no MT5 login yet.

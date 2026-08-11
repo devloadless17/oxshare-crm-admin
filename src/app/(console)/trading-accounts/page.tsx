@@ -167,6 +167,28 @@ function TradingAccountsPageContent() {
   );
 
   const rows = query.data?.items ?? [];
+
+  /*
+   * The BALANCE COLUMN IS A CACHE, and nothing writes to it except a console
+   * deposit. A client's own trading moves the real figure every second and MT5
+   * never tells us, so the column is not merely stale — it is confidently
+   * wrong, and it looks authoritative.
+   *
+   * That is not hypothetical. This screen showed ten accounts at $0.00, which
+   * was the honest content of a column nobody had ever written to.
+   *
+   * So the rows on screen are refreshed from MT5. Keyed on the ids so it
+   * refetches when the page, filter or sort changes, and disabled when there is
+   * nothing to ask about — one bridge call per account means an empty page must
+   * not become a request.
+   */
+  const loginIds = rows.filter((a) => a.login).map((a) => a.id);
+  const liveBalances = useResource<Record<string, string>>(
+    ['admin', 'trading-accounts', 'live-balances', loginIds],
+    (signal) => api.admin.getLiveBalances(loginIds, signal),
+    { enabled: loginIds.length > 0 },
+  );
+
   const total = query.data?.total ?? 0;
 
   /*
@@ -248,7 +270,26 @@ function TradingAccountsPageContent() {
        * the exact string is kept, because authorising one specific payout is a
        * different job from comparing a column of balances.
        */
-      cell: (a) => formatMoney(a.balance, a.currency),
+      /*
+       * Live where MT5 answered, the cached column otherwise — and the two are
+       * VISUALLY DISTINCT, because a number nobody can date is worse than no
+       * number. An account MT5 would not answer for is absent from the map
+       * rather than null, which is what makes the fallback detectable.
+       */
+      cell: (a) => {
+        const live = liveBalances.data?.[a.id];
+        if (live !== undefined) return formatMoney(live, a.currency);
+        return (
+          <span
+            className="text-muted-foreground"
+            title={a.login ? t('tradingAccounts.cachedHint') : t('tradingAccounts.noLoginHint')}
+          >
+            {formatMoney(a.balance, a.currency)}
+            <span aria-hidden="true"> *</span>
+            <span className="sr-only"> {t('tradingAccounts.cachedHint')}</span>
+          </span>
+        );
+      },
       cellClassName: 'font-mono font-semibold text-foreground whitespace-nowrap tabular',
     },
     {
@@ -465,6 +506,16 @@ function TradingAccountsPageContent() {
             noun: [t('tradingAccounts.noun'), t('tradingAccounts.nounPlural')],
           }}
         />
+        {/*
+          The asterisk needs a key, or it is decoration. Shown only when at
+          least one row actually fell back, so a page of live figures carries no
+          caveat it does not need.
+        */}
+        {rows.some((a) => liveBalances.data?.[a.id] === undefined) && (
+          <p className="px-1 pt-2 text-[11px] text-muted-foreground">
+            {t('tradingAccounts.cachedFootnote')}
+          </p>
+        )}
       </AsyncBoundary>
 
       {/*

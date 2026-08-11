@@ -1477,6 +1477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/trading-accounts/live-balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Live MT5 balances for the accounts on one page
+         * @description One bridge call per account, so the list is capped. An account MT5 will not answer for is simply absent from the result and the console falls back to its cached figure.
+         */
+        post: operations["Mt5AccountsController_liveBalances"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/trading-accounts/{id}/live": {
         parameters: {
             query?: never;
@@ -3826,6 +3846,9 @@ export interface components {
             direction: "deposit" | "withdraw";
             /** @example Goodwill credit, ticket #4412 */
             comment: string;
+        };
+        Mt5LiveBalancesDto: {
+            accountIds: string[];
         };
         KycFieldConfigDto: {
             /** @example f-1 */
@@ -6898,6 +6921,27 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    Mt5AccountsController_liveBalances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Mt5LiveBalancesDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

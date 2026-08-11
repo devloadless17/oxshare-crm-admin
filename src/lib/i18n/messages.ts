@@ -1921,6 +1921,9 @@ export const messages = {
   'tradingAccounts.adjustBalance': 'Adjust balance on MT5',
   'tradingAccounts.dealerWarning':
     'This moves money on MT5 only — the client wallet and the CRM ledger are untouched. To fund an account from a wallet, use a transfer instead.',
+  'tradingAccounts.noLoginHint': 'No MT5 account exists for this row, so it has no balance.',
+  'tradingAccounts.cachedFootnote':
+    '* Last known balance — MT5 did not answer for this account. MT5 owns the real figure.',
   'tradingAccounts.cachedHint': 'Last known. MT5 owns the real figure.',
 } as const;
 
