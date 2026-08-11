@@ -363,6 +363,66 @@ export interface WalletListParams {
  * There is no `tier`, no `leverage` and no `mt5Group` key, so those columns
  * must declare `sortable: false`.
  */
+/** `POST /admin/trading-accounts` — the body. */
+export type CreateMt5AccountDto = components['schemas']['CreateMt5AccountDto'];
+
+/** `POST /admin/trading-accounts/{id}/balance` — the body. */
+export type Mt5BalanceDto = components['schemas']['Mt5BalanceDto'];
+
+/**
+ * One MT5 group an account may be opened in.
+ *
+ * Hand-declared, and the gap is named per the repo rule: `GET /admin/mt5/groups`
+ * carries no `@ApiOkResponse`, so the generated schema for it is
+ * `content?: never`. Aliasing that would type the response as nothing.
+ */
+export interface Mt5Group {
+  name: string;
+  currency: string;
+  leverageDefault: number;
+}
+
+/**
+ * A freshly opened account, including the passwords.
+ *
+ * Hand-declared for the same reason as `Mt5Group`. The two password fields are
+ * returned ONCE by the API and stored nowhere — the console must show them
+ * immediately or they are gone, exactly like an API key.
+ */
+export interface CreatedMt5Account {
+  id: string;
+  login: string;
+  group: string;
+  currency: string;
+  leverage: number;
+  environment: 'live' | 'demo';
+  masterPassword: string;
+  investorPassword: string;
+}
+
+/** The result of a credit or debit against MT5. */
+export interface Mt5BalanceResult {
+  dealId: string;
+  /** True when the bridge replayed a stored result rather than moving money again. */
+  replayed: boolean;
+  /** MT5's balance after the move, or null if the read-back failed. */
+  balance: string | null;
+}
+
+/** What MT5 says an account holds right now — distinct from the cached column. */
+export interface Mt5LiveSnapshot {
+  login: number;
+  group: string;
+  currency: string;
+  leverage: number;
+  balance: string;
+  equity: string;
+  credit: string;
+  margin: string;
+  marginFree: string;
+  marginLevel: string | null;
+}
+
 export const TRADING_ACCOUNT_SORT_KEYS = [
   'createdAt',
   'balance',
@@ -1525,6 +1585,58 @@ export const adminApi = {
     const query = new URLSearchParams({ days: String(days) });
     const { data } = await apiClient.get<WithdrawalVolumeSeries>(
       `/admin/stats/withdrawal-volume?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /**
+   * The MT5 groups an account may be opened in, read live from the server.
+   *
+   * Not cached and not hardcoded: the list is the broker's configuration and
+   * changes without telling us. A stale dropdown opens accounts in a group that
+   * no longer exists, which MT5 refuses with an error nobody can act on.
+   */
+  async getMt5Groups(signal?: AbortSignal): Promise<Mt5Group[]> {
+    const { data } = await apiClient.get<Mt5Group[]>('/admin/mt5/groups', { signal });
+    return data;
+  },
+
+  /**
+   * Open an MT5 account for a client.
+   *
+   * The response carries the master and investor passwords. They are returned
+   * once and stored nowhere, so whatever calls this must show them before it
+   * navigates away.
+   */
+  async createTradingAccount(dto: CreateMt5AccountDto): Promise<CreatedMt5Account> {
+    const { data } = await apiClient.post<CreatedMt5Account>('/admin/trading-accounts', dto);
+    return data;
+  },
+
+  /**
+   * Credit or debit a trading account on MT5.
+   *
+   * `amount` is always POSITIVE and `direction` carries the sign — the API
+   * refuses a signed amount. Two sources of truth for a direction is how a
+   * withdrawal becomes a deposit.
+   */
+  async adjustTradingBalance(id: string, dto: Mt5BalanceDto): Promise<Mt5BalanceResult> {
+    const { data } = await apiClient.post<Mt5BalanceResult>(
+      `/admin/trading-accounts/${id}/balance`,
+      dto,
+    );
+    return data;
+  },
+
+  /**
+   * Live balance and margin from MT5, rather than the cached `balance` column.
+   *
+   * Null when the account has no MT5 login yet.
+   */
+  async getTradingAccountLive(id: string, signal?: AbortSignal): Promise<Mt5LiveSnapshot | null> {
+    const { data } = await apiClient.get<Mt5LiveSnapshot | null>(
+      `/admin/trading-accounts/${id}/live`,
       { signal },
     );
     return data;

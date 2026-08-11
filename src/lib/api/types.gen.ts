@@ -1416,6 +1416,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/mt5/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** MT5 groups an account may be opened in, read live from the server */
+        get: operations["Mt5AccountsController_listGroups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trading-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every client trading account, with its owner (balances are strings)
+         * @description `balance` is CRM-owned until the MT5 bridge lands and crosses this boundary as a STRING. `login` is NULL until MT5 issues one, and is a string rather than a number because leading zeros are significant to the bridge.
+         */
+        get: operations["AdminHoldingsController_listTradingAccounts"];
+        put?: never;
+        /**
+         * Open an MT5 trading account for a client
+         * @description Creates the account on the MT5 server FIRST and records it locally second, so a bridge failure leaves no row pointing at an account that does not exist. Returns the master and investor passwords once; they are never stored.
+         */
+        post: operations["Mt5AccountsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trading-accounts/{id}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Credit or debit a trading account directly on MT5
+         * @description A DEALER operation with no wallet leg — for corrections, bonuses and manual settlement. Funding an account from a client wallet is a transfer (POST /transfers), which holds and posts both sides. Requires trading.deposit or trading.withdraw depending on direction.
+         */
+        post: operations["Mt5AccountsController_balance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trading-accounts/{id}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live balance and margin for one account, read from MT5 */
+        get: operations["Mt5AccountsController_live"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/kyc/config": {
         parameters: {
             query?: never;
@@ -2903,26 +2981,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/trading-accounts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Every client trading account, with its owner (balances are strings)
-         * @description `balance` is CRM-owned until the MT5 bridge lands and crosses this boundary as a STRING. `login` is NULL until MT5 issues one, and is a string rather than a number because leading zeros are significant to the bridge.
-         */
-        get: operations["AdminHoldingsController_listTradingAccounts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3744,6 +3802,30 @@ export interface components {
             /** @description OPEN positions, newest first. Empty for everyone until an MT5 bridge writes to the table — a real query returning zero rows, not a placeholder. */
             openPositions: components["schemas"]["PositionDto"][];
             stats: components["schemas"]["DashboardStatsDto"];
+        };
+        CreateMt5AccountDto: {
+            /**
+             * Format: uuid
+             * @description The client this account belongs to.
+             */
+            userId: string;
+            /** @example real\Standard */
+            group: string;
+            /** @enum {string} */
+            environment: "live" | "demo";
+            /** @description Omit for the group default. MT5 clamps to what the group allows. */
+            leverage?: number;
+        };
+        Mt5BalanceDto: {
+            /**
+             * @description Positive decimal. Direction carries the sign.
+             * @example 250.00
+             */
+            amount: string;
+            /** @enum {string} */
+            direction: "deposit" | "withdraw";
+            /** @example Goodwill credit, ticket #4412 */
+            comment: string;
         };
         KycFieldConfigDto: {
             /** @example f-1 */
@@ -6728,6 +6810,121 @@ export interface operations {
             };
         };
     };
+    Mt5AccountsController_listGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminHoldingsController_listTradingAccounts: {
+        parameters: {
+            query?: {
+                /** @description Accounts of one client. */
+                userId?: string;
+                environment?: "live" | "demo";
+                status?: "active" | "suspended" | "closed";
+                /** @description Legacy offset paging. Prefer cursor. */
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description Counting is a full scan. */
+                withTotal?: string;
+                /** @description login is nullable and pins NULLS LAST in both directions. */
+                sort?: "createdAt" | "balance" | "login" | "currency" | "status" | "environment" | "userEmail" | "userFirstName";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountListResponseDto"];
+                };
+            };
+        };
+    };
+    Mt5AccountsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMt5AccountDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    Mt5AccountsController_balance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Mt5BalanceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    Mt5AccountsController_live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Null when the account has no MT5 login yet. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     KycController_getConfig: {
         parameters: {
             query?: never;
@@ -8890,40 +9087,6 @@ export interface operations {
                 };
                 content: {
                     "text/csv": string;
-                };
-            };
-        };
-    };
-    AdminHoldingsController_listTradingAccounts: {
-        parameters: {
-            query?: {
-                /** @description Accounts of one client. */
-                userId?: string;
-                environment?: "live" | "demo";
-                status?: "active" | "suspended" | "closed";
-                /** @description Legacy offset paging. Prefer cursor. */
-                page?: string;
-                limit?: string;
-                /** @description Opaque keyset cursor (R-2.4). */
-                cursor?: string;
-                /** @description Counting is a full scan. */
-                withTotal?: string;
-                /** @description login is nullable and pins NULLS LAST in both directions. */
-                sort?: "createdAt" | "balance" | "login" | "currency" | "status" | "environment" | "userEmail" | "userFirstName";
-                order?: "asc" | "desc";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TradingAccountListResponseDto"];
                 };
             };
         };

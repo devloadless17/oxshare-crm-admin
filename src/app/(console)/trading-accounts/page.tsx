@@ -1,7 +1,8 @@
 'use client';
 
+import * as React from 'react';
 import { Suspense } from 'react';
-import { CandlestickChart } from 'lucide-react';
+import { CandlestickChart, Plus, Wallet } from 'lucide-react';
 import api from '@/lib/api';
 import type {
   TradingAccountEnvironment,
@@ -27,6 +28,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t, type MessageKey } from '@/lib/i18n';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
+import { Button } from '@/components/ui/button';
+import { RowActions } from '@/components/row-actions';
+import { OpenAccountModal } from '@/components/trading/open-account-modal';
+import { AdjustBalanceModal } from '@/components/trading/adjust-balance-modal';
 import { formatMoney } from '@/lib/money';
 
 /**
@@ -135,6 +142,24 @@ function TradingAccountsPageContent() {
     // no column, and sending it would cache one result set under two keys.
     order: sortKey ? url.sort.order : undefined,
   };
+
+  /*
+   * Three separate keys, checked separately, because they are three different
+   * powers — see the permissions catalogue. An operator who onboards clients
+   * needs `trading.create` and neither of the money ones.
+   *
+   * This is UX, not security: the API enforces each independently. Hiding a
+   * control the caller cannot use is what stops the console offering an action
+   * that always 403s.
+   */
+  const { admin } = useAdmin();
+  const canCreate = hasPermission(admin, 'trading.create');
+  const canDeposit = hasPermission(admin, 'trading.deposit');
+  const canWithdraw = hasPermission(admin, 'trading.withdraw');
+  const canAdjust = canDeposit || canWithdraw;
+
+  const [openFor, setOpenFor] = React.useState<{ userId: string; label: string } | null>(null);
+  const [adjusting, setAdjusting] = React.useState<TradingAccountRow | null>(null);
 
   const query = useResource<TradingAccountListResponse>(
     ['admin', 'trading-accounts', params],
@@ -274,6 +299,32 @@ function TradingAccountsPageContent() {
 
   const isFiltered = Boolean(userId || environment || status);
 
+  /*
+   * Appended rather than written into the array literal above, so the column
+   * only exists for an operator who can act. A row menu that renders empty is
+   * a control that looks broken rather than absent.
+   */
+  if (canAdjust) {
+    columns.push({
+      header: '',
+      cell: (a) => (
+        <RowActions
+          label={t('tradingAccounts.rowActions', { login: a.login ?? a.id })}
+          items={[
+            {
+              label: t('tradingAccounts.adjustBalance'),
+              icon: Wallet,
+              // No MT5 login means no account on the server to move money on.
+              // Suspended accounts are refused by the API too.
+              disabled: !a.login || a.status !== 'active',
+              onSelect: () => setAdjusting(a),
+            },
+          ]}
+        />
+      ),
+    });
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       <div className="flex shrink-0 flex-wrap items-start justify-between gap-4">
@@ -331,6 +382,26 @@ function TradingAccountsPageContent() {
             <SelectItem value="closed">{t('tradingAccounts.statusClosed')}</SelectItem>
           </SelectContent>
         </Select>
+
+        {canCreate && userId && (
+          <Button
+            type="button"
+            size="sm"
+            className="h-9"
+            onClick={() =>
+              setOpenFor({
+                userId,
+                label:
+                  [rows[0]?.user.firstName, rows[0]?.user.lastName].filter(Boolean).join(' ') ||
+                  rows[0]?.user.email ||
+                  userId,
+              })
+            }
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {t('tradingAccounts.openTitle')}
+          </Button>
+        )}
 
         {isFiltered && (
           <button
@@ -395,6 +466,32 @@ function TradingAccountsPageContent() {
           }}
         />
       </AsyncBoundary>
+
+      {/*
+        Rendered once for the page rather than per row: a modal inside a table
+        cell unmounts when the row does, which on a background refetch closes
+        the dialog under the operator's hands.
+      */}
+      {openFor && (
+        <OpenAccountModal
+          open
+          onClose={() => setOpenFor(null)}
+          userId={openFor.userId}
+          clientLabel={openFor.label}
+        />
+      )}
+
+      {adjusting && (
+        <AdjustBalanceModal
+          open
+          onClose={() => setAdjusting(null)}
+          accountId={adjusting.id}
+          login={adjusting.login ?? ''}
+          currency={adjusting.currency}
+          canDeposit={canDeposit}
+          canWithdraw={canWithdraw}
+        />
+      )}
     </div>
   );
 }

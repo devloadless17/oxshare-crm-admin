@@ -1867,6 +1867,61 @@ export const messages = {
 
   // The account menu's link to the screen above.
   'nav.profile': 'Profile',
+  // ── Trading accounts: opening one, and moving its balance ─────────────────
+  // These name MT5 concepts an operator has to get right, so the hints say what
+  // the choice DOES rather than restating the label.
+  'tradingAccounts.openTitle': 'Open a trading account',
+  'tradingAccounts.open': 'Open account',
+  'tradingAccounts.opening': 'Opening…',
+  'tradingAccounts.openFor': 'On the MT5 server, for {client}.',
+  'tradingAccounts.opened': 'Account {login} opened.',
+  'tradingAccounts.openFailed': 'That account could not be opened.',
+  'tradingAccounts.fieldGroup': 'MT5 group',
+  'tradingAccounts.chooseGroup': 'Choose a group',
+  'tradingAccounts.groupsLoading': 'Loading groups from MT5',
+  'tradingAccounts.groupsFailed': 'Could not read the group list from MT5.',
+  'tradingAccounts.noGroups':
+    'The MT5 manager account can see no groups. The broker needs to grant it access before an account can be opened.',
+  'tradingAccounts.fieldEnvironment': 'Environment',
+  // Distinct from `envLive`/`envDemo` above, which are the TABLE's badges and
+  // have to stay one word. In a dropdown the operator is choosing rather than
+  // scanning, and the consequence of the choice is worth spelling out.
+  'tradingAccounts.envLiveOption': 'Live — real money',
+  'tradingAccounts.envDemoOption': 'Demo — practice money',
+  'tradingAccounts.environmentHint': 'A wallet can only fund a live account.',
+  'tradingAccounts.fieldLeverage': 'Leverage',
+  'tradingAccounts.leveragePlaceholder': 'Group default',
+  'tradingAccounts.leverageHint':
+    'Leave blank for the group default. MT5 caps it to what the group allows.',
+
+  'tradingAccounts.credentialsTitle': 'Account credentials',
+  'tradingAccounts.credentialsWarning':
+    'These passwords are shown once and are not stored anywhere. Copy them now and send them to the client — they cannot be recovered, only reset.',
+  'tradingAccounts.masterPassword': 'Master password',
+  'tradingAccounts.investorPassword': 'Investor password (read-only)',
+  'tradingAccounts.credentialsDone': "I've saved these",
+
+  'tradingAccounts.balanceTitle': 'Adjust balance',
+  'tradingAccounts.deposit': 'Deposit',
+  'tradingAccounts.withdraw': 'Withdraw',
+  'tradingAccounts.balanceFor': 'On MT5 account {login}. This does not touch the client wallet.',
+  'tradingAccounts.fieldAmount': 'Amount',
+  'tradingAccounts.fieldComment': 'Reason',
+  'tradingAccounts.commentPlaceholder': 'Shown in the MT5 deal comment',
+  'tradingAccounts.commentHint':
+    'Required. This is the only explanation visible in the broker terminal.',
+  'tradingAccounts.balanceConfirm': 'Apply',
+  'tradingAccounts.balanceApplying': 'Applying…',
+  'tradingAccounts.deposited': 'Credited {amount}. Deal {dealId}.',
+  'tradingAccounts.withdrawn': 'Debited {amount}. Deal {dealId}.',
+  'tradingAccounts.balanceFailed': 'That balance change did not go through.',
+  'tradingAccounts.replayed': 'Already applied — the stored result was returned.',
+  'tradingAccounts.liveBalance': 'Live balance',
+  'tradingAccounts.rowActions': 'Actions for account {login}',
+  'tradingAccounts.adjustBalance': 'Adjust balance on MT5',
+  'tradingAccounts.dealerWarning':
+    'This moves money on MT5 only — the client wallet and the CRM ledger are untouched. To fund an account from a wallet, use a transfer instead.',
+  'tradingAccounts.cachedHint': 'Last known. MT5 owns the real figure.',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */
