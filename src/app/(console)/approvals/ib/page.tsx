@@ -254,6 +254,27 @@ export default function PartnerApprovalsPage() {
         ),
     },
     {
+      /*
+       * THE PROGRAMME APPLIED FOR, and the reason this column exists at all:
+       * approving GRANTS this agency, so a reviewer deciding without seeing it
+       * is deciding blind.
+       *
+       * Not sortable — `agencyName` is resolved after the paged query, so the
+       * endpoint's allowlist has no column for it and offering the control
+       * would promise an ordering the server cannot honour.
+       */
+      header: t('partnerReview.colAgency'),
+      sortable: false,
+      cell: (row) =>
+        row.agencyName ? (
+          <span className="text-xs">{row.agencyName}</span>
+        ) : (
+          /* Not "none": the applicant named no programme, which on approval
+             leaves the partner unrestricted rather than selling nothing. */
+          <span className="text-xs text-muted-foreground">{t('partnerReview.noAgency')}</span>
+        ),
+    },
+    {
       header: t('partnerReview.colStatus'),
       ...sortableBy('status'),
       cell: (row) => <StatusBadge status={row.application.status} />,

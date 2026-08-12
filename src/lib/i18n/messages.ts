@@ -1759,6 +1759,10 @@ export const messages = {
   'partnerReview.colApplicant': 'Applicant',
   'partnerReview.colSubmitted': 'Submitted',
   'partnerReview.colVolume': 'Expected volume (self-reported)',
+  'partnerReview.colAgency': 'Applied for',
+  // Not "none" — an application naming no programme leaves the partner
+  // unrestricted on approval, which is the opposite of selling nothing.
+  'partnerReview.noAgency': 'Not specified',
   'partnerReview.colStatus': 'Status',
   'partnerReview.colActions': 'Decision',
   'partnerReview.notGiven': 'Not given',
@@ -1843,6 +1847,10 @@ export const messages = {
   'partners.colName': 'Partner',
   'partners.colEmail': 'Email',
   'partners.colLevel': 'Level',
+  'partners.colAgency': 'Agency',
+  // Their clients are offered every product, so this is "unrestricted" and
+  // deliberately not "none" — the two read as opposites.
+  'partners.noAgency': 'All products',
   'partners.colReferralCode': 'Referral code',
   'partners.colParent': 'Parent',
   'partners.colActions': 'Actions',

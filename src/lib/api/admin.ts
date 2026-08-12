@@ -79,6 +79,15 @@ export interface IbPartnerPage {
      * so a caller never has to distinguish "nothing earned" from "no data".
      */
     earnings: { confirmed: string; pending: string };
+    /**
+     * The agency (وكالة) this partner is appointed under, by name.
+     *
+     * NULL means they are on none — appointed before agencies existed — and
+     * their clients are offered the FULL catalogue rather than nothing. The
+     * screen says that rather than printing a dash, because the two read as
+     * opposites.
+     */
+    agencyName: string | null;
   }>;
   total: number;
 }
@@ -93,6 +102,13 @@ export interface IbApplicationPage {
       lastName: string;
       verificationLevel: number;
     };
+    /**
+     * The programme applied for, by name. Null when the applicant named none.
+     *
+     * The reviewer needs it before deciding: approving GRANTS this agency, and
+     * an approval made without seeing which one is made blind.
+     */
+    agencyName: string | null;
   }>;
   total: number;
   counts: Record<IbApplicationStatus, number>;
@@ -798,9 +814,17 @@ export const adminApi = {
     return data;
   },
 
+  /**
+   * Approve, optionally overriding what the applicant asked for.
+   *
+   * `agencyId` OMITTED grants the agency they applied for, which is the normal
+   * case and the safe default — approving a request while silently substituting
+   * a different programme is how you produce an angry partner. Send one only to
+   * appoint them somewhere else.
+   */
   async approveIbApplication(
     id: string,
-    body: { level?: number; parentIbUserId?: string } = {},
+    body: { level?: number; parentIbUserId?: string; agencyId?: string } = {},
   ): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/applications/${id}/approve`, body);
     return data;

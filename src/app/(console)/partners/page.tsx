@@ -285,6 +285,28 @@ export default function PartnersPage() {
         t('partners.levelLine', { level: String(account.level), name: levelName }),
     },
     {
+      /*
+       * THE AGENCY — what this partner is allowed to sell.
+       *
+       * It sits beside the level because the two are the partner's whole
+       * commercial position and are orthogonal: the level is how much they
+       * earn, the agency is what they may sell. A partner list that shows only
+       * the first answers half the question anybody opens this screen with.
+       *
+       * Not sortable: `agencyName` is resolved after the paged query, so the
+       * endpoint has no column to order on and the control would promise an
+       * ordering the server cannot honour.
+       */
+      header: t('partners.colAgency'),
+      sortable: false,
+      cell: ({ agencyName }) =>
+        agencyName ?? (
+          /* Their clients get the FULL catalogue, which is why this reads as
+             "unrestricted" rather than as a missing value. */
+          <span className="text-muted-foreground">{t('partners.noAgency')}</span>
+        ),
+    },
+    {
       header: t('partners.colReferralCode'),
       ...sortableBy('referralCode'),
       cell: ({ account }) => account.referralCode,
