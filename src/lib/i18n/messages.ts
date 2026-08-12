@@ -1034,6 +1034,9 @@ export const messages = {
   'tradingSettings.maxDemoDeposit': 'Largest demo starting balance',
   'tradingSettings.maxDemoDepositHint':
     'A client asking for more gets this instead. Practice with position sizes nobody would really trade teaches nothing.',
+  'tradingSettings.ibCap': 'Maximum paid to partners (%)',
+  'tradingSettings.ibCapHint':
+    'The most of its own revenue on a trade the broker will pay out across the whole partner chain. Partner level rates each take a share of the full revenue, so they add up — this caps the total and scales it proportionally. 100 means the broker keeps nothing.',
   'tradingSettings.readOnly': 'You do not have permission to change these.',
   'tradingSettings.updateFailed': 'Could not save the trading settings.',
   'tradingSettings.save': 'Save changes',

@@ -76,6 +76,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
   // Trailing zeros trimmed for display: the column is numeric(28,8) and
   // '1000000.00000000' in a text box is a number nobody typed.
   const [maxDemoDeposit, setMaxDemoDeposit] = React.useState(trimAmount(settings.maxDemoDeposit));
+  const [ibCap, setIbCap] = React.useState(trimAmount(settings.ibMaxRevenueSharePct));
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
   const queryClient = useQueryClient();
@@ -87,6 +88,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         maxLiveAccounts: parseCount(maxLiveAccounts),
         maxDemoAccounts: parseCount(maxDemoAccounts),
         maxDemoDeposit: maxDemoDeposit.trim(),
+        ibMaxRevenueSharePct: ibCap.trim(),
       }),
     onSuccess: () => {
       setError(null);
@@ -104,7 +106,8 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
     leverages.trim() !== settings.leverages.join(',') ||
     maxLiveAccounts.trim() !== String(settings.maxLiveAccounts) ||
     maxDemoAccounts.trim() !== String(settings.maxDemoAccounts) ||
-    maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit);
+    maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit) ||
+    ibCap.trim() !== trimAmount(settings.ibMaxRevenueSharePct);
 
   const disabled = !canManage || mutation.isPending;
   const clear = () => setError(null);
@@ -211,6 +214,33 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
           pattern="\d+(\.\d{1,2})?"
           maxLength={20}
           placeholder="1000000"
+          className={`${INPUT_CLASS} font-mono tabular-nums`}
+        />
+      </Field>
+
+      <Field
+        id="trading-ib-cap"
+        label={t('tradingSettings.ibCap')}
+        hint={t('tradingSettings.ibCapHint')}
+      >
+        {/*
+          Text with a numeric pattern, not `type="number"` — this is a rate that
+          reaches a money calculation, and a number input hands back a value the
+          browser has already normalised through a float.
+        */}
+        <input
+          id="trading-ib-cap"
+          type="text"
+          inputMode="decimal"
+          value={ibCap}
+          onChange={(e) => {
+            setIbCap(e.target.value);
+            clear();
+          }}
+          disabled={disabled}
+          required
+          pattern="(100(\.0{1,2})?|\d{1,2}(\.\d{1,2})?)"
+          maxLength={6}
           className={`${INPUT_CLASS} font-mono tabular-nums`}
         />
       </Field>

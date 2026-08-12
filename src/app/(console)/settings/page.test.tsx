@@ -99,6 +99,10 @@ beforeEach(() => {
     maxLiveAccounts: 5,
     maxDemoAccounts: 5,
     maxDemoDeposit: '1000000.00000000',
+    // Required since the broker's revenue cap arrived. Without it the panel's
+    // `trimAmount` reads undefined and the whole form throws — which surfaced
+    // as an unrelated tab-navigation failure, three tests away.
+    ibMaxRevenueSharePct: '50.00',
     updatedAt: null,
   });
   getSmtpSettings.mockResolvedValue({

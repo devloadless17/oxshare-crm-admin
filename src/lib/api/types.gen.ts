@@ -3623,6 +3623,9 @@ export interface components {
             /** @description What a client types at registration to be attributed here. */
             referralCode: string;
             active: boolean;
+            agencyName?: string | null;
+            /** @description Product names this partner may introduce clients to. Empty means unrestricted. */
+            products: string[];
             /** Format: date-time */
             approvedAt: string;
         };
@@ -3636,6 +3639,7 @@ export interface components {
             status: "pending" | "approved" | "rejected";
             /** @description Already composed — this is the sentence the client is shown. */
             rejectionReason: string | null;
+            agencyName?: string | null;
             reviewedBy: string | null;
             /** Format: date-time */
             reviewedAt: string | null;
@@ -4338,6 +4342,11 @@ export interface components {
              * @example 1000000.00000000
              */
             maxDemoDeposit: string;
+            /**
+             * @description The most of its revenue the broker pays partners. IB level rates are each a share of the FULL revenue and therefore add up; this caps the chain total and scales it pro rata.
+             * @example 50.00
+             */
+            ibMaxRevenueSharePct: string;
             /** Format: date-time */
             updatedAt?: string | null;
         };
@@ -4353,6 +4362,11 @@ export interface components {
              * @example 1000000.00
              */
             maxDemoDeposit: string;
+            /**
+             * @description Percent, 0 to 100.
+             * @example 50.00
+             */
+            ibMaxRevenueSharePct: string;
         };
         SmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */
