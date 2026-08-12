@@ -78,16 +78,26 @@ export default function AgenciesPage() {
    */
   const saveAgency = useMutation({
     mutationFn: async (values: AgencyFormValues) => {
+      /*
+       * `productIds` is stripped rather than passed through.
+       *
+       * The form carries it because the operator edits it here, but the agency
+       * DTO does not have the field and the API runs `forbidNonWhitelisted` —
+       * so sending it fails the whole save with "property productIds should not
+       * exist" rather than being ignored. That strictness is the right default;
+       * this is the call site that has to respect it.
+       */
+      const { productIds, ...agency } = values;
+
       const saved = editing
-        ? await adminApi.updateAgency(editing.id, values)
-        : await adminApi.createAgency(values);
+        ? await adminApi.updateAgency(editing.id, agency)
+        : await adminApi.createAgency(agency);
 
       const before = editing?.productIds ?? [];
       const moved =
-        values.productIds.length !== before.length ||
-        values.productIds.some((id) => !before.includes(id));
+        productIds.length !== before.length || productIds.some((id) => !before.includes(id));
 
-      if (moved) await adminApi.setAgencyProducts(saved.id, values.productIds);
+      if (moved) await adminApi.setAgencyProducts(saved.id, productIds);
       return saved;
     },
     onSuccess: async (_data, values) => {

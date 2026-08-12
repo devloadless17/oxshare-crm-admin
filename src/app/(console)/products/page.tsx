@@ -85,12 +85,20 @@ export default function ProductsPage() {
    */
   const saveProduct = useMutation({
     mutationFn: async (values: ProductFormValues) => {
+      /*
+       * `groups` is stripped rather than passed through. The product DTO has no
+       * such field and the API runs `forbidNonWhitelisted`, so sending it fails
+       * the whole save with "property groups should not exist" instead of being
+       * ignored — the groups travel on their own endpoints below.
+       */
+      const { groups: wantedGroups, ...product } = values;
+
       const saved = editing
-        ? await adminApi.updateProduct(editing.id, values)
-        : await adminApi.createProduct(values);
+        ? await adminApi.updateProduct(editing.id, product)
+        : await adminApi.createProduct(product);
 
       const before = editing?.groups ?? [];
-      const wanted = new Set(values.groups.map((group) => group.mt5Group));
+      const wanted = new Set(wantedGroups.map((group) => group.mt5Group));
 
       for (const group of before) {
         if (!wanted.has(group.mt5Group)) {
@@ -98,7 +106,7 @@ export default function ProductsPage() {
         }
       }
 
-      for (const group of values.groups) {
+      for (const group of wantedGroups) {
         if (group.id !== undefined) continue;
         await adminApi.attachProductGroup(saved.id, {
           environment: group.environment,
