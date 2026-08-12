@@ -74,7 +74,7 @@ TWINS=(
   src/lib/money.ts
   src/lib/relative-time.ts
   src/lib/notification-sound.ts
-  src/hooks/use-notification-stream.ts
+  src/hooks/use-realtime.ts
   src/lib/asset-url.ts
   src/lib/table-sort.ts
   src/components/data-table.tsx

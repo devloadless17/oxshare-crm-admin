@@ -1,3 +1,5 @@
+import { resolveRealtimeOrigin } from './env';
+
 /**
  * The per-request `script-src`, with a nonce — the half of the CSP that cannot
  * be a static header.
@@ -69,9 +71,21 @@ export function contentSecurityPolicy(nonce: string, isProd: boolean): string {
     "style-src 'self' 'unsafe-inline'", // Tailwind and Next inject style tags
     "img-src 'self' data:", // KYC documents load same-origin via the /api rewrite
     "font-src 'self' data:",
-    // Same-origin only: the API is reached through the /api rewrite, so the
-    // browser never needs to talk to :3001 directly. Anything else is exfiltration.
-    `connect-src 'self'${isProd ? '' : ' ws: http://localhost:*'}`,
+    /*
+     * Same-origin PLUS the API's own origin, for the WebSocket only.
+     *
+     * Every REST call still goes through the `/api` rewrite and is covered by
+     * `'self'`. A WebSocket cannot: a Next rewrite does not proxy an upgrade,
+     * so the socket connects directly to the API and the browser needs that
+     * origin named here — with its `ws://`/`wss://` scheme, because
+     * `connect-src` matches the scheme and an `https://` entry alone does NOT
+     * authorise `wss://` to the same host.
+     *
+     * Narrow on purpose: one origin, not a wildcard. The directive's job is to
+     * bound where a compromised dependency could send a session, and that is
+     * only worth anything while the list stays short.
+     */
+    `connect-src 'self' ${apiOrigins(isProd)}`,
     "frame-ancestors 'none'", // no OxShare site should embed the admin panel
     "base-uri 'self'", // stops an injected <base> retargeting every relative URL
     "form-action 'self'", // stops an injected form posting credentials elsewhere
@@ -90,3 +104,42 @@ export function contentSecurityPolicy(nonce: string, isProd: boolean): string {
  * name silently drops the nonce from those tags and the page goes blank.
  */
 export const NONCE_HEADER = 'x-nonce';
+
+/**
+ * The realtime origin the socket connects to, as http(s) and ws(s).
+ *
+ * Both schemes are required: `connect-src` matches on scheme, so naming only
+ * `https://api…` silently blocks `wss://api…` — and a blocked socket looks
+ * exactly like a server that never sends anything.
+ *
+ * This is the REALTIME origin, not the REST one. The API's socket engine
+ * (uWebSockets.js) listens on its own port, because Nest serves HTTP through
+ * Express and one port has one listener — so the two differ by port even
+ * though they must stay on the same hostname for the session cookie to reach
+ * the handshake.
+ *
+ * In development the localhost wildcard also covers Next's own dev-server
+ * websocket (hot reload), which is why it is broader there and pinned in
+ * production.
+ */
+function apiOrigins(isProd: boolean): string {
+  if (!isProd) return 'ws: http://localhost:* https://localhost:*';
+
+  /*
+   * Resolved through `env.ts` so there is ONE definition of the origin — a
+   * second `process.env` read here would drift from the one the socket
+   * actually dials, and a CSP naming a slightly different origin blocks the
+   * connection with no error anyone sees.
+   *
+   * Caught rather than propagated: `env.ts` throws when the variable is
+   * missing in production, and that failure belongs to the app's startup, not
+   * to header generation. Falling back to `'self'` keeps the policy strict.
+   */
+  let realtime: string;
+  try {
+    realtime = resolveRealtimeOrigin();
+  } catch {
+    return "'self'";
+  }
+  return `${realtime} ${realtime.replace(/^http/, 'ws')}`;
+}

@@ -1,5 +1,10 @@
 import { describe, expect, it, afterEach, beforeEach } from 'vitest';
-import { ConfigError, requireAbsoluteUrl, resolveServerBaseUrl } from './env';
+import {
+  ConfigError,
+  requireAbsoluteUrl,
+  resolveRealtimeOrigin,
+  resolveServerBaseUrl,
+} from './env';
 
 /**
  * TWIN of the same path in the sibling app.
@@ -11,6 +16,7 @@ import { ConfigError, requireAbsoluteUrl, resolveServerBaseUrl } from './env';
  */
 
 const ORIGINAL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const ORIGINAL_REALTIME = process.env.NEXT_PUBLIC_REALTIME_ORIGIN;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
 function setNodeEnv(value: string) {
@@ -21,11 +27,14 @@ function setNodeEnv(value: string) {
 
 beforeEach(() => {
   delete process.env.NEXT_PUBLIC_API_BASE_URL;
+  delete process.env.NEXT_PUBLIC_REALTIME_ORIGIN;
 });
 
 afterEach(() => {
   if (ORIGINAL === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
   else process.env.NEXT_PUBLIC_API_BASE_URL = ORIGINAL;
+  if (ORIGINAL_REALTIME === undefined) delete process.env.NEXT_PUBLIC_REALTIME_ORIGIN;
+  else process.env.NEXT_PUBLIC_REALTIME_ORIGIN = ORIGINAL_REALTIME;
   setNodeEnv(ORIGINAL_NODE_ENV ?? 'test');
 });
 
@@ -84,5 +93,47 @@ describe('server API base URL', () => {
     // `//admin/auth/login` does not route.
     expect(requireAbsoluteUrl('https://api.example.com/', 'X')).toBe('https://api.example.com');
     expect(requireAbsoluteUrl('https://api.example.com///', 'X')).toBe('https://api.example.com');
+  });
+});
+
+describe('realtime origin', () => {
+  it('refuses to resolve in production when the variable is unset', () => {
+    setNodeEnv('production');
+
+    /*
+     * The same rule as the API base URL, and it matters MORE here because of
+     * how the failure presents. A wrong API host fails a request visibly. A
+     * wrong realtime origin means the socket never connects, the poll quietly
+     * carries the feature at sixty-second granularity, and nothing anywhere
+     * reports that real-time stopped working.
+     */
+    expect(() => resolveRealtimeOrigin()).toThrow(ConfigError);
+    expect(() => resolveRealtimeOrigin()).toThrow(/required in production/);
+  });
+
+  it('keeps the localhost default in development', () => {
+    setNodeEnv('development');
+
+    // A DIFFERENT PORT from the API on purpose: the realtime engine owns its
+    // own listener. `npm run dev` must work with no .env.
+    expect(resolveRealtimeOrigin()).toBe('http://localhost:3003');
+  });
+
+  it('uses a configured value, trimmed of its trailing slash', () => {
+    setNodeEnv('production');
+    process.env.NEXT_PUBLIC_REALTIME_ORIGIN = 'https://api.oxshare.com:3003/';
+
+    // The trailing slash matters to a CSP entry, which is one of this value's
+    // two readers.
+    expect(resolveRealtimeOrigin()).toBe('https://api.oxshare.com:3003');
+  });
+
+  it('rejects a value that is not an absolute URL', () => {
+    setNodeEnv('production');
+    process.env.NEXT_PUBLIC_REALTIME_ORIGIN = 'localhost:3003';
+
+    // A relative value would resolve against whatever origin rendered the page
+    // — the class of bug this module exists to prevent.
+    expect(() => resolveRealtimeOrigin()).toThrow(ConfigError);
   });
 });

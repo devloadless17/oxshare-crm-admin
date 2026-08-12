@@ -36,6 +36,17 @@ const BROWSER_BASE_URL = '/api';
 /** Only correct in development — see the note above. */
 const DEV_SERVER_BASE_URL = 'http://localhost:3001';
 
+/**
+ * Where the WebSocket lives, in development only — same reasoning as above.
+ *
+ * A different PORT from the API, because the realtime engine (uWebSockets.js)
+ * owns its own listener. In production it must stay on the same HOSTNAME as the
+ * API: cookies ignore the port, but `__Host-` session cookies are host-scoped,
+ * so a realtime subdomain would receive no cookie and every handshake would be
+ * refused.
+ */
+const DEV_REALTIME_ORIGIN = 'http://localhost:3003';
+
 class ConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -86,6 +97,32 @@ function resolveServerBaseUrl(): string {
 }
 
 /**
+ * The realtime origin, resolved the same way and for the same reason.
+ *
+ * This one is read in the BROWSER, which is why it must be `process.env.NAME`
+ * spelled statically: Next inlines that at build time, and a computed lookup
+ * (`process.env[name]`) is not inlined — it would read `undefined` in the
+ * browser and silently fall back to localhost in every environment.
+ */
+function resolveRealtimeOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_REALTIME_ORIGIN;
+
+  if (configured && configured.trim() !== '') {
+    return requireAbsoluteUrl(configured.trim(), 'NEXT_PUBLIC_REALTIME_ORIGIN');
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new ConfigError(
+      'NEXT_PUBLIC_REALTIME_ORIGIN is required in production. Without it the app would ' +
+        'open its WebSocket against http://localhost:3003 and real-time updates would ' +
+        'silently never arrive — which looks exactly like a quiet system.',
+    );
+  }
+
+  return DEV_REALTIME_ORIGIN;
+}
+
+/**
  * Resolved once, at import.
  *
  * Deliberately not a function called per request: the point is that a
@@ -95,4 +132,7 @@ function resolveServerBaseUrl(): string {
 export const API_BASE_URL: string =
   typeof window !== 'undefined' ? BROWSER_BASE_URL : resolveServerBaseUrl();
 
-export { ConfigError, requireAbsoluteUrl, resolveServerBaseUrl };
+/** Read in the browser, so it is resolved on both sides — see above. */
+export const REALTIME_ORIGIN: string = resolveRealtimeOrigin();
+
+export { ConfigError, requireAbsoluteUrl, resolveServerBaseUrl, resolveRealtimeOrigin };

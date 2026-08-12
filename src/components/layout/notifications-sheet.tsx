@@ -22,7 +22,7 @@ import { canAccess } from '@/lib/permissions';
 import { t } from '@/lib/i18n';
 import { toastError } from '@/lib/toast';
 import { relativeTime } from '@/lib/relative-time';
-import { useNotificationStream } from '@/hooks/use-notification-stream';
+import { useRealtime } from '@/hooks/use-realtime';
 import {
   playNotificationSound,
   setSoundEnabled,
@@ -79,17 +79,25 @@ export function NotificationsSheet() {
   );
 
   /*
-   * The live stream. When it is proven up the poll backs off to five minutes;
+   * The live socket. When it is proven up the poll backs off to five minutes;
    * when it is not, the original sixty-second cadence carries the feature.
    *
-   * That fallback is the whole reason the poll survives: SSE is blocked by
-   * some corporate proxies and by a browser that has run out of connections to
-   * this origin, and a bell that silently stops updating is worse than a slow
-   * one — nobody can tell it apart from "nothing has happened".
+   * That fallback is the whole reason the poll survives: a WebSocket upgrade
+   * is blocked by some corporate proxies, and while Socket.IO degrades to
+   * long-polling on its own, a bell that silently stops updating is worse than
+   * a slow one — nobody can tell it apart from "nothing has happened".
    */
-  const { connected } = useNotificationStream(() => {
-    void queryClient.invalidateQueries({ queryKey: LIST_KEY });
-    playNotificationSound();
+  const { connected } = useRealtime({
+    /*
+     * The event the backend emits into this admin's room. Passed inline
+     * deliberately: `useRealtime` keys its effect on the event NAMES and holds
+     * the handlers in a ref, so this object being new on every render does not
+     * rebuild the socket.
+     */
+    'notification.created': () => {
+      void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+      playNotificationSound();
+    },
   });
 
   const count = useQuery({
