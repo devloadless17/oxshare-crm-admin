@@ -1339,6 +1339,27 @@ export interface paths {
          */
         get: operations["TradingController_myAccounts"];
         put?: never;
+        /**
+         * Open a trading account — live requires a verified identity, demo does not
+         * @description The MT5 group, leverage and currency are the broker's configuration, not the client's choice. Returns the master and investor passwords once; they are never stored.
+         */
+        post: operations["TradingController_openAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts/self-service": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether a client may open live and demo accounts themselves */
+        get: operations["TradingController_selfService"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -3739,6 +3760,13 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+        };
+        OpenOwnAccountDto: {
+            /**
+             * @description live requires a verified identity and holds real money; demo is practice money and needs no verification.
+             * @enum {string}
+             */
+            environment: "live" | "demo";
         };
         TradingAccountDto: {
             id: string;
@@ -6770,6 +6798,44 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TradingAccountDto"][];
                 };
+            };
+        };
+    };
+    TradingController_openAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenOwnAccountDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TradingController_selfService: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

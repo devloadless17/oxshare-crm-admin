@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Copy, Loader2, TriangleAlert } from 'lucide-react';
+import { Loader2, MailCheck } from 'lucide-react';
 import { adminApi, type CreatedMt5Account, type Mt5Group } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
@@ -24,13 +24,16 @@ import { t } from '@/lib/i18n';
 /**
  * Open an MT5 trading account for a client.
  *
- * ## Two screens, because the second one cannot be reopened
+ ## The passwords are NOT shown here, and that is the point
  *
- * The form, and then the credentials. MT5 returns the master and investor
- * passwords exactly once and the API stores neither — the same contract as an
- * API key. Closing this dialog is therefore destructive in a way a form dialog
- * normally is not, which is why the second step has no overlay dismissal and a
- * button that says what is about to be lost.
+ * An earlier version of this dialog displayed them, with copy buttons and a
+ * warning that they could not be recovered. That was the wrong design however
+ * carefully it was built: the account's owner is the only person who should
+ * ever hold its trading password, and this screen is read by a member of staff.
+ *
+ * They are emailed to the client instead. This dialog confirms the account and
+ * says where the credentials went, which is the part an operator actually needs
+ * — "did that work, and does the client have what they need".
  *
  * ## The group list is fetched, never hardcoded
  *
@@ -105,14 +108,8 @@ export function OpenAccountModal({
 
   if (created) {
     return (
-      <Modal
-        open={open}
-        // No dismissal by overlay or Escape. The passwords cannot be recovered,
-        // so leaving has to be a decision rather than a stray click.
-        onClose={() => undefined}
-        title={t('tradingAccounts.credentialsTitle')}
-      >
-        <Credentials account={created} onDone={close} />
+      <Modal open={open} onClose={close} title={t('tradingAccounts.openedTitle')}>
+        <Opened account={created} onDone={close} />
       </Modal>
     );
   }
@@ -231,19 +228,18 @@ export function OpenAccountModal({
 }
 
 /**
- * The one and only sight of the passwords.
+ * What an operator needs after the account exists.
  *
- * Copy buttons rather than expecting them to be transcribed: these are
- * fourteen random characters including symbols, and a mistyped master password
- * locks a client out of an account that was just created for them.
+ * The login and its settings, and confirmation that the credentials reached the
+ * client. No passwords — see the note at the top of this file.
  */
-function Credentials({ account, onDone }: { account: CreatedMt5Account; onDone: () => void }) {
+function Opened({ account, onDone }: { account: CreatedMt5Account; onDone: () => void }) {
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
-        <TriangleAlert className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+      <div className="flex gap-2 rounded-lg border border-success/40 bg-success/10 p-3">
+        <MailCheck className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
         <p className="text-xs leading-relaxed text-foreground">
-          {t('tradingAccounts.credentialsWarning')}
+          {t('tradingAccounts.credentialsEmailed', { email: account.credentialsSentTo })}
         </p>
       </div>
 
@@ -254,14 +250,18 @@ function Credentials({ account, onDone }: { account: CreatedMt5Account; onDone: 
         <Fact label={t('tradingAccounts.fieldLeverage')} value={`1:${account.leverage}`} />
       </dl>
 
-      <div className="space-y-2 border-t border-border pt-3">
-        <Secret label={t('tradingAccounts.masterPassword')} value={account.masterPassword} />
-        <Secret label={t('tradingAccounts.investorPassword')} value={account.investorPassword} />
-      </div>
+      {/*
+        Said plainly, because it changes what an operator does when a client
+        calls saying the mail never arrived. There is no copy to resend — the
+        answer is a password reset, not a lookup.
+      */}
+      <p className="border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+        {t('tradingAccounts.credentialsNoCopy')}
+      </p>
 
       <div className="flex justify-end pt-1">
         <Button type="button" size="sm" onClick={onDone}>
-          {t('tradingAccounts.credentialsDone')}
+          {t('tradingAccounts.openedDone')}
         </Button>
       </div>
     </div>
@@ -275,42 +275,6 @@ function Fact({ label, value, mono }: { label: string; value: string; mono?: boo
         {label}
       </dt>
       <dd className={`truncate font-medium text-foreground ${mono ? 'font-mono' : ''}`}>{value}</dd>
-    </div>
-  );
-}
-
-function Secret({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = React.useState(false);
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /*
-       * Swallowed deliberately. The clipboard API refuses outside a secure
-       * context and on some locked-down browsers; the password is on screen
-       * either way, so a failed copy is an inconvenience rather than something
-       * to interrupt an operator with.
-       */
-    }
-  };
-
-  return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-muted px-2.5 py-1.5 font-mono text-xs">
-          {value}
-        </code>
-        <Button type="button" size="sm" variant="outline" onClick={() => void copy()}>
-          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          {copied ? t('common.copied') : t('common.copy')}
-        </Button>
-      </div>
     </div>
   );
 }

@@ -383,11 +383,15 @@ export interface Mt5Group {
 }
 
 /**
- * A freshly opened account, including the passwords.
+ * A freshly opened account. NO PASSWORDS, deliberately.
  *
- * Hand-declared for the same reason as `Mt5Group`. The two password fields are
- * returned ONCE by the API and stored nowhere — the console must show them
- * immediately or they are gone, exactly like an API key.
+ * MT5 issues the master and investor passwords once and nothing stores them,
+ * and they are emailed to the CLIENT rather than returned here. The account's
+ * owner is the only person who should ever hold its trading password, and this
+ * response is read by a member of staff.
+ *
+ * `credentialsSentTo` exists so the console can say where they went. Silence
+ * after a successful create reads as though something was forgotten.
  */
 export interface CreatedMt5Account {
   id: string;
@@ -396,8 +400,7 @@ export interface CreatedMt5Account {
   currency: string;
   leverage: number;
   environment: 'live' | 'demo';
-  masterPassword: string;
-  investorPassword: string;
+  credentialsSentTo: string;
 }
 
 /** The result of a credit or debit against MT5. */

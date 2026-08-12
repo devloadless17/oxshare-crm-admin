@@ -1894,12 +1894,12 @@ export const messages = {
   'tradingAccounts.leverageHint':
     'Leave blank for the group default. MT5 caps it to what the group allows.',
 
-  'tradingAccounts.credentialsTitle': 'Account credentials',
-  'tradingAccounts.credentialsWarning':
-    'These passwords are shown once and are not stored anywhere. Copy them now and send them to the client — they cannot be recovered, only reset.',
-  'tradingAccounts.masterPassword': 'Master password',
-  'tradingAccounts.investorPassword': 'Investor password (read-only)',
-  'tradingAccounts.credentialsDone': "I've saved these",
+  'tradingAccounts.openedTitle': 'Account opened',
+  'tradingAccounts.openedDone': 'Done',
+  'tradingAccounts.credentialsEmailed':
+    'The login details and passwords have been emailed to {email}.',
+  'tradingAccounts.credentialsNoCopy':
+    'We keep no copy of the passwords. If the client does not receive the email, an administrator has to set a new password — they cannot be looked up.',
 
   'tradingAccounts.balanceTitle': 'Adjust balance',
   'tradingAccounts.deposit': 'Deposit',
