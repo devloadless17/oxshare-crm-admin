@@ -616,9 +616,16 @@ export type PlatformLink = components['schemas']['PlatformLinkDto'];
 
 export type SecuritySwitch = components['schemas']['SecuritySwitchDto'];
 
-/** Brand name, support contacts and the maintenance notice. */
-export type GeneralSettings = components['schemas']['GeneralSettingsDto'];
-export type UpdateGeneralSettings = components['schemas']['UpdateGeneralSettingsDto'];
+/**
+ * The terms clients may open trading accounts on.
+ *
+ * `leverages` comes back as `number[]` and goes up as the comma-separated
+ * STRING the operator typed — the asymmetry is deliberate on the server: the
+ * form is a text box, and a malformed entry is refused with a message naming
+ * it rather than silently dropped.
+ */
+export type TradingSettings = components['schemas']['TradingSettingsDto'];
+export type UpdateTradingSettings = components['schemas']['UpdateTradingSettingsDto'];
 
 /**
  * The mail configuration.
@@ -880,13 +887,13 @@ export const adminApi = {
     await apiClient.delete(`/admin/ib-levels/${level}`);
   },
 
-  async getGeneralSettings(): Promise<GeneralSettings> {
-    const { data } = await apiClient.get<GeneralSettings>('/admin/settings/general');
+  async getTradingSettings(): Promise<TradingSettings> {
+    const { data } = await apiClient.get<TradingSettings>('/admin/settings/trading');
     return data;
   },
 
-  async updateGeneralSettings(body: UpdateGeneralSettings): Promise<GeneralSettings> {
-    const { data } = await apiClient.put<GeneralSettings>('/admin/settings/general', body);
+  async updateTradingSettings(body: UpdateTradingSettings): Promise<TradingSettings> {
+    const { data } = await apiClient.put<TradingSettings>('/admin/settings/trading', body);
     return data;
   },
 

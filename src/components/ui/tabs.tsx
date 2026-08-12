@@ -140,11 +140,21 @@ export function TabPanel({
   value,
   activeValue,
   idPrefix = 'tabs',
+  className,
   children,
 }: {
   value: string;
   activeValue: string;
   idPrefix?: string;
+  /**
+   * For a panel that must FILL the page rather than fit its content.
+   *
+   * A panel is a flex item of whatever holds the strip, and a page giving its
+   * empty state the full height needs the chain unbroken from `<main>` down —
+   * so a caller passes `flex min-h-0 flex-1 flex-col` here. Without it the
+   * panel is content-height and a `flex-1` child inside it has nothing to fill.
+   */
+  className?: string;
   children: React.ReactNode;
 }) {
   if (value !== activeValue) return null;
@@ -161,7 +171,7 @@ export function TabPanel({
        * them on the strip.
        */
       tabIndex={0}
-      className="pt-6 focus-visible:outline-none"
+      className={cn('pt-6 focus-visible:outline-none', className)}
     >
       {children}
     </div>

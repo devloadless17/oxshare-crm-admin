@@ -1357,7 +1357,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Whether a client may open live and demo accounts themselves */
+        /**
+         * What a client may open themselves: account types, currencies and leverages
+         * @description The account types are the MT5 groups the broker sells online, with the currency read live from the server so the portal shows what an account will actually be denominated in. An environment with no types configured is switched off and the portal hides it.
+         */
         get: operations["TradingController_selfService"];
         put?: never;
         post?: never;
@@ -1705,20 +1708,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/settings/general": {
+    "/v1/admin/settings/trading": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Brand name, support contacts and the maintenance notice */
-        get: operations["AdminSettingsController_getGeneral"];
         /**
-         * Update the general settings
-         * @description Null or an empty string clears an optional field. The support URL must be https — it becomes a link in every client’s browser.
+         * The terms clients may open trading accounts on
+         * @description The leverage ladder, the per-client account caps and the largest demo opening balance. Until the first save these are the defaults, seeded from MT5_CLIENT_LEVERAGES when that variable is set.
          */
-        put: operations["AdminSettingsController_setGeneral"];
+        get: operations["AdminSettingsController_getTrading"];
+        /**
+         * Update the trading terms
+         * @description Leverages are a comma-separated list; a malformed entry is REFUSED rather than dropped, so a typo cannot silently shorten the offer. An account cap of 0 stops new accounts of that kind without touching the ones a client already holds.
+         */
+        put: operations["AdminSettingsController_setTrading"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3772,6 +3778,10 @@ export interface components {
              * @example Swing trading
              */
             name?: string;
+            /** @example real\Standard */
+            group?: string;
+            /** @example 100 */
+            leverage?: number;
             /**
              * @description Demo accounts only. Positive decimal string, capped by the API.
              * @example 10000.00
@@ -3979,35 +3989,47 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        GeneralSettingsDto: {
+        TradingSettingsDto: {
             /**
-             * @description Shown in the portal header.
-             * @example OxShare
+             * @description The leverage ladder offered to clients, in the order they see it.
+             * @example [
+             *       50,
+             *       100,
+             *       200,
+             *       500
+             *     ]
              */
-            brandName: string;
+            leverages: number[];
             /**
-             * @description Where clients are told to write. Null when unset.
-             * @example support@oxshare.com
+             * @description Live accounts one client may open themselves.
+             * @example 5
              */
-            supportEmail?: string | null;
+            maxLiveAccounts: number;
             /**
-             * @description Help centre or ticket portal. Null when unset.
-             * @example https://help.oxshare.com
+             * @description Demo accounts one client may open themselves.
+             * @example 5
              */
-            supportUrl?: string | null;
-            /** @description Shown to clients during planned downtime. Null shows nothing. */
-            maintenanceNotice?: string | null;
+            maxDemoAccounts: number;
+            /**
+             * @description Largest opening balance a demo account may be given. A decimal string.
+             * @example 1000000.00000000
+             */
+            maxDemoDeposit: string;
             /** Format: date-time */
             updatedAt?: string | null;
         };
-        UpdateGeneralSettingsDto: {
-            /** @example OxShare */
-            brandName: string;
-            /** @example support@oxshare.com */
-            supportEmail?: string | null;
-            /** @example https://help.oxshare.com */
-            supportUrl?: string | null;
-            maintenanceNotice?: string | null;
+        UpdateTradingSettingsDto: {
+            /** @example 50,100,200,500 */
+            leverages: string;
+            /** @example 5 */
+            maxLiveAccounts: number;
+            /** @example 5 */
+            maxDemoAccounts: number;
+            /**
+             * @description Positive decimal string.
+             * @example 1000000.00
+             */
+            maxDemoDeposit: string;
         };
         SmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */
@@ -7240,7 +7262,7 @@ export interface operations {
             };
         };
     };
-    AdminSettingsController_getGeneral: {
+    AdminSettingsController_getTrading: {
         parameters: {
             query?: never;
             header?: never;
@@ -7254,12 +7276,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GeneralSettingsDto"];
+                    "application/json": components["schemas"]["TradingSettingsDto"];
                 };
             };
         };
     };
-    AdminSettingsController_setGeneral: {
+    AdminSettingsController_setTrading: {
         parameters: {
             query?: never;
             header?: never;
@@ -7268,7 +7290,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateGeneralSettingsDto"];
+                "application/json": components["schemas"]["UpdateTradingSettingsDto"];
             };
         };
         responses: {
@@ -7277,7 +7299,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GeneralSettingsDto"];
+                    "application/json": components["schemas"]["TradingSettingsDto"];
                 };
             };
         };

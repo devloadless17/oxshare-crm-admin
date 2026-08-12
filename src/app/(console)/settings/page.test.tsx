@@ -8,6 +8,12 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
 /**
  * /settings — three tabs over three independently-guarded resources.
  *
+ * Trading is FIRST and is therefore the default landing tab. General used to
+ * hold that slot and was removed with its table, so several assertions here
+ * that read "lands on General" now read "lands on Trading" — the behaviour
+ * being pinned is unchanged: a stale or forbidden `?tab=` resolves to the first
+ * tab rather than rendering a blank panel.
+ *
  * Each panel owns its own query and is tested directly (see
  * components/rbac/smtp-settings-panel.test.tsx). What is pinned here is the
  * wiring the tab split could get wrong:
@@ -25,9 +31,9 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
  *    to `?tab=security` has to land somewhere rather than render blank.
  */
 
-const { getPlatformLinks, getGeneralSettings, getSmtpSettings } = vi.hoisted(() => ({
+const { getPlatformLinks, getTradingSettings, getSmtpSettings } = vi.hoisted(() => ({
   getPlatformLinks: vi.fn(),
-  getGeneralSettings: vi.fn(),
+  getTradingSettings: vi.fn(),
   getSmtpSettings: vi.fn(),
 }));
 
@@ -46,7 +52,7 @@ vi.mock('@/lib/api/admin', async (importOriginal) => {
     adminApi: {
       ...actual.adminApi,
       getPlatformLinks,
-      getGeneralSettings,
+      getTradingSettings,
       getSmtpSettings,
     },
   };
@@ -88,11 +94,11 @@ beforeEach(() => {
   search.current = new URLSearchParams();
 
   getPlatformLinks.mockResolvedValue([]);
-  getGeneralSettings.mockResolvedValue({
-    brandName: 'OxShare',
-    supportEmail: null,
-    supportUrl: null,
-    maintenanceNotice: null,
+  getTradingSettings.mockResolvedValue({
+    leverages: [50, 100, 200, 500],
+    maxLiveAccounts: 5,
+    maxDemoAccounts: 5,
+    maxDemoDeposit: '1000000.00000000',
     updatedAt: null,
   });
   getSmtpSettings.mockResolvedValue({
@@ -112,7 +118,7 @@ describe('which tabs an admin is offered', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['General', 'Email', 'Platforms']);
+    expect(tabs).toEqual(['Trading', 'Email', 'Platforms']);
   });
 
   it('hides the Email tab from a non-master admin', () => {
@@ -123,14 +129,14 @@ describe('which tabs an admin is offered', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['General', 'Platforms']);
+    expect(tabs).toEqual(['Trading', 'Platforms']);
   });
 
-  it('defaults to General when no tab is in the URL', async () => {
+  it('defaults to Trading when no tab is in the URL', async () => {
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(screen.getByRole('tab', { name: /general/i })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText(/brand and contact/i)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /trading/i })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText(/account opening/i)).toBeInTheDocument();
   });
 });
 
@@ -147,12 +153,12 @@ describe('the active tab comes from the URL', () => {
   });
 
   it('falls back to the first tab for an unknown ?tab=', async () => {
-    // A renamed tab in an old bookmark. Landing on General beats a blank panel.
+    // A renamed tab in an old bookmark. Landing on Trading beats a blank panel.
     search.current = new URLSearchParams('tab=nonsense');
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(screen.getByRole('tab', { name: /general/i })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText(/brand and contact/i)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /trading/i })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText(/account opening/i)).toBeInTheDocument();
   });
 
   it('falls back when a sub-admin opens a link to the master-only Email tab', () => {
@@ -163,7 +169,7 @@ describe('the active tab comes from the URL', () => {
     search.current = new URLSearchParams('tab=email');
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(screen.getByRole('tab', { name: /general/i })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /trading/i })).toHaveAttribute('aria-selected', 'true');
     expect(getSmtpSettings).not.toHaveBeenCalled();
   });
 
@@ -181,9 +187,9 @@ describe('the active tab comes from the URL', () => {
 describe('only the active panel mounts', () => {
   it('does not fetch the other tabs on load', async () => {
     renderWithProviders(<AdminSettingsPage />);
-    await screen.findByText(/brand and contact/i);
+    await screen.findByText(/account opening/i);
 
-    expect(getGeneralSettings).toHaveBeenCalledTimes(1);
+    expect(getTradingSettings).toHaveBeenCalledTimes(1);
     expect(getSmtpSettings).not.toHaveBeenCalled();
     expect(getPlatformLinks).not.toHaveBeenCalled();
   });
@@ -194,7 +200,7 @@ describe('only the active panel mounts', () => {
 
     await screen.findByText(/trading platform downloads/i);
     expect(getPlatformLinks).toHaveBeenCalledTimes(1);
-    expect(getGeneralSettings).not.toHaveBeenCalled();
+    expect(getTradingSettings).not.toHaveBeenCalled();
   });
 });
 
@@ -205,14 +211,14 @@ describe('the Security tab is gone', () => {
     expect(screen.queryByRole('tab', { name: /security/i })).toBeNull();
   });
 
-  it('lands an old ?tab=security bookmark on General', async () => {
+  it('lands an old ?tab=security bookmark on Trading', async () => {
     // The panels behind it were deleted, so this is the same path as any other
-    // stale link — General, not a blank panel.
+    // stale link — Trading, not a blank panel.
     search.current = new URLSearchParams('tab=security');
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(screen.getByRole('tab', { name: /general/i })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText(/brand and contact/i)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /trading/i })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText(/account opening/i)).toBeInTheDocument();
   });
 });
 
@@ -221,7 +227,7 @@ describe('what the settings page still does not carry', () => {
     // The point of the earlier split. Both moved to /roles and /admin-users;
     // leaving a second copy here is how the old /roles page drifted out of sync.
     renderWithProviders(<AdminSettingsPage />);
-    await screen.findByText(/brand and contact/i);
+    await screen.findByText(/account opening/i);
 
     expect(screen.queryByRole('button', { name: /create custom role/i })).toBeNull();
     expect(screen.queryByText(/admin account directory/i)).toBeNull();

@@ -3,10 +3,10 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Building2, Mail, MonitorDown } from 'lucide-react';
-import { GeneralSettingsPanel } from '@/components/rbac/general-settings-panel';
+import { LineChart, Mail, MonitorDown } from 'lucide-react';
 import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
+import { TradingSettingsPanel } from '@/components/rbac/trading-settings-panel';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
@@ -33,8 +33,8 @@ import { t } from '@/lib/i18n';
  * ── The active tab lives in the URL ────────────────────────────────────────
  *
  * `?tab=email` is linkable, survives a refresh, and gives Back somewhere to go.
- * A bookmark to the removed `?tab=security` now lands on General — see the
- * fallback below, which is the reason it exists.
+ * A bookmark to the removed `?tab=security` or `?tab=general` now lands on
+ * Trading — see the fallback below, which is the reason it exists.
  * The alternative — `useState` — makes "the SMTP settings are under Settings →
  * Email" un-sendable, which on a screen whose whole audience is two or three
  * administrators talking to each other is most of its value.
@@ -82,10 +82,26 @@ function AdminSettingsContent() {
 
   const tabs = React.useMemo<TabDefinition[]>(() => {
     const all: (TabDefinition | null)[] = [
+      /*
+       * FIRST, so it is what the screen opens on.
+       *
+       * General held that position and was removed with its table — nothing
+       * outside its own form ever read the brand name, the support contacts or
+       * the maintenance notice, so every field was an operator changing a value
+       * with no effect. Trading takes the slot rather than Email, which is
+       * permission-gated: a default tab half the operators cannot see is a
+       * screen that opens on a fallback.
+       */
+      /*
+       * Trading is visible to every admin, like Platforms and unlike Email.
+       * The leverage ladder and the account caps are terms the broker
+       * advertises to its own clients — there is nothing to withhold from an
+       * operator, and the controls are disabled without `settings.edit`.
+       */
       {
-        value: 'general',
-        label: t('settings.tabGeneral'),
-        icon: <Building2 className="h-4 w-4" aria-hidden="true" />,
+        value: 'trading',
+        label: t('settings.tabTrading'),
+        icon: <LineChart className="h-4 w-4" aria-hidden="true" />,
       },
       /*
        * The SMTP tab, on `settings.smtp.view` rather than on being the master
@@ -111,16 +127,16 @@ function AdminSettingsContent() {
 
   /*
    * An unknown or forbidden `?tab=` falls back to the first tab rather than
-   * rendering an empty screen. A stale link — to a tab that was renamed, or to
-   * `email` shared with a sub-admin who cannot see it — is a thing that happens,
-   * and landing on General is a better answer than a blank panel.
+   * rendering an empty screen. A stale link — to `general`, whose tab no longer
+   * exists, or to `email` shared with a sub-admin who cannot see it — is a
+   * thing that happens, and landing on Trading beats a blank panel.
    */
   const requested = searchParams.get('tab') ?? '';
-  // `tabs` always has at least General and Platforms, so the fallback is never
+  // `tabs` always has at least Trading and Platforms, so the fallback is never
   // reached — it exists because the compiler cannot know that from the filter.
   const active = tabs.some((tab) => tab.value === requested)
     ? requested
-    : (tabs[0]?.value ?? 'general');
+    : (tabs[0]?.value ?? 'trading');
 
   const setActive = React.useCallback(
     (value: string) => {
@@ -141,10 +157,6 @@ function AdminSettingsContent() {
       <div>
         <Tabs tabs={tabs} value={active} onValueChange={setActive} idPrefix="settings" />
 
-        <TabPanel value="general" activeValue={active} idPrefix="settings">
-          <GeneralSettingsPanel canManage={canManageSettings} />
-        </TabPanel>
-
         {/* Master admin only, and the API refuses anyone else regardless. */}
         <TabPanel value="email" activeValue={active} idPrefix="settings">
           {/*
@@ -155,6 +167,10 @@ function AdminSettingsContent() {
             read-only holder would get editable fields that 403 on save.
           */}
           <SmtpSettingsPanel canManage={canEditSmtp} />
+        </TabPanel>
+
+        <TabPanel value="trading" activeValue={active} idPrefix="settings">
+          <TradingSettingsPanel canManage={canManageSettings} />
         </TabPanel>
 
         <TabPanel value="platforms" activeValue={active} idPrefix="settings">

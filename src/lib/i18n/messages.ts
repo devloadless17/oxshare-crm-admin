@@ -1007,36 +1007,38 @@ export const messages = {
   // components (role-card, role-form-modal), which those pages render.
   'settings.title': 'Settings',
   'settings.subtitle':
-    'Branding, mail delivery, client downloads and the controls protecting this admin API.',
+    'The terms clients open trading accounts on, how mail is delivered, and the downloads this platform offers.',
 
   // ── Settings tabs ─────────────────────────────────────────────────────────
-  'settings.tabGeneral': 'General',
   'settings.tabEmail': 'Email',
+  'settings.tabTrading': 'Trading',
   'settings.tabPlatforms': 'Platforms',
   'settings.tabSecurity': 'Security',
   'settings.masterOnly': 'Master admin only',
 
-  // ── General tab ───────────────────────────────────────────────────────────
-  'general.title': 'Brand and contact',
-  'general.subtitle': 'What clients see across the portal, and where they are told to get help.',
-  'general.loading': 'Loading general settings',
-  'general.loadFailed': 'Could not load the general settings.',
-  'general.brandName': 'Brand name',
-  'general.brandNameHint': 'Shown in the portal header and in email headings.',
-  'general.supportEmail': 'Support email',
-  'general.supportEmailHint': 'Where clients are told to write. Leave empty to show no address.',
-  'general.supportUrl': 'Support URL',
-  'general.supportUrlHint':
-    'Help centre or ticket portal. Must be https — it becomes a link in a client’s browser.',
-  'general.maintenanceNotice': 'Maintenance notice',
-  'general.maintenanceHint':
-    'Shown to every client while it is set. Leave empty to show nothing — this is not a draft box.',
-  'general.maintenancePlaceholder': 'e.g. Deposits are paused until 09:00 UTC while we upgrade.',
-  'general.readOnly': 'You do not have permission to change these.',
-  'general.updateFailed': 'Could not save the general settings.',
-  'general.save': 'Save changes',
-  'general.saving': 'Saving...',
-  'general.saved': 'Saved',
+  // ── Trading tab ───────────────────────────────────────────────────────────
+  'tradingSettings.title': 'Account opening',
+  'tradingSettings.subtitle':
+    'The terms a client may open a trading account on, from the portal. These take effect on the next account opened; accounts already open are untouched.',
+  'tradingSettings.loading': 'Loading trading settings',
+  'tradingSettings.loadFailed': 'Could not load the trading settings.',
+  'tradingSettings.leverages': 'Leverages offered',
+  'tradingSettings.leveragesHint':
+    'Comma-separated, in the order clients see them. MT5 still clamps to the group’s own maximum.',
+  'tradingSettings.maxLiveAccounts': 'Live accounts per client',
+  'tradingSettings.maxLiveAccountsHint':
+    'How many a client may open themselves. 0 stops new live accounts without touching existing ones.',
+  'tradingSettings.maxDemoAccounts': 'Demo accounts per client',
+  'tradingSettings.maxDemoAccountsHint':
+    'Same, for practice accounts. Every one is a real row on the broker’s server.',
+  'tradingSettings.maxDemoDeposit': 'Largest demo starting balance',
+  'tradingSettings.maxDemoDepositHint':
+    'A client asking for more gets this instead. Practice with position sizes nobody would really trade teaches nothing.',
+  'tradingSettings.readOnly': 'You do not have permission to change these.',
+  'tradingSettings.updateFailed': 'Could not save the trading settings.',
+  'tradingSettings.save': 'Save changes',
+  'tradingSettings.saving': 'Saving...',
+  'tradingSettings.saved': 'Saved',
 
   // ── Email tab ─────────────────────────────────────────────────────────────
   'smtp.title': 'Mail server (SMTP)',
