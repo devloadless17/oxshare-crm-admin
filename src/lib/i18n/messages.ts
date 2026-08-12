@@ -1686,6 +1686,9 @@ export const messages = {
   'notifications.loadFailed': 'Could not load notifications.',
   'notifications.emptyTitle': 'Nothing yet',
   'notifications.emptyBody': 'Alerts about work waiting on you will appear here.',
+  // The PANEL's description, read by a screen reader when it opens. Distinct
+  // from the trigger's label, which is an action rather than a description.
+  'notifications.panelDescription': 'Recent alerts about work waiting on you.',
   'notifications.unreadCountLabel': '{count} unread',
   'notifications.markAllRead': 'Mark all as read',
   'notifications.markAllReadFailed': 'Could not mark notifications as read.',

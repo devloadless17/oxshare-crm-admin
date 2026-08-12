@@ -132,7 +132,35 @@ function resolveRealtimeOrigin(): string {
 export const API_BASE_URL: string =
   typeof window !== 'undefined' ? BROWSER_BASE_URL : resolveServerBaseUrl();
 
-/** Read in the browser, so it is resolved on both sides — see above. */
-export const REALTIME_ORIGIN: string = resolveRealtimeOrigin();
+/**
+ * The realtime origin, or `null` when it is not configured.
+ *
+ * NULL RATHER THAN A THROW, and the asymmetry with `API_BASE_URL` above is
+ * deliberate rather than an oversight.
+ *
+ * `API_BASE_URL` throws because talking to the WRONG backend is dangerous —
+ * there is no safe way to carry on. A missing realtime origin is not in that
+ * class: both apps keep a slow poll underneath the socket precisely so the bell
+ * still works, so the honest response is to turn realtime off, say so loudly,
+ * and let the rest of the app run.
+ *
+ * Throwing here would be far worse than it looks. This constant is evaluated at
+ * MODULE SCOPE and this module is imported by the API client, so the exception
+ * would land during import — a blank page in the browser and a 500 on every
+ * server render, because a notification transport was unset. It would also make
+ * the `try/catch` in `csp.ts` unreachable, since the import fails before the
+ * function it guards can run.
+ */
+export const REALTIME_ORIGIN: string | null = (() => {
+  try {
+    return resolveRealtimeOrigin();
+  } catch (error) {
+    // Loud, and once, at startup. The variable is named so the fix is obvious.
+    console.error(
+      `Real-time updates are DISABLED: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+})();
 
 export { ConfigError, requireAbsoluteUrl, resolveServerBaseUrl, resolveRealtimeOrigin };

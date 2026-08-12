@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   playNotificationSound,
   setSoundEnabled,
@@ -168,5 +168,114 @@ describe('playing', () => {
     // The envelope is what stops a 90ms tone being a click and a pop.
     expect(gain.gain.linearRampToValueAtTime).toHaveBeenCalled();
     expect(gain.gain.exponentialRampToValueAtTime).toHaveBeenCalled();
+  });
+});
+
+describe('where storage is unavailable', () => {
+  const realStorage = Object.getOwnPropertyDescriptor(window, 'localStorage');
+
+  afterEach(() => {
+    // Restored, or every later test inherits a throwing localStorage.
+    if (realStorage) Object.defineProperty(window, 'localStorage', realStorage);
+  });
+
+  /**
+   * A browser that BLOCKS storage throws on access rather than returning null —
+   * Safari's "block all cookies" and any partitioned third-party context do
+   * this. `soundEnabled` is the `getSnapshot` of a `useSyncExternalStore` and
+   * the bell is mounted on every authenticated page, so a throw here does not
+   * mute the bell: it lands during render and takes the whole app to the error
+   * boundary, because a preference could not be read.
+   */
+  function blockStorage() {
+    const denied = () => {
+      throw new DOMException('The operation is insecure.', 'SecurityError');
+    };
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get: () => ({ getItem: denied, setItem: denied, removeItem: denied }),
+    });
+  }
+
+  it('falls back to the default instead of throwing on read', () => {
+    blockStorage();
+
+    expect(() => soundEnabled()).not.toThrow();
+    // `soundEnabledOnServer` IS the default, so this holds in both twins.
+    expect(soundEnabled()).toBe(soundEnabledOnServer());
+  });
+
+  it('does not throw when the preference cannot be saved', () => {
+    // The toggle still works for this page; it just is not remembered.
+    blockStorage();
+
+    expect(() => setSoundEnabled(true)).not.toThrow();
+  });
+
+  it('keeps playNotificationSound to its never-throws contract', () => {
+    // The call sits inside the socket handler. A throw here would take the
+    // React Query invalidation down with it, so the bell would stop updating.
+    blockStorage();
+
+    expect(() => playNotificationSound()).not.toThrow();
+  });
+});
+
+describe('a context the browser closed', () => {
+  it('is replaced rather than reused forever', async () => {
+    /*
+     * A browser may close an AudioContext on its own under resource pressure
+     * or in a backgrounded tab, and a closed context THROWS on
+     * `createOscillator`. Caching one forever would silence the bell for the
+     * rest of the page's life, with the module's own catch hiding the reason.
+     *
+     * Imported FRESH: the cached context is module state, so without this the
+     * test would inherit whatever an earlier test left behind and pass or fail
+     * on file ordering rather than on behaviour.
+     */
+    vi.resetModules();
+    const sound = await import('./notification-sound');
+
+    const makeContext = (state: string) => ({
+      state,
+      currentTime: 0,
+      destination: {},
+      createOscillator: vi.fn(() => ({
+        type: '',
+        frequency: { value: 0 },
+        // Chainable: the module writes `osc.connect(gain).connect(dest)`, and a
+        // fake returning undefined throws into the module's catch — which
+        // silently ends the loop after ONE note.
+        connect: vi.fn(() => ({ connect: vi.fn() })),
+        start: vi.fn(),
+        stop: vi.fn(),
+      })),
+      createGain: vi.fn(() => ({
+        gain: {
+          setValueAtTime: vi.fn(),
+          linearRampToValueAtTime: vi.fn(),
+          exponentialRampToValueAtTime: vi.fn(),
+        },
+        connect: vi.fn(),
+      })),
+      resume: vi.fn(),
+    });
+
+    const first = makeContext('running');
+    const replacement = makeContext('running');
+    const contexts = [first, replacement];
+    stubAudioContext(() => contexts.shift() ?? replacement);
+
+    sound.setSoundEnabled(true);
+    sound.playNotificationSound();
+    expect(first.createOscillator).toHaveBeenCalledTimes(2); // two notes
+
+    // The browser closes it underneath us — the case this guards.
+    first.state = 'closed';
+    sound.playNotificationSound();
+
+    // A fresh context did the work; the closed one was not touched again.
+    expect(first.createOscillator).toHaveBeenCalledTimes(2);
+    expect(replacement.createOscillator).toHaveBeenCalledTimes(2);
   });
 });

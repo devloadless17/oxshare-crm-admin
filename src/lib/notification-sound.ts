@@ -49,12 +49,27 @@ const PEAK_GAIN = 0.05;
 
 let context: AudioContext | null = null;
 
-/** Whether the reader wants sound. Server-safe: renders assume the default. */
+/**
+ * Whether the reader wants sound. Server-safe: renders assume the default.
+ *
+ * `localStorage` is reached through a try/catch, exactly as
+ * `lib/i18n/locale-storage.ts` does, and here it is not merely defensive: this
+ * function is the `getSnapshot` of a `useSyncExternalStore`, and the bell is
+ * mounted on every authenticated page. A browser that blocks storage — Safari
+ * with "block all cookies", or any partitioned third-party context — throws a
+ * SecurityError on ACCESS, which would land during render and take every
+ * screen in the app to the error boundary because a preference could not be
+ * read.
+ */
 export function soundEnabled(): boolean {
   if (typeof window === 'undefined') return DEFAULT_ENABLED;
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  if (stored === null) return DEFAULT_ENABLED;
-  return stored === 'on';
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored === null) return DEFAULT_ENABLED;
+    return stored === 'on';
+  } catch {
+    return DEFAULT_ENABLED;
+  }
 }
 
 /** Subscribers in THIS tab. `storage` only fires in the others. */
@@ -62,7 +77,14 @@ const listeners = new Set<() => void>();
 
 export function setSoundEnabled(enabled: boolean): void {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off');
+  try {
+    window.localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off');
+  } catch {
+    // Private browsing, blocked storage, or a full quota. The toggle still
+    // works for this page; it just will not be remembered. Not worth an error.
+  }
+  // Notified either way, so the control reflects the click rather than
+  // appearing stuck because the write failed.
   listeners.forEach((notify) => notify());
 }
 
@@ -112,6 +134,14 @@ export function playNotificationSound(): void {
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return;
 
+    /*
+     * Reused, but replaced once CLOSED. A browser may close an AudioContext on
+     * its own (resource pressure, a backgrounded tab), and a closed context
+     * throws on `createOscillator` — so caching one forever would silence the
+     * bell for the rest of the page's life, with the catch below swallowing the
+     * reason.
+     */
+    if (context?.state === 'closed') context = null;
     context ??= new Ctor();
     // Created before any interaction, a context starts suspended. Resuming is
     // a no-op once it is running, and is refused (harmlessly) before.

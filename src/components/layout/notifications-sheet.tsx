@@ -175,7 +175,9 @@ export function NotificationsSheet() {
               )}
             </button>
           </div>
-          <SheetDescription className="sr-only">{t('notifications.open')}</SheetDescription>
+          <SheetDescription className="sr-only">
+            {t('notifications.panelDescription')}
+          </SheetDescription>
         </SheetHeader>
         {/* Mounted only while open — see the component note. */}
         <NotificationsList unreadCount={unread ?? 0} />

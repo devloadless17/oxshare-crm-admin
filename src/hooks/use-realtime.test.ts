@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRealtime } from './use-realtime';
 
@@ -6,40 +6,68 @@ import { useRealtime } from './use-realtime';
  * The socket lifecycle, asserted against a fake `io`.
  *
  * What is worth testing here is not that Socket.IO works — it does. It is the
- * three things THIS hook adds, each of which fails silently: that an inline
- * handler object does not reconnect on every render, that a handler replaced
- * between renders is the one that runs, and that a refused handshake stops the
- * retry loop instead of hammering an API that has already said no.
+ * four things THIS hook adds, each of which fails silently: that ONE connection
+ * is shared by every caller, that an inline handler object does not resubscribe
+ * on every render, that a handler replaced between renders is the one that runs,
+ * and that a refused handshake is retried later rather than abandoned for the
+ * life of the page.
  */
 
+/** Swapped per test so the "not configured" case can be exercised. */
+let configuredOrigin: string | null = 'http://localhost:3003';
+
+vi.mock('@/lib/env', () => ({
+  get REALTIME_ORIGIN() {
+    return configuredOrigin;
+  },
+}));
+
 interface FakeSocket {
-  handlers: Map<string, (payload?: unknown) => void>;
+  handlers: Map<string, Set<(payload?: unknown) => void>>;
   connected: boolean;
   disconnect: ReturnType<typeof vi.fn>;
+  connect: ReturnType<typeof vi.fn>;
   removeAllListeners: ReturnType<typeof vi.fn>;
   on: (event: string, handler: (payload?: unknown) => void) => FakeSocket;
+  off: (event: string, handler?: (payload?: unknown) => void) => FakeSocket;
   /** Drive the socket the way the server would. */
   fire: (event: string, payload?: unknown) => void;
+  /** How many handlers are bound to an event — proves cleanup really unbinds. */
+  count: (event: string) => number;
 }
 
 const sockets: FakeSocket[] = [];
+
 const io = vi.fn((): FakeSocket => {
   const socket: FakeSocket = {
     handlers: new Map(),
-    connected: true,
+    connected: false,
     disconnect: vi.fn(() => {
       socket.connected = false;
+      socket.fire('disconnect');
+    }),
+    connect: vi.fn(() => {
+      socket.connected = true;
+      socket.fire('connect');
     }),
     removeAllListeners: vi.fn(() => socket.handlers.clear()),
     on: (event, handler) => {
-      socket.handlers.set(event, handler);
+      const set = socket.handlers.get(event) ?? new Set();
+      set.add(handler);
+      socket.handlers.set(event, set);
+      return socket;
+    },
+    off: (event, handler) => {
+      if (!handler) socket.handlers.delete(event);
+      else socket.handlers.get(event)?.delete(handler);
       return socket;
     },
     fire: (event, payload) => {
       act(() => {
-        socket.handlers.get(event)?.(payload);
+        for (const handler of [...(socket.handlers.get(event) ?? [])]) handler(payload);
       });
     },
+    count: (event) => socket.handlers.get(event)?.size ?? 0,
   };
   sockets.push(socket);
   return socket;
@@ -48,12 +76,16 @@ const io = vi.fn((): FakeSocket => {
 vi.mock('socket.io-client', () => ({ io: (...args: unknown[]) => io(...(args as [])) }));
 
 beforeEach(() => {
+  configuredOrigin = 'http://localhost:3003';
   sockets.length = 0;
   io.mockClear();
 });
 
 afterEach(() => {
-  vi.restoreAllMocks();
+  // Unmount every hook so the module-level refcount returns to zero — the
+  // shared connection would otherwise leak into the next test.
+  cleanup();
+  vi.useRealTimers();
 });
 
 /** The socket the hook opened, asserted to exist so tests read straight. */
@@ -73,9 +105,14 @@ describe('useRealtime', () => {
     // Without this the handshake carries no cookie and every connection is
     // refused — the failure looks like "realtime does not work" with no error.
     expect(options['withCredentials']).toBe(true);
-    // Polling kept as the fallback: a proxy that blocks upgrades must degrade,
-    // not silently kill the feature.
     expect(options['transports']).toEqual(['websocket', 'polling']);
+    /*
+     * The one that is easy to get wrong: listing both transports does NOT make
+     * engine.io fall back. It only advances to the next transport when this is
+     * true, and it defaults to false — so without it, a proxy that blocks
+     * upgrades means realtime never connects at all rather than degrading.
+     */
+    expect(options['tryAllTransports']).toBe(true);
   });
 
   it('does not connect at all when disabled', () => {
@@ -84,6 +121,44 @@ describe('useRealtime', () => {
     renderHook(() => useRealtime({ 'notification.created': vi.fn() }, false));
 
     expect(io).not.toHaveBeenCalled();
+  });
+
+  it('does not connect when no realtime origin is configured', () => {
+    // `env.ts` yields null rather than throwing, so the app runs and the poll
+    // carries the bell. The hook must not dial `null/realtime`.
+    configuredOrigin = null;
+
+    const { result } = renderHook(() => useRealtime({ 'notification.created': vi.fn() }));
+
+    expect(io).not.toHaveBeenCalled();
+    expect(result.current.connected).toBe(false);
+  });
+
+  it('shares ONE connection between callers', () => {
+    /*
+     * The promise the whole transport decision rests on: a future live feature
+     * is a new event name on the connection the browser already holds.
+     *
+     * `io()` does not give this for free — its manager cache creates a NEW
+     * manager when the namespace is already in use, so two call sites would
+     * otherwise mean two sockets and two handshakes.
+     */
+    const first = renderHook(() => useRealtime({ 'notification.created': vi.fn() }));
+    const second = renderHook(() => useRealtime({ 'deposit.settled': vi.fn() }));
+
+    expect(io).toHaveBeenCalledTimes(1);
+
+    // Both callers' events are bound to that one socket.
+    expect(currentSocket().count('notification.created')).toBe(1);
+    expect(currentSocket().count('deposit.settled')).toBe(1);
+
+    // And it survives one of them going away.
+    second.unmount();
+    expect(currentSocket().disconnect).not.toHaveBeenCalled();
+    expect(currentSocket().count('notification.created')).toBe(1);
+
+    first.unmount();
+    expect(currentSocket().disconnect).toHaveBeenCalled();
   });
 
   it('reports connected only while the socket is up', () => {
@@ -109,7 +184,7 @@ describe('useRealtime', () => {
     expect(onNotification).toHaveBeenCalledTimes(1);
   });
 
-  it('does not reconnect when only the handler identity changes', () => {
+  it('does not resubscribe when only the handler identity changes', () => {
     /*
      * The whole reason handlers live in a ref. The sheet passes an inline
      * object — a fresh identity every render — and a hook keyed on it would
@@ -126,11 +201,14 @@ describe('useRealtime', () => {
 
     expect(io).toHaveBeenCalledTimes(1);
     expect(currentSocket().disconnect).not.toHaveBeenCalled();
+    // Exactly one binding, not one per render.
+    expect(currentSocket().count('notification.created')).toBe(1);
   });
 
   it('calls the LATEST handler, not the one captured at connect', () => {
-    // The other half of the ref: not reconnecting is only correct if the newest
-    // handler still runs. Otherwise a stale closure invalidates a stale query key.
+    // The other half of the ref: not resubscribing is only correct if the
+    // newest handler still runs. Otherwise a stale closure invalidates a stale
+    // query key.
     const first = vi.fn();
     const second = vi.fn();
     const { rerender } = renderHook(
@@ -145,7 +223,7 @@ describe('useRealtime', () => {
     expect(first).not.toHaveBeenCalled();
   });
 
-  it('reconnects when the set of event names changes', () => {
+  it('resubscribes when the set of event names changes', () => {
     // The names decide the subscription, so a caller that starts listening for
     // a second event must actually be subscribed to it.
     const initialProps: { handlers: Record<string, () => void> } = { handlers: { a: vi.fn() } };
@@ -156,23 +234,51 @@ describe('useRealtime', () => {
 
     rerender({ handlers: { a: vi.fn(), b: vi.fn() } });
 
-    expect(io).toHaveBeenCalledTimes(2);
-    expect(currentSocket().handlers.has('b')).toBe(true);
+    expect(currentSocket().count('b')).toBe(1);
   });
 
-  it('stops retrying a handshake the server refused', () => {
+  it('retries a refused handshake later instead of giving up for good', () => {
     /*
-     * `unauthorized` means signed out or suspended — the session is gone, not
-     * slow. Socket.IO's default is to retry forever, so the hook has to close
-     * it explicitly or a signed-out tab becomes a permanent request loop.
+     * `unauthorized` is not always permanent, and treating it as permanent was
+     * a real gap: a token expiring while the tab is backgrounded produces a
+     * refused reconnect, while the API client's own refresh quietly restores
+     * the session. Realtime would stay dead until the page was reloaded.
      */
+    vi.useFakeTimers();
     const { result } = renderHook(() => useRealtime({ 'notification.created': vi.fn() }));
-    currentSocket().fire('connect');
+    const socket = currentSocket();
+    socket.fire('connect');
 
-    currentSocket().fire('unauthorized');
+    socket.fire('unauthorized');
 
-    expect(currentSocket().disconnect).toHaveBeenCalled();
+    expect(socket.disconnect).toHaveBeenCalled();
     expect(result.current.connected).toBe(false);
+
+    // It must not hammer — nothing for the first stretch...
+    act(() => void vi.advanceTimersByTime(30_000));
+    expect(socket.connect).not.toHaveBeenCalled();
+
+    // ...then one attempt, on its own.
+    act(() => void vi.advanceTimersByTime(31_000));
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries immediately when the reader comes back to the tab', () => {
+    // The moment a refused socket is most likely to succeed: the reader is
+    // here, and the API client refreshes the session on its next request.
+    vi.useFakeTimers();
+    renderHook(() => useRealtime({ 'notification.created': vi.fn() }));
+    const socket = currentSocket();
+    socket.fire('unauthorized');
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+    // …and the pending timer was cancelled rather than firing a second dial.
+    act(() => void vi.advanceTimersByTime(120_000));
+    expect(socket.connect).toHaveBeenCalledTimes(1);
   });
 
   it('treats an expiry close as a reconnect, not a refusal', () => {
@@ -187,14 +293,14 @@ describe('useRealtime', () => {
     expect(currentSocket().disconnect).not.toHaveBeenCalled();
   });
 
-  it('closes the socket when the component goes away', () => {
+  it('closes the socket when the last component goes away', () => {
     const { unmount } = renderHook(() => useRealtime({ 'notification.created': vi.fn() }));
     const socket = currentSocket();
 
     unmount();
 
     // A socket outliving its component is one per navigation, forever.
-    expect(socket.removeAllListeners).toHaveBeenCalled();
     expect(socket.disconnect).toHaveBeenCalled();
+    expect(socket.count('notification.created')).toBe(0);
   });
 });
