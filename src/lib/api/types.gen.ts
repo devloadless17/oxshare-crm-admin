@@ -3767,6 +3767,16 @@ export interface components {
              * @enum {string}
              */
             environment: "live" | "demo";
+            /**
+             * @description Defaults to the client's own name.
+             * @example Swing trading
+             */
+            name?: string;
+            /**
+             * @description Demo accounts only. Positive decimal string, capped by the API.
+             * @example 10000.00
+             */
+            startingBalance?: string;
         };
         TradingAccountDto: {
             id: string;
