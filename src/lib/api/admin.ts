@@ -638,6 +638,10 @@ export type UpdateTradingSettings = components['schemas']['UpdateTradingSettings
  */
 export type SmtpSettings = components['schemas']['SmtpSettingsDto'];
 export type UpdateSmtpSettings = components['schemas']['UpdateSmtpSettingsDto'];
+export type RivalSettings = components['schemas']['RivalSettingsDto'];
+export type UpdateRivalSettings = components['schemas']['UpdateRivalSettingsDto'];
+export type RivalWebhookKey = components['schemas']['RivalWebhookKeyDto'];
+export type RivalTestResult = components['schemas']['RivalTestResultDto'];
 export type SmtpTestResult = components['schemas']['SmtpTestResultDto'];
 
 // ── Notifications — the bell ───────────────────────────────────────────────
@@ -928,6 +932,49 @@ export const adminApi = {
     return data;
   },
 
+  /* ── The Rival connection (Settings → Payments) ─────────────────────────── */
+  /*
+   * Rival is Loadless's own payments platform; Whish lives inside it, once.
+   * Neither stored secret is ever returned — `apiKeySet` and
+   * `webhookKeyFingerprint` are the only shadows a screen sees.
+   */
+
+  async getRivalSettings(): Promise<RivalSettings> {
+    const { data } = await apiClient.get<RivalSettings>('/admin/settings/rival');
+    return data;
+  },
+
+  /**
+   * `apiKey` is three-state, the SMTP password's contract: omit/null keeps the
+   * stored key, a string replaces it, an empty string removes it.
+   */
+  async updateRivalSettings(body: UpdateRivalSettings): Promise<RivalSettings> {
+    const { data } = await apiClient.put<RivalSettings>('/admin/settings/rival', body);
+    return data;
+  },
+
+  /**
+   * Mint (or rotate) the webhook signing key. THE ONE RESPONSE that carries
+   * the plaintext — shown once for pasting into Rival's dashboard, never
+   * retrievable again. Rotation cuts over immediately; deliveries signed with
+   * the old key are refused until the dashboard is updated, and the poll
+   * backstop makes that gap lossless.
+   */
+  async mintRivalWebhookKey(): Promise<RivalWebhookKey> {
+    const { data } = await apiClient.post<RivalWebhookKey>('/admin/settings/rival/webhook-key');
+    return data;
+  },
+
+  /**
+   * Validate the stored key against Rival and see what Rival believes our
+   * webhook config is — rendered beside what we minted, so a mismatch between
+   * the two sides is visible on one screen.
+   */
+  async testRivalConnection(): Promise<RivalTestResult> {
+    const { data } = await apiClient.post<RivalTestResult>('/admin/settings/rival/test');
+    return data;
+  },
+
   async getPermissions(): Promise<Record<string, PermissionModule>> {
     const { data } = await apiClient.get<Record<string, PermissionModule>>('/admin/permissions');
     return data;
@@ -1215,6 +1262,42 @@ export const adminApi = {
     const { data } = await apiClient.patch<WithdrawalRow>(
       `/admin/withdrawals/${id}/settle`,
       { providerRef },
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * Cancel an APPROVED withdrawal — "approved, then thought better of it".
+   *
+   * A payout already submitted to Rival is cancelled THERE first; if Rival is
+   * already paying it the API refuses with nothing changed, and the message
+   * says to act on the outcome instead. Reason rules mirror reject: a client
+   * whose payout was pulled back after "approved" is owed a sentence.
+   */
+  async cancelWithdrawal(
+    id: string,
+    body: { reasonId?: string; reason?: string },
+    key: string,
+  ): Promise<WithdrawalRow> {
+    const { data } = await apiClient.patch<WithdrawalRow>(
+      `/admin/withdrawals/${id}/cancel`,
+      body,
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * Retry a payout submission whose first attempt definitively failed (the
+   * row shows "needs attention"). A submission whose outcome is still UNKNOWN
+   * is deliberately not retried by the API — Rival's payout create has no
+   * idempotency key, so a blind retry is a double payment.
+   */
+  async retryRivalSubmission(id: string, key: string): Promise<WithdrawalRow> {
+    const { data } = await apiClient.post<WithdrawalRow>(
+      `/admin/withdrawals/${id}/rival-submit`,
+      {},
       idempotent(key),
     );
     return data;

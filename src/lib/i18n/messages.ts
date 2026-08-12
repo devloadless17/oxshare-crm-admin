@@ -1060,6 +1060,86 @@ export const messages = {
   'smtp.saving': 'Saving...',
   'smtp.saved': 'Saved',
   'smtp.updateFailed': 'Could not save the mail settings.',
+
+  // ── Payments (Rival) tab ──────────────────────────────────────────────────
+  'settings.tabPayments': 'Payments',
+  'rival.title': 'Payments platform (Rival)',
+  'rival.subtitle':
+    'Deposits and payouts route through Rival, our payments platform. Whish is integrated ' +
+    'there, once — this system holds only a Rival company key.',
+  'rival.loading': 'Loading the Rival connection',
+  'rival.loadFailed': 'Could not load the Rival connection.',
+  'rival.baseUrl': 'API base URL',
+  'rival.baseUrlHint':
+    'Including /v1. Staging and production are different hosts — this must be a deliberate choice.',
+  'rival.apiKey': 'Company API key',
+  'rival.apiKeySetHint':
+    'A key is stored. Leave empty to keep it, or paste a new one to replace it.',
+  'rival.apiKeyNoneHint': 'No key is stored. Paste the tsk_… key issued by Rival.',
+  'rival.enabled': 'Route deposits and payouts through Rival',
+  'rival.webhookTitle': 'Event webhook',
+  'rival.webhookExplainer':
+    'Rival announces deposits and payout decisions by signed deliveries to the endpoint below. ' +
+    'Generate a signing key here, then paste the key and the endpoint into Rival’s dashboard ' +
+    '(CRM configuration — it only accepts them from a signed-in owner, on purpose).',
+  'rival.webhookEndpoint': 'Endpoint to paste into Rival',
+  'rival.webhookEndpointUnset': 'API_PUBLIC_URL is not set on the server',
+  'rival.webhookFingerprint': 'Current key fingerprint',
+  'rival.webhookKeyNone': 'No key generated yet',
+  'rival.lastEvent': 'Last event received',
+  'rival.lastEventNever': 'Never — the pipe has not delivered yet',
+  'rival.generateWebhookKey': 'Generate webhook key',
+  'rival.rotateWebhookKey': 'Rotate webhook key',
+  'rival.rotateWarning':
+    'Rotating cuts over immediately: deliveries signed with the old key are refused until ' +
+    'Rival’s dashboard is updated. The background sweep catches anything refused in the gap.',
+  'rival.mintFailed': 'Could not generate a webhook key.',
+  'rival.mintedTitle': 'Webhook key — shown once',
+  'rival.mintedDescription':
+    'Copy it now. It is stored encrypted and cannot be shown again; only its fingerprint will.',
+  'rival.mintedKey': 'Signing key',
+  'rival.mintedWarning':
+    'Paste both values into Rival’s dashboard before closing this. Closing is the last time ' +
+    'the key is visible.',
+  'rival.mintedDone': 'I have pasted it into Rival',
+  'rival.copy': 'Copy',
+  'rival.save': 'Save connection',
+  'rival.saving': 'Saving...',
+  'rival.savedShort': 'Saved',
+  'rival.saved': 'Rival connection saved.',
+  'rival.updateFailed': 'Could not save the Rival connection.',
+  'rival.test': 'Test connection',
+  'rival.testFailed': 'The connection test failed.',
+  'rival.testNotSet': '(not set)',
+  'rival.testOkMatch': 'Key accepted. Rival delivers events to {url} — both sides agree.',
+  'rival.testOkMismatch':
+    'Key accepted, but the two sides disagree about the webhook:\nRival delivers to: {theirs}\n' +
+    'It should be: {ours}\nUpdate Rival’s CRM configuration.',
+
+  // ── The withdrawal desk's Rival leg ───────────────────────────────────────
+  'withdrawals.rivalNeedsAttention': 'Needs attention',
+  'withdrawals.rivalAwaiting': 'Awaiting Rival',
+  'withdrawals.rivalReconciling': 'Submission reconciling — do not resubmit',
+  'withdrawals.retrySubmission': 'Retry submission',
+  'withdrawals.retrySucceeded': 'Submission retried — watch the row for the outcome.',
+  'withdrawals.retryFailed': 'Could not retry the submission.',
+  'withdrawals.cancelAction': 'Cancel',
+  'withdrawals.cancelTitle': 'Cancel this approved withdrawal?',
+  'withdrawals.cancelIntro':
+    'This pulls back {amount} {currency} approved for {email} and refunds their wallet. They ' +
+    'were told "approved", so the reason below is emailed to them.',
+  'withdrawals.cancelSubmittedNote':
+    'This payout was already submitted to Rival. It will be cancelled there first — if Rival ' +
+    'is already paying it, cancellation is refused and nothing changes; act on the outcome ' +
+    'instead.',
+  'withdrawals.cancelNote': 'Note (optional if a reason is selected)',
+  'withdrawals.cancelling': 'Cancelling…',
+  'withdrawals.confirmCancellation': 'Cancel the withdrawal',
+  'withdrawals.cancelSucceeded': 'Withdrawal of {amount} cancelled and refunded.',
+  'withdrawals.cancelFailed': 'Could not cancel the withdrawal.',
+  'withdrawals.settleFallbackHint':
+    'Normally settles automatically when Rival pays out. Settle manually only if the event ' +
+    'pipe is down.',
   'settings.rolesTitle': 'Configured System & Custom Roles',
   'settings.rolesHint':
     'Permissions defined in permissions.json are mapped dynamically to custom roles.',
