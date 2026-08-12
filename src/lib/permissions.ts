@@ -116,6 +116,14 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * carried the power to delete a currency.
    */
   { prefix: '/currencies', requirement: { permission: 'currencies.view' } },
+  /*
+   * The catalogue: what the broker sells, and the programmes partners sell it
+   * under. `settings.*` rather than keys of their own — see the note on the
+   * backend controller. Reading is the weaker half on purpose: an operator who
+   * may look at the settings screen should be able to see what is on sale.
+   */
+  { prefix: '/products', requirement: { permission: 'settings.view' } },
+  { prefix: '/agencies', requirement: { permission: 'settings.view' } },
   // `ib.view` reads the ladder; `ib.manage` is what the page checks before it
   // renders any write control. Route access is the weaker of the two on
   // purpose — an operator who may see partners should be able to see the rules

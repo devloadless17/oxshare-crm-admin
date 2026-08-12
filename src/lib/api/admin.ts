@@ -617,6 +617,22 @@ export type PlatformLink = components['schemas']['PlatformLinkDto'];
 export type SecuritySwitch = components['schemas']['SecuritySwitchDto'];
 
 /**
+ * The catalogue: a product, and the MT5 groups behind it.
+ *
+ * A group is a LEAF — an account points at exactly one, and a group fixes one
+ * currency and one environment — so a product spans several: one per currency
+ * per environment. That is why `groups` is a list and not a field.
+ */
+export type Product = components['schemas']['ProductDto'];
+export type UpsertProduct = components['schemas']['UpsertProductDto'];
+export type ProductGroup = components['schemas']['ProductGroupDto'];
+export type AvailableGroup = components['schemas']['AvailableGroupDto'];
+
+/** An agency (وكالة) — the package a partner is appointed under. */
+export type Agency = components['schemas']['AgencyDto'];
+export type UpsertAgency = components['schemas']['UpsertAgencyDto'];
+
+/**
  * The terms clients may open trading accounts on.
  *
  * `leverages` comes back as `number[]` and goes up as the comma-separated
@@ -885,6 +901,71 @@ export const adminApi = {
   /** Refuses to empty the ladder: with no levels, no partner can be approved. */
   async deleteIbLevel(level: number): Promise<void> {
     await apiClient.delete(`/admin/ib-levels/${level}`);
+  },
+
+  /* ── The catalogue ──────────────────────────────────────────────────── */
+
+  async getProducts(): Promise<Product[]> {
+    const { data } = await apiClient.get<Product[]>('/admin/products');
+    return data;
+  },
+
+  /** Groups the MT5 server reports, flagged with which are already claimed. */
+  async getAvailableGroups(): Promise<AvailableGroup[]> {
+    const { data } = await apiClient.get<AvailableGroup[]>('/admin/products/mt5-groups');
+    return data;
+  },
+
+  async createProduct(body: UpsertProduct): Promise<Product> {
+    const { data } = await apiClient.post<Product>('/admin/products', body);
+    return data;
+  },
+
+  async updateProduct(id: string, body: UpsertProduct): Promise<Product> {
+    const { data } = await apiClient.put<Product>(`/admin/products/${id}`, body);
+    return data;
+  },
+
+  async deleteProduct(id: string): Promise<void> {
+    await apiClient.delete(`/admin/products/${id}`);
+  },
+
+  async attachProductGroup(
+    id: string,
+    body: { environment: 'live' | 'demo'; mt5Group: string },
+  ): Promise<Product> {
+    const { data } = await apiClient.post<Product>(`/admin/products/${id}/groups`, body);
+    return data;
+  },
+
+  async detachProductGroup(id: string, groupId: string): Promise<Product> {
+    const { data } = await apiClient.delete<Product>(`/admin/products/${id}/groups/${groupId}`);
+    return data;
+  },
+
+  async getAgencies(): Promise<Agency[]> {
+    const { data } = await apiClient.get<Agency[]>('/admin/agencies');
+    return data;
+  },
+
+  async createAgency(body: UpsertAgency): Promise<Agency> {
+    const { data } = await apiClient.post<Agency>('/admin/agencies', body);
+    return data;
+  },
+
+  async updateAgency(id: string, body: UpsertAgency): Promise<Agency> {
+    const { data } = await apiClient.put<Agency>(`/admin/agencies/${id}`, body);
+    return data;
+  },
+
+  async deleteAgency(id: string): Promise<void> {
+    await apiClient.delete(`/admin/agencies/${id}`);
+  },
+
+  /** The COMPLETE set, not a delta — see SetAgencyProductsDto. */
+  async setAgencyProducts(id: string, productIds: string[]): Promise<Agency> {
+    const { data } = await apiClient.put<Agency>(`/admin/agencies/${id}/products`, { productIds });
+    return data;
   },
 
   async getTradingSettings(): Promise<TradingSettings> {

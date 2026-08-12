@@ -10,6 +10,7 @@ import {
   UserCog,
   FileCheck,
   Coins,
+  Boxes,
   Scale,
   KeyRound,
   ArrowLeftRight,
@@ -178,6 +179,13 @@ const NAV_SECTIONS: NavSection[] = [
          the rates — the order the questions are actually asked in. */
       { label: 'nav.commissions', href: '/commissions', icon: Coins },
       { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
+      /*
+       * Agencies sit with the partners rather than with Products, because that
+       * is who they are about: a وكالة is the programme a partner is appointed
+       * under. Products are the catalogue and live under Finance with the
+       * currencies — the same kind of thing, configured by the same people.
+       */
+      { label: 'nav.agencies', href: '/agencies', icon: Handshake },
     ],
   },
   /*
@@ -201,6 +209,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'nav.wallets', href: '/wallets', icon: Wallet },
       { label: 'nav.tradingAccounts', href: '/trading-accounts', icon: CandlestickChart },
       { label: 'nav.paymentMethods', href: '/payment-methods', icon: CreditCard },
+      { label: 'nav.products', href: '/products', icon: Boxes },
       { label: 'nav.currencies', href: '/currencies', icon: Coins },
       // Master-admin only (see permissions.ts), so it simply does not render
       // for a sub-admin — `canAccess` filters this list.

@@ -16,6 +16,11 @@ import { t } from '@/lib/i18n';
  * The operator's settings — three tabs over three independently-guarded
  * resources.
  *
+ * Products and Agencies were briefly tabs here and are now their own pages at
+ * `/products` and `/agencies`. They outgrew a settings tab the moment they
+ * needed a table with row actions: a tab is for a form an operator fills in
+ * once, and a catalogue is a list they work through.
+ *
  * ── This is not the tab strip that was removed ─────────────────────────────
  *
  * An earlier version of this page carried roles and the admin directory behind

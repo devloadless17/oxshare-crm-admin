@@ -804,6 +804,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ib/agencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The partner programmes (وكالة) open for application
+         * @description What an applicant chooses between, with the products each one carries spelled out by name. Disabled agencies are ABSENT rather than greyed out: nobody here can answer "when does it reopen", and offering a choice that will be refused is a poor way to learn it is closed.
+         *
+         *     An empty list means no programme is configured yet. The portal should let the client apply anyway — an agency is optional on the application, so a deployment that has not set them up still takes partners.
+         */
+        get: operations["IbController_openAgencies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ib/apply": {
         parameters: {
             query?: never;
@@ -815,7 +837,7 @@ export interface paths {
         put?: never;
         /**
          * Apply to become a partner
-         * @description Requires a verified identity (KYC level 1). Refuses a second application while one is still awaiting review, and refuses outright if the client is already a partner.
+         * @description Requires a verified identity (KYC level 1). Refuses a second application while one is still awaiting review, and refuses outright if the client is already a partner. `agencyId` names the programme applied for and must be one GET /ib/agencies returned.
          */
         post: operations["IbController_apply"];
         delete?: never;
@@ -1358,8 +1380,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * What a client may open themselves: account types, currencies and leverages
-         * @description The account types are the MT5 groups the broker sells online, with the currency read live from the server so the portal shows what an account will actually be denominated in. An environment with no types configured is switched off and the portal hides it.
+         * What THIS client may open: account types, currencies and leverages
+         * @description Per-client, not per-deployment. A client introduced by a partner is offered that partner’s agency’s products; a client who came in directly is offered every enabled product. Currencies are read live from MT5, so the portal shows what an account will actually be denominated in. An environment with no types is switched off and the portal hides it.
          */
         get: operations["TradingController_selfService"];
         put?: never;
@@ -1770,6 +1792,178 @@ export interface paths {
          * @description Always sent to the signed-in administrator’s own address. A delivery failure is returned as an error carrying the mail server’s own message, because reporting success for a send that failed would defeat the purpose of the endpoint.
          */
         post: operations["AdminSettingsController_testSmtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every product, with the MT5 groups behind it
+         * @description A product with no groups cannot be opened by anybody — it is a name waiting for a group. Ordered by sortOrder then name, which is the order clients see.
+         */
+        get: operations["AdminCatalogueController_listProducts"];
+        put?: never;
+        /** Create a product */
+        post: operations["AdminCatalogueController_createProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/mt5-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * MT5 groups available to attach, read live from the server
+         * @description Gated on settings.edit rather than trading.create, unlike GET /admin/mt5/groups. The two read the same list for different jobs: that one is for opening an account, this one is for building the catalogue, and an operator who configures products has no reason to hold the power to open accounts.
+         *
+         *     Groups another product already claims come back flagged rather than filtered out — "the broker does not offer it" and "ECN already has it" are different problems.
+         */
+        get: operations["AdminCatalogueController_availableGroups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a product
+         * @description Disabling stops it being offered and leaves every open account trading, the same rule a disabled currency follows.
+         */
+        put: operations["AdminCatalogueController_updateProduct"];
+        post?: never;
+        /**
+         * Delete a product
+         * @description Refused while an agency still sells it, naming the agencies. Disabling is almost always what is wanted instead.
+         */
+        delete: operations["AdminCatalogueController_deleteProduct"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/{id}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach an MT5 group to a product
+         * @description The group must exist on the server — the bridge is asked, and the same call supplies the currency, so a typo is refused here rather than at a client’s first account open. A group may back only one product.
+         */
+        post: operations["AdminCatalogueController_attachGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/products/{id}/groups/{groupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Detach an MT5 group from a product
+         * @description Accounts already in that group keep trading. The catalogue says what may be sold, not what exists.
+         */
+        delete: operations["AdminCatalogueController_detachGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/agencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every agency (وكالة), with the products it sells
+         * @description A partner is appointed under one agency, and their clients may open that agency’s products and nothing else.
+         */
+        get: operations["AdminCatalogueController_listAgencies"];
+        put?: never;
+        /** Create an agency */
+        post: operations["AdminCatalogueController_createAgency"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/agencies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update an agency
+         * @description Disabling closes it to new applications and leaves its partners appointed.
+         */
+        put: operations["AdminCatalogueController_updateAgency"];
+        post?: never;
+        /**
+         * Delete an agency
+         * @description Refused while partners are appointed under it.
+         */
+        delete: operations["AdminCatalogueController_deleteAgency"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/agencies/{id}/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the products an agency sells
+         * @description The COMPLETE set, not a delta. This is the most consequential write here — it changes what every client under every partner on this agency may open — so the audit entry records the product names before and after, not their ids.
+         */
+        put: operations["AdminCatalogueController_setAgencyProducts"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3416,7 +3610,27 @@ export interface components {
             /** @description How many referred clients have completed KYC — the ones who can actually fund. */
             verifiedReferredCount: number;
         };
+        PublicAgencyDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Gold Agency */
+            name: string;
+            description?: string | null;
+            /**
+             * @description Product NAMES, not ids — the applicant is reading, not selecting.
+             * @example [
+             *       "Standard",
+             *       "ECN"
+             *     ]
+             */
+            products: string[];
+        };
         CreateIbApplicationDto: {
+            /**
+             * Format: uuid
+             * @description Which agency the applicant wants to be appointed under.
+             */
+            agencyId?: string;
             /** @description Why the client wants to introduce business. Shown to the reviewer verbatim. */
             motivation?: string;
             /** @description Self-reported and unverified. Labelled as such on the review screen. */
@@ -3428,6 +3642,11 @@ export interface components {
             level?: number;
             /** @description The partner who introduced them. Omitted or null means they deal direct. */
             parentIbUserId?: string | null;
+            /**
+             * Format: uuid
+             * @description Omitted grants the agency the applicant chose. Supply one to override it.
+             */
+            agencyId?: string;
         };
         RejectIbApplicationDto: {
             /** @description A configured label from the `partner` rejection context. */
@@ -4083,6 +4302,89 @@ export interface components {
              * @enum {string}
              */
             source: "database" | "environment";
+        };
+        ProductGroupDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            environment: "live" | "demo";
+            /**
+             * @description The MT5 group path.
+             * @example real\Standard-USD
+             */
+            mt5Group: string;
+            /**
+             * @description Cached from MT5 when the group was attached. Anything a client is shown re-reads it live.
+             * @example USD
+             */
+            currency: string;
+        };
+        ProductDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Standard */
+            name: string;
+            description?: string | null;
+            /** @description A disabled product stops being sold and keeps its accounts. */
+            enabled: boolean;
+            /** @example 0 */
+            sortOrder: number;
+            groups: components["schemas"]["ProductGroupDto"][];
+        };
+        AvailableGroupDto: {
+            /** @example realStandard-USD */
+            name: string;
+            /**
+             * @description Read live from the server.
+             * @example USD
+             */
+            currency: string;
+            /** @description True when another product already claims it. Shown disabled with the reason rather than hidden, so an operator can tell "not offered" from "already taken". */
+            claimed: boolean;
+        };
+        UpsertProductDto: {
+            /** @example Standard */
+            name: string;
+            description?: string | null;
+            /** @example true */
+            enabled: boolean;
+            /** @example 0 */
+            sortOrder: number;
+        };
+        AttachGroupDto: {
+            /** @enum {string} */
+            environment: "live" | "demo";
+            /** @example real\Standard-USD */
+            mt5Group: string;
+        };
+        AgencyDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description وكالة — the package a partner sells under.
+             * @example Gold Agency
+             */
+            name: string;
+            /** @description Read by an applicant deciding which agency to request. Worth writing well. */
+            description?: string | null;
+            /** @description A disabled agency stops taking applications and keeps its partners. */
+            enabled: boolean;
+            /** @example 0 */
+            sortOrder: number;
+            /** @description The products this agency sells. */
+            productIds: string[];
+        };
+        UpsertAgencyDto: {
+            /** @example Gold Agency */
+            name: string;
+            description?: string | null;
+            /** @example true */
+            enabled: boolean;
+            /** @example 0 */
+            sortOrder: number;
+        };
+        SetAgencyProductsDto: {
+            productIds: string[];
         };
         AdminLoginDto: {
             /** @example admin@oxshare.com */
@@ -6098,6 +6400,25 @@ export interface operations {
             };
         };
     };
+    IbController_openAgencies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAgencyDto"][];
+                };
+            };
+        };
+    };
     IbController_apply: {
         parameters: {
             query?: never;
@@ -7361,6 +7682,269 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SmtpTestResultDto"];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_listProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDto"][];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_createProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertProductDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDto"];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_availableGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailableGroupDto"][];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_updateProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertProductDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDto"];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_deleteProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminCatalogueController_attachGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachGroupDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDto"];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_detachGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDto"];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_listAgencies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgencyDto"][];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_createAgency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertAgencyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgencyDto"];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_updateAgency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertAgencyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgencyDto"];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_deleteAgency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminCatalogueController_setAgencyProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetAgencyProductsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgencyDto"];
                 };
             };
         };

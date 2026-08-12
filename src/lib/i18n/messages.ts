@@ -1040,6 +1040,137 @@ export const messages = {
   'tradingSettings.saving': 'Saving...',
   'tradingSettings.saved': 'Saved',
 
+  // ── Products tab ──────────────────────────────────────────────────────────
+  'products.title': 'Products',
+  'products.pageTitle': 'Products',
+  'products.editTitle': 'Edit product',
+  'products.createTitle': 'Add product',
+  'products.saving': 'Saving...',
+  'products.enabled': 'Sold',
+  'products.orderHint': 'Lower comes first in the client’s list.',
+  'products.saveSucceeded': '{name} saved',
+  'products.deleteSucceeded': '{name} deleted',
+  'products.enabledSucceeded': '{name} is now sold',
+  'products.disabledSucceeded': '{name} is no longer sold',
+  'products.confirmDeleteTitle': 'Delete {name}?',
+  'products.confirmDelete':
+    'This cannot be undone, and it is refused while any agency still sells it. Disabling stops it being offered and leaves open accounts trading — that is usually what is wanted.',
+  'products.enable': 'Start selling',
+  'products.disable': 'Stop selling',
+  'products.manageGroups': 'MT5 groups',
+  'products.detached': 'Group detached',
+  'products.done': 'Done',
+  'products.environment': 'Environment',
+  'products.mt5Group': 'MT5 group',
+  'products.groupsTitle': 'MT5 groups for {name}',
+  'products.groupsExplainer':
+    'One group per currency, per environment. A group fixes both, and an account points at exactly one — so a product sold live and demo in two currencies needs four. Detaching one leaves accounts already in it trading.',
+  'products.colName': 'Product',
+  'products.colDescription': 'Description',
+  'products.colGroups': 'Groups',
+  'products.colCurrencies': 'Currencies',
+  'products.colOrder': 'Order',
+  'products.subtitle':
+    'What the broker sells. Each product is backed by MT5 groups — one per currency, per environment — and a product with no group cannot be opened by anybody.',
+  'products.readOnly': 'You do not have permission to change these.',
+  'products.loading': 'Loading products',
+  'products.loadFailed': 'Could not load the products.',
+  'products.empty': 'No products yet. Add one, then attach the MT5 groups behind it.',
+  'products.add': 'Add product',
+  'products.edit': 'Edit',
+  'products.delete': 'Delete product',
+  'products.deleted': 'Product deleted',
+  'products.deleteFailed': 'Could not delete that product.',
+  'products.disabled': 'Not sold',
+  'products.name': 'Name',
+  'products.order': 'Order',
+  'products.description': 'Description',
+  'products.descriptionPlaceholder': 'Shown to clients choosing an account type.',
+  'products.enabledHint': 'Offered to clients. Turning this off leaves open accounts trading.',
+  'products.save': 'Save',
+  'products.saved': 'Product saved',
+  'products.created': 'Product created',
+  'products.saveFailed': 'Could not save that product.',
+  'products.cancel': 'Cancel',
+
+  'products.groups': 'MT5 groups',
+  'products.noGroups': 'No groups yet — nobody can open this product until one is attached.',
+  'products.attach': 'Attach a group',
+  'products.attachConfirm': 'Attach',
+  'products.attached': 'Group attached',
+  'products.attachFailed': 'Could not attach that group.',
+  'products.detach': 'Detach this group',
+  'products.chooseGroup': 'Choose a group from the server',
+  // Not "unavailable": the group exists, it simply belongs somewhere else, and
+  // the operator needs to know which of those two it is.
+  'products.claimed': 'already on another product',
+  'products.groupsUnavailable':
+    'Could not read the groups from MT5. The bridge may be down — attaching needs it, because the group is verified against the server.',
+  'products.live': 'Live',
+  'products.demo': 'Demo',
+
+  // ── Agencies tab ──────────────────────────────────────────────────────────
+  'agencies.title': 'Agencies',
+  'agencies.pageTitle': 'Agencies',
+  'agencies.editTitle': 'Edit agency',
+  'agencies.createTitle': 'Add agency',
+  'agencies.saving': 'Saving...',
+  'agencies.enabled': 'Open for applications',
+  'agencies.orderHint': 'Lower comes first in the applicant’s list.',
+  'agencies.saveSucceeded': '{name} saved',
+  'agencies.deleteSucceeded': '{name} deleted',
+  'agencies.openedSucceeded': '{name} is open for applications',
+  'agencies.closedSucceeded': '{name} is closed to new applications',
+  'agencies.confirmDeleteTitle': 'Delete {name}?',
+  'agencies.confirmDelete':
+    'This cannot be undone, and it is refused while any partner is appointed under it. Closing it stops new applications and leaves those partners in place — that is usually what is wanted.',
+  'agencies.open': 'Open for applications',
+  'agencies.close': 'Close to applications',
+  'agencies.manageProducts': 'Products sold',
+  'agencies.productsTitle': 'Products sold by {name}',
+  'agencies.productsExplainer':
+    'Clients introduced by a partner on this agency may open these products and nothing else. A client who came in directly is offered every product, whatever is ticked here.',
+  'agencies.none': 'None',
+  'agencies.colName': 'Agency',
+  'agencies.colDescription': 'Description',
+  'agencies.colProducts': 'Sells',
+  'agencies.colOrder': 'Order',
+  'agencies.subtitle':
+    'The programmes a partner is appointed under. A partner belongs to one agency, and their clients may open that agency’s products and nothing else. A client with no partner is offered everything.',
+  'agencies.readOnly': 'You do not have permission to change these.',
+  'agencies.loading': 'Loading agencies',
+  'agencies.loadFailed': 'Could not load the agencies.',
+  'agencies.empty': 'No agencies yet. Add one, then choose which products it sells.',
+  'agencies.add': 'Add agency',
+  'agencies.edit': 'Edit',
+  'agencies.delete': 'Delete agency',
+  'agencies.deleted': 'Agency deleted',
+  'agencies.deleteFailed': 'Could not delete that agency.',
+  'agencies.closed': 'Closed to applications',
+  'agencies.name': 'Name',
+  'agencies.order': 'Order',
+  'agencies.description': 'Description',
+  'agencies.descriptionPlaceholder':
+    'e.g. For partners introducing retail clients in the Gulf. Standard and ECN accounts, 70% revenue share.',
+  'agencies.descriptionHint':
+    'Applicants read this to decide which programme to request, so it is worth writing properly.',
+  'agencies.enabledHint':
+    'Open for applications. Turning this off leaves existing partners in place.',
+  'agencies.save': 'Save',
+  'agencies.saved': 'Agency saved',
+  'agencies.created': 'Agency created',
+  'agencies.saveFailed': 'Could not save that agency.',
+  'agencies.cancel': 'Cancel',
+
+  'agencies.products': 'Products this agency sells',
+  'agencies.noProductsExist': 'No products exist yet. Create one on the Products tab first.',
+  'agencies.productNoGroups': 'no MT5 group',
+  'agencies.sellsNothing':
+    'This agency sells nothing. Partners appointed to it will have clients who cannot open any account.',
+  'agencies.saveProducts': 'Save products',
+  'agencies.productsSaved': 'Products updated',
+  'agencies.productsFailed': 'Could not update the products.',
+
   // ── Email tab ─────────────────────────────────────────────────────────────
   'smtp.title': 'Mail server (SMTP)',
   'smtp.subtitle':
@@ -1299,6 +1430,8 @@ export const messages = {
   // The set of money the platform can hold. It was a Postgres enum, so adding
   // one meant a migration plus a release; it is operator data now, and this is
   // the screen that owns it.
+  'nav.products': 'Products',
+  'nav.agencies': 'Agencies',
   'nav.currencies': 'Currencies',
   // "Reconciliation", not "Ledger check": it is the accounting term an operator
   // on a money system already knows, and the screen answers exactly the
