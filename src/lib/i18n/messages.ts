@@ -1046,7 +1046,6 @@ export const messages = {
   'products.editTitle': 'Edit product',
   'products.createTitle': 'Add product',
   'products.saving': 'Saving...',
-  'products.enabled': 'Active',
   'products.orderHint': 'Lower comes first in the client’s list.',
   'products.saveSucceeded': '{name} saved',
   'products.deleteSucceeded': '{name} deleted',
@@ -1086,8 +1085,6 @@ export const messages = {
   'products.order': 'Order',
   'products.description': 'Description',
   'products.descriptionPlaceholder': 'Shown to clients choosing an account type.',
-  'products.enabledHint':
-    'Offered to clients when they open an account. Turning it off leaves every open account trading.',
   'products.save': 'Save',
   'products.saved': 'Product saved',
   'products.created': 'Product created',
@@ -1114,29 +1111,24 @@ export const messages = {
   'agencies.editTitle': 'Edit agency',
   'agencies.createTitle': 'Add agency',
   'agencies.saving': 'Saving...',
-  'agencies.enabled': 'Open for applications',
-  'agencies.orderHint': 'Lower comes first in the applicant’s list.',
   'agencies.saveSucceeded': '{name} saved',
   'agencies.deleteSucceeded': '{name} deleted',
-  'agencies.openedSucceeded': '{name} is open for applications',
-  'agencies.closedSucceeded': '{name} is closed to new applications',
+  'agencies.openedSucceeded': '{name} is now active',
+  'agencies.closedSucceeded': '{name} is now inactive',
   'agencies.confirmDeleteTitle': 'Delete {name}?',
   'agencies.confirmDelete':
     'This cannot be undone, and it is refused while any partner is appointed under it. Closing it stops new applications and leaves those partners in place — that is usually what is wanted.',
-  'agencies.open': 'Open for applications',
-  'agencies.close': 'Close to applications',
-  'agencies.manageProducts': 'Products sold',
-  'agencies.productsTitle': 'Products sold by {name}',
+  'agencies.open': 'Activate',
+  'agencies.close': 'Deactivate',
   'agencies.productsExplainer':
     'Clients introduced by a partner on this agency may open these products and nothing else. A client who came in directly is offered every product, whatever is ticked here.',
   'agencies.none': 'None',
   'agencies.colName': 'Agency',
   'agencies.colDescription': 'Description',
   'agencies.colProducts': 'Sells',
-  'agencies.colOrder': 'Order',
   'agencies.colStatus': 'Status',
-  'agencies.statusOpen': 'Open',
-  'agencies.statusClosed': 'Closed',
+  'agencies.statusActive': 'Active',
+  'agencies.statusInactive': 'Inactive',
   'agencies.subtitle':
     'The programmes a partner is appointed under. A partner belongs to one agency, and their clients may open that agency’s products and nothing else. A client with no partner is offered everything.',
   'agencies.readOnly': 'You do not have permission to change these.',
@@ -1148,16 +1140,12 @@ export const messages = {
   'agencies.delete': 'Delete agency',
   'agencies.deleted': 'Agency deleted',
   'agencies.deleteFailed': 'Could not delete that agency.',
-  'agencies.closed': 'Closed to applications',
   'agencies.name': 'Name',
-  'agencies.order': 'Order',
   'agencies.description': 'Description',
   'agencies.descriptionPlaceholder':
     'e.g. For partners introducing retail clients in the Gulf. Standard and ECN accounts, 70% revenue share.',
   'agencies.descriptionHint':
     'Applicants read this to decide which programme to request, so it is worth writing properly.',
-  'agencies.enabledHint':
-    'Open for applications. Turning this off leaves existing partners in place.',
   'agencies.save': 'Save',
   'agencies.saved': 'Agency saved',
   'agencies.created': 'Agency created',
@@ -1169,9 +1157,6 @@ export const messages = {
   'agencies.productNoGroups': 'no MT5 group',
   'agencies.sellsNothing':
     'This agency sells nothing. Partners appointed to it will have clients who cannot open any account.',
-  'agencies.saveProducts': 'Save products',
-  'agencies.productsSaved': 'Products updated',
-  'agencies.productsFailed': 'Could not update the products.',
 
   // ── Email tab ─────────────────────────────────────────────────────────────
   'smtp.title': 'Mail server (SMTP)',
@@ -1193,6 +1178,86 @@ export const messages = {
   'smtp.saving': 'Saving...',
   'smtp.saved': 'Saved',
   'smtp.updateFailed': 'Could not save the mail settings.',
+
+  // ── Payments (Rival) tab ──────────────────────────────────────────────────
+  'settings.tabPayments': 'Payments',
+  'rival.title': 'Payments platform (Rival)',
+  'rival.subtitle':
+    'Deposits and payouts route through Rival, our payments platform. Whish is integrated ' +
+    'there, once — this system holds only a Rival company key.',
+  'rival.loading': 'Loading the Rival connection',
+  'rival.loadFailed': 'Could not load the Rival connection.',
+  'rival.baseUrl': 'API base URL',
+  'rival.baseUrlHint':
+    'Including /v1. Staging and production are different hosts — this must be a deliberate choice.',
+  'rival.apiKey': 'Company API key',
+  'rival.apiKeySetHint':
+    'A key is stored. Leave empty to keep it, or paste a new one to replace it.',
+  'rival.apiKeyNoneHint': 'No key is stored. Paste the tsk_… key issued by Rival.',
+  'rival.enabled': 'Route deposits and payouts through Rival',
+  'rival.webhookTitle': 'Event webhook',
+  'rival.webhookExplainer':
+    'Rival announces deposits and payout decisions by signed deliveries to the endpoint below. ' +
+    'Generate a signing key here, then paste the key and the endpoint into Rival’s dashboard ' +
+    '(CRM configuration — it only accepts them from a signed-in owner, on purpose).',
+  'rival.webhookEndpoint': 'Endpoint to paste into Rival',
+  'rival.webhookEndpointUnset': 'API_PUBLIC_URL is not set on the server',
+  'rival.webhookFingerprint': 'Current key fingerprint',
+  'rival.webhookKeyNone': 'No key generated yet',
+  'rival.lastEvent': 'Last event received',
+  'rival.lastEventNever': 'Never — the pipe has not delivered yet',
+  'rival.generateWebhookKey': 'Generate webhook key',
+  'rival.rotateWebhookKey': 'Rotate webhook key',
+  'rival.rotateWarning':
+    'Rotating cuts over immediately: deliveries signed with the old key are refused until ' +
+    'Rival’s dashboard is updated. The background sweep catches anything refused in the gap.',
+  'rival.mintFailed': 'Could not generate a webhook key.',
+  'rival.mintedTitle': 'Webhook key — shown once',
+  'rival.mintedDescription':
+    'Copy it now. It is stored encrypted and cannot be shown again; only its fingerprint will.',
+  'rival.mintedKey': 'Signing key',
+  'rival.mintedWarning':
+    'Paste both values into Rival’s dashboard before closing this. Closing is the last time ' +
+    'the key is visible.',
+  'rival.mintedDone': 'I have pasted it into Rival',
+  'rival.copy': 'Copy',
+  'rival.save': 'Save connection',
+  'rival.saving': 'Saving...',
+  'rival.savedShort': 'Saved',
+  'rival.saved': 'Rival connection saved.',
+  'rival.updateFailed': 'Could not save the Rival connection.',
+  'rival.test': 'Test connection',
+  'rival.testFailed': 'The connection test failed.',
+  'rival.testNotSet': '(not set)',
+  'rival.testOkMatch': 'Key accepted. Rival delivers events to {url} — both sides agree.',
+  'rival.testOkMismatch':
+    'Key accepted, but the two sides disagree about the webhook:\nRival delivers to: {theirs}\n' +
+    'It should be: {ours}\nUpdate Rival’s CRM configuration.',
+
+  // ── The withdrawal desk's Rival leg ───────────────────────────────────────
+  'withdrawals.rivalNeedsAttention': 'Needs attention',
+  'withdrawals.rivalAwaiting': 'Awaiting Rival',
+  'withdrawals.rivalReconciling': 'Submission reconciling — do not resubmit',
+  'withdrawals.retrySubmission': 'Retry submission',
+  'withdrawals.retrySucceeded': 'Submission retried — watch the row for the outcome.',
+  'withdrawals.retryFailed': 'Could not retry the submission.',
+  'withdrawals.cancelAction': 'Cancel',
+  'withdrawals.cancelTitle': 'Cancel this approved withdrawal?',
+  'withdrawals.cancelIntro':
+    'This pulls back {amount} {currency} approved for {email} and refunds their wallet. They ' +
+    'were told "approved", so the reason below is emailed to them.',
+  'withdrawals.cancelSubmittedNote':
+    'This payout was already submitted to Rival. It will be cancelled there first — if Rival ' +
+    'is already paying it, cancellation is refused and nothing changes; act on the outcome ' +
+    'instead.',
+  'withdrawals.cancelNote': 'Note (optional if a reason is selected)',
+  'withdrawals.cancelling': 'Cancelling…',
+  'withdrawals.confirmCancellation': 'Cancel the withdrawal',
+  'withdrawals.cancelSucceeded': 'Withdrawal of {amount} cancelled and refunded.',
+  'withdrawals.cancelFailed': 'Could not cancel the withdrawal.',
+  'withdrawals.settleFallbackHint':
+    'Normally settles automatically when Rival pays out. Settle manually only if the event ' +
+    'pipe is down.',
   'settings.rolesTitle': 'Configured System & Custom Roles',
   'settings.rolesHint':
     'Permissions defined in permissions.json are mapped dynamically to custom roles.',

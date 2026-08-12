@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { Loader2, Plus, X } from 'lucide-react';
 import { adminApi, type AvailableGroup, type Product, type ProductGroup } from '@/lib/api/admin';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -117,7 +116,16 @@ function ProductForm({
 }) {
   const [name, setName] = React.useState(product?.name ?? '');
   const [description, setDescription] = React.useState(product?.description ?? '');
-  const [enabled, setEnabled] = React.useState(product?.enabled ?? true);
+  /*
+   * NOT a field, and never reset by this form.
+   *
+   * A new product is ACTIVE — nobody creates one they do not intend to sell —
+   * and turning one off is a decision made from the table, where the row action
+   * says which way it is going. An editing form carries the stored value
+   * through untouched, so opening an inactive product to fix a typo cannot
+   * silently put it back on sale.
+   */
+  const enabled = product?.enabled ?? true;
   const [sortOrder, setSortOrder] = React.useState(String(product?.sortOrder ?? 0));
   const [groups, setGroups] = React.useState<StagedGroup[]>(product?.groups ?? []);
 
@@ -206,25 +214,6 @@ function ProductForm({
           className={`${INPUT_CLASS} h-auto py-2 leading-relaxed`}
         />
       </label>
-
-      {/* `htmlFor` rather than wrapping: the Radix checkbox is a button, and
-          the shadcn pairing is an explicit id. See ui/checkbox.tsx. */}
-      <div className="flex items-start gap-2.5 sm:col-span-2">
-        <Checkbox
-          id="product-enabled"
-          checked={enabled}
-          onCheckedChange={(value) => setEnabled(value === true)}
-          className="mt-0.5"
-        />
-        <label htmlFor="product-enabled" className="cursor-pointer space-y-0.5">
-          <span className="block text-xs font-semibold text-foreground">
-            {t('products.enabled')}
-          </span>
-          <span className="block text-[11px] text-muted-foreground">
-            {t('products.enabledHint')}
-          </span>
-        </label>
-      </div>
 
       {/* ── The MT5 groups ─────────────────────────────────────────────── */}
       <div className="space-y-2 border-t border-border pt-4 sm:col-span-2">

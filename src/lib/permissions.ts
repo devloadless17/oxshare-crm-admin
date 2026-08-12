@@ -168,7 +168,19 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * (`settings.manage`, and master-admin for SMTP) before drawing a control.
    * The API enforces both independently.
    */
-  { prefix: '/settings', requirement: { anyOf: ['settings.view', 'settings.edit'] } },
+  /*
+   * `settings.smtp.view` and `settings.rival.view` are in the family too: an
+   * operator granted ONLY the mail tab or ONLY the payments tab (a real shape —
+   * "configure the Rival connection and nothing else") must be able to reach
+   * the screen those tabs live on. Each tab still hides itself without its own
+   * view key, so the union widens the door without widening any panel.
+   */
+  {
+    prefix: '/settings',
+    requirement: {
+      anyOf: ['settings.view', 'settings.edit', 'settings.smtp.view', 'settings.rival.view'],
+    },
+  },
   /*
    * `admins.view`, not the old `users.view`, and that split is the point of the
    * key: one permission used to open the client list AND the administrator

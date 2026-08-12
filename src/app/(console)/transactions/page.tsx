@@ -31,6 +31,11 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
+import {
+  CancelWithdrawalDialog,
+  RetryRivalButton,
+  RivalStatusBadge,
+} from '@/components/transactions/withdrawal-rival';
 import { t, type MessageKey } from '@/lib/i18n';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { formatMoney } from '@/lib/money';
@@ -145,6 +150,7 @@ function TransactionsPageContent() {
     : undefined;
 
   const [rejectTarget, setRejectTarget] = React.useState<WithdrawalRow | null>(null);
+  const [cancelTarget, setCancelTarget] = React.useState<WithdrawalRow | null>(null);
   const [settleTarget, setSettleTarget] = React.useState<WithdrawalRow | null>(null);
   const [reasonId, setReasonId] = React.useState('');
   const [reasonNote, setReasonNote] = React.useState('');
@@ -489,25 +495,53 @@ function TransactionsPageContent() {
         }
 
         if (w.state === 'approved') {
-          if (!canSettle) {
-            return (
-              <span className="text-xs text-muted-foreground">
-                {t('withdrawals.awaitingSettler')}
-              </span>
-            );
-          }
+          /*
+           * An approved whish row is a payout travelling through Rival: the
+           * badge says where it is, settlement normally lands on its own, and
+           * the manual settle is DEMOTED to the fallback style — it exists
+           * for a dead webhook pipe, not for the happy path.
+           */
+          const submittedToRival = Boolean(w.rivalWithdrawalId || w.rivalSubmittedAt);
           return (
-            <button
-              type="button"
-              onClick={() => {
-                settle.reset();
-                setSettleTarget(w);
-              }}
-              disabled={busy}
-              className="h-8 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
-            >
-              {t('withdrawals.markPaid')}
-            </button>
+            <div className="flex flex-col items-start gap-1.5">
+              <RivalStatusBadge w={w} />
+              <div className="flex flex-wrap gap-2">
+                {canApprove && <RetryRivalButton w={w} disabled={busy} onDone={invalidate} />}
+                {canApprove && (
+                  <button
+                    type="button"
+                    onClick={() => setCancelTarget(w)}
+                    disabled={busy}
+                    className="h-8 rounded-md border border-destructive/40 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 focus-outline"
+                  >
+                    {t('withdrawals.cancelAction')}
+                  </button>
+                )}
+                {canSettle && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      settle.reset();
+                      setSettleTarget(w);
+                    }}
+                    disabled={busy}
+                    title={submittedToRival ? t('withdrawals.settleFallbackHint') : undefined}
+                    className={
+                      submittedToRival
+                        ? 'h-8 rounded-md border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-accent disabled:opacity-50 focus-outline'
+                        : 'h-8 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline'
+                    }
+                  >
+                    {t('withdrawals.markPaid')}
+                  </button>
+                )}
+                {!canApprove && !canSettle && (
+                  <span className="text-xs text-muted-foreground">
+                    {t('withdrawals.awaitingSettler')}
+                  </span>
+                )}
+              </div>
+            </div>
           );
         }
 
@@ -649,6 +683,12 @@ function TransactionsPageContent() {
         mid-transition when a refetch replaces the list — the rule
         `components/row-actions.tsx` records.
       */}
+
+      <CancelWithdrawalDialog
+        target={cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        onDone={invalidate}
+      />
 
       {/* Reject — reason from the configurable list (FR-ADM-03) */}
       <Modal

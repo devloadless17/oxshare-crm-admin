@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Boxes, Handshake, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Handshake, Pencil, Plus, Trash2 } from 'lucide-react';
 import { adminApi, type Agency, type Product } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
@@ -14,7 +14,6 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { AgencyFormModal, type AgencyFormValues } from '@/components/agencies/agency-form-modal';
-import { AgencyProductsModal } from '@/components/agencies/agency-products-modal';
 import { t } from '@/lib/i18n';
 
 /**
@@ -54,7 +53,6 @@ export default function AgenciesPage() {
 
   const [editing, setEditing] = React.useState<Agency | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
-  const [productsFor, setProductsFor] = React.useState<Agency | undefined>(undefined);
 
   const query = useResource<Agency[]>(['admin', 'agencies'], () => adminApi.getAgencies());
   /*
@@ -66,9 +64,32 @@ export default function AgenciesPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'agencies'] });
 
+  /**
+   * Save the agency AND the products it sells.
+   *
+   * Two requests, because the API keeps them apart: `agency.products_set`
+   * records the product names before and after in the audit log, which is the
+   * entry somebody comes looking for when a partner's clients can suddenly
+   * open something new. Folding it into the agency PUT would bury that change
+   * inside a rename.
+   *
+   * The second request is skipped when the set has not moved, so editing a
+   * description does not write an audit row claiming the products changed.
+   */
   const saveAgency = useMutation({
-    mutationFn: (values: AgencyFormValues) =>
-      editing ? adminApi.updateAgency(editing.id, values) : adminApi.createAgency(values),
+    mutationFn: async (values: AgencyFormValues) => {
+      const saved = editing
+        ? await adminApi.updateAgency(editing.id, values)
+        : await adminApi.createAgency(values);
+
+      const before = editing?.productIds ?? [];
+      const moved =
+        values.productIds.length !== before.length ||
+        values.productIds.some((id) => !before.includes(id));
+
+      if (moved) await adminApi.setAgencyProducts(saved.id, values.productIds);
+      return saved;
+    },
     onSuccess: async (_data, values) => {
       setFormOpen(false);
       setEditing(undefined);
@@ -148,20 +169,22 @@ export default function AgenciesPage() {
     {
       /*
        * Its own column, like Products, and for the same reason: a badge that
-       * appears only on the closed rows answers "which of these are open" by
-       * absence, which the reader has to know to interpret.
+       * appears only on the inactive rows answers "which of these are live" by
+       * absence, which the reader has to already know to interpret.
        *
-       * OPEN and CLOSED rather than active and inactive, deliberately unlike
-       * Products. Closing an agency stops new APPLICATIONS and leaves every
-       * partner appointed under it selling — "inactive" would suggest it had
-       * stopped working, which is the one thing it does not do.
+       * ACTIVE and INACTIVE, the same words as Products. An earlier version
+       * read Open and Closed here, on the grounds that this flag stops new
+       * APPLICATIONS and leaves every partner appointed under it still selling
+       * — which remains true, and is what the checkbox's own hint says. Two
+       * status vocabularies across two adjacent screens cost more than the
+       * nuance was worth.
        */
       header: t('agencies.colStatus'),
       cell: (agency) =>
         agency.enabled ? (
-          <span className="text-success">{t('agencies.statusOpen')}</span>
+          <span className="text-success">{t('agencies.statusActive')}</span>
         ) : (
-          <span className="text-muted-foreground">{t('agencies.statusClosed')}</span>
+          <span className="text-muted-foreground">{t('agencies.statusInactive')}</span>
         ),
       sortable: true,
       sortKey: 'enabled',
@@ -191,25 +214,11 @@ export default function AgenciesPage() {
           </span>
         ),
     },
-    {
-      header: t('agencies.colOrder'),
-      cell: (agency) => agency.sortOrder,
-      cellClassName: 'tabular text-muted-foreground',
-      align: 'right',
-      sortable: true,
-      sortKey: 'sortOrder',
-      sortType: 'number',
-    },
     actionsColumn<Agency>((agency) => (
       <RowActions
         label={t('table.rowActions', { name: agency.name })}
         busy={busyId === agency.id}
         items={[
-          {
-            label: t('agencies.manageProducts'),
-            icon: Boxes,
-            onSelect: () => setProductsFor(agency),
-          },
           ...(canManage
             ? [
                 { label: t('agencies.edit'), icon: Pencil, onSelect: () => openEdit(agency) },
@@ -274,6 +283,7 @@ export default function AgenciesPage() {
       <AgencyFormModal
         open={formOpen}
         agency={editing}
+        products={products.data ?? []}
         saving={saveAgency.isPending}
         error={saveAgency.error}
         onSubmit={(values) => saveAgency.mutate(values)}
@@ -282,17 +292,6 @@ export default function AgenciesPage() {
           setEditing(undefined);
         }}
       />
-
-      {productsFor && (
-        // Re-read from the query so a save refreshes the open modal; the state
-        // holds only WHICH agency is open.
-        <AgencyProductsModal
-          agency={query.data?.find((agency) => agency.id === productsFor.id) ?? productsFor}
-          products={products.data ?? []}
-          canManage={canManage}
-          onClose={() => setProductsFor(undefined)}
-        />
-      )}
     </div>
   );
 }

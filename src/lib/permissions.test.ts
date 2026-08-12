@@ -367,6 +367,9 @@ describe('assertPermissionKeysExist', () => {
     'settings.view',
     'settings.edit',
     'settings.smtp.view',
+    // The Rival connection's pair, added with the Payments tab (Settings).
+    'settings.rival.view',
+    'settings.rival.edit',
     'settings.smtp.edit',
     'settings.security.view',
     'settings.security.edit',
