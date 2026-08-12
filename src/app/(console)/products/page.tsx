@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Boxes, Layers, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Boxes, Pencil, Plus, Trash2 } from 'lucide-react';
 import { adminApi, type Product } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
@@ -13,9 +13,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
-import { Badge } from '@/components/ui/badge';
 import { ProductFormModal, type ProductFormValues } from '@/components/products/product-form-modal';
-import { ProductGroupsModal } from '@/components/products/product-groups-modal';
 import { t } from '@/lib/i18n';
 
 /**
@@ -65,22 +63,60 @@ export default function ProductsPage() {
 
   const [editing, setEditing] = React.useState<Product | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
-  const [groupsFor, setGroupsFor] = React.useState<Product | undefined>(undefined);
 
   const query = useResource<Product[]>(['admin', 'products'], () => adminApi.getProducts());
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
 
+  /**
+   * Save the product AND reconcile its groups.
+   *
+   * ## Not atomic, and it says so rather than pretending
+   *
+   * The API has no endpoint that takes a product and its groups together —
+   * attaching validates each group against the live MT5 server, one request
+   * each — so this is a write followed by N more. A group that fails to attach
+   * leaves the product saved and the rest of its groups attached, which is why
+   * the failure is reported with the group named rather than as "save failed".
+   *
+   * Detaching happens BEFORE attaching, deliberately. A group may back only one
+   * product, so moving one between products in a single edit only works if the
+   * old claim is released first.
+   */
   const saveProduct = useMutation({
-    mutationFn: (values: ProductFormValues) =>
-      editing ? adminApi.updateProduct(editing.id, values) : adminApi.createProduct(values),
+    mutationFn: async (values: ProductFormValues) => {
+      const saved = editing
+        ? await adminApi.updateProduct(editing.id, values)
+        : await adminApi.createProduct(values);
+
+      const before = editing?.groups ?? [];
+      const wanted = new Set(values.groups.map((group) => group.mt5Group));
+
+      for (const group of before) {
+        if (!wanted.has(group.mt5Group)) {
+          await adminApi.detachProductGroup(saved.id, group.id);
+        }
+      }
+
+      for (const group of values.groups) {
+        if (group.id !== undefined) continue;
+        await adminApi.attachProductGroup(saved.id, {
+          environment: group.environment,
+          mt5Group: group.mt5Group,
+        });
+      }
+
+      return saved;
+    },
     onSuccess: async (_data, values) => {
       setFormOpen(false);
       setEditing(undefined);
       await invalidate();
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'available-groups'] });
       toastSuccess(t('products.saveSucceeded', { name: values.name }));
     },
-    // Inline in the modal, which stays open — the refusals here name the field.
+    // Inline in the modal, which stays open — the refusals here name the field,
+    // or the group MT5 would not accept.
   });
 
   const deleteProduct = useMutation({
@@ -155,14 +191,29 @@ export default function ProductsPage() {
   const columns: Column<Product>[] = [
     {
       header: t('products.colName'),
-      cell: (product) => (
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold">{product.name}</span>
-          {!product.enabled && <Badge variant="tag">{t('products.disabled')}</Badge>}
-        </span>
-      ),
+      cell: (product) => <span className="font-semibold">{product.name}</span>,
       sortable: true,
       sortKey: 'name',
+    },
+    {
+      /*
+       * Its own column rather than a badge beside the name.
+       *
+       * "Which of these are we actually selling" is a question asked of the
+       * whole table at once, and a badge that appears only on the disabled rows
+       * answers it by absence — the reader has to know that a row with nothing
+       * on it means yes. A column states both states in the same place, and
+       * sorts.
+       */
+      header: t('products.colStatus'),
+      cell: (product) =>
+        product.enabled ? (
+          <span className="text-success">{t('products.statusActive')}</span>
+        ) : (
+          <span className="text-muted-foreground">{t('products.statusInactive')}</span>
+        ),
+      sortable: true,
+      sortKey: 'enabled',
     },
     {
       header: t('products.colDescription'),
@@ -218,11 +269,6 @@ export default function ProductsPage() {
         label={t('table.rowActions', { name: product.name })}
         busy={busyId === product.id}
         items={[
-          {
-            label: t('products.manageGroups'),
-            icon: Layers,
-            onSelect: () => setGroupsFor(product),
-          },
           ...(canManage
             ? [
                 { label: t('products.edit'), icon: Pencil, onSelect: () => openEdit(product) },
@@ -295,19 +341,6 @@ export default function ProductsPage() {
           setEditing(undefined);
         }}
       />
-
-      {groupsFor && (
-        /*
-         * Re-read from the query rather than held in state, so attaching a
-         * group refreshes the open modal. The state holds only WHICH product
-         * is open; a captured copy would show the list it had when it opened.
-         */
-        <ProductGroupsModal
-          product={query.data?.find((product) => product.id === groupsFor.id) ?? groupsFor}
-          canManage={canManage}
-          onClose={() => setGroupsFor(undefined)}
-        />
-      )}
     </div>
   );
 }

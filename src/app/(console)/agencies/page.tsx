@@ -13,7 +13,6 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
-import { Badge } from '@/components/ui/badge';
 import { AgencyFormModal, type AgencyFormValues } from '@/components/agencies/agency-form-modal';
 import { AgencyProductsModal } from '@/components/agencies/agency-products-modal';
 import { t } from '@/lib/i18n';
@@ -142,14 +141,30 @@ export default function AgenciesPage() {
   const columns: Column<Agency>[] = [
     {
       header: t('agencies.colName'),
-      cell: (agency) => (
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold">{agency.name}</span>
-          {!agency.enabled && <Badge variant="tag">{t('agencies.closed')}</Badge>}
-        </span>
-      ),
+      cell: (agency) => <span className="font-semibold">{agency.name}</span>,
       sortable: true,
       sortKey: 'name',
+    },
+    {
+      /*
+       * Its own column, like Products, and for the same reason: a badge that
+       * appears only on the closed rows answers "which of these are open" by
+       * absence, which the reader has to know to interpret.
+       *
+       * OPEN and CLOSED rather than active and inactive, deliberately unlike
+       * Products. Closing an agency stops new APPLICATIONS and leaves every
+       * partner appointed under it selling — "inactive" would suggest it had
+       * stopped working, which is the one thing it does not do.
+       */
+      header: t('agencies.colStatus'),
+      cell: (agency) =>
+        agency.enabled ? (
+          <span className="text-success">{t('agencies.statusOpen')}</span>
+        ) : (
+          <span className="text-muted-foreground">{t('agencies.statusClosed')}</span>
+        ),
+      sortable: true,
+      sortKey: 'enabled',
     },
     {
       header: t('agencies.colDescription'),
