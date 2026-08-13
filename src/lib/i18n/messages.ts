@@ -616,6 +616,8 @@ export const messages = {
   'adminUsers.scopeSection': 'Client scope',
   // D-60 — the intake pool. "Untriaged" is derived (no tags), never a tag.
   'adminUsers.seesUntriaged': 'Sees new clients (not yet tagged)',
+  // A scope id the tag vocabulary did not return — shown rather than dropped.
+  'adminUsers.scopeUnknownTag': 'Unknown tag',
   'adminUsers.seesUntriagedHint':
     'The intake pool: clients with no tags at all. Only unrestricted admins and holders of this grant see them. Assigning any tag moves a client out of intake by definition; removing their last tag returns them to it — nobody can fall between territories.',
   'adminUsers.scopeSummary': '{count} tag(s)',

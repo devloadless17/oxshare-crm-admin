@@ -75,7 +75,27 @@ export function AdminTagScopePanel({
   /** Why the whole panel is inert — e.g. this is the master admin. */
   disabledReason?: string;
 }) {
-  const chosen = tags.filter((tag) => selected.includes(tag.id));
+  /*
+   * EVERY selected id renders a chip, even one the vocabulary fetch does not
+   * contain — as its raw id, removable. Filtering chips through the vocabulary
+   * made a stored territory invisible whenever the tag list and the scope
+   * disagreed for any reason, and an operator who then saved an unrelated
+   * change silently narrowed the scope to only what they could see. A chip
+   * that says "unknown tag" is ugly and honest; a dropped territory is
+   * neither.
+   */
+  const known = new Map(tags.map((tag) => [tag.id, tag] as const));
+  const chosen = selected.map(
+    (id) =>
+      known.get(id) ?? {
+        id,
+        slug: id,
+        label: t('adminUsers.scopeUnknownTag'),
+        clientCount: 0,
+        isSystem: false,
+        createdAt: '',
+      },
+  );
   const available = tags.filter((tag) => !selected.includes(tag.id));
 
   return (
