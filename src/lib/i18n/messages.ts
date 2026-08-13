@@ -604,6 +604,10 @@ export const messages = {
   'roles.maskSummaryNone': 'Nothing hidden',
   'roles.maskHint':
     'Fields holders of this role cannot see. The value is removed from the API response, not just from the screen — and it applies everywhere, including the KYC review.',
+  // The superset rule (assertMaskAllowed): a role you save must hide at least
+  // what is hidden from YOU, or saving roles would be the way around your own
+  // mask. Locked on the control, so the answer is where the operator looks.
+  'roles.maskLockedOwn': 'Hidden from you — you cannot grant visibility you do not have.',
 
   'adminUsers.scopeSection': 'Client scope',
   'adminUsers.scopeSummary': '{count} tag(s)',

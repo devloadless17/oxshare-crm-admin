@@ -65,6 +65,31 @@ test.describe('what a MASTER admin can reach', () => {
     expect(await bodies.all()).toContain(E2E_CLIENTS.alpha.email);
   });
 
+  test('the role editor shows the mask the wire enforces', async ({ page }) => {
+    /*
+     * The restored RBAC-03 editor (13 Aug), tied to the enforcement the tests
+     * below prove: the seeded "E2E Restricted" role masks `client.email`, and
+     * its edit page must SAY so — pre-filled, not empty. Read-only against
+     * seed state on purpose; a write round-trip here would mutate the mask
+     * every other masking assertion in this file depends on.
+     */
+    await page.goto('/roles');
+    await page
+      .getByRole('row', { name: /e2e restricted/i })
+      .getByRole('button', { name: /actions for/i })
+      .click();
+    await page.getByRole('menuitem', { name: /edit/i }).click();
+    await page.waitForURL(/\/roles\/.+\/edit/);
+
+    await expect(page.getByText(/1 field\(s\) hidden/i)).toBeVisible();
+    // Open the section and see the field itself ticked.
+    await page.getByText(/client field visibility/i).click();
+    await expect(page.getByRole('button', { name: /email/i }).first()).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   test('shows the audit log with the actor ADDRESS', async ({ page }) => {
     /*
      * `audit_log.ip_address` was populated from the day the column existed and
