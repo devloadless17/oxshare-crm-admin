@@ -511,12 +511,12 @@ export const messages = {
    */
   'clients.colKycStatus': 'KYC status',
   'clients.allKycStatuses': 'All KYC statuses',
-  'clients.kycNotStarted': 'Not started',
-  'clients.kycInProgress': 'In progress',
-  'clients.kycSubmitted': 'Submitted',
-  'clients.kycUnderReview': 'Under review',
-  'clients.kycApproved': 'Approved',
-  'clients.kycRejected': 'Rejected',
+  /*
+   * The six `clients.kyc*` status labels that lived here are GONE — they were a
+   * second copy of the `kycStatus.*` family, and keeping both is what let the
+   * client list keep saying "Submitted" after the review desk's word for it
+   * changed. `lib/kyc-status.ts` owns them now.
+   */
   /*
    * Email confirmation, which is NOT a KYC state — an unconfirmed address is a
    * self-service problem the client can fix themselves, while a KYC decision is
@@ -1002,11 +1002,25 @@ export const messages = {
   'kycReview.rejectFailed': 'Failed to reject the submission. Please try again.',
   'kycReview.claimHint':
     'Marks this submission as under review by you, so another admin does not review it at the same time',
-  // The status pill used to render `status.replace('_', ' ')` — English by
-  // accident, and untranslatable by construction.
+  /*
+   * THE KYC STATUS VOCABULARY — one family, read through `lib/kyc-status.ts`.
+   *
+   * There were THREE of these (`clients.kyc*`, `dashboard.kycStatus*` and this
+   * one) plus a hardcoded map on the review queue. Renaming one left the other
+   * four saying something else, so the same client read as "Pending" on the
+   * queue and "Submitted" on the client list, the dashboard and the detail
+   * page. The duplicates are gone; these six words are written only here.
+   *
+   * (The pill before that rendered `status.replace('_', ' ')` — English by
+   * accident, and untranslatable by construction.)
+   */
   'kycStatus.not_started': 'Not started',
   'kycStatus.in_progress': 'In progress',
-  'kycStatus.submitted': 'Submitted',
+  /*
+   * "Pending", not "Submitted". The stored value records what the CLIENT did;
+   * this says what it means to the DESK — waiting on a decision.
+   */
+  'kycStatus.submitted': 'Pending',
   'kycStatus.under_review': 'Under review',
   'kycStatus.approved': 'Approved',
   'kycStatus.rejected': 'Rejected',
@@ -1515,8 +1529,21 @@ export const messages = {
   'kycReview.totalSubmissions': '{count} total submissions',
   'kycReview.rejectionReasonLabel': '❌ Rejection Reason',
   'kycReview.uploadedFiles': 'Uploaded files ({docType})',
-  'kycReview.approveCta': '✓ Approve KYC',
-  'kycReview.rejectCta': '✕ Reject',
+  /*
+   * No glyphs. These carried a literal '✓' and '✕' from when the buttons were
+   * plain text; the dock renders real icons beside them now, so the characters
+   * were a second tick next to the first — and a punctuation mark a screen
+   * reader either announces as noise or skips entirely.
+   *
+   * The buttons carry a fuller `aria-label` ("Approve KYC submission"), which
+   * CONTAINS this visible text — the label-in-name rule — so the short word
+   * reads on screen and the accessible name still says what is being approved
+   * to somebody navigating a list of buttons out of context.
+   */
+  'kycReview.approveCta': 'Approve',
+  'kycReview.rejectCta': 'Reject',
+  'kycReview.approveAria': 'Approve KYC submission',
+  'kycReview.rejectAria': 'Reject KYC submission',
   'kycReview.approvedNote': '✅ KYC has been approved.',
   'kycReview.typeLabel': 'Type',
   'kycReview.viewDocumentPdf': '📄 View Document PDF',
@@ -1965,6 +1992,32 @@ export const messages = {
   'partnerReview.confirmApprove':
     'This creates their partner account and issues a referral code, which is never reissued. The application cannot be decided again.',
   'partnerReview.approving': 'Approving…',
+  'withdrawals.searchPlaceholder': 'Search by client name or email',
+  'withdrawals.actionsFor': 'Actions for {name}’s withdrawal',
+  'withdrawals.detailsAction': 'View details',
+  // The AMOUNT is in the title and the client in the body: this is a queue of
+  // near-identical rows, and approving now pays with no undo.
+  'withdrawals.confirmApproveTitle': 'Pay out {amount}?',
+  'withdrawals.confirmApprove':
+    'This pays {name} immediately — one step, straight to settled. The money leaves now and there is no undo.',
+  'withdrawals.detailsTitle': 'Withdrawal details',
+  'withdrawals.detailsProviderRef': 'Provider reference',
+  'withdrawals.detailsReviewed': 'Reviewed',
+  'withdrawals.detailsSettled': 'Settled',
+  /*
+   * ONE stored column, TWO labels. `rejectionReason` is written both when a
+   * reviewer refuses and when a payout fails, so the label is picked from the
+   * state — calling a provider error a "rejection reason" would attribute it to
+   * a person.
+   */
+  'withdrawals.detailsRejectionReason': 'Reason for rejection',
+  'withdrawals.detailsFailureReason': 'Why this failed',
+  'withdrawals.detailsNoReason': 'No reason was recorded.',
+  'withdrawals.searchAria': 'Search withdrawals',
+  'partnerReview.searchPlaceholder': 'Search by applicant name or email',
+  // Named for the QUEUE. Several screens carry a search box and "Search" alone
+  // announces the same thing on all of them.
+  'partnerReview.searchAria': 'Search partner applications',
   // The agency is REQUIRED now — a partner without one has clients offered the
   // entire catalogue, so the API refuses rather than defaulting. Applications
   // submitted before the rule carry none, and the reviewer supplies it here.
@@ -2182,12 +2235,12 @@ export const messages = {
   'dashboard.kycFunnelTitle': 'Verification stages',
   'dashboard.kycFunnelDescription': 'Where every client currently sits',
   'dashboard.kycClientsInStage': 'Clients',
-  'dashboard.kycNotStarted': 'Not started',
-  'dashboard.kycInProgress': 'In progress',
-  'dashboard.kycStatusSubmitted': 'Submitted',
-  'dashboard.kycUnderReview': 'Under review',
-  'dashboard.kycStatusApproved': 'Approved',
-  'dashboard.kycRejected': 'Rejected',
+  /*
+   * The six `dashboard.kyc*` stage labels that lived here are GONE — a third
+   * copy of the `kycStatus.*` family, which is why the funnel kept its own
+   * word for `submitted` after the review desk changed theirs.
+   * `lib/kyc-status.ts` owns them; this file still owns the funnel's chrome.
+   */
 
   // Client status donut
   'dashboard.clientSplitTitle': 'Account status',

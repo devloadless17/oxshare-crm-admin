@@ -266,6 +266,8 @@ export type WithdrawalSortKey = (typeof WITHDRAWAL_SORT_KEYS)[number];
 
 export interface WithdrawalListParams {
   state?: string;
+  /** Client email or name. Server-side — see `listForAdmin`'s note on scope. */
+  q?: string;
   limit: number;
   page?: number;
   sort?: WithdrawalSortKey;
@@ -808,6 +810,8 @@ export const adminApi = {
   async getIbApplications(
     params: {
       status?: IbApplicationStatus;
+      /** Applicant email or name. Server-side — see the store's note. */
+      q?: string;
       page?: number;
       limit?: number;
       sort?: IbApplicationSortKey;
@@ -817,6 +821,7 @@ export const adminApi = {
   ): Promise<IbApplicationPage> {
     const query = new URLSearchParams();
     if (params.status) query.set('status', params.status);
+    if (params.q) query.set('q', params.q);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
     // Both halves or neither. `order` alone describes an ordering of no column,
@@ -1258,6 +1263,7 @@ export const adminApi = {
     // Omitted rather than sent blank: `?state=` is a different request from no
     // state at all, and the API reads the empty string as a filter.
     if (params.state) query.set('state', params.state);
+    if (params.q) query.set('q', params.q);
     if (params.page !== undefined) query.set('page', String(params.page));
     // Both halves or neither. `order` alone describes an ordering of no column,
     // and the API is entitled to reject it.

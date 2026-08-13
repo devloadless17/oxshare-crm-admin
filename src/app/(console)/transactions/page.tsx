@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Check, Info, X } from 'lucide-react';
 import api from '@/lib/api';
 import type {
   RejectionReason,
@@ -22,6 +22,8 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
 import { PageLoader } from '@/components/ui/loader';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
+import { useDebounced } from '@/hooks/use-debounced';
+import { QueueToolbar } from '@/components/queue-toolbar';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import {
   Select,
@@ -31,11 +33,16 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
-import {
-  CancelWithdrawalDialog,
-  RetryRivalButton,
-  RivalStatusBadge,
-} from '@/components/transactions/withdrawal-rival';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { RowActions, type RowAction } from '@/components/row-actions';
+/*
+ * `withdrawal-rival.tsx` is no longer imported at all. Its three exports —
+ * `RetryRivalButton`, `RivalStatusBadge` and `CancelWithdrawalDialog` — were
+ * rendered only from the legacy `approved` branch, which is gone with the
+ * settle action. The module is left in place deliberately: it is the working
+ * Rival fallback, and the day that state needs a console path again, this is
+ * where it goes back.
+ */
 import { t, type MessageKey } from '@/lib/i18n';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { formatMoney } from '@/lib/money';
@@ -71,12 +78,30 @@ const STATE_META: Record<WithdrawalState, { labelKey: MessageKey; classes: strin
   },
 };
 
-const FILTERS: Array<{ value: WithdrawalState | ''; labelKey: MessageKey }> = [
-  { value: '', labelKey: 'withdrawals.stateAll' },
+/**
+ * The URL value that means "no state filter".
+ *
+ * A SENTINEL rather than an empty string, because the default is now `pending`
+ * rather than everything: with `?state=` the absent parameter and the explicit
+ * All tab are the same value, so choosing All would fall back to the default
+ * and the tab could never be selected. `?state=all` is a value the URL can
+ * hold; the request still sends no `state` parameter for it.
+ */
+const ALL_STATES = 'all';
+
+/**
+ * PENDING first, and it is the default — see `filter` below.
+ *
+ * `approved` is kept as a tab and no longer as a destination: approving now
+ * pays in one step, so nothing new enters that state. Rows already in it are
+ * still reachable, which is the only reason the tab remains.
+ */
+const FILTERS: Array<{ value: WithdrawalState | typeof ALL_STATES; labelKey: MessageKey }> = [
   { value: 'pending', labelKey: 'withdrawals.statePending' },
-  { value: 'approved', labelKey: 'withdrawals.stateApproved' },
   { value: 'success', labelKey: 'withdrawals.statePaid' },
   { value: 'rejected', labelKey: 'withdrawals.stateRejected' },
+  { value: 'approved', labelKey: 'withdrawals.stateApproved' },
+  { value: ALL_STATES, labelKey: 'withdrawals.stateAll' },
 ];
 
 /** A column may only claim to be sortable if the API will actually sort by it. */
@@ -114,7 +139,6 @@ function TransactionsPageContent() {
   const canApprove = hasPermission(admin, 'withdrawals.approve');
   const canSettle = hasPermission(admin, 'withdrawals.settle');
   /** Any action at all — decides "view only" rather than which button shows. */
-  const canAct = canApprove || canSettle;
   const queryClient = useQueryClient();
 
   /*
@@ -143,23 +167,82 @@ function TransactionsPageContent() {
    * cannot become a request the API rejects — it caps at 100.
    */
   const pageSize = limitParam(url.get('limit'));
-  const filter = (url.get('state') || '') as WithdrawalState | '';
+  /*
+   * PENDING by default — the queue, not the archive.
+   *
+   * This screen opens on the rows that need a decision. Defaulting to every
+   * state meant an operator landed on a list dominated by settled history and
+   * had to filter before they could work, and the count that mattered ("how
+   * many are waiting on me") was never the one on screen.
+   *
+   * `null` — the parameter absent — is what means "not chosen yet"; an explicit
+   * `?state=all` is how the All tab says everything. Reading `|| ''` would
+   * collapse those two, which is why the sentinel exists.
+   */
+  const filterParam = url.get('state');
+  const filter: WithdrawalState | typeof ALL_STATES =
+    filterParam === null ? 'pending' : (filterParam as WithdrawalState | typeof ALL_STATES);
 
   const sortKey = WITHDRAWAL_SORT_KEYS.includes(url.sort.key as WithdrawalSortKey)
     ? (url.sort.key as WithdrawalSortKey)
     : undefined;
 
+  /*
+   * DEBOUNCED into the request, not the input. The box stays instant while the
+   * query waits for a pause in typing — an undebounced key fires a request per
+   * keystroke and races their responses onto one table.
+   */
+  const [search, setSearch] = React.useState('');
+  const debouncedSearch = useDebounced(search, 300);
+
   const [rejectTarget, setRejectTarget] = React.useState<WithdrawalRow | null>(null);
-  const [cancelTarget, setCancelTarget] = React.useState<WithdrawalRow | null>(null);
-  const [settleTarget, setSettleTarget] = React.useState<WithdrawalRow | null>(null);
+  /*
+   * The row whose details are open. Always reachable, unlike the two states
+   * below it replaced — Cancel and Mark-as-paid were only ever set from the
+   * legacy `approved` branch, which is gone.
+   */
+  const [detailsTarget, setDetailsTarget] = React.useState<WithdrawalRow | null>(null);
+
+  const confirm = useConfirm();
+
+  /**
+   * Ask before paying.
+   *
+   * Approving is not a state change with a settlement step behind it any more —
+   * it PAYS, in one transaction, and there is no undo: the money has left. A
+   * menu item that fired on click put an irreversible payout one stray
+   * selection away, and the menu opens under the cursor for whichever row was
+   * clicked.
+   *
+   * The client and the AMOUNT are both in the question. This is a queue of
+   * near-identical rows, so "approve this withdrawal?" would confirm the action
+   * without confirming which one — the mistake actually worth catching.
+   *
+   * `confirm()` rather than a controlled dialog, matching the other call sites
+   * in this console: dismissal resolves false, so nothing is left pending on a
+   * cancel.
+   */
+  const confirmApprove = async (row: WithdrawalRow) => {
+    const name = `${row.user.firstName ?? ''} ${row.user.lastName ?? ''}`.trim() || row.user.email;
+    const ok = await confirm({
+      title: t('withdrawals.confirmApproveTitle', {
+        amount: formatMoney(row.amount, row.currency),
+      }),
+      description: t('withdrawals.confirmApprove', { name }),
+      confirmLabel: t('withdrawals.approve'),
+    });
+    if (ok) approve.mutate(row);
+  };
   const [reasonId, setReasonId] = React.useState('');
   const [reasonNote, setReasonNote] = React.useState('');
-  const [providerRef, setProviderRef] = React.useState('');
 
   const params = {
     limit: pageSize,
     page,
-    state: filter || undefined,
+    // The sentinel never reaches the API — "all" is the ABSENCE of the
+    // parameter, and sending it would fail the endpoint's `@IsIn`.
+    state: filter === ALL_STATES ? undefined : filter,
+    q: debouncedSearch || undefined,
     sort: sortKey,
     // Withheld when nothing is sorted. `order` alone describes an ordering of
     // no column, and sending it would also make two identical result sets
@@ -256,34 +339,13 @@ function TransactionsPageContent() {
     // Inline in the reject modal, which stays open on failure.
   });
 
-  const settle = useMutation({
-    mutationFn: (row: WithdrawalRow) =>
-      api.admin.settleWithdrawal(row.id, providerRef.trim(), intentKey('settle', row)),
-    onSuccess: async (_data, row) => {
-      closeSettle();
-      await invalidate();
-      toastSuccess(
-        t('withdrawals.settleSucceeded', {
-          amount: formatMoney(row.amount, row.currency),
-        }),
-        row.user?.email ?? undefined,
-      );
-    },
-    // Inline in the settle modal, which stays open on failure.
-  });
-
   const closeReject = () => {
     setRejectTarget(null);
     setReasonId('');
     setReasonNote('');
   };
 
-  const closeSettle = () => {
-    setSettleTarget(null);
-    setProviderRef('');
-  };
-
-  const busy = approve.isPending || reject.isPending || settle.isPending;
+  const busy = approve.isPending || reject.isPending;
   const rows = query.data?.items ?? [];
   /*
    * `total` and `counts` are different numbers and both are needed.
@@ -317,7 +379,7 @@ function TransactionsPageContent() {
    * state of empty string.
    */
   const exportFilters = React.useMemo(
-    () => new URLSearchParams(filter ? { state: filter } : {}),
+    () => new URLSearchParams(filter === ALL_STATES ? {} : { state: filter }),
     [filter],
   );
 
@@ -395,17 +457,38 @@ function TransactionsPageContent() {
        * would replace a wrong order with an error page.
        */
       sortable: false,
+      /*
+       * The destination alone now — the `provider` line that sat under it has
+       * become the Method column below.
+       *
+       * It was the raw column value (`whish`), lower-cased and uppercased by
+       * CSS, which is a machine key shown to a person. `methodName` is the
+       * operator's own name for the rail, resolved server-side.
+       */
       cell: (w) => (
-        <>
-          <div
-            className="max-w-[160px] truncate font-mono text-xs text-muted-foreground"
-            title={w.destination ?? ''}
-          >
-            {w.destination ?? '—'}
-          </div>
-          <div className="text-[11px] uppercase text-muted-foreground">{w.provider}</div>
-        </>
+        <div
+          className="max-w-[180px] truncate font-mono text-xs text-muted-foreground"
+          title={w.destination ?? ''}
+        >
+          {w.destination ?? '—'}
+        </div>
       ),
+    },
+    {
+      header: t('withdrawals.colMethod'),
+      /*
+       * NOT sortable, for the reason the destination column records:
+       * `WITHDRAWAL_SORT_COLUMNS` has no entry for it, and R-2.5 makes an
+       * unrecognised sort key a 400 rather than a silent fallback — so
+       * declaring it here would replace "no sorting" with an error page.
+       */
+      sortable: false,
+      /*
+       * Never null: the API falls back to `provider` for withdrawals written
+       * before the method table existed, so this cell always names something.
+       */
+      cell: (w) => <span className="whitespace-nowrap">{w.methodName}</span>,
+      cellClassName: 'text-muted-foreground',
     },
     {
       header: t('withdrawals.colState'),
@@ -453,106 +536,79 @@ function TransactionsPageContent() {
     {
       header: t('withdrawals.colActions'),
       sortable: false,
+      align: 'right',
+      /*
+       * ── ONE MENU, THREE ITEMS ────────────────────────────────────────────
+       *
+       * This cell held up to four inline controls whose set changed per row —
+       * Approve and Reject on a pending row; Retry, Cancel and a manual Settle
+       * on a legacy `approved` one — so the column's width and meaning shifted
+       * as a reviewer scanned down it, and a destructive control sat directly
+       * beside a routine one.
+       *
+       * Retry, Cancel and Mark-as-paid are GONE, on request. Approving pays in
+       * one step, so nothing new enters `approved` and those three existed only
+       * to close out rows stranded when the two steps became one. ⚠️ Rows still
+       * sitting in `approved` therefore have no console path to completion —
+       * they need a script, or the settle action re-added.
+       *
+       * DETAILS is always present, including on rows with no action left. It is
+       * the only way to read why something failed or was rejected: the reason
+       * lives in one column that serves both — see `transactions.service.ts`,
+       * which writes `rejectionReason` on a failure too.
+       */
       cell: (w) => {
-        if (!canAct) {
-          return <span className="text-xs text-muted-foreground">{t('withdrawals.viewOnly')}</span>;
-        }
+        const items: RowAction[] = [];
 
         if (w.state === 'pending') {
-          // Says WHO it is waiting for rather than showing a disabled button
-          // with no explanation — the two steps are separate permissions, so
-          // this is a legitimate state, not a missing grant.
-          if (!canApprove) {
-            return (
-              <span className="text-xs text-muted-foreground">
-                {t('withdrawals.awaitingApprover')}
-              </span>
-            );
+          /*
+           * Approving now PAYS — one step, straight to `success` — so it is
+           * gated on `withdrawals.settle`, the key that has always meant "may
+           * complete a payout". Rejecting returns the money and releases
+           * nothing, so it stays on `withdrawals.approve`. A holder of one key
+           * and not the other sees one item, which is a legitimate
+           * configuration rather than a missing grant.
+           */
+          if (canSettle) {
+            items.push({
+              label: t('withdrawals.approve'),
+              icon: Check,
+              disabled: busy,
+              onSelect: () => void confirmApprove(w),
+            });
           }
-          return (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => approve.mutate(w)}
-                disabled={busy}
-                className="h-8 rounded-md bg-success px-3 text-xs font-semibold text-success-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
-              >
-                {t('withdrawals.approve')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  reject.reset();
-                  setRejectTarget(w);
-                }}
-                disabled={busy}
-                className="h-8 rounded-md border border-destructive/40 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 focus-outline"
-              >
-                {t('withdrawals.reject')}
-              </button>
-            </div>
-          );
+          if (canApprove) {
+            items.push({
+              label: t('withdrawals.reject'),
+              icon: X,
+              destructive: true,
+              disabled: busy,
+              onSelect: () => {
+                reject.reset();
+                setRejectTarget(w);
+              },
+            });
+          }
         }
 
-        if (w.state === 'approved') {
-          /*
-           * An approved whish row is a payout travelling through Rival: the
-           * badge says where it is, settlement normally lands on its own, and
-           * the manual settle is DEMOTED to the fallback style — it exists
-           * for a dead webhook pipe, not for the happy path.
-           */
-          const submittedToRival = Boolean(w.rivalWithdrawalId || w.rivalSubmittedAt);
-          return (
-            <div className="flex flex-col items-start gap-1.5">
-              <RivalStatusBadge w={w} />
-              <div className="flex flex-wrap gap-2">
-                {canApprove && <RetryRivalButton w={w} disabled={busy} onDone={invalidate} />}
-                {canApprove && (
-                  <button
-                    type="button"
-                    onClick={() => setCancelTarget(w)}
-                    disabled={busy}
-                    className="h-8 rounded-md border border-destructive/40 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-50 focus-outline"
-                  >
-                    {t('withdrawals.cancelAction')}
-                  </button>
-                )}
-                {canSettle && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      settle.reset();
-                      setSettleTarget(w);
-                    }}
-                    disabled={busy}
-                    title={submittedToRival ? t('withdrawals.settleFallbackHint') : undefined}
-                    className={
-                      submittedToRival
-                        ? 'h-8 rounded-md border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-accent disabled:opacity-50 focus-outline'
-                        : 'h-8 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline'
-                    }
-                  >
-                    {t('withdrawals.markPaid')}
-                  </button>
-                )}
-                {!canApprove && !canSettle && (
-                  <span className="text-xs text-muted-foreground">
-                    {t('withdrawals.awaitingSettler')}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        }
+        items.push({
+          label: t('withdrawals.detailsAction'),
+          icon: Info,
+          separatorBefore: items.length > 0,
+          onSelect: () => setDetailsTarget(w),
+        });
 
         return (
-          <span className="text-xs text-muted-foreground">
-            {w.settledAt
-              ? t('withdrawals.settledOn', { date: formatDate(w.settledAt) })
-              : w.reviewedAt
-                ? t('withdrawals.reviewedOn', { date: formatDate(w.reviewedAt) })
-                : '—'}
-          </span>
+          <RowActions
+            items={items}
+            busy={busy}
+            // Named per ROW. A column of identical triggers announces as
+            // "button" to a screen reader with nothing to say which payout each
+            // one acts on.
+            label={t('withdrawals.actionsFor', {
+              name: `${w.user.firstName ?? ''} ${w.user.lastName ?? ''}`.trim() || w.user.email,
+            })}
+          />
         );
       },
     },
@@ -585,40 +641,49 @@ function TransactionsPageContent() {
         tabs are also actionable; the cards were not.
       */}
 
-      {query.status === 'ready' && (
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
-          <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
-            {FILTERS.map((f) => (
-              <button
-                key={f.value || 'all'}
-                type="button"
-                onClick={() => {
-                  // The state and the page are written together, so the filter
-                  // change always lands on page one. Page 4 of "pending" is
-                  // usually past the end of "rejected", and an empty table
-                  // reads as an empty queue rather than as an overshoot.
-                  url.set({ state: f.value || undefined, page: undefined });
-                }}
-                aria-pressed={filter === f.value}
-                className={`h-8 rounded-md px-3 text-xs font-semibold transition-colors ${
-                  filter === f.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                {t(f.labelKey)}
-                <span className="ml-1.5 opacity-70">
-                  {/* `counts.all` comes from the server's per-state grouping over
-                      the FULL set, so it stays correct whatever page is shown —
-                      unlike a `total`, which would be the filtered count for the
-                      current query (R-2.4: counting is opt-in). */}
-                  {f.value ? (counts[f.value] ?? 0) : (counts['all'] ?? 0)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/*
+        `QueueToolbar`, shared with the partner-application queue. These two and
+        KYC are the same screen with different nouns, and they had three
+        different filter controls between them — pills here, bordered tabs
+        there, and only KYC had a search box at all.
+
+        Rendered regardless of `query.status`, unlike the strip it replaces: a
+        toolbar that appears only once the rows have loaded means the filter and
+        the search box vanish on every refetch, including the one a failed load
+        leaves behind — so a reader could not narrow the query that had just
+        failed. Counts are simply absent until they arrive.
+      */}
+      <div className="shrink-0">
+        <QueueToolbar
+          filters={FILTERS.map((f) => ({
+            value: f.value,
+            label: t(f.labelKey),
+            /* `counts` groups every state over the FULL set, so it stays
+               correct whatever page is shown — unlike `total`, which is the
+               filtered count for the current query (R-2.4). */
+            count: f.value === ALL_STATES ? counts['all'] : counts[f.value],
+          }))}
+          active={filter}
+          onFilterChange={(value) => {
+            // State and page written together, so a filter change always lands
+            // on page one — page 4 of "pending" is usually past the end of
+            // "rejected", and an empty table reads as an empty queue.
+            //
+            // Every tab writes its value EXPLICITLY, including Pending: dropping
+            // the parameter for the default would make the tab and the URL
+            // disagree the moment the default changes, and "all" has to be
+            // written or it cannot be told from "not chosen".
+            url.set({ state: value, page: undefined });
+          }}
+          search={search}
+          onSearchChange={(value) => {
+            setSearch(value);
+            url.set({ page: undefined });
+          }}
+          searchPlaceholder={t('withdrawals.searchPlaceholder')}
+          searchAriaLabel={t('withdrawals.searchAria')}
+        />
+      </div>
 
       <AsyncBoundary
         status={query.status}
@@ -683,12 +748,6 @@ function TransactionsPageContent() {
         mid-transition when a refetch replaces the list — the rule
         `components/row-actions.tsx` records.
       */}
-
-      <CancelWithdrawalDialog
-        target={cancelTarget}
-        onClose={() => setCancelTarget(null)}
-        onDone={invalidate}
-      />
 
       {/* Reject — reason from the configurable list (FR-ADM-03) */}
       <Modal
@@ -781,65 +840,106 @@ function TransactionsPageContent() {
         )}
       </Modal>
 
-      {/* Mark paid — records the provider reference (§8.4 settlement) */}
+      {/*
+        DETAILS — the only way to read why a payout failed or was refused.
+
+        `rejectionReason` is one column serving both outcomes: `transactions
+        .service.ts` writes it when a reviewer rejects AND when a payout fails,
+        so the LABEL is chosen from `state` rather than from which field is set.
+        Calling it "rejection reason" on a failed row would attribute a provider
+        error to a person.
+      */}
       <Modal
-        open={settleTarget !== null}
-        onClose={closeSettle}
-        labelledBy="settle-withdrawal-title"
-        title={t('withdrawals.markPaidTitle')}
-        description={
-          settleTarget
-            ? t('withdrawals.settleIntro', {
-                email: settleTarget.user.email,
-                amount: settleTarget.amount,
-                currency: settleTarget.currency,
-              })
-            : undefined
-        }
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={closeSettle}
-              disabled={settle.isPending}
-              className="h-9 rounded-lg border border-input bg-card px-4 text-xs font-medium hover:bg-muted disabled:opacity-50 focus-outline"
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={() => settleTarget && settle.mutate(settleTarget)}
-              disabled={settle.isPending || !providerRef.trim()}
-              aria-busy={settle.isPending}
-              className="h-9 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
-            >
-              {settle.isPending ? t('withdrawals.posting') : t('withdrawals.confirmPayment')}
-            </button>
-          </>
-        }
+        open={detailsTarget !== null}
+        onClose={() => setDetailsTarget(null)}
+        labelledBy="withdrawal-details-title"
+        title={t('withdrawals.detailsTitle')}
       >
-        <div>
-          <label htmlFor="provider-ref" className="text-xs font-semibold">
-            {t('withdrawals.providerRef')}{' '}
-            <span className="text-destructive">{t('withdrawals.required')}</span>
-          </label>
-          {/* Required, because it is the only link between this ledger entry and
-              the payment the provider actually made. Reconciliation has nothing
-              to match on without it. */}
-          <input
-            id="provider-ref"
-            value={providerRef}
-            onChange={(e) => setProviderRef(e.target.value)}
-            className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 font-mono text-sm focus-outline"
-            placeholder={t('withdrawals.providerRefPlaceholder')}
-          />
-        </div>
-        {settle.isError && (
-          <p className="text-xs font-semibold text-destructive" role="alert">
-            {apiErrorMessage(settle.error, t('withdrawals.settleFailed'))}
-          </p>
+        {detailsTarget && (
+          <dl className="space-y-3 text-xs">
+            <Detail label={t('withdrawals.colClient')}>
+              {`${detailsTarget.user.firstName ?? ''} ${detailsTarget.user.lastName ?? ''}`.trim() ||
+                detailsTarget.user.email}
+              <span className="block text-muted-foreground">{detailsTarget.user.email}</span>
+            </Detail>
+            <Detail label={t('withdrawals.colAmount')}>
+              {/* A STRING to the DOM — §6.1. Nothing here parses it. */}
+              <span className="tabular font-semibold">
+                {formatMoney(detailsTarget.amount, detailsTarget.currency)}
+              </span>
+            </Detail>
+            <Detail label={t('withdrawals.colState')}>
+              {/* Same pill the table cell renders, from the same map — two
+                  spellings of one state is how they drift apart. */}
+              <span
+                className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATE_META[detailsTarget.state].classes}`}
+              >
+                {t(STATE_META[detailsTarget.state].labelKey)}
+              </span>
+            </Detail>
+            <Detail label={t('withdrawals.colMethod')}>{detailsTarget.methodName}</Detail>
+            <Detail label={t('withdrawals.colDestination')}>
+              <span className="break-all font-mono">{detailsTarget.destination ?? '—'}</span>
+            </Detail>
+            <Detail label={t('withdrawals.detailsProviderRef')}>
+              <span className="break-all font-mono">{detailsTarget.providerRef ?? '—'}</span>
+            </Detail>
+            <Detail label={t('withdrawals.colRequested')}>
+              {formatDateTime(detailsTarget.requestedAt)}
+            </Detail>
+            {detailsTarget.reviewedAt && (
+              <Detail label={t('withdrawals.detailsReviewed')}>
+                {formatDateTime(detailsTarget.reviewedAt)}
+              </Detail>
+            )}
+            {detailsTarget.settledAt && (
+              <Detail label={t('withdrawals.detailsSettled')}>
+                {formatDateTime(detailsTarget.settledAt)}
+              </Detail>
+            )}
+
+            {/*
+              The reason, when there is one. Absent is not the same as empty:
+              a failure the provider gave no message for says so, rather than
+              rendering a blank row that reads as an unset field.
+            */}
+            {(detailsTarget.state === 'rejected' || detailsTarget.state === 'failure') && (
+              <div
+                className={`rounded-lg border p-3 ${
+                  detailsTarget.state === 'failure'
+                    ? 'border-destructive/30 bg-destructive/10'
+                    : 'border-warning/30 bg-warning/10'
+                }`}
+              >
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {detailsTarget.state === 'failure'
+                    ? t('withdrawals.detailsFailureReason')
+                    : t('withdrawals.detailsRejectionReason')}
+                </dt>
+                <dd className="mt-1 leading-relaxed">
+                  {detailsTarget.rejectionReason ?? (
+                    <span className="text-muted-foreground">
+                      {t('withdrawals.detailsNoReason')}
+                    </span>
+                  )}
+                </dd>
+              </div>
+            )}
+          </dl>
         )}
       </Modal>
+    </div>
+  );
+}
+
+/** One labelled row in the details modal. */
+function Detail({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-0.5">{children}</dd>
     </div>
   );
 }
@@ -847,9 +947,4 @@ function TransactionsPageContent() {
 function formatDateTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
 }

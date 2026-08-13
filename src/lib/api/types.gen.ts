@@ -1259,26 +1259,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/payments/withdrawals/otp": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Send a confirmation code for one specific withdrawal (FR-CORE-08)
-         * @description The code is bound to the exact amount, currency, destination and provider supplied here. Changing any of them before submitting makes the code invalid, which is what stops a code obtained for a small withdrawal from authorising a large one.
-         */
-        post: operations["PaymentsController_sendWithdrawalOtp"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/payments/transactions": {
         parameters: {
             query?: never;
@@ -4134,11 +4114,6 @@ export interface components {
              * @example whish
              */
             methodKey: string;
-            /**
-             * @description Six-digit confirmation code. Required while the withdrawal OTP control is on.
-             * @example 482913
-             */
-            otp?: string;
         };
         TransactionDto: {
             id: string;
@@ -4170,25 +4145,6 @@ export interface components {
             settledAt?: string | null;
             /** Format: date-time */
             createdAt: string;
-        };
-        RequestWithdrawalOtpDto: {
-            /** @example 300.00000000 */
-            amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
-            /** @description Where the money goes, in the form the chosen method requires. For Whish Money this is the recipient's phone number, validated against Whish's own rules at request time. */
-            destination: string;
-            /**
-             * @description A `withdrawal_payment_methods.key` from GET /payments/withdrawal-methods. Rejected if unknown or disabled.
-             * @example whish
-             */
-            methodKey: string;
-        };
-        WithdrawalOtpResponseDto: {
-            /** @example A confirmation code has been sent to your email address. */
-            message: string;
-            /** @description False when the operator has the withdrawal-OTP control switched off; the withdrawal may then be submitted without a code. */
-            required: boolean;
         };
         TransactionPageDto: {
             items: components["schemas"]["TransactionDto"][];
@@ -6965,6 +6921,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "pending" | "approved" | "rejected";
+                /** @description Search the applicant’s email and name — the same three columns the KYC queue searches. */
+                q?: string;
                 page?: string;
                 limit?: string;
                 sort?: "submittedAt" | "status" | "userEmail" | "userFirstName";
@@ -7440,29 +7398,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionDto"];
-                };
-            };
-        };
-    };
-    PaymentsController_sendWithdrawalOtp: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RequestWithdrawalOtpDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WithdrawalOtpResponseDto"];
                 };
             };
         };
@@ -10067,6 +10002,8 @@ export interface operations {
         parameters: {
             query?: {
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Search the client’s email and name — the same columns the KYC and partner queues search. */
+                q?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;

@@ -17,6 +17,8 @@ import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
 import { PartnerRejectDialog } from '@/components/ib/partner-reject-dialog';
 import { PartnerApproveDialog } from '@/components/ib/partner-approve-dialog';
+import { QueueToolbar } from '@/components/queue-toolbar';
+import { useDebounced } from '@/hooks/use-debounced';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
@@ -67,6 +69,14 @@ export default function PartnerApprovalsPage() {
   // Shadows `window.confirm` on purpose — same call shape, real dialog.
 
   const [status, setStatus] = React.useState<IbApplicationStatus | ''>('pending');
+  /*
+   * DEBOUNCED into the query key, not the input. The box stays instant while
+   * the request waits for a pause in typing — `useDebounced` is what every
+   * other searchable list here uses, and an undebounced key fires a request per
+   * keystroke and races their responses.
+   */
+  const [search, setSearch] = React.useState('');
+  const debouncedSearch = useDebounced(search, 300);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(25);
   const [rejecting, setRejecting] = React.useState<Row | null>(null);
@@ -90,11 +100,12 @@ export default function PartnerApprovalsPage() {
    * new sort — rows that do not match what the header claims.
    */
   const query = useResource<IbApplicationPage>(
-    ['admin', 'ib-applications', status, page, pageSize, sort?.key, sort?.order],
+    ['admin', 'ib-applications', status, debouncedSearch, page, pageSize, sort?.key, sort?.order],
     (signal) =>
       api.admin.getIbApplications(
         {
           status: status || undefined,
+          q: debouncedSearch || undefined,
           page,
           limit: pageSize,
           sort: sort?.key,
@@ -390,43 +401,37 @@ export default function PartnerApprovalsPage() {
         </div>
       </div>
 
-      {/* Counts come from the same response as the rows and are scoped
-          identically, so a restricted admin is never promised more than they
-          will be shown. */}
-      <div
-        className="flex shrink-0 flex-wrap gap-2"
-        role="tablist"
-        aria-label={t('partnerReview.title')}
-      >
-        {TABS.map((tab) => {
-          const active = status === tab.value;
-          const count = tab.value ? counts?.[tab.value] : undefined;
-          return (
-            <button
-              key={tab.value || 'all'}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => {
-                setStatus(tab.value);
-                // Back to the first page: page 3 of "pending" is rarely page 3
-                // of "rejected", and landing on an empty page reads as an empty
-                // queue.
-                setPage(1);
-              }}
-              className={`inline-flex h-9 items-center gap-2 rounded-lg border px-4 text-xs font-semibold focus-outline ${
-                active
-                  ? 'border-primary bg-primary/10 text-link'
-                  : 'border-border text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              {t(tab.labelKey)}
-              {count !== undefined && count > 0 && (
-                <span className="tabular rounded-full bg-muted px-1.5 text-[11px]">{count}</span>
-              )}
-            </button>
-          );
-        })}
+      {/*
+        Counts come from the same response as the rows and are scoped
+        identically, so a restricted admin is never promised more than they will
+        be shown.
+
+        `QueueToolbar` is shared with the withdrawals queue — these two and KYC
+        are the same screen with different nouns, and they had three different
+        filter controls between them.
+      */}
+      <div className="shrink-0">
+        <QueueToolbar
+          filters={TABS.map((tab) => ({
+            value: tab.value,
+            label: t(tab.labelKey),
+            count: tab.value ? counts?.[tab.value] : undefined,
+          }))}
+          active={status}
+          onFilterChange={(value) => {
+            setStatus(value);
+            // Back to the first page: page 3 of "pending" is rarely page 3 of
+            // "rejected", and landing on an empty page reads as an empty queue.
+            setPage(1);
+          }}
+          search={search}
+          onSearchChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+          searchPlaceholder={t('partnerReview.searchPlaceholder')}
+          searchAriaLabel={t('partnerReview.searchAria')}
+        />
       </div>
 
       {/* The API's own refusal, verbatim — "that partner already holds 3 of
