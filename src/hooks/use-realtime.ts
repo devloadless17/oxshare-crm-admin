@@ -29,6 +29,22 @@ export interface RealtimeState {
   connected: boolean;
 }
 
+/**
+ * What the server sends with an event.
+ *
+ * `unknown` values rather than a typed shape, because this hook is the
+ * TRANSPORT and must not know the schema of every feature that rides on it —
+ * the per-event catalogues do that narrowing where the copy lives.
+ *
+ * OPTIONAL, and callers have to honour that. The backend's Postgres trigger
+ * drops the detail half of the payload when it would exceed `pg_notify`'s
+ * 8000-byte limit (an unbounded rejection reason is the realistic case), so an
+ * event genuinely can arrive with nothing but its name. A handler that assumes
+ * a field is present will throw inside a socket listener on exactly the rows
+ * that carry the longest text.
+ */
+export type RealtimePayload = Record<string, unknown> | undefined;
+
 /*
  * ── ONE connection per app, shared by every caller ───────────────────────────
  *
@@ -47,6 +63,16 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null;
 function acquire(): Socket | null {
   // Realtime is OFF rather than pointed somewhere wrong — see `lib/env.ts`.
   if (!REALTIME_ORIGIN) return null;
+
+  /*
+   * A socket that already exists but is DOWN is reconnected here.
+   *
+   * `unauthorized` disconnects deliberately and hands the retry to a timer, and
+   * a component that unmounts and remounts in between would otherwise re-acquire
+   * that dead socket and sit on it — connected to nothing, reporting nothing,
+   * with the retry timer cleared by the `release()` that ran on unmount.
+   */
+  if (shared && !shared.connected) shared.connect();
 
   if (!shared) {
     shared = io(`${REALTIME_ORIGIN}${NAMESPACE}`, {
@@ -138,8 +164,14 @@ function scheduleRetry(): void {
  * TWIN FILE with the sibling repo's copy (registered in check-twins).
  */
 export function useRealtime(
-  /** Event name → handler. Kept in a ref, so an inline object is safe. */
-  handlers: Record<string, () => void>,
+  /**
+   * Event name → handler. Kept in a ref, so an inline object is safe.
+   *
+   * The handler receives the server's payload. A handler that does not want it
+   * simply declares no parameter — TypeScript accepts a function of lower
+   * arity, so `() => void` stays valid for the events that carry nothing.
+   */
+  handlers: Record<string, (payload: RealtimePayload) => void>,
   /**
    * Whether to connect at all.
    *
@@ -200,7 +232,23 @@ export function useRealtime(
 
     const names = eventNames.split(',').filter(Boolean);
     const bound = names.map((name) => {
-      const fn = () => handlerRef.current[name]?.();
+      /*
+       * The payload is passed through, and anything that is not a plain object
+       * becomes `undefined` rather than reaching the handler.
+       *
+       * This is a network boundary: Socket.IO will deliver whatever arrives on
+       * the wire, so a handler indexing straight into it would throw on a
+       * string or a null — inside a listener, where the rejection is unhandled
+       * and nothing on screen reports it. Narrowing once here means every
+       * handler's `payload?.x` is honest instead of hopeful.
+       */
+      const fn = (payload: unknown) => {
+        const narrowed =
+          typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+            ? (payload as Record<string, unknown>)
+            : undefined;
+        handlerRef.current[name]?.(narrowed);
+      };
       socket.on(name, fn);
       return [name, fn] as const;
     });

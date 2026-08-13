@@ -1,5 +1,6 @@
 import { Eye, PauseCircle, PlayCircle } from 'lucide-react';
-import type { ClientKycStatus, ClientRow, ClientSortKey } from '@/lib/api/admin';
+import type { ClientRow, ClientSortKey } from '@/lib/api/admin';
+import { kycStatusLabel, kycStatusVariant } from '@/lib/kyc-status';
 import { CLIENT_SORT_KEYS } from '@/lib/api/admin';
 import type { Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
@@ -22,29 +23,19 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive'> = {
   suspended: 'destructive',
 };
 
-/**
- * The KYC decision, as a badge.
+/*
+ * The KYC decision, as a badge — LABEL AND COLOUR FROM `lib/kyc-status.ts`.
  *
- * Keyed on `ClientKycStatus` — the API's own enum — so a state added on the
- * backend is a missing-key compile error here rather than a row rendering the
- * raw string `under_review` at an operator.
+ * This used to hold its own `clients.kyc*` map, one of three parallel families
+ * describing the same six statuses. Renaming `submitted` for the review desk
+ * changed the queue and left this list saying "Submitted", so one client read
+ * two ways depending on the screen. The vocabulary has one owner now.
  *
- * The colours say what a reviewer should DO. `submitted` and `under_review` are
- * warning because they are the two states that mean work is queued and someone
- * is waiting; `not_started` and `in_progress` are muted because nothing is
- * owed — the client has not asked for a decision yet.
+ * The colour rule it used to state lives there too: `submitted` and
+ * `under_review` are warm because they are the states that mean work is owed;
+ * `not_started` and `in_progress` are muted because the client has not asked
+ * for a decision yet.
  */
-const KYC_STATUS_META: Record<
-  ClientKycStatus,
-  { variant: 'default' | 'success' | 'warning' | 'destructive'; label: string }
-> = {
-  not_started: { variant: 'default', label: t('clients.kycNotStarted') },
-  in_progress: { variant: 'default', label: t('clients.kycInProgress') },
-  submitted: { variant: 'warning', label: t('clients.kycSubmitted') },
-  under_review: { variant: 'warning', label: t('clients.kycUnderReview') },
-  approved: { variant: 'success', label: t('clients.kycApproved') },
-  rejected: { variant: 'destructive', label: t('clients.kycRejected') },
-};
 
 /** A column may only claim to be sortable if the API will actually sort by it. */
 const sortableBy = (key: ClientSortKey) => ({
@@ -150,10 +141,9 @@ export function clientColumns({
       // rather than a silent fallback — so declaring it would turn a header
       // click into an error page instead of rows.
       sortable: false,
-      cell: (c) => {
-        const meta = KYC_STATUS_META[c.kycStatus];
-        return <Badge variant={meta.variant}>{meta.label}</Badge>;
-      },
+      cell: (c) => (
+        <Badge variant={kycStatusVariant(c.kycStatus)}>{kycStatusLabel(c.kycStatus)}</Badge>
+      ),
     },
     {
       /*

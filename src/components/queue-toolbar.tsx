@@ -62,8 +62,23 @@ export function QueueToolbar<T extends string>({
   searchAriaLabel: string;
 }) {
   return (
+    /*
+     * `justify-between` is what puts the search on the RIGHT of every one of
+     * these screens. KYC used a plain `gap-4` row, so its box sat immediately
+     * after the last tab and moved horizontally as the tab labels changed —
+     * three queues with the search control in three different places.
+     */
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex flex-wrap items-center gap-1" role="group">
+      {/*
+        The tabs live INSIDE a bordered strip, which is the shape the KYC queue
+        already had and the other two did not. It is not decoration: it groups
+        the filters into one control so they read as alternatives to each other
+        rather than as loose buttons sharing a row with the search box.
+      */}
+      <div
+        className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-card p-1"
+        role="group"
+      >
         {filters.map((filter) => {
           const selected = filter.value === active;
           return (

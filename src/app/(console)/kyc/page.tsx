@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { components } from '@/lib/api/types.gen';
 import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
-import { Input } from '@/components/ui/input';
+import { QueueToolbar } from '@/components/queue-toolbar';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { ExportButton } from '@/components/export-button';
@@ -13,9 +14,16 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { KYC_SORT_KEYS, type KycSortKey } from '@/lib/api/admin';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { canAccess } from '@/lib/permissions';
+import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
 
-type KycStatus =
-  'not_started' | 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+/*
+ * The local `KycStatus` union that sat here is gone — a fourth hand-written
+ * copy of the backend enum. `lib/kyc-status.ts` exports `KYC_STATUSES` and the
+ * type derived from it, and nothing on this screen needs to name the union
+ * directly any more.
+ */
 
 /**
  * Aliases, not hand-written copies — R-1.1.
@@ -28,31 +36,32 @@ type KycStatus =
  */
 type KycRow = components['schemas']['KycSubmissionDto'];
 
-// Semantic tokens from globals.css — resolved at render, so they flip with the theme.
-const STATUS_COLORS: Record<KycStatus, string> = {
-  not_started: 'var(--muted-foreground)',
-  in_progress: 'var(--warning)',
-  submitted: 'var(--link)',
-  under_review: 'var(--info)',
-  approved: 'var(--success)',
-  rejected: 'var(--destructive)',
-};
+/*
+ * The label and the colour come from `lib/kyc-status.ts`.
+ *
+ * This file used to own a hardcoded `STATUS_LABELS` and a `STATUS_COLORS` map —
+ * two of the five places that described the same six statuses. Relabelling
+ * `submitted` here left the client list, the dashboard and the review detail
+ * still saying "Submitted", which is the bug that made this refactor worth
+ * doing rather than the tidy-up it looks like.
+ *
+ * The `Submitted` DATE column keeps its own name — that one really does mean
+ * when, and is not part of this vocabulary.
+ */
 
-const STATUS_LABELS: Record<KycStatus, string> = {
-  not_started: 'Not Started',
-  in_progress: 'In Progress',
-  submitted: 'Submitted',
-  under_review: 'Under Review',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
-
+/**
+ * PENDING FIRST, and it is the default — see `filter` below.
+ *
+ * The tab order follows the work: what is waiting, what is being looked at,
+ * then the decided ones, with All last as the escape hatch. It used to lead
+ * with All, which is the one tab nobody working the queue wants first.
+ */
 const FILTERS: Array<{ value: string; label: string }> = [
-  { value: '', label: t('kycReview.filterAll') },
-  { value: 'submitted', label: t('kycReview.colSubmitted') },
+  { value: 'submitted', label: t('kycReview.filterPending') },
   { value: 'under_review', label: t('kycReview.filterUnderReview') },
   { value: 'approved', label: t('kycReview.filterApproved') },
   { value: 'rejected', label: t('kycReview.filterRejected') },
+  { value: '', label: t('kycReview.filterAll') },
 ];
 
 type KycListResponse = components['schemas']['KycListResponseDto'];
@@ -88,9 +97,22 @@ const sortableBy = (key: KycSortKey) => ({
 });
 
 export default function AdminKycPage() {
+  const router = useRouter();
+  const { admin } = useAdmin();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [filter, setFilter] = useState('');
+  /*
+   * PENDING by default — the queue, not the archive.
+   *
+   * This screen opens on the submissions that need a decision. Defaulting to
+   * every status meant a reviewer landed on a list dominated by already-decided
+   * identities and had to filter before they could start, and the number that
+   * matters — how many people are waiting — was never the one in front of them.
+   *
+   * `''` is still "all" and is still reachable; it is simply no longer where
+   * the screen starts.
+   */
+  const [filter, setFilter] = useState('submitted');
   const [search, setSearch] = useState('');
   /**
    * The sort, as the API's own two parameters.
@@ -193,18 +215,21 @@ export default function AdminKycPage() {
     {
       header: t('kycReview.colStatus'),
       ...sortableBy('status'),
-      cell: (row) => (
-        <span
-          className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
-          style={{
-            background: `color-mix(in srgb, ${STATUS_COLORS[row.status]} 13%, transparent)`,
-            color: STATUS_COLORS[row.status],
-            border: `1px solid color-mix(in srgb, ${STATUS_COLORS[row.status]} 27%, transparent)`,
-          }}
-        >
-          {STATUS_LABELS[row.status]}
-        </span>
-      ),
+      cell: (row) => {
+        const tone = kycStatusColor(row.status);
+        return (
+          <span
+            className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
+            style={{
+              background: `color-mix(in srgb, ${tone} 13%, transparent)`,
+              color: tone,
+              border: `1px solid color-mix(in srgb, ${tone} 27%, transparent)`,
+            }}
+          >
+            {kycStatusLabel(row.status)}
+          </span>
+        );
+      },
     },
     {
       header: t('kycReview.colSubmitted'),
@@ -293,40 +318,41 @@ export default function AdminKycPage() {
         <ExportButton resource="kyc" filters={exportFilters} disabled={total === 0} />
       </div>
 
-      {/* Filters & Search */}
-      <div className="flex shrink-0 flex-col sm:flex-row items-stretch sm:items-center gap-4">
-        <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus-outline ${
-                filter === f.value
-                  ? 'bg-primary/10 font-semibold text-link'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
-              onClick={() => {
-                setPage(1);
-                setFilter(f.value);
-              }}
-              aria-pressed={filter === f.value}
-            >
-              <span>{f.label}</span>
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                {f.value ? (counts[f.value] ?? 0) : (counts['all'] ?? 0)}
-              </span>
-            </button>
-          ))}
-        </div>
+      {/*
+        `QueueToolbar`, shared with the partner-application and withdrawal
+        queues. The markup that used to sit here IS that component — it was
+        lifted from this page because this was the version worth keeping — so
+        the three backlogs now filter and search identically instead of each
+        having its own arrangement of the same two controls.
 
-        <Input
-          className="max-w-xs h-9"
-          placeholder={t('kycReview.searchPlaceholder')}
-          aria-label={t('kyc.searchAria')}
-          value={search}
-          onChange={(e) => {
+        The visible change here is the search box, which moves to the right of
+        the strip: it sat immediately after the last tab, so its position
+        shifted with the tab labels and matched neither of the other queues.
+      */}
+      <div className="shrink-0">
+        <QueueToolbar
+          filters={FILTERS.map((f) => ({
+            value: f.value,
+            label: f.label,
+            // `counts` is keyed by status, with `all` for the unfiltered tab —
+            // the same server-side per-status totals the other two queues pass.
+            count: f.value ? (counts[f.value] ?? 0) : (counts['all'] ?? 0),
+          }))}
+          active={filter}
+          onFilterChange={(value) => {
+            // Page 1 on every filter change — the caller's job, and the failure
+            // this family of screens is most often wrong about. See the
+            // component note.
             setPage(1);
-            setSearch(e.target.value);
+            setFilter(value);
           }}
+          search={search}
+          onSearchChange={(value) => {
+            setPage(1);
+            setSearch(value);
+          }}
+          searchPlaceholder={t('kycReview.searchPlaceholder')}
+          searchAriaLabel={t('kyc.searchAria')}
         />
       </div>
 
@@ -356,6 +382,25 @@ export default function AdminKycPage() {
           columns={columns}
           rows={rows}
           rowKey={(row) => row.userId}
+          /*
+           * Double-click a row to open its review screen — the same destination
+           * the Review link in the last column points at.
+           *
+           * A SHORTCUT, not the affordance. The link stays exactly as it was:
+           * it is what a keyboard reaches, what a screen reader announces, and
+           * what tells a first-time reviewer the screen exists at all. This
+           * only makes the habit work for the people who already have it.
+           *
+           * Gated on `canAccess` for the same reason `PermittedLink` is — that
+           * component exists because rows used to offer every operator a link
+           * that landed half of them on "you do not have access". A double-click
+           * that did the same would reintroduce the dead end it removed, just
+           * without a visible link to blame it on.
+           */
+          onRowDoubleClick={(row) => {
+            const href = `/kyc/${row.userId}`;
+            if (canAccess(admin, href)) router.push(href);
+          }}
           loading={loading}
           loadingText="Loading KYC submissions..."
           dimmed={query.isFetching}

@@ -45,6 +45,21 @@ vi.mock('@/context/AdminAuthContext', () => ({
   }),
 }));
 
+/*
+ * The queue reaches for the app router so a double-clicked row can open its
+ * review screen. `useRouter` throws outside a mounted router ("invariant
+ * expected app router to be mounted"), and this file renders the page directly
+ * rather than through a route.
+ *
+ * `push` is captured so the double-click test below can assert WHERE it
+ * navigated — the row shortcut is only worth having if it goes to that row's
+ * own submission.
+ */
+const routerPush = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: routerPush, replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+}));
+
 // Both exports — lib/api/index.ts exposes `api` named AND default. Mocking only
 // `default` leaves the named one undefined and the page renders its generic
 // failure state, which reads as a broken query rather than a broken mock.
@@ -151,6 +166,56 @@ describe('the queue', () => {
       'href',
       expect.stringContaining('11111111-1111-1111-1111-111111111111'),
     );
+  });
+
+  it('opens on the PENDING queue, not on every status', async () => {
+    /*
+     * The default is the whole point of the screen: a reviewer should land on
+     * what is waiting for them. Defaulting to all statuses buried the queue
+     * under already-decided identities, and the number that mattered — how many
+     * people are waiting — was never the one on screen.
+     *
+     * Asserted on the FIRST request rather than by reading the tab's styling:
+     * the tab could highlight correctly while the query asked for everything,
+     * which is the version of this bug that looks fixed.
+     */
+    renderWithProviders(<KycQueuePage />);
+    await screen.findByText(/client@oxshare.com/);
+
+    expect(lastQuery().get('status')).toBe('submitted');
+  });
+
+  it('opens the review screen on a double-clicked row', async () => {
+    /*
+     * The shortcut, not the affordance — the Review link above is still what a
+     * keyboard reaches, and it has its own test. This pins that the gesture
+     * lands on THAT ROW's submission rather than a shared screen.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<KycQueuePage />);
+    const cell = await screen.findByText(/client@oxshare.com/);
+
+    await user.dblClick(cell);
+
+    await waitFor(() =>
+      expect(routerPush).toHaveBeenCalledWith('/kyc/11111111-1111-1111-1111-111111111111'),
+    );
+  });
+
+  it('does NOT navigate when the double-click landed on a control', async () => {
+    /*
+     * Double-clicking the Review link would otherwise fire the link AND this
+     * handler — two navigations for one gesture — and on a table with an expand
+     * chevron it would toggle the row twice before leaving it. The handler
+     * ignores anything inside an interactive element.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<KycQueuePage />);
+    const link = await screen.findByRole('link', { name: /client@oxshare.com|review|kay/i });
+
+    await user.dblClick(link);
+
+    expect(routerPush).not.toHaveBeenCalled();
   });
 });
 

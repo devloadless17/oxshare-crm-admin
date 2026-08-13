@@ -175,13 +175,22 @@ function TransactionsPageContent() {
    * had to filter before they could work, and the count that mattered ("how
    * many are waiting on me") was never the one on screen.
    *
-   * `null` — the parameter absent — is what means "not chosen yet"; an explicit
-   * `?state=all` is how the All tab says everything. Reading `|| ''` would
-   * collapse those two, which is why the sentinel exists.
+   * ## ⚠️ ABSENT IS `''`, NOT `null` — this compared against `null` and the
+   * default never applied
+   *
+   * `useTableQueryState.get()` is typed `(key: string) => string` and returns
+   * `searchParams.get(key) ?? ''`, so a missing parameter arrives as an EMPTY
+   * STRING. Testing for `null` was therefore never true: a fresh visit resolved
+   * to `''`, which matches no tab — so the toolbar highlighted nothing and the
+   * request went out with an empty `state`.
+   *
+   * The two states this has to keep apart are "not chosen" and "explicitly
+   * everything", and they still are: `''` is absent, and the All tab writes a
+   * real `?state=all`. Only the spelling of the absent case was wrong.
    */
   const filterParam = url.get('state');
   const filter: WithdrawalState | typeof ALL_STATES =
-    filterParam === null ? 'pending' : (filterParam as WithdrawalState | typeof ALL_STATES);
+    filterParam === '' ? 'pending' : (filterParam as WithdrawalState | typeof ALL_STATES);
 
   const sortKey = WITHDRAWAL_SORT_KEYS.includes(url.sort.key as WithdrawalSortKey)
     ? (url.sort.key as WithdrawalSortKey)

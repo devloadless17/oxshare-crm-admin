@@ -88,6 +88,28 @@ export interface DataTableProps<T> {
    */
   fill?: boolean;
 
+  /**
+   * Open a row on DOUBLE-click — a shortcut, never the only way in.
+   *
+   * ## It must not be the sole affordance
+   *
+   * A double-click is mouse-only and invisible: it cannot be reached from a
+   * keyboard, it is not announced to a screen reader, and nothing on screen
+   * says it exists. So a table using this is expected to keep its explicit
+   * per-row link (the Actions column), which is what keyboard and assistive
+   * users navigate with. This makes a familiar habit work; it does not replace
+   * the control.
+   *
+   * That is also why the row does NOT become a `<button>` or carry a `role`:
+   * the row already contains real links and controls, and nesting interactive
+   * elements inside an interactive row is invalid markup that breaks both.
+   *
+   * Double-clicks originating from a control inside the row are IGNORED — see
+   * the handler. Without that, double-clicking the expand chevron would toggle
+   * it twice and then navigate away from the row it just opened.
+   */
+  onRowDoubleClick?: (row: T) => void;
+
   // --- Row Selection Props ---
   selectable?: boolean;
   selectedRowKeys?: string[];
@@ -178,6 +200,7 @@ export function DataTable<T>({
   loading = false,
   loadingText = 'Loading table data...',
   fill = false,
+  onRowDoubleClick,
   selectable = false,
   selectedRowKeys: controlledSelectedKeys,
   onSelectionChange,
@@ -680,6 +703,41 @@ export function DataTable<T>({
                       className={`group transition-colors ${
                         isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/40'
                       }`}
+                      onDoubleClick={
+                        onRowDoubleClick
+                          ? (event) => {
+                              /*
+                               * Ignore double-clicks that landed on something
+                               * already interactive.
+                               *
+                               * The row contains links, buttons, checkboxes and
+                               * the expand chevron. Without this, double-clicking
+                               * the chevron toggles it twice AND navigates away,
+                               * and double-clicking the Review link fires the
+                               * link plus this handler — two navigations for one
+                               * gesture.
+                               *
+                               * `closest` rather than checking the target itself,
+                               * because the actual target is usually a `<span>`
+                               * or an icon INSIDE the control.
+                               */
+                              if (
+                                (event.target as HTMLElement).closest(
+                                  'a, button, input, select, textarea, [role="button"]',
+                                )
+                              ) {
+                                return;
+                              }
+                              /*
+                               * A double-click selects the word under the
+                               * cursor. Clearing it stops the row being left
+                               * highlighted behind the screen that opens.
+                               */
+                              window.getSelection()?.removeAllRanges();
+                              onRowDoubleClick(row);
+                            }
+                          : undefined
+                      }
                     >
                       {/* Expand Toggle Cell */}
                       {renderExpandedRow && (

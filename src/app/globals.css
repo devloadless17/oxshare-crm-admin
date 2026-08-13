@@ -246,17 +246,39 @@
  */
 @layer components {
   /* Page scaffolding — KYC review detail */
+  /*
+   * `pb-28` pays for the docked decision bar.
+   *
+   * `ReviewDock` is `position: fixed`, so it is out of flow and would otherwise
+   * cover whatever the page ends with — on a long submission that is the
+   * timeline card, and the reviewer could never scroll it clear. The padding is
+   * unconditional rather than applied only while the dock renders: a page whose
+   * bottom spacing changes when a submission is decided would shift under the
+   * reader at the exact moment they acted.
+   */
   .detail-page {
-    @apply space-y-6;
+    @apply space-y-6 pb-28;
   }
   .detail-header {
-    @apply space-y-1;
+    @apply space-y-2;
   }
   .detail-title-row {
-    @apply flex flex-wrap items-center justify-between gap-3;
+    @apply flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card p-5 shadow-xs;
   }
+  .detail-title-row h1 {
+    @apply text-xl font-bold tracking-tight text-foreground;
+  }
+  .detail-title-row p {
+    @apply text-xs text-muted-foreground;
+  }
+  /*
+   * The documents column is the WIDER one and comes second on a large screen.
+   * It carries the images a reviewer spends their time on; the summary beside
+   * it is scanned once. On a narrow screen the grid collapses and the summary
+   * leads, which is the right order to read in when they stack.
+   */
   .detail-grid {
-    @apply grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-6 items-start;
+    @apply grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5 items-start;
   }
   .detail-left,
   .detail-right {
@@ -270,20 +292,25 @@
   }
 
   /* Cards */
+  /*
+   * `rounded-2xl` to match the header card above, and a heading that is
+   * separated from its contents by a rule rather than by spacing alone — on a
+   * screen that is six stacked cards of label/value pairs, the eye needs a
+   * landmark to tell where one card's data ends and the next begins.
+   */
   .info-card,
-  .action-card,
   .docs-card,
   .timeline-card,
   .rejection-card,
   .result-box,
   .invite-link-box {
-    @apply rounded-xl border border-border bg-card p-5 shadow-xs space-y-3;
+    @apply rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3;
   }
   .info-card h3,
-  .action-card h3,
   .docs-card h3,
   .timeline-card h3 {
-    @apply text-xs font-bold uppercase tracking-wider text-muted-foreground;
+    @apply text-[11px] font-bold uppercase tracking-wider text-muted-foreground
+      border-b border-border pb-2.5 mb-1;
   }
   .rejection-card {
     @apply border-destructive/30 bg-destructive/5;
@@ -295,10 +322,16 @@
    * with its label on a narrow column.
    */
   .info-row {
-    @apply flex items-baseline justify-between gap-4 text-xs border-b border-border/50 py-2 last:border-0;
+    @apply flex items-baseline justify-between gap-4 text-xs border-b border-border/50 py-2.5 last:border-0;
   }
+  /*
+   * The label is deliberately quieter and smaller than its value. These rows
+   * are read by scanning the RIGHT-hand column — the reviewer is looking for a
+   * date of birth or a country, not for the word "Country" — so the labels
+   * recede and the values carry the weight.
+   */
   .info-row > span:first-child {
-    @apply shrink-0 text-muted-foreground;
+    @apply shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground;
   }
   .info-row > :last-child {
     @apply text-right font-semibold text-foreground break-words;
@@ -313,10 +346,16 @@
     @apply rounded-xl border border-success/30 bg-success/10 p-4 text-xs font-semibold text-success;
   }
 
-  /* Buttons — one base, then intent */
-  .btn-approve,
-  .btn-reject,
-  .btn-claim,
+  /*
+   * Buttons — one base, then intent.
+   *
+   * `.btn-approve`, `.btn-reject`, `.btn-claim` and `.action-btns` are GONE
+   * with the action card they styled: the review screen's three decisions moved
+   * into `ReviewDock`, which is Tailwind like the rest of the app. Only the
+   * `-confirm` pair remains, because the approve and reject DIALOGS still use
+   * them. Leaving the dead rules behind is how a class name outlives its markup
+   * and the next person styles against something nothing renders.
+   */
   .btn-cancel,
   .btn-another,
   .copy-btn,
@@ -326,16 +365,13 @@
     @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-xs font-semibold
       transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
   }
-  .btn-approve,
   .btn-approve-confirm,
   .submit-btn {
     @apply bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover;
   }
-  .btn-reject,
   .btn-reject-confirm {
     @apply border border-destructive/40 text-destructive hover:bg-destructive/10;
   }
-  .btn-claim,
   .btn-cancel,
   .btn-another,
   .copy-btn {
@@ -344,7 +380,6 @@
   .submit-btn {
     @apply h-10 w-full;
   }
-  .action-btns,
   .modal-btns {
     @apply flex flex-wrap items-center gap-2;
   }
@@ -426,30 +461,15 @@
    * wrong home. `color-mix` rather than a Tailwind opacity utility so the tint
    * follows whatever the theme sets the status colour to.
    */
-  .status-pill {
-    @apply rounded-full px-4 py-1.5 text-xs font-bold capitalize;
-  }
-  .status-pill.status-submitted {
-    background: var(--muted);
-    color: var(--link);
-  }
-  .status-pill.status-under_review {
-    background: color-mix(in srgb, var(--info) 15%, transparent);
-    color: var(--info);
-  }
-  .status-pill.status-approved {
-    background: color-mix(in srgb, var(--success) 15%, transparent);
-    color: var(--success);
-  }
-  .status-pill.status-rejected {
-    background: color-mix(in srgb, var(--destructive) 15%, transparent);
-    color: var(--destructive);
-  }
-  .status-pill.status-in_progress {
-    background: color-mix(in srgb, var(--warning) 15%, transparent);
-    color: var(--warning);
-  }
-  /* not_started has no variant in the original and falls back to the base pill. */
+  /*
+   * `.status-pill` and its five `.status-*` variants are GONE.
+   *
+   * They were a SIXTH place that decided what colour a KYC status is — and they
+   * disagreed with the others: `submitted` was `--link` here and `--warning` in
+   * the client list. `lib/kyc-status.ts` owns the tone now, and the review
+   * screen's pill is built from it inline, so the queue and the detail page
+   * cannot drift apart again.
+   */
 
   .reject-select {
     @apply h-9 w-full rounded-lg border border-input bg-background px-3 text-xs text-foreground;
@@ -461,116 +481,131 @@
 }
 
 /*
- * ── Enter animations ────────────────────────────────────────────────────────
+ * ── Enter/exit animation utilities ──────────────────────────────────────────
  *
- * `animate-in`, `fade-in-0`, `zoom-in-95`, `slide-in-from-top-2` and friends are
- * used by the shadcn Select and by data-table, and NONE of them resolved:
- * they come from `tailwindcss-animate`, which is neither installed nor imported.
- * So every dropdown and empty-state has been appearing instantly, with markup
- * that says it should fade and slide.
+ * `@utility`, NOT `@layer utilities { .foo { … } }`, and the difference is the
+ * whole reason the notification sheet did not animate in either direction.
  *
- * Defined here rather than by adding the plugin. The set actually used is small,
- * this is a money system where a dependency is a supply-chain decision, and the
- * composition is simple: `animate-in` runs the keyframe, and each modifier sets
- * one custom property the keyframe reads. Adding a variant means adding a line.
+ * A class written by hand inside `@layer utilities` is just CSS. Tailwind v4
+ * does not know it is a utility, so it cannot build VARIANTS of it — and the
+ * sheet asks for exactly that: `data-[state=closed]:animate-out`,
+ * `data-[state=closed]:slide-out-to-right-full`,
+ * `data-[state=closed]:fade-out-0`. None of those selectors existed in the
+ * compiled stylesheet. That is a silent failure by construction: the markup
+ * reads as though it animates both ways, the build reports no error, and the
+ * only evidence is a panel that disappears.
+ *
+ * The `*-full` ENTER pair below was missing outright, which is the other half
+ * of it. `sheet.tsx` has always asked for `slide-in-from-right-full`, so the
+ * panel ran the `enter` keyframe with no translate set and simply materialised
+ * in place — the animation was running, over a distance of zero.
+ *
+ * Defined here rather than by adding `tw-animate-css`: the set actually used is
+ * small, this is a money system where a dependency is a supply-chain decision,
+ * and the composition is simple — the `animate-in`/`animate-out` utility runs
+ * the keyframe and each modifier sets one custom property the keyframe reads.
+ * Adding a variant means adding one `@utility` block.
+ *
+ * Keyframes stay outside: `@keyframes` is not a utility and is not layered.
+ *
+ * Kept in step with the portal's copy of this block by hand.
  */
-@layer utilities {
-  @keyframes enter {
-    from {
-      opacity: var(--tw-enter-opacity, 1);
-      transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)
-        scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), 1);
-    }
+@keyframes enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)
+      scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), 1);
   }
+}
 
-  .animate-in {
-    animation-name: enter;
-    animation-duration: 150ms;
-    animation-fill-mode: both;
-    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+@keyframes exit {
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0)
+      scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), 1);
   }
+}
 
-  .fade-in,
-  .fade-in-0 {
-    --tw-enter-opacity: 0;
-  }
-  .fade-in-50 {
-    --tw-enter-opacity: 0.5;
-  }
+@utility animate-in {
+  animation-name: enter;
+  animation-duration: 150ms;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-  .zoom-in-95 {
-    --tw-enter-scale: 0.95;
-  }
+/*
+ * Radix is what makes an exit animation possible at all — it holds the element
+ * mounted until the animation ends rather than unmounting on the click, so
+ * `data-[state=closed]` has something to style. Without a defined exit
+ * animation there is nothing to wait for and the element simply goes.
+ */
+@utility animate-out {
+  animation-name: exit;
+  /* Faster than the 150ms enter, deliberately. A panel the user has just
+     dismissed should get out of the way; matching the entry speed makes a
+     closed panel feel like it is arguing. */
+  animation-duration: 120ms;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
 
-  .slide-in-from-top-1 {
-    --tw-enter-translate-y: -0.25rem;
-  }
-  .slide-in-from-top-2 {
-    --tw-enter-translate-y: -0.5rem;
-  }
-  .slide-in-from-top-4 {
-    --tw-enter-translate-y: -1rem;
-  }
-  .slide-in-from-bottom-2 {
-    --tw-enter-translate-y: 0.5rem;
-  }
-  .slide-in-from-left-2 {
-    --tw-enter-translate-x: -0.5rem;
-  }
-  .slide-in-from-right-2 {
-    --tw-enter-translate-x: 0.5rem;
-  }
+@utility fade-in {
+  --tw-enter-opacity: 0;
+}
+@utility fade-in-0 {
+  --tw-enter-opacity: 0;
+}
+@utility fade-in-50 {
+  --tw-enter-opacity: 0.5;
+}
+@utility fade-out {
+  --tw-exit-opacity: 0;
+}
+@utility fade-out-0 {
+  --tw-exit-opacity: 0;
+}
 
-  /*
-   * ── EXIT ──────────────────────────────────────────────────────────────────
-   *
-   * There were no exit animations at all, and their absence was not neutral:
-   * the notification sheet ENTERED with a slide and then vanished on close,
-   * which reads as the panel breaking rather than closing. A one-way animation
-   * is worse than none, because the first half sets an expectation the second
-   * half denies.
-   *
-   * Radix drives these through `data-[state=closed]`, and it is what makes them
-   * possible at all — it holds the element mounted until the animation ends
-   * rather than unmounting on the click. Without a defined exit animation there
-   * is nothing to wait for, so the element simply goes.
-   *
-   * Same composition as the enter set above: `animate-out` runs the keyframe,
-   * each modifier sets one custom property the keyframe reads.
-   */
-  @keyframes exit {
-    to {
-      opacity: var(--tw-exit-opacity, 1);
-      transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0)
-        scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), 1);
-    }
-  }
+@utility zoom-in-95 {
+  --tw-enter-scale: 0.95;
+}
+@utility zoom-out-95 {
+  --tw-exit-scale: 0.95;
+}
 
-  .animate-out {
-    animation-name: exit;
-    /* Faster than the 150ms enter, deliberately. A panel the user has just
-       dismissed should get out of the way; matching the entry speed makes a
-       closed panel feel like it is arguing. */
-    animation-duration: 120ms;
-    animation-fill-mode: both;
-    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
-  }
+@utility slide-in-from-top-1 {
+  --tw-enter-translate-y: -0.25rem;
+}
+@utility slide-in-from-top-2 {
+  --tw-enter-translate-y: -0.5rem;
+}
+@utility slide-in-from-top-4 {
+  --tw-enter-translate-y: -1rem;
+}
+@utility slide-in-from-bottom-2 {
+  --tw-enter-translate-y: 0.5rem;
+}
+@utility slide-in-from-left-2 {
+  --tw-enter-translate-x: -0.5rem;
+}
+@utility slide-in-from-right-2 {
+  --tw-enter-translate-x: 0.5rem;
+}
 
-  .fade-out,
-  .fade-out-0 {
-    --tw-exit-opacity: 0;
-  }
-
-  .zoom-out-95 {
-    --tw-exit-scale: 0.95;
-  }
-
-  .slide-out-to-left-full {
-    --tw-exit-translate-x: -100%;
-  }
-  .slide-out-to-right-full {
-    --tw-exit-translate-x: 100%;
-  }
+/* Edge panels (components/ui/sheet.tsx) travel their own width rather than a
+   fixed nudge, so the sheet starts fully off-screen at any breakpoint — and
+   returns the whole way on close, which is what says it went back to the edge
+   it came from rather than the page beneath it being replaced. */
+@utility slide-in-from-left-full {
+  --tw-enter-translate-x: -100%;
+}
+@utility slide-in-from-right-full {
+  --tw-enter-translate-x: 100%;
+}
+@utility slide-out-to-left-full {
+  --tw-exit-translate-x: -100%;
+}
+@utility slide-out-to-right-full {
+  --tw-exit-translate-x: 100%;
 }
 
 /*

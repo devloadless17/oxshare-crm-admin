@@ -30,7 +30,17 @@ vi.mock('@/context/AdminAuthContext', () => ({ useAdmin }));
 // sub-admin holding only kyc/users keys does not — which is what the
 // deny-the-body assertion below needs. It was `/withdrawals` until that
 // route left with the money teardown.
-vi.mock('next/navigation', () => ({ usePathname: () => '/currencies' }));
+/*
+ * `useRouter` alongside it: the layout mounts the notification bell, which
+ * reaches for the router so a toast raised by an incoming notification can
+ * offer a "View" action. `useRouter` throws outside a mounted router, and
+ * mocking this module partially — `usePathname` only — makes every other export
+ * `undefined` rather than falling through to the real one.
+ */
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/currencies',
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+}));
 
 const MASTER = {
   id: 'a1',

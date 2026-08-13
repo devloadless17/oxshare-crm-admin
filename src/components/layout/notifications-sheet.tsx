@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Bell, Volume2, VolumeX } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -25,12 +26,14 @@ import { relativeTime } from '@/lib/relative-time';
 import { useRealtime } from '@/hooks/use-realtime';
 import {
   playNotificationSound,
+  primeNotificationSound,
   setSoundEnabled,
   soundEnabled,
   soundEnabledOnServer,
   subscribeToSoundPreference,
 } from '@/lib/notification-sound';
 import { resolveKind } from './notification-kinds';
+import { toastNotification } from './notification-toast';
 
 /**
  * The notification bell, and the panel behind it — live since the
@@ -65,7 +68,19 @@ const PAGE_SIZE = 30;
 
 export function NotificationsSheet() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
+
+  /*
+   * Build the AudioContext on the operator's first click or keypress, rather
+   * than on the first notification that wants it.
+   *
+   * Without this the first chime of a session is inaudible even though sound is
+   * on by default — `resume()` is asynchronous and the notes are already
+   * scheduled — so the ping appeared to start working only from the second
+   * notification onward. See `lib/notification-sound.ts`.
+   */
+  React.useEffect(() => primeNotificationSound(), []);
   /*
    * The sound preference lives in localStorage, which React does not own and
    * the server cannot read — so it is subscribed to rather than copied into
@@ -94,11 +109,42 @@ export function NotificationsSheet() {
      * the handlers in a ref, so this object being new on every render does not
      * rebuild the socket.
      */
-    'notification.created': () => {
+    'notification.created': (payload) => {
       void queryClient.invalidateQueries({ queryKey: LIST_KEY });
       playNotificationSound();
+      /*
+       * The toast is the point of the socket for an operator working inside a
+       * client record rather than watching the bell. The badge behind it is the
+       * durable signal and the toast is the announcement; both are driven by
+       * this one event so they cannot disagree.
+       *
+       * `router.push` rather than a `<Link>`: a toast action is a button inside
+       * a portal-rendered overlay, not a row in the sheet.
+       */
+      toastNotification(payload, (href) => router.push(href));
     },
   });
+
+  /*
+   * ⚠️ RE-SYNC WHENEVER THE SOCKET COMES BACK — the missing half of "realtime".
+   *
+   * A Socket.IO event is delivered only to a socket that is connected AT THAT
+   * MOMENT. There is no replay and no backlog, so everything that happened
+   * while this tab was closed, asleep, offline, or past the fifteen-minute
+   * token ceiling simply never arrives.
+   *
+   * Without this, a queue item that landed while the console was in the
+   * background stayed invisible until the next count poll — and because a
+   * CONNECTED socket backs that poll off to five minutes, "realtime" was
+   * slower after a reconnect than the plain poll it replaced.
+   *
+   * Invalidating on every connect closes that window: reconnecting IS the
+   * moment to ask what was missed.
+   */
+  React.useEffect(() => {
+    if (!connected) return;
+    void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+  }, [connected, queryClient]);
 
   const count = useQuery({
     queryKey: COUNT_KEY,

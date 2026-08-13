@@ -18,6 +18,8 @@ import { DocLightbox } from '@/components/kyc-review/doc-lightbox';
 import { documentsOf } from '@/components/kyc-review/documents-of';
 import { useRejectOptions } from '@/components/kyc-review/use-reject-options';
 import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
+import { ReviewDock } from '@/components/kyc-review/review-dock';
+import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
 import { t } from '@/lib/i18n';
 
 /**
@@ -31,18 +33,25 @@ import { t } from '@/lib/i18n';
 type KycDetail = components['schemas']['KycSubmissionDto'];
 type KycAttempt = components['schemas']['KycAttemptDto'];
 
-/**
- * The status, translated.
- *
- * `status.replace('_', ' ')` rendered the raw enum with an underscore swapped
- * out — English by accident, and untranslatable by construction. The keys are
- * exhaustive over the backend enum, and the fallback exists only so a status
- * added on the API side degrades to something readable rather than blank.
+/*
+ * The local `statusLabel` is gone — it lives in `lib/kyc-status.ts` now,
+ * alongside the colour, so the queue's pill and this one cannot disagree.
  */
-function statusLabel(status: string): string {
-  const key = `kycStatus.${status}` as Parameters<typeof t>[0];
-  const label = t(key);
-  return label === key ? status.replace(/_/g, ' ') : label;
+
+/**
+ * Whole days this submission has been waiting for a decision, or `null` if it
+ * is not waiting for one.
+ *
+ * The same rule the queue applies: only `submitted` and `under_review` are
+ * waiting — a client still filling in their details has not asked for a
+ * decision, and a decided one is not waiting. Duplicated deliberately rather
+ * than shared: the queue's copy also feeds its sort, and one number computed
+ * two ways is cheaper to read here than an import that couples two screens.
+ */
+function daysWaiting(status: string, submittedAt: string | null | undefined): number | null {
+  if (status !== 'submitted' && status !== 'under_review') return null;
+  if (!submittedAt) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(submittedAt).getTime()) / 86_400_000));
 }
 
 export default function KycDetailPage() {
@@ -161,11 +170,27 @@ export default function KycDetailPage() {
     }
   };
 
-  if (loading) return <PageLoader label={t('kycReview.loading')} />;
+  /*
+   * CENTRED IN THE SPACE THE PAGE ACTUALLY HAS, not in the first 60% of it.
+   *
+   * `PageLoader`'s own `min-h-[60vh]` centres within 60% of the viewport, which
+   * on this screen put the spinner around a third of the way down with the rest
+   * of the area empty — it read as content that had finished loading rather
+   * than as a page still working. The wrapper takes the full height the console
+   * layout gives (`flex-1` against an `h-screen` ancestor with `min-h-0`), and
+   * `min-h-0` on the loader overrides its own floor so it centres in that
+   * instead. `cn` is twMerge-based, so the later class wins.
+   */
+  if (loading)
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <PageLoader label={t('kycReview.loading')} className="min-h-0" />
+      </div>
+    );
   if (loadError || !data)
     return (
-      <div className="detail-loading">
-        <p>{loadError || t('kycReview.notFound')}</p>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
+        <p className="text-sm text-muted-foreground">{loadError || t('kycReview.notFound')}</p>
         <div className="flex gap-3">
           <button
             type="button"
@@ -182,6 +207,7 @@ export default function KycDetailPage() {
     );
 
   const canReview = data.status === 'submitted' || data.status === 'under_review';
+  const waitingDays = daysWaiting(data.status, data.submittedAt);
   // One derived list, shared by the grid and the lightbox, so the two cannot
   // disagree about which documents exist.
   const documents = documentsOf(data);
@@ -194,14 +220,53 @@ export default function KycDetailPage() {
           <ChevronLeft className="h-4 w-4" />
           <span>{t('kycReview.backToList')}</span>
         </Link>
+        {/*
+          An identity card rather than a bare heading: the reviewer's first job
+          is to know WHO this is, and a monogram, name and address read as a
+          person where a lone `<h1>` read as a page title.
+        */}
         <div className="detail-title-row">
-          <div>
-            <h1>
-              {data.user?.firstName} {data.user?.lastName}
-            </h1>
-            <p>{data.user?.email}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground"
+            >
+              {(data.user?.firstName?.[0] ?? '?').toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <h1 className="truncate">
+                {data.user?.firstName} {data.user?.lastName}
+              </h1>
+              <p className="truncate">{data.user?.email}</p>
+            </div>
           </div>
-          <span className={`status-pill status-${data.status}`}>{statusLabel(data.status)}</span>
+          {/*
+            The status, and — when one is owed — how long the client has been
+            waiting for it. The queue shows that number and the screen where the
+            decision is actually made did not, so the reviewer lost the one piece
+            of context that says which submission is urgent.
+          */}
+          <div className="flex shrink-0 items-center gap-2">
+            {waitingDays !== null && (
+              <span
+                className={`text-xs font-semibold ${
+                  waitingDays >= 3 ? 'text-destructive' : 'text-muted-foreground'
+                }`}
+              >
+                {t('kycReview.waitingDays', { days: waitingDays })}
+              </span>
+            )}
+            <span
+              className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap"
+              style={{
+                background: `color-mix(in srgb, ${kycStatusColor(data.status)} 13%, transparent)`,
+                color: kycStatusColor(data.status),
+                border: `1px solid color-mix(in srgb, ${kycStatusColor(data.status)} 27%, transparent)`,
+              }}
+            >
+              {kycStatusLabel(data.status)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -228,50 +293,10 @@ export default function KycDetailPage() {
             </div>
           </div>
 
-          {canReview && (
-            <div className="action-card">
-              <h3>{t('kycReview.decision')}</h3>
-              {data.status === 'submitted' && (
-                <button
-                  className="btn-claim"
-                  onClick={() => void claim()}
-                  disabled={actionLoading}
-                  title={t('kycReview.claimHint')}
-                >
-                  {t('kycReview.claim')}
-                </button>
-              )}
-              <div className="action-btns">
-                <button
-                  className="btn-approve"
-                  onClick={() => {
-                    setActionError('');
-                    setShowApproveConfirm(true);
-                  }}
-                  disabled={actionLoading}
-                  aria-label="Approve KYC submission"
-                >
-                  {t('kycReview.approveCta')}
-                </button>
-                <button
-                  className="btn-reject"
-                  onClick={() => {
-                    setActionError('');
-                    setShowRejectModal(true);
-                  }}
-                  disabled={actionLoading}
-                  aria-label="Reject KYC submission"
-                >
-                  {t('kycReview.rejectCta')}
-                </button>
-              </div>
-              {actionError && !showRejectModal && !showApproveConfirm && (
-                <p className="mt-3 text-xs font-semibold text-destructive" role="alert">
-                  {actionError}
-                </p>
-              )}
-            </div>
-          )}
+          {/* The decision controls are DOCKED at the foot of the screen — see
+              ReviewDock. They used to sit here, at the bottom of this scrolling
+              column, which put the whole point of the page below however many
+              documents the client happened to upload. */}
           {data.status === 'approved' && (
             <div className="approved-banner">
               {t('kycReview.approvedNote')} User verification level set to 1.
@@ -318,6 +343,31 @@ export default function KycDetailPage() {
           index={lightboxAt}
           onClose={() => setLightboxAt(null)}
           onNavigate={setLightboxAt}
+        />
+      )}
+
+      {/*
+        Rendered LAST and only while a decision is owed.
+
+        Hidden behind the lightbox check as well: the lightbox is a full-screen
+        overlay for reading a document, and a floating action bar sitting on top
+        of it would offer an approve button over an image the reviewer is still
+        examining.
+      */}
+      {canReview && lightboxAt === null && (
+        <ReviewDock
+          status={data.status}
+          loading={actionLoading}
+          error={!showRejectModal && !showApproveConfirm ? actionError : ''}
+          onApprove={() => {
+            setActionError('');
+            setShowApproveConfirm(true);
+          }}
+          onReject={() => {
+            setActionError('');
+            setShowRejectModal(true);
+          }}
+          onClaim={() => void claim()}
         />
       )}
 

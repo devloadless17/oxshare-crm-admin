@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import { Banknote, FileCheck, Handshake } from 'lucide-react';
+import { Banknote, CandlestickChart, FileCheck, Handshake, UserPlus } from 'lucide-react';
 import type { MessageKey } from '@/lib/i18n';
 import { formatMoney } from '@/lib/money';
 import type { AdminNotification } from '@/lib/api/admin';
@@ -55,6 +55,71 @@ export const KIND_CONFIG: Record<string, KindConfig> = {
     // The application QUEUE, not /partners — that roster lists approved
     // partners and cannot contain the pending applicant this row announces.
     href: '/approvals/ib',
+  },
+  /*
+   * A client resubmitted after being rejected — a DISTINCT kind from
+   * `admin.kyc.submitted`, not a duplicate of it.
+   *
+   * The work is different: a first submission is an unknown client to assess
+   * from scratch, a resubmission is a review already done once where only the
+   * fields this desk itself asked to be corrected need checking. It also
+   * carries an expectation — that client has been refused once and is waiting.
+   * Rendering both identically is what lets resubmissions go stale.
+   */
+  'admin.kyc.resubmitted': {
+    icon: FileCheck,
+    titleKey: 'notifications.kindKycResubmittedTitle',
+    bodyKey: 'notifications.kindKycResubmittedBody',
+    href: '/kyc',
+  },
+  /*
+   * A MANUAL deposit was declared and needs somebody to check the bank and
+   * credit the wallet. Gateway deposits never reach here — they settle from the
+   * signed webhook with no human in the path, and a bell for one would be a
+   * queue item nobody can action.
+   *
+   * `/transactions` rather than `/wallets`: the row this announces is a
+   * transaction, and it is what the operator has to find before deciding
+   * anything. The credit itself is taken from the client's record.
+   */
+  'admin.deposit.submitted': {
+    icon: Banknote,
+    titleKey: 'notifications.kindDepositSubmittedTitle',
+    bodyKey: 'notifications.kindDepositSubmittedBody',
+    vars: (params) => ({
+      amount: formatMoney(str(params.amount), str(params.currency)),
+      reference: str(params.reference),
+    }),
+    href: '/transactions',
+  },
+  /*
+   * A new signup. NOT scope-filtered at write time (see the backend note): a
+   * brand-new client carries no tags, which is exactly the untriaged state this
+   * event asks somebody to resolve, so filtering on it would hide the event
+   * from the people whose job it is.
+   */
+  'admin.client.registered': {
+    icon: UserPlus,
+    titleKey: 'notifications.kindClientRegisteredTitle',
+    bodyKey: 'notifications.kindClientRegisteredBody',
+    href: '/clients',
+  },
+  /*
+   * Informational, and named for what happened. Client account opening is
+   * self-service and completes immediately — there is no approval step — so
+   * this is "a live account appeared on your groups", not a work item. Calling
+   * it `requested` would put something in an operator's bell that they cannot
+   * action and cannot clear.
+   */
+  'admin.trading_account.opened': {
+    icon: CandlestickChart,
+    titleKey: 'notifications.kindTradingAccountOpenedTitle',
+    bodyKey: 'notifications.kindTradingAccountOpenedBody',
+    vars: (params) => ({
+      login: str(params.login),
+      environment: str(params.environment),
+    }),
+    href: '/trading-accounts',
   },
 };
 

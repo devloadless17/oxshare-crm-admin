@@ -33,18 +33,50 @@ const DropdownMenuSubTrigger = React.forwardRef<
 ));
 DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName;
 
+/**
+ * A submenu's panel — PORTALLED, and that is the whole point of this component.
+ *
+ * ── The bug ────────────────────────────────────────────────────────────────
+ *
+ * The "Theme ▸" submenu in the user menu opened and was invisible. Not
+ * mispositioned — CLIPPED, with its left edge cut off against the parent menu
+ * and the rest painted underneath it.
+ *
+ * Two things compounded, and neither is wrong on its own:
+ *
+ *  1. This rendered WITHOUT a portal, so Radix placed the submenu panel as a DOM
+ *     child of `DropdownMenuContent`.
+ *  2. `DropdownMenuContent` carries `overflow-hidden` — it has to, or square
+ *     item corners bleed past the panel's `rounded-xl` on hover.
+ *
+ * A child that is absolutely positioned OUTSIDE its parent's box still gets
+ * clipped by that parent's `overflow-hidden`; `position: fixed` would escape it,
+ * but Radix positions submenus with `absolute` against the collision boundary.
+ * So the submenu was laid out correctly to the right of the menu, in a region
+ * its own parent refused to paint. `z-50` cannot help — stacking order does not
+ * defeat a clip rectangle.
+ *
+ * Portalling moves the panel to `document.body`, out from under the parent's
+ * overflow entirely, which is exactly what `DropdownMenuContent` below already
+ * does for the top-level menu. This was the one panel that had been left behind.
+ *
+ * The sidebar's own `overflow-hidden` (portal-layout / admin-layout) would have
+ * clipped it a second time for the same reason, so this fixes both at once.
+ */
 const DropdownMenuSubContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
 >(({ className, ...props }, ref) => (
-  <DropdownMenuPrimitive.SubContent
-    ref={ref}
-    className={cn(
-      'z-50 min-w-[8rem] overflow-hidden rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-      className,
-    )}
-    {...props}
-  />
+  <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.SubContent
+      ref={ref}
+      className={cn(
+        'z-50 min-w-[8rem] overflow-hidden rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+        className,
+      )}
+      {...props}
+    />
+  </DropdownMenuPrimitive.Portal>
 ));
 DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName;
 

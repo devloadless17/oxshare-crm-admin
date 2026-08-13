@@ -4105,8 +4105,11 @@ export interface components {
         RequestWithdrawalDto: {
             /** @example 300.00000000 */
             amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
+            /**
+             * @description A currency CODE from `GET /currencies`. Validated against the catalogue.
+             * @example USD
+             */
+            currency: string;
             /** @description Where the money goes, in the form the chosen method requires. For Whish Money this is the recipient's phone number, validated against Whish's own rules at request time. */
             destination: string;
             /**
@@ -4126,8 +4129,11 @@ export interface components {
              * @example 300.00000000
              */
             amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
+            /**
+             * @description A currency code.
+             * @example USD
+             */
+            currency: string;
             /** @enum {string} */
             state: "pending" | "approved" | "success" | "failure" | "rejected";
             /** @description Open set — never switch on this exhaustively. */
@@ -4223,8 +4229,11 @@ export interface components {
         WalletDto: {
             id: string;
             userId: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
+            /**
+             * @description A currency CODE from `GET /currencies`, not a fixed set — currencies are operator data.
+             * @example USD
+             */
+            currency: string;
             /**
              * @description Decimal string (§6.1).
              * @example 700.00000000
@@ -4255,8 +4264,11 @@ export interface components {
             entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment";
             referenceType: string;
             referenceId: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
+            /**
+             * @description A currency code — see WalletDto.
+             * @example USD
+             */
+            currency: string;
             /** Format: date-time */
             createdAt: string;
         };
@@ -5387,8 +5399,11 @@ export interface components {
             id: string;
             /** @description Monetary value — always a string, never a number */
             amount: string;
-            /** @enum {string} */
-            currency: "USD" | "USDT";
+            /**
+             * @description A currency code.
+             * @example USD
+             */
+            currency: string;
             /** @enum {string} */
             state: "pending" | "approved" | "success" | "failure" | "rejected";
             provider: string;

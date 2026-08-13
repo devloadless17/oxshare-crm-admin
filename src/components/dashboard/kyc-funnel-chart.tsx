@@ -15,6 +15,7 @@ import { useChartTokens } from './chart-theme';
 import { ChartTooltip } from './chart-tooltip';
 import { formatCount, tickCount } from './format';
 import { t } from '@/lib/i18n';
+import { kycStatusLabel } from '@/lib/kyc-status';
 
 /**
  * Where every client sits in identity verification — a HORIZONTAL bar chart on
@@ -46,17 +47,15 @@ import { t } from '@/lib/i18n';
  * belongs in a chart: the series genuinely means an adverse outcome.
  */
 
-/** The five ordered stages, shallowest first. `rejected` is handled apart. */
+/**
+ * The five ordered stages, shallowest first. `rejected` is handled apart.
+ *
+ * The LABELS are no longer here. This held its own `dashboard.kycStatus*` map,
+ * one of three parallel families for the same six statuses — so the dashboard
+ * kept saying "Submitted" after the review desk's word for it changed.
+ * `lib/kyc-status.ts` owns the vocabulary; this file owns the funnel's order.
+ */
 const STAGES = ['not_started', 'in_progress', 'submitted', 'under_review', 'approved'] as const;
-
-const STAGE_LABEL: Record<string, string> = {
-  not_started: 'dashboard.kycNotStarted',
-  in_progress: 'dashboard.kycInProgress',
-  submitted: 'dashboard.kycStatusSubmitted',
-  under_review: 'dashboard.kycUnderReview',
-  approved: 'dashboard.kycStatusApproved',
-  rejected: 'dashboard.kycRejected',
-};
 
 export function KycFunnelChart({ stats }: { stats: KycStats }) {
   const tokens = useChartTokens();
@@ -71,13 +70,13 @@ export function KycFunnelChart({ stats }: { stats: KycStats }) {
   const rows = [
     ...STAGES.map((status, index) => ({
       status,
-      label: t(STAGE_LABEL[status] as Parameters<typeof t>[0]),
+      label: kycStatusLabel(status),
       count: stats.byStatus[status] ?? 0,
       colour: tokens.ordinal[index] ?? tokens.ordinal[0] ?? '#2a78d6',
     })),
     {
       status: 'rejected' as const,
-      label: t('dashboard.kycRejected'),
+      label: kycStatusLabel('rejected'),
       count: stats.byStatus['rejected'] ?? 0,
       colour: tokens.status.critical,
     },

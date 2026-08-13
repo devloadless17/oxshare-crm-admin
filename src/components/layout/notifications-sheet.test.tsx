@@ -44,6 +44,20 @@ vi.mock('@/lib/api', () => {
 // mutable so the no-view-permission case below can narrow it.
 const permissions = { current: ALL_PERMISSIONS };
 
+/*
+ * The bell reaches for the app router so a toast raised by an incoming
+ * notification can offer a "View" action. `useRouter` throws outside a mounted
+ * router ("invariant expected app router to be mounted"), and these tests render
+ * the component directly rather than through a route — so it is stubbed.
+ *
+ * Only `push` is exercised here. The navigation itself belongs to the toast's
+ * own coverage; what this file asserts is the sheet, and it must not fail to
+ * render because of a dependency it never calls.
+ */
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+}));
+
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
     admin: {
