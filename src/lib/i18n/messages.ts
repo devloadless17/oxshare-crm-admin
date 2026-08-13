@@ -580,6 +580,10 @@ export const messages = {
   'tags.deleteSucceeded': 'Tag "{label}" deleted',
   'tags.saveSucceeded': 'Tag "{label}" saved',
   'tags.deleteFailed': 'Failed to delete the tag.',
+  // The platform's own tag — new-client intake (D-60).
+  'tags.systemBadge': 'System',
+  'tags.systemHint':
+    'Assigned automatically by the platform: every new registration lands in it. It cannot be deleted — removing it from a client (or tagging them into a territory, which removes it automatically) is how they are triaged out.',
   'tags.labelField': 'Label',
   'tags.labelPlaceholder': 'High risk',
   'tags.slugFixed': 'Link name stays {slug} — saved /clients?tag= links keep working.',
