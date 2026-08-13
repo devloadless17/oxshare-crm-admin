@@ -16,7 +16,7 @@ import { RowActions, actionsColumn, type RowAction } from '@/components/row-acti
 import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
 import { PartnerRejectDialog } from '@/components/ib/partner-reject-dialog';
-import { useConfirm } from '@/components/ui/confirm-dialog';
+import { PartnerApproveDialog } from '@/components/ib/partner-approve-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
@@ -65,7 +65,6 @@ export default function PartnerApprovalsPage() {
   const canReject = hasPermission(admin, 'ib.reject');
   const queryClient = useQueryClient();
   // Shadows `window.confirm` on purpose — same call shape, real dialog.
-  const confirm = useConfirm();
 
   const [status, setStatus] = React.useState<IbApplicationStatus | ''>('pending');
   const [page, setPage] = React.useState(1);
@@ -108,36 +107,37 @@ export default function PartnerApprovalsPage() {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['admin', 'ib-applications'] });
 
+  /*
+   * The row awaiting approval, held so the dialog can read its agency.
+   *
+   * Null closes it. A dialog rather than the previous `confirm()` because
+   * approval now needs an INPUT for applications that carry no agency — see
+   * PartnerApproveDialog.
+   */
+  const [approving, setApproving] = React.useState<IbApplicationPage['rows'][number] | null>(null);
+
   const approve = useMutation({
-    mutationFn: (id: string) => api.admin.approveIbApplication(id),
+    mutationFn: ({ id, agencyId }: { id: string; agencyId?: string }) =>
+      api.admin.approveIbApplication(id, agencyId ? { agencyId } : {}),
     onSuccess: async () => {
       await invalidate();
+      setApproving(null);
       toastSuccess(t('partnerReview.approveSucceeded'));
     },
+    // The dialog stays OPEN on failure, so a refusal the reviewer can act on —
+    // a closed agency, a full parent — does not also lose their choice.
     onError: (error) => toastError(error, t('partnerReview.approveFailed')),
   });
 
   /**
-   * Ask before creating a partner.
+   * Open the approval dialog for one row.
    *
-   * `confirm()` rather than a controlled dialog, matching the other thirteen
-   * call sites in the console — the guard stays one function, and dismissal
-   * resolves false so nothing is left pending on a cancel.
-   *
-   * The client is NAMED in the question. This screen is a queue of near-
-   * identical rows and the menu sits under the cursor for whichever one was
-   * clicked; "approve this application" would confirm the action without
-   * confirming the row, which is the mistake actually worth catching.
+   * The client is NAMED in it. This screen is a queue of near-identical rows and
+   * the menu sits under the cursor for whichever one was clicked; "approve this
+   * application" would confirm the action without confirming the row, which is
+   * the mistake actually worth catching.
    */
-  const confirmApprove = async (row: IbApplicationPage['rows'][number]) => {
-    const name = `${row.user.firstName} ${row.user.lastName}`.trim() || row.user.email;
-    const ok = await confirm({
-      title: t('partnerReview.confirmApproveTitle', { name }),
-      description: t('partnerReview.confirmApprove'),
-      confirmLabel: t('partnerReview.approve'),
-    });
-    if (ok) approve.mutate(row.application.id);
-  };
+  const confirmApprove = (row: IbApplicationPage['rows'][number]) => setApproving(row);
 
   const reject = useMutation({
     mutationFn: (input: { id: string; reason?: string; note?: string }) =>
@@ -166,7 +166,9 @@ export default function PartnerApprovalsPage() {
    * Rejection is not here: it goes through a dialog that owns its own saving
    * state, so the row is not what the operator is waiting on.
    */
-  const approvingId = approve.isPending ? approve.variables : undefined;
+  // `variables` is the mutation's INPUT, which is now an object rather than a
+  // bare id — the busy row is the one whose id it carries.
+  const approvingId = approve.isPending ? approve.variables?.id : undefined;
 
   /*
    * There is no batch approve here any more, and no selection column with it.
@@ -260,25 +262,6 @@ export default function PartnerApprovalsPage() {
       },
     },
     {
-      header: t('partnerReview.colVolume'),
-      /*
-       * NOT sortable — `expectedVolume` is absent from the endpoint's
-       * allowlist. It is a number the applicant TYPED, stored as free text
-       * rather than as an indexed numeric column, so there is no ordering of it
-       * the database could offer — and ordering self-reported figures would
-       * rank applications by how large a claim somebody made anyway.
-       */
-      sortable: false,
-      // Labelled as self-reported. It is a number the applicant typed, and a
-      // bare figure in a table reads as something the platform measured.
-      cell: (row) =>
-        row.application.expectedVolume ? (
-          <span className="text-xs">{row.application.expectedVolume}</span>
-        ) : (
-          <span className="text-xs text-muted-foreground">{t('partnerReview.notGiven')}</span>
-        ),
-    },
-    {
       /*
        * THE PROGRAMME APPLIED FOR, and the reason this column exists at all:
        * approving GRANTS this agency, so a reviewer deciding without seeing it
@@ -294,9 +277,13 @@ export default function PartnerApprovalsPage() {
         row.agencyName ? (
           <span className="text-xs">{row.agencyName}</span>
         ) : (
-          /* Not "none": the applicant named no programme, which on approval
-             leaves the partner unrestricted rather than selling nothing. */
-          <span className="text-xs text-muted-foreground">{t('partnerReview.noAgency')}</span>
+          /*
+            An older application, submitted before an agency was required. It
+            cannot be approved as-is — the dialog asks the reviewer to pick one,
+            and the API refuses without it — so this reads as the pending
+            decision it is rather than as a blank field.
+          */
+          <span className="text-xs text-warning">{t('partnerReview.noAgency')}</span>
         ),
     },
     {
@@ -528,6 +515,28 @@ export default function PartnerApprovalsPage() {
         mid-transition when a refetch replaces the list — the same rule
         `components/row-actions.tsx` records for its confirmation dialog.
       */}
+      <PartnerApproveDialog
+        open={approving !== null}
+        name={
+          approving
+            ? `${approving.user.firstName} ${approving.user.lastName}`.trim() ||
+              approving.user.email
+            : ''
+        }
+        // Null means the application named none, which is what makes the dialog
+        // ask instead of confirm.
+        requestedAgencyName={approving?.application.agencyName ?? null}
+        saving={approve.isPending}
+        onClose={() => {
+          setApproving(null);
+          approve.reset();
+        }}
+        onConfirm={(agencyId) => {
+          if (!approving) return;
+          approve.mutate({ id: approving.application.id, agencyId });
+        }}
+      />
+
       <PartnerRejectDialog
         open={rejecting !== null}
         applicantName={rejecting ? `${rejecting.user.firstName} ${rejecting.user.lastName}` : ''}

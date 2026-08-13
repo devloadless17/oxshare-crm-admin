@@ -589,8 +589,9 @@ export type AuditSortKey = (typeof AUDIT_SORT_KEYS)[number];
  * The applicant columns come from the `users` INNER JOIN the queue already does
  * to display a name and email, so ordering by them costs no extra join.
  *
- * There is no `expectedVolume` key — it is a self-reported free-text field
- * rather than an indexed column — so that column stays `sortable: false`.
+ * `agencyName` is absent for a different reason than a missing index: it is
+ * resolved AFTER the paged query, so there is no column for the database to
+ * order by and its screen control stays `sortable: false`.
  */
 export const IB_APPLICATION_SORT_KEYS = [
   'submittedAt',
@@ -1004,8 +1005,11 @@ export const adminApi = {
     return data;
   },
 
-  async getAgencies(): Promise<Agency[]> {
-    const { data } = await apiClient.get<Agency[]>('/admin/agencies');
+  // Takes the AbortSignal so a superseded read cancels — the approve dialog
+  // fetches this on open, and opening two in quick succession would otherwise
+  // race two responses into one cache key.
+  async getAgencies(signal?: AbortSignal): Promise<Agency[]> {
+    const { data } = await apiClient.get<Agency[]>('/admin/agencies', { signal });
     return data;
   },
 

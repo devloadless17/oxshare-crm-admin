@@ -166,6 +166,9 @@ export const messages = {
   'withdrawals.colClient': 'Client',
   'withdrawals.colAmount': 'Amount',
   'withdrawals.colDestination': 'Destination',
+  // The rail the money goes out through — the operator's own name for it
+  // ('Whish Money'), resolved server-side rather than a machine key.
+  'withdrawals.colMethod': 'Method',
   'withdrawals.colState': 'State',
   'withdrawals.colRequested': 'Requested',
   'withdrawals.stateAll': 'All',
@@ -946,6 +949,13 @@ export const messages = {
   'kycReview.colReviewed': 'Reviewed',
   'kycReview.colAction': 'Action',
   'kycReview.filterAll': 'All',
+  /*
+   * The `submitted` status, named for what it means to the DESK rather than
+   * for the action the client took. A separate key from `colSubmitted`, which
+   * is the "Submitted" DATE column and genuinely does mean when — reusing that
+   * one here is what made the tab say "Submitted" in the first place.
+   */
+  'kycReview.filterPending': 'Pending',
   'kycReview.filterUnderReview': 'Under Review',
   'kycReview.filterApproved': 'Approved',
   'kycReview.filterRejected': 'Rejected',
@@ -1927,14 +1937,19 @@ export const messages = {
 
   'partnerReview.colApplicant': 'Applicant',
   'partnerReview.colSubmitted': 'Submitted',
-  'partnerReview.colVolume': 'Expected volume (self-reported)',
   'partnerReview.colAgency': 'Applied for',
-  // Not "none" — an application naming no programme leaves the partner
-  // unrestricted on approval, which is the opposite of selling nothing.
-  'partnerReview.noAgency': 'Not specified',
+  /*
+   * This used to read "Not specified", with a note that approval would leave
+   * the partner unrestricted. Both are now wrong: an agency is required, so a
+   * blank one is not a state that survives a decision — the reviewer is asked
+   * for one in the approve dialog and the API refuses without it.
+   *
+   * Worded as the ACTION it implies rather than as an absence, because that is
+   * what the reviewer has to do about it.
+   */
+  'partnerReview.noAgency': 'Choose on approval',
   'partnerReview.colStatus': 'Status',
   'partnerReview.colActions': 'Decision',
-  'partnerReview.notGiven': 'Not given',
   'partnerReview.waitingDays': 'waiting {days} days',
 
   'partnerReview.statusPending': 'Pending',
@@ -1949,6 +1964,17 @@ export const messages = {
   'partnerReview.confirmApproveTitle': 'Approve {name} as a partner?',
   'partnerReview.confirmApprove':
     'This creates their partner account and issues a referral code, which is never reissued. The application cannot be decided again.',
+  'partnerReview.approving': 'Approving…',
+  // The agency is REQUIRED now — a partner without one has clients offered the
+  // entire catalogue, so the API refuses rather than defaulting. Applications
+  // submitted before the rule carry none, and the reviewer supplies it here.
+  'partnerReview.chooseAgency': 'Choose the agency',
+  'partnerReview.chooseAgencyHint':
+    'This application names none, so pick the programme to appoint them under. It decides what they and their clients may trade.',
+  'partnerReview.approvingUnder': 'Appointing them under {agency}, as they requested.',
+  'partnerReview.agencyClosed': 'Closed to new applications — still valid for this one.',
+  'partnerReview.noAgenciesConfigured':
+    'No agencies exist yet. Create one under Agencies before approving any partner.',
   'partnerReview.approveSucceeded': 'Partner application approved',
   'partnerReview.rejectSucceeded': 'Partner application rejected',
   'partnerReview.approveFailed': 'The application could not be approved.',

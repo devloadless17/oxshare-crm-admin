@@ -1222,6 +1222,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/withdrawal-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The withdrawal methods currently on offer
+         * @description Enabled rails only, in display order. The `key` is what POST /payments/withdrawals takes as `methodKey`.
+         */
+        get: operations["PaymentsController_listWithdrawalMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/withdrawals": {
         parameters: {
             query?: never;
@@ -3152,7 +3172,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Approve a pending withdrawal — funds stay on hold until settlement */
+        /**
+         * Approve a pending withdrawal and record it as paid
+         * @description One step: the withdrawal moves from pending to success with `settledAt` stamped. No balance changes — the debit posted when the client requested it. Requires `withdrawals.settle`, because this releases the payout.
+         */
         patch: operations["AdminMoneyController_approveWithdrawal"];
         trace?: never;
     };
@@ -3737,7 +3760,6 @@ export interface components {
             id: string;
             userId: string;
             motivation: string | null;
-            expectedVolume: string | null;
             website: string | null;
             /** @enum {string} */
             status: "pending" | "approved" | "rejected";
@@ -3884,13 +3906,11 @@ export interface components {
         CreateIbApplicationDto: {
             /**
              * Format: uuid
-             * @description Which agency the applicant wants to be appointed under.
+             * @description Which agency the applicant wants to be appointed under. Required — it decides what they may sell, and there is no "any" option.
              */
-            agencyId?: string;
+            agencyId: string;
             /** @description Why the client wants to introduce business. Shown to the reviewer verbatim. */
             motivation?: string;
-            /** @description Self-reported and unverified. Labelled as such on the review screen. */
-            expectedVolume?: string;
             website?: string;
         };
         ApproveIbApplicationDto: {
@@ -3900,7 +3920,7 @@ export interface components {
             parentIbUserId?: string | null;
             /**
              * Format: uuid
-             * @description Omitted grants the agency the applicant chose. Supply one to override it.
+             * @description Omitted grants the agency the applicant chose. Required when the application carries none — a partner cannot be approved without an agency.
              */
             agencyId?: string;
         };
@@ -4089,15 +4109,31 @@ export interface components {
              */
             paymentUrl: string | null;
         };
+        WithdrawalMethodDto: {
+            /**
+             * @description Send this back as `methodKey`.
+             * @example whish
+             */
+            key: string;
+            /**
+             * @description The operator's own name for the rail.
+             * @example Whish Money
+             */
+            name: string;
+            logoUrl?: string | null;
+        };
         RequestWithdrawalDto: {
             /** @example 300.00000000 */
             amount: string;
             /** @enum {string} */
             currency: "USD" | "USDT";
-            /** @description Payout target, e.g. an IBAN or a USDT address. */
+            /** @description Where the money goes, in the form the chosen method requires. For Whish Money this is the recipient's phone number, validated against Whish's own rules at request time. */
             destination: string;
-            /** @enum {string} */
-            provider: "whish" | "usdt";
+            /**
+             * @description A `withdrawal_payment_methods.key` from GET /payments/withdrawal-methods. Rejected if unknown or disabled.
+             * @example whish
+             */
+            methodKey: string;
             /**
              * @description Six-digit confirmation code. Required while the withdrawal OTP control is on.
              * @example 482913
@@ -4140,10 +4176,13 @@ export interface components {
             amount: string;
             /** @enum {string} */
             currency: "USD" | "USDT";
-            /** @description Payout target, e.g. an IBAN or a USDT address. */
+            /** @description Where the money goes, in the form the chosen method requires. For Whish Money this is the recipient's phone number, validated against Whish's own rules at request time. */
             destination: string;
-            /** @enum {string} */
-            provider: "whish" | "usdt";
+            /**
+             * @description A `withdrawal_payment_methods.key` from GET /payments/withdrawal-methods. Rejected if unknown or disabled.
+             * @example whish
+             */
+            methodKey: string;
         };
         WithdrawalOtpResponseDto: {
             /** @example A confirmation code has been sent to your email address. */
@@ -5397,6 +5436,8 @@ export interface components {
             /** @enum {string} */
             state: "pending" | "approved" | "success" | "failure" | "rejected";
             provider: string;
+            /** @example Whish Money */
+            methodName: string;
             providerRef?: string | null;
             destination?: string | null;
             rejectionReason?: string | null;
@@ -7354,6 +7395,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DepositRequestDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_listWithdrawalMethods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalMethodDto"][];
                 };
             };
         };
