@@ -149,7 +149,9 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * first click. It was not, because the wildcard was still being honoured and
    * `hasPermission` returned true before the route table was ever consulted.
    */
-  { prefix: '/commissions', requirement: { permission: 'ib.commissions.view' } },
+  // Either key, matching `GET /admin/ib/accruals` exactly — the route was
+  // stricter than its API, which denies a page the API would serve.
+  { prefix: '/commissions', requirement: { anyOf: ['ib.view', 'ib.commissions.view'] } },
   /*
    * `settings.view` — the family this screen is actually made of.
    *

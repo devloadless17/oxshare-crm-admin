@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { clientSearchBox, E2E_CLIENTS, E2E_TAGS, searchOwnClients } from './helpers';
+import { clientSearchBox, E2E_CLIENTS, E2E_DOMAIN, E2E_TAGS, searchOwnClients } from './helpers';
 
 /**
  * ADM-01 and ADM-14, as an operator actually uses them.
@@ -32,18 +32,19 @@ test.describe('the client index', () => {
     await expect(page.getByRole('link', { name: E2E_CLIENTS.alpha.name })).toHaveCount(0);
   });
 
-  test('filters by country — indexed but unreachable before this work', async ({ page }) => {
+  test('honours a bookmarked country segment', async ({ page }) => {
     /*
-     * `users_country_idx` existed and nothing could use it: the column was
-     * rendered and never filterable, while the status document claimed
-     * otherwise. The cohort has two Lebanon clients and one Cyprus, so the
-     * result is a COUNT CHANGE rather than a vacuous pass.
+     * The country SELECT is gone — removed at the operator's request, because
+     * its options were built from the rows on screen over a free-text column
+     * and shifted as you paged. What deliberately SURVIVES is the URL
+     * parameter: the clients page still reads `?country=` so a saved segment
+     * resolves instead of silently widening (see the comment beside
+     * `country: url.get('country')` in the page). That preserved behaviour is
+     * what this asserts, against `users_country_idx`. The cohort has two
+     * Lebanon clients and one Cyprus, so the result is a COUNT CHANGE rather
+     * than a vacuous pass.
      */
-    await page
-      .getByRole('combobox')
-      .filter({ hasText: /all countries/i })
-      .click();
-    await page.getByRole('option', { name: 'Cyprus' }).click();
+    await page.goto(`/clients?country=Cyprus&q=${E2E_DOMAIN}`);
 
     await expect(page.getByRole('link', { name: E2E_CLIENTS.charlie.name })).toBeVisible();
     await expect(page.getByRole('link', { name: E2E_CLIENTS.alpha.name })).toHaveCount(0);
@@ -51,10 +52,12 @@ test.describe('the client index', () => {
 
   test('puts the filter in the URL, so a segment can be shared', async ({ page }) => {
     // The forcing requirement: /tags shows a client count per tag and has to
-    // make it clickable. A screenshot is not a link.
+    // make it clickable. A screenshot is not a link. ("All account states",
+    // not "All statuses": the list shows three things a reader could call a
+    // status, and the account one got the unambiguous name.)
     await page
       .getByRole('combobox')
-      .filter({ hasText: /all statuses/i })
+      .filter({ hasText: /all account states/i })
       .click();
     await page.getByRole('option', { name: /pending/i }).click();
 
@@ -75,15 +78,27 @@ test.describe('the client index', () => {
      * order is deliberate — row order alone would pass against the old
      * client-side sort, which is precisely the bug.
      */
+    // Armed BEFORE the click: the sorted refetch is what proves the header
+    // reached the API, and it fires immediately on the URL change.
+    const sorted = page.waitForResponse(
+      (r) => r.url().includes('/api/admin/clients') && r.url().includes('sort=email'),
+      { timeout: 20_000 },
+    );
     await page.getByRole('button', { name: /^email$/i }).click();
     await expect(page).toHaveURL(/sort=email/);
     await expect(page).toHaveURL(/order=/);
+    await sorted;
 
-    // And the rows actually came back ordered.
-    await searchOwnClients(page);
-    const emails = await page.locator('tbody tr td:nth-child(2)').allInnerTexts();
-    const owned = emails.filter((e) => e.includes('oxshare-e2e.test'));
-    expect(owned).toEqual([...owned].sort());
+    // And the rows actually came back ordered. Polled, because the response
+    // landing and React committing the new rows are two separate moments — a
+    // single read can catch the previous render and report the default
+    // ordering as a sort failure.
+    await expect(async () => {
+      const emails = await page.locator('tbody tr td:nth-child(2)').allInnerTexts();
+      const owned = emails.filter((e) => e.includes('oxshare-e2e.test'));
+      expect(owned.length).toBeGreaterThan(2);
+      expect(owned).toEqual([...owned].sort());
+    }).toPass({ timeout: 10_000 });
   });
 
   test('opens a client profile from the list', async ({ page }) => {

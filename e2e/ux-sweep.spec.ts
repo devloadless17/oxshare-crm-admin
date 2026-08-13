@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { CONSOLE_PAGES } from './helpers';
 
 /**
  * One sweep, every console page, for the defects a person notices and a test
@@ -23,17 +24,8 @@ import { expect, test, type Page } from '@playwright/test';
  * decision from anyone.
  */
 
-/** Signed-in pages. */
-const PRIVATE = [
-  '/dashboard',
-  '/clients',
-  '/kyc',
-  '/roles',
-  '/admin-users',
-  '/audit-log',
-  '/settings',
-  '/invite',
-];
+/** Signed-in pages — every built console page, shared with console-pages. */
+const PRIVATE = CONSOLE_PAGES;
 
 /**
  * Screens outside the console chrome.
@@ -62,7 +54,11 @@ async function unnamedControls(page: Page): Promise<string[]> {
         (el.textContent ?? '').trim().length > 0 ||
         el.getAttribute('aria-label') ||
         el.getAttribute('title') ||
-        el.getAttribute('aria-labelledby');
+        el.getAttribute('aria-labelledby') ||
+        // `<label htmlFor>` association names a labelable element (buttons
+        // included — Radix checkboxes render as one) exactly as an aria-label
+        // would. Skipping it flagged every properly-labelled checkbox.
+        ('labels' in el && ((el as HTMLButtonElement).labels?.length ?? 0) > 0);
       if (!named) {
         unnamed.push(`${el.tagName.toLowerCase()}.${el.className.toString().slice(0, 40)}`);
       }

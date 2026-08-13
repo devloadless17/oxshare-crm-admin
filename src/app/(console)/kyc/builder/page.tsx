@@ -429,10 +429,19 @@ export default function KycBuilderPage() {
                       <Trash2 className="h-4 w-4" />
                     </button>
 
-                    {/* Expand/Collapse Toggle */}
+                    {/* Expand/Collapse Toggle. Named and stated: icon-only, so
+                        without a label a screen reader announces it as just
+                        "button" — the one control on this row that did. */}
                     <button
                       type="button"
                       onClick={() => setExpandedStep(isExpanded ? null : step.id)}
+                      aria-expanded={isExpanded}
+                      aria-label={t(
+                        isExpanded ? 'kycBuilder.collapseStep' : 'kycBuilder.expandStep',
+                        {
+                          name: step.title,
+                        },
+                      )}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-foreground hover:bg-accent ms-1 focus-outline"
                     >
                       {isExpanded ? (

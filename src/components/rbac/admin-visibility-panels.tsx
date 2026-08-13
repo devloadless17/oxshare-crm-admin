@@ -1,7 +1,8 @@
 'use client';
 
 import { AlertTriangle, X } from 'lucide-react';
-import type { ClientTagWithCount } from '@/lib/api/admin';
+import type { ClientFieldGroup, ClientTagWithCount } from '@/lib/api/admin';
+import { ToggleList, type ToggleListOption } from '@/components/ui/toggle-list';
 
 import {
   Select,
@@ -20,13 +21,15 @@ import { t } from '@/lib/i18n';
  * can also widen that administrator's view of the entire client base. Those are
  * not the same size of act.
  *
- * There were TWO surfaces here. `AdminFieldMaskPanel` — a per-administrator
- * override of which client FIELDS are hidden — has been removed along with the
- * section that rendered it. A mask attached to one person is the same shape of
- * thing as a per-person permission list: an access rule that tracks no role and
- * is invisible from the roles screen, so "who can see phone numbers?" stopped
- * being answerable there. Masks are a property of the ROLE, set on `/roles`,
- * which has its own panel and its own fetch of the field catalog.
+ * TWO surfaces again (restored 13 Aug, owner's decision): the tag TERRITORY and
+ * the field-mask OVERRIDE. The override was removed as "an access rule tracking
+ * no role" — but the role editor's mask section had been removed too, which
+ * left masking enforced by the API and configurable nowhere. The model now is
+ * the one the API always kept: the ROLE is where a mask is normally set
+ * (`/roles`, restored first), and this per-person override exists for the
+ * one-person exception — `null` inherits the role, a list wins over it, and
+ * the roles screen stays the answer to "who can see phone numbers" for
+ * everyone who has no override.
  */
 
 /**
@@ -72,7 +75,27 @@ export function AdminTagScopePanel({
   /** Why the whole panel is inert — e.g. this is the master admin. */
   disabledReason?: string;
 }) {
-  const chosen = tags.filter((tag) => selected.includes(tag.id));
+  /*
+   * EVERY selected id renders a chip, even one the vocabulary fetch does not
+   * contain — as its raw id, removable. Filtering chips through the vocabulary
+   * made a stored territory invisible whenever the tag list and the scope
+   * disagreed for any reason, and an operator who then saved an unrelated
+   * change silently narrowed the scope to only what they could see. A chip
+   * that says "unknown tag" is ugly and honest; a dropped territory is
+   * neither.
+   */
+  const known = new Map(tags.map((tag) => [tag.id, tag] as const));
+  const chosen = selected.map(
+    (id) =>
+      known.get(id) ?? {
+        id,
+        slug: id,
+        label: t('adminUsers.scopeUnknownTag'),
+        clientCount: 0,
+        isSystem: false,
+        createdAt: '',
+      },
+  );
   const available = tags.filter((tag) => !selected.includes(tag.id));
 
   return (
@@ -160,6 +183,84 @@ export function AdminTagScopePanel({
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span>{t('adminUsers.scopeEmptyWarning')}</span>
             </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Which client fields this administrator may NOT see — the per-person
+ * OVERRIDE of their role's mask.
+ *
+ * The catalog is FETCHED (`GET /admin/client-fields`), never a frontend
+ * constant — the same rule as the permission catalog (R-4.5). A key the backend
+ * does not mask must not be offerable, and one it gains must appear without a
+ * frontend release. A mask key with no backend counterpart is not a cosmetic
+ * bug: it is a field an operator ticked a box for and believes they hid.
+ */
+export function AdminFieldMaskPanel({
+  catalog,
+  selected,
+  onToggle,
+  disabled,
+  disabledReason,
+  inheriting,
+  onResetToRole,
+}: {
+  catalog: Record<string, ClientFieldGroup>;
+  selected: readonly string[];
+  onToggle: (key: string) => void;
+  disabled?: boolean;
+  disabledReason?: string;
+  /** True while this admin has no override and follows their role. */
+  inheriting: boolean;
+  onResetToRole: () => void;
+}) {
+  const fields = Object.values(catalog).flatMap((group) => group.fields);
+
+  const options: ToggleListOption[] = fields.map((field) => ({
+    value: field.key,
+    label: field.label,
+    hint: field.key,
+    // Unmaskable fields are SHOWN and disabled WITH THEIR REASON, not omitted.
+    // An operator hunting for "why can I not hide the status column" needs the
+    // answer where they are looking, not absence.
+    disabledReason: field.maskable ? undefined : field.reason,
+  }));
+
+  return (
+    <div className="space-y-3">
+      {disabledReason ? (
+        <p className="text-[11px] text-muted-foreground">{disabledReason}</p>
+      ) : (
+        <>
+          <p className="text-[11px] text-muted-foreground">
+            {inheriting ? t('adminUsers.maskInheriting') : t('adminUsers.maskOverriding')}
+          </p>
+
+          <ToggleList
+            options={options}
+            selected={selected}
+            onToggle={onToggle}
+            disabled={disabled}
+          />
+
+          {!inheriting && (
+            <button
+              type="button"
+              onClick={onResetToRole}
+              disabled={disabled}
+              className="text-[11px] font-semibold text-link hover:underline focus-outline disabled:opacity-50"
+            >
+              {/*
+               * Clearing the override is a distinct action from "select
+               * nothing", and the API distinguishes them: `null` means inherit
+               * the role, `[]` means explicitly mask nothing for this person.
+               */}
+              {t('adminUsers.maskResetToRole')}
+            </button>
           )}
         </>
       )}

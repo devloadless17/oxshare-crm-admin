@@ -118,8 +118,8 @@ export function AdminDirectoryTable({
 }) {
   const showActions = can.canEdit || can.canSuspend || can.canResetPassword || can.canRevokeInvite;
 
-  // The API refuses self-changes and master changes; don't offer them.
-  const isMaster = (user: AdminUser) => user.role === 'master_admin';
+  // The API refuses self-changes; don't offer them. (The master tier is gone —
+  // its legacy enum value gates nothing any more.)
   const isSelf = (user: AdminUser) => user.id === currentAdminId;
 
   /*
@@ -285,7 +285,7 @@ export function AdminDirectoryTable({
         return (
           <div className="flex flex-col gap-0.5">
             <span className="text-[11px]">
-              {isMaster(row.admin) || row.admin.scopedTags.length === 0
+              {row.admin.scopedTags.length === 0
                 ? t('adminUsers.scopeAll')
                 : t('adminUsers.scopeCount', { count: row.admin.scopedTags.length })}
             </span>
@@ -330,8 +330,18 @@ export function AdminDirectoryTable({
             const user = row.admin;
             if (!user) return null;
             const suspended = user.status === 'suspended';
-            const editable = can.canEdit && !isMaster(user) && !isSelf(user);
-            const suspendable = can.canSuspend && !isMaster(user) && !isSelf(user);
+            /*
+             * NOT gated on the legacy `master_admin` enum any more. That tier
+             * was removed by the permission rework — the column is dead and
+             * the API reads only its real invariants: you cannot rewrite your
+             * OWN access, and `assertNotLastManager` refuses the one write
+             * that would leave nobody able to manage roles or administrators.
+             * Gating rows on the dead value made whichever accounts happened
+             * to carry it silently uneditable — a stricter UI than the API,
+             * enforcing a concept that no longer exists.
+             */
+            const editable = can.canEdit && !isSelf(user);
+            const suspendable = can.canSuspend && !isSelf(user);
 
             return (
               <RowActions

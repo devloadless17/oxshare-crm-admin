@@ -23,6 +23,7 @@ const base: AdminProfile = {
   email: 'sub@oxshare.com',
   name: 'Sub',
   role: 'sub_admin',
+  seesUntriaged: false,
   permissions: [],
   // Required since the API started admitting it. The directory used to render a
   // hardcoded "Active" badge because AdminProfileDto had no status field at all.
@@ -196,7 +197,10 @@ describe('canAccess', () => {
        * returned true before the route table was ever consulted.
        */
       expect(canAccess(withPerms(['ib.commissions.view']), '/commissions')).toBe(true);
-      expect(canAccess(withPerms(['ib.view']), '/commissions')).toBe(false);
+      // `ib.view` opens it too — GET /admin/ib/accruals accepts EITHER key,
+      // and a route stricter than its API denies a page the API would serve.
+      expect(canAccess(withPerms(['ib.view']), '/commissions')).toBe(true);
+      expect(canAccess(withPerms(['ib.approve']), '/commissions')).toBe(false);
     });
   });
 

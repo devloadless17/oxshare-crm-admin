@@ -3,30 +3,32 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
-import type { PermissionModule, Role } from '@/lib/api/admin';
+import type { ClientFieldGroup, PermissionModule, Role } from '@/lib/api/admin';
 import { PermissionMatrix } from './permission-matrix';
+import { ToggleList } from '@/components/ui/toggle-list';
 import { Button } from '@/components/ui/button';
+import { useAdmin } from '@/context/AdminAuthContext';
 import { t } from '@/lib/i18n';
 
 export interface RoleFormValues {
   name: string;
   description?: string;
   permissions: string[];
-  /*
-   * No `maskedFields`.
+  /**
+   * RBAC-03 — client fields holders of this role may not see.
    *
-   * A role is a set of PERMISSIONS. The field-masking half — which client
-   * fields holders of this role may not see — has been removed from the
-   * console: it was a second, parallel access model that had to be reasoned
-   * about alongside permissions on every screen, and it was configurable in two
-   * places (here, and per-administrator) with different semantics in each.
+   * RESTORED (13 Aug, owner's decision): the section was removed on 9 Aug as
+   * "a second access model", which left masking enforced by the API and
+   * configurable NOWHERE — the per-administrator editor had already gone, so
+   * the only masks in existence were the two the seed wrote. A control nobody
+   * can operate is not a simplification; it is the lock-with-no-key shape this
+   * project keeps finding.
    *
-   * `PUT /admin/roles/:id` still accepts `maskedFields` and the API still
-   * enforces whatever is stored, so a role that carries one keeps it: omitting
-   * the field from the request leaves it untouched rather than clearing it.
-   * Existing masks are therefore still applied and no longer editable from any
-   * screen — a data cleanup, not a UI one.
+   * The form always round-trips the full list (pre-filled on edit), so
+   * "rename and save" cannot silently unmask a legacy role — the pre-fill
+   * test is what guards that, replacing the omit-to-preserve pin.
    */
+  maskedFields: string[];
 }
 
 /**
@@ -53,37 +55,53 @@ export interface RoleFormValues {
  * — so nothing catches a mis-click on the sidebar. Worth knowing before someone
  * reports it as a bug.
  *
- * ── A role is PERMISSIONS, and nothing else ───────────────────────────────
+ * ── Why masking belongs HERE, on the role ─────────────────────────────────
  *
- * There was a second section here for field masking — which client fields
- * holders of this role may not see — argued for on the grounds that it is a
- * property of the job, like a permission. It was removed along with its
- * per-administrator counterpart in the admin editor.
+ * It is a property of the JOB. "Support agents do not see phone numbers" is
+ * the same kind of statement as "support agents cannot approve withdrawals",
+ * and the two belong on the same screen: an operator answering "what can a
+ * support agent do and see" should not have to open twenty individual admins
+ * and diff them. It also resolves LIVE, exactly as permissions do, so adding
+ * a field here blinds every holder on their next request with no re-login.
  *
- * The reason is that it was a SECOND access model running beside the first,
- * with its own vocabulary, its own catalog fetch and its own override
- * semantics, and every screen that showed client data had to reason about
- * both. One model answers "what may this person do", and that is the one this
- * form configures.
+ * ── The superset rule, surfaced where the operator is looking ─────────────
+ *
+ * A non-master cannot save a role whose mask reveals a field hidden from
+ * THEM (`assertMaskAllowed`) — otherwise creating a role would be the way
+ * around your own mask. Fields in the submitter's own mask are therefore
+ * pre-ticked and locked, with the reason on the control; the server refusal
+ * through the alert box below is the backstop, not the experience.
  */
 export function RoleForm({
   initial,
   catalog,
+  fieldCatalog,
   busy,
   error,
   submitLabel,
   onSubmit,
 }: {
-  initial?: Pick<Role, 'name' | 'description' | 'permissions'>;
+  initial?: Pick<Role, 'name' | 'description' | 'permissions' | 'maskedFields'>;
   catalog: Record<string, PermissionModule>;
+  /** RBAC-03 vocabulary, fetched — the frontend invents no keys (R-4.5). */
+  fieldCatalog: Record<string, ClientFieldGroup>;
   busy: boolean;
   error: string;
   submitLabel: string;
   onSubmit: (values: RoleFormValues) => void;
 }) {
+  const { admin } = useAdmin();
+  const ownMask = React.useMemo(() => admin?.maskedFields ?? [], [admin?.maskedFields]);
+
   const [name, setName] = React.useState(initial?.name ?? '');
   const [description, setDescription] = React.useState(initial?.description ?? '');
   const [permissions, setPermissions] = React.useState<string[]>(initial?.permissions ?? []);
+  const [maskedFields, setMaskedFields] = React.useState<string[]>(() =>
+    // The union: what the role hides, plus what the SUBMITTER cannot reveal.
+    // The server would refuse anything narrower, so offering it would only
+    // move the refusal from the checkbox to the save button.
+    Array.from(new Set([...(initial?.maskedFields ?? []), ...ownMask])),
+  );
 
   const toggle = (key: string) =>
     setPermissions((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
@@ -95,6 +113,7 @@ export function RoleForm({
       name: name.trim(),
       description: description.trim() || undefined,
       permissions,
+      maskedFields,
     });
   };
 
@@ -135,6 +154,53 @@ export function RoleForm({
       {/* The matrix is shared with the admin editor (RBAC-02), so a role and a
           direct grant always offer the same vocabulary. */}
       <PermissionMatrix catalog={catalog} selected={permissions} onToggle={toggle} />
+
+      {/*
+       * A <details> with an always-visible summary. Collapsed because most
+       * roles hide nothing — but the summary line is on screen before it is
+       * opened, because RBAC-03's failure mode is granting visibility you did
+       * not realise you granted.
+       */}
+      <details className="rounded-lg border border-border bg-card p-3">
+        <summary className="cursor-pointer list-none text-xs font-semibold focus-outline">
+          <span className="flex items-center justify-between gap-3">
+            {t('roles.maskSection')}
+            <span className="text-[11px] font-normal text-muted-foreground">
+              {maskedFields.length === 0
+                ? t('roles.maskSummaryNone')
+                : t('roles.maskSummary', { count: maskedFields.length })}
+            </span>
+          </span>
+        </summary>
+        <div className="pt-3">
+          <p className="mb-2 text-[11px] text-muted-foreground">{t('roles.maskHint')}</p>
+          <ToggleList
+            options={Object.values(fieldCatalog)
+              .flatMap((group) => group.fields)
+              .map((field) => ({
+                value: field.key,
+                label: field.label,
+                hint: field.key,
+                // Shown and disabled WITH the reason, never omitted: an operator
+                // hunting for "why can I not hide the status column" — or "why
+                // can I not un-hide the email" — needs the answer where they
+                // are looking.
+                disabledReason: !field.maskable
+                  ? field.reason
+                  : ownMask.includes(field.key)
+                    ? t('roles.maskLockedOwn')
+                    : undefined,
+              }))}
+            selected={maskedFields}
+            onToggle={(key) =>
+              setMaskedFields((prev) =>
+                prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+              )
+            }
+            disabled={busy}
+          />
+        </div>
+      </details>
 
       {error && (
         <div

@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import type { AdminUser, ClientTagWithCount, Role } from '@/lib/api/admin';
-import { AdminTagScopePanel } from './admin-visibility-panels';
+import type { AdminUser, ClientFieldGroup, ClientTagWithCount, Role } from '@/lib/api/admin';
+import { AdminFieldMaskPanel, AdminTagScopePanel } from './admin-visibility-panels';
 import {
   Select,
   SelectTrigger,
@@ -26,6 +26,8 @@ export interface AdminFormValues {
   maskedFields?: string[] | null;
   /** RBAC-03 territory. An EMPTY ARRAY means unrestricted, not none. */
   scopedTagIds?: string[];
+  /** D-60 — sees the intake pool (clients with no tags yet). */
+  seesUntriaged?: boolean;
 }
 
 /** Order- and duplicate-insensitive membership equality. */
@@ -61,6 +63,7 @@ export function AdminFormModal({
   admin,
   roles,
   tags,
+  fieldCatalog,
   currentScope,
   canScope,
   busy,
@@ -72,6 +75,8 @@ export function AdminFormModal({
   roles: Role[];
   /** The tag vocabulary, FETCHED — the frontend invents no keys (R-4.5). */
   tags: ClientTagWithCount[];
+  /** The maskable-field vocabulary, FETCHED — same rule (R-4.5). */
+  fieldCatalog: Record<string, ClientFieldGroup>;
   /** This admin's current territory, resolved server-side. */
   currentScope: string[];
   /** A separate permission from users.edit — see the panels. */
@@ -90,6 +95,30 @@ export function AdminFormModal({
    */
   const [roleId, setRoleId] = React.useState<string>(admin.roleId ?? '');
   const [scopedTagIds, setScopedTagIds] = React.useState<string[]>(currentScope);
+  const [seesUntriaged, setSeesUntriaged] = React.useState<boolean>(admin.seesUntriaged ?? false);
+  /*
+   * `null` = inheriting the role's mask; a list = this person's override.
+   * The DTO serves both halves (`maskedFields` is the EFFECTIVE mask,
+   * `maskedFieldsOverride` the stored override) precisely so this form can
+   * tell "inherits the role" from "has an identical override" — and offer the
+   * way back.
+   */
+  const [maskOverride, setMaskOverride] = React.useState<string[] | null>(
+    admin.maskedFieldsOverride ?? null,
+  );
+  const inheriting = maskOverride === null;
+  // What the panel shows: the override when there is one, the role's mask
+  // through the glass when there is not.
+  const effectiveMask = maskOverride ?? admin.maskedFields ?? [];
+
+  const toggleMaskField = (key: string) => {
+    // The first toggle FORKS the role's mask into an override — the operator
+    // edits what they see, not an invisible empty list.
+    setMaskOverride((prev) => {
+      const base = prev ?? admin.maskedFields ?? [];
+      return base.includes(key) ? base.filter((k) => k !== key) : [...base, key];
+    });
+  };
 
   const assignable = roles.filter((r) => !r.isSystem);
   const nameChanged = name.trim() !== admin.name;
@@ -112,6 +141,17 @@ export function AdminFormModal({
      * otherwise make every save look like a change.
      */
     if (!sameSet(scopedTagIds, currentScope)) values.scopedTagIds = scopedTagIds;
+    if (seesUntriaged !== (admin.seesUntriaged ?? false)) values.seesUntriaged = seesUntriaged;
+    /*
+     * The override is sent only when it CHANGED, with `null` meaning "clear it
+     * — follow the role again". `[]` is a real value (explicitly mask nothing
+     * for this person), which is why the comparison cannot collapse the two.
+     */
+    const storedOverride = admin.maskedFieldsOverride ?? null;
+    const overrideChanged =
+      inheriting !== (storedOverride === null) ||
+      (!inheriting && !sameSet(maskOverride ?? [], storedOverride ?? []));
+    if (overrideChanged) values.maskedFields = maskOverride;
 
     if (Object.keys(values).length === 0) {
       onClose();
@@ -191,20 +231,11 @@ export function AdminFormModal({
           </div>
 
           {/*
-           * OPEN, not behind a `<details>`.
-           *
-           * The scope was one of two collapsed sections with summary lines, on
-           * the reasoning that a summary you cannot avoid reading beats a tab
-           * that hides one. That reasoning held while there were two of them;
-           * with the field-mask section gone there is exactly one thing here,
-           * and a disclosure triangle in front of a single control is a click
-           * between the operator and the only remaining decision — while still
-           * showing the same summary the control itself now shows as chips.
-           *
-           * The FIELD VISIBILITY section is gone with it. A per-administrator
-           * mask override is the same shape of thing as a per-administrator
-           * permission list: an access rule attached to one person, tracking no
-           * role, invisible from the roles screen. Masks are set on the ROLE.
+           * Both RBAC-03 surfaces, open rather than collapsed: which CLIENTS
+           * this person sees (territory) and which FIELDS of them (the mask
+           * override — restored 13 Aug; the role's mask is the default and
+           * `/roles` is where it normally lives, this is the one-person
+           * exception with a stated way back).
            */}
           {canScope && (
             <div className="space-y-2 rounded-lg border border-border p-3">
@@ -218,9 +249,56 @@ export function AdminFormModal({
                   )
                 }
                 disabled={busy}
-                disabledReason={
-                  admin.role === 'master_admin' ? t('adminUsers.masterExempt') : undefined
-                }
+              />
+              {/*
+               * D-60 — the intake grant, INSIDE the scope section because it is
+               * territory: "the clients nobody has triaged yet" sits beside the
+               * tag territories it complements. Derived, not a tag, so it is a
+               * checkbox rather than an entry in the tag select. (No master
+               * exemption: that tier is gone; an unrestricted admin is simply
+               * one with no territory rows, and the grant is then moot.)
+               */}
+              {
+                <div className="border-t border-border pt-2.5">
+                  <label className="flex cursor-pointer items-start gap-2 text-xs font-medium">
+                    <input
+                      type="checkbox"
+                      checked={seesUntriaged}
+                      onChange={(e) => setSeesUntriaged(e.target.checked)}
+                      disabled={busy}
+                      className="mt-0.5 h-3.5 w-3.5 accent-primary"
+                    />
+                    <span>
+                      {t('adminUsers.seesUntriaged')}
+                      <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                        {t('adminUsers.seesUntriagedHint')}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              }
+            </div>
+          )}
+
+          {canScope && (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <p className="font-semibold">
+                {t('adminUsers.maskSection')}
+                <span className="ms-2 font-normal text-[11px] text-muted-foreground">
+                  {inheriting
+                    ? t('adminUsers.maskSummaryInherited')
+                    : effectiveMask.length === 0
+                      ? t('adminUsers.maskSummaryNone')
+                      : t('adminUsers.maskSummary', { count: effectiveMask.length })}
+                </span>
+              </p>
+              <AdminFieldMaskPanel
+                catalog={fieldCatalog}
+                selected={effectiveMask}
+                onToggle={toggleMaskField}
+                disabled={busy}
+                inheriting={inheriting}
+                onResetToRole={() => setMaskOverride(null)}
               />
             </div>
           )}

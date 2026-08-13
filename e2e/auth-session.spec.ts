@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { collectRejections, E2E_ADMIN, signIn } from './helpers';
+import { collectRejections, E2E_ADMIN, persistSharedState, signIn, signOut } from './helpers';
 
 /**
  * Does an admin session actually hold, on every page, across a refresh?
@@ -107,6 +107,14 @@ test.describe('an authenticated admin session', () => {
 
     await page.goto('/clients');
     await page.waitForLoadState('networkidle');
+
+    /*
+     * Persist BEFORE asserting: the renewal above rotated the refresh token the
+     * shared state file still holds, and a replay of a rotated token revokes
+     * the whole family. Saving first means even a failing assertion below
+     * cannot leave the rest of the run holding a burned token.
+     */
+    await persistSharedState(context);
 
     /*
      * A renewal HAPPENED and succeeded.
@@ -320,15 +328,23 @@ test.describe('signing in and out', () => {
      * private page — only the server can answer that — rather than reading the
      * UI's opinion of itself.
      */
-    await signIn(page);
+    try {
+      await signIn(page);
 
-    await page
-      .getByRole('button', { name: /log ?out/i })
-      .first()
-      .click();
-    await page.waitForURL(/\/login/, { timeout: 20_000 });
+      await signOut(page);
+      await page.waitForURL(/\/login/, { timeout: 20_000 });
 
-    await page.goto('/dashboard');
-    await expect(page, 'a signed-out admin walked back into the console').toHaveURL(/\/login/);
+      await page.goto('/dashboard');
+      await expect(page, 'a signed-out admin walked back into the console').toHaveURL(/\/login/);
+    } finally {
+      /*
+       * This logout revoked EVERY refresh family for the e2e admin (R-3.3),
+       * including the one `e2e/.auth/admin.json` holds — every later spec
+       * restores from that file. Re-establish a session and rewrite the file,
+       * in a FINALLY so even a failure above cannot poison the rest of the run.
+       */
+      await signIn(page).catch(() => undefined);
+      await persistSharedState(page.context()).catch(() => undefined);
+    }
   });
 });

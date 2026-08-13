@@ -29,6 +29,7 @@ const admin = (permissions: string[]): { admin: AdminProfile } => ({
     name: 'Sub Admin',
     role: 'sub_admin',
     status: 'active',
+    seesUntriaged: false,
     permissions,
     maskedFields: [],
     scopedTags: [],

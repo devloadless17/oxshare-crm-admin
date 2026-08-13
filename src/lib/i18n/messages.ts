@@ -580,6 +580,10 @@ export const messages = {
   'tags.deleteSucceeded': 'Tag "{label}" deleted',
   'tags.saveSucceeded': 'Tag "{label}" saved',
   'tags.deleteFailed': 'Failed to delete the tag.',
+  // A tag the platform itself depends on (is_system) — none ship today.
+  'tags.systemBadge': 'System',
+  'tags.systemHint':
+    'A tag the platform itself writes and depends on. It cannot be deleted; its label and colour can be edited, and it can still be removed from individual clients.',
   'tags.labelField': 'Label',
   'tags.labelPlaceholder': 'High risk',
   'tags.slugFixed': 'Link name stays {slug} — saved /clients?tag= links keep working.',
@@ -604,8 +608,20 @@ export const messages = {
   'roles.maskSummaryNone': 'Nothing hidden',
   'roles.maskHint':
     'Fields holders of this role cannot see. The value is removed from the API response, not just from the screen — and it applies everywhere, including the KYC review.',
+  // The superset rule (assertMaskAllowed): a role you save must hide at least
+  // what is hidden from YOU, or saving roles would be the way around your own
+  // mask. Locked on the control, so the answer is where the operator looks.
+  'roles.maskLockedOwn': 'Hidden from you — you cannot grant visibility you do not have.',
 
   'adminUsers.scopeSection': 'Client scope',
+  // D-60 — the intake pool. "Untriaged" is derived (no tags), never a tag.
+  'adminUsers.seesUntriaged': 'Sees new clients (not yet tagged)',
+  // A scope id the tag vocabulary did not return — shown rather than dropped.
+  'adminUsers.scopeUnknownTag': 'Unknown tag',
+  'adminUsers.seesUntriagedHint':
+    'The intake pool: clients with no tags at all. Granted by default — untick to restrict. Only unrestricted admins and holders of this grant see them. Assigning any tag moves a client out of intake by definition; removing their last tag returns them to it — nobody can fall between territories.',
+  'adminUsers.seesUntriagedLockedOwn':
+    'You do not see the intake pool yourself, so you cannot grant it — the invitee starts without it.',
   'adminUsers.scopeSummary': '{count} tag(s)',
   // Said in words, because both readings of an empty scope are plausible and
   // one of them is a data breach.
@@ -1460,6 +1476,8 @@ export const messages = {
   'kycBuilder.moveStepUp': 'Move Step Up',
   'kycBuilder.moveStepDown': 'Move Step Down',
   'kycBuilder.removeField': 'Remove Field',
+  'kycBuilder.expandStep': 'Show step details — {name}',
+  'kycBuilder.collapseStep': 'Hide step details — {name}',
   'kyc.searchAria': 'Search submissions by name or email',
   // The `ledger.*` keys went with the ledger screen. `getLedger` is back in
   // lib/api/admin.ts and the endpoint exists, but no page renders it yet, and a

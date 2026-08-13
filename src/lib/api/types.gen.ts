@@ -4690,6 +4690,7 @@ export interface components {
             maskedFields: string[];
             maskedFieldsOverride?: string[] | null;
             scopedTags: components["schemas"]["AdminScopeTagDto"][];
+            seesUntriaged: boolean;
             /** @example /uploads/avatars/6f1c.png */
             avatarUrl?: string | null;
             /** Format: date-time */
@@ -4713,6 +4714,8 @@ export interface components {
             maskedFields?: string[];
             /** @description Client tags this admin is scoped to. Omit or [] means UNRESTRICTED — every client. */
             scopedTagIds?: string[];
+            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. */
+            seesUntriaged?: boolean;
         };
         InviteResponseDto: {
             message: string;
@@ -4811,6 +4814,8 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
+            /** @description A tag the platform itself assigns (new-client intake, D-60). Undeletable; label and colour editable; un-assigning from a client is how they are triaged out of it. */
+            isSystem: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -4938,6 +4943,8 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
+            /** @description A tag the platform itself assigns (new-client intake, D-60). Undeletable; label and colour editable; un-assigning from a client is how they are triaged out of it. */
+            isSystem: boolean;
             /** Format: date-time */
             createdAt: string;
             /** @description How many clients carry this tag. */
@@ -5170,6 +5177,8 @@ export interface components {
             maskedFields?: string[] | null;
             /** @description Client tag ids. An EMPTY ARRAY means unrestricted (every client), not none — see D-10. */
             scopedTagIds?: string[];
+            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. */
+            seesUntriaged?: boolean;
         };
         AdminStatusDto: {
             /** @enum {string} */
