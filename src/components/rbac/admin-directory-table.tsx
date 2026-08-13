@@ -96,6 +96,7 @@ export function AdminDirectoryTable({
   invites,
   roles,
   currentAdminId,
+  viewerPermissions,
   can,
   suspendingId,
   revokingId,
@@ -108,6 +109,8 @@ export function AdminDirectoryTable({
   invites: PendingInvite[];
   roles: Role[];
   currentAdminId: string | undefined;
+  /** The viewer's own resolved permissions — the supersedes mirror below. */
+  viewerPermissions: readonly string[];
   can: DirectoryCapabilities;
   suspendingId: string | null | undefined;
   revokingId: string | null | undefined;
@@ -121,6 +124,17 @@ export function AdminDirectoryTable({
   // The API refuses self-changes; don't offer them. (The master tier is gone —
   // its legacy enum value gates nothing any more.)
   const isSelf = (user: AdminUser) => user.id === currentAdminId;
+  /*
+   * D-59's management rule, mirrored: an admin whose access SUPERSEDES the
+   * viewer's (holds everything they hold, and more) is out of reach — the API
+   * refuses edit and suspend, so the menu must not offer them. Equals stay
+   * peers; the full-access admin reaches everyone.
+   */
+  const held = new Set(viewerPermissions.map((p) => p.toLowerCase()));
+  const supersedesViewer = (user: AdminUser) => {
+    const target = user.permissions.map((p) => p.toLowerCase());
+    return [...held].every((p) => target.includes(p)) && target.some((p) => !held.has(p));
+  };
 
   /*
    * Invites LAST within an equal sort, so the directory still opens on the
@@ -340,8 +354,8 @@ export function AdminDirectoryTable({
              * to carry it silently uneditable — a stricter UI than the API,
              * enforcing a concept that no longer exists.
              */
-            const editable = can.canEdit && !isSelf(user);
-            const suspendable = can.canSuspend && !isSelf(user);
+            const editable = can.canEdit && !isSelf(user) && !supersedesViewer(user);
+            const suspendable = can.canSuspend && !isSelf(user) && !supersedesViewer(user);
 
             return (
               <RowActions

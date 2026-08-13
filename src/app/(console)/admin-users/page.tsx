@@ -302,6 +302,7 @@ export default function AdminUsersPage() {
             invites={invites}
             roles={roles}
             currentAdminId={admin?.id}
+            viewerPermissions={admin?.permissions ?? []}
             can={{
               canEdit: canEditAdmins,
               canSuspend,
