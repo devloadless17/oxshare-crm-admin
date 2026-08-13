@@ -1,0 +1,248 @@
+'use client';
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  Ban,
+  CheckCircle2,
+  Coins,
+  FileText,
+  Layers,
+  Network,
+  ShieldCheck,
+  Tags,
+  Users,
+} from 'lucide-react';
+import api from '@/lib/api';
+import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
+import { RowActions, type RowAction } from '@/components/row-actions';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
+import { t } from '@/lib/i18n';
+
+/**
+ * Everything an operator can DO to this client, behind one trigger.
+ *
+ * ## Why a menu rather than a row of buttons
+ *
+ * The set is conditional twice over — on the viewer's permissions and on
+ * whether the client is a partner — so laid out flat it is a header whose
+ * shape changes per client and per admin, and whose most destructive item
+ * ("suspend") sits next to its most routine one ("open KYC"). A menu keeps the
+ * header stable, groups the partner actions behind a separator, and puts every
+ * irreversible item behind a confirmation.
+ *
+ * ## It is NOT the enforcement
+ *
+ * Each mutation's endpoint carries its own `@RequirePermissions`, and the API
+ * refuses regardless of what this renders. The `hasPermission` checks here stop
+ * an operator reaching for something they will be refused — ARCHITECTURE §8.8,
+ * the same relationship every other screen in this console has with its guard.
+ *
+ * An admin holding none of the keys gets an empty array, and `RowActions`
+ * renders nothing at all rather than a trigger whose menu is empty.
+ *
+ * ## Every write invalidates BOTH queries
+ *
+ * The profile and the partner detail are separate requests behind separate
+ * permissions, and several of these actions change what the other one returns —
+ * suspending a partner changes their standing, not their client record, and
+ * vice versa. Invalidating one would leave the header and the tab disagreeing
+ * about the same person on the same screen.
+ */
+export function ClientActionsMenu({
+  profile,
+  partner,
+  onManageTags,
+  onChangeLevel,
+  onReassignParent,
+}: {
+  profile: ClientProfile;
+  /** Null when this client is not a partner — the partner block is then absent. */
+  partner: IbPartnerDetail | null;
+  onManageTags: () => void;
+  onChangeLevel: () => void;
+  onReassignParent: () => void;
+}) {
+  const { admin } = useAdmin();
+  const queryClient = useQueryClient();
+  const confirm = useConfirm();
+
+  const canSuspendClient = hasPermission(admin, 'clients.suspend');
+  const canEditPartner = hasPermission(admin, 'ib.partners.edit');
+  const canSuspendPartner = hasPermission(admin, 'ib.partners.suspend');
+  const canAssignTags = hasPermission(admin, 'clients.tag');
+  const canReviewKyc = hasPermission(admin, 'kyc.review');
+  const canViewDocs = hasPermission(admin, 'kyc.documents.view') || canReviewKyc;
+  const canViewCommissions =
+    hasPermission(admin, 'ib.view') || hasPermission(admin, 'ib.commissions.view');
+  const canViewClients = hasPermission(admin, 'clients.view');
+
+  const name =
+    [profile.firstName, profile.lastName].filter(Boolean).join(' ') || profile.email || '';
+
+  const invalidate = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['client', profile.id] }),
+      queryClient.invalidateQueries({ queryKey: ['client', profile.id, 'partner'] }),
+    ]);
+  };
+
+  const setStatus = useMutation({
+    mutationFn: (status: 'active' | 'suspended') => api.admin.setClientStatus(profile.id, status),
+    onSuccess: async (_data, status) => {
+      await invalidate();
+      toastSuccess(t('clientProfile.statusChanged', { status }));
+    },
+    onError: (error) => toastError(error, t('clientProfile.statusFailed')),
+  });
+
+  const setPartnerActive = useMutation({
+    mutationFn: (active: boolean) => api.admin.setIbPartnerActive(profile.id, active),
+    onSuccess: async (_data, active) => {
+      await invalidate();
+      toastSuccess(
+        t('clientProfile.partnerStateChanged', {
+          state: active ? t('clientProfile.partnerActive') : t('clientProfile.partnerSuspended'),
+        }),
+      );
+    },
+    onError: (error) => toastError(error, t('clientProfile.partnerStateFailed')),
+  });
+
+  const suspended = profile.status === 'suspended';
+
+  const confirmClientStatus = async () => {
+    const next = suspended ? 'active' : 'suspended';
+    const ok = await confirm({
+      title: suspended
+        ? t('clientProfile.confirmReactivateTitle', { name })
+        : t('clientProfile.confirmSuspendTitle', { name }),
+      description: suspended
+        ? t('clientProfile.confirmReactivate')
+        : t('clientProfile.confirmSuspend'),
+      confirmLabel: suspended
+        ? t('clientProfile.actionReactivate')
+        : t('clientProfile.actionSuspend'),
+      destructive: !suspended,
+    });
+    if (ok) setStatus.mutate(next);
+  };
+
+  const confirmPartnerActive = async () => {
+    if (!partner) return;
+    const next = !partner.active;
+    const ok = await confirm({
+      title: next
+        ? t('clientProfile.confirmReactivatePartnerTitle', { name })
+        : t('clientProfile.confirmSuspendPartnerTitle', { name }),
+      description: next
+        ? t('clientProfile.confirmReactivatePartner')
+        : t('clientProfile.confirmSuspendPartner'),
+      confirmLabel: next
+        ? t('clientProfile.actionReactivatePartner')
+        : t('clientProfile.actionSuspendPartner'),
+      destructive: !next,
+    });
+    if (ok) setPartnerActive.mutate(next);
+  };
+
+  const items: RowAction[] = [
+    ...(canSuspendClient
+      ? [
+          {
+            label: suspended
+              ? t('clientProfile.actionReactivate')
+              : t('clientProfile.actionSuspend'),
+            icon: suspended ? CheckCircle2 : Ban,
+            destructive: !suspended,
+            onSelect: () => void confirmClientStatus(),
+          },
+        ]
+      : []),
+    ...(canAssignTags
+      ? [{ label: t('clientProfile.actionManageTags'), icon: Tags, onSelect: onManageTags }]
+      : []),
+
+    // ── Compliance, as navigation rather than mutation ─────────────────────
+    ...(canReviewKyc
+      ? [
+          {
+            label: t('clientProfile.actionOpenKyc'),
+            icon: ShieldCheck,
+            href: `/kyc/${profile.id}`,
+            separatorBefore: canSuspendClient || canAssignTags,
+          },
+        ]
+      : []),
+    ...(canViewDocs && (profile.documents?.length ?? 0) > 0
+      ? [
+          {
+            label: t('clientProfile.actionViewDocuments'),
+            icon: FileText,
+            // The documents live on the compliance tab; this is a scroll target
+            // rather than a route, so it stays a hash on this page.
+            href: `#documents`,
+            separatorBefore: !canReviewKyc && (canSuspendClient || canAssignTags),
+          },
+        ]
+      : []),
+
+    // ── Partner, only when they are one ────────────────────────────────────
+    ...(partner && canSuspendPartner
+      ? [
+          {
+            label: partner.active
+              ? t('clientProfile.actionSuspendPartner')
+              : t('clientProfile.actionReactivatePartner'),
+            icon: partner.active ? Ban : CheckCircle2,
+            destructive: partner.active,
+            separatorBefore: true,
+            onSelect: () => void confirmPartnerActive(),
+          },
+        ]
+      : []),
+    ...(partner && canEditPartner
+      ? [
+          {
+            label: t('clientProfile.actionChangeLevel'),
+            icon: Layers,
+            separatorBefore: !canSuspendPartner,
+            onSelect: onChangeLevel,
+          },
+          {
+            label: t('clientProfile.actionReassignParent'),
+            icon: Network,
+            onSelect: onReassignParent,
+          },
+        ]
+      : []),
+    ...(partner && canViewCommissions
+      ? [
+          {
+            label: t('clientProfile.actionViewCommissions'),
+            icon: Coins,
+            href: `/commissions?ibUserId=${profile.id}`,
+          },
+        ]
+      : []),
+    ...(partner && canViewClients
+      ? [
+          {
+            label: t('clientProfile.actionViewReferred'),
+            icon: Users,
+            href: `/clients?type=referral`,
+          },
+        ]
+      : []),
+  ];
+
+  return (
+    <RowActions
+      items={items}
+      busy={setStatus.isPending || setPartnerActive.isPending}
+      label={t('clientProfile.actionsFor', { name })}
+    />
+  );
+}

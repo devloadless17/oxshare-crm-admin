@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import ClientProfilePage from './page';
 import { ALL_PERMISSIONS } from '@/test/permissions';
@@ -23,15 +24,25 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
  * the case at the bottom.
  */
 
-const { getClient, getTags, assignTag, unassignTag } = vi.hoisted(() => ({
+const { getClient, getTags, assignTag, unassignTag, getPartnerDetail } = vi.hoisted(() => ({
   getClient: vi.fn(),
   getTags: vi.fn(),
   assignTag: vi.fn(),
   unassignTag: vi.fn(),
+  /*
+   * REQUIRED, even though most cases here are not partners.
+   *
+   * The page calls it on every render. A mock that omits it leaves the method
+   * undefined, the call throws, `useResource` swallows the TypeError into its
+   * own error state, and the screen reports a generic failure — which reads as
+   * a broken query rather than a broken mock. The repo's CLAUDE.md records that
+   * this has cost real time twice.
+   */
+  getPartnerDetail: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getClient, getTags, assignTag, unassignTag } };
+  const api = { admin: { getClient, getTags, assignTag, unassignTag, getPartnerDetail } };
   return { api, default: api };
 });
 
@@ -83,6 +94,9 @@ beforeEach(() => {
   permissions.current = ALL_PERMISSIONS;
   getClient.mockResolvedValue(profile());
   getTags.mockResolvedValue([]);
+  // Not a partner — the ordinary answer, and the one that keeps the partner tab
+  // absent so these cases exercise the individual-client shape.
+  getPartnerDetail.mockResolvedValue(null);
 });
 
 describe('the profile itself', () => {
@@ -116,6 +130,20 @@ describe('a MASKED field', () => {
     expect(screen.getAllByText(/hidden by your permissions/i).length).toBeGreaterThan(0);
   });
 });
+
+/**
+ * Open one of the profile's tabs.
+ *
+ * The screen is tabbed now, and `TabPanel` renders NOTHING when it is not
+ * active — so a section that used to be in the initial DOM is only there once
+ * its tab is selected. Asserting without this passes vacuously against a page
+ * that never rendered the section at all, which is the failure mode these
+ * absence tests exist to catch.
+ */
+async function openTab(name: RegExp): Promise<void> {
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('tab', { name }));
+}
 
 describe('the documents section — the sharpest of the three absences', () => {
   it('says HIDDEN when the viewer lacks kyc.documents.view', async () => {
@@ -155,6 +183,7 @@ describe('the documents section — the sharpest of the three absences', () => {
     getClient.mockResolvedValue(profile({ documents: ['passport.png'] }));
     renderWithProviders(<ClientProfilePage />);
 
+    await screen.findByText('John Doe');
     const link = await screen.findByRole('link', { name: /passport\.png/i });
     expect(link).toHaveAttribute('href', expect.stringContaining('passport.png'));
     expect(screen.queryByRole('img', { name: /passport/i })).not.toBeInTheDocument();
@@ -175,6 +204,7 @@ describe('the other permission-gated sections', () => {
     renderWithProviders(<ClientProfilePage />);
 
     await screen.findByText('John Doe');
+    await openTab(/network/i);
     expect(screen.getByText(/referral relationships are hidden/i)).toBeInTheDocument();
   });
 
@@ -219,5 +249,107 @@ describe('a client the viewer may not see', () => {
 
     expect(await screen.findByText(/not implemented yet/i)).toBeInTheDocument();
     expect(screen.queryByText(/may not exist, or it may be outside/i)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The partner tab, and the rule that decides whether it exists at all.
+ *
+ * A fourth kind of absence, on top of the three this file already pins: the tab
+ * is missing because the SUBJECT is not a partner, not because the viewer
+ * cannot see partners. An empty "Partner" tab on an individual client invites
+ * the question of whether the data failed to load, which is the same confusion
+ * the hidden/none-yet distinction exists to prevent.
+ */
+const partnerDetail = (over: Record<string, unknown> = {}) => ({
+  userId: 'c-1',
+  level: 2,
+  levelName: 'Sub Partner',
+  rateValue: '40.0000',
+  referralCode: 'JFSA8BQB',
+  active: true,
+  approvedAt: '2026-08-13T00:00:00.000Z',
+  agencyId: null,
+  agencyName: null,
+  products: [] as string[],
+  parent: {
+    userId: 'p-1',
+    email: 'master@oxshare.com',
+    firstName: 'Master',
+    lastName: 'Partner',
+  },
+  directPartners: [] as unknown[],
+  referredClientCount: 4,
+  earnings: { confirmed: '31.50000000', pending: '0.00000000' },
+  ...over,
+});
+
+describe('the partner tab', () => {
+  it('is ABSENT for a client who is not a partner', async () => {
+    getPartnerDetail.mockResolvedValue(null);
+    renderWithProviders(<ClientProfilePage />);
+
+    await screen.findByText('John Doe');
+    expect(screen.queryByRole('tab', { name: /partner/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the rung, the rate and the code for a partner', async () => {
+    getPartnerDetail.mockResolvedValue(partnerDetail());
+    renderWithProviders(<ClientProfilePage />);
+
+    await screen.findByText('John Doe');
+    await openTab(/partner/i);
+
+    expect(screen.getByText('Sub Partner')).toBeInTheDocument();
+    expect(screen.getByText('JFSA8BQB')).toBeInTheDocument();
+    // The rate is TRIMMED for reading — the stored scale is for arithmetic.
+    expect(screen.getByText('40%')).toBeInTheDocument();
+  });
+
+  it('names the parent, and says so plainly when there is none', async () => {
+    getPartnerDetail.mockResolvedValue(partnerDetail({ parent: null }));
+    renderWithProviders(<ClientProfilePage />);
+
+    await screen.findByText('John Doe');
+    await openTab(/partner/i);
+
+    /*
+     * "Deals with the broker directly" rather than an em dash. No parent is the
+     * TOP OF A CHAIN, which is a standing, not a missing value — rendering it
+     * as an absence reads as data that failed to load.
+     */
+    expect(screen.getByText(/deals with the broker directly/i)).toBeInTheDocument();
+  });
+
+  it('explains an absent agency as the FULL catalogue, never as "none"', async () => {
+    getPartnerDetail.mockResolvedValue(partnerDetail({ agencyName: null }));
+    renderWithProviders(<ClientProfilePage />);
+
+    await screen.findByText('John Doe');
+    await openTab(/partner/i);
+
+    // A partner on no agency has clients offered everything. "None" would read
+    // as the opposite, and would be acted on.
+    expect(screen.getByText(/full product catalogue/i)).toBeInTheDocument();
+  });
+
+  it('keeps earnings as the STRING the API sent (§6.1)', async () => {
+    getPartnerDetail.mockResolvedValue(
+      // Seventeen significant digits: `Number()` is already wrong before
+      // formatting, which is the whole reason money crosses the wire as text.
+      partnerDetail({ earnings: { confirmed: '12345678901.23456789', pending: '0' } }),
+    );
+    renderWithProviders(<ClientProfilePage />);
+
+    await screen.findByText('John Doe');
+    await openTab(/partner/i);
+
+    /*
+     * `formatMoney` displays at 2dp, so the assertion is on the INTEGER part —
+     * which is where a float would actually corrupt the value. Rounding for
+     * display is fine; arriving already-wrong is not, and 12345678901.23456789
+     * through a double does not survive.
+     */
+    expect(screen.getByText(/12,345,678,901\.23/)).toBeInTheDocument();
   });
 });

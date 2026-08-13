@@ -19,7 +19,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CreditWalletModal } from '@/components/wallets/credit-wallet-modal';
-import { EmptySection, ProfileCard } from './profile-cards';
+import { ProfileCard } from './profile-cards';
+import { DataTable, type Column } from '@/components/data-table';
+import { RowActions, type RowAction } from '@/components/row-actions';
 import { t } from '@/lib/i18n';
 import { formatMoney, isZeroMoney } from '@/lib/money';
 
@@ -178,75 +180,106 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
    */
   const openable = (currencies.data ?? []).filter((c) => c.enabled && !held.has(c.code));
 
+  /*
+   * The row's actions, as a MENU rather than two controls in the cell.
+   *
+   * "Add funds" and the close button sat side by side, a text button next to a
+   * 28px destructive icon — the shape that made an accidental close plausible
+   * enough to need a confirmation bolted on. A menu puts them behind one
+   * deliberate trigger, gives the destructive item its own styling and a
+   * separator, and stops the row growing a third control the day another action
+   * is added.
+   */
+  const actionsFor = (wallet: WalletRow): RowAction[] => [
+    ...(canCredit
+      ? [
+          {
+            label: t('wallets.creditAction'),
+            icon: Plus,
+            onSelect: () => {
+              setCreditError(undefined);
+              setCrediting(wallet);
+            },
+          },
+        ]
+      : []),
+    ...(canClose
+      ? [
+          {
+            label: t('clientProfile.walletCloseAction'),
+            icon: Trash2,
+            destructive: true,
+            separatorBefore: canCredit,
+            onSelect: () => void requestClose(wallet),
+          },
+        ]
+      : []),
+  ];
+
+  const columns: Column<WalletRow>[] = [
+    {
+      header: t('clientProfile.walletCurrency'),
+      cell: (w) => (
+        <span className="inline-flex items-center gap-2">
+          <Wallet className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="font-mono text-xs font-semibold">{w.currency}</span>
+        </span>
+      ),
+    },
+    {
+      header: t('clientProfile.walletBalance'),
+      align: 'right',
+      /*
+       * FORMATTED through decimal.js, never coerced (§6.1) — the same treatment
+       * as the wallets list, so a balance reads identically on both screens.
+       */
+      cell: (w) => (
+        <span className="tabular font-semibold">{formatMoney(w.balance, w.currency)}</span>
+      ),
+    },
+    {
+      header: t('clientProfile.walletOnHold'),
+      align: 'right',
+      /*
+       * `isZeroMoney` rather than `!== '0.00000000'`: the second is a string
+       * comparison that breaks the moment the API answers '0' or '0.0', and it
+       * would then show a held figure on every wallet.
+       */
+      cell: (w) =>
+        isZeroMoney(w.onHold) ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <span className="tabular" title={t('wallets.onHoldNote')}>
+            {formatMoney(w.onHold, w.currency)}
+          </span>
+        ),
+    },
+    {
+      header: '',
+      align: 'right',
+      cell: (w) => (
+        <RowActions
+          items={actionsFor(w)}
+          busy={close.isPending}
+          // Named per WALLET: several identical triggers down a list announce as
+          // "button" to a screen reader with nothing to say which each one acts on.
+          label={t('clientProfile.walletActionsFor', { currency: w.currency })}
+        />
+      ),
+    },
+  ];
+
   return (
     <ProfileCard title={t('clientProfile.walletsTitle')}>
-      {rows.length === 0 ? (
-        <EmptySection message={t('clientProfile.noWallets')} />
-      ) : (
-        <ul className="divide-y divide-border">
-          {rows.map((w) => (
-            <li key={w.id} className="flex items-center justify-between gap-3 py-2.5">
-              <div className="flex items-center gap-2.5">
-                <Wallet className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <div>
-                  <div className="font-mono text-xs font-semibold">{w.currency}</div>
-                  {/*
-                    FORMATTED through decimal.js, never coerced (§6.1) — the
-                    same treatment as the wallets list, so a balance reads the
-                    same on both screens.
-
-                    `isZeroMoney` rather than `!== '0.00000000'`: the second is a
-                    string comparison that breaks the moment the API answers '0'
-                    or '0.0', and it would then render "· 0 held" on every wallet.
-                  */}
-                  <div className="font-mono text-[11px] text-muted-foreground">
-                    {formatMoney(w.balance, w.currency)}
-                    {!isZeroMoney(w.onHold) && (
-                      <span title={t('wallets.onHoldNote')}>
-                        {' '}
-                        · {formatMoney(w.onHold, w.currency)} held
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                {canCredit && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreditError(undefined);
-                      setCrediting(w);
-                    }}
-                    className="focus-outline inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] font-semibold hover:bg-muted"
-                  >
-                    <Plus className="h-3 w-3" aria-hidden="true" />
-                    {t('wallets.creditAction')}
-                  </button>
-                )}
-                {canManage && (
-                  <button
-                    type="button"
-                    onClick={() => void requestClose(w)}
-                    disabled={close.isPending}
-                    /*
-                      Named per WALLET, not "Close". Several identical buttons
-                      down a list announce as "button" to a screen reader with
-                      nothing to say which currency each one closes.
-                    */
-                    aria-label={t('clientProfile.walletClose', { currency: w.currency })}
-                    title={t('clientProfile.walletCloseHint')}
-                    className="focus-outline inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
-                  >
-                    <Trash2 className="h-3 w-3" aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <DataTable
+        rows={rows}
+        columns={columns}
+        rowKey={(w) => w.id}
+        // A LOADER rather than an empty table: "no wallets" and "not fetched
+        // yet" are different claims, and the second must never render as the first.
+        loading={wallets.status === 'loading'}
+        empty={t('clientProfile.noWallets')}
+      />
 
       {canManage && openable.length > 0 && (
         <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">

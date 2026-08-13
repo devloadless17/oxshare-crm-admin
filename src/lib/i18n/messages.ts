@@ -524,7 +524,7 @@ export const messages = {
   'clients.allEmailVerified': 'Email verified: any',
   'clients.emailVerifiedYes': 'Verified',
   'clients.emailVerifiedNo': 'Not verified',
-  'clients.colKycLevel': 'KYC Level',
+  'clients.colKycLevel': 'KYC',
   'clients.colTags': 'Tags',
   'clients.unnamed': 'Unnamed',
   'clients.tagFilterLabel': 'Tag',
@@ -533,8 +533,16 @@ export const messages = {
   'clients.allTags': 'All tags',
   'clients.clearFilters': 'Clear filters',
   'clients.searchLabel': 'Search clients by name or email',
-  'clients.levelVerified': 'L1 · Verified',
-  'clients.levelUnverified': 'L0 · Unverified',
+  /*
+   * "Verified" / "Not verified", with no level prefix.
+   *
+   * These read 'L1 · Verified' and 'L0 · Unverified', which put a TIER in front
+   * of a yes/no. `verification_level` holds 0 or 1 and nothing else — there is
+   * no L2 to be short of — so the number implied a ladder the product does not
+   * have, and operators read "L1" as a rung rather than as "done".
+   */
+  'clients.levelVerified': 'Verified',
+  'clients.levelUnverified': 'Not verified',
   'clients.saving': 'Saving…',
   'clients.suspend': 'Suspend',
   'clients.reactivate': 'Reactivate',
@@ -706,6 +714,148 @@ export const messages = {
   'clientProfile.referredClients': 'Clients introduced',
   'clientProfile.noReferrals': 'No clients introduced.',
   'clientProfile.attributionInactive': 'inactive',
+
+  // ── The partner tab. Rendered only for a client who IS one. ───────────────
+  'clientProfile.partnerStanding': 'Partner standing',
+  'clientProfile.partnerLevel': 'Level',
+  'clientProfile.partnerLevelNumber': '(rung {level})',
+  // The rung was deleted behind them — `ib_accounts.level` is a restrict FK, so
+  // this should be unreachable, and saying so beats rendering a bare number.
+  'clientProfile.partnerLevelGone': 'Level no longer configured',
+  'clientProfile.partnerRate': 'Share of broker revenue',
+  'clientProfile.partnerCode': 'Referral code',
+  'clientProfile.partnerState': 'Standing',
+  'clientProfile.partnerActive': 'Earning',
+  'clientProfile.partnerSuspended': 'Suspended',
+  'clientProfile.partnerSince': 'Partner since',
+  'clientProfile.partnerParent': 'Placed under',
+  'clientProfile.partnerNoParent': 'Deals with the broker directly',
+
+  'clientProfile.partnerEarnings': 'Earnings',
+  'clientProfile.partnerConfirmed': 'Confirmed',
+  'clientProfile.partnerConfirmedHint': 'Credited to their wallet',
+  'clientProfile.partnerPending': 'Pending',
+  'clientProfile.partnerPendingHint': 'Accrued, still maturing',
+  'clientProfile.partnerClients': 'Clients',
+  'clientProfile.partnerClientsHint': 'They introduced',
+  'clientProfile.partnerSubCount': 'Sub-partners',
+  'clientProfile.partnerSubCountHint': 'Directly beneath them',
+
+  'clientProfile.partnerAgency': 'Agency',
+  'clientProfile.partnerAgencyNoProducts': 'This agency lists no products yet.',
+  // NOT "none": a partner on no agency has clients who are offered the FULL
+  // catalogue, which is the opposite of what "none" would read as.
+  'clientProfile.partnerNoAgency':
+    'On no agency — their clients are offered the full product catalogue.',
+  'clientProfile.partnerSubPartners': 'Partners beneath them',
+  'clientProfile.partnerNoSubPartners': 'No partners placed under them yet.',
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  'clientProfile.tabOverview': 'Overview',
+  'clientProfile.tabPartner': 'Partner',
+  'clientProfile.tabCompliance': 'Compliance',
+  'clientProfile.tabMoney': 'Money',
+  'clientProfile.tabNetwork': 'Network',
+  'clientProfile.partnerLoading': 'Loading partner standing',
+  'clientProfile.partnerLoadFailed': 'Could not load their partner standing.',
+
+  // ── The actions menu ──────────────────────────────────────────────────────
+  'clientProfile.actions': 'Actions',
+  'clientProfile.actionsFor': 'Actions for {name}',
+  'clientProfile.actionSuspend': 'Suspend client',
+  'clientProfile.actionReactivate': 'Reactivate client',
+  'clientProfile.confirmSuspendTitle': 'Suspend {name}?',
+  'clientProfile.confirmSuspend':
+    'They keep their balances and history and cannot sign in. Reversible at any time.',
+  'clientProfile.confirmReactivateTitle': 'Reactivate {name}?',
+  'clientProfile.confirmReactivate': 'They can sign in again immediately.',
+  'clientProfile.statusChanged': 'Client is now {status}',
+  'clientProfile.statusFailed': 'The client’s status could not be changed.',
+
+  'clientProfile.actionSuspendPartner': 'Suspend partner',
+  'clientProfile.actionReactivatePartner': 'Reactivate partner',
+  'clientProfile.confirmSuspendPartnerTitle': 'Suspend {name} as a partner?',
+  // Both halves, because saying only one is misleading in either direction.
+  'clientProfile.confirmSuspendPartner':
+    'They keep their referral code and everyone beneath them, and stop earning. Nobody above them earns through them either.',
+  'clientProfile.confirmReactivatePartnerTitle': 'Reactivate {name} as a partner?',
+  'clientProfile.confirmReactivatePartner': 'They start earning again on the next closed trade.',
+  'clientProfile.partnerStateChanged': 'Partner is now {state}',
+  'clientProfile.partnerStateFailed': 'The partner’s standing could not be changed.',
+
+  'clientProfile.actionChangeLevel': 'Change level',
+  'clientProfile.actionReassignParent': 'Reassign parent',
+  'clientProfile.actionManageTags': 'Manage tags',
+  'clientProfile.actionOpenKyc': 'Open KYC review',
+  'clientProfile.actionViewDocuments': 'View documents',
+  'clientProfile.actionViewCommissions': 'View commission ledger',
+  'clientProfile.actionViewReferred': 'View clients they introduced',
+
+  'clientProfile.changeLevelTitle': 'Change {name}’s level',
+  'clientProfile.changeLevelBody':
+    'Their rate follows the rung. Existing accruals are not recalculated — this decides what they earn from the next closed trade.',
+  'clientProfile.changeLevelSave': 'Move them',
+  'clientProfile.levelChanged': 'Moved to level {level}',
+  'clientProfile.levelFailed': 'Their level could not be changed.',
+
+  'clientProfile.reassignParentTitle': 'Reassign {name}’s parent',
+  'clientProfile.reassignParentBody':
+    'Who they sit under. The API refuses a choice that would close a loop, and a partner’s own level is not changed by moving them.',
+  'clientProfile.reassignParentNone': 'No parent — deals with the broker directly',
+  'clientProfile.reassignParentSave': 'Reassign',
+  'clientProfile.parentChanged': 'Parent reassigned',
+  'clientProfile.parentFailed': 'Their parent could not be reassigned.',
+  'clientProfile.manageTagsTitle': 'Tags for {name}',
+  'clientProfile.manageTagsBody':
+    'A tag decides which administrators can see this client, so removing one can take them out of your own scope — the API refuses that.',
+  'clientProfile.done': 'Done',
+
+  // ── Positions ─────────────────────────────────────────────────────────────
+  'clientProfile.tabPositions': 'Positions',
+  'clientProfile.tabHistory': 'History',
+  'clientProfile.posOpenTitle': 'Open positions',
+  'clientProfile.posClosedTitle': 'Closed positions',
+  'clientProfile.posSymbol': 'Symbol',
+  'clientProfile.posSide': 'Side',
+  'clientProfile.posVolume': 'Lots',
+  'clientProfile.posAccount': 'Account',
+  'clientProfile.posOpenPrice': 'Open',
+  'clientProfile.posClosePrice': 'Close',
+  // Two headings for ONE column: `positions.profit` is the floating result while
+  // a trade is open and the realised one once it closes. Splitting the tables by
+  // status is what lets each say which it is showing.
+  'clientProfile.posFloating': 'Floating P/L',
+  'clientProfile.posRealised': 'Realised P/L',
+  'clientProfile.posOpened': 'Opened',
+  'clientProfile.posClosed': 'Closed',
+  'clientProfile.posLoading': 'Loading positions',
+  'clientProfile.posLoadFailed': 'Their positions could not be loaded.',
+  'clientProfile.posNoneOpen': 'No open positions.',
+  'clientProfile.posNoneClosed': 'No closed positions yet.',
+
+  // ── Transactions ──────────────────────────────────────────────────────────
+  'clientProfile.txTitle': 'Money movements',
+  'clientProfile.txDirection': 'Type',
+  'clientProfile.txAmount': 'Amount',
+  'clientProfile.txState': 'State',
+  'clientProfile.txMethod': 'Method',
+  'clientProfile.txCreated': 'Created',
+  'clientProfile.txLoading': 'Loading transactions',
+  'clientProfile.txLoadFailed': 'Their transactions could not be loaded.',
+  'clientProfile.txNone': 'No transactions yet.',
+
+  // ── Wallets, as a table with a row menu ───────────────────────────────────
+  'clientProfile.walletCurrency': 'Currency',
+  'clientProfile.walletBalance': 'Balance',
+  'clientProfile.walletOnHold': 'On hold',
+  'clientProfile.walletCloseAction': 'Close wallet',
+  'clientProfile.walletActionsFor': 'Actions for the {currency} wallet',
+
+  // ── The downline tree ─────────────────────────────────────────────────────
+  'clientProfile.networkTitle': 'Downline',
+  'clientProfile.networkLoading': 'Loading this branch',
+  'clientProfile.networkEmpty': 'Nobody beneath them.',
+  'clientProfile.networkToggle': 'Expand {name}',
   'tags.empty': 'No tags yet. Create one to start segmenting the client base.',
   'clients.colCountry': 'Country',
   'clients.colCreated': 'Created',
@@ -1937,6 +2087,22 @@ export const messages = {
   'notifications.kindKycSubmittedBody': 'A client submitted documents for review.',
   'notifications.kindPartnerAppliedTitle': 'Partner application',
   'notifications.kindPartnerAppliedBody': 'A client applied to the partner programme.',
+  // "again" is the whole point of this being a separate line from the KYC one
+  // above: it tells the reviewer this is a second look, not a first.
+  'notifications.kindKycResubmittedTitle': 'KYC resubmitted',
+  'notifications.kindKycResubmittedBody': 'A client corrected their documents and submitted again.',
+  // The reference is what an operator matches against the bank statement, so
+  // it belongs in the line rather than one click away.
+  'notifications.kindDepositSubmittedTitle': 'Deposit declared',
+  'notifications.kindDepositSubmittedBody':
+    'A client declared a deposit of {amount}, reference {reference}.',
+  'notifications.kindClientRegisteredTitle': 'New client',
+  'notifications.kindClientRegisteredBody': 'A new client registered and is waiting to be triaged.',
+  'notifications.kindTradingAccountOpenedTitle': 'Trading account opened',
+  'notifications.kindTradingAccountOpenedBody': 'A client opened {environment} account {login}.',
+  // The toast's action button. Short because it sits inside a toast, and a
+  // verb because it does something rather than describing where it goes.
+  'notifications.view': 'View',
 
   // ── Dashboard (GET /admin/stats/*) ────────────────────────────────────────
   //

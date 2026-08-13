@@ -46,6 +46,22 @@ export type IbApplicationStatus = IbApplication['status'];
 export type IbAccount = components['schemas']['IbAccountDto'];
 
 /**
+ * One partner's standing — `GET /admin/ib/partners/:userId`.
+ *
+ * ⚠️ The API answers `null` for a client who is not a partner, and the generated
+ * type CANNOT say so: Nest describes the response by its DTO regardless of the
+ * nullable return. Every caller must null-check, and `getPartnerDetail` widens
+ * the type to make that unavoidable rather than merely advisable.
+ */
+export type IbPartnerDetail = components['schemas']['IbPartnerDetailDto'];
+export type IbSubPartnerRow = components['schemas']['IbSubPartnerRowDto'];
+
+export type ClientPositionsPage = components['schemas']['ClientPositionsPageDto'];
+export type ClientPositionRow = components['schemas']['ClientPositionRowDto'];
+export type ClientTransactionsPage = components['schemas']['ClientTransactionsPageDto'];
+export type ClientTransactionRow = components['schemas']['ClientTransactionRowDto'];
+
+/**
  * The queue page. Hand-declared: the endpoint returns rows joined to their
  * applicant plus per-status counts, and Nest describes that shape as a bare
  * object because the handler returns a store result rather than a DTO class.
@@ -880,6 +896,23 @@ export const adminApi = {
     return data;
   },
 
+  /**
+   * One partner's standing, or NULL when the client is not a partner.
+   *
+   * The return type is widened deliberately. `IbPartnerDetailDto` is what the
+   * generated contract says, because Nest describes a route by its DTO and has
+   * no way to express "or null" — so the honest type is written here, at the one
+   * place every caller passes through, rather than left to each of them to
+   * remember. Most clients are not partners; a caller that skipped the check
+   * would read `.level` off null on the majority of profiles.
+   */
+  async getPartnerDetail(userId: string, signal?: AbortSignal): Promise<IbPartnerDetail | null> {
+    const { data } = await apiClient.get<IbPartnerDetail | null>(`/admin/ib/partners/${userId}`, {
+      signal,
+    });
+    return data ?? null;
+  },
+
   async changeIbPartnerLevel(userId: string, level: number): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/level`, {
       level,
@@ -1639,6 +1672,46 @@ export const adminApi = {
   async getClients(params: ClientListParams, signal?: AbortSignal): Promise<ClientListResponse> {
     const { data } = await apiClient.get<ClientListResponse>(
       `/admin/clients?${clientListSearchParams(params).toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /**
+   * One client's positions, open or closed.
+   *
+   * Served from the `positions` TABLE, not the MT5 bridge — see the route's own
+   * note. Every other screen in this console reads the same table, so a profile
+   * that asked elsewhere would be the one place showing a figure nothing else
+   * could reconcile against.
+   */
+  async getClientPositions(
+    id: string,
+    params: { status?: 'open' | 'closed'; page?: number; limit?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<ClientPositionsPage> {
+    const query = new URLSearchParams();
+    if (params.status) query.set('status', params.status);
+    if (params.page) query.set('page', String(params.page));
+    if (params.limit) query.set('limit', String(params.limit));
+    const { data } = await apiClient.get<ClientPositionsPage>(
+      `/admin/clients/${id}/positions?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /** One client's money movements, all directions in one history. */
+  async getClientTransactions(
+    id: string,
+    params: { page?: number; limit?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<ClientTransactionsPage> {
+    const query = new URLSearchParams();
+    if (params.page) query.set('page', String(params.page));
+    if (params.limit) query.set('limit', String(params.limit));
+    const { data } = await apiClient.get<ClientTransactionsPage>(
+      `/admin/clients/${id}/transactions?${query.toString()}`,
       { signal },
     );
     return data;

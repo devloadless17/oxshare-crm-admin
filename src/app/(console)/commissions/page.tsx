@@ -114,6 +114,16 @@ function CommissionsPageContent() {
   const page = pageParam(url.get('page'));
   const pageSize = limitParam(url.get('limit'));
   const status = url.get('status');
+  /*
+   * ONE partner's ledger, when the URL names one.
+   *
+   * `GET /admin/ib/accruals` has always taken `ibUserId`; this screen simply
+   * never passed it, so the filter existed on the API and was unreachable from
+   * the console. The client profile's actions menu links here with it set,
+   * which is what makes "what has this partner earned, line by line" a place an
+   * operator can go rather than a query somebody runs by hand.
+   */
+  const ibUserId = url.get('ibUserId');
 
   const sortKey = IB_ACCRUAL_SORT_KEYS.includes(url.sort.key as IbAccrualSortKey)
     ? (url.sort.key as IbAccrualSortKey)
@@ -123,6 +133,7 @@ function CommissionsPageContent() {
     page,
     limit: pageSize,
     status: status || undefined,
+    ibUserId: ibUserId || undefined,
     sort: sortKey,
     // Withheld when nothing is sorted: `order` alone describes an ordering of no
     // column, and sending it would cache one result set under two query keys.

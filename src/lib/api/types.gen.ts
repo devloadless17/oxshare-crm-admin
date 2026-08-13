@@ -1030,6 +1030,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ib/partners/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One partner’s standing, their line and their earnings
+         * @description The partner account joined to its level and agency, the partner above them, the partners directly beneath them, how many clients they introduced, and their confirmed and pending earnings. Answers `null` when the client is not a partner — every client profile asks, and most clients are not one, so that is an ordinary answer rather than a 404.
+         */
+        get: operations["AdminIbController_partnerDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ib/partners/{userId}/level": {
         parameters: {
             query?: never;
@@ -3222,7 +3242,7 @@ export interface paths {
         };
         /**
          * Run reconciliation now and return the report (§12.2)
-         * @description The same check the hourly job runs: every wallet balance against the sum of its own ledger, and every confirmed accrual against the entry that should have credited it. Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed.
+         * @description The same check the hourly job runs: every wallet balance against the sum of its own ledger, and every confirmed accrual against the entry that should have credited it. Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed. Whole-platform: an admin scoped to a client territory is refused, because a reconciliation over a fragment is meaningless and the full report names clients outside their territory.
          */
         get: operations["AdminMoneyController_reconcile"];
         put?: never;
@@ -3362,6 +3382,46 @@ export interface paths {
          * @description The same filters as GET /admin/trading-accounts, over every matching row rather than one page. Balances are the exact decimal strings the column holds. Client scope applies exactly as it does to the list.
          */
         get: operations["AdminHoldingsController_exportTradingAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/clients/{id}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One client’s positions, open or closed
+         * @description Newest first, joined to the account they were traded on. `profit` is the FLOATING result while a position is open and the REALISED one once it has closed — one column, disambiguated by `status`. Prices and money are strings (§6.1).
+         */
+        get: operations["AdminHoldingsController_listClientPositions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/clients/{id}/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One client’s money movements, all directions
+         * @description `amount` is a decimal string (§6.1), never a number.
+         */
+        get: operations["AdminHoldingsController_listClientTransactions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3849,6 +3909,51 @@ export interface components {
             reason?: string;
             /** @description The reviewer's own words, appended to the label. */
             note?: string;
+        };
+        IbPartnerPersonDto: {
+            userId: string;
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+        };
+        IbSubPartnerRowDto: {
+            userId: string;
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+            level: number;
+            levelName: string;
+            referralCode: string;
+            active: boolean;
+            /** Format: date-time */
+            approvedAt: string;
+        };
+        IbPartnerEarningsDto: {
+            /** @example 73.50000000 */
+            confirmed: string;
+            /** @example 0.00000000 */
+            pending: string;
+        };
+        IbPartnerDetailDto: {
+            userId: string;
+            level: number;
+            levelName: string | null;
+            /** @description The rung’s percentage of the broker’s revenue. A decimal string, never a number. */
+            rateValue: string | null;
+            referralCode: string;
+            /** @description A suspended partner keeps their code and tree, and stops earning. */
+            active: boolean;
+            /** Format: date-time */
+            approvedAt: string;
+            agencyId: string | null;
+            agencyName: string | null;
+            /** @description What the agency lets them sell. Empty means the full catalogue. */
+            products: string[];
+            parent: components["schemas"]["IbPartnerPersonDto"] | null;
+            directPartners: components["schemas"]["IbSubPartnerRowDto"][];
+            /** @description How many clients they introduced. */
+            referredClientCount: number;
+            earnings: components["schemas"]["IbPartnerEarningsDto"];
         };
         ChangeIbLevelDto: {
             /** @description Must be an ENABLED level. */
@@ -5590,6 +5695,65 @@ export interface components {
             page: number;
             limit: number;
         };
+        ClientPositionRowDto: {
+            id: string;
+            ticket: string;
+            symbol: string;
+            /** @enum {string} */
+            side: "buy" | "sell";
+            /**
+             * @description Lots.
+             * @example 0.2000
+             */
+            volume: string;
+            openPrice: string;
+            /** @description NULL while open. */
+            closePrice: string | null;
+            /** @description The FLOATING result while `status` is open, and the REALISED one once closed. One column, two meanings, disambiguated by `status` — label it accordingly. */
+            profit: string | null;
+            swap: string | null;
+            commission: string | null;
+            currency: string;
+            /** @enum {string} */
+            status: "open" | "closed";
+            /** Format: date-time */
+            openedAt: string;
+            /** Format: date-time */
+            closedAt: string | null;
+            /** @description The account it was traded on. NULL until MT5 issues a login. */
+            login: string | null;
+        };
+        ClientPositionsPageDto: {
+            rows: components["schemas"]["ClientPositionRowDto"][];
+            total: number;
+            page: number;
+            limit: number;
+        };
+        ClientTransactionRowDto: {
+            id: string;
+            /** @enum {string} */
+            direction: "deposit" | "withdrawal" | "transfer";
+            state: string;
+            /**
+             * @description A decimal string (§6.1).
+             * @example 250.00000000
+             */
+            amount: string;
+            currency: string;
+            methodKey: string | null;
+            provider: string | null;
+            providerRef: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            settledAt: string | null;
+        };
+        ClientTransactionsPageDto: {
+            rows: components["schemas"]["ClientTransactionRowDto"][];
+            total: number;
+            page: number;
+            limit: number;
+        };
         ErrorResponseDto: {
             /**
              * @description HTTP status, repeated in the body for convenience.
@@ -6919,6 +7083,27 @@ export interface operations {
                 };
                 content: {
                     "text/csv": string;
+                };
+            };
+        };
+    };
+    AdminIbController_partnerDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbPartnerDetailDto"];
                 };
             };
         };
@@ -10259,6 +10444,55 @@ export interface operations {
                 };
                 content: {
                     "text/csv": string;
+                };
+            };
+        };
+    };
+    AdminHoldingsController_listClientPositions: {
+        parameters: {
+            query?: {
+                status?: "open" | "closed";
+                page?: string;
+                limit?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientPositionsPageDto"];
+                };
+            };
+        };
+    };
+    AdminHoldingsController_listClientTransactions: {
+        parameters: {
+            query?: {
+                page?: string;
+                limit?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientTransactionsPageDto"];
                 };
             };
         };
