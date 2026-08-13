@@ -73,27 +73,29 @@ export default function AdminUsersPage() {
 
   const query = useResource(['admin-users'], async () => {
     /*
-     * Three reads in one resource: the directory, the roles the edit modal
-     * assigns from, and the tag vocabulary its scope panel offers — a
-     * VOCABULARY the frontend must not invent (R-4.5).
+     * Four reads in one resource: the directory, the roles the edit modal
+     * assigns from, the tag vocabulary its scope panel offers, and the
+     * maskable-field vocabulary its override panel offers — VOCABULARIES the
+     * frontend must not invent (R-4.5).
      *
-     * Two others used to be here and are gone with the controls that needed
-     * them. The PERMISSION catalog went with the per-person permission matrix
-     * and the FIELD catalog with the per-person mask override: access and
-     * visibility are both properties of a ROLE now, chosen on `/roles`, which
-     * fetches both catalogs itself.
+     * The PERMISSION catalog stays gone with the per-person permission matrix:
+     * access is a property of a ROLE, chosen on `/roles`. The FIELD catalog is
+     * back with the mask OVERRIDE panel (restored 13 Aug) — the role's mask is
+     * the default and this is the one-person exception.
      */
-    const [roles, adminUsers, tags] = await Promise.all([
+    const [roles, adminUsers, tags, fieldCatalog] = await Promise.all([
       api.admin.getRoles(),
       api.admin.getAdminUsers(),
       api.admin.getTags(),
+      api.admin.getClientFields(),
     ]);
-    return { roles, adminUsers, tags };
+    return { roles, adminUsers, tags, fieldCatalog };
   });
 
   const roles: Role[] = query.data?.roles ?? [];
   const adminUsers: AdminUser[] = query.data?.adminUsers ?? [];
   const tags = query.data?.tags ?? [];
+  const fieldCatalog = query.data?.fieldCatalog ?? {};
 
   /*
    * There is no `assignRole` mutation any more.
@@ -332,6 +334,7 @@ export default function AdminUsersPage() {
           admin={editing}
           roles={roles}
           tags={tags}
+          fieldCatalog={fieldCatalog}
           currentScope={editing.scopedTags.map((tag) => tag.tagId)}
           /*
            * `users.scope`, NOT `users.edit`. Reusing the edit permission would

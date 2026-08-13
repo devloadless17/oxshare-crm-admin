@@ -574,21 +574,20 @@ describe('client scope', () => {
     expect(dialog.queryByText(/field visibility/i)).not.toBeInTheDocument();
   });
 
-  it('shows the scope OPEN, with no disclosure to click through', async () => {
+  it('shows both visibility surfaces OPEN, with no disclosure to click through', async () => {
     /*
      * RBAC-07's failure mode is granting access you did not realise you
-     * granted. The scope used to be one of two `<details>` sections with
-     * summary lines; with the field-mask section gone there is one control
-     * left, and a disclosure triangle in front of it is a click between the
-     * operator and the only remaining decision.
+     * granted, so neither section hides behind a `<details>`. The mask
+     * OVERRIDE section is BACK (restored 13 Aug, owner's decision) beside the
+     * scope: the role's mask is the default and this is the one-person
+     * exception, opened here showing that it currently inherits.
      */
     const dialog = await openEditor();
 
     expect(dialog.getByText(/client scope/i)).toBeInTheDocument();
     expect(dialog.getByRole('combobox', { name: /add a tag/i })).toBeInTheDocument();
-    // The mask section and its summary are gone entirely.
-    expect(dialog.queryByText(/field visibility/i)).toBeNull();
-    expect(dialog.queryByText(/inherits the role/i)).toBeNull();
+    expect(dialog.getByText(/field visibility/i)).toBeInTheDocument();
+    expect(dialog.getByText(/inherits the role/i)).toBeInTheDocument();
   });
 
   it('WARNS that an empty scope means every client', async () => {
@@ -638,16 +637,13 @@ describe('client scope', () => {
     expect(updateAdminUser).not.toHaveBeenCalled();
   });
 
-  it('never sends a maskedFields override', async () => {
+  it('leaves an untouched override exactly as it is', async () => {
     /*
-     * The per-person mask is gone from this modal, and this is the assertion
-     * that matters if it is ever reintroduced by accident: `null` and `[]` mean
-     * different things to the API — inherit the role, versus an explicit "hide
-     * nothing for this person" — and a screen that can produce either one
-     * without a control for both leaves an override nobody can clear.
-     *
-     * Opened on an administrator who ALREADY holds one, which is the case that
-     * would have re-sent it.
+     * The override is back, and the property that survives from its absence is
+     * this one: a save that did not TOUCH the mask must not resend it. `null`
+     * and `[]` mean different things to the API — inherit the role, versus an
+     * explicit "hide nothing for this person" — so an unchanged override
+     * echoed back is a whole-value write and an audit row for nothing.
      */
     getAdminUsers.mockResolvedValue([
       master,
@@ -655,8 +651,8 @@ describe('client scope', () => {
     ]);
     const dialog = await openEditor();
 
-    expect(dialog.queryByRole('button', { name: /follow the role again/i })).toBeNull();
-    expect(dialog.queryByRole('button', { name: /phone number/i })).toBeNull();
+    // The restored controls are offered — this admin HAS an override.
+    expect(dialog.getByRole('button', { name: /follow the role again/i })).toBeInTheDocument();
 
     await userEvent.click(dialog.getByRole('combobox', { name: /add a tag/i }));
     await userEvent.click(await screen.findByRole('option', { name: /levant desk/i }));
@@ -665,6 +661,32 @@ describe('client scope', () => {
     await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
     // The scope change alone — the existing override is left exactly as it is.
     expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ scopedTagIds: ['tag-1'] });
+  });
+
+  it('clears an override back to the role with an explicit null', async () => {
+    getAdminUsers.mockResolvedValue([
+      master,
+      sub({ maskedFields: ['client.phone'], maskedFieldsOverride: ['client.phone'] }),
+    ]);
+    const dialog = await openEditor();
+
+    await userEvent.click(dialog.getByRole('button', { name: /follow the role again/i }));
+    await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
+    // `null`, not `[]`: back to inheriting, not "explicitly hide nothing".
+    expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ maskedFields: null });
+  });
+
+  it('forks the role mask into an override on the first toggle', async () => {
+    // Inheriting admin; the operator hides the phone for THIS person only.
+    const dialog = await openEditor();
+
+    await userEvent.click(dialog.getByRole('button', { name: /phone number/i }));
+    await userEvent.click(dialog.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAdminUser).toHaveBeenCalled());
+    expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ maskedFields: ['client.phone'] });
   });
 
   it('shows the master admin as exempt rather than configurable', async () => {
