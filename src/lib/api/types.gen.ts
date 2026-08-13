@@ -3695,21 +3695,22 @@ export interface components {
             application: components["schemas"]["IbApplicationDto"] | null;
             eligible: boolean;
             ineligibleReason: string | null;
+            /**
+             * @description Machine-readable counterpart to ineligibleReason. `unverified` — identity not verified yet. `chain_full` — the partner who introduced them is already on the deepest enabled level, so there is no rung to place them on. Null when eligible.
+             * @enum {string|null}
+             */
+            ineligibleCode: "unverified" | "chain_full" | null;
         };
         IbLevelSummaryDto: {
             /** @example 1 */
             level: number;
             /** @example Master Partner */
             name: string;
-            /** @enum {string} */
-            payoutModel: "revenue_share" | "per_lot";
             /**
-             * @description A percentage under revenue_share, an amount per lot under per_lot — read `payoutModel` before rendering it. A decimal string, never a number.
+             * @description The percentage of the broker’s revenue on a closed trade that this rung takes. A decimal string, never a number (§6.1).
              * @example 70.0000
              */
             rateValue: string;
-            /** @description How many direct partners this level may recruit. Null means unlimited. */
-            maxDirectPartners: number | null;
         };
         IbEarningsDto: {
             /**
@@ -3869,18 +3870,11 @@ export interface components {
             level: number;
             /** @example Master Partner */
             name: string;
-            /** @enum {string} */
-            payoutModel: "revenue_share" | "per_lot";
             /**
-             * @description A percentage of the pool under revenue_share, an amount per lot under per_lot. A decimal string, never a number (§6.1).
+             * @description The percentage of the broker’s revenue on a closed trade that this rung takes. A decimal string, never a number (§6.1).
              * @example 70.0000
              */
             rateValue: string;
-            /**
-             * @description How many partners this level may recruit directly. Null means unlimited.
-             * @example null
-             */
-            maxDirectPartners: number | null;
             /** @description A disabled level takes no share and accepts no new partners. */
             enabled: boolean;
             /** Format: date-time */
@@ -3889,30 +3883,23 @@ export interface components {
             updatedAt: string;
         };
         CreateIbLevelDto: {
-            /** @example 3 */
-            level: number;
+            /**
+             * @description Omit to append one below the deepest existing level.
+             * @example 3
+             */
+            level?: number;
             /** @example Sub Partner */
             name: string;
-            /**
-             * @default revenue_share
-             * @enum {string}
-             */
-            payoutModel: "revenue_share" | "per_lot";
             /** @example 30.0000 */
             rateValue: string;
-            /** @description Omit or send null for unlimited. */
-            maxDirectPartners?: number | null;
-            /** @default true */
-            enabled: boolean;
+            /** @description Defaults to true. */
+            enabled?: boolean;
         };
         UpdateIbLevelDto: {
             /** @example Sub Partner */
             name?: string;
-            /** @enum {string} */
-            payoutModel?: "revenue_share" | "per_lot";
             /** @example 30.0000 */
             rateValue?: string;
-            maxDirectPartners?: number | null;
             enabled?: boolean;
         };
         ReorderIbLevelsDto: {
@@ -8734,7 +8721,7 @@ export interface operations {
                 kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
-                sort?: "createdAt" | "email" | "firstName" | "status" | "type" | "verificationLevel" | "country";
+                sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
             };
             header?: never;
@@ -8770,7 +8757,7 @@ export interface operations {
                 kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
-                sort?: "createdAt" | "email" | "firstName" | "status" | "type" | "verificationLevel" | "country";
+                sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
             };
             header?: never;

@@ -128,8 +128,11 @@ export default function IbLevelsPage() {
   });
 
   const rows = query.data ?? [];
+  // EVERY enabled rung counts toward the 100% total now. The filter used to
+  // exclude per-lot levels, which took no share of the pool; the column is gone
+  // and so is the exclusion, matching `assertShareFits` on the API.
   const enabledShare = rows
-    .filter((l) => l.enabled && l.payoutModel === 'revenue_share')
+    .filter((l) => l.enabled)
     .reduce((sum, l) => sum + Number(l.rateValue), 0);
   const depth = rows.filter((l) => l.enabled).length;
 

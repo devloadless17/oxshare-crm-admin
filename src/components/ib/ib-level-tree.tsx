@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { IbLevel } from '@/lib/api/admin';
-import { Badge } from '@/components/ui/badge';
 import { t } from '@/lib/i18n';
 
 /**
@@ -179,11 +178,12 @@ export function IbLevelTree({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate font-semibold">{level.name}</h3>
-                      <Badge variant="tag">
-                        {level.payoutModel === 'revenue_share'
-                          ? t('ibLevels.modelRevenueShare')
-                          : t('ibLevels.modelPerLot')}
-                      </Badge>
+                      {/*
+                        The payout-model badge is gone with the column. Every
+                        rung is a revenue share now, so a chip saying so on every
+                        row carried no information — it distinguished nothing
+                        from nothing.
+                      */}
                       {!level.enabled && (
                         <span className="text-xs text-muted-foreground">
                           {t('ibLevels.statusDisabled')}
@@ -191,17 +191,14 @@ export function IbLevelTree({
                       )}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {/* The unit travels with the number, always. "70" alone
-                            means 70% under one model and $70 under the other. */}
+                      {/* Always a percentage of the broker's revenue on the
+                            trade — there is no second unit to disambiguate. */}
                       <span className="tabular font-semibold text-foreground">
-                        {level.payoutModel === 'revenue_share'
-                          ? `${trimRate(level.rateValue)}%`
-                          : t('ibLevels.perLotValue', { value: trimRate(level.rateValue) })}
+                        {`${trimRate(level.rateValue)}%`}
                       </span>
-                      {' · '}
-                      {level.maxDirectPartners === null
-                        ? t('ibLevels.unlimitedPartners')
-                        : t('ibLevels.maxPartners', { max: String(level.maxDirectPartners) })}
+                      {/* The direct-partner cap that followed here is gone with
+                            `maxDirectPartners`; it read "Unlimited direct
+                            partners" on every rung, because none was ever set. */}
                     </p>
                   </div>
                 </div>
