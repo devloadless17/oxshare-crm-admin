@@ -1,7 +1,8 @@
-import { test, type Page, type Response } from '@playwright/test';
+import { test, type BrowserContext, type Page, type Response } from '@playwright/test';
 
 /**
- * The admin the E2E SUITE owns — seeded master, permissions `["*"]`.
+ * The admin the E2E SUITE owns — seeded with every key in the permission
+ * catalog (there is no `"*"` wildcard any more; full access IS the full list).
  *
  * Deliberately NOT `admin@oxshare.com`. That is the account a developer is
  * signed into while working, and the portal suite learned what sharing costs
@@ -26,7 +27,7 @@ export const E2E_ADMIN = {
  * is no `DELETE /admin/users` — an accepted invite is a permanent row, and a
  * suite that accepted one per run would fill the directory it is testing.
  *
- * Holds `users.view`, `kyc.review` and `tags.view`; its role masks
+ * Holds `clients.view`, `kyc.review` and `tags.view`; its role masks
  * `client.email`; and it is scoped to the `e2e-alpha` tag. One identity, both
  * RBAC-03 dimensions, every gating branch.
  */
@@ -34,6 +35,41 @@ export const E2E_RESTRICTED = {
   email: 'e2e-restricted@oxshare.com',
   password: 'admin123',
 } as const;
+
+/**
+ * Every BUILT console page a master-level admin can open.
+ *
+ * Shared by `console-pages.spec.ts` (render / refresh / stay signed in / no
+ * 401-403) and `ux-sweep.spec.ts` (no sideways scroll, every control named),
+ * so a new page costs one line here and is covered by both — and a route
+ * nobody adds a line for is a route nobody checked. Keep in step with
+ * `ROUTE_REQUIREMENTS` in `src/lib/permissions.ts`.
+ */
+export const CONSOLE_PAGES = [
+  '/dashboard',
+  '/clients',
+  '/kyc',
+  '/kyc/builder',
+  '/roles',
+  '/admin-users',
+  '/audit-log',
+  '/settings',
+  '/tags',
+  '/currencies',
+  '/transactions',
+  '/wallets',
+  '/trading-accounts',
+  '/payment-methods',
+  '/products',
+  '/agencies',
+  '/partners',
+  '/approvals/ib',
+  '/ib-levels',
+  '/commissions',
+  '/reconciliation',
+  '/api-keys',
+  '/profile',
+] as const;
 
 /** Where each signed-in session is cached between specs. See `auth.setup.ts`. */
 /** The login limiter's window, plus a few seconds of slack. */
@@ -148,6 +184,38 @@ export async function signIn(
 }
 
 /**
+ * Sign out through the UI, as an operator does.
+ *
+ * Logout is a MENU ITEM inside the account menu (the operator card at the foot
+ * of the sidebar) since the /profile work — there is no page-level "Log out"
+ * button any more. A locator for one waits sixty seconds at a perfectly healthy
+ * dashboard and then reads as "logout is broken".
+ */
+export async function signOut(page: Page): Promise<void> {
+  await page
+    .getByRole('button', { name: /account menu/i })
+    .first()
+    .click();
+  await page.getByRole('menuitem', { name: /logout/i }).click();
+}
+
+/**
+ * Persist a context's CURRENT cookie jar over the shared storage state.
+ *
+ * The refresh token ROTATES on every renewal, and the server treats a replay of
+ * the superseded token as credential theft: reuse detection revokes the whole
+ * family. So any test that forces a renewal BURNS the token stored in
+ * `e2e/.auth/admin.json` — and the next spec to need a renewal inherits a token
+ * the server has already rotated away, failing several specs later in a test
+ * that has nothing to do with the cause. (That is exactly how one burned token
+ * took 72 of 127 tests down on 13 Aug.) Every test that deletes the access
+ * cookie or otherwise triggers a refresh must call this before ending.
+ */
+export async function persistSharedState(context: BrowserContext): Promise<void> {
+  await context.storageState({ path: STORAGE_STATE });
+}
+
+/**
  * Every API response the page received that the server refused.
  *
  * The reason to reach for a browser at all: a unit test cannot see that a layout
@@ -230,9 +298,23 @@ export async function searchOwnClients(page: Page): Promise<void> {
   // carries one too, so a bare `getByRole('searchbox')` is ambiguous and
   // Playwright refuses it — correctly, since which one it typed into would
   // otherwise be whichever the DOM happened to order first.
-  await clientSearchBox(page).fill(E2E_DOMAIN);
-  // Wait on a ROW, not a timeout: the box is debounced and then re-fetches, and
-  // a fixed wait is what makes a suite flaky on a loaded machine.
+  //
+  // Anchored on the RESPONSE that actually carries the search term, not only
+  // on a row becoming visible. Alpha sorts early, so with any prior fetch's
+  // rows still on screen the row-wait is satisfied by STALE data — which is
+  // how the sort assertion once read the default ordering and reported the
+  // server as unsorted.
+  const box = clientSearchBox(page);
+  // Idempotent: filling the box with the text it already holds produces no
+  // write, no fetch, and therefore no response to wait for.
+  if ((await box.inputValue()) !== E2E_DOMAIN) {
+    const settled = page.waitForResponse(
+      (res) => res.url().includes('/api/admin/clients') && res.url().includes(`q=${E2E_DOMAIN}`),
+      { timeout: 20_000 },
+    );
+    await box.fill(E2E_DOMAIN);
+    await settled;
+  }
   await page.getByRole('link', { name: E2E_CLIENTS.alpha.name }).waitFor({ timeout: 15_000 });
 }
 

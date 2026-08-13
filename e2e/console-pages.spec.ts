@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { collectRejections } from './helpers';
+import { CONSOLE_PAGES, collectRejections } from './helpers';
 
 /**
  * Every page of the admin console, as an operator actually meets them.
@@ -29,32 +29,16 @@ async function expectConsoleChrome(page: Page, where: string): Promise<void> {
 }
 
 /**
- * The BUILT pages, reachable by a master admin.
+ * The BUILT pages, reachable by a master-level admin — `CONSOLE_PAGES` in
+ * `helpers.ts`, shared with the UX sweep.
  *
- * `/partners` and `/withdrawals` are included on purpose even though their
- * endpoints do not exist yet: they render a `BackendPending` state naming what
- * is missing, and that state is a deliberate product decision (never mock data)
- * rather than a gap. It should keep rendering, and it should not 403.
- *
- * The "Soon" entries — /trading-accounts, /payouts, /ledger, /commission-plans —
- * are NOT here. They are committed scope with no page yet, and asserting on a
- * route that does not exist would test Next's 404, not this app.
+ * Every entry is a real `page.tsx`: the "Soon" disabled-nav state is gone
+ * (sidebar lists places an operator can go, not a roadmap), `/withdrawals`
+ * became `/transactions`, and `/invite` became a modal on `/admin-users` —
+ * asserting on a route that does not exist would test Next's 404, not this app.
  */
-const CONSOLE_ROUTES = [
-  '/dashboard',
-  '/clients',
-  '/kyc',
-  '/roles',
-  '/admin-users',
-  '/audit-log',
-  '/settings',
-  '/invite',
-  '/partners',
-  '/withdrawals',
-] as const;
-
 test.describe('every console page', () => {
-  for (const route of CONSOLE_ROUTES) {
+  for (const route of CONSOLE_PAGES) {
     test(`${route} renders, refreshes and stays signed in`, async ({ page }) => {
       const rejections = collectRejections(page);
 
@@ -117,18 +101,5 @@ test.describe('the console navigation', () => {
     }
 
     expect(rejections.list()).toEqual([]);
-  });
-
-  test('offers the unbuilt sections as disabled rather than hiding them', async ({ page }) => {
-    /*
-     * The "Soon" entries are committed Phase 1 scope with no page yet, and they
-     * are deliberately rendered as disabled items rather than removed — an
-     * operator seeing the shape of the finished console is worth more than a
-     * tidy sidebar. Deleting them is the easy mistake, so it is asserted.
-     */
-    await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
-
-    await expect(page.getByText(/soon/i).first()).toBeVisible();
   });
 });

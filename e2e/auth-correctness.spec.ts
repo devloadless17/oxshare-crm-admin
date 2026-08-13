@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { E2E_ADMIN, E2E_DOMAIN, STORAGE_STATE, signIn } from './helpers';
+import {
+  E2E_ADMIN,
+  E2E_DOMAIN,
+  STORAGE_STATE,
+  persistSharedState,
+  signIn,
+  signOut,
+} from './helpers';
 
 /**
  * The auth-correctness regressions — `docs/AUTH-CORRECTNESS-oxshare-crm-admin.md`.
@@ -191,7 +198,9 @@ test.describe('invites', () => {
       data: {
         email: `e2e-reload-${Date.now()}@${E2E_DOMAIN}`,
         name: 'Reload Invitee',
-        permissions: ['users.view'],
+        // A key from the CURRENT catalog. `users.view` was renamed in the
+        // permission rework and the API rejects unknown keys with a 400.
+        permissions: ['clients.view'],
       },
     });
     expect(created.ok(), `could not mint an invite: ${created.status()}`).toBe(true);
@@ -266,35 +275,34 @@ test.describe('two tabs', () => {
     const tabA = await context.newPage();
     const tabB = await context.newPage();
 
-    await signIn(tabA, E2E_ADMIN);
-    await tabB.goto('/clients');
-    await tabB.waitForLoadState('networkidle');
-    await expect(tabB.getByRole('navigation').first()).toBeAttached();
+    try {
+      await signIn(tabA, E2E_ADMIN);
+      await tabB.goto('/clients');
+      await tabB.waitForLoadState('networkidle');
+      await expect(tabB.getByRole('navigation').first()).toBeAttached();
 
-    await tabA
-      .getByRole('button', { name: /log ?out/i })
-      .first()
-      .click();
-    await tabA.waitForURL(/\/login/, { timeout: 20_000 });
+      await signOut(tabA);
+      await tabA.waitForURL(/\/login/, { timeout: 20_000 });
 
-    await expect(tabB, 'the second tab kept rendering the console after sign-out').toHaveURL(
-      /\/login/,
-      { timeout: 20_000 },
-    );
-
-    /*
-     * Put the shared session back, and rewrite the file the other specs load.
-     *
-     * Logging out revokes EVERY refresh family for that admin (R-3.3), so this
-     * test does not merely end its own context — it kills the seeded session
-     * that `auth.setup.ts` saved and every later spec restores from. Without
-     * this, the next test inherits cookies the server has already revoked and
-     * fails for a reason that has nothing to do with what it is testing.
-     */
-    await signIn(tabA, E2E_ADMIN);
-    await context.storageState({ path: STORAGE_STATE });
-
-    await context.close();
+      await expect(tabB, 'the second tab kept rendering the console after sign-out').toHaveURL(
+        /\/login/,
+        { timeout: 20_000 },
+      );
+    } finally {
+      /*
+       * Put the shared session back, and rewrite the file the other specs load
+       * — in a FINALLY, so a failure above cannot poison the rest of the run.
+       *
+       * Logging out revokes EVERY refresh family for that admin (R-3.3), so this
+       * test does not merely end its own context — it kills the seeded session
+       * that `auth.setup.ts` saved and every later spec restores from. On 13 Aug
+       * this restore lived on the happy path only; the test failed before
+       * reaching it and 72 downstream tests died of a revoked session.
+       */
+      await signIn(tabA, E2E_ADMIN).catch(() => undefined);
+      await persistSharedState(context).catch(() => undefined);
+      await context.close();
+    }
   });
 
   test('two tabs renewing at once do not destroy the session', async ({ browser }) => {
@@ -330,6 +338,14 @@ test.describe('two tabs', () => {
 
     expect(tabA.url(), 'tab A was signed out by a concurrent renewal').not.toContain('/login');
     expect(tabB.url(), 'tab B was signed out by a concurrent renewal').not.toContain('/login');
+
+    /*
+     * The renewal just ROTATED the refresh token that `e2e/.auth/admin.json`
+     * still holds, and replaying a rotated token is treated as credential theft
+     * (the family is revoked). Save the fresh jar back over the file, or the
+     * next spec to need a renewal dies of this test's rotation.
+     */
+    await persistSharedState(context);
 
     await context.close();
   });

@@ -18,18 +18,27 @@ test.describe('sending a reset link', () => {
     await page.goto('/admin-users');
     await page.waitForLoadState('networkidle');
 
-    // Confirmed before sending: it arms a credential and signs the target out
-    // everywhere, so a misclick on the wrong row matters.
-    page.once('dialog', (d) => void d.accept());
+    /*
+     * The reset control lives in the ROW ACTIONS MENU now — the directory
+     * folded per-row buttons into one menu per row. Driven against the
+     * restricted admin's row, never `.first()`: the first row can be the
+     * signed-in admin themselves, whose own row deliberately hides reset.
+     */
+    const row = page.getByRole('row', { name: /e2e-restricted/i }).first();
+    await row.getByRole('button', { name: /actions for/i }).click();
 
-    const send = page.getByRole('button', { name: /send reset link/i }).first();
+    const send = page.getByRole('menuitem', { name: /send reset link/i });
     await expect(send, 'no reset control in the directory').toBeVisible();
+    await send.click();
 
+    // Confirmed before sending: it arms a credential and signs the target out
+    // everywhere, so a misclick on the wrong row matters. The confirm is the
+    // app's own modal, not a native dialog.
     const [response] = await Promise.all([
       page.waitForResponse(
         (r) => r.url().includes('/password-reset') && r.request().method() === 'POST',
       ),
-      send.click(),
+      page.getByRole('button', { name: /send link/i }).click(),
     ]);
     expect(response.status()).toBe(200);
   });

@@ -1460,6 +1460,8 @@ export const messages = {
   'kycBuilder.moveStepUp': 'Move Step Up',
   'kycBuilder.moveStepDown': 'Move Step Down',
   'kycBuilder.removeField': 'Remove Field',
+  'kycBuilder.expandStep': 'Show step details — {name}',
+  'kycBuilder.collapseStep': 'Hide step details — {name}',
   'kyc.searchAria': 'Search submissions by name or email',
   // The `ledger.*` keys went with the ledger screen. `getLedger` is back in
   // lib/api/admin.ts and the endpoint exists, but no page renders it yet, and a
