@@ -187,7 +187,10 @@ describe('canAccess', () => {
        * returned true before the route table was ever consulted.
        */
       expect(canAccess(withPerms(['ib.commissions.view']), '/commissions')).toBe(true);
-      expect(canAccess(withPerms(['ib.view']), '/commissions')).toBe(false);
+      // `ib.view` opens it too — GET /admin/ib/accruals accepts EITHER key,
+      // and a route stricter than its API denies a page the API would serve.
+      expect(canAccess(withPerms(['ib.view']), '/commissions')).toBe(true);
+      expect(canAccess(withPerms(['ib.approve']), '/commissions')).toBe(false);
     });
   });
 

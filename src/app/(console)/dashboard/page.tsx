@@ -94,9 +94,16 @@ export default function AdminDashboardPage() {
   const canReviewKyc = hasPermission(admin, 'kyc.review') || hasPermission(admin, 'kyc.view');
   const canViewWithdrawals = hasPermission(admin, 'withdrawals.view');
   const canViewIb = hasPermission(admin, 'ib.view');
+  // Any one section is enough to ask; with NONE the request is not made at
+  // all. The route guard would 403 it, and the console never asks the API for
+  // something it already knows it cannot have — the noSections explanation
+  // below is the answer for that operator, not an error card.
+  const canAnyStats = canViewClients || canReviewKyc || canViewWithdrawals || canViewIb;
 
-  const overview = useResource<StatsOverview>(['admin', 'stats', 'overview'], (signal) =>
-    api.admin.getStatsOverview(signal),
+  const overview = useResource<StatsOverview>(
+    ['admin', 'stats', 'overview'],
+    (signal) => api.admin.getStatsOverview(signal),
+    { enabled: canAnyStats },
   );
 
   /*
@@ -151,7 +158,7 @@ export default function AdminDashboardPage() {
    * `isFetching` rather than `loading` and `ChartCard` dims them in place.
    */
   const gatedResources = [
-    overview,
+    ...(canAnyStats ? [overview] : []),
     ...(canViewClients ? [registrations] : []),
     ...(canReviewKyc ? [kycTrend, recentKyc] : []),
     ...(canViewWithdrawals ? [withdrawalVolume] : []),
@@ -204,7 +211,7 @@ export default function AdminDashboardPage() {
    * No `|| loading` term any more: nothing below this point renders until the
    * gate above has lifted, so this can no longer flash during a fetch.
    */
-  const hasAnySection = canViewClients || canReviewKyc || canViewWithdrawals || canViewIb;
+  const hasAnySection = canAnyStats;
 
   return (
     <div className="space-y-6">
