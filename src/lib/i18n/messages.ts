@@ -619,7 +619,9 @@ export const messages = {
   // A scope id the tag vocabulary did not return — shown rather than dropped.
   'adminUsers.scopeUnknownTag': 'Unknown tag',
   'adminUsers.seesUntriagedHint':
-    'The intake pool: clients with no tags at all. Only unrestricted admins and holders of this grant see them. Assigning any tag moves a client out of intake by definition; removing their last tag returns them to it — nobody can fall between territories.',
+    'The intake pool: clients with no tags at all. Granted by default — untick to restrict. Only unrestricted admins and holders of this grant see them. Assigning any tag moves a client out of intake by definition; removing their last tag returns them to it — nobody can fall between territories.',
+  'adminUsers.seesUntriagedLockedOwn':
+    'You do not see the intake pool yourself, so you cannot grant it — the invitee starts without it.',
   'adminUsers.scopeSummary': '{count} tag(s)',
   // Said in words, because both readings of an empty scope are plausible and
   // one of them is a data breach.

@@ -323,6 +323,9 @@ export default function AdminUsersPage() {
         // The directory has already fetched them for the edit modal, so the
         // invite form does not make a request of its own to fill one select.
         roles={roles}
+        tags={tags}
+        fieldCatalog={fieldCatalog}
+        canScope={hasPermission(admin, 'admins.scope')}
         onClose={() => setInviting(false)}
         // The new invite is a row in the table behind this modal — it appears
         // there while the link is still on screen to copy.

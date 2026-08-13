@@ -3,8 +3,10 @@
 import * as React from 'react';
 import { Check, Copy } from 'lucide-react';
 import api from '@/lib/api';
-import type { Role } from '@/lib/api/admin';
+import type { ClientFieldGroup, ClientTagWithCount, Role } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { AdminFieldMaskPanel, AdminTagScopePanel } from './admin-visibility-panels';
+import { useAdmin } from '@/context/AdminAuthContext';
 import { Modal } from '@/components/ui/modal';
 import {
   Select,
@@ -40,34 +42,83 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * corporate address is the single most likely thing to land in a spam
  * quarantine nobody checks, and the invite dies in 48 hours — so the link is on
  * screen to copy, and that is worth the modal staying open after success.
+ *
+ * ## Visibility is chosen HERE, not after acceptance
+ *
+ * An empty scope means unrestricted, so an invitee configured only after
+ * accepting sees EVERY CLIENT in the window between clicking the link and
+ * somebody remembering them — the exact window `admin_invites.scoped_tag_ids`
+ * exists to close. Territory, the intake grant and the mask override are
+ * offered at invite time to whoever holds `admins.scope`, carried on the
+ * invite row and applied before the acceptance response signs the person in.
+ * The API runs the same three guards as the edit path.
  */
 export function InviteAdminModal({
   open,
   roles,
+  tags,
+  fieldCatalog,
+  canScope,
   onClose,
   onInvited,
 }: {
   open: boolean;
   /** Assignable roles, already fetched by the directory. */
   roles: Role[];
+  /** The tag vocabulary, FETCHED — the frontend invents no keys (R-4.5). */
+  tags: ClientTagWithCount[];
+  /** The maskable-field vocabulary, FETCHED — same rule. */
+  fieldCatalog: Record<string, ClientFieldGroup>;
+  /** `admins.scope` — the same split as the edit modal, for the same reason. */
+  canScope: boolean;
   onClose: () => void;
   /** Refresh the directory — the new invite is a row in it. */
   onInvited: () => void;
 }) {
+  const { admin: inviter } = useAdmin();
+  /*
+   * The intake grant is TRUE BY DEFAULT (0058 — restriction is the explicit
+   * act) — EXCEPT when the inviter cannot grant it: a scoped inviter without
+   * the grant themselves gets a false default the API enforces regardless, so
+   * the checkbox must show the truth rather than a tick that will not happen.
+   */
+  const inviterScoped = (inviter?.scopedTags?.length ?? 0) > 0;
+  const canGrantIntake = !inviterScoped || (inviter?.seesUntriaged ?? false);
+
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [roleId, setRoleId] = React.useState('');
+  const [scopedTagIds, setScopedTagIds] = React.useState<string[]>([]);
+  const [seesUntriaged, setSeesUntriaged] = React.useState(canGrantIntake);
+  /** `null` = inherit the chosen role's mask; a list = this person's override. */
+  const [maskOverride, setMaskOverride] = React.useState<string[] | null>(null);
   const [result, setResult] = React.useState<{ inviteUrl?: string } | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [copied, setCopied] = React.useState(false);
 
   const assignable = roles.filter((role) => !role.isSystem);
+  const chosenRole = assignable.find((role) => role.id === roleId);
+  // What the mask panel shows: the override, or the CHOSEN ROLE's mask through
+  // the glass — picking a different role updates the inherited view live.
+  const effectiveMask = maskOverride ?? chosenRole?.maskedFields ?? [];
+
+  const toggleMaskField = (key: string) => {
+    // The first toggle forks the chosen role's mask into a personal override,
+    // exactly as the edit modal forks an existing admin's.
+    setMaskOverride((prev) => {
+      const base = prev ?? chosenRole?.maskedFields ?? [];
+      return base.includes(key) ? base.filter((k) => k !== key) : [...base, key];
+    });
+  };
 
   const reset = () => {
     setName('');
     setEmail('');
     setRoleId('');
+    setScopedTagIds([]);
+    setSeesUntriaged(canGrantIntake);
+    setMaskOverride(null);
     setResult(null);
     setError('');
     setCopied(false);
@@ -122,6 +173,17 @@ export function InviteAdminModal({
         name: trimmedName,
         email: trimmedEmail,
         roleId,
+        /*
+         * Only what was actually chosen. An empty territory is unrestricted —
+         * the absence of a choice, not a value — the mask is sent only when
+         * forked, and the intake grant only when it DIFFERS from the default
+         * the API will apply anyway (true, or false for an inviter who cannot
+         * grant it). Sending the default would demand `admins.scope` for a
+         * choice that was never made.
+         */
+        ...(scopedTagIds.length > 0 ? { scopedTagIds } : {}),
+        ...(seesUntriaged !== canGrantIntake ? { seesUntriaged } : {}),
+        ...(maskOverride !== null ? { maskedFields: maskOverride } : {}),
       });
       setResult(created);
       setCopied(false);
@@ -296,6 +358,66 @@ export function InviteAdminModal({
               </Select>
             )}
           </div>
+
+          {canScope && (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <p className="font-semibold">{t('adminUsers.scopeSection')}</p>
+              <AdminTagScopePanel
+                tags={tags}
+                selected={scopedTagIds}
+                onToggle={(tagId) =>
+                  setScopedTagIds((prev) =>
+                    prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
+                  )
+                }
+                disabled={loading}
+              />
+              <div className="border-t border-border pt-2.5">
+                <label className="flex cursor-pointer items-start gap-2 text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={seesUntriaged}
+                    onChange={(e) => setSeesUntriaged(e.target.checked)}
+                    // Locked when the inviter cannot grant it — the API would
+                    // refuse, and a tick that cannot happen is a lie.
+                    disabled={loading || !canGrantIntake}
+                    className="mt-0.5 h-3.5 w-3.5 accent-primary"
+                  />
+                  <span>
+                    {t('adminUsers.seesUntriaged')}
+                    <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                      {canGrantIntake
+                        ? t('adminUsers.seesUntriagedHint')
+                        : t('adminUsers.seesUntriagedLockedOwn')}
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {canScope && roleId && (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <p className="font-semibold">
+                {t('adminUsers.maskSection')}
+                <span className="ms-2 font-normal text-[11px] text-muted-foreground">
+                  {maskOverride === null
+                    ? t('adminUsers.maskSummaryInherited')
+                    : effectiveMask.length === 0
+                      ? t('adminUsers.maskSummaryNone')
+                      : t('adminUsers.maskSummary', { count: effectiveMask.length })}
+                </span>
+              </p>
+              <AdminFieldMaskPanel
+                catalog={fieldCatalog}
+                selected={effectiveMask}
+                onToggle={toggleMaskField}
+                disabled={loading}
+                inheriting={maskOverride === null}
+                onResetToRole={() => setMaskOverride(null)}
+              />
+            </div>
+          )}
 
           {error && (
             <p

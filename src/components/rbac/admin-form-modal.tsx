@@ -249,17 +249,16 @@ export function AdminFormModal({
                   )
                 }
                 disabled={busy}
-                disabledReason={
-                  admin.role === 'master_admin' ? t('adminUsers.masterExempt') : undefined
-                }
               />
               {/*
                * D-60 — the intake grant, INSIDE the scope section because it is
                * territory: "the clients nobody has triaged yet" sits beside the
                * tag territories it complements. Derived, not a tag, so it is a
-               * checkbox rather than an entry in the tag select.
+               * checkbox rather than an entry in the tag select. (No master
+               * exemption: that tier is gone; an unrestricted admin is simply
+               * one with no territory rows, and the grant is then moot.)
                */}
-              {admin.role !== 'master_admin' && (
+              {
                 <div className="border-t border-border pt-2.5">
                   <label className="flex cursor-pointer items-start gap-2 text-xs font-medium">
                     <input
@@ -277,7 +276,7 @@ export function AdminFormModal({
                     </span>
                   </label>
                 </div>
-              )}
+              }
             </div>
           )}
 
@@ -298,9 +297,6 @@ export function AdminFormModal({
                 selected={effectiveMask}
                 onToggle={toggleMaskField}
                 disabled={busy}
-                disabledReason={
-                  admin.role === 'master_admin' ? t('adminUsers.masterExempt') : undefined
-                }
                 inheriting={inheriting}
                 onResetToRole={() => setMaskOverride(null)}
               />
