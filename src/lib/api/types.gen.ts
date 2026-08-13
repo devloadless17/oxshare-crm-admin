@@ -3695,11 +3695,6 @@ export interface components {
             application: components["schemas"]["IbApplicationDto"] | null;
             eligible: boolean;
             ineligibleReason: string | null;
-            /**
-             * @description Machine-readable counterpart to ineligibleReason. `unverified` — identity not verified yet. `chain_full` — the partner who introduced them is already on the deepest enabled level, so there is no rung to place them on. Null when eligible.
-             * @enum {string|null}
-             */
-            ineligibleCode: "unverified" | "chain_full" | null;
         };
         IbLevelSummaryDto: {
             /** @example 1 */
@@ -3894,18 +3889,15 @@ export interface components {
             updatedAt: string;
         };
         CreateIbLevelDto: {
-            /**
-             * @description Omit to append one below the deepest existing level.
-             * @example 3
-             */
-            level?: number;
+            /** @example 3 */
+            level: number;
             /** @example Sub Partner */
             name: string;
             /**
-             * @description Defaults to revenue_share. The console no longer sends this.
+             * @default revenue_share
              * @enum {string}
              */
-            payoutModel?: "revenue_share" | "per_lot";
+            payoutModel: "revenue_share" | "per_lot";
             /** @example 30.0000 */
             rateValue: string;
             /** @description Omit or send null for unlimited. */
@@ -4714,7 +4706,7 @@ export interface components {
             maskedFields?: string[];
             /** @description Client tags this admin is scoped to. Omit or [] means UNRESTRICTED — every client. */
             scopedTagIds?: string[];
-            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. */
+            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
             seesUntriaged?: boolean;
         };
         InviteResponseDto: {
@@ -5177,7 +5169,7 @@ export interface components {
             maskedFields?: string[] | null;
             /** @description Client tag ids. An EMPTY ARRAY means unrestricted (every client), not none — see D-10. */
             scopedTagIds?: string[];
-            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. */
+            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
             seesUntriaged?: boolean;
         };
         AdminStatusDto: {
