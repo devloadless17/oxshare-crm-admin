@@ -313,7 +313,15 @@ export default function AdminDashboardPage() {
                 pending: formatCount(ib.applications['pending'] ?? 0),
               })}
               icon={Handshake}
-              href="/partners"
+              /*
+               * The clients list, filtered — /partners is gone. It listed the
+               * same people this tile counts, from the same `ib_accounts` rows,
+               * on a screen that could not also show a partner's KYC, tags or
+               * wallets. The clients list can, and its type filter now DERIVES
+               * "partner" from `ib_accounts` rather than from the label that
+               * nothing maintained, so the two agree on who is one.
+               */
+              href="/clients?type=partner"
             />
           )}
         </div>

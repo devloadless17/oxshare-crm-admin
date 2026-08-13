@@ -16,6 +16,7 @@ import { RowActions, actionsColumn, type RowAction } from '@/components/row-acti
 import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
 import { PartnerRejectDialog } from '@/components/ib/partner-reject-dialog';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
@@ -63,6 +64,8 @@ export default function PartnerApprovalsPage() {
   const canApprove = hasPermission(admin, 'ib.approve');
   const canReject = hasPermission(admin, 'ib.reject');
   const queryClient = useQueryClient();
+  // Shadows `window.confirm` on purpose — same call shape, real dialog.
+  const confirm = useConfirm();
 
   const [status, setStatus] = React.useState<IbApplicationStatus | ''>('pending');
   const [page, setPage] = React.useState(1);
@@ -113,6 +116,28 @@ export default function PartnerApprovalsPage() {
     },
     onError: (error) => toastError(error, t('partnerReview.approveFailed')),
   });
+
+  /**
+   * Ask before creating a partner.
+   *
+   * `confirm()` rather than a controlled dialog, matching the other thirteen
+   * call sites in the console — the guard stays one function, and dismissal
+   * resolves false so nothing is left pending on a cancel.
+   *
+   * The client is NAMED in the question. This screen is a queue of near-
+   * identical rows and the menu sits under the cursor for whichever one was
+   * clicked; "approve this application" would confirm the action without
+   * confirming the row, which is the mistake actually worth catching.
+   */
+  const confirmApprove = async (row: IbApplicationPage['rows'][number]) => {
+    const name = `${row.user.firstName} ${row.user.lastName}`.trim() || row.user.email;
+    const ok = await confirm({
+      title: t('partnerReview.confirmApproveTitle', { name }),
+      description: t('partnerReview.confirmApprove'),
+      confirmLabel: t('partnerReview.approve'),
+    });
+    if (ok) approve.mutate(row.application.id);
+  };
 
   const reject = useMutation({
     mutationFn: (input: { id: string; reason?: string; note?: string }) =>
@@ -310,7 +335,22 @@ export default function PartnerApprovalsPage() {
               {
                 label: t('partnerReview.approve'),
                 icon: Check,
-                onSelect: () => approve.mutate(row.application.id),
+                /*
+                 * CONFIRMED, like reject already was.
+                 *
+                 * Approving is not a reversible tick: it creates the partner
+                 * account, mints a referral code that is never reissued, and
+                 * places them on a rung of the ladder — and `approve` refuses a
+                 * second decision on the same application, so there is no
+                 * "undo" to reach for afterwards. A menu item one row away from
+                 * "Reject" that fires on a single click is the one place in this
+                 * screen a slip is unrecoverable.
+                 *
+                 * Not `destructive` — it paints the button red, and this
+                 * creates rather than destroys. The dialog is here for
+                 * irreversibility, not for danger.
+                 */
+                onSelect: () => void confirmApprove(row),
               },
             ]
           : []),

@@ -174,10 +174,24 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'nav.section.partners',
     items: [
-      { label: 'nav.partners', href: '/partners', icon: Handshake },
+      /*
+       * `/partners` is GONE, and its route requirement went with it — the two
+       * are removed together, because `canAccess` denies an unlisted path and a
+       * page left in the nav without one renders the "no access" panel.
+       *
+       * It listed the same people the clients screen does, from the same
+       * `ib_accounts` rows, on a screen that could not also show a partner's
+       * KYC, tags or wallets. The clients list can, and its type filter now
+       * DERIVES "partner" rather than reading a column nothing maintained — the
+       * disagreement that made two screens necessary in the first place (one
+       * said 7 partners, the other said 1).
+       *
+       * Partners are reached at `/clients?type=partner`, which the dashboard
+       * tile links to.
+       */
       /* The ledger sits between the partners who earn and the ladder that sets
          the rates — the order the questions are actually asked in. */
-      { label: 'nav.commissions', href: '/commissions', icon: Coins },
+      // { label: 'nav.commissions', href: '/commissions', icon: Coins },
       { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
       /*
        * Agencies sit with the partners rather than with Products, because that

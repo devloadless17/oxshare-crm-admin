@@ -1720,23 +1720,21 @@ export const messages = {
   'ibLevels.saveSucceeded': 'Level {level} saved',
 
   'ibLevels.level': 'Level number',
-  'ibLevels.levelHint': '1 is closest to the broker. Higher numbers sit further down the chain.',
   'ibLevels.levelLocked': 'The level number cannot change — partner records reference it.',
+  // Replaces `levelHint`, which explained a field the form no longer has. The
+  // rung still HAS a number; the operator just does not choose it.
+  'ibLevels.levelAppended': 'Added one level below the deepest rung.',
   'ibLevels.name': 'Name',
-  'ibLevels.payoutModel': 'Payout model',
+  'ibLevels.rate': 'Rate',
+  'ibLevels.rateHintPercent':
+    'Percentage of what the broker earned on the closed trade, e.g. 70 for 70%.',
+  // These four are still used by the LIST and the tree, which must keep
+  // rendering a level already configured per-lot correctly. The FORM no longer
+  // offers the model; the read paths still have to describe one.
   'ibLevels.modelRevenueShare': 'Revenue share',
   'ibLevels.modelPerLot': 'Per lot',
-  'ibLevels.modelRevenueShareHint':
-    'A percentage of the commission pool. Enabled revenue-share levels must total 100% or less between them.',
-  'ibLevels.modelPerLotHint':
-    'A fixed amount per standard lot traded. Not capped, and not counted against the revenue-share total.',
-  'ibLevels.rate': 'Rate',
-  'ibLevels.rateHintPercent': 'Percentage of the commission pool, e.g. 70 for 70%.',
-  'ibLevels.rateHintPerLot': 'Amount per standard lot, in the platform default currency.',
   'ibLevels.perLotSuffix': '/lot',
   'ibLevels.perLotValue': '{value} per lot',
-  'ibLevels.maxDirect': 'Max direct partners',
-  'ibLevels.maxDirectHint': 'Leave empty for unlimited. Checked when a partner is approved.',
   'ibLevels.unlimitedPartners': 'Unlimited direct partners',
   'ibLevels.maxPartners': 'Up to {max} direct partners',
   'ibLevels.reorderFailed': 'The ladder could not be reordered.',
@@ -1778,6 +1776,11 @@ export const messages = {
   'partnerReview.approve': 'Approve',
   'partnerReview.reject': 'Reject',
   'partnerReview.readOnly': 'View only',
+  // The client is NAMED, because this is a queue of near-identical rows and the
+  // menu opens under whichever one was clicked.
+  'partnerReview.confirmApproveTitle': 'Approve {name} as a partner?',
+  'partnerReview.confirmApprove':
+    'This creates their partner account and issues a referral code, which is never reissued. The application cannot be decided again.',
   'partnerReview.approveSucceeded': 'Partner application approved',
   'partnerReview.rejectSucceeded': 'Partner application rejected',
   'partnerReview.approveFailed': 'The application could not be approved.',

@@ -111,6 +111,15 @@ describe('canAccess', () => {
     expect(canAccess(subAdmin, '/kyc')).toBe(true);
     expect(canAccess(subAdmin, '/kyc/abc-123')).toBe(true); // detail page under /kyc
     expect(canAccess(subAdmin, '/withdrawals')).toBe(false);
+    /*
+     * `/partners` is asserted as UNLISTED rather than as permission-denied.
+     *
+     * The page was removed and its requirement with it, so this no longer proves
+     * anything about `ib.view` — it proves the deny-by-default rule, which is
+     * the more valuable half: a path with no entry in the table is refused
+     * whatever the admin holds, so a page shipped without a requirement is
+     * caught on the author's first click rather than in production.
+     */
     expect(canAccess(subAdmin, '/partners')).toBe(false);
   });
 

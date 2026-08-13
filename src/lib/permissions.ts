@@ -136,9 +136,12 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * reject.
    */
   { prefix: '/approvals/ib', requirement: { permission: 'ib.view' } },
-  // `ib.view` to see the list; the row menu checks `ib.manage` before it draws,
-  // and the API refuses the writes regardless.
-  { prefix: '/partners', requirement: { permission: 'ib.view' } },
+  /*
+   * `/partners` is gone — its page, its nav entry and this requirement were
+   * removed together, which is the rule this table's own note records: a page
+   * without a requirement renders "no access", and a requirement without a page
+   * is a route nothing can reach. Partners are `/clients?type=partner` now.
+   */
   /*
    * The commission ledger. It was NOT LISTED, and an unlisted path is denied —
    * so the screen shipped unreachable for everybody, which is the failure mode

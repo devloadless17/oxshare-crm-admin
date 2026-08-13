@@ -804,6 +804,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ib/commissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every commission this partner has earned, newest first
+         * @description The other half of the dashboard totals. Those read the LEDGER — money actually paid — so a partner whose accruals are still maturing sees zero there with no way to tell "nothing earned" from "earned, not yet released". Each row carries its status, so the two numbers explain each other.
+         *
+         *     `source: position` is a closed trade, which is the only thing that pays a revenue share. `transaction` rows are historical — commission is no longer earned on deposits.
+         */
+        get: operations["IbController_commissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ib/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open trades belonging to this partner's direct clients
+         * @description DIRECT clients only. A sub-partner’s clients are somebody else’s book — this partner earns on them through the chain, but listing them here would hand one partner a view of another’s client list.
+         *
+         *     Open positions only: a closed trade already appears in the commission list as the thing it produced.
+         */
+        get: operations["IbController_positions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ib/agencies": {
         parameters: {
             query?: never;
@@ -3651,6 +3695,11 @@ export interface components {
             application: components["schemas"]["IbApplicationDto"] | null;
             eligible: boolean;
             ineligibleReason: string | null;
+            /**
+             * @description Machine-readable counterpart to ineligibleReason. `unverified` — identity not verified yet. `chain_full` — the partner who introduced them is already on the deepest enabled level, so there is no rung to place them on. Null when eligible.
+             * @enum {string|null}
+             */
+            ineligibleCode: "unverified" | "chain_full" | null;
         };
         IbLevelSummaryDto: {
             /** @example 1 */
@@ -3717,6 +3766,49 @@ export interface components {
             subPartners: components["schemas"]["IbSubPartnerDto"][];
             /** @description How many referred clients have completed KYC — the ones who can actually fund. */
             verifiedReferredCount: number;
+        };
+        IbCommissionRowDto: {
+            /** Format: uuid */
+            id: string;
+            /** @description The client whose activity earned it. */
+            clientName: string;
+            /**
+             * @description What produced it. `position` is a closed trade — the only source that pays a revenue share. `transaction` rows are historical: commission is no longer earned on deposits.
+             * @enum {string}
+             */
+            source: "position" | "transaction";
+            /** @description The base it was calculated from — the broker's revenue on the trade. */
+            baseAmount: string;
+            /** @description Percentage under revenue share; amount per lot under per-lot. */
+            rateValue: string;
+            amount: string;
+            currency: string;
+            /** @enum {string} */
+            status: "pending" | "confirmed" | "reversed";
+            /** @description 1 is a direct client; 2 is a sub-partner's client. */
+            depth: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description When it was credited. Null while it is still maturing.
+             */
+            confirmedAt?: string | null;
+        };
+        IbClientPositionDto: {
+            /** Format: uuid */
+            id: string;
+            clientName: string;
+            symbol: string;
+            /** @enum {string} */
+            side: "buy" | "sell";
+            /** @description Lots. */
+            volume: string;
+            openPrice: string;
+            /** @description Floating, and it moves. Shown because a partner asks "is my book alive", not so they can act on it — they have no control over a client’s trade. */
+            profit?: string | null;
+            /** Format: date-time */
+            openedAt: string;
         };
         PublicAgencyDto: {
             /** Format: uuid */
@@ -3802,15 +3894,18 @@ export interface components {
             updatedAt: string;
         };
         CreateIbLevelDto: {
-            /** @example 3 */
-            level: number;
+            /**
+             * @description Omit to append one below the deepest existing level.
+             * @example 3
+             */
+            level?: number;
             /** @example Sub Partner */
             name: string;
             /**
-             * @default revenue_share
+             * @description Defaults to revenue_share. The console no longer sends this.
              * @enum {string}
              */
-            payoutModel: "revenue_share" | "per_lot";
+            payoutModel?: "revenue_share" | "per_lot";
             /** @example 30.0000 */
             rateValue: string;
             /** @description Omit or send null for unlimited. */
@@ -6589,6 +6684,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbOverviewDto"];
+                };
+            };
+        };
+    };
+    IbController_commissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbCommissionRowDto"][];
+                };
+            };
+        };
+    };
+    IbController_positions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbClientPositionDto"][];
                 };
             };
         };

@@ -4,40 +4,55 @@ import * as React from 'react';
 import type { IbLevel } from '@/lib/api/admin';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 
 export interface IbLevelFormValues {
-  level: number;
+  /**
+   * ABSENT on create, so the API appends below the deepest rung.
+   *
+   * Present on edit, where it is the primary key `ib_accounts.level` references
+   * — the form does not offer to change it, it carries the one it was opened
+   * with.
+   */
+  level?: number;
   name: string;
-  payoutModel: 'revenue_share' | 'per_lot';
   rateValue: string;
-  maxDirectPartners: number | null;
   enabled: boolean;
 }
 
 /**
  * Add a rung to the payout ladder, or edit one.
  *
- * ## The level number is not editable once it exists
+ * ## Two fields, because two things decide what a partner is paid
+ *
+ * What the rung is CALLED and what share it TAKES. The form used to ask for
+ * five, and the other three each answered a question the operator did not have:
+ *
+ *  - LEVEL NUMBER. A rung's number is its position in a ladder read top-down,
+ *    and the form demanded one before the thing had a name. Appending below the
+ *    deepest rung is what "add a level" meant every time.
+ *  - PAYOUT MODEL. Commission is cut from what the broker earned on a CLOSED
+ *    position, which is a share of revenue by definition — so one option was
+ *    correct and the other silently reinterpreted the rate beside it.
+ *  - MAX DIRECT PARTNERS. A recruiting cap, defaulted to unlimited and left
+ *    there.
+ *
+ * None were deleted from the API. `level` still fills a gap left by a delete,
+ * `per_lot` is still honoured for a level already on it, and the cap is still
+ * enforced where one is set — they are simply no longer questions this screen
+ * asks.
+ *
+ * ## The level number is still not editable
  *
  * It is the primary key and partner records reference it, so renumbering is a
- * data migration across the partner table rather than an edit. Shown read-only
- * on edit rather than hidden: hiding it leaves the operator wondering which row
- * they are changing, while a disabled field says "this one, and it is fixed".
+ * data migration across the partner table rather than an edit. The form says
+ * where the rung sits instead of offering to move it.
  *
- * ## The rate's UNIT changes with the model
+ * ## The rate is always a percentage
  *
- * `70` means 70% under revenue share and $70 per lot under per-lot, which is a
- * genuinely dangerous ambiguity on a payout screen. The suffix beside the input
- * and the hint beneath it both follow the selected model, so the number is
- * never displayed without its unit.
+ * With the model gone, `70` can only mean 70% of the broker's revenue. The
+ * suffix is fixed rather than following a selector, so the number is still never
+ * displayed without its unit.
  */
 export function IbLevelFormModal({
   open,
@@ -96,33 +111,47 @@ function IbLevelForm({
 }) {
   const editing = Boolean(level);
 
-  const [levelNumber, setLevelNumber] = React.useState(level?.level ?? 1);
   const [name, setName] = React.useState(level?.name ?? '');
-  const [payoutModel, setPayoutModel] = React.useState<'revenue_share' | 'per_lot'>(
-    level?.payoutModel ?? 'revenue_share',
-  );
   const [rateValue, setRateValue] = React.useState(level?.rateValue ?? '0.0000');
-  // An empty string is "unlimited", which is what null means on the wire. A
-  // number input cannot hold null, and 0 would be a real limit meaning nobody.
-  const [maxDirect, setMaxDirect] = React.useState(
-    level?.maxDirectPartners === null || level?.maxDirectPartners === undefined
-      ? ''
-      : String(level.maxDirectPartners),
-  );
   const [enabled, setEnabled] = React.useState(level?.enabled ?? true);
 
-  const isPercentage = payoutModel === 'revenue_share';
-
+  /*
+   * ── Three fields are GONE, and each for its own reason ─────────────────────
+   *
+   * LEVEL NUMBER. A rung's number is its POSITION in a ladder read top-down,
+   * not something an operator has an opinion about — and the form asked for one
+   * before they had named the thing. Omitting it makes the API append below the
+   * deepest rung, which is what "add a level" meant every time. It stays in the
+   * contract for the one case the form cannot express: refilling a gap left by
+   * a delete.
+   *
+   * PAYOUT MODEL. A partner's commission is cut from what the broker earned on a
+   * CLOSED position, which is a share of revenue by definition — so the choice
+   * offered exactly one right answer and one that silently reinterprets the
+   * rate beside it ("70" meaning $70 per lot rather than 70%). `per_lot` is
+   * still honoured by the engine for any level already on it; it is unreachable
+   * from here, not deleted.
+   *
+   * MAX DIRECT PARTNERS. A recruiting cap the ladder does not otherwise express,
+   * defaulted to unlimited and left there. The API still enforces one if a level
+   * carries it.
+   *
+   * What remains is the pair that decides what a partner is paid: what the rung
+   * is called, and what share it takes. `enabled` stays with them — it is not a
+   * property of the payout, it is the switch that stops a rung earning and
+   * stops new partners being placed on it, and there is no other control for
+   * that anywhere in the console.
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      level: levelNumber,
+      // Omitted on create so the API appends; preserved on edit, where the level
+      // is the primary key and the route already names it.
+      ...(level ? { level: level.level } : {}),
       name: name.trim(),
-      payoutModel,
       // Sent as a STRING, never parsed to a number: it multiplies money, and a
       // round trip through a float is exactly what §6.1 forbids.
       rateValue: rateValue.trim(),
-      maxDirectPartners: maxDirect.trim() === '' ? null : Number(maxDirect),
       enabled,
     });
   };
@@ -140,23 +169,6 @@ function IbLevelForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">{t('ibLevels.level')}</span>
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={levelNumber}
-            onChange={(e) => setLevelNumber(Number(e.target.value))}
-            readOnly={editing}
-            required
-            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs read-only:cursor-not-allowed read-only:opacity-60 focus-outline"
-          />
-          <span className="block text-[11px] text-muted-foreground">
-            {editing ? t('ibLevels.levelLocked') : t('ibLevels.levelHint')}
-          </span>
-        </label>
-
-        <label className="space-y-1.5">
           <span className="text-xs font-semibold text-foreground">{t('ibLevels.name')}</span>
           <input
             value={name}
@@ -166,33 +178,14 @@ function IbLevelForm({
             placeholder="Master Partner"
             className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
           />
+          {/* Where this rung lands, said rather than asked. On create the API
+              appends below the deepest level; on edit the number is the primary
+              key and `ib_accounts.level` references it, so it cannot move. */}
+          <span className="block text-[11px] text-muted-foreground">
+            {editing ? t('ibLevels.levelLocked') : t('ibLevels.levelAppended')}
+          </span>
         </label>
-      </div>
 
-      <label className="block space-y-1.5">
-        <span className="text-xs font-semibold text-foreground">{t('ibLevels.payoutModel')}</span>
-        <Select
-          value={payoutModel}
-          onValueChange={(value) => setPayoutModel(value as 'revenue_share' | 'per_lot')}
-        >
-          <SelectTrigger className="h-10 w-full text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="revenue_share" className="text-xs">
-              {t('ibLevels.modelRevenueShare')}
-            </SelectItem>
-            <SelectItem value="per_lot" className="text-xs">
-              {t('ibLevels.modelPerLot')}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <span className="block text-[11px] text-muted-foreground">
-          {isPercentage ? t('ibLevels.modelRevenueShareHint') : t('ibLevels.modelPerLotHint')}
-        </span>
-      </label>
-
-      <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1.5">
           <span className="text-xs font-semibold text-foreground">{t('ibLevels.rate')}</span>
           <div className="relative">
@@ -204,29 +197,14 @@ function IbLevelForm({
               pattern="\d{1,8}(\.\d{1,4})?"
               className="flex h-10 w-full rounded-lg border border-input bg-card pl-3 pr-10 text-xs tabular focus-outline"
             />
-            {/* The unit, always beside the number. "70" alone means 70% under
-                one model and $70 under the other. */}
+            {/* Always a percentage now: the payout model is no longer a choice,
+                so "70" can only mean 70% of what the broker earned. */}
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
-              {isPercentage ? '%' : t('ibLevels.perLotSuffix')}
+              %
             </span>
           </div>
           <span className="block text-[11px] text-muted-foreground">
-            {isPercentage ? t('ibLevels.rateHintPercent') : t('ibLevels.rateHintPerLot')}
-          </span>
-        </label>
-
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">{t('ibLevels.maxDirect')}</span>
-          <input
-            type="number"
-            min={1}
-            value={maxDirect}
-            onChange={(e) => setMaxDirect(e.target.value)}
-            placeholder={t('ibLevels.unlimited')}
-            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
-          />
-          <span className="block text-[11px] text-muted-foreground">
-            {t('ibLevels.maxDirectHint')}
+            {t('ibLevels.rateHintPercent')}
           </span>
         </label>
       </div>
