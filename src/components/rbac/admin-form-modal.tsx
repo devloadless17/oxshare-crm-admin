@@ -26,6 +26,8 @@ export interface AdminFormValues {
   maskedFields?: string[] | null;
   /** RBAC-03 territory. An EMPTY ARRAY means unrestricted, not none. */
   scopedTagIds?: string[];
+  /** D-60 — sees the intake pool (clients with no tags yet). */
+  seesUntriaged?: boolean;
 }
 
 /** Order- and duplicate-insensitive membership equality. */
@@ -93,6 +95,7 @@ export function AdminFormModal({
    */
   const [roleId, setRoleId] = React.useState<string>(admin.roleId ?? '');
   const [scopedTagIds, setScopedTagIds] = React.useState<string[]>(currentScope);
+  const [seesUntriaged, setSeesUntriaged] = React.useState<boolean>(admin.seesUntriaged ?? false);
   /*
    * `null` = inheriting the role's mask; a list = this person's override.
    * The DTO serves both halves (`maskedFields` is the EFFECTIVE mask,
@@ -138,6 +141,7 @@ export function AdminFormModal({
      * otherwise make every save look like a change.
      */
     if (!sameSet(scopedTagIds, currentScope)) values.scopedTagIds = scopedTagIds;
+    if (seesUntriaged !== (admin.seesUntriaged ?? false)) values.seesUntriaged = seesUntriaged;
     /*
      * The override is sent only when it CHANGED, with `null` meaning "clear it
      * — follow the role again". `[]` is a real value (explicitly mask nothing
@@ -249,6 +253,31 @@ export function AdminFormModal({
                   admin.role === 'master_admin' ? t('adminUsers.masterExempt') : undefined
                 }
               />
+              {/*
+               * D-60 — the intake grant, INSIDE the scope section because it is
+               * territory: "the clients nobody has triaged yet" sits beside the
+               * tag territories it complements. Derived, not a tag, so it is a
+               * checkbox rather than an entry in the tag select.
+               */}
+              {admin.role !== 'master_admin' && (
+                <div className="border-t border-border pt-2.5">
+                  <label className="flex cursor-pointer items-start gap-2 text-xs font-medium">
+                    <input
+                      type="checkbox"
+                      checked={seesUntriaged}
+                      onChange={(e) => setSeesUntriaged(e.target.checked)}
+                      disabled={busy}
+                      className="mt-0.5 h-3.5 w-3.5 accent-primary"
+                    />
+                    <span>
+                      {t('adminUsers.seesUntriaged')}
+                      <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                        {t('adminUsers.seesUntriagedHint')}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
           )}
 

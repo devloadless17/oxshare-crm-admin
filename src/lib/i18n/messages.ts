@@ -580,10 +580,10 @@ export const messages = {
   'tags.deleteSucceeded': 'Tag "{label}" deleted',
   'tags.saveSucceeded': 'Tag "{label}" saved',
   'tags.deleteFailed': 'Failed to delete the tag.',
-  // The platform's own tag — new-client intake (D-60).
+  // A tag the platform itself depends on (is_system) — none ship today.
   'tags.systemBadge': 'System',
   'tags.systemHint':
-    'Assigned automatically by the platform: every new registration lands in it. It cannot be deleted — removing it from a client (or tagging them into a territory, which removes it automatically) is how they are triaged out.',
+    'A tag the platform itself writes and depends on. It cannot be deleted; its label and colour can be edited, and it can still be removed from individual clients.',
   'tags.labelField': 'Label',
   'tags.labelPlaceholder': 'High risk',
   'tags.slugFixed': 'Link name stays {slug} — saved /clients?tag= links keep working.',
@@ -614,6 +614,10 @@ export const messages = {
   'roles.maskLockedOwn': 'Hidden from you — you cannot grant visibility you do not have.',
 
   'adminUsers.scopeSection': 'Client scope',
+  // D-60 — the intake pool. "Untriaged" is derived (no tags), never a tag.
+  'adminUsers.seesUntriaged': 'Sees new clients (not yet tagged)',
+  'adminUsers.seesUntriagedHint':
+    'The intake pool: clients with no tags at all. Only unrestricted admins and holders of this grant see them. Assigning any tag moves a client out of intake by definition; removing their last tag returns them to it — nobody can fall between territories.',
   'adminUsers.scopeSummary': '{count} tag(s)',
   // Said in words, because both readings of an empty scope are plausible and
   // one of them is a data breach.
