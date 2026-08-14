@@ -5499,8 +5499,15 @@ export interface components {
             checkedAt: string;
             /** @description How many wallets were compared against their ledgers. */
             walletsChecked: number;
-            /** @description Empty when every wallet agrees with its ledger. */
+            /** @description A SAMPLE — the largest discrepancies by absolute difference, capped at 20. Empty when every wallet agrees with its ledger. Read `discrepancyCount` for how many there really are: a screen that counts this array reports 20 on a database with thousands. */
             walletDiscrepancies: components["schemas"]["WalletDiscrepancyDto"][];
+            /** @description How many wallets disagree in total, independent of the capped sample above. Counted in SQL, so it is exact. */
+            discrepancyCount: number;
+            /**
+             * @description The SUM OF ABSOLUTE differences across every mismatched wallet — the size of the problem. Absolute rather than net, so two large opposite errors do not report as nearly balanced. Monetary value — always a string.
+             * @example 24995.35000000
+             */
+            totalDifference: string;
             /** @description True when nothing is wrong. Read this rather than testing the array length — it is the field the service decides, and a future check can make it false without adding a wallet discrepancy. */
             balanced: boolean;
         };
