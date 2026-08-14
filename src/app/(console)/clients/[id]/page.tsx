@@ -236,7 +236,13 @@ export default function ClientProfilePage() {
         fill
       >
         {profile && (
-          <div className="flex min-h-0 flex-1 flex-col gap-6">
+          /*
+           * `gap-4`, not `gap-6`. A tab strip OWNS the panel beneath it, so the
+           * two want to read as one control — 24px of air between the underline
+           * and the first heading made the panel look like a separate section
+           * that happened to follow.
+           */
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
             <header className="shrink-0 rounded-xl border border-border bg-card p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">

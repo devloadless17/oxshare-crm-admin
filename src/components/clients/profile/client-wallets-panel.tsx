@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CreditWalletModal } from '@/components/wallets/credit-wallet-modal';
-import { DataTable, type Column } from '@/components/data-table';
+import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, type RowAction } from '@/components/row-actions';
 import { t } from '@/lib/i18n';
 import { formatMoney, isZeroMoney } from '@/lib/money';
@@ -296,7 +296,7 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
         // A LOADER rather than an empty table: "no wallets" and "not fetched
         // yet" are different claims, and the second must never render as the first.
         loading={wallets.status === 'loading'}
-        empty={t('clientProfile.noWallets')}
+        empty={<EmptyState icon={Wallet} message={t('clientProfile.noWallets')} />}
       />
 
       {canManage && openable.length > 0 && (

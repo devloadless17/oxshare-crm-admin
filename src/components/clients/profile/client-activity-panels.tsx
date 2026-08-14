@@ -1,12 +1,12 @@
 'use client';
 
 import * as React from 'react';
+import { Activity, History, Receipt } from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientPositionRow, ClientTransactionRow } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
-import { DataTable, type Column } from '@/components/data-table';
-import { Pagination } from '@/components/pagination';
+import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { formatDecimal, formatMoney, isZeroMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
@@ -146,15 +146,32 @@ export function ClientPositionsPanel({
         rowKey={(row) => row.id}
         fill
         loading={query.status === 'loading'}
+        /*
+         * `EmptyState`, not a bare string — every other table in the console
+         * passes this. A string lands in the empty cell as raw text, aligned
+         * left with the first column; `EmptyState` centres itself and carries
+         * an icon saying which table is empty.
+         */
         empty={
-          status === 'open' ? t('clientProfile.posNoneOpen') : t('clientProfile.posNoneClosed')
+          <EmptyState
+            icon={status === 'open' ? Activity : History}
+            message={
+              status === 'open' ? t('clientProfile.posNoneOpen') : t('clientProfile.posNoneClosed')
+            }
+          />
         }
-      />
-      <Pagination
-        page={page}
-        pageSize={PAGE_SIZE}
-        total={query.data?.total ?? 0}
-        onPageChange={setPage}
+        /*
+         * The table's OWN footer, rather than a `<Pagination>` beneath it. Two
+         * pagers rendered before: the built-in strip inside the frame reading
+         * "Showing all 0", and a second outside it with its own row-size
+         * picker — the same list with two sets of controls.
+         */
+        pagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          total: query.data?.total ?? 0,
+          onPageChange: setPage,
+        }}
       />
     </AsyncBoundary>
   );
@@ -255,13 +272,13 @@ export function ClientTransactionsPanel({ userId }: { userId: string }) {
         rowKey={(row) => row.id}
         fill
         loading={query.status === 'loading'}
-        empty={t('clientProfile.txNone')}
-      />
-      <Pagination
-        page={page}
-        pageSize={PAGE_SIZE}
-        total={query.data?.total ?? 0}
-        onPageChange={setPage}
+        empty={<EmptyState icon={Receipt} message={t('clientProfile.txNone')} />}
+        pagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          total: query.data?.total ?? 0,
+          onPageChange: setPage,
+        }}
       />
     </AsyncBoundary>
   );
