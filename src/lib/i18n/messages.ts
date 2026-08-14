@@ -174,7 +174,16 @@ export const messages = {
   'withdrawals.stateAll': 'All',
   'withdrawals.statePending': 'Pending',
   'withdrawals.stateApproved': 'Approved',
-  'withdrawals.statePaid': 'Paid',
+  /*
+   * `withdrawals.statePaid` is GONE. Approving a withdrawal pays it in one
+   * step, so "Paid" and "Approved" named the same fact and the queue showed
+   * both as separate badges and separate tabs. `stateApproved` above is the
+   * single word for it now — see STATE_META in the transactions page.
+   *
+   * The `withdrawals.settle*` strings below are NOT dead: `POST
+   * /admin/withdrawals/:id/settle` still exists for the Rival rail, where the
+   * provider confirms asynchronously. Nothing in the console calls it.
+   */
   'withdrawals.stateRejected': 'Rejected',
   'withdrawals.stateFailed': 'Failed',
   'withdrawals.approve': 'Approve',
@@ -197,14 +206,12 @@ export const messages = {
   // button with no explanation.
   'withdrawals.awaitingApprover': 'Awaiting an approver',
   'withdrawals.awaitingSettler': 'Awaiting a payer',
-  'withdrawals.markPaid': 'Mark Paid',
   'withdrawals.rejectionReason': 'Rejection Reason',
   'withdrawals.selectReason': 'Select a reason…',
   'withdrawals.reasonPlaceholder': 'e.g. Beneficiary name does not match the account holder…',
   'withdrawals.providerRef': 'Provider reference',
   'withdrawals.providerRefPlaceholder': 'e.g. whish-payout-9911',
   'withdrawals.tabPending': 'Pending Review',
-  'withdrawals.tabApproved': 'Approved / Paid',
   'withdrawals.tabRejected': 'Rejected / Failed',
   'withdrawals.loading': 'Loading withdrawal requests',
   'withdrawals.loadFailed': 'Could not load withdrawal requests.',
@@ -955,6 +962,12 @@ export const messages = {
    * is the "Submitted" DATE column and genuinely does mean when — reusing that
    * one here is what made the tab say "Submitted" in the first place.
    */
+  /*
+   * "In progress" is the CLIENT still filling the wizard — nobody is waiting on
+   * us. "Pending" and "Under Review" below are both post-submission and waiting
+   * on a reviewer, which is why this one reads differently on purpose.
+   */
+  'kycReview.filterInProgress': 'In Progress',
   'kycReview.filterPending': 'Pending',
   'kycReview.filterUnderReview': 'Under Review',
   'kycReview.filterApproved': 'Approved',
@@ -1671,7 +1684,6 @@ export const messages = {
   // catalogue entry with no call site is a string nobody can find.
   'login.emailPlaceholder': 'admin@oxshare.com',
   'withdrawals.rejectTitle': 'Reject Withdrawal',
-  'withdrawals.markPaidTitle': 'Mark Withdrawal Paid',
   'pagination.firstTitle': 'First Page',
   'pagination.firstAria': 'Go to First Page',
   'pagination.previousTitle': 'Previous Page',
@@ -2262,8 +2274,19 @@ export const messages = {
   'dashboard.withdrawalStateTitle': 'Withdrawals by state',
   'dashboard.withdrawalStateDescription': 'Everything on the books, not just this period',
   'dashboard.withdrawalPending': 'Pending',
+  /*
+   * ONE label for the paid outcome, matching the transactions queue.
+   *
+   * Approving a withdrawal pays it in one step, so `approved` and `success`
+   * describe the same fact — `approved` is where rows landed before the two
+   * actions became one, `success` is where they land now. The chart sums them
+   * into a single bar, and `withdrawals.statePaid` was already deleted for the
+   * same reason, so "Approved" is the word the console uses throughout.
+   *
+   * `dashboard.withdrawalApproved` is kept as the key the merged bar reads,
+   * rather than renaming it — the string is what changed, not the concept.
+   */
   'dashboard.withdrawalApproved': 'Approved',
-  'dashboard.withdrawalSuccess': 'Paid',
   'dashboard.withdrawalFailure': 'Failed',
   'dashboard.withdrawalRejected': 'Rejected',
   'dashboard.requestCount': '{count} requests',

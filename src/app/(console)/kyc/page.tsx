@@ -57,6 +57,18 @@ type KycRow = components['schemas']['KycSubmissionDto'];
  * with All, which is the one tab nobody working the queue wants first.
  */
 const FILTERS: Array<{ value: string; label: string }> = [
+  /*
+   * `in_progress` FIRST, because it is the earliest state and the only one
+   * where nobody is waiting on us.
+   *
+   * A client who opened the wizard and stopped sits here, and the queue had no
+   * tab for them at all — so the one cohort worth chasing (they started, and
+   * something stopped them) was invisible unless an operator picked "All" and
+   * read the badges. It is a different question from the rest of this screen,
+   * which is why it reads as its own tab rather than being folded into Pending:
+   * those are submissions waiting on a REVIEWER.
+   */
+  { value: 'in_progress', label: t('kycReview.filterInProgress') },
   { value: 'submitted', label: t('kycReview.filterPending') },
   { value: 'under_review', label: t('kycReview.filterUnderReview') },
   { value: 'approved', label: t('kycReview.filterApproved') },

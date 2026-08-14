@@ -731,7 +731,22 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
          * that is really "as tall as the content". That is precisely the state
          * where a full-height table silently becomes a full-LENGTH one.
          */}
-        <main className="flex min-h-0 w-full max-w-full flex-1 flex-col overflow-y-auto p-4 md:p-5">
+        {/*
+         * The padding moved OFF this element and onto the wrapper inside it.
+         *
+         * `<main>` is the scroll container, and padding on a scroll container is
+         * the fragile place to put it: whether the END-side padding is part of
+         * the scrollable overflow region — so it still shows once you have
+         * scrolled to the bottom — has differed between engines and between
+         * Chrome versions, and it is not something to leave to chance on every
+         * page in the console. Padding on a normal in-flow child is drawn on
+         * that child's own box and cannot be dropped by anybody.
+         *
+         * The portal hit the visible half of this and its layout carries the
+         * long version of the reasoning, including why the wrapper uses `flex-1`
+         * WITHOUT `min-h-0` and why that leaves the `fill` tables alone.
+         */}
+        <main className="flex min-h-0 w-full max-w-full flex-1 flex-col overflow-y-auto">
           {/*
            * ONE state here now, not four.
            *
@@ -748,7 +763,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
            * One component, so the refusal reads the same wherever it appears —
            * this route gate, and any page that denies a section of itself.
            */}
-          {!canAccess(admin, pathname ?? '') ? <AccessDenied /> : children}
+          <div className="flex w-full max-w-full flex-1 flex-col p-4 md:p-5">
+            {!canAccess(admin, pathname ?? '') ? <AccessDenied /> : children}
+          </div>
         </main>
       </div>
     </div>

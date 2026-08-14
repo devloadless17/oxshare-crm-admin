@@ -197,11 +197,21 @@ export function ClientTransactionsPanel({ userId }: { userId: string }) {
     {
       header: t('clientProfile.txState'),
       cell: (row) => (
+        /*
+         * Against the REAL enum: pending · approved · success · failure ·
+         * rejected. This tested `'settled'` and `'failed'`, neither of which
+         * exists — so a failed transaction rendered amber like a pending one,
+         * and every `success` row fell through to amber too.
+         *
+         * `approved` and `success` share the good colour because they are the
+         * same outcome: approving a withdrawal pays it, and `approved` is only
+         * where rows landed before the two steps became one.
+         */
         <Badge
           variant={
-            row.state === 'settled' || row.state === 'approved'
+            row.state === 'approved' || row.state === 'success'
               ? 'success'
-              : row.state === 'rejected' || row.state === 'failed'
+              : row.state === 'rejected' || row.state === 'failure'
                 ? 'destructive'
                 : 'warning'
           }

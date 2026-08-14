@@ -1,5 +1,6 @@
 'use client';
 
+import Decimal from 'decimal.js';
 import type { WithdrawalStateTotal } from '@/lib/api/admin';
 import { formatMoney } from '@/lib/money';
 import { useChartTokens } from './chart-theme';
@@ -46,8 +47,10 @@ import { t } from '@/lib/i18n';
 
 const STATE_LABEL: Record<WithdrawalStateTotal['state'], string> = {
   pending: 'dashboard.withdrawalPending',
+  // Both paid states read the same word — they are summed into one bar, and
+  // `approved` only appears here for the Record to stay total.
   approved: 'dashboard.withdrawalApproved',
-  success: 'dashboard.withdrawalSuccess',
+  success: 'dashboard.withdrawalApproved',
   failure: 'dashboard.withdrawalFailure',
   rejected: 'dashboard.withdrawalRejected',
 };
@@ -62,27 +65,56 @@ const STATE_ROLE: Record<
   'good' | 'warning' | 'serious' | 'critical'
 > = {
   pending: 'warning',
-  approved: 'serious',
+  approved: 'good',
   success: 'good',
   failure: 'critical',
   rejected: 'serious',
 };
 
+/*
+ * ── `approved` AND `success` ARE ONE BAR ────────────────────────────────────
+ *
+ * Approving a withdrawal PAYS it, in one step. There is no separate settlement
+ * to wait for and no "mark as paid" left anywhere in the console, so two bars
+ * described one outcome and invited the reader to wonder what the difference
+ * was — the same confusion that made the row menu ask twice.
+ *
+ * `approved` is the state rows landed in before approval and payment became one
+ * action; `success` is where they land now. Both mean the client was paid, so
+ * they are summed under one label rather than reported as a pipeline with a
+ * stage in it.
+ *
+ * The SUM matters here: `totalAmount` is a decimal string at NUMERIC(28,8), so
+ * the two are added through decimal.js. `Number(a) + Number(b)` on a
+ * nine-figure total is wrong before it is displayed, and this is the one place
+ * on the screen where two figures are combined rather than read straight
+ * through.
+ */
+const PAID_STATES: WithdrawalStateTotal['state'][] = ['approved', 'success'];
+
 /** The order an operator reads these in: the queue first, the outcomes after. */
-const STATE_ORDER: WithdrawalStateTotal['state'][] = [
-  'pending',
-  'approved',
-  'success',
-  'failure',
-  'rejected',
-];
+const STATE_ORDER: WithdrawalStateTotal['state'][] = ['pending', 'success', 'failure', 'rejected'];
 
 export function WithdrawalStateChart({ byState }: { byState: WithdrawalStateTotal[] }) {
   const tokens = useChartTokens();
 
-  const rows = STATE_ORDER.map((state) => byState.find((entry) => entry.state === state)).filter(
-    (entry): entry is WithdrawalStateTotal => entry !== undefined,
-  );
+  const rows = STATE_ORDER.map((state) => {
+    if (state !== 'success') return byState.find((entry) => entry.state === state);
+
+    /*
+     * The merged bar. Present when EITHER state has rows — a platform with only
+     * legacy `approved` rows still paid those clients, and dropping the bar
+     * because `success` happens to be empty would report nothing paid.
+     */
+    const parts = byState.filter((entry) => PAID_STATES.includes(entry.state));
+    if (parts.length === 0) return undefined;
+
+    return parts.reduce((total, entry) => ({
+      state: 'success' as const,
+      count: total.count + entry.count,
+      totalAmount: new Decimal(total.totalAmount).plus(entry.totalAmount).toFixed(),
+    }));
+  }).filter((entry): entry is WithdrawalStateTotal => entry !== undefined);
 
   // PLOTTING BOUNDARY — widths only. Nothing derived from these is displayed.
   const widths = rows.map((row) => plotAmount(row.totalAmount));
