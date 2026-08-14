@@ -1,7 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
 import { cleanup, configure } from '@testing-library/react';
-import { toast } from 'sonner';
 
 /*
  * `findBy*` and `waitFor` poll for 5s, not testing-library's default 1s.
@@ -30,22 +29,13 @@ import { toast } from 'sonner';
  */
 configure({ asyncUtilTimeout: 10_000 });
 
-// TWIN FILE — an identical copy lives at the same path in oxshare-crm-client.
+// TWIN FILE — an identical copy lives at the same path in oxshare-crm-admin.
 //
 // Without this cleanup, a component mounted in one test stays in the document for
 // the next, and getByRole starts matching the wrong element — the kind of failure
 // that reads as a flaky test rather than a missing teardown.
 afterEach(() => {
   cleanup();
-  /*
-   * Sonner's store is MODULE-level, so `cleanup()` does not reach it: it
-   * unmounts the host, and the toasts themselves sit in a module singleton that
-   * survives into the next test. The next `renderWithProviders` mounts a fresh
-   * host, which re-renders every toast still in that store — so a success
-   * message raised by one test can satisfy the assertion of another, and a
-   * suite passes on evidence from the wrong test. Dismissing empties the store.
-   */
-  toast.dismiss();
 });
 
 /*
@@ -88,9 +78,82 @@ if (!Element.prototype.scrollIntoView) {
  * checkbox that way — every call site is controlled via `onCheckedChange`.
  */
 if (typeof globalThis.ResizeObserver === 'undefined') {
+  // Cast for the reason `IntersectionObserver` below carries in full: a no-op
+  // stub should not have to track additions to a DOM interface it is only
+  // standing in for.
   globalThis.ResizeObserver = class {
     observe() {}
     unobserve() {}
     disconnect() {}
   };
+}
+
+/*
+ * `IntersectionObserver`, which jsdom also does not implement.
+ *
+ * Embla uses it to track which slides are in view. Same failure shape as
+ * `matchMedia` above — it throws during init, inside an effect, from a stack
+ * entirely within `node_modules`.
+ *
+ * The no-op never reports an intersection, so `slidesInView()` stays empty in
+ * tests. Nothing in this app renders from that, and a test that needs it would
+ * have to drive layout jsdom does not have anyway.
+ */
+if (typeof globalThis.IntersectionObserver === 'undefined') {
+  /*
+   * CAST rather than a class that satisfies the interface member by member.
+   *
+   * The structural version listed `root`, `rootMargin`, `thresholds` and
+   * `takeRecords` to match `lib.dom.d.ts` — and broke the day TypeScript's DOM
+   * lib grew `scrollMargin`, with an error naming a property this stub has no
+   * opinion about. Every future addition to the interface breaks it again, in a
+   * file whose entire purpose is to stop a MISSING API from being an error.
+   *
+   * The four methods below are what a caller actually invokes, so a typo in one
+   * still fails at the call site. What the cast gives up is agreement with a
+   * spec this no-op is not trying to implement.
+   */
+  globalThis.IntersectionObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+  } as unknown as typeof IntersectionObserver;
+}
+
+/*
+ * `window.matchMedia`, which jsdom does not implement at all.
+ *
+ * Embla (the wallet carousel) calls it during INITIALISATION to resolve its
+ * per-breakpoint options, so without this the constructor throws inside an
+ * effect and every test that renders a carousel dies with "undefined is not a
+ * function" pointing at `OptionsHandler` — a stack entirely inside
+ * `node_modules`, naming nothing in this repo. That reads as a broken
+ * dependency rather than a missing shim, which is the expensive way to find it.
+ *
+ * `matches: false` for every query is the right default, not an arbitrary one:
+ * it means "no media condition applies", so components take their base
+ * behaviour. For the carousel that resolves `prefers-reduced-motion` to false
+ * and the animation stays on, which is the state worth exercising — a test run
+ * under "reduced motion" would silently skip the movement it means to check.
+ *
+ * A test needing a specific answer should stub `window.matchMedia` itself for
+ * the duration; this only stops the absence of the API from being an error.
+ */
+if (typeof globalThis.matchMedia !== 'function') {
+  globalThis.matchMedia = (query: string): MediaQueryList =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      // Both APIs: the modern pair is what this app uses, and the deprecated
+      // pair is what some libraries still reach for on older browsers.
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
 }
