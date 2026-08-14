@@ -99,3 +99,50 @@ export function compareMoney(a: string, b: string): number {
     return a.localeCompare(b);
   }
 }
+
+/**
+ * `'157.4200000000'` → `'157.42'`, `'12345.5'` → `'12,345.5'`.
+ *
+ * A decimal string made readable WITHOUT pretending to be money: no symbol, no
+ * currency suffix, and no fixed scale.
+ *
+ * ## Why this is not `formatMoney`
+ *
+ * `formatMoney` rounds to two places and appends a currency, which is right for
+ * a balance and wrong for everything else on a trading row. A price is not
+ * money — a JPY pair quotes to three places and most others to five, so a fixed
+ * 2dp would round `1.08337` to `1.08` and hide the digits somebody is reading
+ * the row for. Lots are not money either.
+ *
+ * So: keep every significant digit, drop the trailing zeros that are storage
+ * scale rather than information, and group the thousands. `157.4200000000` is
+ * `NUMERIC(28,10)` doing its job; it is not a number to put in front of a
+ * person.
+ *
+ * ## Still never coerced
+ *
+ * decimal.js parses it, exactly as `formatMoney` does — §6.1 applies to every
+ * decimal string on these paths, not only the ones denominated in a currency.
+ * An unparseable value returns the fallback rather than `NaN`.
+ */
+export function formatDecimal(value: string, fallback = '—'): string {
+  let parsed: Decimal;
+  try {
+    parsed = new Decimal(value);
+  } catch {
+    return fallback;
+  }
+  if (!parsed.isFinite()) return fallback;
+
+  // `toFixed()` with no argument keeps the value exactly, without exponent
+  // notation — `toString()` would render 1e-8 for a small enough figure.
+  const exact = parsed.toFixed();
+  const negative = exact.startsWith('-');
+  const [whole = '0', fraction = ''] = (negative ? exact.slice(1) : exact).split('.');
+
+  const trimmed = fraction.replace(/0+$/, '');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const body = trimmed ? `${grouped}.${trimmed}` : grouped;
+
+  return negative ? `-${body}` : body;
+}

@@ -8,7 +8,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, type Column } from '@/components/data-table';
 import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
-import { formatMoney, isZeroMoney } from '@/lib/money';
+import { formatDecimal, formatMoney, isZeroMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 
 /**
@@ -87,7 +87,7 @@ export function ClientPositionsPanel({
       header: t('clientProfile.posVolume'),
       align: 'right',
       // Lots, not money — trimmed of the storage scale for reading.
-      cell: (row) => <span className="tabular">{trimNumeric(row.volume)}</span>,
+      cell: (row) => <span className="tabular">{formatDecimal(row.volume)}</span>,
     },
     {
       header: t('clientProfile.posAccount'),
@@ -96,7 +96,7 @@ export function ClientPositionsPanel({
     {
       header: t('clientProfile.posOpenPrice'),
       align: 'right',
-      cell: (row) => <span className="tabular text-xs">{trimNumeric(row.openPrice)}</span>,
+      cell: (row) => <span className="tabular text-xs">{formatDecimal(row.openPrice)}</span>,
     },
     ...(status === 'closed'
       ? [
@@ -105,7 +105,7 @@ export function ClientPositionsPanel({
             align: 'right' as const,
             cell: (row: ClientPositionRow) => (
               <span className="tabular text-xs">
-                {row.closePrice ? trimNumeric(row.closePrice) : '—'}
+                {row.closePrice ? formatDecimal(row.closePrice) : '—'}
               </span>
             ),
           },
@@ -255,9 +255,4 @@ export function ClientTransactionsPanel({ userId }: { userId: string }) {
       </AsyncBoundary>
     </div>
   );
-}
-
-/** `'0.2000'` → `'0.2'`. The stored scale is for arithmetic, not for reading. */
-function trimNumeric(value: string): string {
-  return value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
 }

@@ -5,7 +5,7 @@ import type { IbPartnerDetail } from '@/lib/api/admin';
 import { Badge } from '@/components/ui/badge';
 import { PermittedLink } from '@/components/permitted-link';
 import { EmptySection, ProfileCard } from '@/components/clients/profile/profile-cards';
-import { formatMoney } from '@/lib/money';
+import { formatDecimal, formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 
 /**
@@ -56,7 +56,7 @@ export function ClientPartnerPanel({
             {/* The rung's share of the broker's revenue on a closed trade —
                 always a percentage since the payout model was removed. */}
             <span className="tabular font-semibold">
-              {detail.rateValue === null ? '—' : `${trimRate(detail.rateValue)}%`}
+              {detail.rateValue === null ? '—' : `${formatDecimal(detail.rateValue)}%`}
             </span>
           </Cell>
 
@@ -239,9 +239,4 @@ function Stat({
 
 function personName(person: { firstName: string | null; lastName: string | null; email: string }) {
   return [person.firstName, person.lastName].filter(Boolean).join(' ') || person.email;
-}
-
-/** `'70.0000'` → `'70'`. The stored scale is for arithmetic, not for reading. */
-function trimRate(rate: string): string {
-  return rate.includes('.') ? rate.replace(/0+$/, '').replace(/\.$/, '') : rate;
 }

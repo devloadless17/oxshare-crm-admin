@@ -8,6 +8,7 @@ import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { formatDecimal } from '@/lib/money';
 
 /**
  * The two partner edits that need a CHOICE, so neither fits in a confirm.
@@ -91,7 +92,7 @@ export function ChangeLevelDialog({
                 <span className="text-sm font-medium">{entry.name}</span>
               </span>
               <span className="tabular text-xs font-semibold text-muted-foreground">
-                {trimRate(entry.rateValue)}%
+                {formatDecimal(entry.rateValue)}%
               </span>
             </label>
           ))}
@@ -283,9 +284,4 @@ async function invalidateBoth(
     queryClient.invalidateQueries({ queryKey: ['client', userId] }),
     queryClient.invalidateQueries({ queryKey: ['client', userId, 'partner'] }),
   ]);
-}
-
-/** `'70.0000'` → `'70'`. The stored scale is for arithmetic, not for reading. */
-function trimRate(rate: string): string {
-  return rate.includes('.') ? rate.replace(/0+$/, '').replace(/\.$/, '') : rate;
 }

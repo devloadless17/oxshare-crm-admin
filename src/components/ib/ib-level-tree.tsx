@@ -4,6 +4,7 @@ import * as React from 'react';
 import { GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { IbLevel } from '@/lib/api/admin';
 import { t } from '@/lib/i18n';
+import { formatDecimal } from '@/lib/money';
 
 /**
  * The payout ladder, drawn as the chain it is.
@@ -194,7 +195,7 @@ export function IbLevelTree({
                       {/* Always a percentage of the broker's revenue on the
                             trade — there is no second unit to disambiguate. */}
                       <span className="tabular font-semibold text-foreground">
-                        {`${trimRate(level.rateValue)}%`}
+                        {`${formatDecimal(level.rateValue)}%`}
                       </span>
                       {/* The direct-partner cap that followed here is gone with
                             `maxDirectPartners`; it read "Unlimited direct
@@ -263,15 +264,4 @@ export function IbLevelTree({
       )}
     </ol>
   );
-}
-
-/**
- * `70.0000` reads as `70`, `2.5000` as `2.5`.
- *
- * Display only. The value stays the API's string everywhere else — this never
- * feeds back into a request, because trimming and re-sending would send a
- * different string than the one stored.
- */
-function trimRate(value: string): string {
-  return value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 }
