@@ -37,6 +37,18 @@ export interface Resource<T> {
   /** True while a background refetch runs and stale data is still on screen. */
   isFetching: boolean;
   error: unknown;
+  /**
+   * When `data` last arrived, as epoch milliseconds. `0` before the first
+   * success.
+   *
+   * For screens whose figures go stale on their own — a live trading balance,
+   * an open position's floating P/L — where "as of when" is part of the number.
+   * Exposed from React Query rather than stamped by the caller in an effect:
+   * `setState` inside an effect is a lint error in both apps, and a ref written
+   * during render is a side effect in the render path. React Query already
+   * holds the answer.
+   */
+  updatedAt: number;
   /** Resolves once the refetch settles, so callers can await it. */
   refetch: () => Promise<unknown>;
 }
@@ -51,12 +63,28 @@ export interface Resource<T> {
 export function useResource<T>(
   key: QueryKey,
   fetcher: (signal: AbortSignal) => Promise<T>,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; retry?: number },
 ): Resource<T> {
   const query = useQuery({
     queryKey: key,
     queryFn: ({ signal }) => fetcher(signal),
     enabled: options?.enabled ?? true,
+    /**
+     * React Query's default is THREE retries, which is right for a cheap query
+     * against our own API and wrong for an expensive one against somebody
+     * else's server.
+     *
+     * Measured on the portal's trading screens: three panels each reading MT5
+     * through the bridge, each attempt costing the full read timeout before it
+     * failed, each retried three times — around forty requests and two minutes
+     * of hammering for one page view. Worse, the bridge serialises every MT5
+     * call behind one lock, so the retries queued behind each other and made
+     * the failure they were retrying last longer.
+     *
+     * Callers that cross to an external service should pass a small number, or
+     * `0` where a person is sitting in front of a retry button anyway.
+     */
+    retry: options?.retry,
     placeholderData: (previous) => previous, // keep the page visible while paging
   });
 
@@ -75,6 +103,7 @@ export function useResource<T>(
     data: query.data,
     isFetching: query.isFetching,
     error: query.error,
+    updatedAt: query.dataUpdatedAt,
     refetch: () => query.refetch(),
   };
 }
