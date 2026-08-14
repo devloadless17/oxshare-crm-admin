@@ -2178,6 +2178,17 @@ export const messages = {
   'notifications.soundOff': 'Notification sound is off',
   'notifications.kindWithdrawalRequestedTitle': 'Withdrawal requested',
   'notifications.kindWithdrawalRequestedBody': 'A client requested a withdrawal of {amount}.',
+  'notifications.kindRivalSubmitFailedTitle': 'Payout submission refused',
+  'notifications.kindRivalSubmitFailedBody':
+    'The payment platform refused the {amount} payout submission: {reason} Retry from the desk or handle it manually.',
+  'notifications.kindRivalRejectedTitle': 'Payout rejected by the platform',
+  'notifications.kindRivalRejectedBody':
+    'The payment platform rejected the approved {amount} withdrawal — the client has been refunded and told why: {reason}',
+  'notifications.kindRivalPaidTitle': 'Payout confirmed',
+  'notifications.kindRivalPaidBody': 'The payment platform paid the {amount} withdrawal.',
+  'notifications.kindRivalAttentionTitle': 'Payout needs reconciliation',
+  'notifications.kindRivalAttentionBody':
+    'The platform and the CRM disagree about a withdrawal’s outcome. Reconcile it by hand before touching the row.',
   'notifications.kindKycSubmittedTitle': 'KYC submitted',
   'notifications.kindKycSubmittedBody': 'A client submitted documents for review.',
   'notifications.kindPartnerAppliedTitle': 'Partner application',

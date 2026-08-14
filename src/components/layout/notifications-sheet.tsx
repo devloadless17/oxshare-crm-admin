@@ -24,6 +24,7 @@ import { t } from '@/lib/i18n';
 import { toastError } from '@/lib/toast';
 import { relativeTime } from '@/lib/relative-time';
 import { useRealtime } from '@/hooks/use-realtime';
+import { queryKeysFor } from './notification-kinds';
 import {
   playNotificationSound,
   primeNotificationSound,
@@ -111,6 +112,18 @@ export function NotificationsSheet() {
      */
     'notification.created': (payload) => {
       void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+      /*
+       * The DATA the event is about refreshes with the bell — this is what
+       * makes the console realtime rather than merely noisy. Kind-scoped so a
+       * KYC event does not refetch the withdrawal desk.
+       */
+      const kind =
+        payload && typeof payload === 'object' && typeof payload.kind === 'string'
+          ? payload.kind
+          : '';
+      for (const key of queryKeysFor(kind)) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
       playNotificationSound();
       /*
        * The toast is the point of the socket for an operator working inside a

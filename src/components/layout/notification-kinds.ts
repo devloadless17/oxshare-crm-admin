@@ -1,5 +1,12 @@
 import type * as React from 'react';
-import { Banknote, CandlestickChart, FileCheck, Handshake, UserPlus } from 'lucide-react';
+import {
+  AlertTriangle,
+  Banknote,
+  CandlestickChart,
+  FileCheck,
+  Handshake,
+  UserPlus,
+} from 'lucide-react';
 import type { MessageKey } from '@/lib/i18n';
 import { formatMoney } from '@/lib/money';
 import type { AdminNotification } from '@/lib/api/admin';
@@ -111,6 +118,47 @@ export const KIND_CONFIG: Record<string, KindConfig> = {
    * it `requested` would put something in an operator's bell that they cannot
    * action and cannot clear.
    */
+  /*
+   * ── The Rival payout leg ────────────────────────────────────────────────
+   * Four events, all landing on /transactions, because each one changes what
+   * the desk should do next: a refusal needs a retry-or-manual decision, a
+   * platform rejection means the client was refunded and will likely call, a
+   * disagreement needs reconciliation before anyone touches the row, and a
+   * payout confirmation closes the watch.
+   */
+  'withdrawal.rival_submit_failed': {
+    icon: AlertTriangle,
+    titleKey: 'notifications.kindRivalSubmitFailedTitle',
+    bodyKey: 'notifications.kindRivalSubmitFailedBody',
+    vars: (params) => ({
+      amount: formatMoney(str(params.amount), str(params.currency)),
+      reason: str(params.reason),
+    }),
+    href: '/transactions',
+  },
+  'withdrawal.rival_rejected': {
+    icon: AlertTriangle,
+    titleKey: 'notifications.kindRivalRejectedTitle',
+    bodyKey: 'notifications.kindRivalRejectedBody',
+    vars: (params) => ({
+      amount: formatMoney(str(params.amount), str(params.currency)),
+      reason: str(params.reason),
+    }),
+    href: '/transactions',
+  },
+  'withdrawal.rival_paid': {
+    icon: Banknote,
+    titleKey: 'notifications.kindRivalPaidTitle',
+    bodyKey: 'notifications.kindRivalPaidBody',
+    vars: (params) => ({ amount: formatMoney(str(params.amount), str(params.currency)) }),
+    href: '/transactions',
+  },
+  'withdrawal.rival_attention': {
+    icon: AlertTriangle,
+    titleKey: 'notifications.kindRivalAttentionTitle',
+    bodyKey: 'notifications.kindRivalAttentionBody',
+    href: '/transactions',
+  },
   'admin.trading_account.opened': {
     icon: CandlestickChart,
     titleKey: 'notifications.kindTradingAccountOpenedTitle',
@@ -122,6 +170,28 @@ export const KIND_CONFIG: Record<string, KindConfig> = {
     href: '/trading-accounts',
   },
 };
+
+/**
+ * Which DATA a kind invalidates — the piece that makes the console realtime
+ * rather than merely noisy. The toast announces; this refreshes the table the
+ * announcement is about, so the operator never reads "awaiting payout" on a
+ * row the platform already decided. Prefix-matched so new withdrawal.* kinds
+ * inherit the behaviour before this map learns their names.
+ */
+export function queryKeysFor(kind: string): string[][] {
+  if (kind.startsWith('withdrawal.') || kind.startsWith('admin.withdrawal.')) {
+    return [['admin', 'withdrawals']];
+  }
+  if (kind.startsWith('admin.deposit.'))
+    return [
+      ['admin', 'withdrawals'],
+      ['admin', 'clients'],
+    ];
+  if (kind.startsWith('admin.kyc.')) return [['admin', 'kyc']];
+  if (kind.startsWith('admin.partner.')) return [['admin', 'partner-applications']];
+  if (kind.startsWith('admin.client.')) return [['admin', 'clients']];
+  return [];
+}
 
 export function resolveKind(kind: string): KindConfig | undefined {
   // `Object.hasOwn`, not a bare lookup: a hostile or accidental kind slug of

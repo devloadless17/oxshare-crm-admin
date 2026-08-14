@@ -45,10 +45,22 @@ export function RivalStatusBadge({ w }: { w: WithdrawalRow }) {
 
   if (w.rivalNeedsAttention) {
     return (
-      <span className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
-        <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-        {t('withdrawals.rivalNeedsAttention')}
-      </span>
+      <>
+        <span className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+          <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+          {t('withdrawals.rivalNeedsAttention')}
+        </span>
+        {/* WHY, on the row — the flag without the reason reads as "the system
+            is broken" and sends the operator to the logs. */}
+        {w.rivalAttentionReason && (
+          <div
+            className="mt-1 max-w-[220px] truncate text-[11px] text-warning/90"
+            title={w.rivalAttentionReason}
+          >
+            {w.rivalAttentionReason}
+          </div>
+        )}
+      </>
     );
   }
   if (w.state !== 'approved') return null;
