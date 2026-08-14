@@ -175,15 +175,19 @@ export const messages = {
   'withdrawals.statePending': 'Pending',
   'withdrawals.stateApproved': 'Approved',
   /*
-   * `withdrawals.statePaid` is GONE. Approving a withdrawal pays it in one
-   * step, so "Paid" and "Approved" named the same fact and the queue showed
-   * both as separate badges and separate tabs. `stateApproved` above is the
-   * single word for it now — see STATE_META in the transactions page.
+   * `stateApproved` labels the `success` state — the finished payout — while
+   * `stateAwaitingPayout` labels `approved`, which the two-lifecycle split
+   * (D-66) made a live state again: a rail withdrawal sits there while Rival
+   * processes the payout. The earlier merge of the two into one word assumed
+   * approval always paid in one step; on the whish rail it no longer does,
+   * and "money left our books but has not reached the client" needs its own
+   * label. See STATE_META in the transactions page.
    *
    * The `withdrawals.settle*` strings below are NOT dead: `POST
    * /admin/withdrawals/:id/settle` still exists for the Rival rail, where the
    * provider confirms asynchronously. Nothing in the console calls it.
    */
+  'withdrawals.stateAwaitingPayout': 'Awaiting payout',
   'withdrawals.stateRejected': 'Rejected',
   'withdrawals.stateFailed': 'Failed',
   'withdrawals.approve': 'Approve',
