@@ -36,13 +36,19 @@ import { Modal } from '@/components/ui/modal';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { RowActions, type RowAction } from '@/components/row-actions';
 /*
- * `withdrawal-rival.tsx` is no longer imported at all. Its three exports —
- * `RetryRivalButton`, `RivalStatusBadge` and `CancelWithdrawalDialog` — were
- * rendered only from the legacy `approved` branch, which is gone with the
- * settle action. The module is left in place deliberately: it is the working
- * Rival fallback, and the day that state needs a console path again, this is
- * where it goes back.
+ * `withdrawal-rival.tsx` is wired again — the day this file's earlier note
+ * anticipated ("the day that state needs a console path again") arrived with
+ * the two-lifecycle split (DECISIONS D-66): a whish-rail approval no longer
+ * pays, it SUBMITS to Rival and parks the row in `approved` until Rival's
+ * operator decides. That makes `approved` a live working state, and these
+ * three components are its console path: where the payout is (badge), pulling
+ * it back (cancel), and re-submitting a refused submission (retry).
  */
+import {
+  CancelWithdrawalDialog,
+  RetryRivalButton,
+  RivalStatusBadge,
+} from '@/components/transactions/withdrawal-rival';
 import { t, type MessageKey } from '@/lib/i18n';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { formatMoney } from '@/lib/money';
@@ -61,24 +67,25 @@ const STATE_META: Record<WithdrawalState, { labelKey: MessageKey; classes: strin
     classes: 'bg-warning/10 text-warning border-warning/20',
   },
   /*
-   * BOTH terminal-success states read "Approved", and there is no "Paid"
-   * anywhere on this screen any more.
+   * `approved` and `success` are DIFFERENT facts again, and the badge colour
+   * is the distinction that matters most on this screen.
    *
-   * Approving a withdrawal PAYS it in one step — the separate settle action was
-   * removed, and the debit happens at REQUEST time in either case (see the
-   * `transactions` note in the backend schema). So "Approved" and "Paid" were
-   * two words an operator had to hold apart for a distinction that no longer
-   * exists, on the one queue where hesitating about whether money has moved is
-   * most expensive.
+   * The two were collapsed into one green "Approved" when approval paid in one
+   * step — at that time `approved` was a state nothing new entered. The
+   * two-lifecycle split (D-66) reversed that: on the whish rail, approval
+   * submits the payout to Rival and the row WAITS here until Rival's operator
+   * pays or refuses. Money has left the client's wallet (debit is at request
+   * time) but has NOT reached the client — rendering that in the same green as
+   * "paid" is exactly the hesitation-free misread this queue cannot afford.
    *
-   * `approved` is a state nothing new enters. It keeps a badge because 8.5k
-   * historical rows still sit in it, and they are the same fact as `success` —
-   * the client's money left. Rendering them under one word is the honest
-   * reading, not a cosmetic merge.
+   * So: amber "Awaiting payout" while Rival holds it, green "Approved" once
+   * settled. Historical desk rows stranded in `approved` (pre-split) render
+   * amber too — for them it is still the honest colour, because nothing on
+   * this console has confirmed the payout.
    */
   approved: {
-    labelKey: 'withdrawals.stateApproved',
-    classes: 'bg-success/10 text-success border-success/20',
+    labelKey: 'withdrawals.stateAwaitingPayout',
+    classes: 'bg-warning/10 text-warning border-warning/20',
   },
   success: {
     labelKey: 'withdrawals.stateApproved',
@@ -108,31 +115,19 @@ const ALL_STATES = 'all';
 /**
  * PENDING first, and it is the default — see `filter` below.
  *
- * ## There is ONE success tab, and it is "Approved"
+ * The "Awaiting payout" tab (`approved`) is BACK, un-reversing the earlier
+ * merge into a single success tab. That merge was right while approval paid in
+ * one step and `approved` held only stranded history; D-66's rail lifecycle
+ * made it a live queue again — rows an operator may need to cancel or retry —
+ * and a working state reachable only through All is a queue nobody works.
  *
- * There used to be two: "Paid" (`success`) and "Approved" (`approved`). Both
- * described a withdrawal whose money has left the client's wallet, so the pair
- * asked an operator to keep a distinction the system stopped making when the
- * settle action was removed and approval began paying in one step.
- *
- * The tab filters `success`, because that is the state approval produces now
- * and therefore where every future row lands.
- *
- * ## What that costs, stated plainly
- *
- * `approved` is a legacy state holding real historical rows, and the API's
- * `state` filter takes ONE enum value (`@ApiQuery … enum:
- * transactionStateEnum.enumValues`) — so no single tab can cover both. Those
- * rows are reachable under All, where they render with the same "Approved"
- * badge, and they are not reachable by a one-click filter.
- *
- * The alternative was keeping a second tab whose only job is explaining a
- * distinction the product no longer has. If those rows need a filter of their
- * own again, the honest fix is a migration moving them to `success` rather than
- * a tab teaching operators a dead state.
+ * "Approved" (the tab) still filters `success`: on both lifecycles that is the
+ * state a finished payout lands in, and renaming the tab would relabel 8.5k
+ * historical rows an operator already knows by that word.
  */
 const FILTERS: Array<{ value: WithdrawalState | typeof ALL_STATES; labelKey: MessageKey }> = [
   { value: 'pending', labelKey: 'withdrawals.statePending' },
+  { value: 'approved', labelKey: 'withdrawals.stateAwaitingPayout' },
   { value: 'success', labelKey: 'withdrawals.stateApproved' },
   { value: 'rejected', labelKey: 'withdrawals.stateRejected' },
   { value: ALL_STATES, labelKey: 'withdrawals.stateAll' },
@@ -239,12 +234,11 @@ function TransactionsPageContent() {
   const debouncedSearch = useDebounced(search, 300);
 
   const [rejectTarget, setRejectTarget] = React.useState<WithdrawalRow | null>(null);
-  /*
-   * The row whose details are open. Always reachable, unlike the two states
-   * below it replaced — Cancel and Mark-as-paid were only ever set from the
-   * legacy `approved` branch, which is gone.
-   */
+  /* The row whose details are open — always reachable. */
   const [detailsTarget, setDetailsTarget] = React.useState<WithdrawalRow | null>(null);
+  /* The `approved` row being cancelled — the rail lifecycle's "thought better
+     of it" path (D-66). The dialog owns its own reason state. */
+  const [cancelTarget, setCancelTarget] = React.useState<WithdrawalRow | null>(null);
 
   const confirm = useConfirm();
 
@@ -557,6 +551,10 @@ function TransactionsPageContent() {
           {w.providerRef && (
             <div className="mt-1 font-mono text-[11px] text-muted-foreground">{w.providerRef}</div>
           )}
+          {/* Where the payout is INSIDE the awaiting state: submitted to Rival,
+              outcome-unknown, or refused-needs-a-human. Renders nothing on any
+              other row. */}
+          <RivalStatusBadge w={w} />
         </>
       ),
     },
@@ -581,19 +579,23 @@ function TransactionsPageContent() {
       sortable: false,
       align: 'right',
       /*
-       * ── ONE MENU, THREE ITEMS ────────────────────────────────────────────
+       * ── ONE MENU, plus one self-hiding button ────────────────────────────
        *
-       * This cell held up to four inline controls whose set changed per row —
-       * Approve and Reject on a pending row; Retry, Cancel and a manual Settle
-       * on a legacy `approved` one — so the column's width and meaning shifted
-       * as a reviewer scanned down it, and a destructive control sat directly
-       * beside a routine one.
+       * Pending rows offer Approve/Reject; `approved` rows offer Cancel — back
+       * from its removal, because D-66's rail lifecycle means rows now LIVE in
+       * `approved` while Rival processes the payout, and "approved, then the
+       * client called to stop it" needs a console path again. Cancel goes
+       * through the API's Rival-first sequence and refuses cleanly once Rival
+       * is already paying.
        *
-       * Retry, Cancel and Mark-as-paid are GONE, on request. Approving pays in
-       * one step, so nothing new enters `approved` and those three existed only
-       * to close out rows stranded when the two steps became one. ⚠️ Rows still
-       * sitting in `approved` therefore have no console path to completion —
-       * they need a script, or the settle action re-added.
+       * Mark-as-paid stays gone: settlement on the rail arrives from Rival via
+       * webhook/reconciler, and a manual settle button beside an in-flight
+       * payout is an invitation to double-record it.
+       *
+       * `RetryRivalButton` renders OUTSIDE the menu and only on the narrow
+       * needs-attention case where the first submission definitively failed —
+       * an inline button, because a row needing a human is the one row where
+       * the action should not hide behind a menu.
        *
        * DETAILS is always present, including on rows with no action left. It is
        * the only way to read why something failed or was rejected: the reason
@@ -602,6 +604,16 @@ function TransactionsPageContent() {
        */
       cell: (w) => {
         const items: RowAction[] = [];
+
+        if (w.state === 'approved' && canApprove) {
+          items.push({
+            label: t('withdrawals.cancelAction'),
+            icon: X,
+            destructive: true,
+            disabled: busy,
+            onSelect: () => setCancelTarget(w),
+          });
+        }
 
         if (w.state === 'pending') {
           /*
@@ -642,16 +654,19 @@ function TransactionsPageContent() {
         });
 
         return (
-          <RowActions
-            items={items}
-            busy={busy}
-            // Named per ROW. A column of identical triggers announces as
-            // "button" to a screen reader with nothing to say which payout each
-            // one acts on.
-            label={t('withdrawals.actionsFor', {
-              name: `${w.user.firstName ?? ''} ${w.user.lastName ?? ''}`.trim() || w.user.email,
-            })}
-          />
+          <div className="flex items-center justify-end gap-2">
+            <RetryRivalButton w={w} disabled={busy} onDone={invalidate} />
+            <RowActions
+              items={items}
+              busy={busy}
+              // Named per ROW. A column of identical triggers announces as
+              // "button" to a screen reader with nothing to say which payout
+              // each one acts on.
+              label={t('withdrawals.actionsFor', {
+                name: `${w.user.firstName ?? ''} ${w.user.lastName ?? ''}`.trim() || w.user.email,
+              })}
+            />
+          </div>
         );
       },
     },
@@ -791,6 +806,15 @@ function TransactionsPageContent() {
         mid-transition when a refetch replaces the list — the rule
         `components/row-actions.tsx` records.
       */}
+
+      {/* Cancel — an approved rail payout pulled back from Rival (D-66).
+          Same reason rules as reject (FR-ADM-03): the client reads this
+          sentence in an email after having been told "approved". */}
+      <CancelWithdrawalDialog
+        target={cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        onDone={invalidate}
+      />
 
       {/* Reject — reason from the configurable list (FR-ADM-03) */}
       <Modal
