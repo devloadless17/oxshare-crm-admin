@@ -60,12 +60,28 @@ const STATE_META: Record<WithdrawalState, { labelKey: MessageKey; classes: strin
     labelKey: 'withdrawals.statePending',
     classes: 'bg-warning/10 text-warning border-warning/20',
   },
+  /*
+   * BOTH terminal-success states read "Approved", and there is no "Paid"
+   * anywhere on this screen any more.
+   *
+   * Approving a withdrawal PAYS it in one step — the separate settle action was
+   * removed, and the debit happens at REQUEST time in either case (see the
+   * `transactions` note in the backend schema). So "Approved" and "Paid" were
+   * two words an operator had to hold apart for a distinction that no longer
+   * exists, on the one queue where hesitating about whether money has moved is
+   * most expensive.
+   *
+   * `approved` is a state nothing new enters. It keeps a badge because 8.5k
+   * historical rows still sit in it, and they are the same fact as `success` —
+   * the client's money left. Rendering them under one word is the honest
+   * reading, not a cosmetic merge.
+   */
   approved: {
     labelKey: 'withdrawals.stateApproved',
-    classes: 'bg-info/10 text-info border-info/20',
+    classes: 'bg-success/10 text-success border-success/20',
   },
   success: {
-    labelKey: 'withdrawals.statePaid',
+    labelKey: 'withdrawals.stateApproved',
     classes: 'bg-success/10 text-success border-success/20',
   },
   rejected: {
@@ -92,15 +108,33 @@ const ALL_STATES = 'all';
 /**
  * PENDING first, and it is the default — see `filter` below.
  *
- * `approved` is kept as a tab and no longer as a destination: approving now
- * pays in one step, so nothing new enters that state. Rows already in it are
- * still reachable, which is the only reason the tab remains.
+ * ## There is ONE success tab, and it is "Approved"
+ *
+ * There used to be two: "Paid" (`success`) and "Approved" (`approved`). Both
+ * described a withdrawal whose money has left the client's wallet, so the pair
+ * asked an operator to keep a distinction the system stopped making when the
+ * settle action was removed and approval began paying in one step.
+ *
+ * The tab filters `success`, because that is the state approval produces now
+ * and therefore where every future row lands.
+ *
+ * ## What that costs, stated plainly
+ *
+ * `approved` is a legacy state holding real historical rows, and the API's
+ * `state` filter takes ONE enum value (`@ApiQuery … enum:
+ * transactionStateEnum.enumValues`) — so no single tab can cover both. Those
+ * rows are reachable under All, where they render with the same "Approved"
+ * badge, and they are not reachable by a one-click filter.
+ *
+ * The alternative was keeping a second tab whose only job is explaining a
+ * distinction the product no longer has. If those rows need a filter of their
+ * own again, the honest fix is a migration moving them to `success` rather than
+ * a tab teaching operators a dead state.
  */
 const FILTERS: Array<{ value: WithdrawalState | typeof ALL_STATES; labelKey: MessageKey }> = [
   { value: 'pending', labelKey: 'withdrawals.statePending' },
-  { value: 'success', labelKey: 'withdrawals.statePaid' },
+  { value: 'success', labelKey: 'withdrawals.stateApproved' },
   { value: 'rejected', labelKey: 'withdrawals.stateRejected' },
-  { value: 'approved', labelKey: 'withdrawals.stateApproved' },
   { value: ALL_STATES, labelKey: 'withdrawals.stateAll' },
 ];
 
