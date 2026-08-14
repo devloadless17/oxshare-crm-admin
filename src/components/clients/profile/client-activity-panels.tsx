@@ -131,32 +131,32 @@ export function ClientPositionsPanel({
   ];
 
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <AsyncBoundary
-        status={query.status}
-        label={t('clientProfile.posLoading')}
-        endpoints={['GET /admin/clients/:id/positions']}
-        onRetry={query.refetch}
-        errorMessage={t('clientProfile.posLoadFailed')}
-        error={query.error}
-      >
-        <DataTable
-          rows={query.data?.rows ?? []}
-          columns={columns}
-          rowKey={(row) => row.id}
-          loading={query.status === 'loading'}
-          empty={
-            status === 'open' ? t('clientProfile.posNoneOpen') : t('clientProfile.posNoneClosed')
-          }
-        />
-        <Pagination
-          page={page}
-          pageSize={PAGE_SIZE}
-          total={query.data?.total ?? 0}
-          onPageChange={setPage}
-        />
-      </AsyncBoundary>
-    </div>
+    <AsyncBoundary
+      status={query.status}
+      label={t('clientProfile.posLoading')}
+      endpoints={['GET /admin/clients/:id/positions']}
+      onRetry={query.refetch}
+      errorMessage={t('clientProfile.posLoadFailed')}
+      error={query.error}
+      fill
+    >
+      <DataTable
+        rows={query.data?.rows ?? []}
+        columns={columns}
+        rowKey={(row) => row.id}
+        fill
+        loading={query.status === 'loading'}
+        empty={
+          status === 'open' ? t('clientProfile.posNoneOpen') : t('clientProfile.posNoneClosed')
+        }
+      />
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={query.data?.total ?? 0}
+        onPageChange={setPage}
+      />
+    </AsyncBoundary>
   );
 }
 
@@ -240,29 +240,29 @@ export function ClientTransactionsPanel({ userId }: { userId: string }) {
   ];
 
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <AsyncBoundary
-        status={query.status}
-        label={t('clientProfile.txLoading')}
-        endpoints={['GET /admin/clients/:id/transactions']}
-        onRetry={query.refetch}
-        errorMessage={t('clientProfile.txLoadFailed')}
-        error={query.error}
-      >
-        <DataTable
-          rows={query.data?.rows ?? []}
-          columns={columns}
-          rowKey={(row) => row.id}
-          loading={query.status === 'loading'}
-          empty={t('clientProfile.txNone')}
-        />
-        <Pagination
-          page={page}
-          pageSize={PAGE_SIZE}
-          total={query.data?.total ?? 0}
-          onPageChange={setPage}
-        />
-      </AsyncBoundary>
-    </div>
+    <AsyncBoundary
+      status={query.status}
+      label={t('clientProfile.txLoading')}
+      endpoints={['GET /admin/clients/:id/transactions']}
+      onRetry={query.refetch}
+      errorMessage={t('clientProfile.txLoadFailed')}
+      error={query.error}
+      fill
+    >
+      <DataTable
+        rows={query.data?.rows ?? []}
+        columns={columns}
+        rowKey={(row) => row.id}
+        fill
+        loading={query.status === 'loading'}
+        empty={t('clientProfile.txNone')}
+      />
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={query.data?.total ?? 0}
+        onPageChange={setPage}
+      />
+    </AsyncBoundary>
   );
 }

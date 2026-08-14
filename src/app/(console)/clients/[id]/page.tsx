@@ -214,10 +214,10 @@ export default function ClientProfilePage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <Link
         href="/clients"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground focus-outline"
+        className="focus-outline inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
         {t('clientProfile.back')}
@@ -230,10 +230,14 @@ export default function ClientProfilePage() {
         onRetry={query.refetch}
         errorMessage={t('clientProfile.loadFailed')}
         error={query.error}
+        // Passes the height through to the tabs below, and centres the four
+        // non-ready states in the space rather than parking them under the
+        // back link.
+        fill
       >
         {profile && (
-          <div className="space-y-6">
-            <header className="rounded-xl border border-border bg-card p-5">
+          <div className="flex min-h-0 flex-1 flex-col gap-6">
+            <header className="shrink-0 rounded-xl border border-border bg-card p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold tracking-tight">
@@ -286,7 +290,9 @@ export default function ClientProfilePage() {
               </div>
             </header>
 
-            <Tabs tabs={tabs} value={tab} onValueChange={setTab} idPrefix="client-profile" />
+            <div className="shrink-0">
+              <Tabs tabs={tabs} value={tab} onValueChange={setTab} idPrefix="client-profile" />
+            </div>
 
             <TabPanel value={TAB_OVERVIEW} activeValue={tab} idPrefix="client-profile">
               <div className="grid gap-6 lg:grid-cols-2">
@@ -421,17 +427,24 @@ export default function ClientProfilePage() {
               </div>
             </TabPanel>
 
-            <TabPanel value={TAB_MONEY} activeValue={tab} idPrefix="client-profile">
+            <TabPanel
+              value={TAB_MONEY}
+              activeValue={tab}
+              idPrefix="client-profile"
+              /* The fill chain the tables need: `TabPanel` is a flex item of the
+                 page column, and a `fill` DataTable resolves its height against
+                 this. Without it the table is as tall as its rows and the empty
+                 state collapses to a strip. */
+              className="flex min-h-0 flex-1 flex-col"
+            >
               {/* FULL WIDTH. A table of currencies, balances and a row menu has
                   nothing to sit beside, and half a page of columns wraps. */}
-              <div className="space-y-6">
-                {/*
-                  Its own component and its own request: `GET /admin/clients/:id`
-                  returns identity and compliance, not money, and the two are
-                  behind different permissions.
-                */}
-                <ClientWalletsPanel userId={profile.id} />
-              </div>
+              {/*
+                Its own component and its own request: `GET /admin/clients/:id`
+                returns identity and compliance, not money, and the two are
+                behind different permissions.
+              */}
+              <ClientWalletsPanel userId={profile.id} />
             </TabPanel>
 
             {partner && (
@@ -453,16 +466,28 @@ export default function ClientProfilePage() {
             )}
 
             {canViewTrading && (
-              <TabPanel value={TAB_POSITIONS} activeValue={tab} idPrefix="client-profile">
-                <div className="space-y-6">
-                  <section className="space-y-2">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <TabPanel
+                value={TAB_POSITIONS}
+                activeValue={tab}
+                idPrefix="client-profile"
+                className="flex min-h-0 flex-1 flex-col"
+              >
+                {/*
+                  TWO tables sharing the height, each filling its half.
+                  `basis-0` with `flex-1` is what splits it evenly regardless of
+                  how many rows either holds — otherwise a client with forty
+                  closed trades and none open gives the open table one row of
+                  height and the closed one everything else.
+                */}
+                <div className="flex min-h-0 flex-1 flex-col gap-6">
+                  <section className="flex min-h-0 flex-1 basis-0 flex-col gap-2">
+                    <h2 className="shrink-0 text-xs font-bold tracking-wider text-muted-foreground uppercase">
                       {t('clientProfile.posOpenTitle')}
                     </h2>
                     <ClientPositionsPanel userId={profile.id} status="open" />
                   </section>
-                  <section className="space-y-2">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  <section className="flex min-h-0 flex-1 basis-0 flex-col gap-2">
+                    <h2 className="shrink-0 text-xs font-bold tracking-wider text-muted-foreground uppercase">
                       {t('clientProfile.posClosedTitle')}
                     </h2>
                     <ClientPositionsPanel userId={profile.id} status="closed" />
@@ -472,9 +497,14 @@ export default function ClientProfilePage() {
             )}
 
             {canViewWallets && (
-              <TabPanel value={TAB_HISTORY} activeValue={tab} idPrefix="client-profile">
-                <section className="space-y-2">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <TabPanel
+                value={TAB_HISTORY}
+                activeValue={tab}
+                idPrefix="client-profile"
+                className="flex min-h-0 flex-1 flex-col"
+              >
+                <section className="flex min-h-0 flex-1 flex-col gap-2">
+                  <h2 className="shrink-0 text-xs font-bold tracking-wider text-muted-foreground uppercase">
                     {t('clientProfile.txTitle')}
                   </h2>
                   <ClientTransactionsPanel userId={profile.id} />

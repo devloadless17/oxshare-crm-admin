@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CreditWalletModal } from '@/components/wallets/credit-wallet-modal';
-import { ProfileCard } from './profile-cards';
 import { DataTable, type Column } from '@/components/data-table';
 import { RowActions, type RowAction } from '@/components/row-actions';
 import { t } from '@/lib/i18n';
@@ -269,12 +268,31 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
     },
   ];
 
+  /*
+   * NO `ProfileCard` around the table.
+   *
+   * `DataTable` draws its own card — border, background, shadow — so wrapping
+   * it in one put a border inside a border and inset the rows twice. It also
+   * shrank the empty state to a strip: without `fill` the table is as tall as
+   * its rows, and "No wallets" in a card inside a card reads as a broken panel
+   * rather than an answer.
+   *
+   * `fill` makes the table the height of the space it is given, and its empty
+   * state occupy that same frame — so a client with six wallets and a client
+   * with none produce the same shape, and the controls below do not move under
+   * the cursor between the two.
+   */
   return (
-    <ProfileCard title={t('clientProfile.walletsTitle')}>
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+        {t('clientProfile.walletsTitle')}
+      </h2>
+
       <DataTable
         rows={rows}
         columns={columns}
         rowKey={(w) => w.id}
+        fill
         // A LOADER rather than an empty table: "no wallets" and "not fetched
         // yet" are different claims, and the second must never render as the first.
         loading={wallets.status === 'loading'}
@@ -282,7 +300,7 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
       />
 
       {canManage && openable.length > 0 && (
-        <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+        <div className="flex shrink-0 items-center gap-2">
           <Select value={newCurrency} onValueChange={setNewCurrency}>
             <SelectTrigger className="h-8 w-40 text-xs" aria-label={t('clientProfile.walletOpen')}>
               <SelectValue placeholder={t('clientProfile.walletCurrencyPlaceholder')} />
@@ -316,6 +334,6 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
         onClose={() => setCrediting(undefined)}
         onSubmit={(values) => credit.mutate(values)}
       />
-    </ProfileCard>
+    </div>
   );
 }
