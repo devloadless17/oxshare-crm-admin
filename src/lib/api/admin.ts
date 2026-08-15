@@ -40,6 +40,17 @@ export type ClientTag = components['schemas']['ClientTagDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
 export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
 export type Currency = components['schemas']['CurrencyDto'];
+
+/**
+ * A rung on the leverage ladder — `ratio` is the identity, 500 meaning 500:1.
+ *
+ * Operator data with its own table since backend migration 0067; it was a CSV
+ * on the trading-settings row before that, which had nowhere to say a rung had
+ * been WITHDRAWN as distinct from never offered.
+ */
+export type Leverage = components['schemas']['LeverageDto'];
+export type CreateLeverage = components['schemas']['CreateLeverageDto'];
+export type UpdateLeverage = components['schemas']['UpdateLeverageDto'];
 export type IbLevel = components['schemas']['IbLevelDto'];
 export type IbApplication = components['schemas']['IbApplicationDto'];
 export type IbApplicationStatus = IbApplication['status'];
@@ -142,6 +153,17 @@ export type WithdrawalState = WithdrawalRow['state'];
 export type LedgerEntry = components['schemas']['LedgerEntryDto'];
 export type LedgerListResponse = components['schemas']['LedgerListResponseDto'];
 export type ReconciliationReport = components['schemas']['ReconciliationReportDto'];
+
+/*
+ * The MT5 bridge's own internals. Aliased from the generated schema like
+ * everything else, so a field renamed in the backend DTO breaks the build here
+ * rather than rendering `undefined` on a diagnostics screen — which is the one
+ * screen where a silently wrong value is worst, because it is consulted
+ * precisely when something is already wrong.
+ */
+export type BridgeOutbox = components['schemas']['BridgeOutboxDto'];
+export type BridgeOperations = components['schemas']['BridgeOperationsDto'];
+export type BridgeLogs = components['schemas']['BridgeLogsDto'];
 export type WalletDiscrepancy = components['schemas']['WalletDiscrepancyDto'];
 export type ApiKey = components['schemas']['ApiKeyDto'];
 /** The create response — the ONLY moment `plaintext` is ever populated. */
@@ -754,6 +776,28 @@ export const adminApi = {
   async getCurrencies(signal?: AbortSignal): Promise<Currency[]> {
     const { data } = await apiClient.get<Currency[]>('/admin/currencies', { signal });
     return data;
+  },
+
+  async getLeverages(signal?: AbortSignal): Promise<Leverage[]> {
+    // The ADMIN list — includes disabled rungs, unlike the client-facing offer,
+    // because somebody has to see what they withdrew in order to put it back.
+    const { data } = await apiClient.get<Leverage[]>('/admin/leverages', { signal });
+    return data;
+  },
+
+  async createLeverage(body: CreateLeverage): Promise<Leverage> {
+    const { data } = await apiClient.post<Leverage>('/admin/leverages', body);
+    return data;
+  },
+
+  /** The RATIO is the key and cannot be changed — see `UpdateLeverageDto`. */
+  async updateLeverage(ratio: number, body: UpdateLeverage): Promise<Leverage> {
+    const { data } = await apiClient.patch<Leverage>(`/admin/leverages/${ratio}`, body);
+    return data;
+  },
+
+  async deleteLeverage(ratio: number): Promise<void> {
+    await apiClient.delete(`/admin/leverages/${ratio}`);
   },
 
   async createCurrency(body: CreateCurrency): Promise<Currency> {
@@ -1492,6 +1536,62 @@ export const adminApi = {
    */
   async getReconciliation(signal?: AbortSignal): Promise<ReconciliationReport> {
     const { data } = await apiClient.get<ReconciliationReport>('/admin/reconciliation', { signal });
+    return data;
+  },
+
+  // ── MT5 bridge diagnostics ────────────────────────────────────────────────
+  //
+  // Read-only passthroughs to the bridge. They answer the two questions no other
+  // screen can: whether deal ingestion is working, and whether any money
+  // movement was stranded mid-flight.
+  //
+  // These FAIL when the bridge is down rather than returning empty, and that is
+  // deliberate — on a diagnostics screen, "no rows" and "could not ask" are
+  // opposite answers, and rendering the second as the first would report a
+  // healthy queue on a service that is not running.
+
+  /**
+   * The bridge's deal delivery queue.
+   *
+   * `pending` narrows to what has not arrived. The summary's `failing` count is
+   * the one to act on: a pending row may simply be new, while a failing one has
+   * been attempted and rejected.
+   */
+  async getBridgeOutbox(
+    params: { pending?: boolean; limit?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<BridgeOutbox> {
+    const { data } = await apiClient.get<BridgeOutbox>('/admin/bridge/outbox', {
+      params,
+      signal,
+    });
+    return data;
+  },
+
+  /**
+   * Balance operations, including the ones stuck mid-flight.
+   *
+   * `stuck: true` is not a convenience filter — every row it returns is money in
+   * an unknown state: the bridge told MT5 to move it and never learned whether
+   * it did. Those do not resolve on their own.
+   */
+  async getBridgeOperations(
+    params: { stuck?: boolean; limit?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<BridgeOperations> {
+    const { data } = await apiClient.get<BridgeOperations>('/admin/bridge/operations', {
+      params,
+      signal,
+    });
+    return data;
+  },
+
+  /** The tail of the bridge's log for today. */
+  async getBridgeLogs(
+    params: { lines?: number; contains?: string } = {},
+    signal?: AbortSignal,
+  ): Promise<BridgeLogs> {
+    const { data } = await apiClient.get<BridgeLogs>('/admin/bridge/logs', { params, signal });
     return data;
   },
 

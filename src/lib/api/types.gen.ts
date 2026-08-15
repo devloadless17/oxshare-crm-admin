@@ -760,6 +760,54 @@ export interface paths {
         patch: operations["AdminCurrenciesController_update"];
         trace?: never;
     };
+    "/v1/admin/leverages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The whole ladder, operator order first
+         * @description Includes DISABLED rungs, unlike `GET /leverages` — an operator has to see what they have withdrawn in order to put it back.
+         */
+        get: operations["AdminLeveragesController_list"];
+        put?: never;
+        /**
+         * Add a rung
+         * @description The ratio is the identity — 500 means 500:1 — so adding one that already exists is a conflict rather than an update.
+         */
+        post: operations["AdminLeveragesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/leverages/{ratio}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a rung nobody is trading on
+         * @description Refused while any trading account is open at this leverage. Disable it instead — that takes it off the menu and leaves those accounts alone.
+         */
+        delete: operations["AdminLeveragesController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename, reorder, or withdraw a rung
+         * @description The RATIO cannot be changed: it is the identity of the rung, and renumbering it would leave accounts opened at the old value pointing at a leverage the ladder no longer explains. Refuses to disable the last enabled rung — an empty ladder is an account-opening form with no options.
+         */
+        patch: operations["AdminLeveragesController_update"];
+        trace?: never;
+    };
     "/v1/ib/status": {
         parameters: {
             query?: never;
@@ -1492,6 +1540,102 @@ export interface paths {
          *     Prices and volumes are decimal STRINGS (§6.1). `profit` is the REALISED result and is null while a position is open — floating P/L is deliberately absent, because it changes on every tick and a stored copy is stale the moment it is written.
          */
         get: operations["TradingController_myPositions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of the signed-in client's trading accounts
+         * @description 404 when the account does not exist OR belongs to somebody else — the two are the same answer on purpose, because distinguishing them tells a caller which ids are real.
+         *
+         *     `balance` here is the CRM-held figure, as on the list. For what MT5 holds right now, including equity and floating P/L, call `/trading/accounts/:id/live`.
+         */
+        get: operations["TradingController_myAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts/{id}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Balance, equity, margin and floating P/L for one account, read live from MT5
+         * @description The AUTHORITATIVE figures, read through the bridge to the MT5 server. Distinct from the `balance` column on the list endpoint, which is what a transfer credited and goes stale the moment the client opens a position.
+         *
+         *     `floating` is equity minus balance minus credit — the unrealised total across every open position. It is the ONLY floating figure this system can state: the bridge exposes no open-position feed, so a PER-TRADE floating number would have to be invented.
+         *
+         *     NULL when the account has no MT5 login yet, which is a different state from the bridge being unreachable — that raises EXTERNAL_SERVICE_ERROR. A screen must not render both as the same sentence.
+         */
+        get: operations["TradingController_myAccountLive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts/{id}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One account's OPEN positions, read live from MT5
+         * @description Live, and never stored. `profit` is the FLOATING result on each position and moves on every tick, so a persisted copy would be stale the moment it was written — the CRM keeps a `positions` table that nothing writes to, and that must stay true.
+         *
+         *     An empty array means the account has nothing open. It is a real answer from the trading server, not an unbuilt feature: an account with no MT5 login returns the same, because there is nothing to ask about.
+         *
+         *     `stopLoss` and `takeProfit` are NULL when unset — MT5 stores an absent stop as the price 0, and rendering that as 0.00 reads as an order to close at zero.
+         */
+        get: operations["TradingController_myAccountPositions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One account's deals and statistics over a window, read live from MT5
+         * @description The deals AND the statistics computed from exactly those deals, in one response. They come together because they are two views of one read: splitting them would cost two round trips to a server we do not own, and would let a total describe a different set from the list beside it.
+         *
+         *     Read LIVE rather than from the ingested `mt5_deals` table. That table is the commission engine's record, filled by a sweep, and a client-facing history served from it shows nothing whenever ingestion is behind.
+         *
+         *     The window defaults to the last 30 days and is CAPPED at 31, because MT5 truncates a larger request silently rather than refusing it — a partial history that looks complete is the one answer this endpoint must never give. Dates are inclusive at both ends.
+         *
+         *     Every figure describes THE WINDOW, not all time; `from` and `to` are echoed back so the screen can say so.
+         */
+        get: operations["TradingController_myAccountHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3433,6 +3577,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/bridge/outbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The bridge's deal delivery queue
+         * @description Whether each closed deal reached this API, and when. `failing` in the summary is the number worth acting on: a pending row may simply be new, while a failing one has been attempted and rejected — `lastError` says why.
+         */
+        get: operations["AdminBridgeController_outbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bridge/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Balance operations, including the ones stuck mid-flight
+         * @description A row with a null `completedAt` is an operation whose outcome the bridge never learned — it told MT5 to move money and did not find out whether it did. Those need reconciling against MT5's deal history by a person; they do not resolve on their own.
+         */
+        get: operations["AdminBridgeController_operations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bridge/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The tail of the bridge's log for today
+         * @description `exists: false` is a normal answer on the first run of a day, and names the file that was looked for so the next guess is informed.
+         */
+        get: operations["AdminBridgeController_logs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3722,6 +3926,41 @@ export interface components {
             enabled?: boolean;
             sortOrder?: number;
             isDefault?: boolean;
+        };
+        LeverageDto: {
+            /**
+             * @description 500 means 500:1.
+             * @example 500
+             */
+            ratio: number;
+            /** @description What the client reads. Null renders as `1:<ratio>`. */
+            label: string | null;
+            /** @description A disabled rung is not offered. Accounts already on it are kept. */
+            enabled: boolean;
+            /** @description The operator’s order, which is the order a client sees. */
+            sortOrder: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateLeverageDto: {
+            /**
+             * @description 500 means 500:1.
+             * @example 500
+             */
+            ratio: number;
+            /** @description Omitted renders as `1:<ratio>`. */
+            label?: string;
+            /** @default true */
+            enabled: boolean;
+            /** @description Omitted appends to the end of the ladder. */
+            sortOrder?: number;
+        };
+        UpdateLeverageDto: {
+            label?: string;
+            enabled?: boolean;
+            sortOrder?: number;
         };
         IbAccountDto: {
             userId: string;
@@ -4151,6 +4390,12 @@ export interface components {
             settledAt?: string | null;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * @description Branch on this, never on the absence of a payment field.
+             * @enum {string}
+             */
+            kind: "payment" | "transfer";
+            tradingAccountId?: string | null;
         };
         TransactionPageDto: {
             items: components["schemas"]["TransactionDto"][];
@@ -4361,6 +4606,204 @@ export interface components {
             /** Format: date-time */
             closedAt: string | null;
         };
+        AccountSnapshotDto: {
+            /**
+             * @description The MT5 login these figures belong to.
+             * @example 5000002
+             */
+            login: string;
+            /** @example demo\Standard */
+            group: string;
+            /** @example USD */
+            currency: string;
+            /**
+             * @description The ratio denominator — 500 means 1:500.
+             * @example 500
+             */
+            leverage: number;
+            /**
+             * @description Cash balance, EXCLUDING floating profit. Decimal string (§6.1).
+             * @example 1250.00000000
+             */
+            balance: string;
+            /**
+             * @description Balance plus credit plus floating profit — what the client can act on.
+             * @example 1312.40000000
+             */
+            equity: string;
+            /** @example 0.00000000 */
+            credit: string;
+            /** @example 120.00000000 */
+            margin: string;
+            /** @example 1192.40000000 */
+            marginFree: string;
+            /**
+             * @description NULL when the account has no margin requirement at all — no open positions. Zero and "not applicable" are different answers and must render differently, so this is not defaulted to 0.
+             * @example 1093.66
+             */
+            marginLevel: string | null;
+            /**
+             * @description Unrealised profit across every open position: equity - balance - credit.
+             *
+             *     Derived here rather than stored, and derived from MT5 rather than from our own tables. This is the ACCOUNT total; the per-position breakdown is on `/positions`.
+             *
+             *     The two are read independently — this from the account snapshot, that from the position list — so they can differ by a tick. Neither is derived from the other on purpose: making them agree would mean choosing one as the truth and recomputing the other from it, which would hide a real disagreement rather than show it.
+             *
+             *     Signed — a client underwater is negative.
+             * @example 62.40000000
+             */
+            floating: string;
+        };
+        AccountPositionDto: {
+            /** @description MT5's position id — one per position, not per deal. */
+            ticket: string;
+            /** @example EURUSD */
+            symbol: string;
+            /**
+             * @description MT5's numeric side: 0 buy, 1 sell.
+             * @example 0
+             */
+            action: number;
+            /**
+             * @description The side, named. Unknown codes pass through raw.
+             * @enum {string}
+             */
+            side: "buy" | "sell";
+            /** @example 1.00000000 */
+            volume: string;
+            /** @example 1.08542000 */
+            priceOpen: string;
+            /**
+             * @description The live market price.
+             * @example 1.08610000
+             */
+            priceCurrent: string;
+            /** @description NULL when unset. MT5 stores an absent stop as the price 0, and a stop loss rendered as 0.00 reads as an order to close at zero. */
+            stopLoss: string | null;
+            /** @description NULL when unset, as with stopLoss. */
+            takeProfit: string | null;
+            /**
+             * @description FLOATING profit or loss, signed. Live — it changes on every tick.
+             * @example 62.40000000
+             */
+            profit: string;
+            /**
+             * @description Signed.
+             * @example -1.20000000
+             */
+            swap: string;
+            /** @description NULL on the Manager protocol, which carries commission on deals rather than on the open position. Not interchangeable with "0", which would claim a fee-free position. */
+            commission: string | null;
+            comment: string | null;
+            /** Format: date-time */
+            openedAt: string;
+        };
+        AccountStatsDto: {
+            /** @description Closed round trips. The denominator for a win rate. */
+            trades: number;
+            /** @description Closed trades with profit > 0. */
+            wins: number;
+            /** @description Closed trades with profit < 0. See the DTO note on scratch exits. */
+            losses: number;
+            /**
+             * @description Lots closed.
+             * @example 14.50000000
+             */
+            volume: string;
+            /**
+             * @description Realised profit and loss, net and signed. Excludes floating — see the snapshot.
+             * @example 840.20000000
+             */
+            netProfit: string;
+            /**
+             * @description Sum of winning trades.
+             * @example 1290.00000000
+             */
+            grossProfit: string;
+            /**
+             * @description Sum of losing trades. NEGATIVE, as stored — not an absolute value.
+             * @example -449.80000000
+             */
+            grossLoss: string;
+            /**
+             * @description Signed: a charge is negative.
+             * @example -38.00000000
+             */
+            commission: string;
+            /**
+             * @description Signed.
+             * @example -4.20000000
+             */
+            swap: string;
+            /** @description Best single closed trade. Null with no trades. */
+            bestTrade: string | null;
+            /** @description Worst single closed trade. Null with no trades. */
+            worstTrade: string | null;
+            /** Format: date-time */
+            firstDealAt: string | null;
+            /** Format: date-time */
+            lastDealAt: string | null;
+        };
+        AccountDealDto: {
+            /**
+             * @description MT5's ticket.
+             * @example 90210
+             */
+            ticket: string;
+            /** @example EURUSD */
+            symbol: string;
+            /**
+             * @description MT5's raw numeric action.
+             * @example 0
+             */
+            action: number;
+            /**
+             * @description A stable name for the action — "buy", "balance", "commission". Unknown codes render as "action <n>" rather than as a guess.
+             * @example buy
+             */
+            actionLabel: string;
+            /**
+             * @description MT5's raw numeric entry: 0 in, 1 out, 2 inout, 3 out_by.
+             * @example 1
+             */
+            entry: number;
+            /** @description True when this deal realised a result rather than opening a position. */
+            closing: boolean;
+            /** @example 1.00000000 */
+            volume: string;
+            /** @example 1.08542000 */
+            price: string;
+            /**
+             * @description Signed. A loss is negative.
+             * @example -12.50000000
+             */
+            profit: string;
+            /** @example -3.00000000 */
+            commission: string;
+            /** @example 0.00000000 */
+            swap: string;
+            comment?: string | null;
+            /**
+             * Format: date-time
+             * @description When MT5 says it happened — NOT when we ingested it.
+             */
+            dealtAt: string;
+        };
+        AccountHistoryDto: {
+            /**
+             * Format: date-time
+             * @description Start of the window, inclusive.
+             */
+            from: string;
+            /**
+             * Format: date-time
+             * @description End of the window, inclusive.
+             */
+            to: string;
+            stats: components["schemas"]["AccountStatsDto"];
+            /** @description Newest first. */
+            deals: components["schemas"]["AccountDealDto"][];
+        };
         DashboardStatsDto: {
             /** @description Trading accounts held, live and demo together. */
             totalAccounts: number;
@@ -4504,16 +4947,6 @@ export interface components {
         };
         TradingSettingsDto: {
             /**
-             * @description The leverage ladder offered to clients, in the order they see it.
-             * @example [
-             *       50,
-             *       100,
-             *       200,
-             *       500
-             *     ]
-             */
-            leverages: number[];
-            /**
              * @description Live accounts one client may open themselves.
              * @example 5
              */
@@ -4537,8 +4970,6 @@ export interface components {
             updatedAt?: string | null;
         };
         UpdateTradingSettingsDto: {
-            /** @example 50,100,200,500 */
-            leverages: string;
             /** @example 5 */
             maxLiveAccounts: number;
             /** @example 5 */
@@ -5775,6 +6206,104 @@ export interface components {
             page: number;
             limit: number;
         };
+        BridgeOutboxSummaryDto: {
+            /** @example 12 */
+            total: number;
+            /** @example 12 */
+            delivered: number;
+            /**
+             * @description Not yet delivered. Includes rows that are simply new.
+             * @example 0
+             */
+            pending: number;
+            /**
+             * @description Undelivered AND already attempted — this API is rejecting them. This is the number worth alerting on; `pending` alone cries wolf on a healthy busy system.
+             * @example 0
+             */
+            failing: number;
+        };
+        BridgeOutboxRowDto: {
+            /**
+             * @description MT5's ticket, as a string — it is a 64-bit id and JavaScript rounds those.
+             * @example 56054592
+             */
+            dealId: string;
+            /**
+             * @description How the bridge learned of it. Always 'sweep' on this protocol — the MT5 Web API has no deal push.
+             * @example sweep
+             */
+            source: string;
+            /** @example 0 */
+            attempts: number;
+            /** @description When delivery will next be tried. Far in the future on an undelivered row means the queue is backing off, not stuck. */
+            nextAttempt: string;
+            /** @description Null while undelivered. This field answers "did it arrive"; the value answers "when". */
+            deliveredAt: string | null;
+            /** @example HTTP 400: VALIDATION_FAILED ... */
+            lastError: string | null;
+            createdAt: string;
+        };
+        BridgeOutboxDto: {
+            summary: components["schemas"]["BridgeOutboxSummaryDto"];
+            rows: components["schemas"]["BridgeOutboxRowDto"][];
+        };
+        BridgeOperationsSummaryDto: {
+            /** @example 19 */
+            total: number;
+            /** @example 19 */
+            completed: number;
+            /**
+             * @description Claimed but never confirmed — the bridge told MT5 to move money and never learned whether it did. Any non-zero value needs a person, not a timer.
+             * @example 0
+             */
+            stuck: number;
+        };
+        BridgeOperationRowDto: {
+            /**
+             * @description The CRM's own transfer id, which is how this row joins back to a transaction.
+             * @example fb2e201a-5752-422c-a8c8-b43a228471dc
+             */
+            idempotencyKey: string;
+            /** @example 6477978 */
+            login: string;
+            /**
+             * @description A decimal STRING (§6.1), exactly as stored. Never a number — this is money on a screen somebody checks a client's balance against.
+             * @example 1000.00000000
+             */
+            amount: string;
+            /**
+             * @description MT5's operation type. `balance` is real money; `credit` is broker funds the client cannot withdraw.
+             * @example balance
+             */
+            type: string;
+            /**
+             * @description The resulting MT5 ticket. Null means the operation never confirmed.
+             * @example 56054592
+             */
+            dealId: string | null;
+            startedAt: string;
+            /** @description Null is the state that needs a human: claimed, and never confirmed. */
+            completedAt: string | null;
+        };
+        BridgeOperationsDto: {
+            summary: components["schemas"]["BridgeOperationsSummaryDto"];
+            rows: components["schemas"]["BridgeOperationRowDto"][];
+        };
+        BridgeLogsDto: {
+            /**
+             * @description The file that was read, named even when absent so the next guess is informed.
+             * @example C:\bridge\logs\bridge-20260815.log
+             */
+            file: string;
+            /** @description False is a normal answer on the first run of a day, not an error. */
+            exists: boolean;
+            /**
+             * @description How many lines matched before the tail was taken.
+             * @example 1284
+             */
+            matched?: number;
+            lines: string[];
+        };
         ErrorResponseDto: {
             /**
              * @description HTTP status, repeated in the body for convenience.
@@ -6823,6 +7352,92 @@ export interface operations {
             };
         };
     };
+    AdminLeveragesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeverageDto"][];
+                };
+            };
+        };
+    };
+    AdminLeveragesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLeverageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeverageDto"];
+                };
+            };
+        };
+    };
+    AdminLeveragesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ratio: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminLeveragesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ratio: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLeverageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeverageDto"];
+                };
+            };
+        };
+    };
     IbController_status: {
         parameters: {
             query?: never;
@@ -7747,6 +8362,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PositionDto"][];
+                };
+            };
+        };
+    };
+    TradingController_myAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountDto"];
+                };
+            };
+        };
+    };
+    TradingController_myAccountLive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountSnapshotDto"];
+                };
+            };
+        };
+    };
+    TradingController_myAccountPositions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountPositionDto"][];
+                };
+            };
+        };
+    };
+    TradingController_myAccountHistory: {
+        parameters: {
+            query?: {
+                /** @description Inclusive, YYYY-MM-DD. Defaults to 30 days before `to`. */
+                from?: string;
+                /** @description Inclusive, YYYY-MM-DD. Defaults to today. */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountHistoryDto"];
                 };
             };
         };
@@ -10514,6 +11218,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientTransactionsPageDto"];
+                };
+            };
+        };
+    };
+    AdminBridgeController_outbox: {
+        parameters: {
+            query?: {
+                pending?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BridgeOutboxDto"];
+                };
+            };
+        };
+    };
+    AdminBridgeController_operations: {
+        parameters: {
+            query?: {
+                stuck?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BridgeOperationsDto"];
+                };
+            };
+        };
+    };
+    AdminBridgeController_logs: {
+        parameters: {
+            query?: {
+                lines?: number;
+                contains?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BridgeLogsDto"];
                 };
             };
         };

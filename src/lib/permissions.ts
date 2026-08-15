@@ -85,6 +85,18 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    */
   { prefix: '/wallets', requirement: { permission: 'wallets.view' } },
   { prefix: '/trading-accounts', requirement: { permission: 'trading.view' } },
+  /*
+   * `/bridge` shares `trading.view` with `/trading-accounts`, and the sharing is
+   * the point: the screen shows the delivery queue and balance operations BEHIND
+   * those accounts — the same client logins, amounts and transfer ids, one layer
+   * down. Whoever may read a client's trading account may read why a deal on it
+   * has not appeared.
+   *
+   * A dedicated key was the alternative and would have shipped a screen that
+   * 404s for every existing role until somebody granted it — a diagnostics page
+   * nobody can open during the incident it exists for.
+   */
+  { prefix: '/bridge', requirement: { permission: 'trading.view' } },
   // `payments.view` reads the list; the page checks `payments.manage` before it
   // draws any write control, and the API refuses the writes regardless.
   { prefix: '/payment-methods', requirement: { permission: 'payments.view' } },
@@ -116,6 +128,20 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * carried the power to delete a currency.
    */
   { prefix: '/currencies', requirement: { permission: 'currencies.view' } },
+  /*
+   * Its OWN key, matching `AdminLeveragesController` and following currencies.
+   *
+   * The ladder lived on Settings → Trading until backend migration 0067, so
+   * `settings.view` was the obvious guard — and it is the same mistake
+   * currencies made and corrected: it is how the support-email grant also
+   * carried the power to delete a currency. Leverage is a risk control.
+   *
+   * `leverages.view` is a key NO existing role holds, so this screen stays
+   * invisible until somebody grants it. That is deliberate — a new power should
+   * start ungranted — but it does mean the page is unreachable on a fresh
+   * upgrade until a role is edited.
+   */
+  { prefix: '/leverages', requirement: { permission: 'leverages.view' } },
   /*
    * The catalogue: what the broker sells, and the programmes partners sell it
    * under. `settings.*` rather than keys of their own — see the note on the

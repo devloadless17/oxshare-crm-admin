@@ -70,7 +70,6 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
    * — `Number(e.target.value) || 0` — turns a mid-edit blank into a saved zero,
    * which on `maxLiveAccounts` closes live account opening.
    */
-  const [leverages, setLeverages] = React.useState(settings.leverages.join(','));
   const [maxLiveAccounts, setMaxLiveAccounts] = React.useState(String(settings.maxLiveAccounts));
   const [maxDemoAccounts, setMaxDemoAccounts] = React.useState(String(settings.maxDemoAccounts));
   // Trailing zeros trimmed for display: the column is numeric(28,8) and
@@ -84,7 +83,6 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
   const mutation = useMutation({
     mutationFn: () =>
       adminApi.updateTradingSettings({
-        leverages: leverages.trim(),
         maxLiveAccounts: parseCount(maxLiveAccounts),
         maxDemoAccounts: parseCount(maxDemoAccounts),
         maxDemoDeposit: maxDemoDeposit.trim(),
@@ -103,7 +101,6 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
   });
 
   const dirty =
-    leverages.trim() !== settings.leverages.join(',') ||
     maxLiveAccounts.trim() !== String(settings.maxLiveAccounts) ||
     maxDemoAccounts.trim() !== String(settings.maxDemoAccounts) ||
     maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit) ||
@@ -120,26 +117,20 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         mutation.mutate();
       }}
     >
-      <Field
-        id="trading-leverages"
-        label={t('tradingSettings.leverages')}
-        hint={t('tradingSettings.leveragesHint')}
-      >
-        <input
-          id="trading-leverages"
-          type="text"
-          value={leverages}
-          onChange={(e) => {
-            setLeverages(e.target.value);
-            clear();
-          }}
-          disabled={disabled}
-          required
-          maxLength={200}
-          placeholder="50,100,200,500"
-          className={`${INPUT_CLASS} font-mono`}
-        />
-      </Field>
+      {/*
+        The LEVERAGE LADDER is not edited here any more.
+
+        It was a comma-separated text box on this form, which could say what the
+        ladder is but not that a rung had been WITHDRAWN — deleting a number
+        from the string is indistinguishable from never having offered it, and
+        says nothing about the accounts already opened on it.
+
+        It has its own screen and its own table now (backend migration 0067),
+        alongside currencies and the IB levels, which are operator catalogues of
+        exactly the same class. Nothing links to it from here on purpose: two
+        surfaces that appear to own one list is how the CSV and the table would
+        drift.
+      */}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field

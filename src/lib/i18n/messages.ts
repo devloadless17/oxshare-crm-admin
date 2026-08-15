@@ -1724,10 +1724,12 @@ export const messages = {
   'nav.products': 'Products',
   'nav.agencies': 'Agencies',
   'nav.currencies': 'Currencies',
+  'nav.leverages': 'Leverages',
   // "Reconciliation", not "Ledger check": it is the accounting term an operator
   // on a money system already knows, and the screen answers exactly the
   // question that word asks.
   'nav.reconciliation': 'Reconciliation',
+  'nav.bridge': 'MT5 bridge',
   'nav.apiKeys': 'API keys',
 
   // ── API keys ───────────────────────────────────────────────────────────────
@@ -1788,6 +1790,71 @@ export const messages = {
   'apiKeys.reveal.done': 'I’ve copied it',
 
   // ── Reconciliation (§12.2) ─────────────────────────────────────────────────
+  // ── MT5 bridge ────────────────────────────────────────────────────────────
+  //
+  // Wording rule for this whole screen: it says what IS, never what it guesses.
+  // It is read during an incident, and a diagnostics page that softens a fact is
+  // worse than no page.
+  'bridge.title': 'MT5 bridge',
+  'bridge.subtitle':
+    'Whether deals are reaching this system, and whether any money movement was left unresolved.',
+
+  'bridge.tab.outbox': 'Deal queue',
+  'bridge.tab.operations': 'Balance operations',
+  'bridge.tab.logs': 'Log',
+
+  'bridge.loading': 'Asking the bridge…',
+  // "Could not ask" — NOT "nothing found". On this screen those are opposite
+  // answers, and reporting a silent bridge as an empty queue says the thing the
+  // operator most needs to disbelieve.
+  'bridge.loadFailed': 'Could not reach the MT5 bridge.',
+  'bridge.refresh': 'Refresh',
+
+  'bridge.outbox.total': 'Deals queued',
+  'bridge.outbox.delivered': 'Delivered',
+  'bridge.outbox.pending': 'Awaiting delivery',
+  'bridge.outbox.failing': 'Failing',
+  'bridge.outbox.failingHint': 'Attempted and rejected',
+  'bridge.outbox.pendingOnly': 'Not yet delivered',
+  'bridge.outbox.empty': 'No deals in the queue.',
+  'bridge.outbox.emptyPending': 'Every deal the bridge has read has reached this system.',
+  'bridge.outbox.healthy': 'Every queued deal has been delivered.',
+  'bridge.outbox.unhealthy':
+    '{count} deal(s) have been attempted and rejected. They are not lost — the bridge keeps retrying — but they are not here yet.',
+
+  'bridge.operations.total': 'Operations',
+  'bridge.operations.completed': 'Completed',
+  'bridge.operations.stuck': 'Unresolved',
+  'bridge.operations.stuckOnly': 'Unresolved only',
+  'bridge.operations.empty': 'No balance operations recorded.',
+  'bridge.operations.emptyStuck': 'Every balance operation has a confirmed outcome.',
+  // The most important sentence on the screen. It names the state precisely —
+  // the money may or may not have moved — because "failed" would be a guess in
+  // the safe direction and "pending" a guess in the dangerous one.
+  'bridge.operations.stuckWarning':
+    '{count} operation(s) were sent to MT5 without a confirmed outcome. The money may or may not have moved. Check each against MT5 deal history before retrying — the key stays claimed so a retry cannot double-credit.',
+
+  'bridge.logs.empty': 'No log lines for today yet.',
+  'bridge.logs.missing': 'No log file for today at {file}.',
+  'bridge.logs.filter': 'Filter lines',
+  'bridge.logs.matched': '{count} line(s) matched',
+  'bridge.logs.errorsOnly': 'Warnings and errors',
+
+  'bridge.col.deal': 'Deal',
+  'bridge.col.source': 'Source',
+  'bridge.col.attempts': 'Attempts',
+  'bridge.col.delivered': 'Delivered',
+  'bridge.col.error': 'Last error',
+  'bridge.col.created': 'Queued',
+  'bridge.col.key': 'Reference',
+  'bridge.col.login': 'Login',
+  'bridge.col.amount': 'Amount',
+  'bridge.col.type': 'Type',
+  'bridge.col.started': 'Started',
+  'bridge.col.outcome': 'Outcome',
+  'bridge.value.unresolved': 'Unresolved',
+  'bridge.value.none': '—',
+
   'reconciliation.title': 'Reconciliation',
   'reconciliation.subtitle':
     'Every wallet balance checked against the sum of its own ledger entries.',
@@ -1823,6 +1890,64 @@ export const messages = {
   'nav.paymentMethods': 'Payment methods',
   'nav.wallets': 'Wallets',
   'nav.tradingAccounts': 'Trading accounts',
+  // ── The leverage ladder ───────────────────────────────────────────────────
+  'leverages.title': 'Leverages',
+  'leverages.subtitle': 'The leverage a client may open a trading account on.',
+  'leverages.loading': 'Loading leverages',
+  'leverages.loadFailed': 'The leverage ladder could not be loaded.',
+  'leverages.empty': 'No leverages yet. Add one so clients can open an account.',
+  'leverages.add': 'Add leverage',
+  'leverages.addTitle': 'Add a leverage',
+  'leverages.editTitle': 'Edit leverage',
+  'leverages.edit': 'Edit',
+  'leverages.save': 'Save',
+  'leverages.saving': 'Saving…',
+  'leverages.saveFailed': 'The leverage could not be saved.',
+  'leverages.created': 'Leverage added',
+  'leverages.updated': 'Leverage updated',
+
+  'leverages.colRatio': 'Leverage',
+  'leverages.colLabel': 'Label',
+  'leverages.colStatus': 'Status',
+  'leverages.colOrder': 'Order',
+  'leverages.colActions': 'Actions',
+  'leverages.labelDefault': 'Shown as 1:{ratio}',
+  'leverages.actionsFor': 'Actions for 1:{ratio}',
+
+  /*
+   * "Offered" and "Withdrawn", not "Enabled" and "Disabled".
+   *
+   * The distinction the old CSV could not make is the entire reason this is a
+   * table: a withdrawn rung is off the client's menu while the accounts opened
+   * on it are still trading. "Disabled" reads as though something stopped.
+   */
+  'leverages.statusOffered': 'Offered',
+  'leverages.statusWithdrawn': 'Withdrawn',
+  'leverages.enable': 'Offer again',
+  'leverages.disable': 'Withdraw',
+  'leverages.enabled': 'Leverage is offered again',
+  'leverages.disabled': 'Leverage withdrawn — open accounts are unaffected',
+
+  'leverages.delete': 'Delete',
+  'leverages.deleted': 'Leverage deleted',
+  'leverages.deleteFailed': 'The leverage could not be deleted.',
+  'leverages.confirmDeleteTitle': 'Delete 1:{ratio}?',
+  'leverages.confirmDelete':
+    'Refused if any account is open at this leverage. To take it off the menu without touching those accounts, withdraw it instead.',
+
+  'leverages.fieldRatio': 'Leverage',
+  'leverages.fieldRatioHint': 'A whole number — 500 means 1:500.',
+  'leverages.fieldRatioFixed':
+    'Fixed once created: accounts opened at this leverage carry the number.',
+  'leverages.fieldLabel': 'Label (optional)',
+  'leverages.fieldLabelHint': 'What the client reads. Left blank, they see 1:<leverage>.',
+  'leverages.fieldSortOrder': 'Order (optional)',
+  'leverages.fieldSortOrderPlaceholder': 'Appended to the end',
+  'leverages.fieldSortOrderHint': 'Lower comes first. Numbered in tens so one fits between.',
+  'leverages.fieldEnabled': 'Offer this leverage to clients',
+  'leverages.fieldEnabledHint':
+    'Unticked, it is withdrawn: off the account-opening menu, with existing accounts unaffected.',
+
   'currencies.title': 'Currencies',
   'currencies.subtitle':
     'The money this platform can hold. Disabling one stops new wallets and deposits in it; existing balances stay readable.',

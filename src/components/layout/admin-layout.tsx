@@ -11,11 +11,13 @@ import {
   FileCheck,
   Coins,
   Boxes,
+  Radio,
   Scale,
   KeyRound,
   ArrowLeftRight,
   Wallet,
   CandlestickChart,
+  Gauge,
   CreditCard,
   Handshake,
   Layers,
@@ -225,9 +227,14 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'nav.paymentMethods', href: '/payment-methods', icon: CreditCard },
       { label: 'nav.products', href: '/products', icon: Boxes },
       { label: 'nav.currencies', href: '/currencies', icon: Coins },
+      { label: 'nav.leverages', href: '/leverages', icon: Gauge },
       // Master-admin only (see permissions.ts), so it simply does not render
       // for a sub-admin — `canAccess` filters this list.
       { label: 'nav.reconciliation', href: '/reconciliation', icon: Scale },
+      // Beside reconciliation rather than under trading: both answer "is the
+      // machinery working", where the trading entries above answer "what does
+      // this client hold".
+      { label: 'nav.bridge', href: '/bridge', icon: Radio },
     ],
   },
   {

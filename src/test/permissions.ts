@@ -70,6 +70,15 @@ export const ALL_PERMISSIONS: string[] = [
   'currencies.create',
   'currencies.edit',
   'currencies.delete',
+  // Backend migration 0067 moved the leverage ladder out of the settings CSV
+  // into its own table and screen; 0068 grants these to whoever held
+  // `settings.*`. Absent here, the leverages page renders no controls and its
+  // tests fail for a reason that looks nothing like the cause — which is the
+  // trap this file's header describes.
+  'leverages.view',
+  'leverages.create',
+  'leverages.edit',
+  'leverages.delete',
   'payments.view',
   'payments.create',
   'payments.edit',
