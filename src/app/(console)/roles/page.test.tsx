@@ -39,7 +39,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/roles',
 }));
 
-const identity = { permissions: ALL_PERMISSIONS };
+const identity = { permissions: ALL_PERMISSIONS, roleId: undefined as string | undefined };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -50,6 +50,11 @@ vi.mock('@/context/AdminAuthContext', () => ({
       role: 'master_admin',
       get permissions() {
         return identity.permissions;
+      },
+      // Which role the acting admin is ON. The roles screen hides the row menu
+      // for it, so a test that asserts about that has to be able to state it.
+      get roleId() {
+        return identity.roleId;
       },
     },
   }),
@@ -76,8 +81,41 @@ const SYSTEM = {
 beforeEach(() => {
   vi.clearAllMocks();
   identity.permissions = ALL_PERMISSIONS;
+  // On no role by default — running on their own snapshot — so the existing
+  // cases keep asserting about a menu that is genuinely offered.
+  identity.roleId = undefined;
   getRoles.mockResolvedValue([SYSTEM, SUPPORT]);
   deleteRole.mockResolvedValue({});
+});
+
+describe('your own role', () => {
+  /*
+   * A role REPLACES its holder's permission snapshot, so editing the role you
+   * are on is editing yourself. The API refuses it outright; these cases are
+   * what keep the screen from offering a control that only ever fails.
+   */
+  it('offers no row menu for the role the acting admin is on', async () => {
+    identity.roleId = SUPPORT.id;
+    renderWithProviders(<RolesPage />);
+    await screen.findByText('Support');
+
+    expect(screen.queryByRole('button', { name: /actions for support/i })).not.toBeInTheDocument();
+  });
+
+  it('says WHICH role is yours, so the missing menu is not a bug', async () => {
+    identity.roleId = SUPPORT.id;
+    renderWithProviders(<RolesPage />);
+
+    expect(await screen.findByText(/your role/i)).toBeInTheDocument();
+  });
+
+  it('still offers the menu for a role the admin is NOT on', async () => {
+    identity.roleId = 'r-99';
+    renderWithProviders(<RolesPage />);
+    await screen.findByText('Support');
+
+    expect(screen.getByRole('button', { name: /actions for support/i })).toBeInTheDocument();
+  });
 });
 
 describe('the list itself', () => {

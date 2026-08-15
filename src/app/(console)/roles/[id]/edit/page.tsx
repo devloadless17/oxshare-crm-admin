@@ -117,6 +117,21 @@ export default function EditRolePage() {
             >
               {t('roles.systemReadOnly')}
             </div>
+          ) : /*
+           * YOUR OWN ROLE — the same shape as a system role, and for a
+           * related reason: the API refuses the write either way, so the
+           * form would be a way to lose your work rather than a way to
+           * save it. The roles list hides the Edit action too; this branch
+           * is what makes the URL itself safe when it is typed, bookmarked
+           * or followed from an older tab.
+           */
+          role.id === admin?.roleId ? (
+            <div
+              className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning"
+              role="alert"
+            >
+              {t('roles.selfReadOnly')}
+            </div>
           ) : (
             <RoleForm
               // Remounts when the loaded role changes, so the fields hold that

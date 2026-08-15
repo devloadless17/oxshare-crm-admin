@@ -146,6 +146,16 @@ export default function RolesPage() {
               {t('settings.systemRole')}
             </span>
           )}
+          {/* Says WHY this row has no actions. Without it the missing menu
+              reads as a bug rather than as the rule it is. */}
+          {role.id === admin?.roleId && (
+            <span
+              className="shrink-0 rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
+              title={t('roles.yourRoleHint')}
+            >
+              {t('roles.yourRole')}
+            </span>
+          )}
         </span>
       ),
     },
@@ -192,8 +202,15 @@ export default function RolesPage() {
                * both — so offering a control that only ever explains itself is
                * worse than the absence of one. `RowActions` renders nothing on
                * an empty `items`, which is exactly this case.
+               *
+               * YOUR OWN ROLE is the second such case. A role replaces its
+               * holder's permission snapshot, so editing it edits you — the API
+               * refuses it outright, and `/roles/[id]/edit` redirects. Deleting
+               * is already impossible for a different reason (a role with
+               * holders cannot be deleted, and you are a holder), so the whole
+               * menu goes rather than one item.
                */
-              role.isSystem ? null : (
+              role.isSystem || role.id === admin?.roleId ? null : (
                 <RowActions
                   label={t('roles.rowActions', { name: role.name })}
                   busy={deletingId === role.id}

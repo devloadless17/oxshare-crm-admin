@@ -1116,6 +1116,11 @@ export const messages = {
   'roles.saving': 'Saving…',
   'roles.notFound': 'That role no longer exists.',
   'roles.systemReadOnly': 'System roles cannot be edited.',
+  'roles.yourRole': 'Your role',
+  'roles.yourRoleHint':
+    'This role decides your own access, so you cannot edit it. Another administrator with role access can.',
+  'roles.selfReadOnly':
+    'You cannot edit the role you are assigned to — it decides your own access. Ask another administrator with role access to make this change.',
   'roles.loadFailed': 'Failed to load roles.',
   'roles.saveFailed': 'Failed to save the role. Please try again.',
   'roles.deleteFailed': 'Failed to delete the role.',
