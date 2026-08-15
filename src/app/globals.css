@@ -155,6 +155,37 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /*
+   * THE DOCUMENT ITSELF NEVER SCROLLS. `<main>` is the only scroller.
+   *
+   * The console shell is `h-screen` — a fixed 100vh box — and `<main>` inside
+   * it carries `overflow-y-auto`. That is the whole design, and it was one
+   * unconstrained element away from working: nothing bounded `<body>`, so
+   * anything that made the shell's box exceed the viewport gave the DOCUMENT a
+   * scrollbar as well.
+   *
+   * Two things do that routinely. `100vh` is measured WITHOUT the horizontal
+   * scrollbar, so any page wide enough to show one is instantly 100vh + ~15px
+   * of content in a viewport that is 100vh tall. And on mobile `100vh` counts
+   * the retracted URL bar, which is the same overflow by a different route.
+   *
+   * The symptom is worth naming because it looks like a page bug rather than a
+   * document one: TWO scrollbars, and the outer one scrolls the `sticky`
+   * header and the sidebar off the top of the screen — `position: sticky` only
+   * sticks within its own scrolling ancestor, and once that ancestor is the
+   * document, the header travels with the page.
+   *
+   * `overflow: hidden` on both elements is what makes the intended container
+   * the only one that can scroll. `height: 100%` keeps the chain definite so
+   * the shell's `h-screen` resolves against a real box rather than against
+   * content.
+   */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
@@ -426,10 +457,15 @@
     @apply h-4 w-4 shrink-0 text-destructive;
   }
 
-  /* Centred single-card screens */
+  /* Centred single-card screens.
+
+     `overflow-y-auto` because `body` no longer scrolls (see the html/body rule
+     in @layer base). These live OUTSIDE the console, so there is no `<main>`
+     above them carrying the scroll — without this, a card taller than a short
+     window would have its bottom simply unreachable. */
   .invite-wrap,
   .accept-wrap {
-    @apply flex min-h-screen items-center justify-center bg-background p-4;
+    @apply flex min-h-screen items-center justify-center overflow-y-auto bg-background p-4;
   }
   .invite-card,
   .accept-card {

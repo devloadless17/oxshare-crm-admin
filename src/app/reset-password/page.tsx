@@ -168,7 +168,7 @@ function ResetPasswordContent() {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
+    <main className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground overflow-y-auto">
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
         {children}
       </div>

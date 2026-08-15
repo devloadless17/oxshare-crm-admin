@@ -100,7 +100,7 @@ function AdminLoginForm() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <main className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12 overflow-y-auto">
       {/* Top right theme toggle */}
       <div className="absolute top-4 right-4">
         <ThemeToggle />

@@ -171,7 +171,7 @@ function AcceptInviteContent() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <main className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12 overflow-y-auto">
       {/*
        * A visitor here has no console chrome to change the theme from, and the
        * OS preference is not always the one someone wants to type a password
