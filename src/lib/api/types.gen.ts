@@ -2840,6 +2840,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/kyc-config/document-catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Documents a `document` field may accept */
+        get: operations["AdminComplianceController_getDocumentCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/kyc-config/steps": {
         parameters: {
             query?: never;
@@ -4854,6 +4871,33 @@ export interface components {
         Mt5LiveBalancesDto: {
             accountIds: string[];
         };
+        KycDocumentPartDto: {
+            /**
+             * @description Slot identifier, unique within the type.
+             * @example back
+             */
+            key: string;
+            /**
+             * @description What the client is asked to upload.
+             * @example Back Side
+             */
+            label: string;
+            required: boolean;
+            /** @example Both sides must be readable. */
+            hint?: string;
+        };
+        KycDocumentTypeDto: {
+            /**
+             * @description Stored in document.docType. Never renamed.
+             * @example passport
+             */
+            value: string;
+            /** @example Passport */
+            label: string;
+            /** @enum {string} */
+            category: "identity" | "address";
+            parts: components["schemas"]["KycDocumentPartDto"][];
+        };
         KycFieldConfigDto: {
             /** @example f-1 */
             id: string;
@@ -4865,12 +4909,14 @@ export interface components {
             /** @example First Name */
             label: string;
             /** @enum {string} */
-            type: "text" | "date" | "phone" | "select" | "file" | "camera" | "checkbox";
+            type: "text" | "date" | "phone" | "select" | "file" | "camera" | "checkbox" | "doc:passport" | "doc:national_id" | "doc:driving_license" | "doc:residence_permit" | "doc:utility_bill" | "doc:bank_statement" | "doc:tenancy_agreement";
             required: boolean;
             /** @description Choices, for type: select. */
             options?: string[];
             /** @example As on your ID */
             hint?: string;
+            /** @description Resolved from the field type. Read-only — writes are ignored. */
+            document?: components["schemas"]["KycDocumentTypeDto"];
         };
         KycStepConfigDto: {
             /** @example step-1 */
@@ -10184,6 +10230,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AdminComplianceController_getDocumentCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycDocumentTypeDto"][];
+                };
             };
         };
     };

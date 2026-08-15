@@ -1548,6 +1548,80 @@ export const messages = {
   'builder.fieldsCount': 'Form Fields ({count})',
   'builder.noFields': 'No custom fields added yet.',
 
+  // Field editor — `options` and `hint` are in the API schema and had no
+  // control at all until the tabbed rework.
+  'builder.fieldHint': 'Helper Text',
+  'builder.fieldHintPlaceholder': 'e.g., As shown on your ID',
+  'builder.fieldOptions': 'Dropdown Choices',
+  'builder.fieldOptionsPlaceholder': 'Passport, National ID, Driving licence',
+  'builder.fieldOptionsEmpty':
+    'Separate choices with commas. A dropdown with none is empty for the client.',
+  'builder.fieldOptionsCount': '{count} choices, comma separated.',
+  'builder.requiredField': 'Required',
+  'builder.removeField': 'Remove',
+  'builder.removeFieldNamed': 'Remove field {label}',
+
+  // Tabs, drag and drop, and the summary rail.
+  'builder.tabSteps': 'Steps & Fields',
+  'builder.tabPreview': 'Flow Preview',
+  'builder.tabAll': 'All Fields',
+  'builder.reorderStep': 'Reorder step {title}',
+  'builder.reorderField': 'Reorder field {label}',
+  'builder.dragHint': 'Drag the handle to reorder, or use the arrow buttons.',
+  'builder.unsaved': 'Unsaved changes',
+  'builder.unsavedBody': 'Your edits are not live until you save.',
+  'builder.stepsCount': '{count} steps',
+  'builder.activeCount': '{count} active',
+  'builder.totalFields': '{count} fields in total',
+  'builder.previewIntro':
+    'The order a client walks through, exactly as the portal renders it. Disabled steps are skipped.',
+  'builder.previewSkipped': 'Skipped — step is disabled',
+  'builder.allFieldsIntro':
+    'Every field across every step, so a duplicated key name or a select with no choices is visible without opening each step.',
+  'builder.duplicateKey': 'Duplicate key name',
+  'builder.emptySelect': 'Dropdown with no choices',
+  'builder.problemsFound': '{count} to look at',
+  'builder.noProblems': 'Nothing to flag.',
+  'builder.colStep': 'Step',
+  'builder.colField': 'Field',
+  'builder.colKey': 'Key',
+  'builder.colType': 'Type',
+  'builder.colRequired': 'Required',
+  'builder.yes': 'Yes',
+  'builder.no': 'No',
+  'builder.active': 'Active',
+  'builder.disabled': 'Disabled',
+  'builder.enable': 'Enable',
+  'builder.disable': 'Disable',
+  'builder.deleteStep': 'Delete step',
+  'builder.deleteStepNamed': 'Delete step {title}',
+  'builder.saveAll': 'Save all changes',
+  'builder.savingAll': 'Saving…',
+  'builder.saved': 'KYC onboarding steps updated successfully.',
+  'builder.saveFailed': 'Error saving configuration.',
+  'builder.resetDone': 'Reset to default KYC configuration.',
+  'builder.resetFailed': 'Failed to reset steps.',
+  'builder.stepAdded': 'Added step "{title}". Remember to save your changes.',
+  'builder.stepDeleted': 'Step deleted.',
+  'builder.mandatoryDisable':
+    '"{title}" is required by the KYC spec (FR-CORE-15) and cannot be disabled.',
+  'builder.mandatoryDelete':
+    '"{title}" is required by the KYC spec (FR-CORE-15) and cannot be deleted.',
+  'builder.noSteps': 'No steps configured yet.',
+  // The `document` field type: one field that is the picker AND its uploads.
+  'builder.typeDocument': 'Document Upload',
+  'builder.acceptedDocuments': 'Documents this step accepts',
+  'builder.documentParts': '{count} photo(s) required',
+  'builder.noDocumentsPicked': 'Pick at least one, or the client has nothing to upload.',
+  'builder.tabOverview': 'Overview',
+  'builder.openStep': 'Open',
+  // Per-ACTION, not one shared string. A disabled control has to say why IT is
+  // disabled: "cannot be disabled or deleted" on a delete button makes the
+  // reader work out which half applies to the thing they just clicked.
+  'builder.requiredCannotDisable': 'Required step — cannot be disabled',
+  'builder.requiredCannotDelete': 'Required step — cannot be deleted',
+  'builder.requiredCannotReorder': 'Required step — its position is fixed by the KYC spec',
+
   'kycReview.totalSubmissions': '{count} total submissions',
   'kycReview.rejectionReasonLabel': '❌ Rejection Reason',
   'kycReview.uploadedFiles': 'Uploaded files ({docType})',
