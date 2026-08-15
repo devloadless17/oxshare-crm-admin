@@ -258,7 +258,21 @@ export default function AdminDashboardPage() {
         error={overview.error}
         errorMessage={t('dashboard.overviewError')}
       >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {/*
+         * `auto-fit`, not a fixed six.
+         *
+         * Which tiles exist depends on the role: `clients.view` contributes
+         * two, kyc/withdrawals/ib one each. A fixed `xl:grid-cols-6` sized the
+         * row for the maximum regardless, so a compliance officer holding three
+         * of them got three tiles and half a row of nothing — the layout
+         * describing permissions they do not have.
+         *
+         * `auto-fit` collapses the empty tracks, so the tiles that ARE rendered
+         * share the full width. `minmax(13rem, 1fr)` keeps the wrap sensible:
+         * six tiles still fit a wide screen, and a narrow one breaks to two or
+         * one without any breakpoint doing the arithmetic.
+         */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-3">
           {clients && (
             <>
               <StatTile
@@ -335,7 +349,12 @@ export default function AdminDashboardPage() {
       </AsyncBoundary>
 
       {/* ── Trends over the selected window ─────────────────────────────── */}
-      <div className="grid gap-4 xl:grid-cols-2">
+      {/* Same `auto-fit` reasoning as the tiles above. A role holding only
+          `kyc.view` renders one of these two, and a fixed two-column grid left
+          that chart at half width with dead space beside it. `28rem` is the
+          floor at which a time-series axis is still readable — below it these
+          stack rather than squeeze. */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(28rem,1fr))] gap-4">
         {canViewClients && (
           <ChartCard
             title={t('dashboard.registrationsTitle')}
@@ -376,7 +395,10 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ── Composition, today ──────────────────────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      {/* Three cards at most, and commonly one or two. `22rem` is smaller than
+          the trend row's floor because these are bar/legend cards rather than
+          dated axes, so three still fit a wide screen. */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(22rem,1fr))] gap-4">
         {canViewClients && clients && (
           <ChartCard
             title={t('dashboard.clientSplitTitle')}
@@ -433,7 +455,10 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ── Money moving, and the queue ─────────────────────────────────── */}
-      <div className="grid gap-4 xl:grid-cols-2">
+      {/* `withdrawals.view` and `kyc.view` are separate grants and commonly held
+          apart, so this row very often has one child. Same `auto-fit` treatment
+          as the rows above. */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(28rem,1fr))] gap-4">
         {canViewWithdrawals && (
           <ChartCard
             title={t('dashboard.withdrawalVolumeTitle')}
