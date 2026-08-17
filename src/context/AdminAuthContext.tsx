@@ -128,9 +128,18 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     return result.data !== undefined;
   }, [queryClient, refetchMe]);
 
-  // Dev-only: shout if any route in permissions.ts demands a key the backend
-  // does not define. Such a key can never be granted, so the route silently
-  // becomes master-admin-only with nothing anywhere to explain why.
+  /*
+   * Dev-only: shout if any route in permissions.ts demands a key the backend
+   * does not define. Such a key can never be granted, so the route silently
+   * becomes master-admin-only with nothing anywhere to explain why.
+   *
+   * `GET /admin/permissions` requires `roles.view` OR `admins.view`, so an
+   * administrator holding neither gets a 403 here — which is a perfectly
+   * ordinary answer for a narrow role, NOT drift, and must not be reported as
+   * though it were. The catch says which happened instead of discarding it:
+   * swallowing everything is what let a failed fetch reach the check as an
+   * empty catalog and print 22 phantom orphans.
+   */
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' || !admin) return;
     adminApi
@@ -140,7 +149,17 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
           Object.values(catalog).flatMap((m) => (m.permissions ?? []).map((p) => p.key)),
         ),
       )
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 403) {
+          // Expected for a role without roles.view/admins.view. Not drift.
+          return;
+        }
+        console.error(
+          `[permissions] Could not fetch the backend permission catalog (${status ?? 'network error'}), ` +
+            'so route keys were not checked against it this session.',
+        );
+      });
   }, [admin]);
 
   /*

@@ -369,9 +369,40 @@ export function canAccess(admin: AdminProfile | null, path: string): boolean {
  *
  * Silent drift here is invisible: the nav item just disappears and the route
  * 403s, with nothing in any log to explain why.
+ *
+ * ── An EMPTY catalog is "I could not ask", not "the backend defines nothing" ─
+ *
+ * This check cannot tell those apart from the inside, and the difference is the
+ * whole value of what it prints. Handed `[]` it reported EVERY key in the table
+ * — all 22 — as "NOT in the backend catalog, so no role can ever hold them",
+ * naming keys that were sitting in `config/permissions.json` the entire time.
+ *
+ * It is not a hypothetical: the caller flattens the response with
+ * `(m.permissions ?? []).map(...)`, and every plausible non-catalog 200 — an
+ * error envelope with `{statusCode, code, message, …}`, an empty object — has no
+ * `permissions` anywhere in it, so it flattens to zero keys and RESOLVES rather
+ * than throwing. The result was a console screaming about 22 phantom orphans,
+ * which reads as a broken permission table and costs a real debugging session.
+ *
+ * So: no keys means no answer, and the honest thing to print is that the catalog
+ * could not be read. A genuine orphan is only detectable against a catalog that
+ * actually arrived.
  */
 export function assertPermissionKeysExist(catalogKeys: string[]): string[] {
   const known = new Set(catalogKeys.map(normalizeKey));
+
+  if (known.size === 0) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(
+        '[permissions] The backend permission catalog came back EMPTY, so no key could be ' +
+          'checked. This is a failed or non-catalog response from GET /admin/permissions — ' +
+          'which requires roles.view or admins.view — not a missing permission. Nothing is ' +
+          'reported as orphaned here, because against an empty catalog every key looks orphaned.',
+      );
+    }
+    return [];
+  }
+
   // Both shapes, or an `anyOf` route could carry an orphan key and this check —
   // whose whole job is to catch exactly that — would report the route as clean.
   const referenced = ROUTE_REQUIREMENTS.flatMap((r) => {

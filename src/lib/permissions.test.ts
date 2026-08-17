@@ -407,6 +407,22 @@ describe('assertPermissionKeysExist', () => {
     expect(assertPermissionKeysExist(CATALOG.map((k) => k.toUpperCase()))).toEqual([]);
   });
 
+  it('reports NOTHING when the catalog is empty — that is a failed fetch, not drift', () => {
+    /*
+     * The regression this guards. An empty catalog means the fetch failed or
+     * returned something that is not a catalog — `GET /admin/permissions`
+     * requires roles.view or admins.view, and its 403 body flattens to zero
+     * keys through the caller's `(m.permissions ?? [])` without throwing.
+     *
+     * Reported as orphans, that printed all 22 route keys as "NOT in the
+     * backend catalog, so no role can ever hold them" while every one of them
+     * sat in config/permissions.json. The check cannot distinguish "the backend
+     * defines nothing" from "I could not ask", so against no catalog it must
+     * accuse nobody.
+     */
+    expect(assertPermissionKeysExist([])).toEqual([]);
+  });
+
   it('reports every route key as an orphan when the catalog uses the old spelling', () => {
     // The useful failure. A backend still serving colon keys is a real mismatch
     // rather than something this file silently absorbs — and it surfaces here,
