@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 /**
  * The 401/refresh interceptor — the piece of this app most able to break a
@@ -182,5 +183,58 @@ describe('proactive refresh', () => {
     // logged out.
     expect(mockedPost).toHaveBeenCalledTimes(afterFirst);
     document.cookie = 'oxshare_crm_admin_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  });
+});
+
+/**
+ * The guard that turns "the API origin is misconfigured" into a message.
+ *
+ * The failure it exists for produced no error at all: with
+ * `NEXT_PUBLIC_API_BASE_URL` pointing at the frontend's own origin, the login
+ * POST hit this Next app, the route gate answered a 307 to the sign-in page, the
+ * browser followed it, and axios resolved 200 with HTML. Sign-in "succeeded",
+ * `/admin/auth/me` "succeeded", and the next navigation bounced back to the
+ * sign-in screen with no session behind it.
+ *
+ * Driven through `defaults.adapter` rather than the network, because the thing
+ * under test is the response interceptor and nothing below it.
+ */
+describe('a response that did not come from the API', () => {
+  function respondWith(headers: Record<string, string>, data: unknown) {
+    return (config: InternalAxiosRequestConfig): Promise<AxiosResponse> =>
+      Promise.resolve({ data, status: 200, statusText: 'OK', headers, config });
+  }
+
+  it('rejects an HTML body on a request that asked for JSON', async () => {
+    const { apiClient } = await loadClient();
+    apiClient.defaults.adapter = respondWith(
+      { 'content-type': 'text/html; charset=utf-8' },
+      '<!DOCTYPE html><html><body>Sign in</body></html>',
+    );
+
+    await expect(apiClient.get('/admin/auth/me')).rejects.toThrow(
+      /points at a frontend rather than at the API/,
+    );
+  });
+
+  it('lets an ordinary JSON response through untouched', async () => {
+    const { apiClient } = await loadClient();
+    apiClient.defaults.adapter = respondWith({ 'content-type': 'application/json' }, { id: 'a1' });
+
+    await expect(apiClient.get('/admin/auth/me')).resolves.toMatchObject({ data: { id: 'a1' } });
+  });
+
+  /*
+   * A download must not be second-guessed on its content type — `export.ts`
+   * asks for a blob and is answered `text/csv`. Only a request that asked for
+   * JSON can conclude anything from an HTML body.
+   */
+  it('leaves a non-JSON request alone even when the body is HTML', async () => {
+    const { apiClient } = await loadClient();
+    apiClient.defaults.adapter = respondWith({ 'content-type': 'text/html' }, 'anything');
+
+    await expect(
+      apiClient.get('/admin/exports/clients', { responseType: 'blob' }),
+    ).resolves.toBeDefined();
   });
 });

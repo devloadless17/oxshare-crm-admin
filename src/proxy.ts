@@ -1,60 +1,59 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { loginPathFor } from '@/lib/return-to';
-// The single definition of "reachable without a session", shared with
-// lib/api/client.ts so the two cannot disagree — see lib/public-paths.ts.
-import { isPublicPath } from '@/lib/public-paths';
 import { NONCE_HEADER, contentSecurityPolicy, createNonce } from '@/lib/csp';
 
+/**
+ * CSP only. THE SESSION GATE THAT USED TO LIVE HERE COULD NOT WORK.
+ *
+ * ── Why it was removed ──────────────────────────────────────────────────────
+ *
+ * This function ran on the FRONTEND host (`admin.example.com`) and read
+ * `__Host-oxshare_crm_admin_rt` off the incoming request. That cookie is set by
+ * the API host (`api.example.com`), and `session-cookies.ts` sets it with no
+ * `domain` and a `__Host-` prefix — "deliberately and permanently", because a
+ * `Domain` attribute is the only way a CRM cookie could reach another OxShare
+ * site. The `__Host-` prefix is the browser ENFORCING that: such a cookie is
+ * locked to the exact host that set it.
+ *
+ * So the cookie is stored under the API's host and is never sent to this one.
+ * The gate read `undefined` for every request from a perfectly valid session,
+ * and bounced every private route to `/login?next=…`. Signing in succeeded, the
+ * session cookie was set, `GET /admin/auth/me` returned the admin — and the
+ * navigation to `/dashboard` was redirected straight back to the login screen.
+ *
+ * ── Why it looked fine in development ───────────────────────────────────────
+ *
+ * COOKIES IGNORE THE PORT. On localhost the API (:3001) and this app (:3002)
+ * are the same cookie host, so the gate saw the cookie and worked. Only a
+ * deployment on real, distinct hostnames separates them — which is why this
+ * survived every local test and failed on the first real domain.
+ *
+ * Note this is a consequence of the browser calling the API DIRECTLY rather
+ * than through the `/api` rewrite; `lib/env.ts` documents why that call had to
+ * become direct (the realtime socket cannot go through a rewrite). Under a
+ * same-origin rewrite the cookie did land on this host. It no longer does.
+ *
+ * ── What enforces access now ────────────────────────────────────────────────
+ *
+ * What always did. This was only ever a redirect hint — every route it guarded
+ * is enforced again by the API, which verifies signatures rather than presence.
+ * The eviction path is `endDeadSession` in `lib/api/client.ts`: a 401 clears the
+ * session and hard-navigates to `loginPathFor(pathname, search)`, carrying the
+ * destination exactly as this gate used to. A signed-out visitor to a private
+ * route now loads the shell, gets a 401 on the first call, and lands on
+ * `/login?next=…`.
+ *
+ * DO NOT reinstate a cookie check here without first giving this host a cookie
+ * to read. That means a separate, non-sensitive marker set with `Domain=` on the
+ * shared parent domain — never the session cookie itself, which must keep
+ * `__Host-`.
+ */
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const isPublic = isPublicPath(pathname);
-  /*
-   * Gated on the REFRESH cookie, not the access cookie.
-   *
-   * httpOnly cookies are still sent to the server, so R-3.2 changed nothing
-   * here. R-3.3 did: the access token now lives 15 minutes rather than 8 hours,
-   * so gating on it would bounce a user who came back from lunch to the login
-   * screen — while their 30-day refresh token sat there, perfectly valid, ready
-   * to renew the session on the first request the page made.
-   *
-   * The refresh cookie is what actually means "a session exists". This is a
-   * redirect hint either way: every route it guards is enforced again by the
-   * API, which verifies signatures rather than presence.
-   */
-  const session =
-    request.cookies.get('__Host-oxshare_crm_admin_rt')?.value ??
-    request.cookies.get('oxshare_crm_admin_rt')?.value;
-
-  if (!isPublic && !session) {
-    /*
-     * Carry where they were going.
-     *
-     * Landing every bounced operator on /dashboard threw away their intent:
-     * somebody following a link to a specific KYC submission, or a bookmarked
-     * client, signed in and then had to find it again. On a session that has
-     * quietly expired — the common case, not the rare one — that happens
-     * mid-task. The portal has done this for a while; this console did not.
-     *
-     * The query string travels with it, so filters and paging survive too.
-     * `safeReturnTo` on the other end is what makes reading it back safe.
-     */
-    return withCsp(
-      request,
-      NextResponse.redirect(
-        new URL(loginPathFor(request.nextUrl.pathname, request.nextUrl.search), request.url),
-      ),
-    );
-  }
   return withCsp(request);
 }
 
 /**
  * Attaches the per-request `script-src` nonce — see lib/csp.ts.
- *
- * Every return path goes through this, including the redirect: a response
- * without the header would fall back to no `script-src` at all, and the one
- * page an unauthenticated visitor definitely loads is `/login`.
  *
  * The nonce is set on the REQUEST headers as well, because that is how Next's
  * renderer learns to stamp it onto the inline bootstrap and hydration scripts it
@@ -85,39 +84,18 @@ export const config = {
   /*
    * Everything except Next's internals, the API rewrite, and STATIC FILES.
    *
-   * The last exclusion was missing, and it is why the logo rendered as a broken
-   * image on the sign-in screen: `/oxshare-mark.svg` is not a public PATH, so an
-   * unauthenticated request for it was redirected to /login. The browser got an
-   * HTML redirect where it expected an SVG. `next/image` failed the same way one
-   * level down — the optimizer fetches the source itself, got the redirect, and
-   * answered 400.
+   * Still meaningful with the session gate gone: this decides which responses
+   * get a Content-Security-Policy. A path that skips the matcher ships with no
+   * CSP at all.
    *
-   * It hid well: anyone with a live session loaded the asset normally, and a
-   * cached copy survived logging out, so it only appeared on a genuinely cold
-   * signed-out load.
-   *
-   * The trailing pattern excludes any path with a file extension. Gating a
-   * static asset behind a session was never the intent — nothing under
-   * `public/` is private, and anything that ever is belongs behind an
-   * authenticated route handler like the KYC uploads controller, not behind a
-   * redirect that returns HTML.
+   * The trailing exclusion names ASSET EXTENSIONS rather than "any path with a
+   * dot in it". It was `.*\.[\w]+$`, which excludes every path ending in
+   * `.something` — so a dynamic segment carrying a dot (`/clients/foo.bar`,
+   * `/kyc/user@example.com`) skipped `withCsp()` entirely, shipping a response
+   * with no policy. Low impact while ids are UUIDs, and a hole keyed on
+   * user-supplied data either way.
    */
   matcher: [
-    /*
-     * The trailing exclusion names ASSET EXTENSIONS rather than "any path with a
-     * dot in it".
-     *
-     * It was `.*\.[\w]+$`, which excludes every path ending in `.something` —
-     * so a dynamic segment carrying a dot (`/clients/foo.bar`,
-     * `/kyc/user@example.com`) skipped the route gate AND skipped `withCsp()`,
-     * shipping a response with no Content-Security-Policy at all. Low impact
-     * while ids are UUIDs, and a hole keyed on user-supplied data either way.
-     *
-     * The list is what `public/` actually holds plus the usual well-known files.
-     * Anything under `public/` is public by definition; anything that ever is
-     * not belongs behind an authenticated route handler, as the KYC uploads
-     * controller already is.
-     */
-    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|json|webmanifest|woff|woff2|ttf|otf|eot|map|mp4|webm|pdf|csv)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|json|webmanifest|woff|woff2|ttf|otf|eot|map|mp4|webm|pdf|csv)$).*)',
   ],
 };

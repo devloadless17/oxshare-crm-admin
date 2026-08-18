@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { proxy } from '@/proxy';
-import type { NextRequest } from 'next/server';
 import { CSRF_COOKIE_NAMES, CSRF_HEADER } from './client';
 
 /**
@@ -13,46 +11,18 @@ import { CSRF_COOKIE_NAMES, CSRF_HEADER } from './client';
  *
  * Why it matters more than it looks: renaming a cookie compiles, passes every
  * type check (a cookie name is in no response body, so the generated OpenAPI
- * types cannot see it) and then logs every admin out with no error pointing at
- * the cause. The route gate stops seeing a session and every write comes back
- * 403 "failed anti-forgery validation".
+ * types cannot see it) and then breaks writes with no error pointing at the
+ * cause — every state change comes back 403 "failed anti-forgery validation".
+ *
+ * ── The SESSION cookie is no longer pinned here, and that is not an omission ──
+ *
+ * This file used to assert which refresh cookie `proxy.ts` admitted. That gate
+ * is gone: the session cookie is `__Host-` prefixed and set by the API's host,
+ * so the browser locks it to that host and never sends it to this app's. The
+ * frontend cannot read it, does not name it, and therefore has no contract to
+ * pin. `proxy.ts` carries the account. The backend still pins it on its own
+ * side, which is where the cookie is actually written.
  */
-
-function requestWith(cookies: Record<string, string>): NextRequest {
-  return {
-    nextUrl: { pathname: '/withdrawals' },
-    url: 'http://localhost:3002/withdrawals',
-    cookies: {
-      get: (name: string) => (name in cookies ? { name, value: cookies[name] } : undefined),
-    },
-  } as unknown as NextRequest;
-}
-
-const admitted = (cookies: Record<string, string>) =>
-  proxy(requestWith(cookies)).headers.get('location') === null;
-
-describe('the session cookie the route gate reads', () => {
-  it('is the admin REFRESH cookie, bare spelling', () => {
-    expect(admitted({ oxshare_crm_admin_rt: 'x' })).toBe(true);
-  });
-
-  it('is the admin refresh cookie, __Host- spelling', () => {
-    // The name gains this prefix once the deployment has TLS. Reading only the
-    // bare spelling would work locally and log out every production admin.
-    expect(admitted({ '__Host-oxshare_crm_admin_rt': 'x' })).toBe(true);
-  });
-
-  it('is NOT the portal cookie — the two surfaces are separate sessions (R-3.1)', () => {
-    // Cookies ignore the port, so on localhost both apps share one jar. Reading
-    // the wrong name here would let a signed-in client walk into the admin app's
-    // shell.
-    expect(admitted({ oxshare_crm_portal_rt: 'x' })).toBe(false);
-  });
-
-  it('is NOT the access cookie', () => {
-    expect(admitted({ oxshare_crm_admin_at: 'x' })).toBe(false);
-  });
-});
 
 describe('the CSRF cookie this app reads', () => {
   it('is named for the ADMIN surface, prefixed spelling first', () => {

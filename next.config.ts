@@ -94,7 +94,7 @@ const nextConfig: NextConfig = {
         //
         // /health stays unversioned on the API, so anything probing it must not
         // go through this rewrite.
-        destination: `${process.env.API_ORIGIN ?? 'http://localhost:3001'}/v1/:path*`,
+        destination: `${process.env.API_BASE_URL ?? 'http://localhost:3001'}/v1/:path*`,
       },
     ];
   },
