@@ -16,23 +16,40 @@
  *
  * ## Why `/v1` is stripped rather than kept
  *
- * The rewrite in `next.config.ts` is `/api/:path*` → `<API_ORIGIN>/v1/:path*`, so
- * the version segment is ADDED by the proxy. Passing a path that already carries
- * it would produce `/v1/v1/uploads/…`. The root convention states this directly:
- * `/v1` lives in the rewrite destination and nowhere else in a frontend. This
- * function is the one place that knows the API spells it, and it removes it.
+ * Unchanged by the move to direct calls, for the same arithmetic: the base now
+ * ENDS with the version (`https://api.example.com/v1`) where it used to be added
+ * by the proxy, so a stored value that already carries the segment would still
+ * produce `/v1/v1/uploads/…`. Strip it here, add it once in the base.
  *
- * ## Always the browser base, never `API_BASE_URL`
+ * ## Why `API_BASE_URL` is now the right source
  *
- * `API_BASE_URL` is `http://localhost:3001` during server rendering, and baking
- * that into an `<img src>` would ship a localhost URL to a real browser. An
- * image is fetched by the BROWSER whether the markup was rendered on the server
- * or not, so the same-origin `/api` path is the correct answer in both cases.
+ * This deliberately used a same-origin `/api` prefix, because `API_BASE_URL` was
+ * `http://localhost:3001` during server rendering and baking that into an
+ * `<img src>` would ship a localhost URL to a real browser.
+ *
+ * That hazard is gone: `API_BASE_URL` derives from `NEXT_PUBLIC_API_BASE_URL`,
+ * which is required in production and identical on the server and in the client
+ * bundle — there is no longer a context where it means something private. Using
+ * it is now the SAFER choice, because an image and an API call resolve the API
+ * from one constant instead of two that can drift.
  */
 
 /* twin:config:start */
-/** The same-origin prefix `next.config.ts` rewrites to the API. */
-const BROWSER_API_BASE = '/api';
+/**
+ * The API's own origin plus the version — the SAME value the axios client uses,
+ * imported rather than rewritten, so an asset and an API call can never disagree
+ * about where the API is.
+ *
+ * This was `/api`, a same-origin path the rewrite forwarded. It cannot stay that
+ * way: a KYC document is an AUTHENTICATED read, and the session cookie now
+ * belongs to the API's host, so a request routed through the frontend's origin
+ * arrives with no cookie and is refused. The browser must ask the API directly,
+ * which it may because both hosts are siblings under one registrable domain —
+ * see the deployment requirement in `env.ts`.
+ */
+import { API_BASE_URL } from './env';
+
+const BROWSER_API_BASE = API_BASE_URL;
 /* twin:config:end */
 
 /**
