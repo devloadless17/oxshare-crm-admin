@@ -5,7 +5,7 @@
 // the token casing (the admin API answers camelCase, the portal snake_case, which
 // is frozen). Diff the two by hand when changing either.
 
-import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
 
 // Resolved and validated in `lib/env.ts`, which refuses a production build with
@@ -402,66 +402,116 @@ function endDeadSession(): void {
  */
 type RetriableRequest = InternalAxiosRequestConfig & { _retry?: boolean };
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as RetriableRequest | undefined;
-    const url = originalRequest?.url ?? '';
-    const isAuthEndpoint = AUTH_ENDPOINT_PATTERN.test(url);
+/**
+ * AN HTML BODY IS NEVER AN API RESPONSE.
+ *
+ * This exists because a deployment pointed `NEXT_PUBLIC_API_BASE_URL` at the
+ * FRONTEND's own origin instead of the API's. Every call then resolved against
+ * this Next app: `POST /v1/auth/login` matched no route, the route gate answered
+ * `307 -> /auth/login?next=...`, the browser followed the redirect transparently,
+ * and axios reported 200 OK carrying the sign-in page's HTML.
+ *
+ * Nothing anywhere said otherwise. Sign-in "succeeded", the profile call
+ * "succeeded" and "returned data", and the next navigation bounced back to the
+ * sign-in screen — because no session had ever been created. 200 is the most
+ * misleading status a misrouted API call can return, and a followed redirect is
+ * precisely how a request stops being the one that was sent.
+ *
+ * So the content type is checked on the SUCCESS path. A response the caller
+ * expected to be JSON and which is HTML did not come from the API, whatever the
+ * status line says — and the operator is told that instead of being signed out
+ * for no visible reason.
+ *
+ * `apiErrorMessage` falls back to `error.message`, so this text is what the
+ * sign-in form actually shows rather than a generic failure.
+ */
+export class NotAnApiResponseError extends Error {
+  constructor(url: string, contentType: string) {
+    super(
+      `Expected JSON from the API for "${url}" and received ${contentType || 'no content type'}. ` +
+        'The configured API origin (NEXT_PUBLIC_API_BASE_URL) is answering with a web page, ' +
+        'which means it points at a frontend rather than at the API.',
+    );
+    this.name = 'NotAnApiResponseError';
+  }
+}
 
+/**
+ * Only requests that ASKED for JSON can conclude anything from the content type:
+ * `export.ts` requests a blob and is answered `text/csv`, and a download must not
+ * be second-guessed on its type. `undefined` is axios's default, which is json.
+ */
+function assertApiResponse(response: AxiosResponse): AxiosResponse {
+  const responseType = response.config?.responseType;
+  if (responseType !== undefined && responseType !== 'json') return response;
+
+  // Narrowed rather than coerced: axios types the header bag loosely, and
+  // `String(value)` on a non-string would quietly produce '[object Object]',
+  // which matches no branch below — disarming this check instead of failing it.
+  const raw: unknown = (response.headers as Record<string, unknown> | undefined)?.['content-type'];
+  const contentType = typeof raw === 'string' ? raw : '';
+  if (!/^\s*text\/html/i.test(contentType)) return response;
+
+  throw new NotAnApiResponseError(response.config?.url ?? '', contentType);
+}
+
+apiClient.interceptors.response.use(assertApiResponse, async (error: AxiosError) => {
+  const originalRequest = error.config as RetriableRequest | undefined;
+  const url = originalRequest?.url ?? '';
+  const isAuthEndpoint = AUTH_ENDPOINT_PATTERN.test(url);
+
+  if (
+    error.response?.status === 401 &&
+    originalRequest &&
+    !originalRequest._retry &&
+    !isAuthEndpoint
+  ) {
+    originalRequest._retry = true;
+    /*
+     * On a public page there is nothing to renew, so do not ask.
+     *
+     * `AdminAuthContext` asks `/admin/auth/me` on mount everywhere, including
+     * `/login` and `/invite/accept`, and a signed-out visitor's 401 there is
+     * the correct answer to "is anyone here". Answering it with a real
+     * `POST /admin/auth/refresh` meant two guaranteed-to-fail requests on
+     * every cold load of the sign-in page — against a route throttled at
+     * 20/min, which a shared office IP can reach.
+     */
     if (
-      error.response?.status === 401 &&
-      originalRequest &&
-      !originalRequest._retry &&
-      !isAuthEndpoint
+      typeof window !== 'undefined' &&
+      isPublicPath(window.location.pathname) &&
+      readCsrfCookie() === undefined
     ) {
-      originalRequest._retry = true;
-      /*
-       * On a public page there is nothing to renew, so do not ask.
-       *
-       * `AdminAuthContext` asks `/admin/auth/me` on mount everywhere, including
-       * `/login` and `/invite/accept`, and a signed-out visitor's 401 there is
-       * the correct answer to "is anyone here". Answering it with a real
-       * `POST /admin/auth/refresh` meant two guaranteed-to-fail requests on
-       * every cold load of the sign-in page — against a route throttled at
-       * 20/min, which a shared office IP can reach.
-       */
-      if (
-        typeof window !== 'undefined' &&
-        isPublicPath(window.location.pathname) &&
-        readCsrfCookie() === undefined
-      ) {
-        return Promise.reject(error);
-      }
-      const refreshed = await refreshAdminToken();
-      if (refreshed) {
-        // No header to re-attach: the rotated session cookie travels on its own.
-        // The CSRF header is rebuilt by the request interceptor on the retry,
-        // which matters because refresh ROTATES the token — replaying the old
-        // one would fail the binding check.
-        return apiClient(originalRequest);
-      }
-      endDeadSession();
-    } else if (error.response?.status === 401 && originalRequest?._retry) {
-      /*
-       * The SECOND 401 — after a refresh succeeded and the retry still failed.
-       *
-       * This branch did not exist. Control fell straight through to the rethrow
-       * with no `clearAdminSession()` and no redirect, so the operator got a
-       * generic "something went wrong" card with a Retry button that could never
-       * succeed, and stayed on a console whose session was dead.
-       *
-       * It is not hypothetical: it is what the API answers when the rotation
-       * worked but the account behind it no longer passes — suspended, deleted,
-       * or logged out from another device between the two calls. The portal's
-       * twin of this file already handled it; this side had drifted.
-       */
-      endDeadSession();
+      return Promise.reject(error);
     }
-    // Rethrow the original AxiosError, never a wrapped one: every caller reads
-    // `error.response.data.message` through apiErrorMessage, and the 401 branch
-    // above depends on `error.response.status`. AxiosError extends Error, which
-    // is what prefer-promise-reject-errors wants.
-    return Promise.reject(error);
-  },
-);
+    const refreshed = await refreshAdminToken();
+    if (refreshed) {
+      // No header to re-attach: the rotated session cookie travels on its own.
+      // The CSRF header is rebuilt by the request interceptor on the retry,
+      // which matters because refresh ROTATES the token — replaying the old
+      // one would fail the binding check.
+      return apiClient(originalRequest);
+    }
+    endDeadSession();
+  } else if (error.response?.status === 401 && originalRequest?._retry) {
+    /*
+     * The SECOND 401 — after a refresh succeeded and the retry still failed.
+     *
+     * This branch did not exist. Control fell straight through to the rethrow
+     * with no `clearAdminSession()` and no redirect, so the operator got a
+     * generic "something went wrong" card with a Retry button that could never
+     * succeed, and stayed on a console whose session was dead.
+     *
+     * It is not hypothetical: it is what the API answers when the rotation
+     * worked but the account behind it no longer passes — suspended, deleted,
+     * or logged out from another device between the two calls. The portal's
+     * twin of this file already handled it; this side had drifted.
+     */
+    endDeadSession();
+  }
+  // Rethrow the original AxiosError, never a wrapped one: every caller reads
+  // `error.response.data.message` through apiErrorMessage, and the 401 branch
+  // above depends on `error.response.status`. AxiosError extends Error, which
+  // is what prefer-promise-reject-errors wants.
+  return Promise.reject(error);
+});
