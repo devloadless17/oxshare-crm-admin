@@ -27,7 +27,33 @@ import { cleanup, configure } from '@testing-library/react';
  * machine that import bill runs to minutes of CPU across workers, so 1s — and
  * even 5s — could be spent before the component had rendered at all.
  */
-configure({ asyncUtilTimeout: 10_000 });
+/*
+ * 15s, raised from 10s on 18 Aug 2026 after three error-state assertions blew the
+ * budget in one full run and passed alone immediately afterwards
+ * (`clients/[id]`, `wallets`, `notifications-sheet` — all of them waiting for a
+ * 404 to become a rendered BackendPending card).
+ *
+ * The cause is the one described above, measured: this machine has 22 cores, so
+ * vitest hands 57 files to ~21 jsdom workers that import React and the app's
+ * module graph simultaneously, and files that normally finish in 3s took 25–38s
+ * in the failing run.
+ *
+ * CAPPING THE WORKERS WAS TRIED AND REJECTED, so nobody repeats the experiment:
+ * `poolOptions.threads.maxThreads: 8` bounds the stampede but cost 44.3s against
+ * a 32.1s baseline — a 38% slower suite to buy stability that a single green run
+ * could not prove. Raising this ceiling is free by comparison: it is a POLLING
+ * limit, so a query that resolves immediately still returns immediately, and only
+ * a test that would otherwise fail spends the extra time.
+ *
+ * Still 25% under `testTimeout` (20s), which preserves the property the note
+ * above depends on: a genuinely stuck query fails as "Unable to find an element"
+ * with a DOM dump, not as a bare test timeout.
+ *
+ * If this needs raising a fourth time, stop and fix the contention instead —
+ * either shard the suite or cap the workers and accept the wall-clock cost. A
+ * ceiling that keeps climbing is a gate losing its meaning.
+ */
+configure({ asyncUtilTimeout: 15_000 });
 
 // TWIN FILE — an identical copy lives at the same path in oxshare-crm-admin.
 //
