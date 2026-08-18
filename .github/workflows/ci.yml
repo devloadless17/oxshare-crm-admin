@@ -1,9 +1,45 @@
 name: CI
 
+# ── Minutes are a budget, so this runs when it can tell you something ────────
+#
+# Private-repo Actions minutes are finite and this suite is not cheap, so the
+# triggers below are shaped to skip runs that could not fail:
+#
+#  - `paths-ignore` — a markdown-only commit cannot break a type-check. A docs
+#    change once cost a full run for nothing, which is what prompted this.
+#  - `pull_request` is scoped to PRs targeting `production`. Every push to `main`
+#    already runs this workflow, so an unscoped trigger re-ran the SAME commits a
+#    second time for the merge PR — paying twice for one answer.
+#  - `workflow_dispatch` so a skipped or filtered commit can still be checked on
+#    demand, without an empty commit to provoke it.
+#
+# To skip a run deliberately, put `[skip ci]` in the commit message — GitHub
+# honours it natively. Ten exploratory pushes cost nothing; drop the tag on the
+# one that matters. `workflow_dispatch` still works on a skipped commit.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.vscode/**'
   pull_request:
+    branches: [production]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.vscode/**'
+  workflow_dispatch:
+
+# A superseded run tells you about a commit nobody is on any more. Cancelling it
+# frees the minutes for the run that replaced it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
