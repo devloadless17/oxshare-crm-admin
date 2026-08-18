@@ -17,14 +17,22 @@ describe('assetUrl', () => {
    * survive into the path handed to it — and the `/api` prefix must be added,
    * because this app's own origin serves no `/v1`.
    */
-  it('routes an API upload path through the proxy, dropping the version segment', () => {
+  it('routes an API upload path to the API origin, dropping the stored version segment', () => {
     expect(assetUrl('/v1/uploads/payment-logos/f1cb4bf8.png')).toBe(
-      '/api/uploads/payment-logos/f1cb4bf8.png',
+      'http://localhost:3001/v1/uploads/payment-logos/f1cb4bf8.png',
     );
   });
 
   it('does not double the version segment', () => {
-    expect(assetUrl('/v1/uploads/x.png')).not.toContain('/v1');
+    /*
+     * The base now ENDS with `/v1` (it is the API's own origin, not a
+     * same-origin proxy that added the segment), so "contains no /v1" is no
+     * longer the property under test — exactly one is correct. The bug this
+     * guards is a stored path that already carries the segment producing
+     * `/v1/v1/uploads/...`.
+     */
+    expect(assetUrl('/v1/uploads/x.png')).toBe('http://localhost:3001/v1/uploads/x.png');
+    expect(assetUrl('/v1/uploads/x.png')).not.toContain('/v1/v1');
   });
 
   /*
@@ -52,11 +60,11 @@ describe('assetUrl', () => {
    * name merely BEGINS with `v1` keeps its path. `/v1x/…` is not a version.
    */
   it('strips /v1 only as a whole leading segment', () => {
-    expect(assetUrl('/v1x/logo.png')).toBe('/api/v1x/logo.png');
-    expect(assetUrl('/uploads/v1/logo.png')).toBe('/api/uploads/v1/logo.png');
+    expect(assetUrl('/v1x/logo.png')).toBe('http://localhost:3001/v1/v1x/logo.png');
+    expect(assetUrl('/uploads/v1/logo.png')).toBe('http://localhost:3001/v1/uploads/v1/logo.png');
   });
 
   it('tolerates a path that arrives without its leading slash', () => {
-    expect(assetUrl('uploads/logo.png')).toBe('/api/uploads/logo.png');
+    expect(assetUrl('uploads/logo.png')).toBe('http://localhost:3001/v1/uploads/logo.png');
   });
 });

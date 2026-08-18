@@ -3,23 +3,31 @@ import { buildKycDocUrl } from './kyc-doc-url';
 
 describe('buildKycDocUrl', () => {
   it('handles multer-style stored paths (uploads/kyc/<file>)', () => {
-    expect(buildKycDocUrl('uploads/kyc/123-abc.png')).toBe('/api/uploads/kyc/123-abc.png');
+    expect(buildKycDocUrl('uploads/kyc/123-abc.png')).toBe(
+      'http://localhost:3001/v1/uploads/kyc/123-abc.png',
+    );
   });
 
   it('handles dot-relative stored paths (./uploads/kyc/<file>)', () => {
-    expect(buildKycDocUrl('./uploads/kyc/123-abc.png')).toBe('/api/uploads/kyc/123-abc.png');
+    expect(buildKycDocUrl('./uploads/kyc/123-abc.png')).toBe(
+      'http://localhost:3001/v1/uploads/kyc/123-abc.png',
+    );
   });
 
   it('handles bare filenames', () => {
-    expect(buildKycDocUrl('123-abc.png')).toBe('/api/uploads/kyc/123-abc.png');
+    expect(buildKycDocUrl('123-abc.png')).toBe('http://localhost:3001/v1/uploads/kyc/123-abc.png');
   });
 
   it('normalizes Windows backslashes', () => {
-    expect(buildKycDocUrl('.\\uploads\\kyc\\123-abc.png')).toBe('/api/uploads/kyc/123-abc.png');
+    expect(buildKycDocUrl('.\\uploads\\kyc\\123-abc.png')).toBe(
+      'http://localhost:3001/v1/uploads/kyc/123-abc.png',
+    );
   });
 
   it('handles a leading slash', () => {
-    expect(buildKycDocUrl('/uploads/kyc/123-abc.png')).toBe('/api/uploads/kyc/123-abc.png');
+    expect(buildKycDocUrl('/uploads/kyc/123-abc.png')).toBe(
+      'http://localhost:3001/v1/uploads/kyc/123-abc.png',
+    );
   });
 
   it('never doubles the kyc segment (the original bug)', () => {

@@ -107,7 +107,10 @@ describe('DocLightbox', () => {
 
     expect(screen.getByRole('button', { name: /zoom in/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /rotate/i })).toBeDisabled();
-    expect(screen.getByRole('link')).toHaveAttribute('href', '/api/uploads/kyc/c.pdf');
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'href',
+      'http://localhost:3001/v1/uploads/kyc/c.pdf',
+    );
   });
 
   it('renders nothing rather than throwing when the index is out of range', () => {

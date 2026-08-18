@@ -3,7 +3,7 @@ import {
   ConfigError,
   requireAbsoluteUrl,
   resolveRealtimeOrigin,
-  resolveServerBaseUrl,
+  resolvePublicApiOrigin,
 } from './env';
 
 /**
@@ -45,15 +45,15 @@ describe('server API base URL', () => {
     // The whole point: loud at startup rather than a connection refused at the
     // first server-rendered request, or — worse — a success against whatever
     // else happens to be listening on 3001.
-    expect(() => resolveServerBaseUrl()).toThrow(ConfigError);
-    expect(() => resolveServerBaseUrl()).toThrow(/required in production/);
+    expect(() => resolvePublicApiOrigin()).toThrow(ConfigError);
+    expect(() => resolvePublicApiOrigin()).toThrow(/required in production/);
   });
 
   it('treats an empty or whitespace value as unset', () => {
     setNodeEnv('production');
     for (const value of ['', '   ']) {
       process.env.NEXT_PUBLIC_API_BASE_URL = value;
-      expect(() => resolveServerBaseUrl(), JSON.stringify(value)).toThrow(ConfigError);
+      expect(() => resolvePublicApiOrigin(), JSON.stringify(value)).toThrow(ConfigError);
     }
   });
 
@@ -63,14 +63,14 @@ describe('server API base URL', () => {
     // `npm run dev` works with no .env, which the three-terminal workflow
     // depends on. The bug was applying that convenience to production, not the
     // convenience itself.
-    expect(resolveServerBaseUrl()).toBe('http://localhost:3001');
+    expect(resolvePublicApiOrigin()).toBe('http://localhost:3001');
   });
 
   it('uses a configured value in every environment', () => {
     process.env.NEXT_PUBLIC_API_BASE_URL = 'https://api.oxshare.test';
     for (const env of ['development', 'production']) {
       setNodeEnv(env);
-      expect(resolveServerBaseUrl(), env).toBe('https://api.oxshare.test');
+      expect(resolvePublicApiOrigin(), env).toBe('https://api.oxshare.test');
     }
   });
 
@@ -80,7 +80,7 @@ describe('server API base URL', () => {
     // from — the same "works locally, wrong in production" class of bug.
     for (const value of ['/api', 'api.example.com', 'not a url']) {
       process.env.NEXT_PUBLIC_API_BASE_URL = value;
-      expect(() => resolveServerBaseUrl(), value).toThrow(ConfigError);
+      expect(() => resolvePublicApiOrigin(), value).toThrow(ConfigError);
     }
   });
 

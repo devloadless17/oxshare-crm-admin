@@ -13,21 +13,29 @@ import { avatarSrc, initialsFor } from './avatar';
  */
 
 describe('avatarSrc', () => {
-  it('routes a stored path through the /api rewrite', () => {
+  it('routes a stored path to the API origin', () => {
     // The API returns a path on its OWN origin. Rendered verbatim it asks the
     // Next server for a file it does not have.
-    expect(avatarSrc('/uploads/admin-avatars/abc.png')).toBe('/api/uploads/admin-avatars/abc.png');
+    expect(avatarSrc('/uploads/admin-avatars/abc.png')).toBe(
+      'http://localhost:3001/v1/uploads/admin-avatars/abc.png',
+    );
   });
 
   it('does not double the prefix on a path that already lacks a slash', () => {
-    expect(avatarSrc('uploads/admin-avatars/abc.png')).toBe('/api/uploads/admin-avatars/abc.png');
+    expect(avatarSrc('uploads/admin-avatars/abc.png')).toBe(
+      'http://localhost:3001/v1/uploads/admin-avatars/abc.png',
+    );
   });
 
   it('normalises the shapes a filesystem path can arrive in', () => {
     // Windows separators and a leading './' both reach the API from multer's
     // own path handling — `kyc-doc-url.ts` was written after meeting all three.
-    expect(avatarSrc('./uploads/admin-avatars/abc.png')).toBe('/api/uploads/admin-avatars/abc.png');
-    expect(avatarSrc('uploads\\admin-avatars\\abc.png')).toBe('/api/uploads/admin-avatars/abc.png');
+    expect(avatarSrc('./uploads/admin-avatars/abc.png')).toBe(
+      'http://localhost:3001/v1/uploads/admin-avatars/abc.png',
+    );
+    expect(avatarSrc('uploads\\admin-avatars\\abc.png')).toBe(
+      'http://localhost:3001/v1/uploads/admin-avatars/abc.png',
+    );
   });
 
   it('leaves an absolute URL alone', () => {

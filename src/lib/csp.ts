@@ -1,4 +1,4 @@
-import { resolveRealtimeOrigin } from './env';
+import { resolvePublicApiOrigin, resolveRealtimeOrigin } from './env';
 
 /**
  * The per-request `script-src`, with a nonce — the half of the CSP that cannot
@@ -69,7 +69,14 @@ export function contentSecurityPolicy(nonce: string, isProd: boolean): string {
     // The only per-request directive, and the reason this whole module exists.
     scriptSrc(nonce, isProd),
     "style-src 'self' 'unsafe-inline'", // Tailwind and Next inject style tags
-    "img-src 'self' data:", // KYC documents load same-origin via the /api rewrite
+    /*
+     * KYC documents, avatars and payment logos are fetched from the API's OWN
+     * origin now, not through a same-origin rewrite, so `'self'` alone would
+     * block every one of them — and a CSP block on an <img> is silent: the
+     * fallback renders and nobody sees an error. `data:` stays for inline
+     * previews before an upload is sent.
+     */
+    `img-src 'self' data: ${imageOrigins(isProd)}`,
     "font-src 'self' data:",
     /*
      * Same-origin PLUS the API's own origin, for the WebSocket only.
@@ -122,6 +129,23 @@ export const NONCE_HEADER = 'x-nonce';
  * websocket (hot reload), which is why it is broader there and pinned in
  * production.
  */
+/**
+ * Where images may be loaded from: the API origin, which is where every stored
+ * document and avatar lives. Derived from the same `env.ts` resolution as
+ * `connect-src` so the two can never name different hosts.
+ */
+function imageOrigins(isProd: boolean): string {
+  if (!isProd) return 'http://localhost:* https://localhost:*';
+  try {
+    return resolvePublicApiOrigin();
+  } catch {
+    // Same reasoning as `apiOrigins`: a missing variable is a startup failure,
+    // not a header-generation one. Falling back to nothing keeps the policy
+    // strict rather than accidentally permissive.
+    return '';
+  }
+}
+
 function apiOrigins(isProd: boolean): string {
   if (!isProd) return 'ws: http://localhost:* https://localhost:*';
 
