@@ -51,3 +51,4 @@ next-env.d.ts
 
 # playwright-cli session artifacts (snapshots, screenshots, console logs)
 .playwright-cli/
+
