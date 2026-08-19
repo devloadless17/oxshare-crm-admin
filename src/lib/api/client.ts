@@ -15,6 +15,9 @@ import { loginPathFor } from '@/lib/return-to';
 // The single definition of "reachable without a session", shared with proxy.ts.
 import { isPublicPath } from '@/lib/public-paths';
 import { announceSessionEvent, withSessionLock } from '@/lib/session-channel';
+// The marker that tells the NEXT cold load which screen to paint — cleared in
+// clearAdminSession so a dead session cannot leave it behind.
+import { clearSessionHint } from '@/lib/session-hint';
 /**
  * A request that never finishes must eventually fail.
  *
@@ -183,6 +186,23 @@ export function idempotent(key: string) {
  */
 export function clearAdminSession(): void {
   stopProactiveRefresh();
+  /*
+   * The `session-hint` marker, and this line is what keeps a stale one from
+   * becoming a redirect loop.
+   *
+   * `proxy.ts` reads the marker and sends `/login` onward to the dashboard. If a
+   * session dies while the marker survives, that redirect and the 401 eviction
+   * point at each other: login → dashboard → 401 → login. Clearing it HERE
+   * closes that, because this runs inside the interceptor — before React Query
+   * settles the error, before any component re-renders and long before any
+   * navigation. By the time the eviction lands on the sign-in screen the marker
+   * is already gone and the proxy serves the form.
+   *
+   * `AdminAuthContext` clears it too, on a 401 from `/admin/auth/me`. That is
+   * the same fact observed one layer up and is not redundant: this covers the
+   * interceptor path, that covers a query resolving signed-out without one.
+   */
+  clearSessionHint();
 }
 
 /**

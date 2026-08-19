@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { NONCE_HEADER, contentSecurityPolicy, createNonce } from '@/lib/csp';
+import { DEFAULT_SIGNED_IN_PATH, RETURN_TO_PARAM, safeReturnTo } from '@/lib/return-to';
+// The single definition of "a screen that exists only for signed-out people",
+// shared with lib/api/client.ts. Never a bare string prefix — see the file.
+import { isAuthOnlyPath } from '@/lib/public-paths';
+import { SESSION_HINT_COOKIE } from '@/lib/session-hint';
 
 /**
  * CSP only. THE SESSION GATE THAT USED TO LIVE HERE COULD NOT WORK.
@@ -47,9 +52,80 @@ import { NONCE_HEADER, contentSecurityPolicy, createNonce } from '@/lib/csp';
  * to read. That means a separate, non-sensitive marker set with `Domain=` on the
  * shared parent domain — never the session cookie itself, which must keep
  * `__Host-`.
+ *
+ * ── That marker now exists, and this file reads it ──────────────────────────
+ *
+ * `lib/session-hint.ts`. It is written by THIS app on THIS host from JavaScript
+ * whenever `/admin/auth/me` answers "signed in", so nothing about it depends on
+ * the API's cookie domain and every paragraph above still holds — the session
+ * cookie is still invisible here and still must be.
+ *
+ * What it is allowed to decide is bounded, and the boundary is the point: it
+ * moves a visitor between two PUBLIC screens, and never decides whether somebody
+ * may see a private one. Reinstating the old gate on top of it would be the
+ * original bug wearing a new cookie — a marker any visitor can write is not an
+ * authorisation, and on a console that approves payouts the difference is not
+ * academic. Access is still decided by `/admin/auth/me` and by the API, which
+ * verify a signature rather than the presence of a string.
+ *
+ * It is here rather than only in `app/page.tsx` because `/login` needs it too: a
+ * signed-in operator following a bookmark to the sign-in screen should never be
+ * sent the form at all, and answering that in the proxy means no HTML for it is
+ * ever generated.
  */
 export function proxy(request: NextRequest) {
-  return withCsp(request);
+  const decision = decideRoute(
+    request.nextUrl.pathname,
+    hasSessionHint(request),
+    request.nextUrl.search,
+  );
+
+  return decision.allow
+    ? withCsp(request)
+    : withCsp(request, NextResponse.redirect(new URL(decision.redirectTo, request.url)));
+}
+
+export type GuardDecision = { allow: true } | { allow: false; redirectTo: string };
+
+const ALLOW: GuardDecision = { allow: true };
+
+/**
+ * NOT the session — see the note above and lib/session-hint.ts.
+ *
+ * Everything it decides is cosmetic: which of two public screens to send a
+ * visitor to. Forging it buys one redirect to /dashboard, where the console
+ * layout asks the API, gets a 401, clears this marker and sends them back.
+ */
+function hasSessionHint(request: NextRequest): boolean {
+  return request.cookies.has(SESSION_HINT_COOKIE);
+}
+
+/**
+ * PURE, and it takes the marker as an argument rather than reading a cookie, so
+ * every branch is a table test rather than something you find by clicking.
+ *
+ * The site ROOT is handled by `app/page.tsx`, which reads the same cookie and
+ * shares the same two constants; this covers the sign-in screen, which a
+ * bookmark or a stale link reaches directly.
+ *
+ * `isAuthOnlyPath`, not `isPublicPath`. The difference is the whole reason
+ * public-paths.ts now keeps two lists: `/invite/accept` and `/reset-password`
+ * must work WITH a session — the person following an invitation may be signed in
+ * as somebody else, and recovery runs from the device that still holds a stale
+ * cookie. Redirecting those to the dashboard makes an invitation undeliverable
+ * and a reset link useless.
+ *
+ * `?next=` is honoured, through `safeReturnTo`: an operator who followed a link
+ * to /withdrawals, was bounced here, and turns out to still be signed in belongs
+ * at /withdrawals rather than at the dashboard. The value arrives in a URL, so it
+ * is attacker-supplied and is never navigated to unchecked.
+ */
+export function decideRoute(pathname: string, hasHint: boolean, search = ''): GuardDecision {
+  if (hasHint && isAuthOnlyPath(pathname)) {
+    const next = new URLSearchParams(search).get(RETURN_TO_PARAM);
+    return { allow: false, redirectTo: safeReturnTo(next, DEFAULT_SIGNED_IN_PATH) };
+  }
+  return ALLOW;
 }
 
 /**

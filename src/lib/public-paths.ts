@@ -40,6 +40,28 @@
  * `/invite/accept` in particular MUST be here: the whole point is that the
  * person following the emailed link does not have an account yet.
  */
+/**
+ * Screens that exist ONLY for somebody without a session.
+ *
+ * A strict subset of `PUBLIC_PATHS`, and the distinction is load-bearing rather
+ * than tidy: `proxy.ts` redirects a browser carrying the `session-hint` marker
+ * AWAY from these, and doing that to the other two public paths would lock
+ * people out.
+ *
+ *  - `/invite/accept` — the person following the emailed link may already be
+ *    signed in as somebody else on this machine, and the accept flow is the one
+ *    thing that changes that. Bouncing them to /dashboard makes the invitation
+ *    undeliverable.
+ *  - `/reset-password` — recovery runs from the device that still holds a stale
+ *    session cookie, which is the normal state of the machine somebody is locked
+ *    out on (D-44). A redirect to a console they cannot use leaves no way back
+ *    except clearing cookies by hand.
+ *
+ * So "public" and "for signed-out people only" are different properties, and
+ * collapsing them is what would break account recovery.
+ */
+export const AUTH_ONLY_PATHS = ['/login'] as const;
+
 export const PUBLIC_PATHS = [
   '/login',
   '/invite/accept',
@@ -62,5 +84,22 @@ export const PUBLIC_PATHS = [
  * to say.
  */
 export function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return matches(pathname, PUBLIC_PATHS);
+}
+
+/**
+ * Reachable ONLY without a session — the question `proxy.ts` asks before it
+ * hands a browser the sign-in form.
+ *
+ * Same segment matching, same reason: `startsWith('/login')` would also catch a
+ * future `/login-help`, and redirecting an operator away from a help page
+ * because they are signed in is exactly the class of accident this file exists
+ * to prevent.
+ */
+export function isAuthOnlyPath(pathname: string): boolean {
+  return matches(pathname, AUTH_ONLY_PATHS);
+}
+
+function matches(pathname: string, entries: readonly string[]): boolean {
+  return entries.some((entry) => pathname === entry || pathname.startsWith(`${entry}/`));
 }
