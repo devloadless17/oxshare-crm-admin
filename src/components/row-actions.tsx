@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Loader2, MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -77,12 +77,8 @@ export function RowActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={busy} aria-label={label}>
-          {busy ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-          )}
+        <Button variant="ghost" size="icon" className="h-8 w-8" loading={busy} aria-label={label}>
+          {!busy && <MoreHorizontal className="h-4 w-4" aria-hidden="true" />}
         </Button>
       </DropdownMenuTrigger>
 

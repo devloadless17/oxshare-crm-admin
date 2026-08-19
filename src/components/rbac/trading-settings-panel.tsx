@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Loader2, LineChart } from 'lucide-react';
+import { Check, LineChart } from 'lucide-react';
+import { Spinner } from '@/components/ui/loader';
 import { adminApi, type TradingSettings } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
@@ -249,7 +250,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
       >
         {mutation.isPending ? (
           <>
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            <Spinner />
             <span>{t('tradingSettings.saving')}</span>
           </>
         ) : saved ? (

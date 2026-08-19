@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Loader2, Mail } from 'lucide-react';
+import { Check, Mail } from 'lucide-react';
+import { Spinner } from '@/components/ui/loader';
 import { adminApi, type SmtpSettings } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
@@ -271,7 +272,7 @@ function SmtpForm({ settings, canManage }: { settings: SmtpSettings; canManage: 
         <button type="submit" disabled={busy || !dirty} className={BUTTON_CLASS}>
           {save.isPending ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              <Spinner />
               <span>{t('smtp.saving')}</span>
             </>
           ) : saved ? (

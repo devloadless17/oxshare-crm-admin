@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
+import { PageLoader } from '@/components/ui/loader';
 
 /**
  * Where an admin password-reset link lands — DECISIONS D-44.
@@ -196,7 +197,9 @@ function SignInLink() {
 export default function ResetPasswordPage() {
   // `useSearchParams` needs a Suspense boundary in the app router.
   return (
-    <Suspense fallback={null}>
+    // The shared loader rather than `null`, which showed a blank screen while
+    // the boundary resolved — see the note on app/login/page.tsx.
+    <Suspense fallback={<PageLoader label={t('common.loading')} fullScreen />}>
       <ResetPasswordContent />
     </Suspense>
   );

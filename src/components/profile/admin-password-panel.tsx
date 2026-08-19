@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, type LucideIcon } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -152,8 +152,7 @@ export function AdminPasswordPanel({ icon: Icon }: { icon: LucideIcon }) {
           </p>
         )}
 
-        <Button type="submit" size="sm" disabled={!ready || mutation.isPending}>
-          {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+        <Button type="submit" size="sm" loading={mutation.isPending} disabled={!ready}>
           {mutation.isPending ? t('profile.passwordSaving') : t('profile.passwordSave')}
         </Button>
       </form>

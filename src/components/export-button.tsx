@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Download, FileSpreadsheet, FileText, Loader2, ServerOff } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, ServerOff } from 'lucide-react';
 import { downloadExport, type ExportFormat, type ExportResource } from '@/lib/api/export';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { httpStatusOf } from '@/hooks/use-resource';
@@ -152,7 +152,8 @@ export function ExportButton({
           variant="outline"
           size="sm"
           className="h-9"
-          disabled={disabled || busy}
+          loading={busy}
+          disabled={disabled}
           onClick={() => void run(formats[0])}
           /*
            * The scope note follows the control.
@@ -165,11 +166,7 @@ export function ExportButton({
            */
           title={t('export.scopeNote')}
         >
-          {busy ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-          ) : (
-            <Download className="h-3.5 w-3.5" aria-hidden="true" />
-          )}
+          {!busy && <Download className="h-3.5 w-3.5" aria-hidden="true" />}
           {busy ? t('export.exporting') : (label ?? t('export.button'))}
         </Button>
       ) : (
@@ -180,13 +177,10 @@ export function ExportButton({
               variant="outline"
               size="sm"
               className="h-9"
-              disabled={disabled || busy}
+              loading={busy}
+              disabled={disabled}
             >
-              {busy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
+              {!busy && <Download className="h-3.5 w-3.5" aria-hidden="true" />}
               {busy ? t('export.exporting') : (label ?? t('export.button'))}
             </Button>
           </DropdownMenuTrigger>

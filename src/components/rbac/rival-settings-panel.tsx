@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Copy, KeyRound, Loader2, Wallet } from 'lucide-react';
+import { Check, Copy, KeyRound, Wallet } from 'lucide-react';
+import { Spinner } from '@/components/ui/loader';
 import { adminApi, type RivalSettings, type RivalWebhookKey } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
@@ -241,11 +242,7 @@ function RivalForm({ settings, canManage }: { settings: RivalSettings; canManage
           onClick={() => mint.mutate()}
           className={SECONDARY_BUTTON_CLASS}
         >
-          {mint.isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-          ) : (
-            <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-          )}
+          {mint.isPending ? <Spinner /> : <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />}
           <span>
             {settings.webhookKeyFingerprint
               ? t('rival.rotateWebhookKey')
@@ -272,7 +269,7 @@ function RivalForm({ settings, canManage }: { settings: RivalSettings; canManage
         <button type="submit" disabled={busy || !dirty} className={BUTTON_CLASS}>
           {save.isPending ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              <Spinner />
               <span>{t('rival.saving')}</span>
             </>
           ) : saved ? (
@@ -290,7 +287,7 @@ function RivalForm({ settings, canManage }: { settings: RivalSettings; canManage
           onClick={() => test.mutate()}
           className={SECONDARY_BUTTON_CLASS}
         >
-          {test.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+          {test.isPending && <Spinner />}
           <span>{t('rival.test')}</span>
         </button>
       </div>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/loader';
 import { t } from '@/lib/i18n';
 
 /**
@@ -59,11 +59,7 @@ export function StatTile({
         />
       </div>
       <p className="text-2xl font-semibold mt-2 text-foreground">
-        {loading ? (
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
-        ) : (
-          value
-        )}
+        {loading ? <Spinner size="md" className="text-muted-foreground" /> : value}
       </p>
       <p className="text-[11px] text-muted-foreground mt-1 truncate">{hint}</p>
       {loading && <span className="sr-only">{t('common.loading')}</span>}

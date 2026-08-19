@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { AlertCircle, Eye, EyeOff, Loader2, Lock } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, Lock } from 'lucide-react';
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -322,12 +322,11 @@ function AcceptInviteContent() {
                * validation would block submit before they could — which is
                * exactly how the old version made its own messages unreachable.
                */}
-              <Button type="submit" disabled={loading} aria-busy={loading} className="w-full">
+              {/* `loading` brings the disable and `aria-busy` with it — see
+                  ui/button.tsx — so both hand-written attributes are gone. */}
+              <Button type="submit" loading={loading} className="w-full">
                 {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    <span>{t('invite.submitting')}</span>
-                  </>
+                  <span>{t('invite.submitting')}</span>
                 ) : (
                   <span>{t('invite.submit')}</span>
                 )}

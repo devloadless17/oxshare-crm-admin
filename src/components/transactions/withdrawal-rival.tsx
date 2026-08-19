@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { AlertTriangle, Clock3, RefreshCw, Send } from 'lucide-react';
+import { Spinner } from '@/components/ui/loader';
 import { adminApi, type RejectionReason, type WithdrawalRow } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -122,10 +123,10 @@ export function RetryRivalButton({
       disabled={disabled || retry.isPending}
       className="inline-flex h-8 items-center gap-1 rounded-md border border-border px-3 text-xs font-semibold text-foreground hover:bg-accent disabled:opacity-50 focus-outline"
     >
-      <RefreshCw
-        className={`h-3 w-3 ${retry.isPending ? 'animate-spin' : ''}`}
-        aria-hidden="true"
-      />
+      {/* The shared Spinner in flight, the refresh mark at rest — never a
+          `RefreshCw` with `animate-spin`, which freezes under reduce-motion.
+          See ui/loader.tsx. */}
+      {retry.isPending ? <Spinner /> : <RefreshCw className="h-3 w-3" aria-hidden="true" />}
       {t('withdrawals.retrySubmission')}
     </button>
   );

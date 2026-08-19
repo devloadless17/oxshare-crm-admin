@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
 import type { ClientFieldGroup, PermissionModule, Role } from '@/lib/api/admin';
 import { PermissionMatrix } from './permission-matrix';
 import { ToggleList } from '@/components/ui/toggle-list';
@@ -224,8 +223,12 @@ export function RoleForm({
         <Button asChild variant="outline" size="sm">
           <Link href="/roles">{t('common.cancel')}</Link>
         </Button>
-        <Button type="submit" size="sm" disabled={busy} aria-busy={busy}>
-          {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+        {/*
+          `loading` does all three things this did by hand — the shared Spinner,
+          the disable and `aria-busy` — so the two attributes it replaces are
+          gone rather than left beside it. See ui/button.tsx.
+        */}
+        <Button type="submit" size="sm" loading={busy}>
           {busy ? t('roles.saving') : submitLabel}
         </Button>
       </div>

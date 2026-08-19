@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { LineChart, Mail, MonitorDown, Wallet } from 'lucide-react';
+import { PageLoader } from '@/components/ui/loader';
 import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
 import { TradingSettingsPanel } from '@/components/rbac/trading-settings-panel';
@@ -216,9 +217,17 @@ function AdminSettingsContent() {
   );
 }
 
+/*
+ * `PageLoader`, like every other console page's boundary — audit-log, clients,
+ * commissions, trading-accounts, transactions and wallets all pass it already.
+ * This one hand-built a line of muted text instead, so the settings screen was
+ * the only one that loaded differently, and it brought none of what the shared
+ * loader does: the spinner, `role="status"` with `aria-live`, and a mark that
+ * keeps moving under reduce-motion.
+ */
 export default function AdminSettingsPage() {
   return (
-    <Suspense fallback={<div className="text-sm text-muted-foreground">{t('common.loading')}</div>}>
+    <Suspense fallback={<PageLoader label={t('common.loading')} />}>
       <AdminSettingsContent />
     </Suspense>
   );

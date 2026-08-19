@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, ChevronRight, Loader2, Network, User, Users } from 'lucide-react';
+import { ChevronDown, ChevronRight, Network, User, Users } from 'lucide-react';
+import { Spinner } from '@/components/ui/loader';
 import api from '@/lib/api';
 import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
@@ -125,7 +126,7 @@ function Branch({
   if (loading) {
     return (
       <p className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+        <Spinner />
         {t('clientProfile.networkLoading')}
       </p>
     );
