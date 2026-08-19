@@ -8,6 +8,7 @@ import { adminApi } from '@/lib/api/admin';
 import { assertPermissionKeysExist } from '@/lib/permissions';
 import { announceSessionEvent, onSessionEvent } from '@/lib/session-channel';
 import { isPublicPath } from '@/lib/public-paths';
+import { clearSessionHint, markSessionHint } from '@/lib/session-hint';
 import type { components } from '@/lib/api/types.gen';
 
 // Generated from the backend's Swagger — never hand-written. A rename of
@@ -34,6 +35,21 @@ interface AdminAuthContextType {
    * no error, no retry and no way to reach the sign-in page.
    */
   isUnreachable: boolean;
+  /**
+   * Does this browser believe it has a session, INCLUDING while we are still
+   * asking?
+   *
+   * Distinct from `isAuthenticated`, which is only ever the answer
+   * `/admin/auth/me` gave. This is that answer once it exists and the
+   * `session-hint` cookie before it does — so it is the one signal available
+   * during the window where a screen has to decide what to paint and nothing
+   * authoritative has landed.
+   *
+   * ONLY for that. It is derived from a cookie any visitor can write, so a
+   * screen that used it to decide what somebody may SEE, or what they may DO,
+   * would be a forgeable gate on a console that approves payouts.
+   */
+  hadSession: boolean;
   /** Retry the identity request after a transport failure. */
   retry: () => Promise<void>;
   /**
@@ -53,12 +69,29 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
   isLoading: true,
   isAuthenticated: false,
   isUnreachable: false,
+  hadSession: false,
   retry: () => Promise.resolve(),
   refetchAdmin: () => Promise.resolve(false),
   logout: async () => {},
 });
 
-export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
+export function AdminAuthProvider({
+  children,
+  /*
+   * Read from the `session-hint` cookie by `app/layout.tsx` — SERVER-side, so
+   * the first HTML this browser receives already knows which case it is in.
+   *
+   * Passed in rather than read here with `document.cookie`, and that is the
+   * whole reason it is a prop: a client component reading the cookie itself
+   * renders `false` on the server and `true` after hydration, which puts the
+   * sign-in form into the HTML and swaps it out a frame later. See
+   * lib/session-hint.ts.
+   */
+  initialSessionHint = false,
+}: {
+  children: React.ReactNode;
+  initialSessionHint?: boolean;
+}) {
   const queryClient = useQueryClient();
 
   // A query, not useEffect + useState: an unauthenticated visitor gets one 401
@@ -115,6 +148,26 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
    */
   const status = (error as { response?: { status?: number } } | null)?.response?.status;
   const isUnreachable = error !== null && status !== 401;
+
+  /*
+   * The cookie that lets the NEXT cold load know which case it is in, kept in
+   * step with the only authoritative answer there is.
+   *
+   * Here rather than in the login page, deliberately. Signing in is not the only
+   * way a session begins — accepting an invitation does, so does a password
+   * reset, and so does simply returning tomorrow on a refresh cookie that is
+   * still good. Writing it at the point of LOGIN would cover one of those and
+   * leave the rest flashing the sign-in screen, which is the bug.
+   *
+   * An UNREACHABLE API deliberately writes nothing. We do not know what is true,
+   * and clearing on a dropped request would throw away the only signal that
+   * stops the flash — for a blip that `isUnreachable` exists to say is not an
+   * answer.
+   */
+  useEffect(() => {
+    if (admin) markSessionHint();
+    else if (error !== null && status === 401) clearSessionHint();
+  }, [admin, error, status]);
 
   const retry = useCallback(async () => {
     await refetchMe();
@@ -177,6 +230,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     return onSessionEvent((event) => {
       if (event !== 'signed-out') return;
+      // This tab's own marker, before it navigates. Without it the next cold
+      // load of this browser is told a session exists, and the sign-in screen it
+      // is about to land on holds its paint waiting for a 401.
+      clearSessionHint();
       if (typeof window === 'undefined') return;
       if (isPublicPath(window.location.pathname)) return;
       // A HARD navigation, deliberately, against @next/next's advice: a
@@ -203,6 +260,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
    */
   const logout = useCallback(async () => {
     await authApi.logout();
+    // The marker outlives this JS context, so signing out has to take it with
+    // it — and only now, for the same reason the announcement below waits: a
+    // logout that FAILED has not ended anything.
+    clearSessionHint();
     // Only after the server confirmed it. Announcing first would close every
     // other tab on a logout that then failed, which is the opposite of the
     // honesty `authApi.logout` goes out of its way to preserve.
@@ -232,6 +293,16 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: isPending,
         isAuthenticated: !!admin,
         isUnreachable,
+        /*
+         * The cookie answers while the request is in flight; the request answers
+         * once it lands.
+         *
+         * Not `initialSessionHint || isAuthenticated` — that would keep saying
+         * "yes" after a 401 on a browser holding a stale marker, which is the
+         * one case that must resolve to the sign-in form rather than to a
+         * spinner that never ends.
+         */
+        hadSession: isPending ? initialSessionHint : admin !== null,
         retry,
         refetchAdmin,
         logout,

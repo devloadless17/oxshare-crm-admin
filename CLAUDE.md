@@ -17,7 +17,7 @@ src/components/                       async-boundary · backend-pending · data-
 src/context/AdminAuthContext.tsx      useAdmin()
 src/hooks/                            use-resource · use-debounced · use-focus-trap · use-hydrated
 src/lib/api/                          client · auth · admin · index · types.gen.ts
-src/lib/                              permissions · kyc-doc-url · utils
+src/lib/                              permissions · kyc-doc-url · utils · session-hint
 src/proxy.ts                          route gate — Next 16's rename of middleware.ts
 ```
 
@@ -25,6 +25,34 @@ Files are **kebab-case**, except `src/context/*Context.tsx` (PascalCase, matchin
 Every page is `'use client'`.
 
 **Never create `middleware.ts`** — it will not run. The gate is `src/proxy.ts`.
+
+### The gate reads a MARKER, never the session
+
+`src/proxy.ts` cannot see the session and the file says so at length: the refresh cookie is
+`__Host-` prefixed and set by the API's host, so the browser locks it there. What it *can* read
+is `lib/session-hint.ts` — a non-sensitive cookie this app writes on its OWN host whenever
+`/admin/auth/me` answers "signed in", and clears when it answers 401.
+
+It exists for one bug: `app/page.tsx` was an unconditional `redirect('/login')`, so the URL every
+operator types showed a sign-in form to somebody who was already signed in, held for a whole
+round trip. That reads as having been logged out, and the response it invites is typing the
+password again — which mints a second thirty-day session over the first.
+
+**The marker decides what to PAINT, never who may ENTER.** Any visitor can write it in a console,
+so it only moves people between the two public screens; a forged one buys a redirect to
+/dashboard that `/admin/auth/me` reverses. Access is still decided by that endpoint and by the
+API, which verify a signature. Building a real gate on it would be the exact failure `proxy.ts`
+was stripped down to remove.
+
+Redirecting off `/login` uses `AUTH_ONLY_PATHS`, **not** `PUBLIC_PATHS`, and that is why
+`public-paths.ts` now keeps two lists: `/invite/accept` and `/reset-password` must work WITH a
+session. The person following an invitation may be signed in as somebody else on that machine,
+and recovery runs from the device still holding a stale cookie (D-44) — redirecting either to
+the dashboard makes the emailed link useless with no way back but clearing cookies by hand.
+
+A stale marker cannot loop, and the line that guarantees it is `clearSessionHint()` inside
+`clearAdminSession`: it runs in the axios interceptor, before React Query settles and long before
+any navigation, so the 401 eviction reaches `/login` with the marker already gone.
 
 ## Data fetching: one primitive
 
