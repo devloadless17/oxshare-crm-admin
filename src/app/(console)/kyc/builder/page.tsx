@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AlertTriangle, ArrowDown, ArrowUp, Plus, Save, Sparkles } from 'lucide-react';
+import { PageLoader } from '@/components/ui/loader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -351,15 +352,23 @@ export default function KycBuilderPage() {
         </p>
       </div>
 
+      {/*
+        `PageLoader`, not four pulsing placeholder cards.
+
+        This was the only skeleton in the console — every other screen loads
+        through `PageLoader` or `AsyncBoundary` — so the KYC builder was the one
+        page that waited differently. A skeleton earns its keep when it previews
+        the shape of what is coming; four identical grey rectangles do not,
+        because the builder renders tabs and a form rather than four cards.
+
+        `animate-pulse` also fails the same way `animate-spin` does: the blanket
+        reduced-motion rule in globals.css cuts every animation to 0.001ms, so
+        for those users this froze into four static grey blocks with nothing
+        anywhere saying the page was still working. `PageLoader` carries
+        `role="status"` and a label, and its mark keeps moving.
+      */}
       {loading ? (
-        <div className="space-y-4 pt-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-28 w-full animate-pulse rounded-2xl border border-border bg-card/40"
-            />
-          ))}
-        </div>
+        <PageLoader label={t('common.loading')} />
       ) : (
         <>
           <TabPanel value={OVERVIEW_TAB} activeValue={activeTab} idPrefix="kyc-builder">

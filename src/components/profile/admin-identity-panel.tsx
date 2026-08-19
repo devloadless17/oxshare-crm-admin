@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Check, Loader2, Trash2, Upload, type LucideIcon } from 'lucide-react';
+import { Check, Trash2, Upload, type LucideIcon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -161,14 +161,15 @@ export function AdminIdentityPanel({
               type="button"
               size="sm"
               variant="outline"
+              loading={upload.isPending}
+              // `busy` is wider than this one mutation — deleting the photo
+              // disables it too — so it stays alongside rather than folding in.
               disabled={busy}
               onClick={() => fileInput.current?.click()}
             >
-              {upload.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Upload className="h-4 w-4" aria-hidden="true" />
-              )}
+              {/* Hidden rather than spun: Button renders its Spinner ahead of
+                  the children, so leaving this in would show two marks. */}
+              {!upload.isPending && <Upload className="h-4 w-4" aria-hidden="true" />}
               {admin.avatarUrl ? t('profile.photoReplace') : t('profile.photoUpload')}
             </Button>
 
@@ -302,8 +303,7 @@ function NameForm({ admin, onSaved }: { admin: AdminProfile; onSaved: () => Prom
           }}
         />
       </div>
-      <Button type="submit" size="sm" disabled={!dirty || !valid || mutation.isPending}>
-        {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+      <Button type="submit" size="sm" loading={mutation.isPending} disabled={!dirty || !valid}>
         {saved && !mutation.isPending && <Check className="h-4 w-4" aria-hidden="true" />}
         {mutation.isPending
           ? t('profile.nameSaving')

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw, Scale } from 'lucide-react';
+import { Spinner } from '@/components/ui/loader';
 import api from '@/lib/api';
 import type { WalletDiscrepancy } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
@@ -128,10 +129,17 @@ export default function ReconciliationPage() {
           disabled={query.isFetching}
           className="focus-outline inline-flex h-9 items-center gap-2 rounded-lg border border-border px-4 text-xs font-semibold hover:bg-accent disabled:opacity-60"
         >
-          <RefreshCw
-            className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`}
-            aria-hidden="true"
-          />
+          {/*
+            The refresh mark while idle, the shared `Spinner` while in flight.
+
+            This was a `RefreshCw` carrying `animate-spin` only sometimes —
+            named in ui/loader.tsx as one of the spellings of "please wait" that
+            file replaced. It froze mid-rotation for anyone with reduce-motion
+            on, because globals.css cuts every animation to 0.001ms and
+            `animate-spin` obeys it; `loader-spin`, which the shared Spinner
+            uses, re-asserts the rotation past that rule.
+          */}
+          {query.isFetching ? <Spinner /> : <RefreshCw className="h-4 w-4" aria-hidden="true" />}
           {query.isFetching ? t('reconciliation.running') : t('reconciliation.runNow')}
         </button>
       </div>

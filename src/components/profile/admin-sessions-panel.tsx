@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, LogOut, Monitor, Smartphone, type LucideIcon } from 'lucide-react';
+import { LogOut, Monitor, Smartphone, type LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -142,15 +142,11 @@ function SessionRow({
           type="button"
           size="sm"
           variant="ghost"
-          disabled={busy}
+          loading={busy}
           className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
           onClick={onEnd}
         >
-          {busy ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-          )}
+          {!busy && <LogOut className="h-4 w-4" aria-hidden="true" />}
           {t('profile.sessionEnd')}
         </Button>
       )}

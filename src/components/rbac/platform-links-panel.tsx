@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Loader2, MonitorDown } from 'lucide-react';
+import { Check, MonitorDown } from 'lucide-react';
+import { Spinner } from '@/components/ui/loader';
 import { adminApi, type PlatformLink } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
@@ -152,7 +153,7 @@ function PlatformRow({ link, canManage }: { link: PlatformLink; canManage: boole
         >
           {mutation.isPending ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              <Spinner />
               <span>{t('platforms.saving')}</span>
             </>
           ) : saved ? (

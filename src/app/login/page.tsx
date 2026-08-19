@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { Lock, Mail, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { PageLoader } from '@/components/ui/loader';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { api } from '@/lib/api';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -179,15 +180,8 @@ function AdminLoginForm() {
               </div>
             </div>
 
-            <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{t('login.submitting')}</span>
-                </>
-              ) : (
-                <span>{t('login.submit')}</span>
-              )}
+            <Button type="submit" loading={isLoading} className="w-full">
+              {isLoading ? <span>{t('login.submitting')}</span> : <span>{t('login.submit')}</span>}
             </Button>
           </form>
         </div>
@@ -206,9 +200,18 @@ function AdminLoginForm() {
  * definitely loads into a hard build failure. `clients/page.tsx` and
  * `invite/accept/page.tsx` both wrap it for the same reason.
  */
+/*
+ * The boundary's fallback is a LOADER rather than `null`.
+ *
+ * `null` renders nothing at all while it resolves, so the sign-in screen — the
+ * one page an unauthenticated visitor definitely loads — showed a blank until
+ * it did. `fullScreen` matches what `RedirectIfAuthenticated` paints a moment
+ * later for an operator who turns out to be signed in, so the two states are
+ * the same screen rather than a blank followed by a spinner.
+ */
 export default function AdminLoginPage() {
   return (
-    <React.Suspense fallback={null}>
+    <React.Suspense fallback={<PageLoader label={t('common.loading')} fullScreen />}>
       <RedirectIfAuthenticated>
         <AdminLoginForm />
       </RedirectIfAuthenticated>

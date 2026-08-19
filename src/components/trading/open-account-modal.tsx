@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, MailCheck } from 'lucide-react';
+import { MailCheck } from 'lucide-react';
 import { adminApi, type CreatedMt5Account, type Mt5Group } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
@@ -217,8 +217,7 @@ export function OpenAccountModal({
           <Button type="button" variant="outline" size="sm" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" size="sm" disabled={!group || create.isPending}>
-            {create.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+          <Button type="submit" size="sm" loading={create.isPending} disabled={!group}>
             {create.isPending ? t('tradingAccounts.opening') : t('tradingAccounts.open')}
           </Button>
         </div>

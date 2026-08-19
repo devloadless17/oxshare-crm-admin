@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import { adminApi } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { Button } from '@/components/ui/button';
@@ -205,9 +205,10 @@ export function AdjustBalanceModal({
             type="submit"
             size="sm"
             variant={direction === 'withdraw' ? 'destructive' : 'default'}
-            disabled={!ready || !allowed || apply.isPending}
+            loading={apply.isPending}
+            // The two reasons that are NOT loading. Button ORs them with it.
+            disabled={!ready || !allowed}
           >
-            {apply.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {apply.isPending
               ? t('tradingAccounts.balanceApplying')
               : t('tradingAccounts.balanceConfirm')}

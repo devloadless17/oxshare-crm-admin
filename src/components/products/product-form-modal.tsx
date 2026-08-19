@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/loader';
 import { adminApi, type AvailableGroup, type Product, type ProductGroup } from '@/lib/api/admin';
 import { Modal } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
@@ -336,7 +337,7 @@ function ProductForm({
           disabled={saving || !name.trim()}
           className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-input px-3 text-xs font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 focus-outline"
         >
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+          {saving && <Spinner />}
           {saving ? t('products.saving') : t('products.save')}
         </button>
       </div>
