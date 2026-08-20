@@ -62,11 +62,16 @@ export const CONSOLE_PAGES = [
   '/payment-methods',
   '/products',
   '/agencies',
-  '/partners',
+  // '/partners' removed: the page and its route requirement were deleted
+  // together (partners are reached at /clients?type=partner). A table entry
+  // for a route that does not exist tests Next's 404, not this app.
   '/approvals/ib',
   '/ib-levels',
   '/commissions',
   '/reconciliation',
+  // ADM-13. The ledger sits beside reconciliation: the report says whether the
+  // books balance, this is the evidence you read when the answer is no.
+  '/ledger',
   '/api-keys',
   '/profile',
 ] as const;
@@ -127,7 +132,17 @@ export async function signIn(
    */
   const [response] = await Promise.all([
     page.waitForResponse(
-      (res) => res.url().includes('/api/admin/auth/login') && res.request().method() === 'POST',
+      /*
+       * Matched on the PATH SUFFIX, not on `/api/`.
+       *
+       * The console used to reach the API through a same-origin `/api/*`
+       * rewrite and now calls it directly at `NEXT_PUBLIC_API_BASE_URL`, so
+       * every request is `http://localhost:3001/v1/admin/...`. This predicate
+       * still named the old prefix, matched nothing, and the whole suite failed
+       * in `auth.setup` with a 30s timeout that reads as "login is broken" —
+       * while login worked perfectly. Matching the suffix survives either shape.
+       */
+      (res) => res.url().includes('/admin/auth/login') && res.request().method() === 'POST',
       { timeout: 30_000 },
     ),
     page
@@ -231,7 +246,9 @@ export function collectRejections(page: Page): { list: () => string[] } {
 
   page.on('response', (response: Response) => {
     const url = response.url();
-    if (!url.includes('/api/')) return;
+    // Either shape: the same-origin `/api/*` rewrite this app used to use, or
+    // the direct API origin it uses now. Both carry the versioned path.
+    if (!url.includes('/api/') && !url.includes('/v1/')) return;
     const status = response.status();
     if (status === 401 || status === 403) {
       rejected.push(`${status} ${new URL(url).pathname}`);
@@ -309,7 +326,7 @@ export async function searchOwnClients(page: Page): Promise<void> {
   // write, no fetch, and therefore no response to wait for.
   if ((await box.inputValue()) !== E2E_DOMAIN) {
     const settled = page.waitForResponse(
-      (res) => res.url().includes('/api/admin/clients') && res.url().includes(`q=${E2E_DOMAIN}`),
+      (res) => res.url().includes('/admin/clients') && res.url().includes(`q=${E2E_DOMAIN}`),
       { timeout: 20_000 },
     );
     await box.fill(E2E_DOMAIN);

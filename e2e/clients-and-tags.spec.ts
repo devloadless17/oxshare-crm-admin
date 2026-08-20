@@ -81,7 +81,7 @@ test.describe('the client index', () => {
     // Armed BEFORE the click: the sorted refetch is what proves the header
     // reached the API, and it fires immediately on the URL change.
     const sorted = page.waitForResponse(
-      (r) => r.url().includes('/api/admin/clients') && r.url().includes('sort=email'),
+      (r) => r.url().includes('/admin/clients') && r.url().includes('sort=email'),
       { timeout: 20_000 },
     );
     await page.getByRole('button', { name: /^email$/i }).click();
