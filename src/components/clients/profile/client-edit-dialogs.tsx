@@ -31,12 +31,20 @@ import { t } from '@/lib/i18n';
 const FIELD =
   'flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline disabled:cursor-not-allowed disabled:opacity-60';
 
-/** Both dialogs change what the profile query returns. */
+/**
+ * Both dialogs change what the profile query returns.
+ *
+ * The key is `['client', id]` — the exact key `clients/[id]/page.tsx` registers
+ * and every sibling (actions menu, partner dialogs) invalidates. This function
+ * once said `['admin', 'client', id]`, which matched NOTHING: the save
+ * succeeded, the invalidation was a no-op, and the header kept showing the old
+ * name/email until a manual reload.
+ */
 async function refreshProfile(
   queryClient: ReturnType<typeof useQueryClient>,
   clientId: string,
 ): Promise<void> {
-  await queryClient.invalidateQueries({ queryKey: ['admin', 'client', clientId] });
+  await queryClient.invalidateQueries({ queryKey: ['client', clientId] });
 }
 
 /* ── Profile ──────────────────────────────────────────────────────────────── */

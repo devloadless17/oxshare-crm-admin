@@ -13,6 +13,7 @@ import {
   Boxes,
   Radio,
   Scale,
+  Receipt,
   KeyRound,
   ArrowLeftRight,
   Wallet,
@@ -192,8 +193,11 @@ const NAV_SECTIONS: NavSection[] = [
        * tile links to.
        */
       /* The ledger sits between the partners who earn and the ladder that sets
-         the rates — the order the questions are actually asked in. */
-      // { label: 'nav.commissions', href: '/commissions', icon: Coins },
+         the rates — the order the questions are actually asked in. (This entry
+         was briefly commented out, which left a working, permission-gated
+         screen reachable only by typing its URL — the navigation lists places
+         an operator can go, and /commissions is one.) */
+      { label: 'nav.commissions', href: '/commissions', icon: Coins },
       { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
       /*
        * Agencies sit with the partners rather than with Products, because that
@@ -230,6 +234,13 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'nav.leverages', href: '/leverages', icon: Gauge },
       // Master-admin only (see permissions.ts), so it simply does not render
       // for a sub-admin — `canAccess` filters this list.
+      /*
+         ADM-13. Beside reconciliation because that is the order the questions
+         are asked in: the report says whether the books balance, and the ledger
+         is the evidence you read when the answer is no. `Receipt`, not `Scale` —
+         one weighs, the other records.
+      */
+      { label: 'nav.ledger', href: '/ledger', icon: Receipt },
       { label: 'nav.reconciliation', href: '/reconciliation', icon: Scale },
       // Beside reconciliation rather than under trading: both answer "is the
       // machinery working", where the trading entries above answer "what does

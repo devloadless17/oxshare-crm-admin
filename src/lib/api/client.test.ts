@@ -256,6 +256,69 @@ describe('the anti-forgery token across a refresh', () => {
    * belongs to the API's host, which makes the remembered response token the
    * ONLY source - so losing it means no header is sent at all.
    */
+  /*
+   * The COLD-LOAD half of the same fix, and the one that broke production.
+   *
+   * A page reload makes no login and no refresh call, so the in-memory token is
+   * empty and the cookie is unreadable — it is `__Host-` prefixed and therefore
+   * locked to the API's host, which is a DIFFERENT host once deployed. With no
+   * source of a token, no `X-OxShare-CSRF` header goes out and every write is
+   * 403, deterministically, for every operator. Local development hides it
+   * completely because :3001 and :3002 share one cookie jar.
+   *
+   * The middleware that echoes the token on ordinary responses is what closes
+   * it, and this asserts the client half: learn from any response, then send it.
+   */
+  it('learns the token from an ordinary response when no cookie is readable', async () => {
+    document.cookie = 'oxshare_crm_admin_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = '__Host-oxshare_crm_admin_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+    const { apiClient } = await loadClient();
+
+    let sent: InternalAxiosRequestConfig | undefined;
+    apiClient.defaults.adapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+      sent = config;
+      return Promise.resolve({
+        data: {},
+        status: 200,
+        statusText: 'OK',
+        // Lowercased, because that is how axios normalises response headers —
+        // reading `X-OxShare-CSRF` off this object finds nothing.
+        headers: { 'content-type': 'application/json', 'x-oxshare-csrf': 'echoed-on-a-read' },
+        config,
+      });
+    };
+
+    // A plain READ — no login, no refresh. This is the only thing a freshly
+    // loaded console does before its first write.
+    await apiClient.get('/admin/auth/me');
+
+    await apiClient.post('/admin/clients/c1/tags', { tagId: 't1' });
+
+    expect(sent?.headers['X-OxShare-CSRF']).toBe('echoed-on-a-read');
+  });
+
+  /* A GET carries no token of its own — only writes are forged. */
+  it('sends no anti-forgery header on a read', async () => {
+    const { apiClient } = await loadClient();
+
+    let sent: InternalAxiosRequestConfig | undefined;
+    apiClient.defaults.adapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+      sent = config;
+      return Promise.resolve({
+        data: {},
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json', 'x-oxshare-csrf': 'echoed-on-a-read' },
+        config,
+      });
+    };
+
+    await apiClient.get('/admin/clients');
+
+    expect(sent?.headers['X-OxShare-CSRF']).toBeUndefined();
+  });
+
   it('attaches the token the refresh returned, not the one it replaced', async () => {
     // Cross-host: this app cannot read the API's cookie. Cleared explicitly so
     // a leftover from another test cannot supply the token by accident.

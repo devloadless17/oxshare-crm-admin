@@ -66,6 +66,40 @@ export const messages = {
   'nav.clients': 'Clients',
   'nav.withdrawals': 'Withdrawals',
   'nav.ledger': 'Ledger',
+
+  // ── RBAC-08, the admin IP allowlist ───────────────────────────────────────
+  'ipAllowlist.title': 'Network access',
+  'ipAllowlist.subtitle':
+    'Restrict the administration console to particular networks. Client-facing pages are never affected.',
+  'ipAllowlist.loading': 'Loading network rules',
+  'ipAllowlist.loadFailed': 'Could not load the network rules.',
+  // Says OFF in words. A page titled "Network Access" showing no errors reads as
+  // protection to anybody who does not know an empty list disables the feature.
+  'ipAllowlist.notEnforcing':
+    'No rules configured, so this protection is OFF — the console is reachable from any network. Adding the first rule switches it on.',
+  'ipAllowlist.enforcing':
+    'Enforcing. Only the {count} network(s) below can reach the administration API.',
+  'ipAllowlist.disabledByConfig':
+    'Enforcement is switched OFF by configuration (ADMIN_IP_ALLOWLIST_ENABLED=false). The rules below are saved and none of them is being applied. Remove that setting and restart to enforce them again.',
+  // The address the SERVER sees. Behind the console's dev proxy that is ::1, not
+  // the operator's public address — printing it bare invites them to compare it
+  // with a "what is my IP" site and conclude the console is broken.
+  'ipAllowlist.yourIp':
+    'This request reached the API from {ip}. That is the address the SERVER sees — behind a proxy or in local development it is the proxy, not your public address. A rule has to cover this value to admit you.',
+  'ipAllowlist.yourIpUnknown':
+    'The API could not determine the address this request came from. Adding a rule now would lock you out, and it will be refused.',
+  'ipAllowlist.empty': 'No network rules. The console is reachable from anywhere.',
+  'ipAllowlist.firstRuleWarning':
+    'This is the FIRST rule, so it turns enforcement on immediately. If it does not cover the address above you would lose access to this screen — the API refuses such a rule rather than locking you out.',
+  'ipAllowlist.cidrLabel': 'Address or range (CIDR)',
+  'ipAllowlist.labelLabel': 'What is it',
+  'ipAllowlist.labelPlaceholder': 'Beirut office',
+  'ipAllowlist.addRule': 'Add rule',
+  'ipAllowlist.addFailed': 'Could not add that rule.',
+  'ipAllowlist.removeFailed': 'Could not remove that rule.',
+  'ipAllowlist.remove': 'Remove {cidr}',
+  'ipAllowlist.confirmRemove':
+    'Remove {cidr}? If it is the last rule covering your own address the API will refuse, because it would lock you out.',
   'nav.commissionPlans': 'Commission Plans',
   'nav.kyc': 'KYC Review',
   'nav.kycBuilder': 'KYC Workflow Builder',
@@ -1844,6 +1878,35 @@ export const messages = {
   // on a money system already knows, and the screen answers exactly the
   // question that word asks.
   'nav.reconciliation': 'Reconciliation',
+
+  // ── Ledger (ADM-13) ───────────────────────────────────────────────────────
+  'ledger.title': 'Ledger',
+  'ledger.subtitle':
+    'Every money movement on the platform, append-only. A correction is a new compensating entry — nothing here is ever edited or deleted.',
+  'ledger.loading': 'Loading the ledger',
+  'ledger.loadFailed': 'Could not load the ledger.',
+  'ledger.empty': 'No ledger entries match these filters.',
+  'ledger.colWhen': 'When',
+  'ledger.colClient': 'Client',
+  'ledger.colType': 'Type',
+  'ledger.colAmount': 'Amount',
+  'ledger.colBalance': 'Balance after',
+  'ledger.colReference': 'Reference',
+  'ledger.filterType': 'Entry type',
+  'ledger.filterTypeAll': 'All entry types',
+  'ledger.filterClient': 'Filter by client id',
+  'ledger.filterClientLabel': 'Client id',
+  'ledger.clearFilters': 'Clear',
+  'ledger.scopedToClient': 'Showing one client. Clear the filter to see the whole ledger.',
+  'ledger.noun': 'entry',
+  'ledger.nounPlural': 'entries',
+  // The six values `ledger_entries.entry_type` can hold.
+  'ledger.type.deposit': 'Deposit',
+  'ledger.type.withdrawal': 'Withdrawal',
+  'ledger.type.commission': 'Commission',
+  'ledger.type.rebate': 'Rebate',
+  'ledger.type.payout': 'Payout',
+  'ledger.type.adjustment': 'Adjustment',
   'nav.bridge': 'MT5 bridge',
   'nav.apiKeys': 'API keys',
 

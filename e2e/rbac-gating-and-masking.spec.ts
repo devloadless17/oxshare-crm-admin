@@ -30,7 +30,9 @@ function collectBodies(page: Page): { all: () => Promise<string> } {
   const pending: Promise<string>[] = [];
 
   page.on('response', (response) => {
-    if (!response.url().includes('/api/')) return;
+    // Either shape: the old same-origin `/api/*` rewrite, or the direct API
+    // origin this console uses now. Both carry the versioned path.
+    if (!response.url().includes('/api/') && !response.url().includes('/v1/')) return;
     pending.push(response.text().catch(() => ''));
   });
 
@@ -139,7 +141,7 @@ test.describe('what a RESTRICTED sub-admin cannot reach', () => {
   test('and the API refuses it too, with 403', async ({ page }) => {
     const refused: number[] = [];
     page.on('response', (r) => {
-      if (r.url().includes('/api/admin/roles')) refused.push(r.status());
+      if (r.url().includes('/admin/roles')) refused.push(r.status());
     });
 
     await page.goto('/roles');

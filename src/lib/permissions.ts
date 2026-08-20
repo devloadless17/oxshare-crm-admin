@@ -231,6 +231,17 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * they were specifically denied. So it is grantable, and granting it is a
    * decision about giving somebody sight of every client.
    */
+  /*
+   * ADM-13. `ledger.view`, its own key — NOT `withdrawals.view`, which is what
+   * `GET /admin/ledger` used to require. The ledger holds six entry types and
+   * only one is a withdrawal, so riding on the payout queue's key handed every
+   * deposit and commission on the platform to anyone reviewing withdrawals.
+   *
+   * This must stay in step with the decorator AND the service assertion in the
+   * backend: `canAccess` here only decides what to paint, and a mismatch shows
+   * an operator a page that then 403s.
+   */
+  { prefix: '/ledger', requirement: { permission: 'ledger.view' } },
   { prefix: '/reconciliation', requirement: { permission: 'reconciliation.view' } },
   /*
    * `apikeys.view` opens the list; `apikeys.create` and `apikeys.revoke` gate

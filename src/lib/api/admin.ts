@@ -678,6 +678,9 @@ export type AcceptInviteResponse = components['schemas']['AcceptInviteResponseDt
 export type PlatformLink = components['schemas']['PlatformLinkDto'];
 
 export type SecuritySwitch = components['schemas']['SecuritySwitchDto'];
+/** RBAC-08 — the allowlist, whether it is enforcing, and your own address. */
+export type IpAllowlistStatus = components['schemas']['IpAllowlistStatusDto'];
+export type IpAllowlistRule = components['schemas']['IpAllowlistRuleDto'];
 
 /**
  * The catalogue: a product, and the MT5 groups behind it.
@@ -740,6 +743,32 @@ export const adminApi = {
     const { data } = await apiClient.put<SecuritySwitch>(`/admin/security-settings/${key}`, {
       enabled,
     });
+    return data;
+  },
+
+  // ── RBAC-08, the admin IP allowlist ──────────────────────────────────────
+  /**
+   * Requires `settings.security.view`.
+   *
+   * `yourIp` is the address THE SERVER SEES, which in local development is the
+   * Next.js rewrite rather than the browser — the panel says so, because a rule
+   * written for the address an operator can see is one the server can never
+   * match, and that is what made this feature painful enough to be deleted once.
+   */
+  async getIpAllowlist(signal?: AbortSignal): Promise<IpAllowlistStatus> {
+    const { data } = await apiClient.get<IpAllowlistStatus>('/admin/ip-allowlist', { signal });
+    return data;
+  },
+
+  /** Requires `settings.security.edit`. The API refuses a rule that would lock the author out. */
+  async addIpAllowlistRule(input: { cidr: string; label: string }): Promise<IpAllowlistRule> {
+    const { data } = await apiClient.post<IpAllowlistRule>('/admin/ip-allowlist', input);
+    return data;
+  },
+
+  /** Requires `settings.security.edit`. Refused when it is the last rule covering you. */
+  async removeIpAllowlistRule(id: string): Promise<{ message: string }> {
+    const { data } = await apiClient.delete<{ message: string }>(`/admin/ip-allowlist/${id}`);
     return data;
   },
   /**

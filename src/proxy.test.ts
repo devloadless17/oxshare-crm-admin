@@ -186,4 +186,19 @@ describe('matcher', () => {
     expect(matches('/withdrawals')).toBe(true);
     expect(matches('/kyc/builder')).toBe(true);
   });
+
+  /*
+   * The extension list is a STRING, so its dots need `\\.`, not `\.`.
+   *
+   * JS drops an unrecognised escape, which turns `\.` into a bare `.` meaning
+   * "any character" — and a page whose path merely LOOKS like an asset then
+   * falls outside the matcher and ships with no Content-Security-Policy, which
+   * is the exact hole the explicit list exists to close. It reads correctly
+   * either way, so only an assertion catches it.
+   */
+  it('excludes an asset by its real dot, not by any character', () => {
+    expect(matches('/oxshare-mark.svg')).toBe(false);
+    expect(matches('/clientsXsvg')).toBe(true);
+    expect(matches('/reportXcsv')).toBe(true);
+  });
 });

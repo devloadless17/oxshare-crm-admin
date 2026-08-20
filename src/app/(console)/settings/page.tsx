@@ -3,10 +3,11 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { LineChart, Mail, MonitorDown, Wallet } from 'lucide-react';
+import { LineChart, Mail, MonitorDown, ShieldCheck, Wallet } from 'lucide-react';
 import { PageLoader } from '@/components/ui/loader';
 import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
+import { IpAllowlistPanel } from '@/components/rbac/ip-allowlist-panel';
 import { TradingSettingsPanel } from '@/components/rbac/trading-settings-panel';
 import { RivalSettingsPanel } from '@/components/rbac/rival-settings-panel';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
@@ -83,6 +84,11 @@ function AdminSettingsContent() {
   const canViewRival = hasPermission(admin, 'settings.rival.view');
   const canEditRival = hasPermission(admin, 'settings.rival.edit');
   const canEditSmtp = hasPermission(admin, 'settings.smtp.edit');
+  // RBAC-08. Read and change are separate keys for the same reason every other
+  // module splits them: seeing which networks are trusted is an audit question,
+  // adding one can lock every administrator out of the building.
+  const canViewSecurity = hasPermission(admin, 'settings.security.view');
+  const canEditSecurity = hasPermission(admin, 'settings.security.edit');
   /*
    * `settings.security.view` / `.edit` exist in the catalog and are read
    * NOWHERE on this page, because the security tab they were minted for was
@@ -145,9 +151,22 @@ function AdminSettingsContent() {
         label: t('settings.tabPlatforms'),
         icon: <MonitorDown className="h-4 w-4" aria-hidden="true" />,
       },
+      /*
+       * RBAC-08, hidden rather than disabled without `settings.security.view` —
+       * like Email and Payments. Which networks are trusted is exactly the sort
+       * of thing not to show an operator who cannot act on it: it is a map of
+       * where the company works from.
+       */
+      canViewSecurity
+        ? {
+            value: 'security',
+            label: t('settings.tabSecurity'),
+            icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />,
+          }
+        : null,
     ];
     return all.filter((tab): tab is TabDefinition => tab !== null);
-  }, [canViewSmtp, canViewRival]);
+  }, [canViewSmtp, canViewRival, canViewSecurity]);
 
   /*
    * An unknown or forbidden `?tab=` falls back to the first tab rather than
@@ -199,6 +218,10 @@ function AdminSettingsContent() {
 
         <TabPanel value="payments" activeValue={active} idPrefix="settings">
           <RivalSettingsPanel canManage={canEditRival} />
+        </TabPanel>
+
+        <TabPanel value="security" activeValue={active} idPrefix="settings">
+          <IpAllowlistPanel canManage={canEditSecurity} />
         </TabPanel>
 
         <TabPanel value="platforms" activeValue={active} idPrefix="settings">
