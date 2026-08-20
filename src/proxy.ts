@@ -172,6 +172,10 @@ export const config = {
    * user-supplied data either way.
    */
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api/|.*\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|json|webmanifest|woff|woff2|ttf|otf|eot|map|mp4|webm|pdf|csv)$).*)',
+    // NOTE the double backslash: this is a single-quoted STRING, not a regex
+    // literal. '\.'' in a string silently becomes a bare '.', i.e. "any
+    // character", and a path like /clientsXsvg would skip the matcher and ship
+    // with no Content-Security-Policy — the exact hole this list exists to close.
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|txt|xml|json|webmanifest|woff|woff2|ttf|otf|eot|map|mp4|webm|pdf|csv)$).*)',
   ],
 };

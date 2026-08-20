@@ -31,6 +31,29 @@ vi.mock('@/lib/api', () => {
 });
 
 /*
+ * The acting operator's keys, mutable per test — what this screen RENDERS is a
+ * function of them, so a test has to be able to state which it means. Left
+ * unmocked, `useAdmin()` answers null and every gated control silently vanishes,
+ * which is how the old "no write actions" assertion passed against a screen that
+ * had them.
+ */
+const identity = { permissions: [] as string[] };
+
+vi.mock('@/context/AdminAuthContext', () => ({
+  useAdmin: () => ({
+    admin: {
+      id: 'a-1',
+      name: 'Trading Operator',
+      email: 'ops@oxshare.com',
+      role: 'sub_admin',
+      get permissions() {
+        return identity.permissions;
+      },
+    },
+  }),
+}));
+
+/*
  * Filters, sort and page live in the URL, so `replace` must feed back into
  * `useSearchParams` AND schedule a re-render — a spy that only recorded would
  * freeze every URL-controlled input at its initial value. Same shape as
@@ -97,6 +120,8 @@ function page(items: TradingAccountRow[], total = items.length): TradingAccountL
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Read-only by default: the money controls are opt-in per test.
+  identity.permissions = ['trading.view'];
   searchParams.current = new URLSearchParams();
   snapshot += 1;
   listeners.clear();
@@ -286,17 +311,60 @@ describe('trading accounts — filtering and sorting reach the API', () => {
   });
 });
 
-describe('trading accounts — no write actions', () => {
-  /**
-   * MetaTrader is the system of record for logins, groups and leverage
-   * (ARCHITECTURE §1), and `AdminHoldingsController` exposes reads only. A row
-   * menu here would have to invent its entries.
-   */
-  it('offers no per-row action menu', async () => {
+/*
+ * ── The write actions, and the permissions that decide they exist ──
+ *
+ * This block used to assert the OPPOSITE — "offers no per-row action menu" —
+ * on the reasoning that `AdminHoldingsController` exposes reads only. That
+ * stopped being true when `Mt5AccountsController` landed: the screen now opens
+ * MT5 accounts and moves their balances.
+ *
+ * It kept passing for a reason worth recording, because it is how a stale
+ * assertion survives a change it contradicts: `useAdmin()` was never mocked, so
+ * `admin` was null, so every `hasPermission` answered false and nothing
+ * rendered. The test asserted an absence it had itself caused, and the two
+ * money controls on this screen had no coverage at all.
+ *
+ * The identity is stated per test now, which is the point: what renders here is
+ * a function of the operator's keys, so a test has to say which keys it means.
+ */
+describe('trading accounts — the write actions are permission-gated', () => {
+  it('offers no row menu and no open-account button to a read-only operator', async () => {
+    identity.permissions = ['trading.view'];
+    searchParams.current = new URLSearchParams('userId=u-1');
     renderWithProviders(<TradingAccountsPage />);
     await screen.findByText('client@example.com');
 
-    expect(screen.queryByRole('columnheader', { name: /actions/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /suspend|close|edit/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /open a trading account/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /actions for account/i })).toBeNull();
+  });
+
+  /*
+   * `trading.create` alone. The row menu is gated on the DEPOSIT/WITHDRAW keys,
+   * so it must stay absent — opening an account and moving money on one are
+   * different privileges and the screen has to keep them apart.
+   *
+   * `?userId=` is set because the button only exists on a client-filtered view:
+   * an account is opened FOR somebody, and the unfiltered list has no answer to
+   * "for whom".
+   */
+  it('offers opening an account, but not moving money, on trading.create', async () => {
+    identity.permissions = ['trading.view', 'trading.create'];
+    searchParams.current = new URLSearchParams('userId=u-1');
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    expect(screen.getByRole('button', { name: /open a trading account/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /actions for account/i })).toBeNull();
+  });
+
+  it('offers the balance menu on trading.deposit, and no open-account button', async () => {
+    identity.permissions = ['trading.view', 'trading.deposit'];
+    searchParams.current = new URLSearchParams('userId=u-1');
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    expect(screen.getByRole('button', { name: /actions for account/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /open a trading account/i })).toBeNull();
   });
 });

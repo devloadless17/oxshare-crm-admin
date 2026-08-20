@@ -192,8 +192,11 @@ const NAV_SECTIONS: NavSection[] = [
        * tile links to.
        */
       /* The ledger sits between the partners who earn and the ladder that sets
-         the rates — the order the questions are actually asked in. */
-      // { label: 'nav.commissions', href: '/commissions', icon: Coins },
+         the rates — the order the questions are actually asked in. (This entry
+         was briefly commented out, which left a working, permission-gated
+         screen reachable only by typing its URL — the navigation lists places
+         an operator can go, and /commissions is one.) */
+      { label: 'nav.commissions', href: '/commissions', icon: Coins },
       { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
       /*
        * Agencies sit with the partners rather than with Products, because that
