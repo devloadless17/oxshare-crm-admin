@@ -330,11 +330,32 @@ export function refreshAdminToken(): Promise<boolean> {
          * expires alongside the access token, and demanding one here would lock
          * out the returning user this call exists to renew.
          */
-        await axios.post(
+        const rotation = await axios.post(
           `${API_BASE_URL}${REFRESH_PATH}`,
           {},
           { withCredentials: true, headers: { 'X-Request-Id': newCorrelationId() } },
         );
+        /*
+         * Learn the ROTATED anti-forgery token off THIS response.
+         *
+         * Stepping outside `apiClient` above costs BOTH interceptors, not only
+         * the request one. The absent correlation id was noticed and attached by
+         * hand; the absent RESPONSE interceptor was not - so `rememberCsrfToken`
+         * never ran for the one call in the app that invalidates the token it
+         * caches.
+         *
+         * Refresh ROTATES the token: the API mints a new one, sets it as the
+         * cookie and returns it in `X-OxShare-CSRF`. Dropping that header left
+         * `csrfFromResponse` pinned to the PRE-rotation value, so every later
+         * write echoed a token the API's cookie no longer matched and was refused
+         * 403 `failed anti-forgery validation` - permanently, because nothing
+         * else ever writes that variable.
+         *
+         * Not an edge case: the access token lives 15 minutes, so the first
+         * refresh lands minutes into any session and every write after it failed.
+         * Signing out and back in did not help, because the next refresh redid it.
+         */
+        rememberCsrfToken(rotation.headers);
         /*
          * A boolean, because there is nothing else to return.
          *
@@ -368,11 +389,14 @@ export function refreshAdminToken(): Promise<boolean> {
         if (supersededCode(error) && !retrying) {
           retrying = true;
           try {
-            await axios.post(
+            const retriedRotation = await axios.post(
               `${API_BASE_URL}${REFRESH_PATH}`,
               {},
               { withCredentials: true, headers: { 'X-Request-Id': newCorrelationId() } },
             );
+            // Rotates the token exactly as the first attempt does, so it has to be
+            // learned here too - see the note on the call above.
+            rememberCsrfToken(retriedRotation.headers);
             return true;
           } catch {
             return false;

@@ -238,3 +238,52 @@ describe('a response that did not come from the API', () => {
     ).resolves.toBeDefined();
   });
 });
+
+describe('the anti-forgery token across a refresh', () => {
+  /*
+   * The refresh call deliberately bypasses `apiClient` so a 401 cannot recurse
+   * into the interceptor that called it - and that costs the RESPONSE
+   * interceptor as well as the request one.
+   *
+   * Refresh ROTATES the CSRF token. Dropping `X-OxShare-CSRF` off this one
+   * response left the cached token pinned to the value the rotation replaced,
+   * so every write after the first refresh echoed a token the API's cookie no
+   * longer matched and was refused 403 for the rest of the session. The access
+   * token lives 15 minutes, so that is minutes into every session.
+   *
+   * The cross-host deployment is the case that matters and the one local
+   * development hides: `readCsrfCookie()` returns undefined because the cookie
+   * belongs to the API's host, which makes the remembered response token the
+   * ONLY source - so losing it means no header is sent at all.
+   */
+  it('attaches the token the refresh returned, not the one it replaced', async () => {
+    // Cross-host: this app cannot read the API's cookie. Cleared explicitly so
+    // a leftover from another test cannot supply the token by accident.
+    document.cookie = 'oxshare_crm_admin_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = '__Host-oxshare_crm_admin_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+    const { apiClient, refreshAdminToken } = await loadClient();
+    mockedPost.mockResolvedValue({
+      status: 200,
+      headers: { 'x-oxshare-csrf': 'token-after-rotation' },
+    });
+
+    expect(await refreshAdminToken()).toBe(true);
+
+    let sent: InternalAxiosRequestConfig | undefined;
+    apiClient.defaults.adapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+      sent = config;
+      return Promise.resolve({
+        data: {},
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json' },
+        config,
+      });
+    };
+
+    await apiClient.patch('/admin/clients/c1/status', { status: 'ACTIVE' });
+
+    expect(sent?.headers['X-OxShare-CSRF']).toBe('token-after-rotation');
+  });
+});
