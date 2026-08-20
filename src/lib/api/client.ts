@@ -77,7 +77,7 @@ apiClient.interceptors.request.use((config) => {
   config.headers['X-Request-Id'] = newCorrelationId();
 
   if (STATE_CHANGING.test(config.method ?? 'get')) {
-    const csrf = readCsrfCookie();
+    const csrf = currentCsrfToken();
     if (csrf) config.headers[CSRF_HEADER] = csrf;
   }
   return config;
@@ -118,6 +118,69 @@ export const CSRF_COOKIE_NAMES = [
 function readCsrfCookie(): string | undefined {
   return Cookies.get(CSRF_COOKIE_NAMES[0]) ?? Cookies.get(CSRF_COOKIE_NAMES[1]);
 }
+
+/**
+ * The token as the API last returned it, held in memory.
+ *
+ * ## Why reading the cookie is not enough
+ *
+ * `document.cookie` only exposes cookies belonging to the HOST of this page. The
+ * anti-forgery cookie is set by the API, on the API's host, with a `__Host-`
+ * prefix that forbids a `Domain` attribute — so wherever this app is deployed to
+ * a different hostname than the API (which is every real deployment; the browser
+ * must call the API directly because a Next rewrite cannot proxy the realtime
+ * WebSocket upgrade), `readCsrfCookie()` returns undefined, no header is sent,
+ * and EVERY write is refused with a 403.
+ *
+ * Local development hides this completely: cookies ignore the PORT, so :3001 and
+ * :3002 are one cookie host and the cookie reads perfectly.
+ *
+ * So the API also returns the token in an `X-OxShare-CSRF` response header
+ * (exposed via CORS), and this keeps the last one seen. The cookie is still
+ * preferred where it is readable, which keeps development on exactly the path it
+ * has always used.
+ *
+ * ## Memory rather than storage, deliberately
+ *
+ * Not `localStorage`: this survives exactly as long as the page does, so a token
+ * cannot outlive the session that minted it or be read by another tab after a
+ * sign-out. The cost is that a cold load starts with nothing — which is why the
+ * API returns the header on EVERY response rather than only on login, so the
+ * first call the screen makes restores it.
+ */
+let csrfFromResponse: string | undefined;
+
+function currentCsrfToken(): string | undefined {
+  return readCsrfCookie() ?? csrfFromResponse;
+}
+
+/** Forgotten on sign-out, so a dead token cannot be attached to a new session. */
+function forgetCsrfToken(): void {
+  csrfFromResponse = undefined;
+}
+
+function rememberCsrfToken(headers: unknown): void {
+  // axios lowercases response header names; the API sends `X-OxShare-CSRF`.
+  const value = (headers as Record<string, unknown> | undefined)?.['x-oxshare-csrf'];
+  if (typeof value === 'string' && value !== '') csrfFromResponse = value;
+}
+
+/*
+ * Registered BEFORE the refresh-and-retry interceptor below, so it observes
+ * every response first — including error responses, which carry the header too.
+ * A 401 that triggers a refresh returns a rotated token, and the retry has to go
+ * out carrying the new one rather than the value that was just replaced.
+ */
+apiClient.interceptors.response.use(
+  (response) => {
+    rememberCsrfToken(response.headers);
+    return response;
+  },
+  (error: AxiosError) => {
+    rememberCsrfToken(error.response?.headers);
+    return Promise.reject(error);
+  },
+);
 
 /**
  * A correlation id for one request — PLATFORM-CONVENTIONS R-6.1.
@@ -186,6 +249,10 @@ export function idempotent(key: string) {
  */
 export function clearAdminSession(): void {
   stopProactiveRefresh();
+  // The in-memory anti-forgery token. The cookie is the server's to clear; this
+  // is the copy this tab is holding, and it belongs to the session that just
+  // ended — see the note on `csrfFromResponse`.
+  forgetCsrfToken();
   /*
    * The `session-hint` marker, and this line is what keeps a stale one from
    * becoming a redirect loop.
