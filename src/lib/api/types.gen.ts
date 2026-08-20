@@ -4727,7 +4727,7 @@ export interface components {
             /** @description The MT5 group path this account sits in — a server path, not a label. Null on accounts opened before it was persisted; see `product`, which is the readable form and what a client is shown. */
             mt5Group: string | null;
             /**
-             * @description The product this account was opened under, resolved from `mt5Group` through `trading_product_groups`, which is unique on the group for exactly this reason. Null when the group is in no product — an operator may open an account directly into any MT5 group — and null on accounts opened before the group was stored. THE PORTAL RENDERS THIS, not the group: a backslash-separated MT5 group path is unreadable to a client, which is why the open-account form asks for a currency and a product rather than a path.
+             * @description The product this account was opened under. Read from its own `productId` column, which is SNAPSHOTTED at creation (migration 0080) so that re-pointing a group in the catalogue afterwards cannot retroactively change what an existing account was sold as; accounts opened before 0080 fall back to matching `mt5Group` against `trading_product_groups`. Null when neither answers — an operator may open an account directly into any MT5 group, including one the catalogue does not sell. THE PORTAL RENDERS THIS, not the group: a backslash-separated MT5 group path is unreadable to a client, which is why the open-account form asks for a currency and a product.
              * @example Standard
              */
             product: string | null;
@@ -5609,7 +5609,6 @@ export interface components {
             mt5Group?: string;
             /** @enum {string} */
             environment: "live" | "demo";
-            tier?: string;
             leverage?: number;
             /** Format: date-time */
             createdAt: string;
@@ -6384,7 +6383,7 @@ export interface components {
              * @example 1000.00000000
              */
             balance: string;
-            tier?: string | null;
+            product?: string | null;
             leverage?: number | null;
             /** @enum {string} */
             status: "active" | "suspended" | "closed";

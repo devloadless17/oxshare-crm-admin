@@ -74,7 +74,9 @@ function account(over: Partial<TradingAccountRow> = {}): TradingAccountRow {
     environment: 'live',
     currency: 'USD',
     balance: '1000.00000000',
-    tier: null,
+    // `product` replaced `tier`, which had no writer and was therefore null on
+    // every row the API ever served.
+    product: 'Standard',
     leverage: 500,
     status: 'active',
     createdAt: '2026-08-01T10:00:00.000Z',
