@@ -2682,9 +2682,12 @@ export const messages = {
   'tradingAccounts.dealerWarning':
     'This moves money on MT5 only — the client wallet and the CRM ledger are untouched. To fund an account from a wallet, use a transfer instead.',
   'tradingAccounts.noLoginHint': 'No MT5 account exists for this row, so it has no balance.',
-  'tradingAccounts.cachedFootnote':
-    '* Last known balance — MT5 did not answer for this account. MT5 owns the real figure.',
-  'tradingAccounts.cachedHint': 'Last known. MT5 owns the real figure.',
+  'tradingAccounts.syncedHint': 'MT5 confirmed this balance {when}.',
+  'tradingAccounts.neverSynced': 'never synced',
+  'tradingAccounts.neverSyncedHint':
+    'MT5 has never confirmed a balance for this account. This is not a zero balance — it means the bridge has not delivered one yet.',
+  'tradingAccounts.neverSyncedFootnote':
+    'Some accounts show “never synced”: the bridge has not delivered a balance for them yet. That is different from a zero balance — check that the MT5 bridge is running.',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */

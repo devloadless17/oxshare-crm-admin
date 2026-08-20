@@ -2053,29 +2053,19 @@ export const adminApi = {
     return data;
   },
 
-  /**
-   * Live balances for the accounts on one page, keyed by account id.
+  /*
+   * `getLiveBalances` USED TO BE HERE.
    *
-   * POST because the ids are a list of UUIDs — twenty-five of them is roughly
-   * 900 characters of query string, which is inside some URL limits and not
-   * all, and a truncated list would refresh some rows and silently not others.
+   * It posted the page's account ids and the API made one bridge call per
+   * account. Every MT5 call is serialised behind the bridge's single session
+   * lock, so rendering the table queued twenty-five acquisitions and starved the
+   * connection supervisor that needs the same lock to reconnect.
    *
-   * An account MT5 will not answer for is ABSENT from the result rather than
-   * null. The caller falls back to the cached figure for those, which is why
-   * the two cases have to be distinguishable.
+   * `balance` is now a mirror the bridge refreshes on its sweep, served straight
+   * from the list endpoint with `balanceSyncedAt` beside it. The single-account
+   * live read below stays — one call, on the screen where somebody is looking at
+   * one account, and the only place equity and margin come from.
    */
-  async getLiveBalances(
-    accountIds: string[],
-    signal?: AbortSignal,
-  ): Promise<Record<string, string>> {
-    if (accountIds.length === 0) return {};
-    const { data } = await apiClient.post<Record<string, string>>(
-      '/admin/trading-accounts/live-balances',
-      { accountIds },
-      { signal },
-    );
-    return data;
-  },
 
   /**
    * Live balance and margin from MT5, rather than the cached `balance` column.

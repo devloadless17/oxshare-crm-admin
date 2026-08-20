@@ -1799,26 +1799,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/trading-accounts/live-balances": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Live MT5 balances for the accounts on one page
-         * @description One bridge call per account, so the list is capped. An account MT5 will not answer for is simply absent from the result and the console falls back to its cached figure.
-         */
-        post: operations["Mt5AccountsController_liveBalances"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/trading-accounts/{id}/live": {
         parameters: {
             query?: never;
@@ -5030,9 +5010,6 @@ export interface components {
             /** @example Goodwill credit, ticket #4412 */
             comment: string;
         };
-        Mt5LiveBalancesDto: {
-            accountIds: string[];
-        };
         KycDocumentPartDto: {
             /**
              * @description Slot identifier, unique within the type.
@@ -6384,6 +6361,8 @@ export interface components {
              */
             balance: string;
             product?: string | null;
+            /** Format: date-time */
+            balanceSyncedAt?: string | null;
             leverage?: number | null;
             /** @enum {string} */
             status: "active" | "suspended" | "closed";
@@ -8899,27 +8878,6 @@ export interface operations {
         };
         responses: {
             201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    Mt5AccountsController_liveBalances: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Mt5LiveBalancesDto"];
-            };
-        };
-        responses: {
-            200: {
                 headers: {
                     [name: string]: unknown;
                 };
