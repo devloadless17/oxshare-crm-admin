@@ -36,6 +36,12 @@ export type ClientListResponse = components['schemas']['ClientListResponseDto'];
  */
 export type ClientKycStatus = ClientRow['kycStatus'];
 export type ClientProfile = components['schemas']['ClientProfileDto'];
+/**
+ * What an edit answers with: the account fields, without the profile screen's
+ * tags, KYC and trading accounts. A separate DTO on the API for exactly that
+ * reason — see `ClientAccountDto` there.
+ */
+export type ClientAccount = components['schemas']['ClientAccountDto'];
 export type ClientTag = components['schemas']['ClientTagDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
 export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
@@ -1837,6 +1843,43 @@ export const adminApi = {
     return data;
   },
 
+  /**
+   * Correct a client's profile — name, phone, country. CORE-18.
+   *
+   * PARTIAL by design: only the fields present are written, so two screens
+   * editing different things cannot overwrite one another with their own stale
+   * copies. Send an empty string to clear phone or country; the API turns that
+   * into NULL rather than storing a blank.
+   */
+  async updateClientProfile(
+    id: string,
+    dto: { firstName?: string; lastName?: string; phone?: string; country?: string },
+  ): Promise<ClientAccount> {
+    const { data } = await apiClient.patch<ClientAccount>(`/admin/clients/${id}`, dto);
+    return data;
+  },
+
+  /**
+   * Change the address a client signs in with.
+   *
+   * ## Separate call, separate permission, and that is the point
+   *
+   * It is not a field on `updateClientProfile` because it is not clerical work:
+   * pointing an account at a different inbox and running a password reset takes
+   * the account over. The API gates it on `clients.email` rather than
+   * `clients.edit`, and the UI must gate the control the same way — see
+   * `ChangeClientEmailDialog`, which spells the consequences out before the
+   * operator commits.
+   *
+   * On success the client's portal sessions are revoked and their address is
+   * unverified until they click the new link, so anything showing
+   * `emailVerified` has to be refetched.
+   */
+  async changeClientEmail(id: string, email: string): Promise<ClientAccount> {
+    const { data } = await apiClient.patch<ClientAccount>(`/admin/clients/${id}/email`, { email });
+    return data;
+  },
+
   // ── Client tags (ADM-14) ──────────────────────────────────────────────────
 
   async getTags(signal?: AbortSignal): Promise<ClientTagWithCount[]> {
@@ -2010,29 +2053,19 @@ export const adminApi = {
     return data;
   },
 
-  /**
-   * Live balances for the accounts on one page, keyed by account id.
+  /*
+   * `getLiveBalances` USED TO BE HERE.
    *
-   * POST because the ids are a list of UUIDs — twenty-five of them is roughly
-   * 900 characters of query string, which is inside some URL limits and not
-   * all, and a truncated list would refresh some rows and silently not others.
+   * It posted the page's account ids and the API made one bridge call per
+   * account. Every MT5 call is serialised behind the bridge's single session
+   * lock, so rendering the table queued twenty-five acquisitions and starved the
+   * connection supervisor that needs the same lock to reconnect.
    *
-   * An account MT5 will not answer for is ABSENT from the result rather than
-   * null. The caller falls back to the cached figure for those, which is why
-   * the two cases have to be distinguishable.
+   * `balance` is now a mirror the bridge refreshes on its sweep, served straight
+   * from the list endpoint with `balanceSyncedAt` beside it. The single-account
+   * live read below stays — one call, on the screen where somebody is looking at
+   * one account, and the only place equity and margin come from.
    */
-  async getLiveBalances(
-    accountIds: string[],
-    signal?: AbortSignal,
-  ): Promise<Record<string, string>> {
-    if (accountIds.length === 0) return {};
-    const { data } = await apiClient.post<Record<string, string>>(
-      '/admin/trading-accounts/live-balances',
-      { accountIds },
-      { signal },
-    );
-    return data;
-  },
 
   /**
    * Live balance and margin from MT5, rather than the cached `balance` column.

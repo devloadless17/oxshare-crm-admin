@@ -2,8 +2,10 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  AtSign,
   Ban,
   CheckCircle2,
+  Pencil,
   Coins,
   FileText,
   Layers,
@@ -57,6 +59,8 @@ export function ClientActionsMenu({
   onManageTags,
   onChangeLevel,
   onReassignParent,
+  onEditProfile,
+  onChangeEmail,
 }: {
   profile: ClientProfile;
   /** Null when this client is not a partner — the partner block is then absent. */
@@ -64,11 +68,24 @@ export function ClientActionsMenu({
   onManageTags: () => void;
   onChangeLevel: () => void;
   onReassignParent: () => void;
+  onEditProfile: () => void;
+  onChangeEmail: () => void;
 }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
+  const canEditClient = hasPermission(admin, 'clients.edit');
+  /*
+   * A SEPARATE key, not `clients.edit`.
+   *
+   * Changing the address an account signs in with is an account-takeover
+   * primitive, and the API gates it on its own permission for that reason. If
+   * this menu derived the item from `clients.edit`, the console would offer a
+   * control that the API then refuses — and the operator would read the refusal
+   * as a bug rather than as the boundary it is.
+   */
+  const canChangeEmail = hasPermission(admin, 'clients.email');
   const canSuspendClient = hasPermission(admin, 'clients.suspend');
   const canEditPartner = hasPermission(admin, 'ib.partners.edit');
   const canSuspendPartner = hasPermission(admin, 'ib.partners.suspend');
@@ -149,6 +166,27 @@ export function ClientActionsMenu({
   };
 
   const items: RowAction[] = [
+    ...(canEditClient
+      ? [{ label: t('clientProfile.actionEditProfile'), icon: Pencil, onSelect: onEditProfile }]
+      : []),
+    /*
+     * Marked destructive, and it is the only non-suspend item that is.
+     *
+     * It reads as a small edit and behaves like handing the account to whoever
+     * owns the new inbox: sessions die, verification resets, and the previous
+     * address is told. The styling is the first warning; the dialog spells the
+     * rest out before anything is sent.
+     */
+    ...(canChangeEmail
+      ? [
+          {
+            label: t('clientProfile.actionChangeEmail'),
+            icon: AtSign,
+            destructive: true,
+            onSelect: onChangeEmail,
+          },
+        ]
+      : []),
     ...(canSuspendClient
       ? [
           {
@@ -172,7 +210,7 @@ export function ClientActionsMenu({
             label: t('clientProfile.actionOpenKyc'),
             icon: ShieldCheck,
             href: `/kyc/${profile.id}`,
-            separatorBefore: canSuspendClient || canAssignTags,
+            separatorBefore: canEditClient || canChangeEmail || canSuspendClient || canAssignTags,
           },
         ]
       : []),

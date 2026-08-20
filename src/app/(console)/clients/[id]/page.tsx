@@ -19,6 +19,10 @@ import { ToggleList } from '@/components/ui/toggle-list';
 import { ClientTagChips } from '@/components/clients/client-tag-chips';
 import { ClientWalletsPanel } from '@/components/clients/profile/client-wallets-panel';
 import { ClientActionsMenu } from '@/components/clients/profile/client-actions-menu';
+import {
+  ChangeClientEmailDialog,
+  EditClientProfileDialog,
+} from '@/components/clients/profile/client-edit-dialogs';
 import { ClientPartnerPanel } from '@/components/clients/profile/client-partner-panel';
 import {
   ClientPositionsPanel,
@@ -95,6 +99,8 @@ export default function ClientProfilePage() {
   const [tagsOpen, setTagsOpen] = React.useState(false);
   const [levelOpen, setLevelOpen] = React.useState(false);
   const [parentOpen, setParentOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [emailOpen, setEmailOpen] = React.useState(false);
 
   const query = useResource<ClientProfile>(['client', clientId], (signal) =>
     api.admin.getClient(clientId, signal),
@@ -292,6 +298,8 @@ export default function ClientProfilePage() {
                   onManageTags={() => setTagsOpen(true)}
                   onChangeLevel={() => setLevelOpen(true)}
                   onReassignParent={() => setParentOpen(true)}
+                  onEditProfile={() => setEditOpen(true)}
+                  onChangeEmail={() => setEmailOpen(true)}
                 />
               </div>
             </header>
@@ -602,6 +610,20 @@ export default function ClientProfilePage() {
 
             {partner && (
               <>
+                {/* CORE-18. Two dialogs, because the two edits sit behind two
+                    permissions — see client-edit-dialogs.tsx. */}
+                <EditClientProfileDialog
+                  open={editOpen}
+                  onClose={() => setEditOpen(false)}
+                  profile={profile}
+                />
+
+                <ChangeClientEmailDialog
+                  open={emailOpen}
+                  onClose={() => setEmailOpen(false)}
+                  profile={profile}
+                />
+
                 <ChangeLevelDialog
                   open={levelOpen}
                   onClose={() => setLevelOpen(false)}

@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button';
 import { RowActions } from '@/components/row-actions';
 import { OpenAccountModal } from '@/components/trading/open-account-modal';
 import { AdjustBalanceModal } from '@/components/trading/adjust-balance-modal';
+import { relativeTime } from '@/lib/relative-time';
 import { formatMoney } from '@/lib/money';
 
 /**
@@ -177,17 +178,22 @@ function TradingAccountsPageContent() {
    * That is not hypothetical. This screen showed ten accounts at $0.00, which
    * was the honest content of a column nobody had ever written to.
    *
-   * So the rows on screen are refreshed from MT5. Keyed on the ids so it
-   * refetches when the page, filter or sort changes, and disabled when there is
-   * nothing to ask about — one bridge call per account means an empty page must
-   * not become a request.
+   * The balance column reads the MIRROR, and no longer calls MT5 at all.
+   *
+   * It used to fetch live balances for every row on the page — one bridge call
+   * each, up to twenty-five. Every MT5 call is serialised behind the bridge's
+   * single session lock, so rendering this table queued twenty-five acquisitions
+   * and starved the connection supervisor, which needs that same lock to rebuild
+   * a dropped session. The screen showing the estate was the reason the estate
+   * could not reconnect — and it fired whether or not anybody cared about any of
+   * those numbers.
+   *
+   * `balance` is now refreshed by the bridge's own sweep and served from the
+   * database, with `balanceSyncedAt` beside it so the age is visible rather than
+   * implied. A live figure — with equity and margin, which are deliberately not
+   * mirrored — is one click away on the account detail page, where somebody is
+   * looking at one account on purpose.
    */
-  const loginIds = rows.filter((a) => a.login).map((a) => a.id);
-  const liveBalances = useResource<Record<string, string>>(
-    ['admin', 'trading-accounts', 'live-balances', loginIds],
-    (signal) => api.admin.getLiveBalances(loginIds, signal),
-    { enabled: loginIds.length > 0 },
-  );
 
   const total = query.data?.total ?? 0;
 
@@ -276,20 +282,31 @@ function TradingAccountsPageContent() {
        * number. An account MT5 would not answer for is absent from the map
        * rather than null, which is what makes the fallback detectable.
        */
-      cell: (a) => {
-        const live = liveBalances.data?.[a.id];
-        if (live !== undefined) return formatMoney(live, a.currency);
-        return (
-          <span
-            className="text-muted-foreground"
-            title={a.login ? t('tradingAccounts.cachedHint') : t('tradingAccounts.noLoginHint')}
-          >
-            {formatMoney(a.balance, a.currency)}
-            <span aria-hidden="true"> *</span>
-            <span className="sr-only"> {t('tradingAccounts.cachedHint')}</span>
+      cell: (a) => (
+        <span
+          title={
+            a.balanceSyncedAt
+              ? t('tradingAccounts.syncedHint', { when: relativeTime(a.balanceSyncedAt) })
+              : a.login
+                ? t('tradingAccounts.neverSyncedHint')
+                : t('tradingAccounts.noLoginHint')
+          }
+        >
+          {formatMoney(a.balance, a.currency)}
+          {/*
+            The AGE, on its own line and never omitted.
+            
+            A mirrored number rendered bare is indistinguishable from a live one,
+            which is worse than either — it invites an operator to act on a figure
+            whose vintage they cannot see. "Never" is its own answer and reads
+            differently from "4 minutes ago": it means MT5 has not confirmed this
+            account at all, not that the balance is old.
+          */}
+          <span className="block text-[11px] text-muted-foreground">
+            {a.balanceSyncedAt ? relativeTime(a.balanceSyncedAt) : t('tradingAccounts.neverSynced')}
           </span>
-        );
-      },
+        </span>
+      ),
       cellClassName: 'font-mono font-semibold text-foreground whitespace-nowrap tabular',
     },
     {
@@ -511,9 +528,14 @@ function TradingAccountsPageContent() {
           least one row actually fell back, so a page of live figures carries no
           caveat it does not need.
         */}
-        {rows.some((a) => liveBalances.data?.[a.id] === undefined) && (
+        {/*
+          Shown whenever any row has never been confirmed, which is a state an
+          operator should chase rather than squint at: it means the bridge has not
+          delivered a balance for that account — not that the account is empty.
+        */}
+        {rows.some((a) => a.login && !a.balanceSyncedAt) && (
           <p className="px-1 pt-2 text-[11px] text-muted-foreground">
-            {t('tradingAccounts.cachedFootnote')}
+            {t('tradingAccounts.neverSyncedFootnote')}
           </p>
         )}
       </AsyncBoundary>
