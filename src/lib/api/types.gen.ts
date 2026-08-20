@@ -3283,6 +3283,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ip-allowlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The IP allowlist, whether it is being enforced, and your own address */
+        get: operations["AdminIpAllowlistController_list"];
+        put?: never;
+        /** Add an address or range to the allowlist */
+        post: operations["AdminIpAllowlistController_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ip-allowlist/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a rule from the allowlist */
+        delete: operations["AdminIpAllowlistController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/withdrawals/export": {
         parameters: {
             query?: never;
@@ -5671,6 +5706,8 @@ export interface components {
             phone: string | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description Fields withheld from THIS response by the reader’s role (RBAC-03). A masked field is absent from the payload entirely, so this list is the only way to tell "hidden from you" apart from "this client has none" — an empty box otherwise reads as the second. */
+            maskedFields: string[];
         };
         ChangeClientEmailDto: {
             /** @example layla.haddad@example.com */
@@ -6044,6 +6081,35 @@ export interface components {
         SetSecuritySwitchDto: {
             /** @description Whether the control is in force. Turning one OFF is audited and alerted — see AdminSecuritySettingsController. */
             enabled: boolean;
+        };
+        IpAllowlistRuleDto: {
+            id: string;
+            /** @example 203.0.113.0/24 */
+            cidr: string;
+            /** @example Beirut office */
+            label: string;
+            createdBy: string;
+            createdAt: string;
+        };
+        IpAllowlistStatusDto: {
+            /** @description False while the list is empty. An empty list deliberately means the feature is OFF, so the deploy that adds the table cannot lock every administrator out (RBAC-08). */
+            enforced: boolean;
+            /** @description The requesting admin's own address, so the UI can warn before a lockout. */
+            yourIp: string | null;
+            disabledByConfig: boolean;
+            rules: components["schemas"]["IpAllowlistRuleDto"][];
+        };
+        AddIpAllowlistRuleDto: {
+            /**
+             * @description IPv4 address or CIDR range. A bare address is stored as /32.
+             * @example 203.0.113.0/24
+             */
+            cidr: string;
+            /**
+             * @description Why this rule exists — an unlabelled list becomes unmaintainable.
+             * @example Beirut office
+             */
+            label: string;
         };
         WithdrawalUserDto: {
             id: string;
@@ -11063,6 +11129,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SecuritySwitchDto"];
+                };
+            };
+        };
+    };
+    AdminIpAllowlistController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
+                };
+            };
+        };
+    };
+    AdminIpAllowlistController_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddIpAllowlistRuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
+                };
+            };
+        };
+    };
+    AdminIpAllowlistController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
                 };
             };
         };

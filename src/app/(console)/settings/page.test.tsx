@@ -118,11 +118,13 @@ beforeEach(() => {
 });
 
 describe('which tabs an admin is offered', () => {
-  it('offers all three to a master admin', () => {
+  it('offers all four to a full-access admin', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['Trading', 'Email', 'Platforms']);
+    // Security is back — RBAC-08 was restored (D-51 → 41). Payments is absent
+    // because this fixture's mock does not stub the Rival settings call.
+    expect(tabs).toEqual(['Trading', 'Email', 'Platforms', 'Security']);
   });
 
   it('hides the Email tab from a non-master admin', () => {
@@ -208,21 +210,34 @@ describe('only the active panel mounts', () => {
   });
 });
 
-describe('the Security tab is gone', () => {
-  it('is not offered to a master admin', () => {
+describe('the Security tab is back — RBAC-08', () => {
+  /*
+   * This block asserted the opposite until the allowlist was restored. It was
+   * deleted on 7 Aug as unwanted scope; the root CLAUDE.md records the tech lead
+   * confirming on 2 Aug that RBAC-08 is IN scope and the committed total is 41,
+   * and the deletion was never confirmed by them (D-51).
+   */
+  it('is offered to an admin holding settings.security.view', () => {
+    renderWithProviders(<AdminSettingsPage />);
+
+    expect(screen.getByRole('tab', { name: /security/i })).toBeInTheDocument();
+  });
+
+  it('is HIDDEN without that key, not merely disabled', () => {
+    // Which networks a company works from is a map of where its people are. An
+    // operator who cannot act on it does not need to read it.
+    identity.permissions = ['settings.edit'];
     renderWithProviders(<AdminSettingsPage />);
 
     expect(screen.queryByRole('tab', { name: /security/i })).toBeNull();
   });
 
-  it('lands an old ?tab=security bookmark on Trading', async () => {
-    // The panels behind it were deleted, so this is the same path as any other
-    // stale link — Trading, not a blank panel.
+  it('a ?tab=security link opens the panel rather than falling back', async () => {
     search.current = new URLSearchParams('tab=security');
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(screen.getByRole('tab', { name: /trading/i })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText(/account opening/i)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /security/i })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText(/network access/i)).toBeInTheDocument();
   });
 });
 

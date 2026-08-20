@@ -391,6 +391,7 @@ describe('assertPermissionKeysExist', () => {
     'settings.security.view',
     'settings.security.edit',
     'audit.view',
+    'ledger.view',
     'reconciliation.view',
   ];
 
