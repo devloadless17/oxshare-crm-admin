@@ -918,6 +918,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ib/wallet/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The last few commission transfers, newest first
+         * @description A short list to sit beside the balance it explains. The FULL history is in `GET /payments/transactions`, which carries these rows alongside every other movement — a partner's own money should not be split across two histories that have to be reconciled against each other.
+         */
+        get: operations["IbController_myWalletTransfers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ib/wallet/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move commission earnings into the main wallet
+         * @description Same currency, same owner, both legs in one transaction — it commits whole or does not happen. There is no pending state to poll: unlike a wallet ⇄ trading-account transfer, nothing here crosses into a server this platform does not own.
+         *
+         *     Refuses a suspended partner, an amount above the available commission balance, and a currency the partner holds no commission wallet in — each with its own message, because "you have nothing to move" and "you have no such wallet" send a partner to different places.
+         *
+         *     Both legs are written to the ledger as `transfer`, NOT `commission`, so lifetime earnings are unchanged by moving money that was already earned.
+         */
+        post: operations["IbController_transferCommission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ib/apply": {
         parameters: {
             query?: never;
@@ -1475,13 +1519,59 @@ export interface paths {
         put?: never;
         /**
          * Open a trading account — live requires a verified identity, demo does not
-         * @description The MT5 group, leverage and currency are the broker's configuration, not the client's choice. Returns the master and investor passwords once; they are never stored.
+         * @description The MT5 group, leverage and currency are the broker's configuration, not the client's choice. Credentials are emailed to the client's registered address, never returned here.
          */
         post: operations["TradingController_openAccount"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts/{id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a trading account's master and investor passwords
+         * @description Rotates BOTH passwords on MT5 and emails the new pair to the client’s registered address. They are never returned in the response — the browser asking is not necessarily the client’s. Not idempotent: each call invalidates the previous pair.
+         */
+        post: operations["TradingController_resetAccountPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trading/accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of the signed-in client's trading accounts
+         * @description 404 when the account does not exist OR belongs to somebody else — the two are the same answer on purpose, because distinguishing them tells a caller which ids are real.
+         *
+         *     `balance` here is the CRM-held figure, as on the list. For what MT5 holds right now, including equity and floating P/L, call `/trading/accounts/:id/live`.
+         */
+        get: operations["TradingController_myAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename a trading account
+         * @description Changes the account holder's name as MT5 records it, so it updates what the client sees in their terminal and on statements. Nothing is stored CRM-side.
+         */
+        patch: operations["TradingController_renameAccount"];
         trace?: never;
     };
     "/v1/trading/accounts/self-service": {
@@ -1540,28 +1630,6 @@ export interface paths {
          *     Prices and volumes are decimal STRINGS (§6.1). `profit` is the REALISED result and is null while a position is open — floating P/L is deliberately absent, because it changes on every tick and a stored copy is stale the moment it is written.
          */
         get: operations["TradingController_myPositions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trading/accounts/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * One of the signed-in client's trading accounts
-         * @description 404 when the account does not exist OR belongs to somebody else — the two are the same answer on purpose, because distinguishing them tells a caller which ids are real.
-         *
-         *     `balance` here is the CRM-held figure, as on the list. For what MT5 holds right now, including equity and floating P/L, call `/trading/accounts/:id/live`.
-         */
-        get: operations["TradingController_myAccount"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2099,10 +2167,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * MT5 groups available to attach, read live from the server
+         * MT5 groups available to attach, read live where possible
          * @description Gated on settings.edit rather than trading.create, unlike GET /admin/mt5/groups. The two read the same list for different jobs: that one is for opening an account, this one is for building the catalogue, and an operator who configures products has no reason to hold the power to open accounts.
          *
          *     Groups another product already claims come back flagged rather than filtered out — "the broker does not offer it" and "ECN already has it" are different problems.
+         *
+         *     When MT5 cannot be reached this falls back to the synced catalogue rather than failing, and every row carries `lastSeenAt` saying when it was last confirmed. Attaching a group still validates against the live server, so a stale row here cannot become a stored product configuration.
          */
         get: operations["AdminCatalogueController_availableGroups"];
         put?: never;
@@ -2556,7 +2626,41 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Correct a client's profile (requires clients.edit)
+         * @description Name, phone and country only — the clerical set a support desk fixes when a client typed them wrong at registration.
+         *
+         *     Email is NOT here. It lives on PATCH /admin/clients/:id/email behind the separate `clients.email` permission, because changing the address an account signs in with is an account-takeover primitive and must not ride along with fixing a surname.
+         *
+         *     `status` is not here either (PATCH .../status, `clients.suspend`), and neither is verification level or type — those are conclusions the KYC and partner flows reach from evidence, not fields to type in.
+         *
+         *     Send an empty string for phone or country to clear it.
+         */
+        patch: operations["AdminClientsController_updateClientProfile"];
+        trace?: never;
+    };
+    "/v1/admin/clients/{id}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a client's sign-in email (requires clients.email)
+         * @description ⚠️ The one operation on this surface that can take an account over: point the address at your own inbox, run a password reset, and the balance follows. It carries its own permission for exactly that reason — `clients.edit` does not grant it.
+         *
+         *     Changing it: revokes every portal session for the client, resets email verification and sends a fresh verification link to the NEW address, and notifies the PREVIOUS address that the change happened. That last one is the control that points at the person who would notice an unauthorised change, so it is sent whether or not anyone asked for it.
+         *
+         *     Already-issued access tokens are short-lived JWTs and expire on their own; what revocation guarantees is that none of them can be refreshed.
+         */
+        patch: operations["AdminClientsController_changeClientEmail"];
         trace?: never;
     };
     "/v1/admin/clients/{id}/status": {
@@ -4008,6 +4112,10 @@ export interface components {
             /** Format: date-time */
             submittedAt: string;
         };
+        InheritedAgencyDto: {
+            id: string;
+            name: string;
+        };
         IbStatusDto: {
             account: components["schemas"]["IbAccountDto"] | null;
             application: components["schemas"]["IbApplicationDto"] | null;
@@ -4018,6 +4126,8 @@ export interface components {
              * @enum {string|null}
              */
             ineligibleCode: "unverified" | "chain_full" | null;
+            /** @description Set when the applicant was introduced by an existing partner and therefore inherits that partner's programme — the portal must not offer a choice in that case. Null when the applicant chooses: any client not introduced by a partner, or one whose introducer carries no programme. */
+            inheritedAgency: components["schemas"]["InheritedAgencyDto"] | null;
         };
         IbLevelSummaryDto: {
             /** @example 1 */
@@ -4049,6 +4159,37 @@ export interface components {
             /** @description FALSE means no commission engine has run — the totals are true but structurally zero, and must be labelled as such rather than shown as a computed result. See the DTO note. */
             engineLive: boolean;
         };
+        WalletDto: {
+            id: string;
+            userId: string;
+            /**
+             * @description A currency CODE from `GET /currencies`, not a fixed set — currencies are operator data.
+             * @example USD
+             */
+            currency: string;
+            /**
+             * @description `GET /wallet` returns `main` only — a commission wallet is a partner's earnings and appears solely on GET /ib/overview. It cannot be deposited to, withdrawn from, or moved to a trading account; POST /ib/wallet/transfer moves it into the main wallet first.
+             * @enum {string}
+             */
+            kind: "main" | "commission";
+            /**
+             * @description Decimal string (§6.1).
+             * @example 700.00000000
+             */
+            balance: string;
+            /**
+             * @description Reserved against pending withdrawals.
+             * @example 0.00000000
+             */
+            onHold: string;
+            /**
+             * @description balance − onHold, computed server-side so both sides agree.
+             * @example 700.00000000
+             */
+            available: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
         IbReferredClientDto: {
             userId: string;
             /** @description The client's display name. Their EMAIL is deliberately absent — a partner is owed attribution, not their referrals' contact details. */
@@ -4074,6 +4215,7 @@ export interface components {
         IbOverviewDto: {
             level: components["schemas"]["IbLevelSummaryDto"] | null;
             earnings: components["schemas"]["IbEarningsDto"];
+            commissionWallets: components["schemas"]["WalletDto"][];
             /** @description Newest first. The whole list — a partner may read every client they introduced. */
             referredClients: components["schemas"]["IbReferredClientDto"][];
             /** @description Partners directly beneath this one. */
@@ -4138,6 +4280,38 @@ export interface components {
              *     ]
              */
             products: string[];
+        };
+        IbWalletTransferResultDto: {
+            /** @description The `ib_wallet_transfers` row — its id in /transactions too. */
+            id: string;
+            /**
+             * @description Always positive.
+             * @example 250.00000000
+             */
+            amount: string;
+            /** @example USD */
+            currency: string;
+            /**
+             * @description The commission wallet AFTER this transfer. Absent on history rows — see the DTO.
+             * @example 50.00000000
+             */
+            commissionBalance?: string;
+            /**
+             * @description The main wallet AFTER this transfer. Absent on history rows — see the DTO.
+             * @example 950.00000000
+             */
+            mainBalance?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        IbWalletTransferDto: {
+            /** @example 250.00000000 */
+            amount: string;
+            /**
+             * @description WHICH commission wallet to draw from. The money lands in the main wallet of the SAME currency — there is no FX rate source in this system, so a cross-currency move is not something this endpoint can offer.
+             * @example USD
+             */
+            currency: string;
         };
         CreateIbApplicationDto: {
             /**
@@ -4411,7 +4585,7 @@ export interface components {
              * @description Branch on this, never on the absence of a payment field.
              * @enum {string}
              */
-            kind: "payment" | "transfer";
+            kind: "payment" | "transfer" | "commission_transfer";
             tradingAccountId?: string | null;
         };
         TransactionPageDto: {
@@ -4488,32 +4662,6 @@ export interface components {
              */
             logoUrl: string;
         };
-        WalletDto: {
-            id: string;
-            userId: string;
-            /**
-             * @description A currency CODE from `GET /currencies`, not a fixed set — currencies are operator data.
-             * @example USD
-             */
-            currency: string;
-            /**
-             * @description Decimal string (§6.1).
-             * @example 700.00000000
-             */
-            balance: string;
-            /**
-             * @description Reserved against pending withdrawals.
-             * @example 0.00000000
-             */
-            onHold: string;
-            /**
-             * @description balance − onHold, computed server-side so both sides agree.
-             * @example 700.00000000
-             */
-            available: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
         LedgerEntryDto: {
             id: string;
             walletId: string;
@@ -4563,11 +4711,26 @@ export interface components {
              */
             startingBalance?: string;
         };
+        RenameOwnAccountDto: {
+            /**
+             * @description The account holder's name as MT5 will show it.
+             * @example Swing trading
+             */
+            name: string;
+        };
         TradingAccountDto: {
             id: string;
             /** @description The MT5 login, once there is an MT5 to issue one. Null until a bridge assigns it — a string rather than a number because leading zeros are significant. */
             login: string | null;
+            /** @description What the client calls this account. NULL means unnamed — the portal falls back to the login rather than inventing a name, so an account somebody named "5001234" stays distinguishable from one nobody named at all. */
+            name: string | null;
+            /** @description The MT5 group path this account sits in — a server path, not a label. Null on accounts opened before it was persisted; see `product`, which is the readable form and what a client is shown. */
             mt5Group: string | null;
+            /**
+             * @description The product this account was opened under, resolved from `mt5Group` through `trading_product_groups`, which is unique on the group for exactly this reason. Null when the group is in no product — an operator may open an account directly into any MT5 group — and null on accounts opened before the group was stored. THE PORTAL RENDERS THIS, not the group: a backslash-separated MT5 group path is unreadable to a client, which is why the open-account form asks for a currency and a product rather than a path.
+             * @example Standard
+             */
+            product: string | null;
             /** @enum {string} */
             environment: "live" | "demo";
             /** @description The account's own currency, which need not match the wallet's. */
@@ -4577,7 +4740,6 @@ export interface components {
              * @example 1250.00000000
              */
             balance: string;
-            tier: string | null;
             /** @description The leverage ratio denominator — 500 means 1:500. Null when unset. */
             leverage: number | null;
             /** @enum {string} */
@@ -5188,6 +5350,11 @@ export interface components {
             currency: string;
             /** @description True when another product already claims it. Shown disabled with the reason rather than hidden, so an operator can tell "not offered" from "already taken". */
             claimed: boolean;
+            /**
+             * Format: date-time
+             * @description NULL when this list was read live from MT5, which is the normal case. A date means the server could not be reached and this row came from the synced catalogue instead — it is when that group was last confirmed to exist. Surface it: a stale picker that cannot say how stale it is reads exactly like a current one.
+             */
+            lastSeenAt: string | null;
         };
         UpsertProductDto: {
             /** @example Standard */
@@ -5496,6 +5663,42 @@ export interface components {
             /** @description How many referredClients were returned; the list is capped for one screen. */
             referredShown?: number;
             maskedFields: string[];
+        };
+        UpdateClientProfileDto: {
+            /** @example Layla */
+            firstName?: string;
+            /** @example Haddad */
+            lastName?: string;
+            /**
+             * @description Send an empty string to clear it.
+             * @example +9613111222
+             */
+            phone?: string | null;
+            /** @example Lebanon */
+            country?: string | null;
+        };
+        ClientAccountDto: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            /** @enum {string} */
+            type: "individual" | "referral" | "partner";
+            /** @enum {string} */
+            status: "active" | "pending" | "suspended";
+            /** @enum {number} */
+            verificationLevel: 0 | 1;
+            /** @description Reset to false by an email change, and stays false until the new address is verified. */
+            emailVerified: boolean;
+            country: string | null;
+            phone: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ChangeClientEmailDto: {
+            /** @example layla.haddad@example.com */
+            email: string;
         };
         ClientStatusDto: {
             /**
@@ -6149,6 +6352,11 @@ export interface components {
             onHold: string;
             /** @example USD */
             currency: string;
+            /**
+             * @description `main` is the client's own money — deposits, withdrawals, trading transfers. `commission` holds a partner's earnings until they move them across; it is invisible to GET /wallet and reachable only through POST /ib/wallet/transfer.
+             * @enum {string}
+             */
+            kind: "main" | "commission";
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -7579,6 +7787,48 @@ export interface operations {
             };
         };
     };
+    IbController_myWalletTransfers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbWalletTransferResultDto"][];
+                };
+            };
+        };
+    };
+    IbController_transferCommission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IbWalletTransferDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbWalletTransferResultDto"];
+                };
+            };
+        };
+    };
     IbController_apply: {
         parameters: {
             query?: never;
@@ -8354,6 +8604,69 @@ export interface operations {
             };
         };
     };
+    TradingController_resetAccountPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TradingController_myAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountDto"];
+                };
+            };
+        };
+    };
+    TradingController_renameAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameOwnAccountDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     TradingController_selfService: {
         parameters: {
             query?: never;
@@ -8408,27 +8721,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PositionDto"][];
-                };
-            };
-        };
-    };
-    TradingController_myAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TradingAccountDto"];
                 };
             };
         };
@@ -9748,6 +10040,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientProfileDto"];
+                };
+            };
+        };
+    };
+    AdminClientsController_updateClientProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateClientProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAccountDto"];
+                };
+            };
+        };
+    };
+    AdminClientsController_changeClientEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeClientEmailDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAccountDto"];
                 };
             };
         };

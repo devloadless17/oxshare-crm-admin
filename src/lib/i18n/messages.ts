@@ -805,6 +805,42 @@ export const messages = {
   'clientProfile.actionViewCommissions': 'View commission ledger',
   'clientProfile.actionViewReferred': 'View clients they introduced',
 
+  // ── Editing a client (CORE-18) ────────────────────────────────────────────
+  //
+  // Two actions, two permissions, two dialogs. The email copy carries the
+  // consequences because three of them are invisible to the operator otherwise:
+  // sessions die, verification resets, and the OLD address is emailed.
+  'clientProfile.actionEditProfile': 'Edit profile',
+  'clientProfile.actionChangeEmail': 'Change sign-in email',
+
+  'clientProfile.editProfileTitle': 'Edit profile',
+  'clientProfile.editProfileBody':
+    'Name, phone and country. The sign-in email is changed separately — it logs the client out and needs its own permission.',
+  'clientProfile.editProfileSaved': 'Profile updated',
+  'clientProfile.editProfileFailed': 'This profile could not be updated.',
+  'clientProfile.fieldFirstName': 'First name',
+  'clientProfile.fieldLastName': 'Last name',
+  // `clientProfile.fieldPhone` is NOT redeclared here — the profile section
+  // above already owns it, and two entries for one label is a TS1117 the
+  // moment both are in the same object.
+  'clientProfile.fieldCountry': 'Country',
+  'clientProfile.fieldClearHint': 'Leave empty to remove it.',
+
+  'clientProfile.changeEmailTitle': 'Change sign-in email',
+  'clientProfile.changeEmailWarnTitle': 'This changes how the client signs in.',
+  'clientProfile.changeEmailWarnSessions':
+    'They are signed out everywhere and must sign in again with the new address.',
+  'clientProfile.changeEmailWarnVerify':
+    'The new address starts unverified, and a verification link is sent to it.',
+  'clientProfile.changeEmailWarnNotice':
+    'Their previous address is emailed a notice that this happened. That is deliberate and cannot be skipped.',
+  'clientProfile.changeEmailCurrent': 'Current address',
+  'clientProfile.changeEmailNew': 'New address',
+  'clientProfile.changeEmailConfirmLabel': 'Type {word} to confirm',
+  'clientProfile.changeEmailSubmit': 'Change it',
+  'clientProfile.changeEmailSaved': 'Sign-in email changed',
+  'clientProfile.changeEmailFailed': 'The sign-in email could not be changed.',
+
   'clientProfile.changeLevelTitle': 'Change {name}’s level',
   'clientProfile.changeLevelBody':
     'Their rate follows the rung. Existing accruals are not recalculated — this decides what they earn from the next closed trade.',

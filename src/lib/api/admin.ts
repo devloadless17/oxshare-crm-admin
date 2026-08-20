@@ -36,6 +36,12 @@ export type ClientListResponse = components['schemas']['ClientListResponseDto'];
  */
 export type ClientKycStatus = ClientRow['kycStatus'];
 export type ClientProfile = components['schemas']['ClientProfileDto'];
+/**
+ * What an edit answers with: the account fields, without the profile screen's
+ * tags, KYC and trading accounts. A separate DTO on the API for exactly that
+ * reason — see `ClientAccountDto` there.
+ */
+export type ClientAccount = components['schemas']['ClientAccountDto'];
 export type ClientTag = components['schemas']['ClientTagDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
 export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
@@ -1834,6 +1840,43 @@ export const adminApi = {
 
   async setClientStatus(id: string, status: 'active' | 'suspended') {
     const { data } = await apiClient.patch<ClientRow>(`/admin/clients/${id}/status`, { status });
+    return data;
+  },
+
+  /**
+   * Correct a client's profile — name, phone, country. CORE-18.
+   *
+   * PARTIAL by design: only the fields present are written, so two screens
+   * editing different things cannot overwrite one another with their own stale
+   * copies. Send an empty string to clear phone or country; the API turns that
+   * into NULL rather than storing a blank.
+   */
+  async updateClientProfile(
+    id: string,
+    dto: { firstName?: string; lastName?: string; phone?: string; country?: string },
+  ): Promise<ClientAccount> {
+    const { data } = await apiClient.patch<ClientAccount>(`/admin/clients/${id}`, dto);
+    return data;
+  },
+
+  /**
+   * Change the address a client signs in with.
+   *
+   * ## Separate call, separate permission, and that is the point
+   *
+   * It is not a field on `updateClientProfile` because it is not clerical work:
+   * pointing an account at a different inbox and running a password reset takes
+   * the account over. The API gates it on `clients.email` rather than
+   * `clients.edit`, and the UI must gate the control the same way — see
+   * `ChangeClientEmailDialog`, which spells the consequences out before the
+   * operator commits.
+   *
+   * On success the client's portal sessions are revoked and their address is
+   * unverified until they click the new link, so anything showing
+   * `emailVerified` has to be refetched.
+   */
+  async changeClientEmail(id: string, email: string): Promise<ClientAccount> {
+    const { data } = await apiClient.patch<ClientAccount>(`/admin/clients/${id}/email`, { email });
     return data;
   },
 

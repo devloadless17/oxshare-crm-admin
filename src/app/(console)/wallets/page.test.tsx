@@ -84,6 +84,10 @@ function wallet(over: Partial<WalletRow> = {}): WalletRow {
     balance: '250.00000000',
     onHold: '0.00000000',
     currency: 'USD',
+    // Required since the commission wallet landed. The fixture predated it and
+    // only compiled because types.gen.ts was stale — regenerating turned the
+    // drift into the compile error it is supposed to be.
+    kind: 'main',
     createdAt: '2026-08-01T10:00:00.000Z',
     updatedAt: '2026-08-01T10:00:00.000Z',
     user: {
