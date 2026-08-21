@@ -134,11 +134,20 @@ export default defineConfig({
       // the gate lying about being broken while the debt stays visible here.
       // Cover any two of those screens and every number below can go back up.
       // Do not lower them a third time without naming what lost the coverage.
+      /*
+       * Raised 21 Aug 2026 from 54/45/51/53, against a measured run of 66 files
+       * / 773 tests: statements 58.65, branches 56.31, functions 49.16, lines
+       * 59.28. The jump came from covering the partner and catalogue screens,
+       * which had none at all.
+       *
+       * A FLOOR, a point or so under the measurement — never a target. It may
+       * only ever go up.
+       */
       thresholds: {
-        lines: 54,
-        functions: 45,
-        branches: 51,
-        statements: 53,
+        lines: 58,
+        functions: 48,
+        branches: 55,
+        statements: 57,
       },
     },
   },

@@ -1048,6 +1048,12 @@ export const messages = {
   'kycReview.filterRejected': 'Rejected',
   'kycReview.backToList': 'Back to KYC list',
   'kycReview.personalInfo': 'Personal Information',
+  // Heading for values the step configuration no longer describes — a field
+  // renamed or removed in the builder after this client submitted. Shown rather
+  // than hidden: it is still identity data somebody is deciding on.
+  'kycReview.otherFields': 'Other Details',
+  'kycReview.valueYes': 'Yes',
+  'kycReview.valueNo': 'No',
   'kycReview.notSubmitted': 'Not submitted',
   'kycReview.documentType': 'Document Type',
   'kycReview.flaggedFields': 'Flagged Fields for Correction:',

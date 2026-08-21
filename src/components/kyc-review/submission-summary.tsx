@@ -2,6 +2,8 @@
 
 import type { components } from '@/lib/api/types.gen';
 import { AttemptHistory } from './attempt-history';
+import { personalInfoGroups } from './personal-info-rows';
+import { useKycStepConfig } from './use-kyc-step-config';
 import { t } from '@/lib/i18n';
 
 type KycDetail = components['schemas']['KycSubmissionDto'];
@@ -31,29 +33,48 @@ export function SubmissionSummary({
   /** Previously decided attempts, oldest first. Empty for a first submission. */
   attempts: KycAttempt[];
 }) {
+  const steps = useKycStepConfig();
+  const groups = personalInfoGroups(data.personalInfo, steps);
+
   return (
     <div className="detail-left">
-      <div className="info-card">
-        <h3>{t('kycReview.personalInfo')}</h3>
-        {data.personalInfo ? (
-          Object.entries(data.personalInfo).map(([k, v]) => (
-            <div key={k} className="info-row">
-              <span>{k.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
-              <strong
-                className={
-                  data.status === 'rejected' && data.rejectedFields?.includes(k)
-                    ? 'text-destructive font-bold'
-                    : ''
-                }
-              >
-                {v}
-              </strong>
-            </div>
-          ))
-        ) : (
+      {/*
+        One card per configured STEP, so the reviewer reads the submission in the
+        same shape the client filled it in — rather than one flat list in
+        whatever order the JSON happened to hold. See personal-info-rows.ts.
+      */}
+      {groups.length > 0 ? (
+        groups.map((group) => (
+          <div key={group.title} className="info-card">
+            <h3>{group.title}</h3>
+            {group.rows.map((row) => (
+              <div key={row.key} className="info-row">
+                <span>{row.label}</span>
+                <strong
+                  className={[
+                    data.status === 'rejected' && data.rejectedFields?.includes(row.key)
+                      ? 'text-destructive font-bold'
+                      : '',
+                    // Dimmed rather than blank: "submitted nothing here" is an
+                    // answer the reviewer needs, and an empty cell reads as a
+                    // rendering fault.
+                    row.empty ? 'text-muted-foreground font-normal' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {row.value}
+                </strong>
+              </div>
+            ))}
+          </div>
+        ))
+      ) : (
+        <div className="info-card">
+          <h3>{t('kycReview.personalInfo')}</h3>
           <p className="not-submitted">{t('kycReview.notSubmitted')}</p>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Signals the reviewer needs, which the API was already sending.
           `reviewerView` returns emailVerified, country and createdAt and the

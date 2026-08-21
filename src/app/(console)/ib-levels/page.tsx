@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layers } from 'lucide-react';
+import Decimal from 'decimal.js';
 import api from '@/lib/api';
 import type { IbLevel } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -131,9 +132,26 @@ export default function IbLevelsPage() {
   // EVERY enabled rung counts toward the 100% total now. The filter used to
   // exclude per-lot levels, which took no share of the pool; the column is gone
   // and so is the exclusion, matching `assertShareFits` on the API.
-  const enabledShare = rows
+  /*
+   * Summed through decimal.js, NOT with `+` on `Number(rateValue)`.
+   *
+   * These are the percentages a partner is paid by, and the float version was
+   * wrong in a way that showed on screen: a perfectly ordinary three-rung
+   * ladder of 27.6000 / 39.4286 / 32.9714 sums to 100.00000000000001 in
+   * floating point. That rendered as `100.00000000000001%` in the header AND
+   * tripped the `> 100` branch below, painting a correctly configured ladder
+   * red and telling the operator they had over-allocated the broker's revenue.
+   * The mirror case, 26.5400 / 37.9143 / 35.5457, reads 99.99999999999999.
+   *
+   * `rateValue` is a decimal STRING for exactly this reason (§6.1) and stays
+   * one until it is rendered.
+   */
+  const enabledShareDecimal = rows
     .filter((l) => l.enabled)
-    .reduce((sum, l) => sum + Number(l.rateValue), 0);
+    .reduce((sum, l) => sum.plus(new Decimal(l.rateValue)), new Decimal(0));
+  const enabledShare = enabledShareDecimal.toString();
+  const overAllocated = enabledShareDecimal.greaterThan(100);
+  const remainingShare = Decimal.max(new Decimal(100).minus(enabledShareDecimal), 0).toString();
   const depth = rows.filter((l) => l.enabled).length;
 
   const openCreate = () => {
@@ -212,13 +230,13 @@ export default function IbLevelsPage() {
             </p>
             <p
               className={`mt-1 text-2xl font-bold tabular ${
-                enabledShare > 100 ? 'text-destructive' : 'text-foreground'
+                overAllocated ? 'text-destructive' : 'text-foreground'
               }`}
             >
               {enabledShare}%
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              {t('ibLevels.allocatedHint', { remaining: String(Math.max(0, 100 - enabledShare)) })}
+              {t('ibLevels.allocatedHint', { remaining: remainingShare })}
             </p>
           </div>
         </div>
