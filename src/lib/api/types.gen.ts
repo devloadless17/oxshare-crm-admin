@@ -1254,6 +1254,54 @@ export interface paths {
         patch: operations["AdminIbLevelsController_update"];
         trace?: never;
     };
+    "/v1/admin/ib-programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The commission programmes, in ladder order
+         * @description Includes disabled ones — managing them is the point of the screen. Each row carries how many partners are on it, so a delete can be refused before the database refuses it and a rate change can say how many people it affects.
+         */
+        get: operations["AdminIbProgramsController_list"];
+        put?: never;
+        /**
+         * Add a programme
+         * @description Every leg is a share of the same revenue, so level 1 + level 2 + the rebate must total at most 100% — the refusal names the three numbers and their total. Terms that pay nobody are refused too: they are indistinguishable from a broken engine from the partner’s side.
+         */
+        post: operations["AdminIbProgramsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ib-programs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a programme
+         * @description Refuses one that partners are on, and refuses the last enabled one: approval places a new partner on the first enabled programme, so an empty catalogue turns every future approval into a refusal.
+         */
+        delete: operations["AdminIbProgramsController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a programme
+         * @description Applies to the NEXT trade. Accruals record the rate they were calculated at, so nothing already earned is restated. Disabling one that partners are on is refused — a disabled programme stops paying, and their referral links would keep working while they earned nothing.
+         */
+        patch: operations["AdminIbProgramsController_update"];
+        trace?: never;
+    };
     "/v1/payments/methods": {
         parameters: {
             query?: never;
@@ -4155,6 +4203,30 @@ export interface components {
              */
             rateValue: string;
         };
+        IbProgramSummaryDto: {
+            /** @example Gold */
+            name: string;
+            /**
+             * @description Which legs pay. `rebate_only` means this partner earns nothing and their clients are paid instead — a real arrangement, and one the screen must not present as an error.
+             * @enum {string}
+             */
+            mode: "commission_only" | "rebate_only" | "hybrid";
+            /**
+             * @description Their share of the broker’s revenue on their OWN client’s closed trade, as a percentage. A decimal string, never a number (§6.1).
+             * @example 60.0000
+             */
+            level1Rate: string;
+            /**
+             * @description Their share when the trade belongs to a sub-partner’s client.
+             * @example 40.0000
+             */
+            level2Rate: string;
+            /**
+             * @description What their clients get back, as a percentage of the same revenue. Zero unless the mode pays a rebate.
+             * @example 0.0000
+             */
+            rebateRate: string;
+        };
         IbEarningsDto: {
             /**
              * @description Lifetime credited earnings, as a decimal string (§6.1). Summed from ledger commission, rebate and payout entries — never computed on the fly.
@@ -4229,6 +4301,7 @@ export interface components {
         };
         IbOverviewDto: {
             level: components["schemas"]["IbLevelSummaryDto"] | null;
+            programme: components["schemas"]["IbProgramSummaryDto"] | null;
             earnings: components["schemas"]["IbEarningsDto"];
             commissionWallets: components["schemas"]["WalletDto"][];
             /** @description Newest first. The whole list — a partner may read every client they introduced. */
@@ -4461,6 +4534,88 @@ export interface components {
              *     ]
              */
             order: number[];
+        };
+        IbProgramDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description What an operator picks, and what a partner is on.
+             * @example Gold
+             */
+            name: string;
+            /**
+             * @description Lowest first. The first ENABLED one is the default.
+             * @example 0
+             */
+            sortOrder: number;
+            /**
+             * @description Which legs pay. `commission_only` pays the partner, `rebate_only` pays the trading client and no partner, `hybrid` pays both.
+             * @enum {string}
+             */
+            mode: "commission_only" | "rebate_only" | "hybrid";
+            /**
+             * @description The holder’s share of the broker’s revenue on their OWN client’s closed trade, as a percentage. A decimal string, never a number (§6.1).
+             * @example 60.0000
+             */
+            level1Rate: string;
+            /**
+             * @description Their share when the trade belongs to a SUB-partner’s client.
+             * @example 40.0000
+             */
+            level2Rate: string;
+            /**
+             * @description What returns to the TRADING CLIENT, as a percentage of the same revenue. Paid only when `mode` is `rebate_only` or `hybrid`.
+             * @example 0.0000
+             */
+            rebateRate: string;
+            /** @description A disabled programme pays nothing and accepts no new partners. */
+            enabled: boolean;
+            /**
+             * @description How many partners are currently on it. Present so a screen can refuse a delete before the database does, and say how many people it would have affected.
+             * @example 3
+             */
+            partnerCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateIbProgramDto: {
+            /** @example Gold */
+            name: string;
+            /**
+             * @description Appended to the end when omitted.
+             * @example 10
+             */
+            sortOrder?: number;
+            /**
+             * @default commission_only
+             * @enum {string}
+             */
+            mode: "commission_only" | "rebate_only" | "hybrid";
+            /** @example 60 */
+            level1Rate?: string;
+            /** @example 40 */
+            level2Rate?: string;
+            /** @example 0 */
+            rebateRate?: string;
+            /** @default true */
+            enabled: boolean;
+        };
+        UpdateIbProgramDto: {
+            /** @example Gold */
+            name?: string;
+            /** @example 10 */
+            sortOrder?: number;
+            /** @enum {string} */
+            mode?: "commission_only" | "rebate_only" | "hybrid";
+            /** @example 60 */
+            level1Rate?: string;
+            /** @example 40 */
+            level2Rate?: string;
+            /** @example 0 */
+            rebateRate?: string;
+            enabled?: boolean;
         };
         PaymentMethodDto: {
             /**
@@ -8270,6 +8425,92 @@ export interface operations {
             };
         };
     };
+    AdminIbProgramsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"][];
+                };
+            };
+        };
+    };
+    AdminIbProgramsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIbProgramDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"];
+                };
+            };
+        };
+    };
+    AdminIbProgramsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminIbProgramsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIbProgramDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"];
+                };
+            };
+        };
+    };
     PaymentsController_listMethods: {
         parameters: {
             query?: never;
@@ -9781,6 +10022,7 @@ export interface operations {
     AdminAuthController_validateInvite: {
         parameters: {
             query: {
+                /** @description The invite token from the emailed link. */
                 token: string;
             };
             header?: never;

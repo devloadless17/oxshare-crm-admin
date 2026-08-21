@@ -154,6 +154,18 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   // renders any write control. Route access is the weaker of the two on
   // purpose — an operator who may see partners should be able to see the rules
   // they are paid under.
+  /*
+   * READ is `ib.view`, matching /ib-levels — the write keys
+   * (`ib.programs.create` / `.edit` / `.delete`) are checked by the controls
+   * inside, so an operator who may see the terms is not also required to be
+   * able to change them.
+   *
+   * Registering it here is not optional: `canAccess` returns FALSE for any path
+   * this table does not list, so a screen with a nav entry and no requirement is
+   * unreachable for everybody — the exact failure this file's docblock records
+   * for `partners.view` and `payouts.review`.
+   */
+  { prefix: '/ib-programs', requirement: { permission: 'ib.view' } },
   { prefix: '/ib-levels', requirement: { permission: 'ib.view' } },
   /*
    * `ib.view`, not `ib.approve`. Seeing the queue and deciding on it are
