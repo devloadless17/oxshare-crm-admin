@@ -28,6 +28,10 @@ let alpha = '';
 let hasSubmission = false;
 
 test.beforeAll(async () => {
+  // The helper WAITS out the five-a-minute login cap when another spec just
+  // spent it; the hook's budget has to cover that wait or the whole file fails
+  // on the harness rather than on the product.
+  test.setTimeout(180_000);
   master = await adminApiSession();
   const res = await master.get(`/admin/clients?q=${encodeURIComponent(E2E_CLIENTS.alpha.email)}`);
   const found = ((await res.json()) as { items: { id: string; email: string }[] }).items.find(
