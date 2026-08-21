@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { adminApi, API_NODE_BASE, E2E_DOMAIN } from './helpers';
+import { adminApi, E2E_DOMAIN } from './helpers';
 
 /**
  * RBAC-07 — an administrator is invited with a role, accepts in a clean
@@ -55,7 +55,8 @@ test('invite → accept → the invitee holds the role and nothing more → susp
   expect(logins).toEqual([]);
 
   // Exactly the role's permissions, from the server.
-  const me = await invitee.request.get(`${API_NODE_BASE}/admin/auth/me`);
+  const inviteeApi = await adminApi(invitee);
+  const me = await inviteeApi.get('/admin/auth/me');
   expect(me.ok()).toBe(true);
   const profile = (await me.json()) as { id: string; permissions: string[] };
   expect([...profile.permissions].sort()).toEqual(['clients.view', 'kyc.review', 'tags.view']);
@@ -63,7 +64,7 @@ test('invite → accept → the invitee holds the role and nothing more → susp
   // A section outside the role: closed door, and the API refuses too.
   await page.goto('/roles');
   await expect(page.getByText(/access denied/i)).toBeVisible();
-  expect((await invitee.request.get(`${API_NODE_BASE}/admin/roles`)).status()).toBe(403);
+  expect((await inviteeApi.get('/admin/roles')).status()).toBe(403);
 
   // Suspension reaches the live session on its next navigation.
   const suspended = await api.patch(`/admin/users/${profile.id}/status`, { status: 'suspended' });

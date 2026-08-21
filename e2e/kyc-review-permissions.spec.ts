@@ -1,5 +1,11 @@
 import { expect, test } from './fixtures';
-import { adminApiSession, E2E_CLIENTS, KYC_VIEWER_STATE, RESTRICTED_STATE } from './helpers';
+import {
+  E2E_CLIENTS,
+  KYC_VIEWER_STATE,
+  RESTRICTED_STATE,
+  adminApi,
+  adminApiSession,
+} from './helpers';
 import { type BrowserContext, type Page } from '@playwright/test';
 
 /**
@@ -96,16 +102,7 @@ test('a kyc.view-only reviewer is shown no decision control, and the API refuses
   await expect(page.getByRole('button', { name: /reject kyc submission/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /claim/i })).toHaveCount(0);
 
-  const csrf = (await viewer.cookies()).find((c) => c.name.includes('admin_csrf'))?.value ?? '';
-  const refused = await viewer.request.patch(
-    `${process.env.E2E_API_NODE_ORIGIN ?? 'http://localhost:3001'}/v1/admin/kyc/${id}/approve`,
-    {
-      headers: {
-        Origin: process.env.E2E_ADMIN_ORIGIN ?? 'http://localhost:3002',
-        'X-OxShare-CSRF': csrf,
-      },
-    },
-  );
+  const refused = await (await adminApi(viewer)).patch(`/admin/kyc/${id}/approve`);
   expect(refused.status()).toBe(403);
   await viewer.close();
 });

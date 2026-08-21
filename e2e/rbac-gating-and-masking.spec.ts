@@ -1,10 +1,10 @@
 import { type Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
-  adminApiSession,
-  API_NODE_BASE,
   E2E_CLIENTS,
   RESTRICTED_STATE,
+  adminApi,
+  adminApiSession,
   searchOwnClients,
 } from './helpers';
 
@@ -167,7 +167,7 @@ test.describe('what a RESTRICTED sub-admin cannot reach', () => {
 
     // The API itself, on the restricted session: exactly one 403.
     const restricted = await browser.newContext({ storageState: RESTRICTED_STATE });
-    const direct = await restricted.request.get(`${API_NODE_BASE}/admin/roles`);
+    const direct = await (await adminApi(restricted)).get('/admin/roles');
     expect(direct.status(), 'the API answered a restricted admin with').toBe(403);
     await restricted.close();
   });

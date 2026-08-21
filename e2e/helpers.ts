@@ -118,7 +118,16 @@ export async function adminApi(context: BrowserContext): Promise<{
   del: (path: string) => ReturnType<APIRequestContext['delete']>;
 }> {
   const csrf = await csrfOf(context);
-  const headers = { Origin: APP_ORIGIN, 'X-OxShare-CSRF': csrf };
+  /*
+   * The jar's cookies, attached BY HAND. Node dials the API as `localhost`
+   * while the browser's cookies are scoped to the API's hostname — on
+   * localhost the two coincide, but in the cross-host topology
+   * (`api.crm.localhost`) `context.request` would send NOTHING and every call
+   * here would be a 401 that reads as a broken permission. Sending the jar
+   * explicitly makes this helper topology-blind.
+   */
+  const cookie = (await context.cookies()).map((c) => `${c.name}=${c.value}`).join('; ');
+  const headers = { Origin: APP_ORIGIN, 'X-OxShare-CSRF': csrf, Cookie: cookie };
   const r = context.request;
   return {
     get: (path) => r.get(`${API_NODE_BASE}${path}`, { headers }),
