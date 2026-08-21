@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { clientSearchBox, E2E_CLIENTS, E2E_DOMAIN, E2E_TAGS, searchOwnClients } from './helpers';
 
 /**
@@ -120,7 +120,12 @@ test.describe('the client profile', () => {
     await expect(page.getByText(/verification/i).first()).toBeVisible();
     await expect(page.getByText(/documents/i).first()).toBeVisible();
     await expect(page.getByText(/trading accounts/i).first()).toBeVisible();
-    await expect(page.getByText(/referrals/i).first()).toBeVisible();
+    // Referral relationships moved to the profile's Network tab when the
+    // profile was split into tabs — rendered as the client's "Downline" and
+    // who "Introduced" them, one click away.
+    await page.getByRole('tab', { name: /network/i }).click();
+    await expect(page.getByRole('heading', { name: /downline/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /introduced by/i })).toBeVisible();
   });
 
   test('gives a client that does not exist ONE vague answer', async ({ page }) => {

@@ -16,6 +16,8 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { Badge } from '@/components/ui/badge';
 import { t } from '@/lib/i18n';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 
 /** A row plus the expiry verdict stamped when it was fetched. */
 type ApiKeyRow = ApiKey & { isExpired: boolean };
@@ -55,6 +57,16 @@ export default function ApiKeysPage() {
    * "[object Object]".
    */
   const confirm = useConfirm();
+  /*
+   * The writes behind their own keys. `apikeys.view` lists; `apikeys.create`
+   * mints a standing credential carrying the creator's permission set, and
+   * `apikeys.revoke` kills one. The API enforces both independently — this is
+   * what keeps a holder of the read key from being offered two dead buttons
+   * (or, worse, believing the screen when it offers them).
+   */
+  const { admin } = useAdmin();
+  const canCreate = hasPermission(admin, 'apikeys.create');
+  const canRevoke = hasPermission(admin, 'apikeys.revoke');
   /*
    * Expiry is resolved WHERE THE DATA ARRIVES, not during render.
    *
@@ -117,15 +129,17 @@ export default function ApiKeysPage() {
         header: t('apiKeys.column.key'),
         // The prefix, never the secret — no field in the response could
         // authenticate, so there is nothing here to leak over a shoulder.
-        cell: (row) => <span className="font-mono text-xs">{row.prefix}…</span>,
+        cell: (row) => (
+          <span className="font-mono text-xs">
+            {t('apiKeys.prefixTruncated', { prefix: row.prefix })}
+          </span>
+        ),
       },
       {
         key: 'permissions',
         header: t('apiKeys.column.permissions'),
         cell: (row) => (
-          <span className="text-xs text-muted-foreground">
-            {row.permissions.includes('*') ? 'Full access' : row.permissions.join(', ')}
-          </span>
+          <span className="text-xs text-muted-foreground">{row.permissions.join(', ')}</span>
         ),
       },
       {
@@ -154,7 +168,7 @@ export default function ApiKeysPage() {
         cell: (row) => <StatusBadge row={row} />,
       },
       actionsColumn<ApiKeyRow>((row) =>
-        row.revokedAt ? null : (
+        row.revokedAt || !canRevoke ? null : (
           <RowActions
             // The accessible name for the trigger — it is an icon button, so a
             // screen reader has nothing else to announce.
@@ -182,7 +196,7 @@ export default function ApiKeysPage() {
     ],
     // `confirm` is a `useCallback([])` from the provider and never changes
     // identity, so listing it satisfies the rule without costing a rebuild.
-    [revoke, confirm],
+    [revoke, confirm, canRevoke],
   );
 
   return (
@@ -192,13 +206,15 @@ export default function ApiKeysPage() {
           <h1 className="text-2xl font-bold tracking-tight">{t('apiKeys.title')}</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t('apiKeys.subtitle')}</p>
         </div>
-        <Link
-          href="/api-keys/new"
-          className="focus-outline inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {t('apiKeys.create')}
-        </Link>
+        {canCreate && (
+          <Link
+            href="/api-keys/new"
+            className="focus-outline inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {t('apiKeys.create')}
+          </Link>
+        )}
       </div>
 
       <AsyncBoundary

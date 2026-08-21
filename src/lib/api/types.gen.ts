@@ -1329,13 +1329,30 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Re-check a gateway deposit with the provider, settling it if it has completed
-         * @description Asks the payment provider directly rather than trusting anything the browser carried back. Safe to call repeatedly: settlement is idempotent, so this and the provider callback converge on the same outcome whichever arrives first.
-         */
-        get: operations["PaymentsController_settleDeposit"];
+        /** The current state of one of the caller's own gateway deposits */
+        get: operations["PaymentsController_depositStatus"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/deposits/{reference}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-check a gateway deposit with the provider, settling it if it has completed
+         * @description Asks the payment provider directly rather than trusting anything the browser carried back. Safe to call repeatedly: settlement is idempotent, so this and the provider callback converge on the same outcome whichever arrives first. Only the deposit's owner may ask.
+         */
+        post: operations["PaymentsController_settleDeposit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3294,43 +3311,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/security-settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Security controls and whether each is currently on (master admin only) */
-        get: operations["AdminSecuritySettingsController_list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/security-settings/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Turn a security control on or off (master admin only)
-         * @description Every change is written to the admin action log with its before and after value, and turning a control OFF raises an alert — once at the moment of the change, and again on every request made while it stays off.
-         */
-        put: operations["AdminSecuritySettingsController_set"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/ip-allowlist": {
         parameters: {
             query?: never;
@@ -3889,13 +3869,23 @@ export interface components {
              */
             token: string;
         };
-        MessageResponseDto: {
-            /** @example Logged out. */
+        VerifyEmailResponseDto: {
+            /**
+             * @description verified — this call redeemed the link. already_verified — the link had already been redeemed and the address is confirmed. Branch on this, never on `message`.
+             * @example verified
+             * @enum {string}
+             */
+            status: "verified" | "already_verified";
+            /** @example Email verified successfully. You can now log in. */
             message: string;
         };
         ResendVerificationDto: {
             /** @example john@example.com */
             email: string;
+        };
+        MessageResponseDto: {
+            /** @example Logged out. */
+            message: string;
         };
         ForgotPasswordDto: {
             /** @example john@example.com */
@@ -3924,9 +3914,9 @@ export interface components {
             /** @example Doe */
             lastName: string;
             /** @enum {string} */
-            type: "individual" | "corporate";
+            type: "individual" | "referral" | "partner";
             /** @enum {string} */
-            status: "active" | "suspended";
+            status: "active" | "suspended" | "pending";
             /**
              * @description KYC tier. 0 = unverified, 1 = approved.
              * @example 1
@@ -5955,9 +5945,11 @@ export interface components {
             selfie?: components["schemas"]["KycSelfieDto"];
             addressProof?: components["schemas"]["KycAddressProofDto"];
             user?: components["schemas"]["KycUserDto"] | null;
+            maskedFields?: string[];
         };
         KycListResponseDto: {
             items: components["schemas"]["KycSubmissionDto"][];
+            maskedFields?: string[];
             total: number;
             page: number;
             limit: number;
@@ -6218,24 +6210,6 @@ export interface components {
              * @example oxs_live_x7Kd9…
              */
             plaintext: string;
-        };
-        SecuritySwitchDto: {
-            /**
-             * @description Stable machine key. Never renamed.
-             * @example withdrawal_otp
-             */
-            key: string;
-            enabled: boolean;
-            /** @example Email confirmation code on every client withdrawal */
-            label: string;
-            /** @description The admin who last changed it. Null while it has never been changed. */
-            updatedBy: string | null;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        SetSecuritySwitchDto: {
-            /** @description Whether the control is in force. Turning one OFF is audited and alerted — see AdminSecuritySettingsController. */
-            enabled: boolean;
         };
         IpAllowlistRuleDto: {
             id: string;
@@ -7039,7 +7013,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
+                    "application/json": components["schemas"]["VerifyEmailResponseDto"];
                 };
             };
         };
@@ -7062,7 +7036,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
+                    "application/json": components["schemas"]["VerifyEmailResponseDto"];
                 };
             };
         };
@@ -8527,6 +8501,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PaymentMethodDto"][];
                 };
+            };
+        };
+    };
+    PaymentsController_depositStatus: {
+        parameters: {
+            query: {
+                method: string;
+            };
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -11327,50 +11322,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiKeyDto"];
-                };
-            };
-        };
-    };
-    AdminSecuritySettingsController_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SecuritySwitchDto"][];
-                };
-            };
-        };
-    };
-    AdminSecuritySettingsController_set: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetSecuritySwitchDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SecuritySwitchDto"];
                 };
             };
         };

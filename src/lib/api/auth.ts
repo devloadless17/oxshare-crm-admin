@@ -82,6 +82,13 @@ export const authApi = {
    * somebody to click logout again is a poor answer to a network hiccup.
    */
   async logout(): Promise<void> {
+    /*
+     * This route never answers 401 for an expired ACCESS token: it carries no
+     * AdminGuard, takes its identity from the refresh cookie, and clears the
+     * cookies regardless. So an operator whose access token lapsed hours ago
+     * can still sign out — the retry below is for transport blips, not for a
+     * session the interceptor would otherwise have had to renew first.
+     */
     try {
       await apiClient.post('/admin/auth/logout');
     } catch {

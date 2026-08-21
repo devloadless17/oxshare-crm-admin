@@ -17,7 +17,7 @@ import { isPublicPath } from '@/lib/public-paths';
 import { announceSessionEvent, withSessionLock } from '@/lib/session-channel';
 // The marker that tells the NEXT cold load which screen to paint — cleared in
 // clearAdminSession so a dead session cannot leave it behind.
-import { clearSessionHint } from '@/lib/session-hint';
+import { clearSessionHint, hasSessionHint } from '@/lib/session-hint';
 /**
  * A request that never finishes must eventually fail.
  *
@@ -422,12 +422,27 @@ let proactiveTimer: ReturnType<typeof setInterval> | null = null;
 
 export function startProactiveRefresh(): void {
   if (typeof window === 'undefined' || proactiveTimer) return;
-  // Gated on the CSRF cookie rather than the refresh cookie: it is the one
-  // cookie this app can still see, it is set and cleared alongside the session,
-  // and so it is an accurate "a session exists" signal without being a credential.
+  /*
+   * Gated on the SESSION-HINT marker, not on the CSRF cookie.
+   *
+   * This read `readCsrfCookie()`, on the reasoning that it was "the one cookie
+   * this app can still see". It is not: the anti-forgery cookie is set by the
+   * API's host with a `__Host-` prefix, and wherever this console and the API
+   * are different hostnames — every real deployment — `document.cookie` here
+   * cannot see it. So the timer fired every ten minutes, read nothing, and
+   * never refreshed; the only renewal left was the reactive 401 path. Localhost
+   * hid it completely, because cookies ignore the port. (The note at
+   * `csrfFromResponse` above documents the same fact for the write path, and
+   * the two comments contradicted each other for weeks.)
+   *
+   * The marker is written by this app on its own host and cleared on every
+   * path a session ends by, so it is readable everywhere and means exactly
+   * "worth asking". It decides whether to ASK — the API still decides the
+   * answer. See lib/session-hint.ts.
+   */
   proactiveTimer = setInterval(
     () => {
-      if (readCsrfCookie()) void refreshAdminToken();
+      if (hasSessionHint()) void refreshAdminToken();
     },
     10 * 60 * 1000,
   );
@@ -588,10 +603,22 @@ apiClient.interceptors.response.use(assertApiResponse, async (error: AxiosError)
      * every cold load of the sign-in page — against a route throttled at
      * 20/min, which a shared office IP can reach.
      */
+    /*
+     * "Is there a session worth renewing?" is asked of the SESSION-HINT marker,
+     * not of the CSRF cookie. The cookie is invisible to this host wherever the
+     * API lives on another hostname (every real deployment), so the old
+     * condition was ALWAYS true there: a signed-in operator opening
+     * `/invite/accept` or `/reset-password` from an email never had their
+     * lapsed access token renewed, `/admin/auth/me` resolved to signed-out, and
+     * the marker was wiped — so the next visit to the console flashed the
+     * sign-in form over a live thirty-day session. Self-correcting in the other
+     * direction: a stale marker costs one refresh the API refuses, and
+     * `endDeadSession` clears it.
+     */
     if (
       typeof window !== 'undefined' &&
       isPublicPath(window.location.pathname) &&
-      readCsrfCookie() === undefined
+      !hasSessionHint()
     ) {
       return Promise.reject(error);
     }

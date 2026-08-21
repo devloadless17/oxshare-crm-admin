@@ -10,7 +10,8 @@ Next.js 16 admin app on **:3002**. Per-deliverable status is in `../docs/Phase1-
 ## Layout
 
 ```
-src/app/<feature>/{layout,page}.tsx   one flat segment per feature, no route groups
+src/app/(console)/<feature>/page.tsx  the console pages live in the `(console)` route group
+                                      (login, invite, reset-password sit outside it)
 src/components/                       async-boundary · backend-pending · data-table ·
                                       pagination · query-provider · theme-* ·
                                       layout/admin-layout · rbac/* · ui/* (shadcn)

@@ -221,7 +221,16 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   {
     prefix: '/settings',
     requirement: {
-      anyOf: ['settings.view', 'settings.edit', 'settings.smtp.view', 'settings.rival.view'],
+      anyOf: [
+        'settings.view',
+        'settings.edit',
+        'settings.smtp.view',
+        'settings.rival.view',
+        // The Security tab (RBAC-08 network access) — granted on its own to an
+        // operator who administers the allowlist and nothing else. It was
+        // missing from this union, so that operator had a tab and no door.
+        'settings.security.view',
+      ],
     },
   },
   /*

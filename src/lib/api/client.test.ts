@@ -150,7 +150,7 @@ describe('idempotency keys', () => {
 });
 
 describe('proactive refresh', () => {
-  it('does not refresh while no session cookie exists', async () => {
+  it('does not refresh while no session marker exists', async () => {
     vi.useFakeTimers();
     const { startProactiveRefresh, stopProactiveRefresh } = await loadClient();
     mockedPost.mockResolvedValue({ status: 200 });
@@ -165,10 +165,32 @@ describe('proactive refresh', () => {
     expect(mockedPost).not.toHaveBeenCalled();
   });
 
+  it('fires where the CSRF cookie is unreadable but the session marker is set', async () => {
+    /*
+     * THE PRODUCTION TOPOLOGY. The console and the API are different hostnames,
+     * so the API's `__Host-` CSRF cookie is invisible here — and the timer used
+     * to be gated on reading it, so it never fired outside localhost. The
+     * session-hint marker is this app's own cookie and is what it asks now.
+     */
+    vi.useFakeTimers();
+    document.cookie = 'oxshare_crm_admin_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = '__Host-oxshare_crm_admin_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'oxshare_crm_admin_session_hint=1; Path=/';
+    const { startProactiveRefresh, stopProactiveRefresh } = await loadClient();
+    mockedPost.mockResolvedValue({ status: 200, headers: {} });
+
+    startProactiveRefresh();
+    await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
+    stopProactiveRefresh();
+
+    expect(mockedPost).toHaveBeenCalled();
+    document.cookie = 'oxshare_crm_admin_session_hint=; Path=/; Max-Age=0';
+  });
+
   it('stops firing once the session is cleared', async () => {
     vi.useFakeTimers();
     const { startProactiveRefresh, clearAdminSession } = await loadClient();
-    document.cookie = 'oxshare_crm_admin_csrf=token-value';
+    document.cookie = 'oxshare_crm_admin_session_hint=1; Path=/';
     mockedPost.mockResolvedValue({ status: 200 });
 
     startProactiveRefresh();
@@ -180,9 +202,84 @@ describe('proactive refresh', () => {
     await vi.advanceTimersByTimeAsync(31 * 60 * 1000);
 
     // A timer that outlives the session keeps calling refresh for a user who
-    // logged out.
+    // logged out. (`clearAdminSession` also clears the marker itself.)
     expect(mockedPost).toHaveBeenCalledTimes(afterFirst);
-    document.cookie = 'oxshare_crm_admin_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'oxshare_crm_admin_session_hint=; Path=/; Max-Age=0';
+  });
+});
+
+describe('a 401 on a public page', () => {
+  /*
+   * `/login`, `/invite/accept`, `/reset-password` all ask `/admin/auth/me` on
+   * mount. For a visitor who was never signed in that 401 is the answer and a
+   * refresh would be two guaranteed-to-fail requests per cold load. For an
+   * operator whose access token lapsed — the normal state of anyone returning
+   * after fifteen minutes — it is a session to renew. The session-hint marker
+   * tells the two apart; the CSRF cookie used to, and cannot off localhost.
+   */
+  function answer401ThenOk(apiClient: import('axios').AxiosInstance) {
+    let calls = 0;
+    apiClient.defaults.adapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(
+          Object.assign(new Error('401'), {
+            config,
+            response: { status: 401, data: {}, headers: {}, statusText: '', config },
+            isAxiosError: true,
+          }),
+        );
+      }
+      return Promise.resolve({
+        data: { ok: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      });
+    };
+  }
+
+  it('is not renewed when no session marker exists', async () => {
+    window.history.pushState({}, '', '/login');
+    document.cookie = 'oxshare_crm_admin_session_hint=; Path=/; Max-Age=0';
+    const { apiClient } = await loadClient();
+    answer401ThenOk(apiClient);
+
+    await expect(apiClient.get('/admin/auth/me')).rejects.toBeTruthy();
+    expect(mockedPost).not.toHaveBeenCalled();
+  });
+
+  it('IS renewed when the session marker says there is a session to renew', async () => {
+    window.history.pushState({}, '', '/login');
+    document.cookie = 'oxshare_crm_admin_session_hint=1; Path=/';
+    const { apiClient } = await loadClient();
+    answer401ThenOk(apiClient);
+    mockedPost.mockResolvedValue({ status: 200, headers: {} });
+
+    const res = await apiClient.get('/admin/auth/me');
+    expect(res.status).toBe(200);
+    expect(mockedPost).toHaveBeenCalledTimes(1);
+    document.cookie = 'oxshare_crm_admin_session_hint=; Path=/; Max-Age=0';
+    window.history.pushState({}, '', '/');
+  });
+});
+
+describe('a refresh that lost a race', () => {
+  it('retries once on SESSION_SUPERSEDED and keeps the session', async () => {
+    /*
+     * Pins the status the backend answers with: 401 + code SESSION_SUPERSEDED.
+     * Both this interceptor and the portal's branch on the CODE before the
+     * status, so the 401 is load-bearing only in that it must not be treated
+     * as a dead session — this is the assertion that it is not.
+     */
+    const { refreshAdminToken } = await loadClient();
+    mockedPost
+      .mockRejectedValueOnce({ response: { status: 401, data: { code: 'SESSION_SUPERSEDED' } } })
+      .mockResolvedValueOnce({ status: 200, headers: {} });
+
+    expect(await refreshAdminToken()).toBe(true);
+    expect(mockedPost).toHaveBeenCalledTimes(2);
   });
 });
 

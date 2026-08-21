@@ -691,7 +691,6 @@ export type AcceptInviteResponse = components['schemas']['AcceptInviteResponseDt
 /** One platform's download link. `url` is null until an admin sets it. */
 export type PlatformLink = components['schemas']['PlatformLinkDto'];
 
-export type SecuritySwitch = components['schemas']['SecuritySwitchDto'];
 /** RBAC-08 — the allowlist, whether it is enforcing, and your own address. */
 export type IpAllowlistStatus = components['schemas']['IpAllowlistStatusDto'];
 export type IpAllowlistRule = components['schemas']['IpAllowlistRuleDto'];
@@ -747,19 +746,6 @@ export type NotificationUnreadCount = components['schemas']['NotificationUnreadC
 export type NotificationsMarkAllRead = components['schemas']['NotificationsMarkAllReadResponseDto'];
 
 export const adminApi = {
-  /** Master admin only — the API answers 403 for anyone else. */
-  async getSecuritySettings(): Promise<SecuritySwitch[]> {
-    const { data } = await apiClient.get<SecuritySwitch[]>('/admin/security-settings');
-    return data;
-  },
-
-  async setSecuritySwitch(key: string, enabled: boolean): Promise<SecuritySwitch> {
-    const { data } = await apiClient.put<SecuritySwitch>(`/admin/security-settings/${key}`, {
-      enabled,
-    });
-    return data;
-  },
-
   // ── RBAC-08, the admin IP allowlist ──────────────────────────────────────
   /**
    * Requires `settings.security.view`.

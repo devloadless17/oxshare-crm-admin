@@ -37,6 +37,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 import { formatMoney } from '@/lib/money';
 
 /**
@@ -98,6 +100,9 @@ function WalletsPageContent() {
    * a filter rather than leave the screen.
    */
   const queryClient = useQueryClient();
+  const { admin } = useAdmin();
+  const canCredit = hasPermission(admin, 'wallets.credit');
+  const canClose = hasPermission(admin, 'wallets.delete');
   const url = useTableQueryState();
   const page = pageParam(url.get('page'));
   /*
@@ -343,41 +348,61 @@ function WalletsPageContent() {
      * a balance is a compensating entry through the ledger (§6.4), never a
      * button that edits a number.
      */
-    actionsColumn<WalletRow>((w) => (
-      <RowActions
-        label={t('table.rowActions', { name: w.user.email })}
-        busy={
-          (credit.isPending && crediting?.id === w.id) || (close.isPending && closing?.id === w.id)
-        }
-        items={[
-          {
-            label: t('wallets.creditAction'),
-            icon: PlusCircle,
-            onSelect: () => {
-              setCreditError(undefined);
-              setCrediting(w);
-            },
-          },
-          {
-            label: t('wallets.closeAction'),
-            icon: Trash2,
-            /*
-             * Destructive, and behind a CONFIRMATION rather than fired from the
-             * menu. The API refuses a wallet that holds anything, so the damage
-             * is bounded — but "closed the wrong client's wallet" is still a
-             * support conversation, and a menu item one slip away from deleting
-             * a row is not how a money console should offer it.
-             */
-            destructive: true,
-            separatorBefore: true,
-            onSelect: () => {
-              setCloseError(undefined);
-              setClosing(w);
-            },
-          },
-        ]}
-      />
-    )),
+    /*
+     * Each write behind ITS OWN key — `wallets.credit` and `wallets.delete` —
+     * exactly as `client-wallets-panel.tsx` gates the same two operations on
+     * the profile. This page drew both for every `wallets.view` holder, so a
+     * read-only finance viewer was offered "Add funds" on a screen whose
+     * comment in permissions.ts claimed it drew no write control at all.
+     */
+    ...(canCredit || canClose
+      ? [
+          actionsColumn<WalletRow>((w) => (
+            <RowActions
+              label={t('table.rowActions', { name: w.user.email })}
+              busy={
+                (credit.isPending && crediting?.id === w.id) ||
+                (close.isPending && closing?.id === w.id)
+              }
+              items={[
+                ...(canCredit
+                  ? [
+                      {
+                        label: t('wallets.creditAction'),
+                        icon: PlusCircle,
+                        onSelect: () => {
+                          setCreditError(undefined);
+                          setCrediting(w);
+                        },
+                      },
+                    ]
+                  : []),
+                ...(canClose
+                  ? [
+                      {
+                        label: t('wallets.closeAction'),
+                        icon: Trash2,
+                        /*
+                         * Destructive, and behind a CONFIRMATION rather than
+                         * fired from the menu. The API refuses a wallet that
+                         * holds anything, so the damage is bounded — but "closed
+                         * the wrong client's wallet" is still a support
+                         * conversation.
+                         */
+                        destructive: true,
+                        separatorBefore: canCredit,
+                        onSelect: () => {
+                          setCloseError(undefined);
+                          setClosing(w);
+                        },
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          )),
+        ]
+      : []),
   ];
 
   const isFiltered = Boolean(userId || currency);

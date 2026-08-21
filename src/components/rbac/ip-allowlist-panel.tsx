@@ -9,6 +9,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 /**
  * RBAC-08 — which networks may reach the administration API.
@@ -73,9 +74,18 @@ export function IpAllowlistPanel({ canManage }: { canManage: boolean }) {
    */
   const isFirstRule = rules.length === 0;
 
-  const handleRemove = (rule: IpAllowlistRule) => {
-    if (!window.confirm(t('ipAllowlist.confirmRemove', { cidr: rule.cidr }))) return;
-    removeRule.mutate(rule);
+  const confirm = useConfirm();
+  const handleRemove = async (rule: IpAllowlistRule) => {
+    // The app's own dialog, not `window.confirm` — the one destructive action
+    // on the console that can lock every administrator out deserves the same
+    // named, focus-trapped confirmation every other destructive action gets.
+    const ok = await confirm({
+      title: t('ipAllowlist.removeTitle'),
+      description: t('ipAllowlist.confirmRemove', { cidr: rule.cidr }),
+      confirmLabel: t('ipAllowlist.remove', { cidr: rule.cidr }),
+      destructive: true,
+    });
+    if (ok) removeRule.mutate(rule);
   };
 
   const banner = addRule.isError
@@ -150,7 +160,7 @@ export function IpAllowlistPanel({ canManage }: { canManage: boolean }) {
                 {canManage && (
                   <button
                     type="button"
-                    onClick={() => handleRemove(rule)}
+                    onClick={() => void handleRemove(rule)}
                     disabled={removeRule.isPending && removeRule.variables?.id === rule.id}
                     aria-label={t('ipAllowlist.remove', { cidr: rule.cidr })}
                     className="focus-outline inline-flex h-8 items-center gap-1.5 rounded-lg border border-destructive/30 px-3 text-[11px] font-semibold text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"

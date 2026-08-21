@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
+import { answerConfirm } from '@/test/confirm';
 import { IpAllowlistPanel } from './ip-allowlist-panel';
 
 /**
@@ -143,22 +144,21 @@ describe('who may change it', () => {
 
   it('asks before removing a rule, and does nothing if declined', async () => {
     // Removing the last rule covering you is a lockout; the API refuses it, and
-    // being asked first beats reading the refusal.
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    // being asked first beats reading the refusal. Through the app's own
+    // confirm dialog — this was the last `window.confirm` in the console.
     const user = userEvent.setup();
     renderWithProviders(<IpAllowlistPanel canManage />);
     await screen.findByText('203.0.113.0/24');
 
     await user.click(screen.getByRole('button', { name: /remove 203\.0\.113\.0\/24/i }));
+    const asked = await answerConfirm(userEvent, 'cancel');
 
-    expect(confirmSpy).toHaveBeenCalled();
+    expect(asked).toContain('203.0.113.0/24');
     expect(removeIpAllowlistRule).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it('surfaces the API refusal instead of pretending the change worked', async () => {
     // The lockout refusals are the messages that matter most on this screen.
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     removeIpAllowlistRule.mockRejectedValue(
       Object.assign(new Error('nope'), {
         response: {
@@ -172,9 +172,9 @@ describe('who may change it', () => {
     await screen.findByText('203.0.113.0/24');
 
     await user.click(screen.getByRole('button', { name: /remove 203\.0\.113\.0\/24/i }));
+    await answerConfirm(userEvent, 'confirm');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/last rule covering/i);
-    confirmSpy.mockRestore();
   });
 });
 

@@ -98,6 +98,7 @@ export const messages = {
   'ipAllowlist.addFailed': 'Could not add that rule.',
   'ipAllowlist.removeFailed': 'Could not remove that rule.',
   'ipAllowlist.remove': 'Remove {cidr}',
+  'ipAllowlist.removeTitle': 'Remove this network rule?',
   'ipAllowlist.confirmRemove':
     'Remove {cidr}? If it is the last rule covering your own address the API will refuse, because it would lock you out.',
   'nav.commissionPlans': 'Commission Plans',
@@ -152,6 +153,9 @@ export const messages = {
   // the cookies are httpOnly — so a failed logout leaves the admin signed in,
   // and on a shared machine that is the thing they need to know.
   'session.logoutFailed': 'Sign-out failed — you are still signed in. Please try again.',
+  // Screen-reader text behind the loader AsyncBoundary paints on a 401, in the
+  // moment before the interceptor's redirect to sign-in lands.
+  'session.ended': 'Your session has ended. Returning to sign-in…',
 
   // ── Login ─────────────────────────────────────────────────────────────────
   'login.title': 'OXShare',
@@ -1716,7 +1720,7 @@ export const messages = {
   'kycReview.rejectCta': 'Reject',
   'kycReview.approveAria': 'Approve KYC submission',
   'kycReview.rejectAria': 'Reject KYC submission',
-  'kycReview.approvedNote': '✅ KYC has been approved.',
+  'kycReview.approvedNote': '✅ KYC has been approved. User verification level set to 1.',
   'kycReview.typeLabel': 'Type',
   'kycReview.viewDocumentPdf': '📄 View Document PDF',
   'kycReview.docLoadFailed': 'Could not load document.',
@@ -1838,6 +1842,13 @@ export const messages = {
   'kycBuilder.expandStep': 'Show step details — {name}',
   'kycBuilder.collapseStep': 'Hide step details — {name}',
   'kyc.searchAria': 'Search submissions by name or email',
+  'kyc.loadingQueue': 'Loading KYC submissions',
+  'kyc.queueLoadFailed':
+    'Failed to load the review queue. This is NOT an empty queue — submissions may be waiting.',
+  'kyc.queueCaption': 'KYC Submissions',
+  'kyc.queueEmpty': 'No submissions match the current filters.',
+  'kyc.nounSingular': 'submission',
+  'kyc.nounPlural': 'submissions',
   // The `ledger.*` keys went with the ledger screen. `getLedger` is back in
   // lib/api/admin.ts and the endpoint exists, but no page renders it yet, and a
   // catalogue entry with no call site is a string nobody can find.
@@ -1922,6 +1933,7 @@ export const messages = {
     'Machine credentials for the admin API. A key carries its own permissions and is not tied to any administrator’s account.',
   'apiKeys.loading': 'Loading keys…',
   'apiKeys.loadFailed': 'Could not load the API keys.',
+  'apiKeys.prefixTruncated': '{prefix}…',
   'apiKeys.create': 'New API key',
   'apiKeys.caption': 'API keys, newest first',
   'apiKeys.empty': 'No API keys yet.',

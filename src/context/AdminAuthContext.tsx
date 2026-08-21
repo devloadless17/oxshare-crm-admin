@@ -9,6 +9,7 @@ import { assertPermissionKeysExist } from '@/lib/permissions';
 import { announceSessionEvent, onSessionEvent } from '@/lib/session-channel';
 import { isPublicPath } from '@/lib/public-paths';
 import { clearSessionHint, markSessionHint } from '@/lib/session-hint';
+import { loginPathFor } from '@/lib/return-to';
 import type { components } from '@/lib/api/types.gen';
 
 // Generated from the backend's Swagger — never hand-written. A rename of
@@ -240,8 +241,11 @@ export function AdminAuthProvider({
       // router push keeps this tab's JS context — and therefore the previous
       // operator's cached data — alive into the sign-in screen. Same reasoning
       // as `logout` below and as `endDeadSession` in lib/api/client.ts.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = '/login';
+      //
+      // It carries `?next=`, exactly as `endDeadSession` does. This tab was
+      // mid-task when another tab signed out; sending it to a bare `/login`
+      // threw that destination away while the interceptor's eviction kept it.
+      window.location.href = loginPathFor(window.location.pathname, window.location.search);
     });
   }, []);
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 import WalletsPage from './page';
 import type { Currency, WalletListResponse, WalletRow } from '@/lib/api/admin';
 
@@ -35,6 +36,26 @@ vi.mock('@/lib/api', () => {
   const api = { admin: { getWallets, getCurrencies, closeWallet, creditWallet } };
   return { api, default: api };
 });
+
+/*
+ * The page now gates its write controls on the viewer's permissions (credit,
+ * close / approve, reject, claim). These tests are about the screen's
+ * behaviour, not about gating, so the viewer holds every key — the gating
+ * itself is asserted where the `ALL_PERMISSIONS` fixture is narrowed.
+ */
+vi.mock('@/context/AdminAuthContext', () => ({
+  useAdmin: () => ({
+    admin: {
+      id: 'a-1',
+      email: 'admin@oxshare.com',
+      name: 'Master Admin',
+      role: 'master_admin',
+      status: 'active',
+      permissions: ALL_PERMISSIONS,
+      createdAt: new Date().toISOString(),
+    },
+  }),
+}));
 
 /*
  * The filters, the sort and the page all live in the URL, so the page reads

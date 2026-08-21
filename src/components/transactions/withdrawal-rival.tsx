@@ -7,6 +7,9 @@ import { Spinner } from '@/components/ui/loader';
 import { adminApi, type RejectionReason, type WithdrawalRow } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { toastError, toastSuccess } from '@/lib/toast';
+import { apiErrorMessage } from '@/lib/api/errors';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 import { formatMoney } from '@/lib/money';
 import { Modal } from '@/components/ui/modal';
 import {
@@ -105,6 +108,7 @@ export function RetryRivalButton({
   disabled: boolean;
   onDone: () => Promise<void>;
 }) {
+  const { admin } = useAdmin();
   const retry = useMutation({
     mutationFn: () => adminApi.retryRivalSubmission(w.id, `rival-submit:${w.id}`),
     onSuccess: async () => {
@@ -115,6 +119,10 @@ export function RetryRivalButton({
   });
 
   if (!(w.rivalNeedsAttention && !w.rivalSubmittedAt && !w.rivalWithdrawalId)) return null;
+  // `POST /admin/withdrawals/:id/rival-submit` requires `withdrawals.approve`.
+  // Every other control on the row is gated; this one rendered outside the
+  // menu and was not.
+  if (!hasPermission(admin, 'withdrawals.approve')) return null;
 
   return (
     <button
@@ -186,7 +194,10 @@ export function CancelWithdrawalDialog({
     onError: (e: unknown) => {
       // Inline, and the dialog stays open: the message may be Rival's
       // "already being paid", which the operator must read, not dismiss.
-      setError(e instanceof Error ? e.message : t('withdrawals.cancelFailed'));
+      // Through `apiErrorMessage`: an AxiosError IS an Error, so `e.message`
+      // was "Request failed with status code 409" — the API's sentence, the
+      // one this comment says must be read, was being thrown away.
+      setError(apiErrorMessage(e, t('withdrawals.cancelFailed')));
     },
   });
 

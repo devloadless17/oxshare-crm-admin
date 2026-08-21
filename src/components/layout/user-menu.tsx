@@ -21,6 +21,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { avatarSrc, initialsFor } from '@/lib/avatar';
 import { useHydrated } from '@/hooks/use-hydrated';
 import { t } from '@/lib/i18n';
+import { toastError } from '@/lib/toast';
 
 /**
  * The account menu at the foot of the sidebar — the portal's `UserMenu`, on the
@@ -108,7 +109,15 @@ export function UserMenu({
     setLogoutError(null);
     try {
       await logout();
-    } catch {
+    } catch (error) {
+      /*
+       * Surfaced TWICE on purpose. The inline line under the trigger is only
+       * rendered in the expanded sidebar; in the header variant and on a
+       * collapsed sidebar there is no room for it — so a failed sign-out was
+       * completely silent there, which is the one outcome this whole path
+       * exists to prevent (see api/auth.ts). The toast reaches every layout.
+       */
+      toastError(error, t('session.logoutFailed'));
       setLogoutError(t('session.logoutFailed'));
     }
   };

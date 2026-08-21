@@ -11,6 +11,9 @@ import { PermissionMatrix } from '@/components/rbac/permission-matrix';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { t } from '@/lib/i18n';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
+import { AccessDenied } from '@/components/access-denied';
 
 /**
  * Issue an API key — a page, not a dialog.
@@ -38,6 +41,15 @@ import { t } from '@/lib/i18n';
  * the parameter with `history.replaceState` so it never survives into history.
  */
 export default function NewApiKeyPage() {
+  const { admin } = useAdmin();
+  // `apikeys.view` opens the list; minting a standing credential is
+  // `apikeys.create`, and the API refuses the POST without it. Rendering the
+  // form to somebody who cannot submit it is a dead end with a 403 at the end.
+  if (!hasPermission(admin, 'apikeys.create')) return <AccessDenied />;
+  return <NewApiKeyForm />;
+}
+
+function NewApiKeyForm() {
   const router = useRouter();
 
   const [name, setName] = React.useState('');

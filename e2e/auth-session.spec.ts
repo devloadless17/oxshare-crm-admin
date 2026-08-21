@@ -1,5 +1,14 @@
-import { expect, test } from '@playwright/test';
-import { collectRejections, E2E_ADMIN, persistSharedState, signIn, signOut } from './helpers';
+import { expect, test } from './fixtures';
+import {
+  collectRejections,
+  E2E_ADMIN,
+  persistSharedState,
+  API_BASE,
+  APP_ORIGIN,
+  routeHit,
+  signIn,
+  signOut,
+} from './helpers';
 
 /**
  * Does an admin session actually hold, on every page, across a refresh?
@@ -31,7 +40,7 @@ test.describe('an authenticated admin session', () => {
      * The call is delayed so that moment is wide enough to observe. If nothing
      * is wrong, the console waits rather than lying.
      */
-    await page.route('**/api/admin/auth/me', async (route) => {
+    const me = await routeHit(page, '/admin/auth/me', async (route) => {
       await new Promise((r) => setTimeout(r, 1_200));
       await route.continue();
     });
@@ -42,6 +51,9 @@ test.describe('an authenticated admin session', () => {
 
     expect(page.url()).toContain('/dashboard');
     await expect(page.getByRole('button', { name: /^sign in$/i })).toHaveCount(0);
+    // The delay really was in force while we sampled — otherwise this test
+    // only ever observed a normal fast load.
+    expect(me.hits(), 'the delaying route never fired').toBeGreaterThan(0);
   });
 
   test('survives a hard refresh on every private page, chrome intact', async ({ page }) => {
@@ -134,10 +146,10 @@ test.describe('an authenticated admin session', () => {
     await expect(page.getByRole('navigation').first()).toBeAttached();
 
     // And it really renewed, rather than the page merely rendering optimistically.
-    const me = await page.evaluate(async () => {
-      const res = await fetch('/api/admin/auth/me', { credentials: 'include' });
+    const me = await page.evaluate(async (base) => {
+      const res = await fetch(`${base}/admin/auth/me`, { credentials: 'include' });
       return res.status;
-    });
+    }, API_BASE);
     expect(me).toBe(200);
   });
 
@@ -172,10 +184,10 @@ test.describe('an authenticated admin session', () => {
     // The end-to-end statement: the cookie the browser holds is one the API
     // accepts, on a request the page made itself.
     await page.goto('/dashboard');
-    const me = await page.evaluate(async () => {
-      const res = await fetch('/api/admin/auth/me', { credentials: 'include' });
+    const me = await page.evaluate(async (base) => {
+      const res = await fetch(`${base}/admin/auth/me`, { credentials: 'include' });
       return { status: res.status, body: (await res.json()) as { email?: string } };
-    });
+    }, API_BASE);
 
     expect(me.status).toBe(200);
     expect(me.body.email).toBe(E2E_ADMIN.email);
@@ -314,7 +326,7 @@ test.describe('signing in and out', () => {
     await page.goto(`/login?next=${encodeURIComponent('https://evil.example/login')}`);
     await signIn(page);
 
-    expect(new URL(page.url()).host, 'followed a hostile next=').toBe('localhost:3002');
+    expect(new URL(page.url()).host, 'followed a hostile next=').toBe(new URL(APP_ORIGIN).host);
     expect(page.url()).toContain('/dashboard');
   });
 
@@ -343,8 +355,14 @@ test.describe('signing in and out', () => {
        * restores from that file. Re-establish a session and rewrite the file,
        * in a FINALLY so even a failure above cannot poison the rest of the run.
        */
-      await signIn(page).catch(() => undefined);
-      await persistSharedState(page.context()).catch(() => undefined);
+      // NOT swallowed any more. When this restore failed, the catch hid it and
+      // `persistSharedState` wrote the post-logout (empty) jar, so thirty specs
+      // later opened on the login screen with nothing pointing back here. A
+      // failed restore is a failed test — and the persist now refuses a dead jar
+      // regardless.
+      await page.goto('/login');
+      await signIn(page);
+      await persistSharedState(page.context());
     }
   });
 });

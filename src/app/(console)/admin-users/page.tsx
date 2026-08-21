@@ -83,18 +83,29 @@ export default function AdminUsersPage() {
      * back with the mask OVERRIDE panel (restored 13 Aug) — the role's mask is
      * the default and this is the one-person exception.
      */
-    const [roles, adminUsers, tags, fieldCatalog] = await Promise.all([
+    const [roles, adminUsers, fieldCatalog] = await Promise.all([
       api.admin.getRoles(),
       api.admin.getAdminUsers(),
-      api.admin.getTags(),
       api.admin.getClientFields(),
     ]);
-    return { roles, adminUsers, tags, fieldCatalog };
+    return { roles, adminUsers, fieldCatalog };
   });
+
+  /*
+   * The tag vocabulary is its OWN resource, for the same reason invites are.
+   *
+   * `GET /admin/tags` requires `tags.view` OR `clients.view`; the three reads
+   * above accept `admins.view`. A pure user-administrator role — directory,
+   * invites, roles, no client access — therefore 403'd on the tags call, and
+   * because it sat inside the same `Promise.all` the whole directory rendered
+   * "no access" over a page that role legitimately holds. Forbidden here means
+   * the scope panel offers no territories, nothing more.
+   */
+  const tagsQuery = useResource(['client-tags'], (signal) => api.admin.getTags(signal));
 
   const roles: Role[] = query.data?.roles ?? [];
   const adminUsers: AdminUser[] = query.data?.adminUsers ?? [];
-  const tags = query.data?.tags ?? [];
+  const tags = tagsQuery.data ?? [];
   const fieldCatalog = query.data?.fieldCatalog ?? {};
 
   /*

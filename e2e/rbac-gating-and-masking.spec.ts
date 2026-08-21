@@ -1,5 +1,12 @@
-import { expect, test, type Page } from '@playwright/test';
-import { E2E_CLIENTS, RESTRICTED_STATE, searchOwnClients } from './helpers';
+import { type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import {
+  adminApiSession,
+  API_NODE_BASE,
+  E2E_CLIENTS,
+  RESTRICTED_STATE,
+  searchOwnClients,
+} from './helpers';
 
 /**
  * FR-RBAC-03 — role-gating, and the "mask data" half of its title.
@@ -30,9 +37,8 @@ function collectBodies(page: Page): { all: () => Promise<string> } {
   const pending: Promise<string>[] = [];
 
   page.on('response', (response) => {
-    // Either shape: the old same-origin `/api/*` rewrite, or the direct API
-    // origin this console uses now. Both carry the versioned path.
-    if (!response.url().includes('/api/') && !response.url().includes('/v1/')) return;
+    // The direct API origin, whichever host — matched on the versioned path.
+    if (!new URL(response.url()).pathname.startsWith('/v1/')) return;
     pending.push(response.text().catch(() => ''));
   });
 
@@ -138,14 +144,32 @@ test.describe('what a RESTRICTED sub-admin cannot reach', () => {
     await expect(page.getByText(/access denied/i)).toBeVisible();
   });
 
-  test('and the API refuses it too, with 403', async ({ page }) => {
+  test('and the API refuses it too, with 403', async ({ page, browser }) => {
+    /*
+     * Two halves, because the first can be vacuous on its own.
+     *
+     * The console refuses `/roles` BEFORE any request is made (the route gate
+     * renders AccessDenied from the permission catalogue), so watching the
+     * page's traffic may see zero calls to `/admin/roles` — and `[].every()` is
+     * true. That is what this test used to assert: nothing. So the page is
+     * still watched (anything it DOES send must be a 403, and there must be no
+     * retry storm), and the API's own answer is taken directly.
+     */
     const refused: number[] = [];
     page.on('response', (r) => {
-      if (r.url().includes('/admin/roles')) refused.push(r.status());
+      if (new URL(r.url()).pathname === '/v1/admin/roles') refused.push(r.status());
     });
 
     await page.goto('/roles');
+    await expect(page.getByText(/access denied/i)).toBeVisible();
     expect(refused.every((status) => status === 403)).toBe(true);
+    expect(refused.length, 'the refused page retried the forbidden call').toBeLessThanOrEqual(1);
+
+    // The API itself, on the restricted session: exactly one 403.
+    const restricted = await browser.newContext({ storageState: RESTRICTED_STATE });
+    const direct = await restricted.request.get(`${API_NODE_BASE}/admin/roles`);
+    expect(direct.status(), 'the API answered a restricted admin with').toBe(403);
+    await restricted.close();
   });
 
   test('never receives a masked value, in the DOM OR on the wire', async ({ page }) => {
@@ -171,5 +195,36 @@ test.describe('what a RESTRICTED sub-admin cannot reach', () => {
     await expect(page.getByRole('link', { name: E2E_CLIENTS.alpha.name })).toBeVisible();
     // …and not.
     await expect(page.getByRole('link', { name: E2E_CLIENTS.zulu.name })).toHaveCount(0);
+
+    /*
+     * The deep link. Zulu exists, and the restricted admin must be told exactly
+     * what they are told about a client that does NOT exist — a 404, never a
+     * 403 — or the scope becomes an existence oracle. The id is looked up with
+     * the master's session, which is the only one allowed to know it.
+     */
+    const master = await adminApiSession();
+    const lookup = await master.get(
+      `/admin/clients?q=${encodeURIComponent(E2E_CLIENTS.zulu.email)}`,
+    );
+    expect(lookup.ok()).toBe(true);
+    const zulu = ((await lookup.json()) as { items: { id: string; email: string }[] }).items.find(
+      (c) => c.email === E2E_CLIENTS.zulu.email,
+    );
+    await master.dispose();
+    expect(zulu, 'the zulu fixture is not seeded').toBeTruthy();
+
+    const direct: number[] = [];
+    page.on('response', (r) => {
+      if (new URL(r.url()).pathname === `/v1/admin/clients/${zulu!.id}`) direct.push(r.status());
+    });
+    await page.goto(`/clients/${zulu!.id}`);
+    // The SAME vague sentence the nonexistent-id case gets (clients-and-tags).
+    await expect(page.getByText(/not available/i)).toBeVisible();
+    await expect(page.getByText(/may not exist, or it may be outside/i)).toBeVisible();
+    expect(direct.length, 'the profile was never requested').toBeGreaterThan(0);
+    expect(
+      direct.every((status) => status === 404),
+      `the out-of-scope client answered something other than 404: ${direct.join(', ')}`,
+    ).toBe(true);
   });
 });

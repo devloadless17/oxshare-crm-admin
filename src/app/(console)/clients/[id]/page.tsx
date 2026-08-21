@@ -608,22 +608,30 @@ export default function ClientProfilePage() {
               </div>
             </Modal>
 
+            {/* CORE-18. Two dialogs, because the two edits sit behind two
+                permissions — see client-edit-dialogs.tsx.
+
+                Mounted for EVERY client. They used to sit inside the
+                `partner &&` block below, so for an ordinary individual client —
+                the overwhelming majority — the actions menu offered "Edit
+                profile" and "Change email" (it gates on `clients.edit` /
+                `clients.email`, not on partner status), the click set state,
+                and nothing rendered. The two partner-only dialogs stay where
+                they are; these two belong to the profile, not to the rung. */}
+            <EditClientProfileDialog
+              open={editOpen}
+              onClose={() => setEditOpen(false)}
+              profile={profile}
+            />
+
+            <ChangeClientEmailDialog
+              open={emailOpen}
+              onClose={() => setEmailOpen(false)}
+              profile={profile}
+            />
+
             {partner && (
               <>
-                {/* CORE-18. Two dialogs, because the two edits sit behind two
-                    permissions — see client-edit-dialogs.tsx. */}
-                <EditClientProfileDialog
-                  open={editOpen}
-                  onClose={() => setEditOpen(false)}
-                  profile={profile}
-                />
-
-                <ChangeClientEmailDialog
-                  open={emailOpen}
-                  onClose={() => setEmailOpen(false)}
-                  profile={profile}
-                />
-
                 <ChangeLevelDialog
                   open={levelOpen}
                   onClose={() => setLevelOpen(false)}

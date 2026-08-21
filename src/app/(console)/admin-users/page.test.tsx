@@ -328,6 +328,21 @@ describe('outstanding invites, in the directory', () => {
     expect(menu?.queryByRole('menuitem', { name: /revoke/i }) ?? null).toBeNull();
   });
 
+  it('keeps the directory when the tag vocabulary is forbidden', async () => {
+    /*
+     * `GET /admin/tags` needs `tags.view` OR `clients.view`; the directory reads
+     * need `admins.view`. A pure user-administrator role holds the latter and
+     * not the former, and the tags call used to sit inside the same
+     * `Promise.all` — so its 403 rendered "no access" over the whole page.
+     */
+    getTags.mockRejectedValue(
+      Object.assign(new Error('forbidden'), { response: { status: 403, data: {} } }),
+    );
+    renderWithProviders(<AdminUsersPage />);
+
+    expect(await screen.findByText('sub@oxshare.com')).toBeInTheDocument();
+  });
+
   it('keeps the directory when the invite list fails', async () => {
     // Separate resources, so a failing invite list costs the invite rows and
     // not the administrators an operator came to see.

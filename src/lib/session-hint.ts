@@ -102,13 +102,37 @@ export function clearSessionHint(): void {
 }
 
 /**
- * THERE IS NO BROWSER-SIDE READER HERE, deliberately.
+ * Does this browser believe it has a session?
  *
- * The read happens in `app/layout.tsx` with `cookies()` — SERVER-side — and the
- * value travels down as a prop. A client component reading `document.cookie`
- * instead renders `false` during SSR and `true` after hydration, so the sign-in
- * form ships inside the HTML and is swapped out a frame later. Painting it for
- * one frame instead of one round trip is a smaller version of the bug, not a fix
- * for it — which is why a `hasSessionHint()` helper is missing rather than
- * merely unused.
+ * ## NOT for deciding what to paint
+ *
+ * Anything that decides what the FIRST render shows reads the marker in
+ * `app/layout.tsx` with `cookies()` — SERVER-side — and receives it as a prop.
+ * A client component reading `document.cookie` for that renders `false` during
+ * SSR and `true` after hydration, so the sign-in form ships inside the HTML and
+ * is swapped out a frame later: a smaller version of the bug, not a fix for it.
+ * That rule still stands, and this helper must never be used in a render path.
+ *
+ * ## What it IS for: "is there a session to renew?"
+ *
+ * `lib/api/client.ts` has to answer that question twice — before the ten-minute
+ * proactive refresh fires, and before it decides whether a 401 on a public page
+ * is a visitor who was never signed in or a returning client whose access token
+ * lapsed. It used to read the CSRF cookie for both, and that is the one signal
+ * that is wrong in exactly the environment that matters: wherever this app and
+ * the API are different hostnames (every real deployment), the API's cookies
+ * are `__Host-` bound to the API's host and `document.cookie` here cannot see
+ * them. So the proactive refresh never fired in production, and a signed-in
+ * client landing on the sign-in page from a bookmark was shown the form over
+ * a live session. Localhost hid both, because cookies ignore the port.
+ *
+ * This marker is written by THIS app on THIS host and cleared on every path a
+ * session ends by, so it is readable everywhere and says exactly what those two
+ * callers need: "worth asking". It decides whether to ASK — never access. A
+ * forged marker buys one refresh attempt that the API refuses, after which
+ * `clearAdminSession` clears it again.
  */
+export function hasSessionHint(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.cookie.split('; ').some((c) => c.startsWith(`${SESSION_HINT_COOKIE}=1`));
+}

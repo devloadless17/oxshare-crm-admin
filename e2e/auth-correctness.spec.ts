@@ -1,7 +1,9 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import {
+  adminApi,
   E2E_ADMIN,
   E2E_DOMAIN,
+  routeHit,
   STORAGE_STATE,
   persistSharedState,
   signIn,
@@ -68,7 +70,9 @@ test.describe('a dead session always has a way out', () => {
      * interceptor is already redirecting. On this path there is no 401, so
      * nothing was redirecting. Stopping the backend was enough to reproduce it.
      */
-    await page.route('**/api/admin/auth/me', (route) => route.fulfill({ status: 500, body: '{}' }));
+    const me = await routeHit(page, '/admin/auth/me', (route) =>
+      route.fulfill({ status: 500, body: '{}' }),
+    );
 
     await page.goto('/dashboard');
 
@@ -78,6 +82,11 @@ test.describe('a dead session always has a way out', () => {
     ).toBeVisible({ timeout: 20_000 });
     // And it must NOT have been mistaken for a dead session.
     expect(page.url()).toContain('/dashboard');
+    // The 500 actually happened. Without this the assertion above can only
+    // pass against a healthy API, which is what it did for weeks.
+    expect(me.hits(), 'the injected 500 never fired — the route matched nothing').toBeGreaterThan(
+      0,
+    );
   });
 
   test('a repeated 401 sends the operator to sign in rather than to a dead Retry button', async ({
@@ -94,10 +103,10 @@ test.describe('a dead session always has a way out', () => {
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
 
-    await page.route('**/api/admin/auth/refresh', (route) =>
+    const refresh = await routeHit(page, '/admin/auth/refresh', (route) =>
       route.fulfill({ status: 200, body: '{}' }),
     );
-    await page.route('**/api/admin/auth/me', (route) =>
+    const me = await routeHit(page, '/admin/auth/me', (route) =>
       route.fulfill({ status: 401, body: JSON.stringify({ code: 'SESSION_REVOKED' }) }),
     );
 
@@ -106,6 +115,8 @@ test.describe('a dead session always has a way out', () => {
     await expect(page, 'a permanently-401ing session never reached sign-in').toHaveURL(/\/login/, {
       timeout: 20_000,
     });
+    expect(me.hits(), 'the injected 401 never fired').toBeGreaterThan(0);
+    expect(refresh.hits(), 'the replay path was never reached').toBeGreaterThan(0);
   });
 });
 
@@ -191,17 +202,13 @@ test.describe('invites', () => {
      * cookie echoed into `X-OxShare-CSRF`. Without both this is a 403 that reads
      * like a permissions problem.
      */
-    const csrf = (await admin.cookies()).find((c) => c.name.includes('admin_csrf'))?.value;
-    expect(csrf, 'no CSRF cookie in the saved session').toBeTruthy();
-    const created = await admin.request.post('/api/admin/invite', {
-      headers: { Origin: 'http://localhost:3002', 'X-OxShare-CSRF': csrf! },
-      data: {
-        email: `e2e-reload-${Date.now()}@${E2E_DOMAIN}`,
-        name: 'Reload Invitee',
-        // A key from the CURRENT catalog. `users.view` was renamed in the
-        // permission rework and the API rejects unknown keys with a 400.
-        permissions: ['clients.view'],
-      },
+    const api = await adminApi(admin);
+    const created = await api.post('/admin/invite', {
+      email: `e2e-reload-${Date.now()}@${E2E_DOMAIN}`,
+      name: 'Reload Invitee',
+      // A key from the CURRENT catalog. `users.view` was renamed in the
+      // permission rework and the API rejects unknown keys with a 400.
+      permissions: ['clients.view'],
     });
     expect(created.ok(), `could not mint an invite: ${created.status()}`).toBe(true);
     const body = (await created.json()) as { inviteUrl?: string };

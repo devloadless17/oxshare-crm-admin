@@ -116,6 +116,27 @@ export function AsyncBoundary({
     );
   }
 
+  /*
+   * A 401 here means the interceptor is already ending the session — it
+   * refreshed, the replay still failed, and a hard navigation to sign-in is in
+   * flight. Painting a retry card into that window is the "Something went wrong"
+   * flash people reported on expiry. A spinner with a screen-reader sentence is
+   * the honest paint: nothing to do, nothing to retry, the page is about to go.
+   *
+   * DIVERGES FROM THE PORTAL'S COPY deliberately: the portal's interceptor lets
+   * a 401 propagate without navigating when the refresh was `unreachable`, so a
+   * spinner there could hang forever and it renders a retry card instead.
+   */
+  if (status === 'unauthenticated') {
+    return fill ? (
+      <div className={frame}>
+        <PageLoader label={t('session.ended')} srOnly />
+      </div>
+    ) : (
+      <PageLoader label={t('session.ended')} srOnly />
+    );
+  }
+
   if (status === 'error') {
     const requestId = apiErrorRequestId(error);
     return (

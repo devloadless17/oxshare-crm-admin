@@ -30,28 +30,32 @@ import tseslint from 'typescript-eslint';
  * indefinite.
  */
 const I18N_ENFORCED = [
+  // Every `src/app/**` entry below used to name a PRE-route-group path
+  // (`src/app/clients/page.tsx`) after the pages moved under `(console)/`, so
+  // minimatch matched nothing and the rule had silently stopped running on all
+  // of them — which is exactly where the hardcoded English crept back in.
   'src/components/layout/admin-layout.tsx',
   'src/app/login/page.tsx',
-  'src/app/withdrawals/page.tsx',
-  'src/app/ledger/page.tsx',
-  'src/app/audit-log/page.tsx',
+  'src/app/(console)/transactions/page.tsx',
+  'src/app/(console)/ledger/page.tsx',
+  'src/app/(console)/audit-log/page.tsx',
   'src/components/kyc-review/approve-dialog.tsx',
   'src/components/kyc-review/reject-dialog.tsx',
   'src/components/cursor-pagination.tsx',
-  'src/app/clients/page.tsx',
-  'src/app/dashboard/page.tsx',
-  'src/app/partners/page.tsx',
-  'src/app/kyc/page.tsx',
-  'src/app/settings/page.tsx',
-  'src/app/kyc/builder/page.tsx',
-  'src/app/commission-plans/page.tsx',
+  'src/app/(console)/clients/page.tsx',
+  'src/app/(console)/dashboard/page.tsx',
+  'src/app/(console)/kyc/page.tsx',
+  'src/app/(console)/settings/page.tsx',
+  'src/app/(console)/kyc/builder/page.tsx',
+  'src/app/(console)/commissions/page.tsx',
+  'src/app/(console)/admin-users/page.tsx',
+  'src/app/(console)/api-keys/page.tsx',
+  'src/app/(console)/api-keys/new/page.tsx',
   'src/components/async-boundary.tsx',
   'src/components/backend-pending.tsx',
   'src/components/data-table.tsx',
   'src/components/pagination.tsx',
   'src/components/kyc-review/doc-viewer.tsx',
-  'src/components/rbac/role-card.tsx',
-  'src/components/rbac/role-form-modal.tsx',
 ];
 
 /*
@@ -205,9 +209,14 @@ export default defineConfig([
     // Keep this list in step with the screens that display amounts.
     files: [
       'src/lib/money.ts',
-      'src/app/withdrawals/**/*.tsx',
-      'src/app/ledger/**/*.tsx',
-      'src/app/commission-plans/**/*.tsx',
+      // The `(console)` route group: these globs named the pre-group paths and
+      // matched nothing, so the §6.1 ban covered lib/money.ts alone.
+      'src/app/(console)/transactions/**/*.tsx',
+      'src/app/(console)/ledger/**/*.tsx',
+      'src/app/(console)/wallets/**/*.tsx',
+      'src/app/(console)/commissions/**/*.tsx',
+      'src/app/(console)/trading-accounts/**/*.tsx',
+      'src/app/(console)/reconciliation/**/*.tsx',
     ],
     ignores: ['**/*.test.ts', '**/*.test.tsx'],
     rules: {
@@ -280,11 +289,14 @@ export default defineConfig([
     // DataTable rework landed and is the first that should come down.
     files: [
       // Escaped: minimatch reads [userId] as a character class, so the unescaped
-      // form silently matched nothing and this file was held to 400.
-      'src/app/kyc/\\[userId\\]/page.tsx',
-      'src/app/kyc/builder/page.tsx',
-      'src/app/commission-plans/page.tsx',
-      'src/app/withdrawals/page.tsx',
+      // form silently matched nothing and this file was held to 400. The
+      // `(console)` segment needs no escaping — parentheses are literal in
+      // minimatch — but every path here named the pre-group location and
+      // pinned nothing until they were re-pointed.
+      'src/app/(console)/kyc/\\[userId\\]/page.tsx',
+      'src/app/(console)/kyc/builder/page.tsx',
+      'src/app/(console)/commissions/page.tsx',
+      'src/app/(console)/transactions/page.tsx',
     ],
     rules: {
       // 950 -> 720 when kyc/[userId] was first split (973 -> 745 lines), then

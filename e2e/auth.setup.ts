@@ -1,7 +1,14 @@
 import { test as setup, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { E2E_RESTRICTED, RESTRICTED_STATE, signIn, STORAGE_STATE } from './helpers';
+import {
+  E2E_KYC_VIEWER,
+  E2E_RESTRICTED,
+  KYC_VIEWER_STATE,
+  RESTRICTED_STATE,
+  signIn,
+  STORAGE_STATE,
+} from './helpers';
 
 /**
  * Sign in ONCE, and let every spec reuse the session.
@@ -93,4 +100,31 @@ setup('authenticate as the restricted e2e admin', async ({ page }) => {
   await signIn(page, E2E_RESTRICTED);
   mkdirSync(dirname(RESTRICTED_STATE), { recursive: true });
   await page.context().storageState({ path: RESTRICTED_STATE });
+});
+
+/**
+ * The third identity: a READ-ONLY compliance reviewer — `kyc.view` and
+ * `clients.view`, no `kyc.review`. The one that proves the review screen draws
+ * no decision button for somebody who may not decide. Skipped, not failed, on
+ * a database that predates the fixture.
+ */
+setup('authenticate as the kyc-viewer e2e admin', async ({ page }) => {
+  await page.goto('/login');
+  await page.locator('#email').fill(E2E_KYC_VIEWER.email);
+  await page.locator('#password').fill(E2E_KYC_VIEWER.password);
+  const [response] = await Promise.all([
+    page.waitForResponse((res) => res.url().includes('/admin/auth/login')),
+    page
+      .getByRole('button', { name: /sign in|log ?in/i })
+      .first()
+      .click(),
+  ]);
+  setup.skip(response.status() === 401, 'e2e-kyc-viewer@oxshare.com is not seeded yet');
+  if (response.status() === 429) {
+    // Same cap as the others; the kyc-viewer specs skip when this state is absent.
+    setup.skip(true, 'login rate limited; kyc-viewer specs will skip this run');
+  }
+  await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
+  mkdirSync(dirname(KYC_VIEWER_STATE), { recursive: true });
+  await page.context().storageState({ path: KYC_VIEWER_STATE });
 });

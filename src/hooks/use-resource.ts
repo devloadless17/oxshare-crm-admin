@@ -25,7 +25,19 @@ import { useQuery, type QueryKey } from '@tanstack/react-query';
  * Kept distinct from `unavailable` (404 = the endpoint is not built yet), which
  * is a to-do for the API owner rather than a statement about this caller.
  */
-export type ResourceStatus = 'loading' | 'ready' | 'unavailable' | 'forbidden' | 'error';
+/**
+ * `unauthenticated` is a 401 that reached the screen — and it reaches the screen
+ * only for a moment, or not at all.
+ *
+ * The axios interceptor owns 401s: it refreshes, replays, and on a dead session
+ * hard-navigates to sign-in. But the rejected promise still settles the query
+ * in the window before that navigation lands, and it used to settle as `error`
+ * — so the page painted "Something went wrong — Retry" over a session that was
+ * being ended, with a Retry button that could never work. Named separately so
+ * `AsyncBoundary` can render nothing alarming while the redirect is in flight.
+ */
+export type ResourceStatus =
+  'loading' | 'ready' | 'unavailable' | 'forbidden' | 'unauthenticated' | 'error';
 
 export function httpStatusOf(error: unknown): number | undefined {
   return (error as { response?: { status?: number } })?.response?.status;
@@ -95,7 +107,9 @@ export function useResource<T>(
         ? 'unavailable'
         : httpStatusOf(query.error) === 403
           ? 'forbidden'
-          : 'error'
+          : httpStatusOf(query.error) === 401
+            ? 'unauthenticated'
+            : 'error'
       : 'ready';
 
   return {
