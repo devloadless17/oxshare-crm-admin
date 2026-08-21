@@ -56,9 +56,41 @@ vi.mock('@/context/AdminAuthContext', () => ({
  * own submission.
  */
 const routerPush = vi.hoisted(() => vi.fn());
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: routerPush, replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
-}));
+
+/*
+ * The filter, the search, the sort and the page all live in the URL now, so
+ * the page reads `useSearchParams` and writes through `router.replace` — both
+ * are mocked, and the write FEEDS BACK into the read and schedules a re-render.
+ * Same shape as `wallets/page.test.tsx` and `audit-log/page.test.tsx`.
+ */
+const searchParams = { current: new URLSearchParams() };
+const listeners = new Set<() => void>();
+let snapshot = 0;
+
+const replace = vi.fn((url: string) => {
+  searchParams.current = new URLSearchParams(url.split('?')[1] ?? '');
+  snapshot += 1;
+  for (const notify of listeners) notify();
+});
+
+vi.mock('next/navigation', async () => {
+  const { useSyncExternalStore } = await import('react');
+  return {
+    useSearchParams: () => {
+      useSyncExternalStore(
+        (onChange: () => void) => {
+          listeners.add(onChange);
+          return () => listeners.delete(onChange);
+        },
+        () => snapshot,
+        () => snapshot,
+      );
+      return searchParams.current;
+    },
+    usePathname: () => '/kyc',
+    useRouter: () => ({ push: routerPush, replace, refresh: vi.fn(), prefetch: vi.fn() }),
+  };
+});
 
 // Both exports — lib/api/index.ts exposes `api` named AND default. Mocking only
 // `default` leaves the named one undefined and the page renders its generic
@@ -94,6 +126,7 @@ const lastQuery = () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  searchParams.current = new URLSearchParams();
   get.mockResolvedValue({ data: page() });
 });
 

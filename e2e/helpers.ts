@@ -1,4 +1,202 @@
-import { test, type BrowserContext, type Page, type Response } from '@playwright/test';
+// Topology FIRST: it sets the E2E_* / NEXT_PUBLIC_* defaults the constants
+// below read at import time. See topology.ts.
+import './topology';
+import {
+  expect,
+  request as apiRequest,
+  test,
+  type APIRequestContext,
+  type BrowserContext,
+  type Page,
+  type Response,
+  type Route,
+} from '@playwright/test';
+
+/**
+ * ── Where things are ────────────────────────────────────────────────────────
+ *
+ * The browser calls the API DIRECTLY at `NEXT_PUBLIC_API_BASE_URL` (+ `/v1`);
+ * the same-origin `/api/*` rewrite is history for browser traffic. Every spec
+ * that intercepts or awaits API traffic must therefore match on the versioned
+ * PATH and never on a host or an `/api/` prefix — three `page.route('**​/api/…')`
+ * calls in this suite matched nothing for weeks, so the 500 and 401 they were
+ * injecting never happened and the tests passed for the wrong reason.
+ *
+ * Two origins are kept apart on purpose:
+ *  - `API_ORIGIN` is what the BROWSER dials. In cross-host mode this is
+ *    `http://api.crm.localhost:3001`, a name only Chromium resolves.
+ *  - `API_NODE_BASE` is what NODE dials (`context.request`, setup probes).
+ *    Node does not resolve `*.localhost`, so it keeps `localhost`.
+ */
+export const APP_ORIGIN = (process.env.E2E_BASE_URL ?? 'http://localhost:3002').replace(/\/+$/, '');
+export const API_ORIGIN = (
+  process.env.E2E_API_ORIGIN ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  'http://localhost:3001'
+).replace(/\/+$/, '');
+/** What the browser dials. */
+export const API_BASE = `${API_ORIGIN}/v1`;
+/** The PORTAL's origin, for specs that open the other app beside this one. */
+export const TOPOLOGY_PORTAL_ORIGIN = (
+  process.env.E2E_PORTAL_ORIGIN ?? 'http://localhost:3000'
+).replace(/\/+$/, '');
+/** What Node dials. */
+export const API_NODE_BASE = `${(process.env.E2E_API_NODE_ORIGIN ?? 'http://localhost:3001').replace(/\/+$/, '')}/v1`;
+
+/**
+ * A `page.route` / `waitForResponse` matcher for one API path.
+ *
+ * A PREDICATE on the URL's pathname rather than a glob, so it is blind to the
+ * host (localhost vs. `api.crm.localhost`) and to the query string. `path` is
+ * the un-versioned route (`/admin/auth/me`); a RegExp is matched against the
+ * pathname as-is.
+ */
+export function apiRoute(path: string | RegExp): (url: URL) => boolean {
+  return (url) =>
+    typeof path === 'string' ? url.pathname === `/v1${path}` : path.test(url.pathname);
+}
+
+/** Is this response the API answering `path` (optionally with `method`)? */
+export function isApi(res: Response, path: string | RegExp, method?: string): boolean {
+  if (!apiRoute(path)(new URL(res.url()))) return false;
+  return method === undefined || res.request().method() === method.toUpperCase();
+}
+
+/**
+ * `page.route` that COUNTS.
+ *
+ * Every test that injects a failure must assert `hits() > 0` afterwards. A
+ * handler that never fires leaves the app talking to the real API, and the
+ * assertion that follows then passes against a healthy response — which is
+ * precisely how three tests in this suite went vacuous.
+ */
+export async function routeHit(
+  page: Page,
+  path: string | RegExp,
+  handler: (route: Route) => Promise<void> | void,
+): Promise<{ hits: () => number }> {
+  let count = 0;
+  await page.route(apiRoute(path), async (route) => {
+    count += 1;
+    await handler(route);
+  });
+  return { hits: () => count };
+}
+
+/**
+ * The anti-forgery token of a signed-in context.
+ *
+ * Read through Playwright's jar, which sees every host's cookies, and NOT
+ * through `document.cookie` — the CSRF cookie is set by the API's host and is
+ * invisible to the app's own origin wherever the two differ.
+ */
+export async function csrfOf(context: BrowserContext): Promise<string> {
+  const csrf = (await context.cookies()).find((c) => c.name.includes('admin_csrf'))?.value;
+  expect(csrf, 'no CSRF cookie in the saved session — is it signed in?').toBeTruthy();
+  return csrf!;
+}
+
+/** Remove every cookie whose name matches, keeping the rest of the jar. */
+export async function deleteCookie(context: BrowserContext, name: RegExp): Promise<void> {
+  const cookies = await context.cookies();
+  await context.clearCookies();
+  await context.addCookies(cookies.filter((c) => !name.test(c.name)));
+}
+
+/**
+ * An API session for a browser context — the headers a page would send, by hand.
+ *
+ * `context.request` carries the cookie jar but not the `Origin` the API checks on
+ * every state change, nor the `X-OxShare-CSRF` echo. Without both a write is a
+ * 403 that reads like a permissions problem.
+ */
+export async function adminApi(context: BrowserContext): Promise<{
+  get: (path: string) => ReturnType<APIRequestContext['get']>;
+  post: (path: string, data?: unknown) => ReturnType<APIRequestContext['post']>;
+  patch: (path: string, data?: unknown) => ReturnType<APIRequestContext['patch']>;
+  put: (path: string, data?: unknown) => ReturnType<APIRequestContext['put']>;
+  del: (path: string) => ReturnType<APIRequestContext['delete']>;
+}> {
+  const csrf = await csrfOf(context);
+  /*
+   * The jar's cookies, attached BY HAND. Node dials the API as `localhost`
+   * while the browser's cookies are scoped to the API's hostname — on
+   * localhost the two coincide, but in the cross-host topology
+   * (`api.crm.localhost`) `context.request` would send NOTHING and every call
+   * here would be a 401 that reads as a broken permission. Sending the jar
+   * explicitly makes this helper topology-blind.
+   */
+  const cookie = (await context.cookies()).map((c) => `${c.name}=${c.value}`).join('; ');
+  const headers = { Origin: APP_ORIGIN, 'X-OxShare-CSRF': csrf, Cookie: cookie };
+  const r = context.request;
+  return {
+    get: (path) => r.get(`${API_NODE_BASE}${path}`, { headers }),
+    post: (path, data) => r.post(`${API_NODE_BASE}${path}`, { headers, data }),
+    patch: (path, data) => r.patch(`${API_NODE_BASE}${path}`, { headers, data }),
+    put: (path, data) => r.put(`${API_NODE_BASE}${path}`, { headers, data }),
+    del: (path) => r.delete(`${API_NODE_BASE}${path}`, { headers }),
+  };
+}
+
+/**
+ * A standalone admin API session, signed in over the wire as `E2E_ADMIN`.
+ *
+ * For specs that need an admin to ACT (credit a wallet, approve a KYC) without
+ * driving the console. Waits out the login cap instead of failing on it, for
+ * the reason `signIn` records at length.
+ */
+export async function adminApiSession(
+  credentials: { email: string; password: string } = E2E_ADMIN,
+): Promise<{
+  request: APIRequestContext;
+  csrf: string;
+  get: (path: string) => ReturnType<APIRequestContext['get']>;
+  post: (
+    path: string,
+    data?: unknown,
+    extra?: Record<string, string>,
+  ) => ReturnType<APIRequestContext['post']>;
+  patch: (
+    path: string,
+    data?: unknown,
+    extra?: Record<string, string>,
+  ) => ReturnType<APIRequestContext['patch']>;
+  del: (path: string) => ReturnType<APIRequestContext['delete']>;
+  dispose: () => Promise<void>;
+}> {
+  const request = await apiRequest.newContext();
+  for (;;) {
+    const login = await request.post(`${API_NODE_BASE}/admin/auth/login`, {
+      headers: { Origin: APP_ORIGIN },
+      data: credentials,
+    });
+    if (login.status() === 429) {
+      // eslint-disable-next-line no-console
+      console.log(`↻ admin API login rate limited; waiting ${RATE_LIMIT_WINDOW_MS / 1000}s…`);
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_WINDOW_MS));
+      continue;
+    }
+    if (!login.ok()) {
+      throw new Error(`admin API sign-in as ${credentials.email} answered ${login.status()}`);
+    }
+    break;
+  }
+  const csrf =
+    (await request.storageState()).cookies.find((c) => c.name.includes('admin_csrf'))?.value ?? '';
+  if (!csrf) throw new Error('the admin API session carried no CSRF cookie');
+  const headers = { Origin: APP_ORIGIN, 'X-OxShare-CSRF': csrf };
+  return {
+    request,
+    csrf,
+    get: (path) => request.get(`${API_NODE_BASE}${path}`, { headers }),
+    post: (path, data, extra) =>
+      request.post(`${API_NODE_BASE}${path}`, { headers: { ...headers, ...extra }, data }),
+    patch: (path, data, extra) =>
+      request.patch(`${API_NODE_BASE}${path}`, { headers: { ...headers, ...extra }, data }),
+    del: (path) => request.delete(`${API_NODE_BASE}${path}`, { headers }),
+    dispose: () => request.dispose(),
+  };
+}
 
 /**
  * The admin the E2E SUITE owns — seeded with every key in the permission
@@ -82,6 +280,17 @@ const RATE_LIMIT_WINDOW_MS = 65_000;
 
 export const STORAGE_STATE = 'e2e/.auth/admin.json';
 export const RESTRICTED_STATE = 'e2e/.auth/restricted.json';
+export const KYC_VIEWER_STATE = 'e2e/.auth/kyc-viewer.json';
+
+/**
+ * A READ-ONLY compliance reviewer: `kyc.view` and `clients.view`, no
+ * `kyc.review`. The identity that proves the review screen draws no decision
+ * control for somebody who may not decide — and that the API refuses them.
+ */
+export const E2E_KYC_VIEWER = {
+  email: 'e2e-kyc-viewer@oxshare.com',
+  password: 'admin123',
+} as const;
 
 /**
  * Sign in through the real form.
@@ -115,7 +324,7 @@ export async function signIn(
    * It is also the more faithful journey: a bounced operator is already looking
    * at this page.
    */
-  if (!new URL(page.url(), 'http://localhost:3002').pathname.startsWith('/login')) {
+  if (!new URL(page.url(), APP_ORIGIN).pathname.startsWith('/login')) {
     await page.goto('/login');
   }
   await page.locator('#email').fill(credentials.email);
@@ -227,7 +436,29 @@ export async function signOut(page: Page): Promise<void> {
  * cookie or otherwise triggers a refresh must call this before ending.
  */
 export async function persistSharedState(context: BrowserContext): Promise<void> {
-  await context.storageState({ path: STORAGE_STATE });
+  await persistStateIfLive(context, STORAGE_STATE);
+}
+
+/**
+ * Write a context's jar over a storage-state file — ONLY if it still holds a
+ * refresh cookie.
+ *
+ * A jar without one is a signed-out browser, and saving it signs out every
+ * test that follows: that is exactly what happened when a sign-out test's
+ * restoring `signIn` failed, its `finally` persisted the post-logout jar, and
+ * thirty specs then opened on the login screen. A dead jar is never worth
+ * writing; say so instead.
+ */
+export async function persistStateIfLive(context: BrowserContext, path: string): Promise<void> {
+  const cookies = await context.cookies();
+  const live = cookies.some((c) => /_rt$/.test(c.name) && c.value.length > 0);
+  if (!live) {
+    throw new Error(
+      `Refusing to persist ${path}: the context holds no refresh cookie, so it is signed out. ` +
+        'Saving it would sign out every later test.',
+    );
+  }
+  await context.storageState({ path });
 }
 
 /**
@@ -246,9 +477,9 @@ export function collectRejections(page: Page): { list: () => string[] } {
 
   page.on('response', (response: Response) => {
     const url = response.url();
-    // Either shape: the same-origin `/api/*` rewrite this app used to use, or
-    // the direct API origin it uses now. Both carry the versioned path.
-    if (!url.includes('/api/') && !url.includes('/v1/')) return;
+    // The direct API origin, whichever host it is on — matched on the
+    // versioned path, never on `/api/` (see the header of this file).
+    if (!new URL(url).pathname.startsWith('/v1/')) return;
     const status = response.status();
     if (status === 401 || status === 403) {
       rejected.push(`${status} ${new URL(url).pathname}`);
@@ -321,6 +552,21 @@ export async function searchOwnClients(page: Page): Promise<void> {
   // rows still on screen the row-wait is satisfied by STALE data — which is
   // how the sort assertion once read the default ordering and reported the
   // server as unsorted.
+  /*
+   * The LARGEST page, because the cohort is not alone on its domain any more.
+   *
+   * The portal suite's registration specs mint `e2e-<ts>@oxshare-e2e.test`
+   * clients (they used to share this domain), and the list sorts newest first
+   * — so on a database that has seen enough runs the seeded rows slid off page
+   * one and `Alpha Aardvark` never appeared, which read as a broken search. The
+   * cohort is six rows; a hundred-row page keeps it on screen for a long time,
+   * and the portal now registers under a domain of its own.
+   */
+  const current = new URL(page.url());
+  if (current.searchParams.get('limit') !== '100') {
+    current.searchParams.set('limit', '100');
+    await page.goto(current.pathname + current.search);
+  }
   const box = clientSearchBox(page);
   // Idempotent: filling the box with the text it already holds produces no
   // write, no fetch, and therefore no response to wait for.

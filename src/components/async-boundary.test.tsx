@@ -17,6 +17,26 @@ const ERROR_WITH_ID = {
   response: { data: { message: 'Wallet unavailable.', requestId: 'req-7f21c9' } },
 };
 
+describe('AsyncBoundary on a 401', () => {
+  it('paints no retry card while the interceptor is ending the session', () => {
+    /*
+     * A 401 that reaches a screen is one the interceptor is already acting on:
+     * it refreshed, the replay still failed, and a hard navigation to sign-in
+     * is in flight. "Something went wrong — Retry" in that window is the flash
+     * people reported on expiry, and the button could never work.
+     */
+    renderWithProviders(
+      <AsyncBoundary status="unauthenticated" label="Loading" endpoints={[]} onRetry={vi.fn()}>
+        <p>{'never rendered'}</p>
+      </AsyncBoundary>,
+    );
+
+    expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/never rendered/)).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+});
+
 describe('AsyncBoundary error state', () => {
   it('shows the request id the API returned', () => {
     renderWithProviders(

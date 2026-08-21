@@ -66,6 +66,49 @@ export default defineConfig({
      * retry count.
      */
     retry: 2,
+    /*
+     * CAP THE WORKERS AT FOUR. This reverses the "capping is not here" verdict
+     * in the note above, so here is the evidence and what changed.
+     *
+     * The measurement above (18 Aug, `maxThreads: 8`) stands exactly as taken.
+     * It is not being called wrong — it was answering a different question. Its
+     * variable was CPU: on a machine with cores to spare, eight workers versus
+     * twenty-two is a scheduling detail, and it read as noise because it was.
+     *
+     * The variable that actually governs this suite is MEMORY. Every worker
+     * carries its own jsdom, and this box has 5 GB total with roughly 2 GB free
+     * once a Next dev server and an editor are up. Vitest defaults to
+     * availableParallelism (22 here), so the suite asks for twenty-two jsdom
+     * heaps out of two spare gigabytes, and v8 coverage instrumentation adds to
+     * each one. That is why the flake appears under `--coverage` — which is
+     * what CI runs — and why `retry: 2` could not absorb it: all three attempts
+     * are starved by the same shortage, so retrying buys three timeouts.
+     *
+     * Measured 21 Aug 2026, under `--coverage`, same machine, back to back:
+     *   uncapped        150.6s   FAILED (roles/page)
+     *   uncapped        119.2s   FAILED (invite-admin-modal)
+     *   maxWorkers: 4    90.0s   passed  68 files / 788 tests
+     *   maxWorkers: 4    91.8s   passed
+     *   maxWorkers: 4    89.4s   passed
+     * Both failures passed 3/3 alone immediately afterwards, which is the
+     * starvation shape the note above describes. Capping is 30-60s FASTER as
+     * well as green: past the memory ceiling the extra workers spend their time
+     * competing rather than working.
+     *
+     * Four, not eight: eight was measured on the memory ceiling and this is a
+     * cap meant to sit under it. It costs nothing in CI — a GitHub runner has
+     * four vCPUs, so vitest would land at or below four there regardless, and
+     * this cannot make a CI run slower than it already is. What it buys is a
+     * local `Stop` hook that means something. An unreliable hook is the same
+     * failure the note above names: a gate people learn to re-run rather than
+     * read. This one once reported 17 failures that were all starvation, and
+     * hid two real ones (permission keys missing from src/test/permissions.ts)
+     * inside the noise.
+     *
+     * If a machine ever wants more, raise it deliberately and re-measure under
+     * `--coverage` — never uncap it silently.
+     */
+    maxWorkers: 4,
     testTimeout: 20_000,
     // Same reasoning for `beforeAll`/`afterAll`, which mount providers.
     hookTimeout: 20_000,

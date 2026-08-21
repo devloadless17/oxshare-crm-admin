@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { components } from '@/lib/api/types.gen';
 import { ChevronRight, FileCheck } from 'lucide-react';
@@ -17,6 +17,9 @@ import { PermittedLink } from '@/components/permitted-link';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { canAccess } from '@/lib/permissions';
 import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
+import { useTableQueryState } from '@/hooks/use-table-query-state';
+import { limitParam, pageParam } from '@/lib/page-param';
+import { PageLoader } from '@/components/ui/loader';
 
 /*
  * The local `KycStatus` union that sat here is gone — a fourth hand-written
@@ -108,11 +111,36 @@ const sortableBy = (key: KycSortKey) => ({
   sortKey: key,
 });
 
+/** The queue opens on PENDING; `?status=all` is how "every status" is spelled. */
+const DEFAULT_STATUS = 'submitted';
+const ALL_STATUSES = 'all';
+
+/*
+ * `useSearchParams()` requires a Suspense boundary at prerender, exactly as the
+ * other queues wrap themselves. Same shape as transactions/page.tsx.
+ */
 export default function AdminKycPage() {
+  return (
+    <Suspense fallback={<PageLoader label={t('kyc.loadingQueue')} />}>
+      <KycQueue />
+    </Suspense>
+  );
+}
+
+function KycQueue() {
   const router = useRouter();
   const { admin } = useAdmin();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  /*
+   * EVERYTHING THIS SCREEN IS LOOKING AT LIVES IN THE URL — the page, the page
+   * size, the status tab, the search term and the sort — as on every other
+   * list in the console. This queue was the one exception, holding all five in
+   * `useState`: a refresh dropped a reviewer back to page 1 of Pending, Back
+   * left the screen, and "look at this filtered queue" was not a link anybody
+   * could send. See hooks/use-table-query-state.ts for the reasoning at length.
+   */
+  const url = useTableQueryState();
+  const page = pageParam(url.get('page'));
+  const pageSize = limitParam(url.get('limit'));
   /*
    * PENDING by default — the queue, not the archive.
    *
@@ -121,23 +149,39 @@ export default function AdminKycPage() {
    * identities and had to filter before they could start, and the number that
    * matters — how many people are waiting — was never the one in front of them.
    *
-   * `''` is still "all" and is still reachable; it is simply no longer where
-   * the screen starts.
+   * "All" is still reachable, as `?status=all` — an absent parameter is the
+   * default, so "every status" needs a spelling of its own.
    */
-  const [filter, setFilter] = useState('submitted');
-  const [search, setSearch] = useState('');
+  const statusParam = url.get('status');
+  const filter =
+    statusParam === '' ? DEFAULT_STATUS : statusParam === ALL_STATUSES ? '' : statusParam;
+  /*
+   * The search box keeps LOCAL state and follows the URL on a timer, rather
+   * than being driven by `?q=` directly: a fully URL-controlled input loses
+   * characters to the router's async `replace` (see clients/client-filters.tsx).
+   * It starts from the URL so a refresh keeps the term, and the effect below
+   * writes the debounced value back so the URL stays the shareable truth.
+   */
+  const [search, setSearch] = useState(url.get('q'));
+  const debouncedSearch = useDebounced(search.trim());
+  useEffect(() => {
+    if (debouncedSearch !== url.get('q')) {
+      url.set({ q: debouncedSearch || undefined, page: undefined });
+    }
+  }, [debouncedSearch, url]);
   /**
    * The sort, as the API's own two parameters.
    *
    * `null` is a real state and not a missing value: it is the third click of
    * DataTable's asc → desc → off cycle, and it means "drop both parameters and
    * let the endpoint apply its own default" — `submittedAt desc`, the queue
-   * order. Substituting that default here instead would look identical on
-   * screen and be a different request.
+   * order. Checked against the allowlist rather than cast: a hand-edited
+   * `?sort=nonsense` clears the sort instead of 400ing the queue.
    */
-  const [sort, setSort] = useState<{ key: KycSortKey; order: 'asc' | 'desc' } | null>(null);
-
-  const debouncedSearch = useDebounced(search.trim());
+  const sortKey = KYC_SORT_KEYS.find((allowed) => allowed === url.sort.key);
+  const sort: { key: KycSortKey; order: 'asc' | 'desc' } | null = sortKey
+    ? { key: sortKey, order: url.sort.order }
+    : null;
 
   // Server-side filtering/search/sorting/pagination; counts come from the API
   // over the full set, so tab counts stay correct while a filter is active.
@@ -355,14 +399,10 @@ export default function AdminKycPage() {
             // Page 1 on every filter change — the caller's job, and the failure
             // this family of screens is most often wrong about. See the
             // component note.
-            setPage(1);
-            setFilter(value);
+            url.set({ status: value === '' ? ALL_STATUSES : value, page: undefined });
           }}
           search={search}
-          onSearchChange={(value) => {
-            setPage(1);
-            setSearch(value);
-          }}
+          onSearchChange={setSearch}
           searchPlaceholder={t('kycReview.searchPlaceholder')}
           searchAriaLabel={t('kyc.searchAria')}
         />
@@ -381,16 +421,16 @@ export default function AdminKycPage() {
       */}
       <AsyncBoundary
         status={query.status}
-        label="Loading KYC submissions"
+        label={t('kyc.loadingQueue')}
         endpoints={['GET /admin/kyc?status&q&page&limit']}
         onRetry={query.refetch}
-        errorMessage="Failed to load the review queue. This is NOT an empty queue — submissions may be waiting."
+        errorMessage={t('kyc.queueLoadFailed')}
         error={query.error}
         fill
       >
         <DataTable
           fill
-          caption="KYC Submissions"
+          caption={t('kyc.queueCaption')}
           columns={columns}
           rows={rows}
           rowKey={(row) => row.userId}
@@ -414,11 +454,9 @@ export default function AdminKycPage() {
             if (canAccess(admin, href)) router.push(href);
           }}
           loading={loading}
-          loadingText="Loading KYC submissions..."
+          loadingText={t('kyc.loadingQueue')}
           dimmed={query.isFetching}
-          empty={
-            <EmptyState icon={FileCheck} message="No submissions match the current filters." />
-          }
+          empty={<EmptyState icon={FileCheck} message={t('kyc.queueEmpty')} />}
           sortColumn={sort?.key}
           sortDirection={sort?.order}
           /*
@@ -439,18 +477,21 @@ export default function AdminKycPage() {
              * Only allowlisted columns are marked sortable, so this should
              * always hold — but `key` arrives as a bare string, and a cast
              * would make a future column with a typo'd key compile cleanly and
-             * 400 at runtime. Falling back to `null` means an unrecognised key
-             * clears the sort instead, which is a state the endpoint accepts.
+             * 400 at runtime. Falling back to "no sort" means an unrecognised
+             * key clears the sort instead, which is a state the endpoint accepts.
              */
             const next = KYC_SORT_KEYS.find((allowed) => allowed === key);
-            setSort(next && order ? { key: next, order } : null);
-            setPage(1);
+            url.set({
+              sort: next && order ? next : undefined,
+              order: next && order ? order : undefined,
+              page: undefined,
+            });
           }}
           pagination={{
             page,
             pageSize,
             total,
-            onPageChange: setPage,
+            onPageChange: (next) => url.set({ page: String(next) }),
             /*
              * The reset is the CALLER's job, and this used to lean on the pager
              * to do it. `Pagination` called `onPageChange(1)` right after this
@@ -461,11 +502,8 @@ export default function AdminKycPage() {
              * page is dropped here: page 4 at 25 a page is past the end at 100
              * a page, which renders as an empty queue.
              */
-            onPageSizeChange: (size) => {
-              setPageSize(size);
-              setPage(1);
-            },
-            noun: ['submission', 'submissions'],
+            onPageSizeChange: (size) => url.set({ limit: String(size), page: undefined }),
+            noun: [t('kyc.nounSingular'), t('kyc.nounPlural')],
           }}
         />
       </AsyncBoundary>

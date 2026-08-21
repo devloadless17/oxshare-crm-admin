@@ -416,8 +416,14 @@ function TransactionsPageContent() {
    * state of empty string.
    */
   const exportFilters = React.useMemo(
-    () => new URLSearchParams(filter === ALL_STATES ? {} : { state: filter }),
-    [filter],
+    () =>
+      new URLSearchParams({
+        ...(filter === ALL_STATES ? {} : { state: filter }),
+        // The search term too, or "export what you are looking at" downloads
+        // the whole state bucket while the screen shows three rows.
+        ...(debouncedSearch ? { q: debouncedSearch } : {}),
+      }),
+    [filter, debouncedSearch],
   );
 
   const columns: Column<WithdrawalRow>[] = [
@@ -767,7 +773,14 @@ function TransactionsPageContent() {
           empty={
             <EmptyState
               icon={ArrowUpRight}
-              message={filter ? t('withdrawals.emptyFiltered') : t('withdrawals.empty')}
+              message={
+                // `filter` is never falsy (the default tab is Pending), so the
+                // unfiltered wording was unreachable. "Nothing at all" is the
+                // All tab with no search term.
+                filter !== ALL_STATES || debouncedSearch
+                  ? t('withdrawals.emptyFiltered')
+                  : t('withdrawals.empty')
+              }
             />
           }
           sortColumn={sortKey}

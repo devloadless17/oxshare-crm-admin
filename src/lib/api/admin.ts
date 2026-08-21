@@ -58,6 +58,19 @@ export type Leverage = components['schemas']['LeverageDto'];
 export type CreateLeverage = components['schemas']['CreateLeverageDto'];
 export type UpdateLeverage = components['schemas']['UpdateLeverageDto'];
 export type IbLevel = components['schemas']['IbLevelDto'];
+
+/**
+ * A named commission programme — FR-ADM-10's "commission plan".
+ *
+ * Distinct from `IbLevel`, and the distinction is the money: the LADDER decides
+ * where a partner stands and what the rung is called; the PROGRAMME decides
+ * what they are paid, what their clients get back, and which of those legs pay
+ * at all. `IbLevel.rateValue` still exists on the wire and decides nothing.
+ */
+export type IbProgram = components['schemas']['IbProgramDto'];
+export type IbProgramMode = IbProgram['mode'];
+export type CreateIbProgram = components['schemas']['CreateIbProgramDto'];
+export type UpdateIbProgram = components['schemas']['UpdateIbProgramDto'];
 export type IbApplication = components['schemas']['IbApplicationDto'];
 export type IbApplicationStatus = IbApplication['status'];
 export type IbAccount = components['schemas']['IbAccountDto'];
@@ -323,9 +336,10 @@ export type WalletRow = components['schemas']['WalletRowDto'];
  * duplication.
  *
  * Everything monetary is a STRING (§6.1). `amount` is what the partner earned,
- * `baseAmount` the deposit it was calculated from, `rateValue` the percentage
- * applied — all three shown, because a commission nobody can recompute is one
- * nobody can dispute.
+ * `baseAmount` the BROKER'S REVENUE on the closed position it was calculated
+ * from — its commission and swap, never the client's deposit, volume or profit
+ * — and `rateValue` the percentage applied. All three are shown, because a
+ * commission nobody can recompute is one nobody can dispute.
  */
 export interface IbAccrual {
   accrual: {
@@ -677,7 +691,6 @@ export type AcceptInviteResponse = components['schemas']['AcceptInviteResponseDt
 /** One platform's download link. `url` is null until an admin sets it. */
 export type PlatformLink = components['schemas']['PlatformLinkDto'];
 
-export type SecuritySwitch = components['schemas']['SecuritySwitchDto'];
 /** RBAC-08 — the allowlist, whether it is enforcing, and your own address. */
 export type IpAllowlistStatus = components['schemas']['IpAllowlistStatusDto'];
 export type IpAllowlistRule = components['schemas']['IpAllowlistRuleDto'];
@@ -733,19 +746,6 @@ export type NotificationUnreadCount = components['schemas']['NotificationUnreadC
 export type NotificationsMarkAllRead = components['schemas']['NotificationsMarkAllReadResponseDto'];
 
 export const adminApi = {
-  /** Master admin only — the API answers 403 for anyone else. */
-  async getSecuritySettings(): Promise<SecuritySwitch[]> {
-    const { data } = await apiClient.get<SecuritySwitch[]>('/admin/security-settings');
-    return data;
-  },
-
-  async setSecuritySwitch(key: string, enabled: boolean): Promise<SecuritySwitch> {
-    const { data } = await apiClient.put<SecuritySwitch>(`/admin/security-settings/${key}`, {
-      enabled,
-    });
-    return data;
-  },
-
   // ── RBAC-08, the admin IP allowlist ──────────────────────────────────────
   /**
    * Requires `settings.security.view`.
@@ -1047,6 +1047,48 @@ export const adminApi = {
   /** Refuses to empty the ladder: with no levels, no partner can be approved. */
   async deleteIbLevel(level: number): Promise<void> {
     await apiClient.delete(`/admin/ib-levels/${level}`);
+  },
+
+  /* ── Commission programmes (FR-ADM-10) ──────────────────────────────── */
+
+  /**
+   * Every programme, disabled ones included — managing them is the point of the
+   * screen, and terms you cannot see are terms you cannot re-enable.
+   *
+   * Each row carries `partnerCount`, so the screen can refuse a delete before
+   * the API does and say how many people a rate change affects.
+   */
+  async getIbPrograms(signal?: AbortSignal): Promise<IbProgram[]> {
+    const { data } = await apiClient.get<IbProgram[]>('/admin/ib-programs', { signal });
+    return data;
+  },
+
+  /**
+   * The API refuses terms whose legs total more than 100% of the broker's
+   * revenue, and terms that pay nobody at all. Both messages name the numbers
+   * involved — surface them verbatim, because a generic failure throws away the
+   * only part an operator can act on.
+   */
+  async createIbProgram(body: CreateIbProgram): Promise<IbProgram> {
+    const { data } = await apiClient.post<IbProgram>('/admin/ib-programs', body);
+    return data;
+  },
+
+  /**
+   * PATCH: a rate change applies to the NEXT trade, never to what has already
+   * been earned — accruals record the rate they were calculated at.
+   *
+   * Disabling one that partners stand on is refused by the API, because a
+   * disabled programme stops paying while their referral links keep working.
+   */
+  async updateIbProgram(id: string, body: UpdateIbProgram): Promise<IbProgram> {
+    const { data } = await apiClient.patch<IbProgram>(`/admin/ib-programs/${id}`, body);
+    return data;
+  },
+
+  /** Refused while partners are on it, and refused for the last enabled one. */
+  async deleteIbProgram(id: string): Promise<void> {
+    await apiClient.delete(`/admin/ib-programs/${id}`);
   },
 
   /* ── The catalogue ──────────────────────────────────────────────────── */

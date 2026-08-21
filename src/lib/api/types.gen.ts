@@ -1254,6 +1254,54 @@ export interface paths {
         patch: operations["AdminIbLevelsController_update"];
         trace?: never;
     };
+    "/v1/admin/ib-programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The commission programmes, in ladder order
+         * @description Includes disabled ones — managing them is the point of the screen. Each row carries how many partners are on it, so a delete can be refused before the database refuses it and a rate change can say how many people it affects.
+         */
+        get: operations["AdminIbProgramsController_list"];
+        put?: never;
+        /**
+         * Add a programme
+         * @description Every leg is a share of the same revenue, so level 1 + level 2 + the rebate must total at most 100% — the refusal names the three numbers and their total. Terms that pay nobody are refused too: they are indistinguishable from a broken engine from the partner’s side.
+         */
+        post: operations["AdminIbProgramsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ib-programs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a programme
+         * @description Refuses one that partners are on, and refuses the last enabled one: approval places a new partner on the first enabled programme, so an empty catalogue turns every future approval into a refusal.
+         */
+        delete: operations["AdminIbProgramsController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a programme
+         * @description Applies to the NEXT trade. Accruals record the rate they were calculated at, so nothing already earned is restated. Disabling one that partners are on is refused — a disabled programme stops paying, and their referral links would keep working while they earned nothing.
+         */
+        patch: operations["AdminIbProgramsController_update"];
+        trace?: never;
+    };
     "/v1/payments/methods": {
         parameters: {
             query?: never;
@@ -1281,13 +1329,30 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Re-check a gateway deposit with the provider, settling it if it has completed
-         * @description Asks the payment provider directly rather than trusting anything the browser carried back. Safe to call repeatedly: settlement is idempotent, so this and the provider callback converge on the same outcome whichever arrives first.
-         */
-        get: operations["PaymentsController_settleDeposit"];
+        /** The current state of one of the caller's own gateway deposits */
+        get: operations["PaymentsController_depositStatus"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/deposits/{reference}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-check a gateway deposit with the provider, settling it if it has completed
+         * @description Asks the payment provider directly rather than trusting anything the browser carried back. Safe to call repeatedly: settlement is idempotent, so this and the provider callback converge on the same outcome whichever arrives first. Only the deposit's owner may ask.
+         */
+        post: operations["PaymentsController_settleDeposit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3246,43 +3311,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/security-settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Security controls and whether each is currently on (master admin only) */
-        get: operations["AdminSecuritySettingsController_list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/security-settings/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Turn a security control on or off (master admin only)
-         * @description Every change is written to the admin action log with its before and after value, and turning a control OFF raises an alert — once at the moment of the change, and again on every request made while it stays off.
-         */
-        put: operations["AdminSecuritySettingsController_set"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/ip-allowlist": {
         parameters: {
             query?: never;
@@ -3841,13 +3869,23 @@ export interface components {
              */
             token: string;
         };
-        MessageResponseDto: {
-            /** @example Logged out. */
+        VerifyEmailResponseDto: {
+            /**
+             * @description verified — this call redeemed the link. already_verified — the link had already been redeemed and the address is confirmed. Branch on this, never on `message`.
+             * @example verified
+             * @enum {string}
+             */
+            status: "verified" | "already_verified";
+            /** @example Email verified successfully. You can now log in. */
             message: string;
         };
         ResendVerificationDto: {
             /** @example john@example.com */
             email: string;
+        };
+        MessageResponseDto: {
+            /** @example Logged out. */
+            message: string;
         };
         ForgotPasswordDto: {
             /** @example john@example.com */
@@ -3876,9 +3914,9 @@ export interface components {
             /** @example Doe */
             lastName: string;
             /** @enum {string} */
-            type: "individual" | "corporate";
+            type: "individual" | "referral" | "partner";
             /** @enum {string} */
-            status: "active" | "suspended";
+            status: "active" | "suspended" | "pending";
             /**
              * @description KYC tier. 0 = unverified, 1 = approved.
              * @example 1
@@ -4155,6 +4193,30 @@ export interface components {
              */
             rateValue: string;
         };
+        IbProgramSummaryDto: {
+            /** @example Gold */
+            name: string;
+            /**
+             * @description Which legs pay. `rebate_only` means this partner earns nothing and their clients are paid instead — a real arrangement, and one the screen must not present as an error.
+             * @enum {string}
+             */
+            mode: "commission_only" | "rebate_only" | "hybrid";
+            /**
+             * @description Their share of the broker’s revenue on their OWN client’s closed trade, as a percentage. A decimal string, never a number (§6.1).
+             * @example 60.0000
+             */
+            level1Rate: string;
+            /**
+             * @description Their share when the trade belongs to a sub-partner’s client.
+             * @example 40.0000
+             */
+            level2Rate: string;
+            /**
+             * @description What their clients get back, as a percentage of the same revenue. Zero unless the mode pays a rebate.
+             * @example 0.0000
+             */
+            rebateRate: string;
+        };
         IbEarningsDto: {
             /**
              * @description Lifetime credited earnings, as a decimal string (§6.1). Summed from ledger commission, rebate and payout entries — never computed on the fly.
@@ -4229,6 +4291,7 @@ export interface components {
         };
         IbOverviewDto: {
             level: components["schemas"]["IbLevelSummaryDto"] | null;
+            programme: components["schemas"]["IbProgramSummaryDto"] | null;
             earnings: components["schemas"]["IbEarningsDto"];
             commissionWallets: components["schemas"]["WalletDto"][];
             /** @description Newest first. The whole list — a partner may read every client they introduced. */
@@ -4461,6 +4524,88 @@ export interface components {
              *     ]
              */
             order: number[];
+        };
+        IbProgramDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description What an operator picks, and what a partner is on.
+             * @example Gold
+             */
+            name: string;
+            /**
+             * @description Lowest first. The first ENABLED one is the default.
+             * @example 0
+             */
+            sortOrder: number;
+            /**
+             * @description Which legs pay. `commission_only` pays the partner, `rebate_only` pays the trading client and no partner, `hybrid` pays both.
+             * @enum {string}
+             */
+            mode: "commission_only" | "rebate_only" | "hybrid";
+            /**
+             * @description The holder’s share of the broker’s revenue on their OWN client’s closed trade, as a percentage. A decimal string, never a number (§6.1).
+             * @example 60.0000
+             */
+            level1Rate: string;
+            /**
+             * @description Their share when the trade belongs to a SUB-partner’s client.
+             * @example 40.0000
+             */
+            level2Rate: string;
+            /**
+             * @description What returns to the TRADING CLIENT, as a percentage of the same revenue. Paid only when `mode` is `rebate_only` or `hybrid`.
+             * @example 0.0000
+             */
+            rebateRate: string;
+            /** @description A disabled programme pays nothing and accepts no new partners. */
+            enabled: boolean;
+            /**
+             * @description How many partners are currently on it. Present so a screen can refuse a delete before the database does, and say how many people it would have affected.
+             * @example 3
+             */
+            partnerCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateIbProgramDto: {
+            /** @example Gold */
+            name: string;
+            /**
+             * @description Appended to the end when omitted.
+             * @example 10
+             */
+            sortOrder?: number;
+            /**
+             * @default commission_only
+             * @enum {string}
+             */
+            mode: "commission_only" | "rebate_only" | "hybrid";
+            /** @example 60 */
+            level1Rate?: string;
+            /** @example 40 */
+            level2Rate?: string;
+            /** @example 0 */
+            rebateRate?: string;
+            /** @default true */
+            enabled: boolean;
+        };
+        UpdateIbProgramDto: {
+            /** @example Gold */
+            name?: string;
+            /** @example 10 */
+            sortOrder?: number;
+            /** @enum {string} */
+            mode?: "commission_only" | "rebate_only" | "hybrid";
+            /** @example 60 */
+            level1Rate?: string;
+            /** @example 40 */
+            level2Rate?: string;
+            /** @example 0 */
+            rebateRate?: string;
+            enabled?: boolean;
         };
         PaymentMethodDto: {
             /**
@@ -5800,9 +5945,11 @@ export interface components {
             selfie?: components["schemas"]["KycSelfieDto"];
             addressProof?: components["schemas"]["KycAddressProofDto"];
             user?: components["schemas"]["KycUserDto"] | null;
+            maskedFields?: string[];
         };
         KycListResponseDto: {
             items: components["schemas"]["KycSubmissionDto"][];
+            maskedFields?: string[];
             total: number;
             page: number;
             limit: number;
@@ -6063,24 +6210,6 @@ export interface components {
              * @example oxs_live_x7Kd9…
              */
             plaintext: string;
-        };
-        SecuritySwitchDto: {
-            /**
-             * @description Stable machine key. Never renamed.
-             * @example withdrawal_otp
-             */
-            key: string;
-            enabled: boolean;
-            /** @example Email confirmation code on every client withdrawal */
-            label: string;
-            /** @description The admin who last changed it. Null while it has never been changed. */
-            updatedBy: string | null;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        SetSecuritySwitchDto: {
-            /** @description Whether the control is in force. Turning one OFF is audited and alerted — see AdminSecuritySettingsController. */
-            enabled: boolean;
         };
         IpAllowlistRuleDto: {
             id: string;
@@ -6884,7 +7013,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
+                    "application/json": components["schemas"]["VerifyEmailResponseDto"];
                 };
             };
         };
@@ -6907,7 +7036,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
+                    "application/json": components["schemas"]["VerifyEmailResponseDto"];
                 };
             };
         };
@@ -8270,6 +8399,92 @@ export interface operations {
             };
         };
     };
+    AdminIbProgramsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"][];
+                };
+            };
+        };
+    };
+    AdminIbProgramsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIbProgramDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"];
+                };
+            };
+        };
+    };
+    AdminIbProgramsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminIbProgramsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIbProgramDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramDto"];
+                };
+            };
+        };
+    };
     PaymentsController_listMethods: {
         parameters: {
             query?: never;
@@ -8286,6 +8501,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PaymentMethodDto"][];
                 };
+            };
+        };
+    };
+    PaymentsController_depositStatus: {
+        parameters: {
+            query: {
+                method: string;
+            };
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -9781,6 +10017,7 @@ export interface operations {
     AdminAuthController_validateInvite: {
         parameters: {
             query: {
+                /** @description The invite token from the emailed link. */
                 token: string;
             };
             header?: never;
@@ -11085,50 +11322,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiKeyDto"];
-                };
-            };
-        };
-    };
-    AdminSecuritySettingsController_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SecuritySwitchDto"][];
-                };
-            };
-        };
-    };
-    AdminSecuritySettingsController_set: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetSecuritySwitchDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SecuritySwitchDto"];
                 };
             };
         };

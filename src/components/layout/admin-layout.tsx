@@ -22,6 +22,7 @@ import {
   CreditCard,
   Handshake,
   Layers,
+  Percent,
   ClipboardList,
   ShieldCheck,
   Lock,
@@ -198,6 +199,10 @@ const NAV_SECTIONS: NavSection[] = [
          screen reachable only by typing its URL — the navigation lists places
          an operator can go, and /commissions is one.) */
       { label: 'nav.commissions', href: '/commissions', icon: Coins },
+      /* Programmes BEFORE the ladder: the terms are what a partner is paid on
+         and the ladder is where they stand, and an operator arriving here is
+         nearly always asking the first question. */
+      { label: 'nav.ibPrograms', href: '/ib-programs', icon: Percent },
       { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
       /*
        * Agencies sit with the partners rather than with Products, because that

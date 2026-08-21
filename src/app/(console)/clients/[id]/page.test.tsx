@@ -284,6 +284,25 @@ const partnerDetail = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+describe('CORE-18 on an ordinary client', () => {
+  it('opens the Edit profile dialog for a client who is NOT a partner', async () => {
+    /*
+     * The two CORE-18 dialogs were mounted inside the `partner &&` block, so
+     * for an individual client the actions menu offered "Edit profile", the
+     * click set state, and nothing rendered. Rendering the dialogs directly in
+     * their own test could not see it; this drives the menu on the page.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<ClientProfilePage />);
+    await screen.findByText('John Doe');
+
+    await user.click(screen.getByRole('button', { name: /actions for/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit profile/i }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+});
+
 describe('the partner tab', () => {
   it('is ABSENT for a client who is not a partner', async () => {
     getPartnerDetail.mockResolvedValue(null);

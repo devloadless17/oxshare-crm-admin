@@ -135,7 +135,22 @@ export const NONCE_HEADER = 'x-nonce';
  * `connect-src` so the two can never name different hosts.
  */
 function imageOrigins(isProd: boolean): string {
-  if (!isProd) return 'http://localhost:* https://localhost:*';
+  /*
+   * Development names the CONFIGURED API origin beside the localhost wildcard.
+   * The wildcard alone was the whole policy, which silently blocked every
+   * document the moment the app and the API were run on different hostnames —
+   * the cross-host e2e topology, and the first time this was noticed. A
+   * localhost default resolves to a duplicate of the wildcard, harmlessly.
+   */
+  if (!isProd) {
+    let api = '';
+    try {
+      api = resolvePublicApiOrigin();
+    } catch {
+      api = '';
+    }
+    return `http://localhost:* https://localhost:* ${api}`.trim();
+  }
   try {
     return resolvePublicApiOrigin();
   } catch {
@@ -147,7 +162,29 @@ function imageOrigins(isProd: boolean): string {
 }
 
 function apiOrigins(isProd: boolean): string {
-  if (!isProd) return 'ws: http://localhost:* https://localhost:*';
+  /*
+   * Development: the localhost wildcard (Next's own hot-reload socket lives
+   * there too) PLUS the configured API and realtime origins. The wildcard
+   * alone was the entire dev policy, so running the app against an API on
+   * another hostname — the cross-host e2e topology that reproduces production's
+   * cookie split — blocked every request with a CSP error and nothing else.
+   * With localhost defaults the named origins duplicate the wildcard.
+   */
+  if (!isProd) {
+    const named: string[] = [];
+    try {
+      named.push(resolvePublicApiOrigin());
+    } catch {
+      /* unset: the wildcard covers the default */
+    }
+    try {
+      const realtime = resolveRealtimeOrigin();
+      named.push(realtime, realtime.replace(/^http/, 'ws'));
+    } catch {
+      /* unset: same */
+    }
+    return ['ws:', 'http://localhost:*', 'https://localhost:*', ...named].join(' ');
+  }
 
   /*
    * Resolved through `env.ts` so there is ONE definition of the origin — a

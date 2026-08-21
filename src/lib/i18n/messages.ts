@@ -98,6 +98,7 @@ export const messages = {
   'ipAllowlist.addFailed': 'Could not add that rule.',
   'ipAllowlist.removeFailed': 'Could not remove that rule.',
   'ipAllowlist.remove': 'Remove {cidr}',
+  'ipAllowlist.removeTitle': 'Remove this network rule?',
   'ipAllowlist.confirmRemove':
     'Remove {cidr}? If it is the last rule covering your own address the API will refuse, because it would lock you out.',
   'nav.commissionPlans': 'Commission Plans',
@@ -152,6 +153,9 @@ export const messages = {
   // the cookies are httpOnly — so a failed logout leaves the admin signed in,
   // and on a shared machine that is the thing they need to know.
   'session.logoutFailed': 'Sign-out failed — you are still signed in. Please try again.',
+  // Screen-reader text behind the loader AsyncBoundary paints on a 401, in the
+  // moment before the interceptor's redirect to sign-in lands.
+  'session.ended': 'Your session has ended. Returning to sign-in…',
 
   // ── Login ─────────────────────────────────────────────────────────────────
   'login.title': 'OXShare',
@@ -1716,7 +1720,7 @@ export const messages = {
   'kycReview.rejectCta': 'Reject',
   'kycReview.approveAria': 'Approve KYC submission',
   'kycReview.rejectAria': 'Reject KYC submission',
-  'kycReview.approvedNote': '✅ KYC has been approved.',
+  'kycReview.approvedNote': '✅ KYC has been approved. User verification level set to 1.',
   'kycReview.typeLabel': 'Type',
   'kycReview.viewDocumentPdf': '📄 View Document PDF',
   'kycReview.docLoadFailed': 'Could not load document.',
@@ -1838,6 +1842,13 @@ export const messages = {
   'kycBuilder.expandStep': 'Show step details — {name}',
   'kycBuilder.collapseStep': 'Hide step details — {name}',
   'kyc.searchAria': 'Search submissions by name or email',
+  'kyc.loadingQueue': 'Loading KYC submissions',
+  'kyc.queueLoadFailed':
+    'Failed to load the review queue. This is NOT an empty queue — submissions may be waiting.',
+  'kyc.queueCaption': 'KYC Submissions',
+  'kyc.queueEmpty': 'No submissions match the current filters.',
+  'kyc.nounSingular': 'submission',
+  'kyc.nounPlural': 'submissions',
   // The `ledger.*` keys went with the ledger screen. `getLedger` is back in
   // lib/api/admin.ts and the endpoint exists, but no page renders it yet, and a
   // catalogue entry with no call site is a string nobody can find.
@@ -1922,6 +1933,7 @@ export const messages = {
     'Machine credentials for the admin API. A key carries its own permissions and is not tied to any administrator’s account.',
   'apiKeys.loading': 'Loading keys…',
   'apiKeys.loadFailed': 'Could not load the API keys.',
+  'apiKeys.prefixTruncated': '{prefix}…',
   'apiKeys.create': 'New API key',
   'apiKeys.caption': 'API keys, newest first',
   'apiKeys.empty': 'No API keys yet.',
@@ -2201,7 +2213,79 @@ export const messages = {
   'nav.section.approvals': 'Approvals',
   'nav.partnerApprovals': 'Partner Applications',
   'nav.partners': 'Partners',
+  'nav.ibPrograms': 'Commission Programmes',
   'nav.ibLevels': 'IB Levels',
+  // ── Commission programmes (FR-ADM-10) ─────────────────────────────────────
+  // The TERMS a partner is paid on, as distinct from the LADDER, which is where
+  // they stand. Every string here names whose client traded rather than saying
+  // "level 1" on its own: the short form reads as the rung, and that is the
+  // misreading an operator would price a programme on.
+  'ibPrograms.title': 'Commission Programmes',
+  'ibPrograms.subtitle':
+    'What a partner is paid, what their clients get back, and which of those legs pay. Each ' +
+    'partner is on exactly one programme; the IB Levels screen decides where they stand, not ' +
+    'what they earn.',
+  'ibPrograms.add': 'Add programme',
+  'ibPrograms.loading': 'Loading programmes…',
+  'ibPrograms.loadFailed': 'Could not load the commission programmes.',
+  'ibPrograms.empty': 'No commission programmes yet.',
+  'ibPrograms.disabled': 'Disabled',
+
+  'ibPrograms.colName': 'Programme',
+  'ibPrograms.colMode': 'Pays',
+  'ibPrograms.colLevel1': 'Own clients',
+  'ibPrograms.colLevel2': 'Sub-partner clients',
+  'ibPrograms.colRebate': 'Client rebate',
+  'ibPrograms.colPartners': 'Partners',
+
+  'ibPrograms.createTitle': 'Add a commission programme',
+  'ibPrograms.editTitle': 'Edit commission programme',
+  'ibPrograms.name': 'Name',
+  'ibPrograms.nameHint': 'What an operator picks, and what the partner is told they are on.',
+  'ibPrograms.mode': 'Pays',
+  'ibPrograms.mode_commission_only': 'Partner only',
+  'ibPrograms.mode_rebate_only': 'Client rebate only',
+  'ibPrograms.mode_hybrid': 'Partner and client',
+  'ibPrograms.modeHint_commission_only': 'The partner earns; their clients get nothing back.',
+  'ibPrograms.modeHint_rebate_only':
+    'The clients get a rebate on their trading and the partner earns nothing — a real ' +
+    'arrangement, not a misconfiguration.',
+  'ibPrograms.modeHint_hybrid': 'The partner earns and their clients get a rebate.',
+  'ibPrograms.level1': 'From their own clients',
+  'ibPrograms.level1Hint':
+    'Their share of the broker’s revenue when a client they introduced CLOSES a position. ' +
+    'Nothing is earned on an open position, a deposit, a withdrawal or a transfer.',
+  'ibPrograms.level2': 'From their sub-partners’ clients',
+  'ibPrograms.level2Hint':
+    'Their share when the closed position belongs to a client of a partner beneath them.',
+  'ibPrograms.rebate': 'Back to the client',
+  'ibPrograms.rebateHint':
+    'What the trading client receives, as a share of the same closed-position revenue. Credited ' +
+    'to their main wallet.',
+  'ibPrograms.enabled': 'Enabled',
+  'ibPrograms.enabledHint':
+    'A disabled programme pays nothing and takes no new partners. One that partners are already ' +
+    'on cannot be disabled — move them first.',
+  // Every leg is a share of the SAME revenue, so they add up. Saying what the
+  // broker keeps is the other half of the sentence, and it is the number an
+  // operator is actually deciding.
+  'ibPrograms.allocated':
+    'These terms pay out {total}% of the broker’s revenue, leaving {broker}%.',
+  'ibPrograms.overAllocated':
+    'These terms pay out {total}% — more than the broker earns on the trade. The total cannot ' +
+    'exceed 100%.',
+  'ibPrograms.save': 'Save programme',
+  'ibPrograms.saving': 'Saving…',
+  'ibPrograms.saveSucceeded': '“{name}” saved.',
+  'ibPrograms.saveFailed': 'Could not save the programme.',
+  'ibPrograms.confirmDeleteTitle': 'Delete “{name}”?',
+  'ibPrograms.confirmDelete': 'This removes the programme. Nobody is on it.',
+  'ibPrograms.confirmDeleteInUse':
+    '{count} partner(s) are paid by “{name}”. They must be moved to another programme first — ' +
+    'this delete will be refused.',
+  'ibPrograms.deleteSucceeded': '“{name}” deleted.',
+  'ibPrograms.deleteFailed': 'Could not delete the programme.',
+
   'ibLevels.title': 'IB Levels',
   'ibLevels.subtitle':
     'How far partner earnings travel, and what each level takes. The number of enabled levels is the depth of the payout chain, not a limit on how many partners you can have.',
@@ -2371,12 +2455,19 @@ export const messages = {
 
   // ── Partners ──────────────────────────────────────────────────────────────
   // ── Commissions (the partner accrual ledger) ──────────────────────────────
-  // The screen that did not exist: the engine wrote an accrual on every settled
-  // deposit and nothing read one back.
+  /*
+   * The BASIS is a closed position, not a deposit.
+   *
+   * This copy dates from when the engine accrued on every settled deposit —
+   * which was itself the defect that paid a partner a share of the client's own
+   * money. Commission is a share of what the broker EARNED on a closed trade
+   * (FR-IB-04), and a screen still naming a deposit teaches an operator to
+   * answer a dispute with the wrong number.
+   */
   'nav.commissions': 'Commissions',
   'commissions.title': 'Commissions',
   'commissions.subtitle':
-    'Every partner commission, with the deposit it was calculated from. Pending is what the engine has worked out; confirmed is what has been credited.',
+    'Every partner commission, with the closed position it was calculated from. Pending is what the engine has worked out; confirmed is what has been credited.',
   'commissions.loading': 'Loading commissions',
   'commissions.loadFailed': 'Could not load the commissions.',
   'commissions.empty': 'No commissions have been accrued yet.',
@@ -2384,7 +2475,9 @@ export const messages = {
   'commissions.colPartner': 'Partner (earned)',
   'commissions.colClient': 'Client (generated)',
   // The working, so a partner disputing a figure can be answered from the row.
-  'commissions.colBasis': 'Deposit x rate',
+  // The base is the broker's revenue on the closed position — its commission
+  // and swap — never the client's deposit, volume or profit.
+  'commissions.colBasis': 'Broker revenue x rate',
   'commissions.colAmount': 'Commission',
   'commissions.colLevel': 'Level',
   'commissions.colStatus': 'Status',

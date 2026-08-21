@@ -21,6 +21,8 @@ import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
 import { ReviewDock } from '@/components/kyc-review/review-dock';
 import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
 import { t } from '@/lib/i18n';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 
 /**
  * An ALIAS, not a hand-written copy — R-1.1.
@@ -55,6 +57,7 @@ function daysWaiting(status: string, submittedAt: string | null | undefined): nu
 }
 
 export default function KycDetailPage() {
+  const { admin } = useAdmin();
   const params = useParams();
   const userId = params.userId as string;
 
@@ -206,7 +209,15 @@ export default function KycDetailPage() {
       </div>
     );
 
-  const canReview = data.status === 'submitted' || data.status === 'under_review';
+  /*
+   * A decision is owed AND this admin may make it. The route is open to
+   * `kyc.view` on purpose (a compliance READER may open the queue), so without
+   * the second half a read-only reviewer was shown Approve / Reject / Claim —
+   * three irreversible buttons the API answers with 403.
+   */
+  const canReview =
+    (data.status === 'submitted' || data.status === 'under_review') &&
+    hasPermission(admin, 'kyc.review');
   const waitingDays = daysWaiting(data.status, data.submittedAt);
   // One derived list, shared by the grid and the lightbox, so the two cannot
   // disagree about which documents exist.
@@ -298,9 +309,7 @@ export default function KycDetailPage() {
               column, which put the whole point of the page below however many
               documents the client happened to upload. */}
           {data.status === 'approved' && (
-            <div className="approved-banner">
-              {t('kycReview.approvedNote')} User verification level set to 1.
-            </div>
+            <div className="approved-banner">{t('kycReview.approvedNote')}</div>
           )}
         </div>
       </div>

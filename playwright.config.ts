@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { CROSS, TOPOLOGY } from './e2e/topology';
 import { STORAGE_STATE } from './e2e/helpers';
 
 /**
@@ -63,7 +64,9 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
 
   use: {
-    baseURL: 'http://localhost:3002',
+    // `localhost` for an ordinary run; `admin.crm.localhost` when E2E_TOPOLOGY=crosshost
+    // reproduces the production cookie topology. See e2e/topology.ts.
+    baseURL: TOPOLOGY.adminOrigin,
     // Kept only for failures: a trace per test is gigabytes and nobody opens the
     // passing ones. This is what makes a red run diagnosable without
     // reproducing it.
@@ -91,9 +94,12 @@ export default defineConfig({
     // `dev`, not `build && start`: this suite is for catching things while
     // building, and a production build per run would make it too slow to reach
     // for. A CI job, when it exists, should use the built app.
-    command: 'npm run dev',
-    url: 'http://localhost:3002',
-    reuseExistingServer: true,
+    // In cross-host mode the dev server listens on a DIFFERENT port, so the
+    // ordinary localhost server can stay up beside it; `NEXT_PUBLIC_*` is baked
+    // at compile time, so it must be a fresh server rather than a reused one.
+    command: CROSS ? `npx next dev --port ${TOPOLOGY.ports.admin}` : 'npm run dev',
+    url: `http://localhost:${TOPOLOGY.ports.admin}`,
+    reuseExistingServer: !CROSS,
     timeout: 120_000,
     stdout: 'ignore',
     stderr: 'pipe',
