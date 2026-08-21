@@ -27,6 +27,14 @@
  */
 export const ALL_PERMISSIONS: string[] = [
   'clients.view',
+  // `clients.edit` and `clients.email` are two keys on purpose, and the
+  // backend catalog explains why: correcting a surname is clerical, while
+  // changing the sign-in address is an account-takeover primitive (set it to
+  // your own, run a password reset, take the balance). Granting the first must
+  // not grant the second. Both were missing here, so ClientActionsMenu offered
+  // neither item and the CORE-18 dialog test failed pointing at a dropdown.
+  'clients.edit',
+  'clients.email',
   'clients.suspend',
   'clients.tag',
   'admins.view',
@@ -53,6 +61,9 @@ export const ALL_PERMISSIONS: string[] = [
   'withdrawals.approve',
   'withdrawals.settle',
   'trading.view',
+  'trading.create',
+  'trading.deposit',
+  'trading.withdraw',
   'ib.view',
   'ib.approve',
   'ib.reject',
@@ -91,6 +102,9 @@ export const ALL_PERMISSIONS: string[] = [
   'settings.smtp.edit',
   'settings.security.view',
   'settings.security.edit',
+  'settings.rival.view',
+  'settings.rival.edit',
   'audit.view',
+  'ledger.view',
   'reconciliation.view',
 ];
