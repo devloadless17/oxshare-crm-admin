@@ -841,6 +841,23 @@ export const messages = {
   'clientProfile.partnerStateChanged': 'Partner is now {state}',
   'clientProfile.partnerStateFailed': 'The partner’s standing could not be changed.',
 
+  // ── Moving a partner onto different terms ─────────────────────────────────
+  // The sibling of the level change, and the distinction is the point: the
+  // LADDER is where a partner stands, the PROGRAMME is what they are paid.
+  'clientProfile.actionChangeProgram': 'Change commission programme',
+  'clientProfile.changeProgramTitle': 'Change {name}’s commission programme',
+  'clientProfile.changeProgramBody':
+    'The terms this partner is paid on. It applies to their next closed trade — commission ' +
+    'already earned records the rate it was calculated at and does not change.',
+  'clientProfile.changeProgramSave': 'Move to this programme',
+  'clientProfile.programChanged': 'The partner’s commission programme was changed.',
+  'clientProfile.programFailed': 'Could not change the commission programme.',
+  // The rates, because a name alone does not tell an operator what they are
+  // about to change somebody's pay TO.
+  'clientProfile.programRates': '{own}% own clients · {sub}% sub-partner clients',
+  'clientProfile.programRebateOnly': 'Client rebate {rebate}% · the partner earns nothing',
+  'clientProfile.programNoneEnabled':
+    'No commission programme is enabled, so there is nothing to move this partner to.',
   'clientProfile.actionChangeLevel': 'Change level',
   'clientProfile.actionReassignParent': 'Reassign parent',
   'clientProfile.actionManageTags': 'Manage tags',

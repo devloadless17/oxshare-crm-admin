@@ -10,6 +10,7 @@ import {
   FileText,
   Layers,
   Network,
+  Percent,
   ShieldCheck,
   Tags,
   Users,
@@ -58,6 +59,7 @@ export function ClientActionsMenu({
   partner,
   onManageTags,
   onChangeLevel,
+  onChangeProgram,
   onReassignParent,
   onEditProfile,
   onChangeEmail,
@@ -67,6 +69,7 @@ export function ClientActionsMenu({
   partner: IbPartnerDetail | null;
   onManageTags: () => void;
   onChangeLevel: () => void;
+  onChangeProgram: () => void;
   onReassignParent: () => void;
   onEditProfile: () => void;
   onChangeEmail: () => void;
@@ -248,6 +251,14 @@ export function ClientActionsMenu({
             icon: Layers,
             separatorBefore: !canSuspendPartner,
             onSelect: onChangeLevel,
+          },
+          /* Terms, not placement — the entry above moves them on the ladder,
+             this one changes what they are paid. Both behind `ib.partners.edit`,
+             which the API enforces independently. */
+          {
+            label: t('clientProfile.actionChangeProgram'),
+            icon: Percent,
+            onSelect: onChangeProgram,
           },
           {
             label: t('clientProfile.actionReassignParent'),

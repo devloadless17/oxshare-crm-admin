@@ -70,6 +70,16 @@ export const ALL_PERMISSIONS: string[] = [
   'ib.levels.create',
   'ib.levels.edit',
   'ib.levels.delete',
+  /*
+   * The programme keys, missing since the catalogue screen shipped — the exact
+   * drift the note at the top of this file warns about. Without them an
+   * administrator who can do everything was offered no add, edit or delete
+   * control on the one screen that decides what partners are paid, and a test
+   * saying so failed pointing at the button rather than at this list.
+   */
+  'ib.programs.create',
+  'ib.programs.edit',
+  'ib.programs.delete',
   'ib.partners.edit',
   'ib.partners.suspend',
   'ib.commissions.view',
