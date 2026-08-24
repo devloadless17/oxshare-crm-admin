@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { STORAGE_STATE } from './helpers';
+import { API_ORIGIN, STORAGE_STATE } from './helpers';
 
 /**
  * A reviewer opening a client's identity documents, now served from Cloudflare R2.
@@ -93,14 +93,19 @@ test.describe('KYC documents are served from object storage', () => {
       return;
     }
 
-    // ── The bytes arrived, same-origin ────────────────────────────────────────
+    // ── The bytes arrived, through the API ────────────────────────────────────
     await expect.poll(() => documentResponses.length, { timeout: 20_000 }).toBeGreaterThan(0);
 
     for (const { url, status } of documentResponses) {
-      expect(new URL(url).origin, `document fetched cross-origin: ${url}`).toBe(
-        new URL(page.url()).origin,
-      );
-      // The assertion that pins the proxy-not-presigned decision.
+      /*
+       * The assertion that pins the PROXY-not-presigned decision (D-61): every
+       * document read goes through the API's own /v1/uploads route — where the
+       * client-scope check runs and the R-6.6 audit row is written — and never
+       * to a presigned bucket URL that would route an audited PII read around
+       * its own audit. (The browser calls the API's origin directly; the page's
+       * origin stopped being the document host with the /api rewrite.)
+       */
+      expect(new URL(url).origin, `document fetched off the API: ${url}`).toBe(API_ORIGIN);
       expect(url).not.toContain('r2.cloudflarestorage.com');
       expect(status, `document request failed: ${url}`).toBeLessThan(400);
     }
