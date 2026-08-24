@@ -5827,9 +5827,9 @@ export interface components {
             documents?: string[];
             /** @description Absent without trading.view. */
             tradingAccounts?: components["schemas"]["ProfileTradingAccountDto"][];
-            /** @description Absent without partners.view. */
+            /** @description Absent without ib.view, and absent when nobody introduced this client — the UI tells the two apart by its own permission check. */
             referrer?: components["schemas"]["ProfileReferrerDto"];
-            /** @description Capped — see referredTotal. Absent without partners.view. */
+            /** @description Capped — see referredShown. Absent without ib.view; empty when none. */
             referredClients?: components["schemas"]["ProfileReferredClientDto"][];
             /** @description How many referredClients were returned; the list is capped for one screen. */
             referredShown?: number;
