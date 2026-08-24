@@ -161,7 +161,10 @@ test.describe('an authenticated admin session', () => {
 
     await context.clearCookies();
 
-    await page.goto('/clients');
+    // The eviction hard-navigates as the goto lands, which Chromium reports as
+    // ERR_ABORTED on the goto itself — the URL assertion below is the real
+    // check, so the aborted navigation is expected rather than a failure.
+    await page.goto('/clients').catch(() => null);
     await expect(page, 'a dead session did not reach the sign-in screen').toHaveURL(/\/login/, {
       timeout: 20_000,
     });

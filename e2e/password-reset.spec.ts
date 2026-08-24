@@ -24,7 +24,18 @@ test.describe('sending a reset link', () => {
      * restricted admin's row, never `.first()`: the first row can be the
      * signed-in admin themselves, whose own row deliberately hides reset.
      */
+    /*
+     * The directory display is PAGED, and every invite-minting spec run today
+     * grows it — the fixture row drifts onto later pages. Walk the pages until
+     * it appears rather than assuming page one.
+     */
     const row = page.getByRole('row', { name: /e2e-restricted/i }).first();
+    for (let hops = 0; hops < 15 && (await row.count()) === 0; hops += 1) {
+      const next = page.getByRole('button', { name: /^next$/i });
+      if ((await next.count()) === 0 || (await next.isDisabled())) break;
+      await next.click();
+    }
+    await expect(row, 'the e2e-restricted fixture is not in the directory').toBeVisible();
     await row.getByRole('button', { name: /actions for/i }).click();
 
     const send = page.getByRole('menuitem', { name: /send reset link/i });
