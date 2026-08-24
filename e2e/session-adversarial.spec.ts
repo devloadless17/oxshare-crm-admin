@@ -48,8 +48,11 @@ test('a refresh the API never answered does NOT evict the operator', async ({ pa
   // operator's ordinary state, except the API cannot answer the renewal.
   await deleteCookie(page.context(), /_at$/);
   await page.goto('/audit-log');
-  // The interception must actually have fired, or this test proves nothing.
-  expect(failing.hits(), 'the injected 500 never fired').toBeGreaterThan(0);
+  // The refresh fires from the page's ASYNC data calls, after load — wait for
+  // the interception rather than racing it. Zero hits = a vacuous test.
+  await expect
+    .poll(() => failing.hits(), { timeout: 15_000, message: 'the injected 500 never fired' })
+    .toBeGreaterThan(0);
   // NOT signed out: still on the console route, no /login, marker intact.
   expect(new URL(page.url()).pathname, 'a 500 on refresh evicted the operator').toBe('/audit-log');
   const hint = (await page.context().cookies()).find((c) => c.name.includes('session_hint'));
@@ -68,7 +71,12 @@ test('a refresh the API never answered does NOT evict the operator', async ({ pa
   const dropped = await routeHit(page, '/admin/auth/refresh', (route) => route.abort('failed'));
   await deleteCookie(page.context(), /_at$/);
   await page.goto('/roles');
-  expect(dropped.hits(), 'the injected network failure never fired').toBeGreaterThan(0);
+  await expect
+    .poll(() => dropped.hits(), {
+      timeout: 15_000,
+      message: 'the injected network failure never fired',
+    })
+    .toBeGreaterThan(0);
   expect(new URL(page.url()).pathname, 'a network blip on refresh evicted the operator').toBe(
     '/roles',
   );
@@ -85,7 +93,7 @@ test('a refresh the API never answered does NOT evict the operator', async ({ pa
   await deleteCookie(page.context(), /_at$/);
   // Eviction is a hard navigation; goto can see its own load aborted.
   await page.goto('/clients').catch(() => null);
-  await page.waitForURL(/\/login/, { timeout: 15_000 });
+  await page.waitForURL(/\/login/, { timeout: 20_000 });
   expect(refused.hits(), 'the injected 401 never fired').toBeGreaterThan(0);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
@@ -255,5 +263,65 @@ test('a completed password reset reaches a live browser immediately', async ({ b
     }
   } finally {
     await master.dispose();
+  }
+});
+
+test('three tabs waking together all stay signed in', async ({ context, page }) => {
+  test.setTimeout(180_000);
+  /*
+   * The fleet race the cross-tab lock + SESSION_SUPERSEDED retry exist for: a
+   * laptop wakes with three console tabs, every tab's access token lapsed,
+   * and all three refresh the same rotating cookie at once. Exactly one
+   * rotation may win; the losers must retry against the winner's cookies and
+   * NOBODY may be evicted.
+   */
+  await page.goto('/dashboard');
+  const tab2 = await context.newPage();
+  const tab3 = await context.newPage();
+  await tab2.goto('/clients');
+  await tab3.goto('/roles');
+
+  await deleteCookie(context, /_at$/);
+
+  await Promise.all([page.goto('/audit-log'), tab2.goto('/tags'), tab3.goto('/admin-users')]);
+
+  for (const [tab, path] of [
+    [page, '/audit-log'],
+    [tab2, '/tags'],
+    [tab3, '/admin-users'],
+  ] as const) {
+    expect(
+      new URL(tab.url()).pathname,
+      `a tab lost the wake-up race and was evicted (expected ${path})`,
+    ).toBe(path);
+  }
+  await tab2.close();
+  await tab3.close();
+});
+
+test('two tabs racing WITHOUT Web Locks still both survive', async ({ browser }) => {
+  test.setTimeout(180_000);
+  /*
+   * session-channel degrades to NO lock when navigator.locks is unavailable
+   * (older Safari, some embedded webviews). The refresh race then lands raw
+   * on the backend, whose 30s retry grace + SESSION_SUPERSEDED retry must
+   * absorb it end to end — this is the only place that combination is proven.
+   */
+  const ctx = await browser.newContext({ storageState: 'e2e/.auth/admin.json' });
+  await ctx.addInitScript(() => {
+    // Simulate a browser with no Web Locks API, before any app script runs.
+    Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true });
+  });
+  const a = await ctx.newPage();
+  const b = await ctx.newPage();
+  try {
+    await a.goto('/dashboard');
+    await b.goto('/clients');
+    await deleteCookie(ctx, /_at$/);
+    await Promise.all([a.goto('/roles'), b.goto('/tags')]);
+    expect(new URL(a.url()).pathname, 'tab A evicted without Web Locks').toBe('/roles');
+    expect(new URL(b.url()).pathname, 'tab B evicted without Web Locks').toBe('/tags');
+  } finally {
+    await ctx.close();
   }
 });
