@@ -164,7 +164,14 @@ export async function adminApiSession(
   del: (path: string) => ReturnType<APIRequestContext['delete']>;
   dispose: () => Promise<void>;
 }> {
-  const request = await apiRequest.newContext();
+  /*
+   * EXPLICITLY cookie-free. Inside the test runner, `newContext()` inherits
+   * the project's `use.storageState` — so a "fresh" API context silently
+   * carries the shared master jar. That went unnoticed until invite-accept
+   * started displacing the presenting session (24 Aug): every accept from such
+   * a context revoked the SHARED master session and took the suite down.
+   */
+  const request = await apiRequest.newContext({ storageState: { cookies: [], origins: [] } });
   for (;;) {
     const login = await request.post(`${API_NODE_BASE}/admin/auth/login`, {
       headers: { Origin: APP_ORIGIN },
@@ -672,7 +679,8 @@ export async function acceptAdminInvite(
   password: string,
 ): Promise<{ ctx: APIRequestContext; headers: Record<string, string>; id: string }> {
   for (let attempt = 0; ; attempt += 1) {
-    const ctx = await apiRequest.newContext();
+    // Cookie-free for the same reason adminApiSession is — see the note there.
+    const ctx = await apiRequest.newContext({ storageState: { cookies: [], origins: [] } });
     const res = await ctx.post(`${API_NODE_BASE}/admin/invite/accept`, {
       headers: { Origin: APP_ORIGIN },
       data: { token, password },

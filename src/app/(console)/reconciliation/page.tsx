@@ -56,7 +56,16 @@ export default function ReconciliationPage() {
       {
         key: 'walletId',
         header: t('reconciliation.column.wallet'),
-        cell: (row) => <span className="font-mono text-xs">{row.walletId}</span>,
+        /*
+         * The wallet NUMBER, with the uuid on hover. The number is what an
+         * operator quotes and compares; the uuid stays reachable because logs
+         * and SQL still key on it, and this is the screen read mid-incident.
+         */
+        cell: (row) => (
+          <span className="font-mono text-xs" title={row.walletId}>
+            {row.walletNumber}
+          </span>
+        ),
       },
       {
         key: 'currency',

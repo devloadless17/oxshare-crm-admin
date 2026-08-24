@@ -102,6 +102,7 @@ vi.mock('next/navigation', async () => {
 function wallet(over: Partial<WalletRow> = {}): WalletRow {
   return {
     id: 'w-1',
+    walletNumber: '4f7kq2nm8xcb',
     balance: '250.00000000',
     onHold: '0.00000000',
     currency: 'USD',
@@ -212,6 +213,12 @@ describe('wallets — listing', () => {
 
     expect(await screen.findByText('client@example.com')).toBeInTheDocument();
     expect(screen.getByText('Dana Haddad')).toBeInTheDocument();
+  });
+
+  it('shows the wallet number whole — 12 chars IS the short form', async () => {
+    renderWithProviders(<WalletsPage />);
+
+    expect(await screen.findByText('4f7kq2nm8xcb')).toBeInTheDocument();
   });
 
   it('asks for a bounded first page', async () => {

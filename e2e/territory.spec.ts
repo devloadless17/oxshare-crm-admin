@@ -260,7 +260,9 @@ test.describe('the DEFAULT for a brand-new scoped admin', () => {
     expect(inviteUrl, 'the invite link is echoed outside production only').toBeTruthy();
     const token = new URL(inviteUrl!).searchParams.get('token')!;
 
-    const invitee = await playwright.request.newContext();
+    const invitee = await playwright.request.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
     try {
       const accepted = await invitee.post(
         `${process.env.E2E_API_NODE_ORIGIN ?? 'http://localhost:3001'}/v1/admin/invite/accept`,

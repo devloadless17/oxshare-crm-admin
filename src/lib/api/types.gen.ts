@@ -4258,6 +4258,11 @@ export interface components {
         };
         WalletDto: {
             id: string;
+            /**
+             * @description Human-friendly wallet number — 12 lowercase Crockford base32 chars. Display and support reference only; `id` remains the key.
+             * @example 4f7kq2nm8xcb
+             */
+            walletNumber: string;
             userId: string;
             /**
              * @description A currency CODE from `GET /currencies`, not a fixed set — currencies are operator data.
@@ -4859,6 +4864,11 @@ export interface components {
         LedgerEntryDto: {
             id: string;
             walletId: string;
+            /**
+             * @description The wallet’s human-friendly number — display only; `walletId` is the key.
+             * @example 4f7kq2nm8xcb
+             */
+            walletNumber: string;
             userId: string;
             /** @description Signed monetary value as a string */
             amount: string;
@@ -5859,9 +5869,9 @@ export interface components {
             documents?: string[];
             /** @description Absent without trading.view. */
             tradingAccounts?: components["schemas"]["ProfileTradingAccountDto"][];
-            /** @description Absent without partners.view. */
+            /** @description Absent without ib.view, and absent when nobody introduced this client — the UI tells the two apart by its own permission check. */
             referrer?: components["schemas"]["ProfileReferrerDto"];
-            /** @description Capped — see referredTotal. Absent without partners.view. */
+            /** @description Capped — see referredShown. Absent without ib.view; empty when none. */
             referredClients?: components["schemas"]["ProfileReferredClientDto"][];
             /** @description How many referredClients were returned; the list is capped for one screen. */
             referredShown?: number;
@@ -6374,6 +6384,11 @@ export interface components {
         };
         WalletDiscrepancyDto: {
             walletId: string;
+            /**
+             * @description The wallet’s human-friendly number — display only; `walletId` is the key.
+             * @example 4f7kq2nm8xcb
+             */
+            walletNumber: string;
             userId: string;
             currency: string;
             /**
@@ -6556,6 +6571,11 @@ export interface components {
         };
         WalletRowDto: {
             id: string;
+            /**
+             * @description Human-friendly wallet number — 12 lowercase Crockford base32 chars. Display and support reference only; `id` remains the key.
+             * @example 4f7kq2nm8xcb
+             */
+            walletNumber: string;
             /**
              * @description Monetary value — ALWAYS a string, never a number. NUMERIC(28,8) exceeds what a JavaScript number represents exactly, so Number()/parseFloat lose value before any formatting starts (§6.1).
              * @example 250.00000000
