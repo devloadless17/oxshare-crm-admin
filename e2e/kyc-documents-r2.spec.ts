@@ -68,6 +68,10 @@ test.describe('KYC documents are served from object storage', () => {
       const count = Math.min(await rows.count(), 6);
       let found = false;
       for (let i = 1; i < count; i += 1) {
+        // The queue is LIVE — another reviewer (or an earlier spec) approving
+        // a submission removes its row, so the count measured before the walk
+        // can exceed what is rendered now. Re-check instead of timing out.
+        if ((await rows.count()) <= i) break;
         await rows.nth(i).click();
         await page.waitForLoadState('networkidle');
         if ((await documentImage.count()) > 0) {

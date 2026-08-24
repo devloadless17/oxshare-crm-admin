@@ -658,3 +658,38 @@ export function linkIn(mail: { text: string; html: string }, appOrigin: string):
   const url = new URL(match[0]);
   return `${appOrigin}${url.pathname}${url.search}`;
 }
+
+/**
+ * Accept an admin invite over the wire, as the invitee's clean browser would,
+ * waiting out the 5/min cap on the accept route rather than raising it.
+ *
+ * Returns a live API session for the freshly minted administrator: the request
+ * context holds the cookies, `headers` carries the Origin + CSRF pair every
+ * write needs, and `id` is who they are. Dispose the context when done.
+ */
+export async function acceptAdminInvite(
+  token: string,
+  password: string,
+): Promise<{ ctx: APIRequestContext; headers: Record<string, string>; id: string }> {
+  for (let attempt = 0; ; attempt += 1) {
+    const ctx = await apiRequest.newContext();
+    const res = await ctx.post(`${API_NODE_BASE}/admin/invite/accept`, {
+      headers: { Origin: APP_ORIGIN },
+      data: { token, password },
+    });
+    if (res.status() === 429 && attempt < 3) {
+      await ctx.dispose();
+      await new Promise((r) => setTimeout(r, 61_000));
+      continue;
+    }
+    if (!res.ok()) {
+      await ctx.dispose();
+      throw new Error(`Accepting the invite answered ${res.status()}.`);
+    }
+    const csrf =
+      (await ctx.storageState()).cookies.find((c) => c.name.includes('admin_csrf'))?.value ?? '';
+    const me = await ctx.get(`${API_NODE_BASE}/admin/auth/me`);
+    const { id } = (await me.json()) as { id: string };
+    return { ctx, headers: { Origin: APP_ORIGIN, 'X-OxShare-CSRF': csrf }, id };
+  }
+}
