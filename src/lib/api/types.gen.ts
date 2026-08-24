@@ -3601,6 +3601,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/transactions/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered money-movement list as CSV
+         * @description The same filters as GET /admin/transactions, over every matching row rather than one page. Amounts are the exact decimal strings the ledger holds — never rounded, never locale-formatted (§6.1).
+         */
+        get: operations["AdminFinancialController_exportTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/transactions/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Totals over the filtered movement list, grouped per currency (amounts are strings) */
+        get: operations["AdminFinancialController_transactionsSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every money movement, platform-wide — deposits, withdrawals and transfers (amounts are strings) */
+        get: operations["AdminFinancialController_listTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/stats/overview": {
         parameters: {
             query?: never;
@@ -6297,9 +6351,9 @@ export interface components {
         };
         WithdrawalUserDto: {
             id: string;
-            email: string;
-            firstName: string;
-            lastName: string;
+            email?: string;
+            firstName?: string;
+            lastName?: string;
         };
         WithdrawalRowDto: {
             id: string;
@@ -6346,6 +6400,7 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+            maskedFields?: string[];
         };
         CreditWalletDto: {
             /**
@@ -6423,6 +6478,85 @@ export interface components {
             totalDifference: string;
             /** @description True when nothing is wrong. Read this rather than testing the array length — it is the field the service decides, and a future check can make it false without adding a wallet discrepancy. */
             balanced: boolean;
+        };
+        AdminTransactionSummaryRowDto: {
+            /** @enum {string} */
+            direction: "deposit" | "withdrawal";
+            /** @enum {string} */
+            kind: "payment" | "transfer" | "commission_transfer";
+            /** @enum {string} */
+            state: "pending" | "approved" | "success" | "failure" | "rejected";
+            /** @example USD */
+            currency: string;
+            count: number;
+            /**
+             * @description Server-computed SUM as a string — the page renders it, never recomputes it.
+             * @example 1250.50000000
+             */
+            total: string;
+        };
+        AdminTransactionDirectionTotalDto: {
+            /** @enum {string} */
+            direction: "deposit" | "withdrawal";
+            /** @example USD */
+            currency: string;
+            count: number;
+            /**
+             * @description Server-computed SUM as a string — rendered, never recomputed.
+             * @example 12400.00000000
+             */
+            total: string;
+        };
+        AdminTransactionsSummaryDto: {
+            rows: components["schemas"]["AdminTransactionSummaryRowDto"][];
+            directions: components["schemas"]["AdminTransactionDirectionTotalDto"][];
+        };
+        AdminTransactionRowDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "payment" | "transfer" | "commission_transfer";
+            /** @enum {string} */
+            direction: "deposit" | "withdrawal";
+            /** @enum {string} */
+            state: "pending" | "approved" | "success" | "failure" | "rejected";
+            /**
+             * @description Monetary value — ALWAYS a string, never a number. NUMERIC(28,8) exceeds what a JavaScript number represents exactly (§6.1).
+             * @example 250.00000000
+             */
+            amount: string;
+            /**
+             * @description A currency code.
+             * @example USD
+             */
+            currency: string;
+            /** @example Whish Money */
+            methodName: string;
+            provider: string;
+            providerRef?: string | null;
+            destination?: string | null;
+            rejectionReason?: string | null;
+            /** @description The trading account a TRANSFER moved money to or from. Null on other kinds. */
+            tradingAccountId?: string | null;
+            walletId: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            settledAt?: string | null;
+            user: components["schemas"]["WithdrawalUserDto"];
+        };
+        AdminTransactionListResponseDto: {
+            items: components["schemas"]["AdminTransactionRowDto"][];
+            nextCursor: string | null;
+            total: number;
+            page: number;
+            limit: number;
+            counts: {
+                [key: string]: number;
+            };
+            directionCounts: {
+                [key: string]: number;
+            };
+            maskedFields?: string[];
         };
         ClientRegistrationWindowDto: {
             /** @description Registered since midnight UTC today. */
@@ -11808,6 +11942,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LedgerListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminFinancialController_exportTransactions: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                direction?: "deposit" | "withdrawal";
+                kind?: "payment" | "transfer" | "commission_transfer";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                userId?: string;
+                currency?: string;
+                q?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                from?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `transactions-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
+    AdminFinancialController_transactionsSummary: {
+        parameters: {
+            query?: {
+                direction?: "deposit" | "withdrawal";
+                kind?: "payment" | "transfer" | "commission_transfer";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                userId?: string;
+                currency?: string;
+                q?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                from?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTransactionsSummaryDto"];
+                };
+            };
+        };
+    };
+    AdminFinancialController_listTransactions: {
+        parameters: {
+            query?: {
+                direction?: "deposit" | "withdrawal";
+                /** @description payment = crossed the platform boundary through a provider; transfer = wallet ⇄ trading account; commission_transfer = partner earnings to their main wallet. */
+                kind?: "payment" | "transfer" | "commission_transfer";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Narrow to one client (UUID). */
+                userId?: string;
+                currency?: string;
+                /** @description Search the client’s email and name — the same columns every other queue searches. */
+                q?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                from?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                to?: string;
+                /** @description Legacy offset paging. Prefer cursor. */
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description amount sorts on the NUMERIC value in SQL — never cast, never in JS (§6). */
+                sort?: "createdAt" | "amount" | "state";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTransactionListResponseDto"];
                 };
             };
         };

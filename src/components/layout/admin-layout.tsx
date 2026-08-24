@@ -34,6 +34,7 @@ import {
   Shield,
   Tags,
   Activity,
+  Banknote,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { UserMenu } from './user-menu';
@@ -231,6 +232,13 @@ const NAV_SECTIONS: NavSection[] = [
        * operator reads or configures rather than decides: balances, accounts,
        * the methods and currencies the desk operates in.
        */
+      /*
+         First in the section because it is the section's broadest read: every
+         money movement, platform-wide, before the per-object lists below
+         narrow to wallets or accounts. Read-only — the desk under Approvals
+         still owns the withdrawal actions.
+      */
+      { label: 'nav.financial', href: '/financial', icon: Banknote },
       { label: 'nav.wallets', href: '/wallets', icon: Wallet },
       { label: 'nav.tradingAccounts', href: '/trading-accounts', icon: CandlestickChart },
       { label: 'nav.paymentMethods', href: '/payment-methods', icon: CreditCard },

@@ -1943,6 +1943,70 @@ export const messages = {
   // question that word asks.
   'nav.reconciliation': 'Reconciliation',
 
+  // ── Financial (GET /admin/transactions — every money movement) ────────────
+  'nav.financial': 'Financial',
+  'financial.title': 'Financial',
+  'financial.subtitle':
+    'Every money movement on the platform — deposits, withdrawals and internal transfers, across every client. Read-only: withdrawals are actioned on the Transactions desk.',
+  'financial.loading': 'Loading movements',
+  'financial.loadFailed': 'Could not load the movement list.',
+  'financial.empty': 'No money has moved yet.',
+  'financial.emptyFiltered': 'No movements match these filters.',
+  'financial.caption': 'Money movements',
+  'financial.noun': 'movement',
+  'financial.nounPlural': 'movements',
+  'financial.searchPlaceholder': 'Search by client email or name…',
+  'financial.searchAria': 'Search movements by client',
+  'financial.clearFilters': 'Clear',
+  'financial.colClient': 'Client',
+  'financial.colMovement': 'Movement',
+  'financial.colAmount': 'Amount',
+  'financial.colCurrency': 'Currency',
+  'financial.colMethod': 'Method',
+  'financial.colState': 'State',
+  'financial.colCreated': 'Created',
+  'financial.colSettled': 'Settled',
+  // The wallet-side direction — printed for payments; transfers print their
+  // kind instead, because "Withdrawal" on a wallet→account transfer would
+  // read as money leaving the platform.
+  'financial.direction.deposit': 'Deposit',
+  'financial.direction.withdrawal': 'Withdrawal',
+  'financial.directionAll': 'All movements',
+  'financial.kind.payment': 'Payment',
+  'financial.kind.transfer': 'Trading transfer',
+  'financial.kind.commission_transfer': 'Commission transfer',
+  'financial.kindAll': 'All kinds',
+  // `approved`/`rejected` only ever occur on payment withdrawals; transfers
+  // arrive pre-mapped to pending/success/failure.
+  'financial.state.pending': 'Pending',
+  'financial.state.approved': 'Approved',
+  'financial.state.success': 'Success',
+  'financial.state.failure': 'Failure',
+  'financial.state.rejected': 'Rejected',
+  'financial.stateAll': 'All states',
+  'financial.filterKind': 'Kind',
+  'financial.filterState': 'State',
+  'financial.filterCurrency': 'Currency',
+  'financial.filterCurrencyAll': 'All currencies',
+  'financial.filterFrom': 'From',
+  'financial.filterTo': 'To',
+  'financial.dateAny': 'Any date',
+  'financial.dateClear': 'Clear date',
+  'financial.tileDeposits': 'Deposits',
+  'financial.tileWithdrawals': 'Withdrawals',
+  'financial.tileMovements': 'Movements',
+  // The dash when the summary has nothing to total — "no money", not "loading".
+  'financial.tileHintNone': '—',
+  'financial.tileMovementsHint': 'Everything matching the current filters',
+  // The one provider value recognised by name — a hand-placed admin credit
+  // went through no payment method, so its raw key is not a rail name.
+  'financial.methodManualCredit': 'Manual credit',
+  // RBAC-03 — what the masked-fields notice calls the hidden client fields.
+  'financial.maskedLabelEmail': 'Email address',
+  'financial.maskedLabelName': 'Client name',
+  // The desk link on a pending payment withdrawal — where the actions live.
+  'financial.openInDesk': 'Review on the desk',
+
   // ── Ledger (ADM-13) ───────────────────────────────────────────────────────
   'ledger.title': 'Ledger',
   'ledger.subtitle':

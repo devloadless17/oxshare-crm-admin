@@ -60,6 +60,8 @@ export const ALL_PERMISSIONS: string[] = [
   'withdrawals.view',
   'withdrawals.approve',
   'withdrawals.settle',
+  // The Financial page (GET /admin/transactions) — backend module `transactions`.
+  'transactions.view',
   'trading.view',
   'trading.create',
   'trading.deposit',
