@@ -27,11 +27,12 @@ import { apiClient } from './client';
  * rather than a second, drifting filter language. The response is a file body
  * with `Content-Disposition: attachment; filename=…`.
  *
- * MOST OF THESE ENDPOINTS DO NOT EXIST YET — `wallets` and `trading-accounts`
- * are the two that have shipped. The button surfaces a 404 as its own state
- * (`unavailable`) rather than as a failure, so the remainder render as not-built
- * instead of broken — the same rule `BackendPending` follows for whole screens,
- * and the reason no call site has to know which of these is live today.
+ * MOST OF THESE ENDPOINTS DO NOT EXIST YET — `wallets`, `trading-accounts`
+ * and `transactions` are the three that have shipped. The button surfaces a
+ * 404 as its own state (`unavailable`) rather than as a failure, so the
+ * remainder render as not-built instead of broken — the same rule
+ * `BackendPending` follows for whole screens, and the reason no call site has
+ * to know which of these is live today.
  */
 export type ExportResource =
   | 'clients'
@@ -45,11 +46,13 @@ export type ExportResource =
   | 'ib/partners'
   | 'admin-users'
   | 'roles'
-  // These two DO exist — `GET /admin/wallets/export` and
-  // `/admin/trading-accounts/export`, both CSV-only, both taking the same
-  // filters as their list endpoint. See the note above about the rest.
+  // These three DO exist — `GET /admin/wallets/export`,
+  // `/admin/trading-accounts/export` and `/admin/transactions/export`, all
+  // CSV-only, all taking the same filters as their list endpoint. See the
+  // note above about the rest.
   | 'wallets'
-  | 'trading-accounts';
+  | 'trading-accounts'
+  | 'transactions';
 
 export type ExportFormat = 'csv' | 'xlsx';
 

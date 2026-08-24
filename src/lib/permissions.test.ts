@@ -169,6 +169,24 @@ describe('canAccess', () => {
       expect(canAccess(subAdmin, '/transactions')).toBe(false);
     });
 
+    it('gates the Financial page on its OWN key, not the money desk’s', () => {
+      /*
+       * The platform-wide movement list is neither the withdrawal queue nor
+       * the ledger. Riding on `withdrawals.view` would hand payout reviewers
+       * every deposit and transfer (the leak the ledger's split fixed);
+       * riding on `ledger.view` would couple two screens that answer
+       * different questions. Backend catalog: module `transactions`.
+       */
+      expect(canAccess(withPerms(['transactions.view']), '/financial')).toBe(true);
+      expect(canAccess(withPerms(['withdrawals.view']), '/financial')).toBe(false);
+      expect(canAccess(withPerms(['ledger.view']), '/financial')).toBe(false);
+      expect(canAccess(withPerms(['wallets.view']), '/financial')).toBe(false);
+      expect(canAccess(subAdmin, '/financial')).toBe(false);
+      // And the new key opens nothing else.
+      expect(canAccess(withPerms(['transactions.view']), '/transactions')).toBe(false);
+      expect(canAccess(withPerms(['transactions.view']), '/ledger')).toBe(false);
+    });
+
     it('gives wallets and trading accounts their OWN read keys', () => {
       /*
        * Both borrowed `withdrawals.view`, because the wallets module was
@@ -353,6 +371,8 @@ describe('assertPermissionKeysExist', () => {
     'withdrawals.view',
     'withdrawals.approve',
     'withdrawals.settle',
+    // The Financial page — backend module `transactions`.
+    'transactions.view',
     'trading.view',
     'ib.view',
     'ib.approve',

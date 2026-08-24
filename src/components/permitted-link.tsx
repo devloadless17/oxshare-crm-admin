@@ -49,7 +49,16 @@ export function PermittedLink({
 }) {
   const { admin } = useAdmin();
 
-  if (!canAccess(admin, href)) {
+  /*
+   * Gate on the PATHNAME alone. `canAccess` matches route prefixes against a
+   * path, and a link that carries a query string ("/transactions?state=all")
+   * neither equals the prefix nor starts with `prefix + '/'` — so every
+   * pre-filtered link melted into text for EVERYONE, including operators who
+   * held the permission. The query is presentation; the route is what access
+   * is decided on.
+   */
+  const pathname = href.split(/[?#]/)[0] ?? href;
+  if (!canAccess(admin, pathname)) {
     return <>{children}</>;
   }
 

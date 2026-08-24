@@ -83,6 +83,13 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * reads only — the pages draw no write control, and the API refuses writes
    * regardless.
    */
+  /*
+   * The Financial page's own key — not `withdrawals.view` (the leak the
+   * ledger's split fixed: payout review must not read every deposit) and not
+   * `ledger.view` (the accounting record is a different screen). Mirrors
+   * backend config/permissions.json's `transactions` module.
+   */
+  { prefix: '/financial', requirement: { permission: 'transactions.view' } },
   { prefix: '/wallets', requirement: { permission: 'wallets.view' } },
   { prefix: '/trading-accounts', requirement: { permission: 'trading.view' } },
   /*

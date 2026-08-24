@@ -174,6 +174,27 @@ export type LedgerListResponse = components['schemas']['LedgerListResponseDto'];
 export type ReconciliationReport = components['schemas']['ReconciliationReportDto'];
 
 /*
+ * ── The Financial page: every money movement, platform-wide ────────────────
+ *
+ * NOT named `Transaction` — that alias (further down) is the client-profile
+ * transaction row from `TransactionDto`, a different shape from a different
+ * endpoint. These are `GET /admin/transactions`, the union of payments,
+ * wallet ⇄ account transfers and commission transfers.
+ */
+export type TransactionRow = components['schemas']['AdminTransactionRowDto'];
+export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
+export type TransactionsSummary = components['schemas']['AdminTransactionsSummaryDto'];
+export type TransactionSummaryRow = components['schemas']['AdminTransactionSummaryRowDto'];
+/**
+ * All three read off the row, not written out — a value added on the backend
+ * reaches the badge maps as a missing-key compile error rather than rendering
+ * as a raw enum string (the `WithdrawalState` rule).
+ */
+export type TransactionDirection = TransactionRow['direction'];
+export type TransactionKind = TransactionRow['kind'];
+export type TransactionState = TransactionRow['state'];
+
+/*
  * The MT5 bridge's own internals. Aliased from the generated schema like
  * everything else, so a field renamed in the backend DTO breaks the build here
  * rather than rendering `undefined` on a diagnostics screen — which is the one
@@ -314,6 +335,70 @@ export interface WithdrawalListParams {
   sort?: WithdrawalSortKey;
   order?: 'asc' | 'desc';
 }
+
+/**
+ * The runtime value lists for the Financial page's filters, derived-checked
+ * against the generated unions by `satisfies` (the `CLIENT_KYC_STATUSES`
+ * pattern) — a value added on the backend fails to compile here rather than
+ * quietly missing from a dropdown.
+ */
+export const TRANSACTION_DIRECTIONS = [
+  'deposit',
+  'withdrawal',
+] as const satisfies readonly TransactionDirection[];
+
+export const TRANSACTION_KINDS = [
+  'payment',
+  'transfer',
+  'commission_transfer',
+] as const satisfies readonly TransactionKind[];
+
+/**
+ * In lifecycle order, like the withdrawal desk's tabs. `approved` and
+ * `rejected` only ever occur on payment-kind withdrawals — transfers map to
+ * pending/success/failure — so labels must not promise them for transfers.
+ */
+export const TRANSACTION_STATES = [
+  'pending',
+  'approved',
+  'success',
+  'failure',
+  'rejected',
+] as const satisfies readonly TransactionState[];
+
+/**
+ * The columns `GET /admin/transactions` will sort by, mirroring the backend's
+ * `ADMIN_TRANSACTION_SORT_COLUMNS`. Deliberately fewer than the withdrawal
+ * queue's: the union cannot serve a joined-column sort from its per-arm
+ * indexes, so `userEmail` is not offered (R-2.5 — the allowlist may not
+ * exceed the indexes, and an undeclared key would be a 400, not a fallback).
+ */
+export const TRANSACTION_SORT_KEYS = ['createdAt', 'amount', 'state'] as const;
+export type TransactionSortKey = (typeof TRANSACTION_SORT_KEYS)[number];
+
+export interface TransactionListParams {
+  direction?: TransactionDirection;
+  kind?: TransactionKind;
+  state?: TransactionState;
+  /** Narrow to one client (UUID). */
+  userId?: string;
+  currency?: string;
+  /** Client email or name. Server-side, same columns as every other queue. */
+  q?: string;
+  /** Inclusive date bounds, `YYYY-MM-DD`. */
+  from?: string;
+  to?: string;
+  limit: number;
+  page?: number;
+  sort?: TransactionSortKey;
+  order?: 'asc' | 'desc';
+}
+
+/** The summary shares the list's filters minus paging and sort. */
+export type TransactionsSummaryParams = Omit<
+  TransactionListParams,
+  'limit' | 'page' | 'sort' | 'order'
+>;
 
 // ── Holdings: wallets and trading accounts (AdminHoldingsController) ─────────
 //
@@ -1410,6 +1495,73 @@ export const adminApi = {
     }
     const { data } = await apiClient.get<WithdrawalListResponse>(
       `/admin/withdrawals?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  // ── The Financial page (GET /admin/transactions) ──────────────────────────
+
+  /**
+   * Every money movement, platform-wide — deposits, withdrawals and both
+   * transfer kinds in one list, with the client joined onto each row.
+   *
+   * `counts` (per state) and `directionCounts` (per direction) group over the
+   * FULL filtered set ignoring their own axis, so the tabs stay correct
+   * whichever tab is active — the withdrawal desk's two-axis rule. `total`
+   * describes the current filter and is what the pager divides.
+   *
+   * Every `amount` is a STRING and must reach the DOM as one — §6.1.
+   */
+  async getTransactions(
+    params: TransactionListParams,
+    signal?: AbortSignal,
+  ): Promise<TransactionListResponse> {
+    const query = new URLSearchParams({ limit: String(params.limit) });
+    // Omitted rather than sent blank — the getWithdrawals rule.
+    if (params.direction) query.set('direction', params.direction);
+    if (params.kind) query.set('kind', params.kind);
+    if (params.state) query.set('state', params.state);
+    if (params.userId) query.set('userId', params.userId);
+    if (params.currency) query.set('currency', params.currency);
+    if (params.q) query.set('q', params.q);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
+    if (params.page !== undefined) query.set('page', String(params.page));
+    // Both halves or neither — `order` alone orders no column.
+    if (params.sort) {
+      query.set('sort', params.sort);
+      if (params.order) query.set('order', params.order);
+    }
+    const { data } = await apiClient.get<TransactionListResponse>(
+      `/admin/transactions?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /**
+   * Server-computed totals for the Financial page's tiles, grouped per
+   * direction, kind, state AND currency — a sum across currencies is not a
+   * number, so the server never produces one and this page never computes
+   * one. `total` on each row is a string; render it or drop it, never add it.
+   */
+  async getTransactionsSummary(
+    params: TransactionsSummaryParams,
+    signal?: AbortSignal,
+  ): Promise<TransactionsSummary> {
+    const query = new URLSearchParams();
+    if (params.direction) query.set('direction', params.direction);
+    if (params.kind) query.set('kind', params.kind);
+    if (params.state) query.set('state', params.state);
+    if (params.userId) query.set('userId', params.userId);
+    if (params.currency) query.set('currency', params.currency);
+    if (params.q) query.set('q', params.q);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
+    const qs = query.toString();
+    const { data } = await apiClient.get<TransactionsSummary>(
+      `/admin/transactions/summary${qs ? `?${qs}` : ''}`,
       { signal },
     );
     return data;
