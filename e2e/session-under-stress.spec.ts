@@ -1,6 +1,8 @@
+import { request } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
   acceptAdminInvite,
+  browserStateFrom,
   adminApiSession,
   API_NODE_BASE,
   APP_ORIGIN,
@@ -78,6 +80,7 @@ test('a deleted session-hint on a LIVE session never shows a sign-in form', asyn
 });
 
 test('admin refresh-reuse detection signs every tab out', async ({ browser }) => {
+  test.setTimeout(240_000);
   /*
    * The portal has this e2e; the admin surface did not. A rotated refresh
    * token replayed (an attacker's stolen copy, or a captured cookie) burns the
@@ -99,18 +102,27 @@ test('admin refresh-reuse detection signs every tab out', async ({ browser }) =>
     ((await invited.json()) as { inviteUrl?: string }).inviteUrl ?? 'http://x/',
   ).searchParams.get('token')!;
   const burn = await acceptAdminInvite(token, `Reuseburn-${Date.now()}-123!`);
-  const ctx = await browser.newContext({ storageState: await burn.ctx.storageState() });
+  const ctx = await browser.newContext({ storageState: await browserStateFrom(burn.ctx) });
   const page = await ctx.newPage();
   try {
     await page.goto('/dashboard');
     await expect(page.getByRole('link', { name: /clients/i }).first()).toBeVisible();
 
-    // Capture the CURRENT refresh cookie, rotate it once (a legitimate
-    // refresh), then replay the captured value — reuse.
-    const rt = (await ctx.cookies()).find((c) => /_rt$/.test(c.name))!;
-    const first = await ctx.request.post(`${API_NODE_BASE}/admin/auth/refresh`, {
-      headers: { Origin: APP_ORIGIN },
-    });
+    /*
+     * The rotate/replay choreography runs on the NODE context (`burn.ctx`),
+     * whose cookies are scoped to the host Node actually dials — the browser
+     * context's request object cannot present its api-host cookies to
+     * localhost in the crosshost topology, so driving refresh through it only
+     * ever worked on localhost. The browser tab needs none of the rotated
+     * cookies to observe the outcome: its access token names the same FAMILY,
+     * and burning the family kills it wherever its cookies are scoped.
+     */
+    const rt = (await burn.ctx.storageState()).cookies.find((c) => /_rt$/.test(c.name))!;
+    const rotate = () =>
+      burn.ctx.post(`${API_NODE_BASE}/admin/auth/refresh`, {
+        headers: { Origin: APP_ORIGIN },
+      });
+    const first = await rotate();
     expect(first.ok(), 'the legitimate rotation failed').toBe(true);
     /*
      * CONSUME the successor before replaying — the 30s retry grace forgives a
@@ -118,17 +130,23 @@ test('admin refresh-reuse detection signs every tab out', async ({ browser }) =>
      * more legitimate rotation moves the chain on; NOW the captured token is
      * two generations back with a consumed child, which is theft-shaped.
      */
-    const second = await ctx.request.post(`${API_NODE_BASE}/admin/auth/refresh`, {
-      headers: { Origin: APP_ORIGIN },
-    });
+    const second = await rotate();
     expect(second.ok(), 'the second rotation failed').toBe(true);
 
-    // Put the STALE token back and present it — a replay of a rotated token.
-    await ctx.addCookies([{ ...rt }]);
-    const replay = await ctx.request.post(`${API_NODE_BASE}/admin/auth/refresh`, {
-      headers: { Origin: APP_ORIGIN },
-    });
-    expect(replay.status(), 'replaying a rotated token was not refused').toBe(401);
+    /*
+     * Replay the STALE token from a CLEAN context, cookie sent explicitly —
+     * an attacker presenting a captured value, uncontaminated by the honest
+     * jar's rotated successors.
+     */
+    const thief = await request.newContext();
+    try {
+      const replay = await thief.post(`${API_NODE_BASE}/admin/auth/refresh`, {
+        headers: { Origin: APP_ORIGIN, Cookie: `${rt.name}=${rt.value}` },
+      });
+      expect(replay.status(), 'replaying a rotated token was not refused').toBe(401);
+    } finally {
+      await thief.dispose();
+    }
 
     // The console session is now dead: the next navigation lands on sign-in.
     await page.goto('/clients').catch(() => null);

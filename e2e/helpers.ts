@@ -740,3 +740,37 @@ export function requirePrecondition(condition: boolean, reason: string): void {
   }
   test.skip(true, reason);
 }
+
+/**
+ * Make an API-minted session usable by a BROWSER, in both topologies.
+ *
+ * Node-side request contexts dial the API at `localhost` (Chromium resolves
+ * `*.crm.localhost`; Node does not), so the cookies their logins mint are
+ * scoped to `localhost`. In the crosshost topology the browser talks to
+ * `api.crm.localhost` instead and would never attach those cookies — a session
+ * that works in every Node call silently does not exist for the page. This
+ * rewrites the cookie domain to the host the BROWSER dials; on localhost the
+ * two are the same string and the rewrite is the identity.
+ */
+export async function browserStateFrom(ctx: APIRequestContext): Promise<{
+  cookies: {
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    expires: number;
+    httpOnly: boolean;
+    secure: boolean;
+    sameSite: 'Strict' | 'Lax' | 'None';
+  }[];
+  origins: [];
+}> {
+  const apiHost = new URL(API_ORIGIN).hostname;
+  const state = await ctx.storageState();
+  return {
+    cookies: state.cookies.map((c) =>
+      c.domain === 'localhost' || c.domain === '.localhost' ? { ...c, domain: apiHost } : c,
+    ),
+    origins: [],
+  };
+}
