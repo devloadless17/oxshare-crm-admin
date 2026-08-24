@@ -260,6 +260,18 @@ describe('KYC review — approval', () => {
   });
 });
 
+describe('KYC review — identity card', () => {
+  it('shows the client ID with a copy affordance', async () => {
+    renderWithProviders(<KycDetailPage />);
+    await screen.findByRole('heading', { level: 1 });
+
+    // From the route param, so it renders even when the response carries no
+    // user block — the same identifier either way.
+    expect(screen.getByText('u-1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy full id/i })).toBeInTheDocument();
+  });
+});
+
 describe('KYC review — claiming', () => {
   it('claims the submission for the current reviewer', async () => {
     const user = userEvent.setup();

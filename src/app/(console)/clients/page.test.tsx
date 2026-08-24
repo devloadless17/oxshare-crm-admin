@@ -189,6 +189,26 @@ describe('client directory — listing', () => {
     expect(await screen.findByText('client@oxshare.com')).toBeInTheDocument();
   });
 
+  it('shows the client ID truncated, with the full uuid on the element title', async () => {
+    const uuid = '0b7d3c9e-4f21-48a6-9c05-2d8e11aa3f47';
+    getClients.mockResolvedValue(page([client({ id: uuid })]));
+    renderWithProviders(<ClientsPage />);
+
+    // The cell shows 8 characters; the whole uuid travels on the title (and on
+    // the copy button, pinned by copyable-id.test.tsx).
+    expect(await screen.findByText('0b7d3c9e')).toBeInTheDocument();
+    expect(screen.getByTitle(uuid)).toBeInTheDocument();
+    expect(screen.queryByText(uuid)).not.toBeInTheDocument();
+  });
+
+  it('does NOT offer a sort on the ID column — the API has no such key', async () => {
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    const header = screen.getByRole('columnheader', { name: /^id$/i });
+    expect(within(header).queryByRole('button')).toBeNull();
+  });
+
   it('offers a retry when the list cannot be loaded', async () => {
     getClients.mockRejectedValue(
       Object.assign(new Error('boom'), { response: { status: 500, data: {} } }),

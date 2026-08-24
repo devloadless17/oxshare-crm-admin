@@ -148,7 +148,15 @@ export function AdminAuthProvider({
    * than as a spinner that never resolves.
    */
   const status = (error as { response?: { status?: number } } | null)?.response?.status;
-  const isUnreachable = error !== null && status !== 401;
+  /*
+   * A 401 whose RENEWAL never got an answer is not the signed-out answer — the
+   * interceptor marks that case (refreshUnreachable), because from here the
+   * two are otherwise indistinguishable and only one of them may clear the
+   * marker below.
+   */
+  const refreshUnreachable =
+    (error as { refreshUnreachable?: boolean } | null)?.refreshUnreachable === true;
+  const isUnreachable = error !== null && (status !== 401 || refreshUnreachable);
 
   /*
    * The cookie that lets the NEXT cold load know which case it is in, kept in
@@ -167,8 +175,8 @@ export function AdminAuthProvider({
    */
   useEffect(() => {
     if (admin) markSessionHint();
-    else if (error !== null && status === 401) clearSessionHint();
-  }, [admin, error, status]);
+    else if (error !== null && status === 401 && !refreshUnreachable) clearSessionHint();
+  }, [admin, error, status, refreshUnreachable]);
 
   const retry = useCallback(async () => {
     await refetchMe();

@@ -1162,6 +1162,26 @@ export interface paths {
         patch: operations["AdminIbController_changeLevel"];
         trace?: never;
     };
+    "/v1/admin/ib/partners/{userId}/program": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Move a partner onto a different commission programme
+         * @description The terms a partner is paid on. Applies to the NEXT trade — accruals record the rate they were calculated at, so nothing already credited is restated. The target must be ENABLED: a disabled programme pays nothing, so moving somebody onto one would stop their earnings silently instead of changing their terms visibly.
+         */
+        patch: operations["AdminIbController_changeProgram"];
+        trace?: never;
+    };
     "/v1/admin/ib/partners/{userId}/parent": {
         parameters: {
             query?: never;
@@ -4238,6 +4258,11 @@ export interface components {
         };
         WalletDto: {
             id: string;
+            /**
+             * @description Human-friendly wallet number — 12 lowercase Crockford base32 chars. Display and support reference only; `id` remains the key.
+             * @example 4f7kq2nm8xcb
+             */
+            walletNumber: string;
             userId: string;
             /**
              * @description A currency CODE from `GET /currencies`, not a fixed set — currencies are operator data.
@@ -4448,6 +4473,13 @@ export interface components {
             levelName: string | null;
             /** @description The rung’s percentage of the broker’s revenue. A decimal string, never a number. */
             rateValue: string | null;
+            /**
+             * Format: uuid
+             * @description The terms this partner is paid on.
+             */
+            programId: string;
+            /** @description Null only if the programme row vanished, which the foreign key prevents. */
+            programName: string | null;
             referralCode: string;
             /** @description A suspended partner keeps their code and tree, and stops earning. */
             active: boolean;
@@ -4466,6 +4498,13 @@ export interface components {
         ChangeIbLevelDto: {
             /** @description Must be an ENABLED level. */
             level: number;
+        };
+        ChangeIbProgramDto: {
+            /**
+             * Format: uuid
+             * @description Must be an ENABLED programme.
+             */
+            programId: string;
         };
         ReassignIbParentDto: {
             /** @description The new parent partner, or null to make them a direct partner. */
@@ -4825,6 +4864,11 @@ export interface components {
         LedgerEntryDto: {
             id: string;
             walletId: string;
+            /**
+             * @description The wallet’s human-friendly number — display only; `walletId` is the key.
+             * @example 4f7kq2nm8xcb
+             */
+            walletNumber: string;
             userId: string;
             /** @description Signed monetary value as a string */
             amount: string;
@@ -5817,9 +5861,9 @@ export interface components {
             documents?: string[];
             /** @description Absent without trading.view. */
             tradingAccounts?: components["schemas"]["ProfileTradingAccountDto"][];
-            /** @description Absent without partners.view. */
+            /** @description Absent without ib.view, and absent when nobody introduced this client — the UI tells the two apart by its own permission check. */
             referrer?: components["schemas"]["ProfileReferrerDto"];
-            /** @description Capped — see referredTotal. Absent without partners.view. */
+            /** @description Capped — see referredShown. Absent without ib.view; empty when none. */
             referredClients?: components["schemas"]["ProfileReferredClientDto"][];
             /** @description How many referredClients were returned; the list is capped for one screen. */
             referredShown?: number;
@@ -6332,6 +6376,11 @@ export interface components {
         };
         WalletDiscrepancyDto: {
             walletId: string;
+            /**
+             * @description The wallet’s human-friendly number — display only; `walletId` is the key.
+             * @example 4f7kq2nm8xcb
+             */
+            walletNumber: string;
             userId: string;
             currency: string;
             /**
@@ -6514,6 +6563,11 @@ export interface components {
         };
         WalletRowDto: {
             id: string;
+            /**
+             * @description Human-friendly wallet number — 12 lowercase Crockford base32 chars. Display and support reference only; `id` remains the key.
+             * @example 4f7kq2nm8xcb
+             */
+            walletNumber: string;
             /**
              * @description Monetary value — ALWAYS a string, never a number. NUMERIC(28,8) exceeds what a JavaScript number represents exactly, so Number()/parseFloat lose value before any formatting starts (§6.1).
              * @example 250.00000000
@@ -8230,6 +8284,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ChangeIbLevelDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbAccountDto"];
+                };
+            };
+        };
+    };
+    AdminIbController_changeProgram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeIbProgramDto"];
             };
         };
         responses: {

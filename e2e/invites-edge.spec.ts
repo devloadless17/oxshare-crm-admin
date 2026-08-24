@@ -15,7 +15,7 @@ const run = Date.now();
 test('a revoked token is dead everywhere, a spent token is dead forever', async () => {
   test.setTimeout(120_000);
   const master = await adminApiSession();
-  const anonymous = await request.newContext();
+  const anonymous = await request.newContext({ storageState: { cookies: [], origins: [] } });
   const tokenOf = (url: string) => new URL(url).searchParams.get('token')!;
 
   try {
@@ -82,7 +82,7 @@ test('a revoked token is dead everywhere, a spent token is dead forever', async 
     expect(second.ok()).toBe(true);
     const spentToken = tokenOf(((await second.json()) as { inviteUrl?: string }).inviteUrl ?? '');
 
-    const invitee = await request.newContext();
+    const invitee = await request.newContext({ storageState: { cookies: [], origins: [] } });
     try {
       const accepted = await invitee.post(`${API_NODE_BASE}/admin/invite/accept`, {
         headers: { Origin: APP_ORIGIN },

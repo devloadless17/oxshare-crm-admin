@@ -8,6 +8,7 @@ import api from '@/lib/api';
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { CopyableId } from '@/components/copyable-id';
 import { ExportButton } from '@/components/export-button';
 import { useDebounced } from '@/hooks/use-debounced';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
@@ -251,6 +252,13 @@ function KycQueue() {
           </div>
         </div>
       ),
+    },
+    {
+      header: t('kycReview.colId'),
+      // NOT sortable — same reason as Country below: R-2.5 makes an
+      // unrecognised sort key a 400, and the API has no `userId` sort.
+      sortable: false,
+      cell: (row) => <CopyableId value={row.userId} />,
     },
     {
       header: t('kycReview.colCountry'),

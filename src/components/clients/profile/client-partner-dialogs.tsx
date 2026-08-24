@@ -118,6 +118,127 @@ export function ChangeLevelDialog({
   );
 }
 
+/**
+ * Move a partner onto different TERMS.
+ *
+ * The sibling of `ChangeLevelDialog`, and the distinction between them is the
+ * whole point of the programme model: the LADDER decides where a partner
+ * stands, the PROGRAMME decides what they are paid. Until this control existed
+ * a partner's terms were written once at approval and never again — an operator
+ * could build a catalogue of programmes and assign nobody to any of them.
+ *
+ * ENABLED programmes only. The API refuses a disabled one, so offering it here
+ * would be a choice whose only outcome is a refusal — and the operator would
+ * read that refusal as the move being impossible rather than the programme
+ * being switched off.
+ */
+export function ChangeProgramDialog({
+  open,
+  onClose,
+  partner,
+  name,
+}: {
+  open: boolean;
+  onClose: () => void;
+  partner: IbPartnerDetail;
+  name: string;
+}) {
+  const queryClient = useQueryClient();
+  const [programId, setProgramId] = React.useState(partner.programId);
+
+  const programs = useResource(
+    ['admin', 'ib-programs'],
+    (signal) => api.admin.getIbPrograms(signal),
+    { enabled: open },
+  );
+
+  const save = useMutation({
+    mutationFn: () => api.admin.changeIbPartnerProgram(partner.userId, programId),
+    onSuccess: async () => {
+      await invalidateBoth(queryClient, partner.userId);
+      toastSuccess(t('clientProfile.programChanged'));
+      onClose();
+    },
+    onError: (error) => toastError(error, t('clientProfile.programFailed')),
+  });
+
+  const options = (programs.data ?? []).filter((entry) => entry.enabled);
+
+  return (
+    <Modal open={open} onClose={onClose} title={t('clientProfile.changeProgramTitle', { name })}>
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {t('clientProfile.changeProgramBody')}
+        </p>
+
+        <div className="space-y-1.5">
+          {options.map((entry) => (
+            <label
+              key={entry.id}
+              className={`flex cursor-pointer items-start justify-between gap-3 rounded-lg border p-3 ${
+                programId === entry.id ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+            >
+              <span className="flex items-start gap-2.5">
+                <input
+                  type="radio"
+                  name="ib-program"
+                  checked={programId === entry.id}
+                  onChange={() => setProgramId(entry.id)}
+                  className="mt-0.5 h-3.5 w-3.5"
+                />
+                <span>
+                  <span className="block text-sm font-medium">{entry.name}</span>
+                  {/* The rates, because "Gold" alone does not tell an operator
+                      what they are about to change somebody's pay TO. */}
+                  <span className="block text-[11px] text-muted-foreground">
+                    {entry.mode === 'rebate_only'
+                      ? t('clientProfile.programRebateOnly', {
+                          rebate: formatDecimal(entry.rebateRate),
+                        })
+                      : t('clientProfile.programRates', {
+                          own: formatDecimal(entry.level1Rate),
+                          sub: formatDecimal(entry.level2Rate),
+                        })}
+                  </span>
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+
+        {options.length === 0 && (
+          <p className="rounded-lg border border-border bg-muted/20 p-2.5 text-xs text-muted-foreground">
+            {t('clientProfile.programNoneEnabled')}
+          </p>
+        )}
+
+        {save.isError && (
+          <p
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive"
+          >
+            {t('clientProfile.programFailed')}
+          </p>
+        )}
+
+        <Footer
+          onClose={onClose}
+          saving={save.isPending}
+          disabled={options.length === 0 || programId === partner.programId}
+          label={t('clientProfile.changeProgramSave')}
+        />
+      </form>
+    </Modal>
+  );
+}
+
 /** Put a partner under a different parent, or none at all. */
 export function ReassignParentDialog({
   open,
