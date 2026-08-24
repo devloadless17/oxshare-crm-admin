@@ -31,6 +31,7 @@ import {
 import { ClientNetworkTree } from '@/components/clients/profile/client-network-tree';
 import {
   ChangeLevelDialog,
+  ChangeProgramDialog,
   ReassignParentDialog,
 } from '@/components/clients/profile/client-partner-dialogs';
 import {
@@ -98,6 +99,7 @@ export default function ClientProfilePage() {
   const [tab, setTab] = React.useState(TAB_OVERVIEW);
   const [tagsOpen, setTagsOpen] = React.useState(false);
   const [levelOpen, setLevelOpen] = React.useState(false);
+  const [programOpen, setProgramOpen] = React.useState(false);
   const [parentOpen, setParentOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [emailOpen, setEmailOpen] = React.useState(false);
@@ -297,6 +299,7 @@ export default function ClientProfilePage() {
                   partner={partner}
                   onManageTags={() => setTagsOpen(true)}
                   onChangeLevel={() => setLevelOpen(true)}
+                  onChangeProgram={() => setProgramOpen(true)}
                   onReassignParent={() => setParentOpen(true)}
                   onEditProfile={() => setEditOpen(true)}
                   onChangeEmail={() => setEmailOpen(true)}
@@ -635,6 +638,12 @@ export default function ClientProfilePage() {
                 <ChangeLevelDialog
                   open={levelOpen}
                   onClose={() => setLevelOpen(false)}
+                  partner={partner}
+                  name={displayName}
+                />
+                <ChangeProgramDialog
+                  open={programOpen}
+                  onClose={() => setProgramOpen(false)}
                   partner={partner}
                   name={displayName}
                 />

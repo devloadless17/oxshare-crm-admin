@@ -1162,6 +1162,26 @@ export interface paths {
         patch: operations["AdminIbController_changeLevel"];
         trace?: never;
     };
+    "/v1/admin/ib/partners/{userId}/program": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Move a partner onto a different commission programme
+         * @description The terms a partner is paid on. Applies to the NEXT trade — accruals record the rate they were calculated at, so nothing already credited is restated. The target must be ENABLED: a disabled programme pays nothing, so moving somebody onto one would stop their earnings silently instead of changing their terms visibly.
+         */
+        patch: operations["AdminIbController_changeProgram"];
+        trace?: never;
+    };
     "/v1/admin/ib/partners/{userId}/parent": {
         parameters: {
             query?: never;
@@ -4448,6 +4468,13 @@ export interface components {
             levelName: string | null;
             /** @description The rung’s percentage of the broker’s revenue. A decimal string, never a number. */
             rateValue: string | null;
+            /**
+             * Format: uuid
+             * @description The terms this partner is paid on.
+             */
+            programId: string;
+            /** @description Null only if the programme row vanished, which the foreign key prevents. */
+            programName: string | null;
             referralCode: string;
             /** @description A suspended partner keeps their code and tree, and stops earning. */
             active: boolean;
@@ -4466,6 +4493,13 @@ export interface components {
         ChangeIbLevelDto: {
             /** @description Must be an ENABLED level. */
             level: number;
+        };
+        ChangeIbProgramDto: {
+            /**
+             * Format: uuid
+             * @description Must be an ENABLED programme.
+             */
+            programId: string;
         };
         ReassignIbParentDto: {
             /** @description The new parent partner, or null to make them a direct partner. */
@@ -8230,6 +8264,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ChangeIbLevelDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbAccountDto"];
+                };
+            };
+        };
+    };
+    AdminIbController_changeProgram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeIbProgramDto"];
             };
         };
         responses: {

@@ -1005,6 +1005,22 @@ export const adminApi = {
     return data;
   },
 
+  /**
+   * Move a partner onto different TERMS — what they are paid, as opposed to
+   * where they stand.
+   *
+   * Applies to the next trade only: accruals record the rate they were
+   * calculated at, so nothing already credited is restated. The API refuses a
+   * disabled programme, because one pays nothing and moving somebody onto it
+   * would stop their earnings silently.
+   */
+  async changeIbPartnerProgram(userId: string, programId: string): Promise<IbAccount> {
+    const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/program`, {
+      programId,
+    });
+    return data;
+  },
+
   /** `null` makes them a direct partner — it is a value, not an omission. */
   async reassignIbPartnerParent(userId: string, parentIbUserId: string | null): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/parent`, {

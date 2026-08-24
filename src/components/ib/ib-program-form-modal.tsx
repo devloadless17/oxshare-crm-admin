@@ -108,10 +108,19 @@ function IbProgramForm({
   const paysRebate = mode !== 'commission_only';
 
   /*
-   * The legs that actually pay under this mode. A hidden field's value is still
-   * sent — the API stores it, and an operator switching modes later should find
-   * the number they typed — but it must not count toward a total that describes
-   * what leaves the broker on a trade.
+   * ── EVERY rate counts, including the ones this mode does not pay ──────────
+   *
+   * This used to sum only the legs the current mode pays, which read as the
+   * more informative answer and was the wrong one: the API's `assertShareFits`
+   * and the database CHECK both add all three unconditionally. So a
+   * commission-only programme carrying a stored 40% rebate showed "85% kept"
+   * and was then refused for paying out 105% — the form disagreeing with the
+   * server about the only number on the screen.
+   *
+   * A hidden field's value is still SENT and still stored, so an operator who
+   * switches modes later finds the number they typed. That is exactly why it
+   * has to be counted: it is a rate this programme carries, one mode change
+   * away from being paid.
    */
   const total = React.useMemo(() => {
     const decimal = (value: string) => {
@@ -124,11 +133,8 @@ function IbProgramForm({
       }
     };
 
-    let sum = new Decimal(0);
-    if (paysCommission) sum = sum.plus(decimal(level1Rate)).plus(decimal(level2Rate));
-    if (paysRebate) sum = sum.plus(decimal(rebateRate));
-    return sum;
-  }, [paysCommission, paysRebate, level1Rate, level2Rate, rebateRate]);
+    return decimal(level1Rate).plus(decimal(level2Rate)).plus(decimal(rebateRate));
+  }, [level1Rate, level2Rate, rebateRate]);
 
   const overAllocated = total.greaterThan(100);
 
