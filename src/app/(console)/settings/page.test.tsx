@@ -103,6 +103,9 @@ beforeEach(() => {
     // `trimAmount` reads undefined and the whole form throws — which surfaced
     // as an unrelated tab-navigation failure, three tests away.
     ibMaxRevenueSharePct: '50.00',
+    // Same lesson as the line above, one field later: the panel seeds a text
+    // box from this and an absent value renders the string 'undefined'.
+    ibCommissionHoldHours: 24,
     updatedAt: null,
   });
   getSmtpSettings.mockResolvedValue({

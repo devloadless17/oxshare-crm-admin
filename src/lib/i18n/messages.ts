@@ -748,6 +748,10 @@ export const messages = {
   'clientProfile.noKyc': 'This client has not started verification.',
   'clientProfile.noDocuments': 'No documents uploaded.',
   'clientProfile.noTradingAccounts': 'No trading accounts yet.',
+  // An account whose MT5 login has not been issued yet. Named rather than left
+  // blank: a row with nothing where the login belongs reads as a broken table,
+  // and an operator cannot tell that from an account still being opened.
+  'clientProfile.loginPending': 'Login pending',
   'clientProfile.noTagsAvailable': 'No tags exist yet. Create one on the Client Tags screen.',
 
   // ── The client's wallets, on their profile ────────────────────────────────
@@ -1354,6 +1358,13 @@ export const messages = {
   'tradingSettings.ibCap': 'Maximum paid to partners (%)',
   'tradingSettings.ibCapHint':
     'The most of its own revenue on a trade the broker will pay out across the whole partner chain. Partner level rates each take a share of the full revenue, so they add up — this caps the total and scales it proportionally. 100 means the broker keeps nothing.',
+  'tradingSettings.holdHours': 'Settlement window (hours)',
+  // The rule between earned and spendable, said plainly: an operator setting
+  // this is deciding how long the desk has to catch a reversal before a
+  // partner can move the money.
+  'tradingSettings.holdHoursHint':
+    'How long a commission is held before a partner can spend it. 0 pays as soon as it is ' +
+    'calculated, which leaves no window to reverse a trade in.',
   'tradingSettings.readOnly': 'You do not have permission to change these.',
   'tradingSettings.updateFailed': 'Could not save the trading settings.',
   'tradingSettings.save': 'Save changes',
