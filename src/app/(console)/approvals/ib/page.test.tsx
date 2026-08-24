@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import ApprovalsIbPage from './page';
 import { ALL_PERMISSIONS } from '@/test/permissions';
@@ -27,11 +28,14 @@ import type { IbApplicationPage } from '@/lib/api/admin';
  *  - The queue must never render mock rows. A failed load is a retry, not an
  *    empty success state that reads as "no partners are waiting".
  */
-const { getIbApplications, approveIbApplication, rejectIbApplication } = vi.hoisted(() => ({
-  getIbApplications: vi.fn(),
-  approveIbApplication: vi.fn(),
-  rejectIbApplication: vi.fn(),
-}));
+const { getIbApplications, approveIbApplication, rejectIbApplication, getAgencies } = vi.hoisted(
+  () => ({
+    getIbApplications: vi.fn(),
+    approveIbApplication: vi.fn(),
+    rejectIbApplication: vi.fn(),
+    getAgencies: vi.fn(),
+  }),
+);
 
 /*
  * BOTH the named export and the default — see admin/CLAUDE.md. Mocking only
@@ -40,7 +44,9 @@ const { getIbApplications, approveIbApplication, rejectIbApplication } = vi.hois
  * load" that reads as a broken query rather than a broken mock.
  */
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getIbApplications, approveIbApplication, rejectIbApplication } };
+  const api = {
+    admin: { getIbApplications, approveIbApplication, rejectIbApplication, getAgencies },
+  };
   return { api, default: api };
 });
 
@@ -100,6 +106,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   permissions.current = ALL_PERMISSIONS;
   getIbApplications.mockResolvedValue(page([row()]));
+  getAgencies.mockResolvedValue([
+    { id: 'ag-1', name: 'Levant Partners', description: null, enabled: true, productIds: [] },
+    { id: 'ag-2', name: 'Gulf Desk', description: null, enabled: true, productIds: [] },
+  ]);
 });
 
 describe('the partner queue — what a reviewer is shown', () => {
@@ -179,5 +189,56 @@ describe('the partner queue — approve and reject are separate privileges', () 
 
     await screen.findByText('applicant@example.com');
     expect(screen.queryByText(/view only/i)).toBeNull();
+  });
+});
+
+/*
+ * ── The approve dialog confirms a named agency, and asks only for none ──
+ *
+ * The applicant's choice is REQUIRED at apply time, so the ordinary case is an
+ * application that names one. Re-asking a settled question invites the reviewer
+ * to change it by accident — and the bug this pins was worse: the page read the
+ * agency name off the wrong level of the response, so EVERY approval was made
+ * through the chooser and sent an explicit override the applicant never asked
+ * for.
+ */
+describe('the approve dialog', () => {
+  async function openApproveDialog(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: /actions for rami khoury/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /approve/i }));
+  }
+
+  it('confirms the requested agency without asking, and sends no override', async () => {
+    approveIbApplication.mockResolvedValue({});
+    const user = userEvent.setup();
+    renderWithProviders(<ApprovalsIbPage />);
+    await openApproveDialog(user);
+
+    // The settled question is stated, not re-asked: no radio list, no
+    // catalogue read, just "appointing them under what they requested".
+    expect(await screen.findByText(/appointing them under levant partners/i)).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(getAgencies).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: /^approve$/i }));
+    await waitFor(() => expect(approveIbApplication).toHaveBeenCalledWith('app-1', {}));
+  });
+
+  it('asks for an agency when the application names none, and sends the pick', async () => {
+    getIbApplications.mockResolvedValue(page([row({ agencyName: null })]));
+    approveIbApplication.mockResolvedValue({});
+    const user = userEvent.setup();
+    renderWithProviders(<ApprovalsIbPage />);
+    await openApproveDialog(user);
+
+    // Unreachable without a choice: the API would refuse an agency-less grant.
+    const approve = await screen.findByRole('button', { name: /^approve$/i });
+    expect(approve).toBeDisabled();
+
+    await user.click(await screen.findByRole('radio', { name: /gulf desk/i }));
+    await user.click(approve);
+    await waitFor(() =>
+      expect(approveIbApplication).toHaveBeenCalledWith('app-1', { agencyId: 'ag-2' }),
+    );
   });
 });

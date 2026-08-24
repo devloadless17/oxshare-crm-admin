@@ -79,6 +79,7 @@ function product(over: Partial<Product> = {}): Product {
     name: 'Standard',
     description: null,
     enabled: true,
+    type: 'real',
     sortOrder: 0,
     groups: [],
     ...over,

@@ -30,6 +30,8 @@ export interface ProductFormValues {
   name: string;
   description: string | null;
   enabled: boolean;
+  /** Chosen at creation, immutable after — the API refuses a change. */
+  type: 'real' | 'demo';
   sortOrder: number;
   /** The complete set the operator wants. The caller diffs it against the row. */
   groups: StagedGroup[];
@@ -61,6 +63,7 @@ export interface ProductFormValues {
 export function ProductFormModal({
   open,
   product,
+  demoTaken,
   saving,
   error,
   onSubmit,
@@ -69,6 +72,8 @@ export function ProductFormModal({
   open: boolean;
   /** Absent means create. */
   product?: Product;
+  /** Another product is already the demo one — at most one may exist. */
+  demoTaken: boolean;
   saving: boolean;
   error: unknown;
   onSubmit: (values: ProductFormValues) => void;
@@ -93,6 +98,7 @@ export function ProductFormModal({
       <ProductForm
         key={product?.id ?? 'new'}
         product={product}
+        demoTaken={demoTaken}
         saving={saving}
         error={error}
         onSubmit={onSubmit}
@@ -104,12 +110,14 @@ export function ProductFormModal({
 
 function ProductForm({
   product,
+  demoTaken,
   saving,
   error,
   onSubmit,
   onClose,
 }: {
   product?: Product;
+  demoTaken: boolean;
   saving: boolean;
   error: unknown;
   onSubmit: (values: ProductFormValues) => void;
@@ -130,7 +138,20 @@ function ProductForm({
   const [sortOrder, setSortOrder] = React.useState(String(product?.sortOrder ?? 0));
   const [groups, setGroups] = React.useState<StagedGroup[]>(product?.groups ?? []);
 
-  const [environment, setEnvironment] = React.useState<'live' | 'demo'>('demo');
+  /*
+   * The type decides the groups' environment — a real product carries live
+   * groups, the demo product carries demo groups — so there is no per-group
+   * environment picker any more. Flipping the type while creating CLEARS the
+   * staged groups rather than re-labelling them: a `demo\…` path marked live
+   * is a lie the form would be constructing itself.
+   */
+  const [type, setType] = React.useState<'real' | 'demo'>(product?.type ?? 'real');
+  const changeType = (next: 'real' | 'demo') => {
+    if (next === type) return;
+    setType(next);
+    setGroups([]);
+  };
+
   const [chosen, setChosen] = React.useState('');
 
   /*
@@ -158,7 +179,11 @@ function ProductForm({
     if (!match) return;
     setGroups((current) => [
       ...current,
-      { environment, mt5Group: match.name, currency: match.currency },
+      {
+        environment: type === 'demo' ? 'demo' : 'live',
+        mt5Group: match.name,
+        currency: match.currency,
+      },
     ]);
     setChosen('');
   };
@@ -172,6 +197,7 @@ function ProductForm({
       name: name.trim(),
       description: description.trim() || null,
       enabled,
+      type,
       sortOrder: parseOrder(sortOrder),
       groups,
     });
@@ -215,6 +241,56 @@ function ProductForm({
           className={`${INPUT_CLASS} h-auto py-2 leading-relaxed`}
         />
       </label>
+
+      {/* ── Real or demo ───────────────────────────────────────────────── */}
+      <div className="space-y-1.5 sm:col-span-2">
+        <span className="block text-xs font-semibold">{t('products.type')}</span>
+        {product ? (
+          /*
+           * Fixed at creation — the API refuses a change, so the form does not
+           * offer one. Stated rather than hidden: an operator wondering why
+           * there is no control should find the answer where it would be.
+           */
+          <p className="flex items-center gap-2 text-xs">
+            <Badge variant={product.type === 'demo' ? 'tag' : 'default'}>
+              {product.type === 'demo' ? t('products.typeDemo') : t('products.typeReal')}
+            </Badge>
+            <span className="text-[11px] text-muted-foreground">{t('products.typeLocked')}</span>
+          </p>
+        ) : (
+          <fieldset className="space-y-1.5">
+            <legend className="sr-only">{t('products.type')}</legend>
+            <label className="flex cursor-pointer items-center gap-2 text-xs">
+              <input
+                type="radio"
+                name="product-type"
+                checked={type === 'real'}
+                onChange={() => changeType('real')}
+                className="h-3.5 w-3.5"
+              />
+              {t('products.typeReal')}
+            </label>
+            <label
+              className={`flex items-center gap-2 text-xs ${
+                demoTaken ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+              }`}
+            >
+              <input
+                type="radio"
+                name="product-type"
+                checked={type === 'demo'}
+                onChange={() => changeType('demo')}
+                disabled={demoTaken}
+                className="h-3.5 w-3.5"
+              />
+              {t('products.typeDemo')}
+            </label>
+            <span className="block text-[11px] leading-relaxed text-muted-foreground">
+              {demoTaken ? t('products.typeDemoExists') : t('products.typeHint')}
+            </span>
+          </fieldset>
+        )}
+      </div>
 
       {/* ── The MT5 groups ─────────────────────────────────────────────── */}
       <div className="space-y-2 border-t border-border pt-4 sm:col-span-2">
@@ -260,19 +336,12 @@ function ProductForm({
           </ul>
         )}
 
-        <div className="grid gap-2 sm:grid-cols-[8rem_1fr_auto]">
-          <Select
-            value={environment}
-            onValueChange={(value) => setEnvironment(value as 'live' | 'demo')}
-          >
-            <SelectTrigger className="h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="demo">{t('products.demo')}</SelectItem>
-              <SelectItem value="live">{t('products.live')}</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* The environment is decided by the product's type, not per group —
+            the badge restates which one every added group will get. */}
+        <div className="grid gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+          <Badge variant={type === 'demo' ? 'tag' : 'default'}>
+            {type === 'demo' ? t('products.demo') : t('products.live')}
+          </Badge>
 
           <Select value={chosen} onValueChange={setChosen}>
             <SelectTrigger className="h-9 text-xs">
