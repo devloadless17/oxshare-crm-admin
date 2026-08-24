@@ -4,6 +4,7 @@ import {
   adminApiSession,
   API_NODE_BASE,
   linkIn,
+  requirePrecondition,
   TOPOLOGY_PORTAL_ORIGIN,
   waitForMail,
 } from './helpers';
@@ -45,7 +46,7 @@ async function mintApprovedClient(admin: Awaited<ReturnType<typeof adminApiSessi
     headers: origin,
     data: { email, password, firstName: 'Desk', lastName: 'Journey' },
   });
-  test.skip(registered.status() === 429, 'registration is rate limited right now (10/h)');
+  requirePrecondition(registered.status() === 429, 'registration is rate limited right now (10/h)');
   expect(registered.ok(), `register answered ${registered.status()}`).toBe(true);
 
   const mail = await waitForMail(email, { subject: /verify/i });
@@ -60,7 +61,7 @@ async function mintApprovedClient(admin: Awaited<ReturnType<typeof adminApiSessi
     headers: origin,
     data: { email, password },
   });
-  test.skip(login.status() === 429, 'portal login is rate limited right now');
+  requirePrecondition(login.status() === 429, 'portal login is rate limited right now');
   expect(login.ok(), `login answered ${login.status()}`).toBe(true);
   const csrf =
     (await portal.storageState()).cookies.find((c) => c.name.includes('portal_csrf'))?.value ?? '';

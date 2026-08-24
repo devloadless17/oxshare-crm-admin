@@ -141,7 +141,30 @@ test('admin refresh-reuse detection signs every tab out', async ({ browser }) =>
   }
 });
 
-test('the IP allowlist ENFORCES — a covering rule keeps you in, a foreign one locks out', async () => {
+/*
+ * ⚠️ WHAT THIS PROVES, AND WHAT IT DOES NOT.
+ *
+ * It was called "a covering rule keeps you in, a FOREIGN ONE LOCKS OUT" and it
+ * never asserted the second half — nothing in it ever made a request from an
+ * address outside the list. The title claimed the refusal direction; the body
+ * only ever exercised admission.
+ *
+ * It cannot honestly claim it either: this runs from ONE address, and the
+ * feature's own lockout guards refuse a first rule that excludes the author and
+ * refuse to strand them by deletion. Proving refusal from here would mean
+ * defeating the guards that exist to stop exactly that.
+ *
+ * The refusal direction is proven where it can be, in the backend:
+ *   test/ip-allowlist.spec.ts       'refuses an address outside every rule'
+ *                                   'refuses an UNKNOWN address once configured'
+ *   test/ip-allowlist-safety.spec.ts 'denies an address outside every range'
+ *                                    'DENIES an unknown address rather than failing open'
+ *
+ * What THIS test is for is the half only a real browser against a real API can
+ * show: that turning enforcement on does not lock out the person turning it on,
+ * and that the sanctioned way back out works.
+ */
+test('the IP allowlist admits a covering caller, and the way back out works', async () => {
   test.setTimeout(120_000);
   const admin = await adminApiSession();
   const listRules = async (): Promise<{ id: string }[]> => {
