@@ -164,3 +164,156 @@ jobs:
         env:
           OXSHARE_CONTRACT: ${{ github.workspace }}/.contract/openapi.json
         run: ./scripts/check-api-types.sh
+
+  # ── The browser journeys, as EVIDENCE ─────────────────────────────────────
+  #
+  # `playwright.config.ts` deferred this: "Add the job once the specs have been
+  # stable for a while." They have been, and the gap it left is not that the
+  # journeys fail — it is that nothing proves they RAN.
+  #
+  # A skipped Playwright test reports as PASSING. Nineteen `test.skip()` guards
+  # protect against conditions that are ordinary on a laptop — a rate limit, an
+  # absent fixture — and the whole money journey sits behind two of them. So a
+  # run that exercised none of it looks identical to one that exercised all of
+  # it, which is the exact shape of evidence this suite exists to stop being
+  # fooled by. `requirePrecondition` already answers that; `E2E_STRICT=1` is the
+  # switch, and until now nothing had ever set it.
+  #
+  # ── WHY NOT ON EVERY PUSH ────────────────────────────────────────────────
+  #
+  # This job stands up Postgres, Redis, the API and a browser. That is minutes,
+  # and the rest of this file is shaped around spending them only when they can
+  # tell you something — the `pull_request` trigger above is already scoped to
+  # `production` for exactly that reason.
+  #
+  # A production PR is the deploy gate, which is where evidence is worth paying
+  # for; `workflow_dispatch` covers "I want to know now". Running this on every
+  # push would multiply the cost and expose the load-sensitivity the unit suite
+  # already shows — and a slow, intermittently red job is how a team learns to
+  # ignore a red build, which costs more than it catches.
+  #
+  # No `continue-on-error`. The audit found a lint step that was green by
+  # construction; a gate that cannot fail is not a gate.
+  journeys:
+    name: Browser journeys (E2E_STRICT)
+    # Never on `push` — see above. Production PRs and on demand only.
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: oxshare
+          POSTGRES_PASSWORD: oxshare_ci
+          POSTGRES_DB: oxshare
+        ports: ['5432:5432']
+        # Without the health gate the API races the database's first accept()
+        # and dies on boot, which reads as a failed test rather than as a
+        # container that was not ready.
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # The API is a sibling repo and this job cannot run without it. Same token
+      # story as the contract step above, and the same rule: if it cannot be
+      # fetched the build FAILS rather than degrading into a skip.
+      - name: Check out the backend
+        uses: actions/checkout@v4
+        with:
+          repository: devloadless17/oxshare-crm-backend
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+          path: .api
+
+      # ONE step, so the API's environment is written once.
+      #
+      # GitHub Actions does not support YAML anchors, and a job-level `env`
+      # cannot be used either: `PORT` would reach the admin's dev server, which
+      # reads it — Next would try to start on the API's port and the journeys
+      # would fail with a collision that looks like a broken app.
+      - name: Start the API
+        working-directory: .api
+        # Seeds run on boot outside production and are idempotent, which is what
+        # puts the e2e fixtures (e2e-admin@, e2e-restricted@, e2e-kyc-viewer@,
+        # e2e-suspend@) in the database. Without them E2E_STRICT turns every
+        # journey that needs one into a failure — correctly, but the cause would
+        # be this step rather than the app.
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          npm run db:migrate
+          node dist/main &
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3001/health >/dev/null 2>&1; then
+              echo "API up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not become healthy in 60s"; exit 1
+        env:
+          DATABASE_URL: postgresql://oxshare:oxshare_ci@localhost:5432/oxshare
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: development
+          PORT: '3001'
+          API_PUBLIC_URL: http://localhost:3001
+          ADMIN_URL: http://localhost:3000
+          PORTAL_URL: http://localhost:3002
+          # Ephemeral and CI-only. Real deployments supply their own; these
+          # exist to satisfy the boot-time validation, which refuses to start on
+          # a bad config rather than failing later on the unlucky request.
+          ADMIN_JWT_SECRET: ci-admin-secret-ci-admin-secret-32
+          ADMIN_JWT_REFRESH_SECRET: ci-admin-refresh-ci-admin-refresh
+          JWT_ACCESS_SECRET: ci-access-secret-ci-access-secret
+          JWT_REFRESH_SECRET: ci-refresh-secret-ci-refresh-secre
+          APP_ENCRYPTION_KEY: ci-encryption-key-ci-encryption-k
+          RIVAL_WEBHOOK_KEY: ci-rival-webhook-key
+          # `disk`, STATED. env.validation refuses to infer a driver, and a run
+          # that billed a live R2 account per push is one somebody disables.
+          STORAGE_DRIVER: disk
+          # No proxy in front of the API here, so the socket address IS the
+          # caller — see common/security/client-ip.ts.
+          TRUSTED_PROXY_HOPS: '0'
+          # The commission engine refuses an aged backlog unless told what to do
+          # with it. A fresh CI database has no history, so this only ever
+          # applies to the seeds — and saying so beats the engine holding while
+          # the journeys blame the screen.
+          IB_ACCRUAL_START: all
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the journeys
+        run: npm run e2e
+        env:
+          # THE POINT OF THIS JOB. A precondition that cannot be met now FAILS
+          # and names itself, instead of skipping and reporting as passed.
+          E2E_STRICT: '1'
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+
+      # Traces and screenshots are kept only for failures, so this stays small
+      # and is the difference between a diagnosable red build and reproducing it.
+      - name: Keep the report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
