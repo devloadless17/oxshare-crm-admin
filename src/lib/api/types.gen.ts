@@ -5603,6 +5603,11 @@ export interface components {
              * @enum {string}
              */
             type: "real" | "demo";
+            /**
+             * @description The broker's spread markup per standard lot, in the account currency. A COMMERCIAL RECORD ONLY — nothing computes from it, and it is deliberately not part of the revenue partners are paid a share of. A decimal string, never a number: it is money.
+             * @example 1.50000000
+             */
+            spreadMarkupPerLot: string;
             /** @example 0 */
             sortOrder: number;
             groups: components["schemas"]["ProductGroupDto"][];
@@ -5631,6 +5636,8 @@ export interface components {
             enabled: boolean;
             /** @enum {string} */
             type?: "real" | "demo";
+            /** @example 1.50000000 */
+            spreadMarkupPerLot?: string;
             /** @example 0 */
             sortOrder: number;
         };
