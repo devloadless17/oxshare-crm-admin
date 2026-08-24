@@ -12,6 +12,7 @@ import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorCode } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { CopyableId } from '@/components/copyable-id';
 import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
@@ -312,6 +313,15 @@ export default function ClientProfilePage() {
               <div className="grid gap-6 lg:grid-cols-2">
                 <ProfileCard title={t('clientProfile.sectionIdentity')}>
                   <dl className="grid grid-cols-2 gap-4">
+                    <Field
+                      label={t('clientProfile.fieldClientId')}
+                      field="client.id"
+                      profile={profile}
+                    >
+                      {/* The FULL uuid — this is the screen an operator quotes
+                          it from, so no truncation here. */}
+                      <CopyableId value={profile.id} full />
+                    </Field>
                     <Field
                       label={t('clients.colCountry')}
                       field="client.country"

@@ -111,6 +111,17 @@ describe('the profile itself', () => {
     expect(await screen.findByText('Lebanon')).toBeInTheDocument();
     expect(screen.getByText('+961 1 000 000')).toBeInTheDocument();
   });
+
+  it('shows the FULL client ID with a copy affordance', async () => {
+    renderWithProviders(<ClientProfilePage />);
+    await screen.findByText('John Doe');
+
+    // The detail page is where an operator quotes the ID from, so unlike the
+    // list it shows the uuid whole.
+    expect(screen.getByText('Client ID')).toBeInTheDocument();
+    expect(screen.getByText('c-1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy full id/i })).toBeInTheDocument();
+  });
 });
 
 describe('a MASKED field', () => {

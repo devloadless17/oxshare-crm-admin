@@ -544,9 +544,10 @@ export const messages = {
   'clients.allLevels': 'All KYC Levels',
   'clients.level0': 'Level 0 — Unverified',
   'clients.level1': 'Level 1 — Verified',
-  'clients.searchPlaceholder': 'Search by name, email…',
+  'clients.searchPlaceholder': 'Search by name, email or ID…',
   'clients.colName': 'Name',
   'clients.colEmail': 'Email',
+  'clients.colId': 'ID',
   'clients.colType': 'Type',
   /*
    * "Account status" rather than plain "Status", on the column AND the filter.
@@ -591,7 +592,7 @@ export const messages = {
      click on a chip, which is how the chips used to be cleared. */
   'clients.allTags': 'All tags',
   'clients.clearFilters': 'Clear filters',
-  'clients.searchLabel': 'Search clients by name or email',
+  'clients.searchLabel': 'Search clients by name, email or client ID',
   /*
    * "Verified" / "Not verified", with no level prefix.
    *
@@ -733,6 +734,7 @@ export const messages = {
   'clientProfile.sectionTrading': 'Trading accounts',
   'clientProfile.sectionReferrals': 'Referrals',
   'clientProfile.fieldPhone': 'Phone',
+  'clientProfile.fieldClientId': 'Client ID',
   'clientProfile.kycStatus': 'Status',
   'clientProfile.kycSubmitted': 'Submitted',
   'clientProfile.openKycReview': 'Open the KYC review →',
@@ -1033,6 +1035,7 @@ export const messages = {
   'kycReview.searchPlaceholder': 'Search by name or email…',
   'kycReview.review': 'Review',
   'kycReview.colUser': 'User',
+  'kycReview.colId': 'ID',
   'kycReview.colCountry': 'Country',
   'kycReview.colStatus': 'Status',
   'kycReview.colSubmitted': 'Submitted',
@@ -1847,7 +1850,7 @@ export const messages = {
   'common.retryShort': 'Retry',
   'common.loading': 'Loading',
   'auditLog.filterAllActions': 'All Actions',
-  'clients.searchAria': 'Search clients by name or email',
+  'clients.searchAria': 'Search clients by name, email or client ID',
   'kycBuilder.requiredStepTitle': 'Required by FR-CORE-15 — cannot be disabled or deleted',
   'kycBuilder.moveStepUp': 'Move Step Up',
   'kycBuilder.moveStepDown': 'Move Step Down',

@@ -11,6 +11,7 @@ import api from '@/lib/api';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
+import { CopyableId } from '@/components/copyable-id';
 import { DocViewer } from '@/components/kyc-review/doc-viewer';
 import { ApproveDialog } from '@/components/kyc-review/approve-dialog';
 import { RejectDialog } from '@/components/kyc-review/reject-dialog';
@@ -249,6 +250,9 @@ export default function KycDetailPage() {
                 {data.user?.firstName} {data.user?.lastName}
               </h1>
               <p className="truncate">{data.user?.email}</p>
+              {/* The route param, not `data.user.id` — same identifier, but the
+                  param is present even on a response whose user block is not. */}
+              <CopyableId value={userId} />
             </div>
           </div>
           {/*

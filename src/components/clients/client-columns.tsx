@@ -6,6 +6,7 @@ import type { Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { Badge } from '@/components/ui/badge';
 import { MaskedValue } from '@/components/masked-value';
+import { CopyableId } from '@/components/copyable-id';
 import { isMasked } from '@/lib/masking';
 import { ClientTagChips } from './client-tag-chips';
 import { t } from '@/lib/i18n';
@@ -105,6 +106,21 @@ export function clientColumns({
       cellClassName: 'text-muted-foreground',
     });
   }
+
+  columns.push({
+    /*
+     * The client's uuid, truncated with copy-the-full-value — see CopyableId
+     * for why it is not rendered whole. NO mask gate: `client.id` is declared
+     * non-maskable in the backend catalog ("every row and every link is
+     * addressed by it"), so on a fully masked row this is the one identifier
+     * an operator can still quote to support.
+     */
+    header: t('clients.colId'),
+    // NOT sortable: `id` is not in the backend's `CLIENT_SORT_COLUMNS`, and
+    // R-2.5 makes an unrecognised sort a 400 rather than a silent fallback.
+    sortable: false,
+    cell: (c) => <CopyableId value={c.id} />,
+  });
 
   columns.push(
     {
