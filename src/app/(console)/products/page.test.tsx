@@ -200,3 +200,96 @@ describe('the product catalogue — real and demo', () => {
     expect(await screen.findByRole('radio', { name: /demo/i })).toBeEnabled();
   });
 });
+
+/**
+ * ── ADM-07: the spread markup is editable, and stays a decimal string ─────
+ *
+ * The backend records what the desk sells a product on. Nothing computes from
+ * it — it is deliberately NOT part of the revenue partners are paid a share of
+ * — so what these pin is the part that can silently go wrong: the value making
+ * the round trip through a form without a number type touching it.
+ */
+describe('the spread markup', () => {
+  it('shows the stored value exactly, trailing zeros and all', async () => {
+    /*
+     * NUMERIC(28,8) keeps its scale, and the string carries it. A number
+     * formatter here would render 1.50000000 as "1.5" — which reads fine until
+     * somebody compares the screen against the database and finds two answers.
+     */
+    getProducts.mockResolvedValue([product({ spreadMarkupPerLot: '1.50000000' })]);
+
+    renderWithProviders(<ProductsPage />);
+
+    expect(await screen.findByText('1.50000000')).toBeInTheDocument();
+  });
+
+  it('sends what the operator typed, without rounding it', async () => {
+    const user = userEvent.setup();
+    getProducts.mockResolvedValue([product({ spreadMarkupPerLot: '1.00000000' })]);
+    updateProduct.mockResolvedValue(product({ spreadMarkupPerLot: '2.12345678' }));
+
+    renderWithProviders(<ProductsPage />);
+    await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+
+    const field = await screen.findByLabelText(/spread markup per lot/i);
+    await user.clear(field);
+    await user.type(field, '2.12345678');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(updateProduct).toHaveBeenCalledWith(
+        'p-1',
+        expect.objectContaining({ spreadMarkupPerLot: '2.12345678' }),
+      ),
+    );
+
+    // A STRING on the wire. The moment this becomes a number the eight decimals
+    // above stop being guaranteed.
+    const sent = updateProduct.mock.calls[0]?.[1] as { spreadMarkupPerLot: unknown } | undefined;
+    expect(typeof sent?.spreadMarkupPerLot).toBe('string');
+  });
+
+  it('reads an emptied box as zero rather than as "leave it alone"', async () => {
+    /*
+     * The API treats an ABSENT markup as unchanged, which is what stops the
+     * enable/disable toggle wiping it — that sends a PUT carrying no markup at
+     * all. A form that always shows the current value makes a different
+     * promise, so clearing the box has to mean nought or the operator is
+     * silently ignored.
+     */
+    const user = userEvent.setup();
+    getProducts.mockResolvedValue([product({ spreadMarkupPerLot: '3.00000000' })]);
+    updateProduct.mockResolvedValue(product({ spreadMarkupPerLot: '0.00000000' }));
+
+    renderWithProviders(<ProductsPage />);
+    await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+
+    await user.clear(await screen.findByLabelText(/spread markup per lot/i));
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(updateProduct).toHaveBeenCalledWith(
+        'p-1',
+        expect.objectContaining({ spreadMarkupPerLot: '0' }),
+      ),
+    );
+  });
+
+  it('says the figure changes nobody’s pay', async () => {
+    /*
+     * The hint is the feature. An operator who believed this drove partner
+     * commission would set it very differently, and nothing on the screen would
+     * contradict them.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<ProductsPage />);
+    await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+
+    expect(
+      await screen.findByText(/does not change what any partner is paid/i),
+    ).toBeInTheDocument();
+  });
+});

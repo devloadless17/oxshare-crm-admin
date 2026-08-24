@@ -1378,6 +1378,15 @@ export const messages = {
   'products.createTitle': 'Add product',
   'products.saving': 'Saving...',
   'products.orderHint': 'Lower comes first in the client’s list.',
+  'products.markup': 'Spread markup per lot',
+  /*
+   * Says what it does AND what it does not, because the second is the part
+   * somebody will otherwise assume. Nothing computes from this figure — it is
+   * what the desk says the product is sold on — and an operator who believed it
+   * changed partner payouts would set it very differently.
+   */
+  'products.markupHint':
+    'What the desk sells this product on, in the account currency. Recorded for reference only — it does not change what any partner is paid.',
   'products.saveSucceeded': '{name} saved',
   'products.deleteSucceeded': '{name} deleted',
   'products.enabledSucceeded': '{name} is now active',
@@ -1394,6 +1403,7 @@ export const messages = {
   'products.colGroups': 'Groups',
   'products.colCurrencies': 'Currencies',
   'products.colOrder': 'Order',
+  'products.colMarkup': 'Markup / lot',
   'products.colStatus': 'Status',
   'products.statusActive': 'Active',
   'products.statusInactive': 'Inactive',

@@ -278,6 +278,28 @@ export default function ProductsPage() {
       },
     },
     {
+      header: t('products.colMarkup'),
+      /*
+       * Rendered as the STRING the API sent, not through a number formatter.
+       *
+       * The column is NUMERIC(28,8) and the string carries exactly what was
+       * saved; `Number(...)` here would drop trailing zeros and could round the
+       * value, so the table would disagree with the form that wrote it. The
+       * ledger screen formats money for the same reason and by the same rule.
+       */
+      cell: (product) => product.spreadMarkupPerLot,
+      cellClassName: 'tabular text-muted-foreground',
+      align: 'right',
+      sortable: true,
+      sortKey: 'spreadMarkupPerLot',
+      /*
+       * Sorted as a NUMBER despite being a string — "10" must not sort before
+       * "9". The sort is a view concern and never writes anything back, so
+       * comparing numerically here cannot reach the column.
+       */
+      sortType: 'number',
+    },
+    {
       header: t('products.colOrder'),
       cell: (product) => product.sortOrder,
       cellClassName: 'tabular text-muted-foreground',
