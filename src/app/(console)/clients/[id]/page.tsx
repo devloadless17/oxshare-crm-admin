@@ -356,7 +356,9 @@ export default function ClientProfilePage() {
                     <ul className="space-y-2">
                       {profile.tradingAccounts.map((account) => (
                         <li key={account.id} className="flex items-center justify-between gap-3">
-                          <span className="font-mono text-xs">{account.mt5Login}</span>
+                          <span className="font-mono text-xs">
+                            {account.mt5Login ?? t('clientProfile.loginPending')}
+                          </span>
                           <span className="text-[11px] text-muted-foreground">
                             {account.mt5Group ?? '—'} · {account.environment}
                           </span>

@@ -77,6 +77,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
   // '1000000.00000000' in a text box is a number nobody typed.
   const [maxDemoDeposit, setMaxDemoDeposit] = React.useState(trimAmount(settings.maxDemoDeposit));
   const [ibCap, setIbCap] = React.useState(trimAmount(settings.ibMaxRevenueSharePct));
+  const [holdHours, setHoldHours] = React.useState(String(settings.ibCommissionHoldHours));
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
   const queryClient = useQueryClient();
@@ -88,6 +89,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         maxDemoAccounts: parseCount(maxDemoAccounts),
         maxDemoDeposit: maxDemoDeposit.trim(),
         ibMaxRevenueSharePct: ibCap.trim(),
+        ibCommissionHoldHours: parseHours(holdHours, settings.ibCommissionHoldHours),
       }),
     onSuccess: () => {
       setError(null);
@@ -105,7 +107,8 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
     maxLiveAccounts.trim() !== String(settings.maxLiveAccounts) ||
     maxDemoAccounts.trim() !== String(settings.maxDemoAccounts) ||
     maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit) ||
-    ibCap.trim() !== trimAmount(settings.ibMaxRevenueSharePct);
+    ibCap.trim() !== trimAmount(settings.ibMaxRevenueSharePct) ||
+    holdHours.trim() !== String(settings.ibCommissionHoldHours);
 
   const disabled = !canManage || mutation.isPending;
   const clear = () => setError(null);
@@ -237,6 +240,39 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         />
       </Field>
 
+      <Field
+        id="trading-hold-hours"
+        label={t('tradingSettings.holdHours')}
+        hint={t('tradingSettings.holdHoursHint')}
+      >
+        {/*
+          A whole number of hours, so `type="number"` is right here where it is
+          wrong on the two money fields above: nothing about this value reaches
+          a decimal calculation, and the spinner is genuinely useful on a value
+          most brokers set once.
+
+          `max` is a year — not a policy limit, a typo guard. A mistyped 24000
+          would hold every partner's commission for three years while every
+          component reported success, which looks exactly like the engine having
+          stopped. The same bound is a CHECK on the column.
+        */}
+        <input
+          id="trading-hold-hours"
+          type="number"
+          inputMode="numeric"
+          value={holdHours}
+          onChange={(e) => {
+            setHoldHours(e.target.value);
+            clear();
+          }}
+          disabled={disabled}
+          required
+          min={0}
+          max={8760}
+          className={`${INPUT_CLASS} font-mono tabular-nums`}
+        />
+      </Field>
+
       {error && (
         <p role="alert" className="text-[11px] text-destructive">
           {error}
@@ -278,6 +314,32 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
 function parseCount(value: string): number {
   const parsed = Number.parseInt(value.trim(), 10);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+/**
+ * The settlement window, falling back to the SAVED value and never to zero.
+ *
+ * `parseCount` above answers 0 for anything unparseable, which is right for an
+ * account cap — 0 means "no new ones" and is a state somebody may want. It is
+ * wrong here: 0 hours means every commission becomes spendable the instant it
+ * is calculated, so a half-deleted box submitted by an Enter key would turn the
+ * one rule between earned and spendable off, and the save would look like a
+ * success. Falling back to what is already stored makes the worst case "nothing
+ * changed".
+ */
+export function parseHours(value: string, fallback: number): number {
+  const trimmed = value.trim();
+  /*
+   * WHOLLY numeric, not `parseInt` alone. `parseInt('12.5h')` is 12 and
+   * `parseInt('24 hours')` is 24 — it reads a prefix and discards the rest, so
+   * a typed unit or a stray character would be saved as a window nobody chose
+   * while the form reported success.
+   */
+  if (!/^\d+$/.test(trimmed)) return fallback;
+
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isInteger(parsed) || parsed > 8760) return fallback;
+  return parsed;
 }
 
 /**
