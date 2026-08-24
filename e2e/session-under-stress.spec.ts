@@ -1,6 +1,7 @@
 import { expect, test } from './fixtures';
 import {
   acceptAdminInvite,
+  browserStateFrom,
   adminApiSession,
   API_NODE_BASE,
   APP_ORIGIN,
@@ -99,7 +100,7 @@ test('admin refresh-reuse detection signs every tab out', async ({ browser }) =>
     ((await invited.json()) as { inviteUrl?: string }).inviteUrl ?? 'http://x/',
   ).searchParams.get('token')!;
   const burn = await acceptAdminInvite(token, `Reuseburn-${Date.now()}-123!`);
-  const ctx = await browser.newContext({ storageState: await burn.ctx.storageState() });
+  const ctx = await browser.newContext({ storageState: await browserStateFrom(burn.ctx) });
   const page = await ctx.newPage();
   try {
     await page.goto('/dashboard');

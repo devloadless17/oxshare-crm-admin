@@ -1,6 +1,5 @@
-import { request } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { API_NODE_BASE, E2E_CLIENTS, RESTRICTED_STATE, STORAGE_STATE } from './helpers';
+import { adminApiSession, E2E_CLIENTS, E2E_RESTRICTED } from './helpers';
 
 /**
  * FR-RBAC-03's mask, on the one surface no other spec checks: EXPORTS.
@@ -14,10 +13,17 @@ import { API_NODE_BASE, E2E_CLIENTS, RESTRICTED_STATE, STORAGE_STATE } from './h
  */
 
 test('the client CSV honours the mask, the territory, and the permission catalog', async () => {
-  const restricted = await request.newContext({ storageState: RESTRICTED_STATE });
-  const master = await request.newContext({ storageState: STORAGE_STATE });
+  /*
+   * Sessions minted over the wire, not read from the storage-state jars: the
+   * jars' cookies are scoped to the BROWSER's API host, which in the crosshost
+   * topology is not the host Node dials — a jar-seeded request context sends
+   * no cookies there and answers 401. adminApiSession logs in on the Node
+   * host, so its cookies always attach.
+   */
+  const restricted = await adminApiSession(E2E_RESTRICTED);
+  const master = await adminApiSession();
   try {
-    const res = await restricted.get(`${API_NODE_BASE}/admin/clients/export`);
+    const res = await restricted.get(`/admin/clients/export`);
     expect(res.ok(), `restricted export answered ${res.status()}`).toBe(true);
     const csv = await res.text();
 
@@ -33,7 +39,7 @@ test('the client CSV honours the mask, the territory, and the permission catalog
 
     // The same file for the MASTER masks nothing — proving the CSV above was
     // masked by policy, not by the exporter dropping the column for everyone.
-    const masterRes = await master.get(`${API_NODE_BASE}/admin/clients/export`);
+    const masterRes = await master.get(`/admin/clients/export`);
     expect(masterRes.ok()).toBe(true);
     const masterCsv = await masterRes.text();
     expect(masterCsv, 'the master export lost the email column').toContain(E2E_CLIENTS.alpha.email);
@@ -43,7 +49,7 @@ test('the client CSV honours the mask, the territory, and the permission catalog
 
     // The restricted fixture's ROLE carries kyc.review, so the KYC export
     // answers — and must carry the same mask as the client one.
-    const kycRes = await restricted.get(`${API_NODE_BASE}/admin/kyc/export`);
+    const kycRes = await restricted.get(`/admin/kyc/export`);
     expect(kycRes.ok(), `kyc export answered ${kycRes.status()}`).toBe(true);
     expect(
       (await kycRes.text()).includes(E2E_CLIENTS.alpha.email),
@@ -51,7 +57,7 @@ test('the client CSV honours the mask, the territory, and the permission catalog
     ).toBe(false);
     // The audit log is the master's alone.
     expect(
-      (await restricted.get(`${API_NODE_BASE}/admin/audit-log/export`)).status(),
+      (await restricted.get(`/admin/audit-log/export`)).status(),
       'an ungranted audit export answered',
     ).toBe(403);
   } finally {

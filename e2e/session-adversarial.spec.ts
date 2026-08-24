@@ -2,6 +2,7 @@ import { request } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
   acceptAdminInvite,
+  browserStateFrom,
   adminApiSession,
   API_NODE_BASE,
   APP_ORIGIN,
@@ -114,7 +115,7 @@ test('suspension revokes the session — reactivation does not resurrect it', as
     ).searchParams.get('token')!;
     const accepted = await acceptAdminInvite(token, `Susprevoke-${run}-123!`);
 
-    const ctx = await browser.newContext({ storageState: await accepted.ctx.storageState() });
+    const ctx = await browser.newContext({ storageState: await browserStateFrom(accepted.ctx) });
     const page = await ctx.newPage();
     try {
       await page.goto('/dashboard');
@@ -160,7 +161,7 @@ test('accepting an invite ends the session it displaces — everywhere', async (
       ((await invitedA.json()) as { inviteUrl?: string }).inviteUrl ?? 'http://x/',
     ).searchParams.get('token')!;
     const adminA = await acceptAdminInvite(tokenA, `Displaced-${run}-123!`);
-    const snapshotOfA = await adminA.ctx.storageState();
+    const snapshotOfA = await browserStateFrom(adminA.ctx);
 
     // Admin B's invite, accepted IN A BROWSER THAT HOLDS A's SESSION.
     const invitedB = await master.post('/admin/invite', {
@@ -229,7 +230,7 @@ test('a completed password reset reaches a live browser immediately', async ({ b
     ).searchParams.get('token')!;
     const target = await acceptAdminInvite(token, `Resetlive-${run}-123!`);
 
-    const ctx = await browser.newContext({ storageState: await target.ctx.storageState() });
+    const ctx = await browser.newContext({ storageState: await browserStateFrom(target.ctx) });
     const page = await ctx.newPage();
     try {
       await page.goto('/dashboard');
