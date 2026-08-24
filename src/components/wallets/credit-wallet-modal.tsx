@@ -115,6 +115,15 @@ function CreditForm({
           <span className="text-muted-foreground">{t('wallets.creditClient')}</span>
           <span className="font-medium text-foreground">{owner}</span>
         </div>
+        {/*
+          WHICH wallet, by number. Owner + currency was ambiguous the moment a
+          partner holds a main and a commission wallet in the same currency —
+          and this is the control that creates money in one of them.
+        */}
+        <div className="mt-1.5 flex items-baseline justify-between gap-3">
+          <span className="text-muted-foreground">{t('wallets.creditWalletNumber')}</span>
+          <span className="font-mono font-medium text-foreground">{wallet.walletNumber}</span>
+        </div>
         <div className="mt-1.5 flex items-baseline justify-between gap-3">
           <span className="text-muted-foreground">{t('wallets.creditCurrentBalance')}</span>
           {/* Formatted, not coerced — this is a figure the operator reads to

@@ -12,6 +12,7 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { CopyableId } from '@/components/copyable-id';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
 import { RowActions, actionsColumn } from '@/components/row-actions';
@@ -197,7 +198,10 @@ function WalletsPageContent() {
       setCloseError(undefined);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'wallets'] });
       toastSuccess(
-        t('wallets.closeSucceeded', { currency: wallet?.currency ?? id }),
+        t('wallets.closeSucceeded', {
+          currency: wallet?.currency ?? '',
+          number: wallet?.walletNumber ?? id,
+        }),
         wallet ? (wallet.user.email ?? undefined) : undefined,
       );
     },
@@ -254,6 +258,7 @@ function WalletsPageContent() {
       toastSuccess(
         t('wallets.creditSucceeded', {
           amount: formatMoney(values.amount, wallet?.currency ?? 'USD'),
+          number: wallet?.walletNumber ?? '',
         }),
         wallet ? (wallet.user.email ?? undefined) : undefined,
       );
@@ -278,6 +283,19 @@ function WalletsPageContent() {
           <div className="truncate text-xs text-muted-foreground">{w.user.email}</div>
         </div>
       ),
+    },
+    {
+      /*
+       * The wallet NUMBER — the identifier this screen previously had nowhere
+       * at all: rows were told apart by owner + currency, which stops working
+       * the moment a partner holds two same-currency wallets. `full`, because
+       * 12 chars IS the short form; truncating a code built to be read defeats
+       * it. NOT sortable: `walletNumber` is absent from the endpoint's sort
+       * allowlist, and R-2.5 makes an unrecognised key a 400.
+       */
+      header: t('wallets.colNumber'),
+      sortable: false,
+      cell: (w) => <CopyableId value={w.walletNumber} full />,
     },
     {
       header: t('wallets.colCurrency'),
@@ -488,10 +506,16 @@ function WalletsPageContent() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {t('wallets.closeConfirmTitle', { currency: closing?.currency ?? '' })}
+                {t('wallets.closeConfirmTitle', {
+                  currency: closing?.currency ?? '',
+                  number: closing?.walletNumber ?? '',
+                })}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {t('wallets.closeConfirmBody', { email: closing?.user.email ?? '' })}
+                {t('wallets.closeConfirmBody', {
+                  email: closing?.user.email ?? '',
+                  number: closing?.walletNumber ?? '',
+                })}
               </AlertDialogDescription>
             </AlertDialogHeader>
 

@@ -385,6 +385,10 @@ export const messages = {
   'wallets.empty': 'No wallets yet.',
   'wallets.emptyFiltered': 'No wallets match these filters.',
   'wallets.colOwner': 'Client',
+  // The 12-char wallet number — the identifier an operator quotes and a client
+  // can actually read back. "No." not "Number": the column holds codes, and the
+  // long word would out-measure every value under it.
+  'wallets.colNumber': 'Wallet no.',
   'wallets.colCurrency': 'Currency',
   'wallets.colBalance': 'Balance',
   'wallets.colOnHold': 'On hold',
@@ -411,15 +415,18 @@ export const messages = {
   // balance or the count of history. The copy says so up front so the operator
   // learns the rule from the control rather than from a refusal.
   'wallets.closeAction': 'Close wallet',
-  'wallets.closeConfirmTitle': 'Close this {currency} wallet?',
+  // The NUMBER is in the title: "this USD wallet" identified nothing when a
+  // partner holds two, and the operator is confirming a specific wallet.
+  'wallets.closeConfirmTitle': 'Close {currency} wallet {number}?',
   'wallets.closeConfirmBody':
-    'This removes the wallet from {email}. It only works on an empty wallet with no history — the API refuses any other, and says why.',
+    'This removes wallet {number} from {email}. It only works on an empty wallet with no history — the API refuses any other, and says why.',
   'wallets.closeConfirm': 'Close wallet',
   'wallets.closing': 'Closing…',
   'wallets.closeFailed': 'Could not close the wallet.',
-  'wallets.closeSucceeded': '{currency} wallet closed',
+  'wallets.closeSucceeded': '{currency} wallet {number} closed',
   'wallets.creditTitle': 'Add funds to this wallet',
   'wallets.creditClient': 'Client',
+  'wallets.creditWalletNumber': 'Wallet no.',
   'wallets.creditCurrentBalance': 'Current balance',
   'wallets.creditAmount': 'Amount to add ({currency})',
   'wallets.creditAmountHint': 'Up to 8 decimal places. Credited exactly as entered.',
@@ -433,7 +440,7 @@ export const messages = {
   'wallets.creditFailed': 'Could not add the funds. Nothing was credited.',
   // The AMOUNT is in the confirmation, not just "funds added" — this is the one
   // control in the console that moves money on an operator's say-so.
-  'wallets.creditSucceeded': '{amount} credited',
+  'wallets.creditSucceeded': '{amount} credited to wallet {number}',
   'wallets.openSucceeded': '{currency} wallet opened',
 
   // ── Trading accounts (GET /admin/trading-accounts) ────────────────────────
@@ -931,6 +938,7 @@ export const messages = {
 
   // ── Wallets, as a table with a row menu ───────────────────────────────────
   'clientProfile.walletCurrency': 'Currency',
+  'clientProfile.walletNumber': 'Wallet no.',
   'clientProfile.walletBalance': 'Balance',
   'clientProfile.walletOnHold': 'On hold',
   'clientProfile.walletCloseAction': 'Close wallet',
@@ -1867,6 +1875,9 @@ export const messages = {
   'pagination.lastAria': 'Go to Last Page',
   'common.close': 'Close',
   'common.copy': 'Copy',
+  /* The CopyableId button. Says what lands on the clipboard — the FULL uuid,
+     not the 8 truncated characters the cell shows. */
+  'common.copyId': 'Copy full ID',
   'common.copied': 'Copied',
   'common.cancel': 'Cancel',
   'common.saving': 'Saving…',
@@ -1910,6 +1921,8 @@ export const messages = {
   'ledger.empty': 'No ledger entries match these filters.',
   'ledger.colWhen': 'When',
   'ledger.colClient': 'Client',
+  // The wallet number; clicking it scopes the ledger to that wallet.
+  'ledger.colWallet': 'Wallet',
   'ledger.colType': 'Type',
   'ledger.colAmount': 'Amount',
   'ledger.colBalance': 'Balance after',
@@ -1920,6 +1933,7 @@ export const messages = {
   'ledger.filterClientLabel': 'Client id',
   'ledger.clearFilters': 'Clear',
   'ledger.scopedToClient': 'Showing one client. Clear the filter to see the whole ledger.',
+  'ledger.scopedToWallet': 'Showing one wallet. Clear the filter to see the whole ledger.',
   'ledger.noun': 'entry',
   'ledger.nounPlural': 'entries',
   // The six values `ledger_entries.entry_type` can hold.

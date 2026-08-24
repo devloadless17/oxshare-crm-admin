@@ -82,12 +82,20 @@ function LedgerPageContent() {
    * this account" — the same shape `/commissions?ibUserId=` uses for a partner.
    */
   const userId = url.get('userId');
+  /*
+   * ONE wallet's ledger — the reconciliation read. `GET /admin/ledger` has
+   * always taken `walletId`; nothing set it until the wallet column below.
+   * Filtering keys on the uuid, which every row carries — the wallet NUMBER is
+   * what the cell displays, never what the query uses.
+   */
+  const walletId = url.get('walletId');
 
   const params = {
     page,
     limit: pageSize,
     entryType: entryType || undefined,
     userId: userId || undefined,
+    walletId: walletId || undefined,
   };
 
   const query = useResource<LedgerListResponse>(['admin', 'ledger', params], (signal) =>
@@ -120,6 +128,27 @@ function LedgerPageContent() {
       header: t('ledger.colClient'),
       sortable: false,
       cell: (r) => <span className="font-mono text-xs">{r.userId}</span>,
+    },
+    {
+      /*
+       * The wallet a movement belongs to, as its NUMBER — the identifier the
+       * rest of the console now shows. Clicking it scopes the ledger to that
+       * wallet, which is the "follow one wallet down the page" read the
+       * balance column exists for; the uuid stays on `title` and does the
+       * actual filtering.
+       */
+      header: t('ledger.colWallet'),
+      sortable: false,
+      cell: (r) => (
+        <button
+          type="button"
+          title={r.walletId}
+          onClick={() => url.set({ walletId: r.walletId, page: undefined })}
+          className="focus-outline font-mono text-xs underline-offset-2 hover:underline"
+        >
+          {r.walletNumber}
+        </button>
+      ),
     },
     {
       header: t('ledger.colType'),
@@ -170,7 +199,7 @@ function LedgerPageContent() {
     },
   ];
 
-  const filtered = Boolean(entryType || userId);
+  const filtered = Boolean(entryType || userId || walletId);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
@@ -216,6 +245,11 @@ function LedgerPageContent() {
         */}
         {userId && (
           <span className="text-xs text-muted-foreground">{t('ledger.scopedToClient')}</span>
+        )}
+
+        {/* Same honesty for a wallet scope: a filtered view must say so. */}
+        {walletId && (
+          <span className="text-xs text-muted-foreground">{t('ledger.scopedToWallet')}</span>
         )}
       </div>
 

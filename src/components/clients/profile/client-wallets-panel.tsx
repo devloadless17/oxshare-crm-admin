@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CopyableId } from '@/components/copyable-id';
 import { CreditWalletModal } from '@/components/wallets/credit-wallet-modal';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, type RowAction } from '@/components/row-actions';
@@ -224,6 +225,15 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
           <span className="font-mono text-xs font-semibold">{w.currency}</span>
         </span>
       ),
+    },
+    {
+      /*
+       * The wallet number — the same identifier the wallets list and the client
+       * portal show, so an operator and a client on the phone are reading the
+       * same 12 characters. `full`: this IS the short form.
+       */
+      header: t('clientProfile.walletNumber'),
+      cell: (w) => <CopyableId value={w.walletNumber} full />,
     },
     {
       header: t('clientProfile.walletBalance'),
