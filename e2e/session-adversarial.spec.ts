@@ -325,3 +325,80 @@ test('two tabs racing WITHOUT Web Locks still both survive', async ({ browser })
     await ctx.close();
   }
 });
+
+test('the invite MODAL grants exactly the territory it shows', async ({ page }) => {
+  test.setTimeout(150_000);
+  /*
+   * Slice 3's browser proof: the whole arc through the real screen. The
+   * master scopes an invite to one tag from the modal; the invitee accepts in
+   * a CLEAN context; their very first reads show exactly that territory —
+   * their tag plus the default intake pool, and no foreign-tagged client.
+   */
+  const email = `e2e-modalscope-${run}@oxshare-e2e.test`;
+  const master = await adminApiSession();
+  try {
+    await page.goto('/admin-users');
+    await page.getByRole('button', { name: 'Invite Admin' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog, 'the invite modal did not open').toBeVisible();
+    await dialog.locator('#invite-name').fill('E2E Modal Scope');
+    await dialog.locator('#invite-email').fill(email);
+    // A role is required — without one the form's own validation swallows the
+    // submit and no request ever leaves the page.
+    await dialog.locator('#invite-role').click();
+    await page
+      .getByRole('option', { name: /e2e restricted/i })
+      .first()
+      .click();
+    // Territory: pick the e2e-beta tag, and require the CHIP to appear before
+    // submitting — the proof the choice registered.
+    await dialog.getByRole('combobox', { name: /add a tag/i }).click();
+    await page.getByRole('option', { name: /e2e beta/i }).click();
+    await expect(dialog.getByText('E2E Beta').first()).toBeVisible();
+    const [created] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes('/v1/admin/invite') && r.request().method() === 'POST',
+      ),
+      dialog.getByRole('button', { name: /send invite/i }).click(),
+    ]);
+    expect(created.ok(), `the modal invite failed: ${created.status()}`).toBe(true);
+    const inviteUrl = ((await created.json()) as { inviteUrl?: string }).inviteUrl;
+    expect(inviteUrl, 'no invite link echoed in dev').toBeTruthy();
+
+    const invitee = await acceptAdminInvite(
+      new URL(inviteUrl!).searchParams.get('token')!,
+      `Modalscope-${run}-123!`,
+    );
+    try {
+      const list = await invitee.ctx.get(`${API_NODE_BASE}/admin/clients?limit=200`);
+      expect(list.ok()).toBe(true);
+      // By NAME, not email: the chosen role masks client.email, so the email
+      // column is (correctly) absent from every row this admin reads — which
+      // is itself part of what this arc proves.
+      const names = (
+        (await list.json()) as {
+          items: { firstName?: string; lastName?: string; email?: string }[];
+        }
+      ).items.map((c) => `${c.firstName} ${c.lastName}`);
+      expect(names, 'the modal scope leaked a foreign-tagged client').not.toContain(
+        'Alpha Aardvark',
+      );
+      expect(names, 'the default intake grant is missing').toContain('Delta Dunn');
+      // And the mask reached the wire: no row carries an email for this admin.
+      const rows = (
+        (await (await invitee.ctx.get(`${API_NODE_BASE}/admin/clients?limit=200`)).json()) as {
+          items: { email?: string }[];
+        }
+      ).items;
+      expect(
+        rows.every((c) => c.email === undefined),
+        'the role mask did not reach the invited admin',
+      ).toBe(true);
+    } finally {
+      await master.patch(`/admin/users/${invitee.id}/status`, { status: 'suspended' });
+      await invitee.ctx.dispose();
+    }
+  } finally {
+    await master.dispose();
+  }
+});

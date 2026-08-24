@@ -678,7 +678,18 @@ apiClient.interceptors.response.use(assertApiResponse, async (error: AxiosError)
      * its own error with a retry, and the session, the timer and the marker
      * all survive.
      */
-    if (outcome !== 'unreachable') endDeadSession();
+    if (outcome === 'unreachable') {
+      /*
+       * Tell the LAYER ABOVE which case this 401 is. AdminAuthContext treats a
+       * 401 from /admin/auth/me as the signed-out answer and clears the
+       * session-hint marker — correct for a refused refresh, and exactly wrong
+       * for one that never got an answer: the marker is the only thing that
+       * stops the next cold load painting a sign-in form over a live session.
+       */
+      Object.assign(error, { refreshUnreachable: true });
+    } else {
+      endDeadSession();
+    }
   }
   // Rethrow the original AxiosError, never a wrapped one: every caller reads
   // `error.response.data.message` through apiErrorMessage, and the 401 branch
