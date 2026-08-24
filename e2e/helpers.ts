@@ -585,3 +585,76 @@ export async function searchOwnClients(page: Page): Promise<void> {
 export function clientSearchBox(page: Page) {
   return page.getByRole('searchbox', { name: /search clients/i });
 }
+
+/**
+ * ── The mailbox ─────────────────────────────────────────────────────────────
+ *
+ * Every email the API sends in development lands in Mailpit
+ * (`docker compose up -d` in oxshare-crm-backend; UI at :8025), pointed at by
+ * Settings → Email. Emailed TOKENS are the only way through several journeys —
+ * verification, password reset, invites — because they are stored hashed and
+ * echoed nowhere (a bearer credential in a log is a leak), so the suite reads
+ * the mailbox exactly as the person would.
+ */
+export const MAILPIT_API = (process.env.E2E_MAILPIT_API ?? 'http://localhost:8025/api/v1').replace(
+  /\/+$/,
+  '',
+);
+
+/** The newest message to `to`, waited for; throws with a fix when Mailpit is absent. */
+export async function waitForMail(
+  to: string,
+  opts: { subject?: RegExp; timeoutMs?: number } = {},
+): Promise<{ id: string; subject: string; text: string; html: string }> {
+  const deadline = Date.now() + (opts.timeoutMs ?? 15_000);
+  let lastErr = '';
+  for (;;) {
+    try {
+      const res = await fetch(
+        `${MAILPIT_API}/search?query=${encodeURIComponent(`to:"${to}"`)}&limit=20`,
+        { signal: AbortSignal.timeout(4_000) },
+      );
+      if (res.ok) {
+        const body = (await res.json()) as {
+          messages?: { ID: string; Subject: string }[];
+        };
+        const hit = (body.messages ?? []).find(
+          (m) => !opts.subject || opts.subject.test(m.Subject),
+        );
+        if (hit) {
+          const full = (await (await fetch(`${MAILPIT_API}/message/${hit.ID}`)).json()) as {
+            Text?: string;
+            HTML?: string;
+          };
+          return { id: hit.ID, subject: hit.Subject, text: full.Text ?? '', html: full.HTML ?? '' };
+        }
+      } else {
+        lastErr = `Mailpit answered ${res.status}`;
+      }
+    } catch (error) {
+      lastErr = error instanceof Error ? error.message : String(error);
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `No mail for ${to} within ${opts.timeoutMs ?? 15_000}ms` +
+          (lastErr ? ` (${lastErr})` : '') +
+          '.\nIs Mailpit up (docker compose up -d in oxshare-crm-backend) and Settings → Email ' +
+          'pointed at localhost:1025?',
+      );
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
+/**
+ * The first tokened link in a message, REWRITTEN to this suite's app origin —
+ * the email carries whatever PORTAL_URL/ADMIN_URL the backend was started
+ * with, and the suite must follow it on the topology it is driving.
+ */
+export function linkIn(mail: { text: string; html: string }, appOrigin: string): string {
+  const haystack = `${mail.text}\n${mail.html.replace(/&amp;/g, '&')}`;
+  const match = haystack.match(/https?:\/\/[^\s"'<>]+[?&]token=[A-Za-z0-9._~-]+[^\s"'<>]*/);
+  if (!match) throw new Error(`No tokened link found in "${mail.text.slice(0, 200)}…"`);
+  const url = new URL(match[0]);
+  return `${appOrigin}${url.pathname}${url.search}`;
+}

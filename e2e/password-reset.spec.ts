@@ -104,3 +104,107 @@ test.describe('following the link', () => {
     await expect(page.getByRole('button', { name: /set password/i })).toHaveCount(0);
   });
 });
+
+/**
+ * The full journey, now provable end to end: Mailpit holds the mailbox, so the
+ * emailed link itself can be followed rather than simulated. A FRESH admin is
+ * invited for the run — resetting a seeded fixture's password would break
+ * every later spec that signs in as it.
+ */
+test.describe('completing an armed reset through the emailed link', () => {
+  test('invite → arm → emailed link → new password in, old password and old session dead', async ({
+    browser,
+    playwright,
+  }) => {
+    test.setTimeout(240_000);
+    const { adminApiSession, API_NODE_BASE, APP_ORIGIN, linkIn, waitForMail } =
+      await import('./helpers');
+    const master = await adminApiSession();
+    const invitee = await playwright.request.newContext();
+    const email = `e2e-reset-${Date.now()}@oxshare-e2e.test`;
+    const firstPassword = 'First-credential-123!';
+    const newPassword = 'Recovered-credential-456!';
+
+    /* Admin login is capped at 5/min/IP and this test needs two probes on top
+       of the run's other logins — waiting out a 429 keeps the cap honest. */
+    const login = async (password: string) => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const ctx = await playwright.request.newContext();
+        const res = await ctx.post(`${API_NODE_BASE}/admin/auth/login`, {
+          headers: { Origin: APP_ORIGIN },
+          data: { email, password },
+        });
+        const status = res.status();
+        await ctx.dispose();
+        if (status !== 429) return status;
+        await new Promise((r) => setTimeout(r, 61_000));
+      }
+      throw new Error('admin login stayed rate limited for three minutes');
+    };
+
+    try {
+      // ── Invite and accept, so a session opened with the FIRST password exists.
+      const created = await master.post('/admin/invite', {
+        email,
+        name: 'E2E Reset Journey',
+        permissions: ['clients.view'],
+      });
+      expect(created.ok(), `invite answered ${created.status()}`).toBe(true);
+      const { inviteUrl } = (await created.json()) as { inviteUrl?: string };
+      expect(inviteUrl, 'the invite link is echoed outside production only').toBeTruthy();
+      const accepted = await invitee.post(`${API_NODE_BASE}/admin/invite/accept`, {
+        headers: { Origin: APP_ORIGIN },
+        data: {
+          token: new URL(inviteUrl!).searchParams.get('token')!,
+          password: firstPassword,
+        },
+      });
+      expect(accepted.ok(), `accept answered ${accepted.status()}`).toBe(true);
+      const me = (await (await invitee.get(`${API_NODE_BASE}/admin/auth/me`)).json()) as {
+        id: string;
+      };
+      expect(me.id).toBeTruthy();
+
+      // ── The master arms the reset; the link arrives by mail.
+      const armed = await master.post(`/admin/users/${me.id}/password-reset`);
+      expect(armed.ok(), `arming answered ${armed.status()}`).toBe(true);
+      const mail = await waitForMail(email, { subject: /reset|password/i });
+      const link = linkIn(mail, APP_ORIGIN);
+      const resetToken = new URL(link).searchParams.get('token') ?? '';
+      expect(resetToken, 'the reset mail carries no token').toBeTruthy();
+
+      // ── Followed with NO session, as the recipient would.
+      const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+      const page = await ctx.newPage();
+      try {
+        await page.goto(link);
+        await page.locator('#new-password').fill(newPassword);
+        await page.locator('#confirm-password').fill(newPassword);
+        const [completed] = await Promise.all([
+          page.waitForResponse(
+            (r) => r.url().includes('/password-reset/complete') && r.request().method() === 'POST',
+          ),
+          page.getByRole('button', { name: /set password/i }).click(),
+        ]);
+        expect(completed.ok(), `completing answered ${completed.status()}`).toBe(true);
+        await expect(page.getByText(/password set/i).first()).toBeVisible();
+      } finally {
+        await ctx.close();
+      }
+
+      // ── The credential swap is total.
+      expect(await login(firstPassword), 'the OLD password still signs in').toBe(401);
+      expect(await login(newPassword), 'the NEW password does not sign in').toBe(200);
+      const replay = await invitee.post(`${API_NODE_BASE}/admin/password-reset/complete`, {
+        headers: { Origin: APP_ORIGIN },
+        data: { token: resetToken, password: 'Yet-another-789!' },
+      });
+      expect(replay.status(), 'the reset link is replayable').toBeGreaterThanOrEqual(400);
+      const stale = await invitee.get(`${API_NODE_BASE}/admin/auth/me`);
+      expect(stale.status(), 'a pre-reset session survived the reset').toBe(401);
+    } finally {
+      await invitee.dispose();
+      await master.dispose();
+    }
+  });
+});
