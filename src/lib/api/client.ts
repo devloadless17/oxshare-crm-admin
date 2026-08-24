@@ -280,7 +280,7 @@ export function clearAdminSession(): void {
  * failed, and logged the admin out mid-session. Every caller now awaits the one
  * in-flight promise instead.
  */
-let inFlight: Promise<boolean> | null = null;
+let inFlight: Promise<RefreshOutcome> | null = null;
 
 /**
  * Did the API say this refresh merely LOST A RACE?
@@ -295,7 +295,37 @@ function supersededCode(error: unknown): boolean {
   return code === 'SESSION_SUPERSEDED';
 }
 
-export function refreshAdminToken(): Promise<boolean> {
+/**
+ * A refused refresh versus one that never got an answer.
+ *
+ * 401 is the API saying no. Anything else — no response at all, a 5xx, a
+ * timeout — is us being unable to ask, which is a different fact and must not be
+ * rendered, or acted on, as though the session had ended.
+ */
+function outcomeOf(error: unknown): 'dead' | 'unreachable' {
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  if (status === undefined) return 'unreachable';
+  return status >= 500 ? 'unreachable' : 'dead';
+}
+
+/**
+ * Why a refresh did not renew the session.
+ *
+ * `dead` — the API refused the refresh token: revoked, expired, replayed. The
+ * session is genuinely over and everything tied to it should go.
+ *
+ * `unreachable` — nothing answered, or it answered 5xx. We do NOT know that the
+ * session is over, and treating it as though we did is a network blip signing
+ * the operator out of the console mid-shift. The portal's twin of this file
+ * learned this first; this side had drifted and collapsed both cases to `false`.
+ */
+export type RefreshOutcome = 'renewed' | 'dead' | 'unreachable';
+
+/**
+ * The real refresh. `refreshAdminToken` is the boolean face of it, kept because
+ * that is what the proactive timer and the existing tests call.
+ */
+export function refreshAdminSession(): Promise<RefreshOutcome> {
   if (inFlight) return inFlight;
   inFlight = (async () => {
     /*
@@ -357,16 +387,12 @@ export function refreshAdminToken(): Promise<boolean> {
          */
         rememberCsrfToken(rotation.headers);
         /*
-         * A boolean, because there is nothing else to return.
-         *
-         * This used to resolve the literal string `'refreshed'` — a placeholder
-         * shaped like the access token that used to come back in the body. The
-         * token is gone (R-3.2): the rotated cookies arrive on the response and
-         * the browser installs them, so reaching 200 IS the result. A `string |
-         * null` signature invites the next reader to put a credential back into
-         * JavaScript, which is the exact thing this migration removed.
+         * No token in the return, deliberately. This used to resolve a literal
+         * placeholder shaped like the access token that once came back in the
+         * body. The token is gone (R-3.2): the rotated cookies arrive on the
+         * response and the browser installs them, so reaching 200 IS the result.
          */
-        return true;
+        return 'renewed' as const;
       } catch (error) {
         /*
          * `SESSION_SUPERSEDED` means the session is ALIVE — retry, do not sign out.
@@ -397,12 +423,12 @@ export function refreshAdminToken(): Promise<boolean> {
             // Rotates the token exactly as the first attempt does, so it has to be
             // learned here too - see the note on the call above.
             rememberCsrfToken(retriedRotation.headers);
-            return true;
-          } catch {
-            return false;
+            return 'renewed' as const;
+          } catch (retryError) {
+            return outcomeOf(retryError);
           }
         }
-        return false;
+        return outcomeOf(error);
       }
     });
   })().finally(() => {
@@ -413,6 +439,11 @@ export function refreshAdminToken(): Promise<boolean> {
     inFlight = null;
   });
   return inFlight;
+}
+
+/** The boolean face of `refreshAdminSession`, for callers that only need "did it work". */
+export function refreshAdminToken(): Promise<boolean> {
+  return refreshAdminSession().then((outcome) => outcome === 'renewed');
 }
 
 // Proactive refresh, started only once a session exists and stopped on logout.
@@ -586,13 +617,13 @@ apiClient.interceptors.response.use(assertApiResponse, async (error: AxiosError)
   const url = originalRequest?.url ?? '';
   const isAuthEndpoint = AUTH_ENDPOINT_PATTERN.test(url);
 
-  if (
-    error.response?.status === 401 &&
-    originalRequest &&
-    !originalRequest._retry &&
-    !isAuthEndpoint
-  ) {
-    originalRequest._retry = true;
+  if (error.response?.status === 401 && originalRequest && !isAuthEndpoint) {
+    /*
+     * `dead` is the default for the second-401 path below: a 401 arriving on a
+     * request that already retried means the rotation succeeded and the API
+     * still said no — the account behind the session no longer passes.
+     */
+    let outcome: RefreshOutcome = 'dead';
     /*
      * On a public page there is nothing to renew, so do not ask.
      *
@@ -622,30 +653,32 @@ apiClient.interceptors.response.use(assertApiResponse, async (error: AxiosError)
     ) {
       return Promise.reject(error);
     }
-    const refreshed = await refreshAdminToken();
-    if (refreshed) {
-      // No header to re-attach: the rotated session cookie travels on its own.
-      // The CSRF header is rebuilt by the request interceptor on the retry,
-      // which matters because refresh ROTATES the token — replaying the old
-      // one would fail the binding check.
-      return apiClient(originalRequest);
+    if (!originalRequest._retry) {
+      originalRequest._retry = true;
+      outcome = await refreshAdminSession();
+      if (outcome === 'renewed') {
+        // No header to re-attach: the rotated session cookie travels on its own.
+        // The CSRF header is rebuilt by the request interceptor on the retry,
+        // which matters because refresh ROTATES the token — replaying the old
+        // one would fail the binding check.
+        return apiClient(originalRequest);
+      }
     }
-    endDeadSession();
-  } else if (error.response?.status === 401 && originalRequest?._retry) {
     /*
-     * The SECOND 401 — after a refresh succeeded and the retry still failed.
+     * Reached by BOTH ways a 401 can turn out to be terminal. A second 401
+     * after a SUCCESSFUL rotation is genuinely dead — the server answered, and
+     * its answer was no (suspended, deleted, or logged out from another device
+     * between the two calls).
      *
-     * This branch did not exist. Control fell straight through to the rethrow
-     * with no `clearAdminSession()` and no redirect, so the operator got a
-     * generic "something went wrong" card with a Retry button that could never
-     * succeed, and stayed on a console whose session was dead.
-     *
-     * It is not hypothetical: it is what the API answers when the rotation
-     * worked but the account behind it no longer passes — suspended, deleted,
-     * or logged out from another device between the two calls. The portal's
-     * twin of this file already handled it; this side had drifted.
+     * An `unreachable` refresh ends nothing at all. We do not know the session
+     * is over; we know we could not ask. Signing the operator out on that
+     * basis is a network blip evicting them from the console mid-shift — the
+     * portal's twin learned this first and this side had drifted, collapsing
+     * every failure to "dead". The 401 propagates instead, the screen renders
+     * its own error with a retry, and the session, the timer and the marker
+     * all survive.
      */
-    endDeadSession();
+    if (outcome !== 'unreachable') endDeadSession();
   }
   // Rethrow the original AxiosError, never a wrapped one: every caller reads
   // `error.response.data.message` through apiErrorMessage, and the 401 branch

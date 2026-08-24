@@ -120,7 +120,9 @@ test.describe('completing an armed reset through the emailed link', () => {
     const { adminApiSession, API_NODE_BASE, APP_ORIGIN, linkIn, waitForMail } =
       await import('./helpers');
     const master = await adminApiSession();
-    const invitee = await playwright.request.newContext();
+    const invitee = await playwright.request.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
     const email = `e2e-reset-${Date.now()}@oxshare-e2e.test`;
     const firstPassword = 'First-credential-123!';
     const newPassword = 'Recovered-credential-456!';
@@ -129,7 +131,9 @@ test.describe('completing an armed reset through the emailed link', () => {
        of the run's other logins — waiting out a 429 keeps the cap honest. */
     const login = async (password: string) => {
       for (let attempt = 0; attempt < 3; attempt++) {
-        const ctx = await playwright.request.newContext();
+        const ctx = await playwright.request.newContext({
+          storageState: { cookies: [], origins: [] },
+        });
         const res = await ctx.post(`${API_NODE_BASE}/admin/auth/login`, {
           headers: { Origin: APP_ORIGIN },
           data: { email, password },

@@ -447,3 +447,66 @@ describe('the anti-forgery token across a refresh', () => {
     expect(sent?.headers['X-OxShare-CSRF']).toBe('token-after-rotation');
   });
 });
+
+describe('a refresh the API never answered is NOT a dead session', () => {
+  /*
+   * The drift this pins: this file used to collapse every refresh failure to
+   * `false`, so a 502 from a restarting API — or a dropped connection on hotel
+   * wifi — evicted the operator exactly as a revoked session does. The portal's
+   * twin distinguished `dead` from `unreachable` first; these tests are what
+   * stop the two files drifting apart again.
+   */
+  it('resolves unreachable for a 5xx, dead for a 401, renewed for a 200', async () => {
+    const { refreshAdminSession } = await loadClient();
+
+    mockedPost.mockRejectedValueOnce({ response: { status: 502, data: {} } });
+    expect(await refreshAdminSession()).toBe('unreachable');
+
+    mockedPost.mockRejectedValueOnce(Object.assign(new Error('network'), {}));
+    expect(await refreshAdminSession()).toBe('unreachable');
+
+    mockedPost.mockRejectedValueOnce({ response: { status: 401, data: {} } });
+    expect(await refreshAdminSession()).toBe('dead');
+
+    mockedPost.mockResolvedValueOnce({ status: 200, headers: {} });
+    expect(await refreshAdminSession()).toBe('renewed');
+  });
+
+  function answer401(apiClient: import('axios').AxiosInstance) {
+    apiClient.defaults.adapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> =>
+      Promise.reject(
+        Object.assign(new Error('401'), {
+          config,
+          response: { status: 401, data: {}, headers: {}, statusText: '', config },
+          isAxiosError: true,
+        }),
+      );
+  }
+
+  it('keeps the session marker when the refresh cannot reach the API', async () => {
+    window.history.pushState({}, '', '/dashboard');
+    document.cookie = 'oxshare_crm_admin_session_hint=1; Path=/';
+    const { apiClient } = await loadClient();
+    answer401(apiClient);
+    // The refresh itself gets a 502 — a restarting API, not a refusal.
+    mockedPost.mockRejectedValue({ response: { status: 502, data: {} } });
+
+    await expect(apiClient.get('/admin/clients')).rejects.toBeTruthy();
+    // The marker survives: the session was not ended, only the error surfaced.
+    expect(document.cookie).toContain('oxshare_crm_admin_session_hint=1');
+    window.history.pushState({}, '', '/');
+  });
+
+  it('still ends the session when the API answers the refresh with a real 401', async () => {
+    window.history.pushState({}, '', '/dashboard');
+    document.cookie = 'oxshare_crm_admin_session_hint=1; Path=/';
+    const { apiClient } = await loadClient();
+    answer401(apiClient);
+    mockedPost.mockRejectedValue({ response: { status: 401, data: {} } });
+
+    await expect(apiClient.get('/admin/clients')).rejects.toBeTruthy();
+    // The contrast case: a refusal IS a dead session, and the marker goes.
+    expect(document.cookie).not.toContain('oxshare_crm_admin_session_hint=1');
+    window.history.pushState({}, '', '/');
+  });
+});

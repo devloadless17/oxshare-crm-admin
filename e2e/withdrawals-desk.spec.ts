@@ -38,7 +38,7 @@ async function mintApprovedClient(admin: Awaited<ReturnType<typeof adminApiSessi
 }> {
   const email = `e2e-desk-${Date.now()}@oxshare-e2e-signup.test`;
   const password = 'Desk-journey-123!';
-  const portal = await request.newContext();
+  const portal = await request.newContext({ storageState: { cookies: [], origins: [] } });
   const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
 
   const registered = await portal.post(`${API_NODE_BASE}/auth/register`, {
