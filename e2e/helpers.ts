@@ -701,3 +701,42 @@ export async function acceptAdminInvite(
     return { ctx, headers: { Origin: APP_ORIGIN, 'X-OxShare-CSRF': csrf }, id };
   }
 }
+
+/**
+ * A precondition that could not be met — skipped locally, FATAL in CI.
+ *
+ * ## Why this exists
+ *
+ * Nineteen `test.skip()` guards across this suite protect against conditions
+ * that are ordinary on a shared machine: registration is capped at 10/hour per
+ * address, login is capped per minute, and a fixture may be absent. Skipping is
+ * the right call when somebody is iterating locally — a red suite for a rate
+ * limit teaches people to ignore red.
+ *
+ * But a skipped Playwright test reports as PASSING in the summary. The whole
+ * money journey — register, verify, KYC, approve, credit, withdraw, decide —
+ * sits behind two of those guards, so a run that exercised none of it is
+ * indistinguishable from one that exercised all of it. That is exactly the
+ * shape of evidence this suite exists to stop being fooled by.
+ *
+ * So the decision is made by the ENVIRONMENT rather than by the spec:
+ *
+ *   - unset (a laptop): skip, as before.
+ *   - `E2E_STRICT=1` (CI, or a run whose result somebody will quote): FAIL,
+ *     naming the precondition, so a journey cannot go missing from a green
+ *     result.
+ *
+ * Set `E2E_STRICT=1` on any run that is meant to be evidence.
+ */
+export function requirePrecondition(condition: boolean, reason: string): void {
+  if (!condition) return;
+  if (process.env['E2E_STRICT'] === '1') {
+    throw new Error(
+      `PRECONDITION NOT MET (E2E_STRICT): ${reason}. ` +
+        'This run was asked to be evidence, so the journey is reported as failed ' +
+        'rather than silently skipped. Re-run when the precondition clears, or ' +
+        'unset E2E_STRICT for a tolerant local run.',
+    );
+  }
+  test.skip(true, reason);
+}

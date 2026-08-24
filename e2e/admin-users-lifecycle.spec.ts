@@ -34,7 +34,14 @@ test('invite → accept → the invitee holds the role and nothing more → susp
   expect(dup.status()).toBe(409);
 
   // Accept in a CLEAN browser, as the invitee would.
-  const invitee = await browser.newContext();
+  /*
+   * TRULY clean, stated explicitly: in @playwright/test, `browser.newContext()`
+   * inherits the project's storageState — the shared MASTER jar. Accepting an
+   * invite while presenting a session now DISPLACES that session (the
+   * signed-in-elsewhere fix), so a bare newContext here revoked the master
+   * family and 401'd every later spec in the run.
+   */
+  const invitee = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const page = await invitee.newPage();
   const logins: string[] = [];
   page.on('response', (r) => {
