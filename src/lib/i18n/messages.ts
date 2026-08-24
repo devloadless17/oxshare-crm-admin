@@ -641,9 +641,6 @@ export const messages = {
   'tags.saveSucceeded': 'Tag "{label}" saved',
   'tags.deleteFailed': 'Failed to delete the tag.',
   // A tag the platform itself depends on (is_system) — none ship today.
-  'tags.systemBadge': 'System',
-  'tags.systemHint':
-    'A tag the platform itself writes and depends on. It cannot be deleted; its label and colour can be edited, and it can still be removed from individual clients.',
   'tags.labelField': 'Label',
   'tags.labelPlaceholder': 'High risk',
   'tags.slugFixed': 'Link name stays {slug} — saved /clients?tag= links keep working.',
@@ -1399,6 +1396,14 @@ export const messages = {
     'Could not read the groups from MT5. The bridge may be down — attaching needs it, because the group is verified against the server.',
   'products.live': 'Live',
   'products.demo': 'Demo',
+  'products.type': 'Type',
+  'products.typeReal': 'Real',
+  'products.typeDemo': 'Demo',
+  'products.typeHint':
+    'Real products carry live MT5 groups and are sold through agencies. The demo product carries demo groups and is offered to every client automatically — only one can exist.',
+  'products.typeDemoExists':
+    'A demo product already exists, and only one can. Edit that product to change what demo accounts open in.',
+  'products.typeLocked': 'Fixed when the product was created.',
 
   // ── Agencies tab ──────────────────────────────────────────────────────────
   'agencies.title': 'Agencies',

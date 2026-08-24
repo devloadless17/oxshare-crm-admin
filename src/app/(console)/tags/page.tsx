@@ -174,14 +174,6 @@ export default function TagsPage() {
           >
             {tag.label}
           </Badge>
-          {/* The platform's own tag (new-client intake, D-60). The badge is
-              also why its row offers no delete — the reason sits where the
-              operator looks for the control. */}
-          {tag.isSystem && (
-            <Badge variant="outline" title={t('tags.systemHint')}>
-              {t('tags.systemBadge')}
-            </Badge>
-          )}
         </span>
       ),
     },
@@ -220,24 +212,13 @@ export default function TagsPage() {
                 busy={deleteTag.isPending && deletingId === tag.id}
                 items={[
                   { label: t('tags.edit'), icon: Pencil, onSelect: () => openEdit(tag) },
-                  /*
-                   * No delete on a SYSTEM tag — the platform assigns it
-                   * (registration → new-client, D-60) and the API refuses the
-                   * delete with a 409. The "System" badge on the row carries
-                   * the explanation; offering a control that can only be
-                   * refused would move the answer into an error toast.
-                   */
-                  ...(tag.isSystem
-                    ? []
-                    : [
-                        {
-                          label: t('tags.delete'),
-                          icon: Trash2,
-                          destructive: true,
-                          separatorBefore: true,
-                          onSelect: () => void confirmDelete(tag),
-                        },
-                      ]),
+                  {
+                    label: t('tags.delete'),
+                    icon: Trash2,
+                    destructive: true,
+                    separatorBefore: true,
+                    onSelect: () => void confirmDelete(tag),
+                  },
                 ]}
               />
             ),
