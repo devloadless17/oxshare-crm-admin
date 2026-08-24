@@ -1,5 +1,12 @@
 import { expect, test } from './fixtures';
-import { adminApiSession, API_NODE_BASE, APP_ORIGIN, deleteCookie, routeHit } from './helpers';
+import {
+  acceptAdminInvite,
+  adminApiSession,
+  API_NODE_BASE,
+  APP_ORIGIN,
+  deleteCookie,
+  routeHit,
+} from './helpers';
 
 /**
  * Slice 5/5b — the console under session STRESS, plus the two families the
@@ -76,7 +83,23 @@ test('admin refresh-reuse detection signs every tab out', async ({ browser }) =>
    * token replayed (an attacker's stolen copy, or a captured cookie) burns the
    * whole family — so the live console session dies on its next request.
    */
-  const ctx = await browser.newContext({ storageState: 'e2e/.auth/admin.json' });
+  /*
+   * A DEDICATED admin, never the shared jar: reuse detection revokes the whole
+   * family, and burning e2e/.auth/admin.json signs every later spec in the run
+   * out — the portal's reuse test carries its own identity for the same reason.
+   */
+  const master = await adminApiSession();
+  const invited = await master.post('/admin/invite', {
+    email: `e2e-reuseburn-${Date.now()}@oxshare-e2e.test`,
+    name: 'E2E Reuse Burn',
+    permissions: ['clients.view'],
+  });
+  expect(invited.ok()).toBe(true);
+  const token = new URL(
+    ((await invited.json()) as { inviteUrl?: string }).inviteUrl ?? 'http://x/',
+  ).searchParams.get('token')!;
+  const burn = await acceptAdminInvite(token, `Reuseburn-${Date.now()}-123!`);
+  const ctx = await browser.newContext({ storageState: await burn.ctx.storageState() });
   const page = await ctx.newPage();
   try {
     await page.goto('/dashboard');
@@ -112,6 +135,9 @@ test('admin refresh-reuse detection signs every tab out', async ({ browser }) =>
     await page.waitForURL(/\/login/, { timeout: 20_000 });
   } finally {
     await ctx.close();
+    await master.patch(`/admin/users/${burn.id}/status`, { status: 'suspended' });
+    await burn.ctx.dispose();
+    await master.dispose();
   }
 });
 
