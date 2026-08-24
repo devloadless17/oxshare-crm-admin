@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import FlakyReporter from './src/test/flaky-reporter.js';
 
 export default defineConfig({
   plugins: [react()],
@@ -66,6 +67,21 @@ export default defineConfig({
      * retry count.
      */
     retry: 2,
+    /*
+     * `default`, plus one that NAMES what the retry above absorbed.
+     *
+     * The retry note is honest that its cost is "a test which becomes genuinely
+     * flaky is quieter", and nothing could tell you the retries had started: a
+     * pass on the third attempt reports identically to a pass on the first. So
+     * "is this suite getting flakier" was answerable only by remembering how
+     * often somebody re-ran it.
+     *
+     * This gates nothing and changes no exit code — the retries were measured
+     * and chosen, and failing on them here would undo that decision sideways.
+     * It prints the names, which is the half that was missing and the half you
+     * need before you can fix or shard anything.
+     */
+    reporters: ['default', new FlakyReporter()],
     /*
      * CAP THE WORKERS AT FOUR. This reverses the "capping is not here" verdict
      * in the note above, so here is the evidence and what changed.
@@ -186,11 +202,23 @@ export default defineConfig({
        * A FLOOR, a point or so under the measurement — never a target. It may
        * only ever go up.
        */
+      /*
+       * Raised 24 Aug 2026, against a measured `--coverage` run of 74 files /
+       * 870 tests: statements 60.79, branches 58.62, functions 52.13, lines
+       * 61.69. The gain came from the screens that arrived with tests this
+       * round — the product catalogue's spread markup and the IB programme
+       * order — plus the partner and catalogue work before it.
+       *
+       * A FLOOR, a point or so under the measurement, never a target. Raising
+       * it is the whole mechanism: a floor left below the real number cannot
+       * see the next regression, which is how this file came to be re-based
+       * DOWNWARD twice while ten screens landed with no tests at all.
+       */
       thresholds: {
-        lines: 58,
-        functions: 48,
-        branches: 55,
-        statements: 57,
+        lines: 61,
+        functions: 51,
+        branches: 58,
+        statements: 60,
       },
     },
   },
