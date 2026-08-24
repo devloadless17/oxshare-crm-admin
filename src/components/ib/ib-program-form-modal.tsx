@@ -7,6 +7,23 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
 
+/**
+ * An order the API will take, or `undefined` for "append".
+ *
+ * `Number(value) || 0` is deliberately not used. It is the idiom that turns a
+ * typo into a silent 0 — and 0 is the LOWEST order, so on this particular form
+ * it would quietly make the programme the default that every newly approved
+ * partner is paid on. A blank box means append; so does anything that is not a
+ * whole number in range, rather than being guessed at.
+ */
+function parseSortOrder(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (trimmed === '') return undefined;
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 1000) return undefined;
+  return parsed;
+}
+
 export interface IbProgramFormValues {
   name: string;
   mode: IbProgramMode;
@@ -14,6 +31,21 @@ export interface IbProgramFormValues {
   level2Rate: string;
   rebateRate: string;
   enabled: boolean;
+  /**
+   * Where this programme sits in the order — and therefore whether a NEWLY
+   * approved partner lands on it.
+   *
+   * `IbStore.defaultProgramId()` takes the ENABLED programme with the lowest
+   * order, ties broken by name. The API has always accepted this; the form had
+   * no control, so the order was assigned as max+1 at creation and could never
+   * be changed. An operator could build Gold, Silver and Platinum with no way
+   * to say which one new partners start on.
+   *
+   * Optional, and absent means APPEND — which is what the API already does for
+   * a create, and the right behaviour for "I am adding a programme, not
+   * reordering the ladder".
+   */
+  sortOrder?: number;
 }
 
 const MODES: IbProgramMode[] = ['commission_only', 'rebate_only', 'hybrid'];
@@ -103,6 +135,15 @@ function IbProgramForm({
   const [level2Rate, setLevel2Rate] = React.useState(program?.level2Rate ?? '0.0000');
   const [rebateRate, setRebateRate] = React.useState(program?.rebateRate ?? '0.0000');
   const [enabled, setEnabled] = React.useState(program?.enabled ?? true);
+  /*
+   * Blank while creating, so the API appends. Seeded with the stored value when
+   * editing, because that is the number the operator is deciding about — and
+   * because re-sending it unchanged is what stops an unrelated edit, like
+   * fixing a name, from moving the programme.
+   */
+  const [sortOrder, setSortOrder] = React.useState(
+    program === undefined ? '' : String(program.sortOrder),
+  );
 
   const paysCommission = mode !== 'rebate_only';
   const paysRebate = mode !== 'commission_only';
@@ -149,6 +190,7 @@ function IbProgramForm({
       level2Rate: level2Rate.trim(),
       rebateRate: rebateRate.trim(),
       enabled,
+      sortOrder: parseSortOrder(sortOrder),
     });
   };
 
@@ -247,6 +289,27 @@ function IbProgramForm({
               broker: new Decimal(100).minus(total).toString(),
             })}
       </div>
+
+      <label className="space-y-1.5">
+        <span className="block text-xs font-semibold">{t('ibPrograms.order')}</span>
+        <input
+          type="number"
+          value={sortOrder}
+          onChange={(event) => setSortOrder(event.target.value)}
+          min={0}
+          max={1000}
+          placeholder={t('ibPrograms.orderAppend')}
+          className="h-9 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        {/*
+          The hint IS the feature. An order field with no explanation reads as
+          cosmetic list-sorting, and this one decides which terms every newly
+          approved partner is paid on.
+        */}
+        <span className="block text-[11px] leading-relaxed text-muted-foreground">
+          {t('ibPrograms.orderHint')}
+        </span>
+      </label>
 
       <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 p-3">
         <Checkbox

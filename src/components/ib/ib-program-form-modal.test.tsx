@@ -188,3 +188,95 @@ describe('the mode', () => {
     expect(await screen.findByLabelText(/back to the client/i)).toBeInTheDocument();
   });
 });
+
+/**
+ * ── WHICH PROGRAMME A NEWLY APPROVED PARTNER LANDS ON ─────────────────────
+ *
+ * `IbStore.defaultProgramId()` takes the ENABLED programme with the lowest
+ * order, ties broken by name. The API has always supported setting that order;
+ * this form had no control for it, so it was assigned as max+1 at creation and
+ * could never be changed. An operator could build Gold, Silver and Platinum and
+ * have no way to say which one new partners start on — it was whichever they
+ * created first.
+ *
+ * That is a live commercial control, so the cases below are about the two ways
+ * it can go wrong quietly: a value that does not reach the API, and a typo that
+ * reaches it as 0 — which is the LOWEST order, and would silently make this
+ * programme the one every new partner is paid on.
+ */
+describe('the order that decides the default programme', () => {
+  it('sends the order the operator set', async () => {
+    const user = userEvent.setup();
+    renderForm({ sortOrder: 5 });
+
+    const field = screen.getByLabelText(/order/i);
+    await user.clear(field);
+    await user.type(field, '1');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ sortOrder: 1 }));
+  });
+
+  it('seeds from the stored order, so editing a name cannot move the programme', async () => {
+    const user = userEvent.setup();
+    renderForm({ sortOrder: 7 });
+
+    expect(screen.getByLabelText(/order/i)).toHaveValue(7);
+
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ sortOrder: 7 }));
+  });
+
+  it('treats a blank box as APPEND rather than as zero', async () => {
+    /*
+     * The distinction is the whole risk. Zero is the lowest order, so "blank
+     * means 0" would make every programme saved with an empty box the one new
+     * partners are paid on. Undefined lets the API append, which is what it
+     * already does for a create.
+     */
+    const user = userEvent.setup();
+    renderForm({ sortOrder: 3 });
+
+    await user.clear(screen.getByLabelText(/order/i));
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ sortOrder: undefined }));
+  });
+
+  it('refuses to submit an out-of-range order rather than coercing it', async () => {
+    /*
+     * THE ONE THAT MATTERS, and the reason `Number(x) || 0` is banned here.
+     *
+     * Zero is the LOWEST order, so a coerced typo would quietly make this
+     * programme the terms every newly approved partner is paid on — a
+     * commercial change nobody asked for, from a fat finger, with the form
+     * reporting success.
+     *
+     * The input's own `max` catches it first: the form does not submit at all,
+     * so nothing is sent and nothing is silently zeroed. `parseSortOrder` is
+     * the backstop for the day somebody removes that attribute, which is why it
+     * returns undefined rather than 0 and why it is unreachable from here.
+     */
+    const user = userEvent.setup();
+    renderForm({ sortOrder: 4 });
+
+    const field = screen.getByLabelText(/order/i);
+    await user.clear(field);
+    await user.type(field, '9999');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('explains that the lowest order is what new partners are put on', () => {
+    /*
+     * Without this sentence the field reads as cosmetic list-sorting. An
+     * operator reordering "for tidiness" would be changing what every partner
+     * approved tomorrow gets paid, and nothing else on the screen says so.
+     */
+    renderForm();
+
+    expect(screen.getByText(/newly approved partner/i)).toBeInTheDocument();
+    expect(screen.getByText(/lowest-ordered programme that is enabled/i)).toBeInTheDocument();
+  });
+});

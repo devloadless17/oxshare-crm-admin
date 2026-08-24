@@ -2390,6 +2390,16 @@ export const messages = {
   'ibPrograms.enabledHint':
     'A disabled programme pays nothing and takes no new partners. One that partners are already ' +
     'on cannot be disabled — move them first.',
+  'ibPrograms.order': 'Order',
+  'ibPrograms.orderAppend': 'Last',
+  /*
+   * Names the CONSEQUENCE, not the mechanic. "Lower comes first" would be true
+   * and useless: what this number decides is which terms a newly approved
+   * partner is paid on, and nothing else on the screen says so.
+   */
+  'ibPrograms.orderHint':
+    'Lowest order wins: a newly approved partner is put on the lowest-ordered programme that is ' +
+    'enabled. Leave blank to add this one at the end.',
   // Every leg is a share of the SAME revenue, so they add up. Saying what the
   // broker keeps is the other half of the sentence, and it is the number an
   // operator is actually deciding.
