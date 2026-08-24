@@ -529,8 +529,11 @@ export default function PartnerApprovalsPage() {
             : ''
         }
         // Null means the application named none, which is what makes the dialog
-        // ask instead of confirm.
-        requestedAgencyName={approving?.application.agencyName ?? null}
+        // ask instead of confirm. The resolved name lives on the ROW — the list
+        // endpoint attaches it beside the application, never inside it, so
+        // reading `application.agencyName` here would always find undefined and
+        // force the chooser on every application.
+        requestedAgencyName={approving?.agencyName ?? null}
         saving={approve.isPending}
         onClose={() => {
           setApproving(null);

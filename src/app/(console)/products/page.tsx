@@ -11,6 +11,7 @@ import { apiErrorMessage } from '@/lib/api/errors';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { Badge } from '@/components/ui/badge';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ProductFormModal, type ProductFormValues } from '@/components/products/product-form-modal';
@@ -93,8 +94,14 @@ export default function ProductsPage() {
        */
       const { groups: wantedGroups, ...product } = values;
 
+      /*
+       * `type` travels on CREATE only. It is fixed at creation and the API
+       * refuses a differing value on update — omitting it entirely cannot
+       * conflict, where echoing a stale one could.
+       */
+      const { type: _type, ...withoutType } = product;
       const saved = editing
-        ? await adminApi.updateProduct(editing.id, product)
+        ? await adminApi.updateProduct(editing.id, withoutType)
         : await adminApi.createProduct(product);
 
       const before = editing?.groups ?? [];
@@ -199,7 +206,14 @@ export default function ProductsPage() {
   const columns: Column<Product>[] = [
     {
       header: t('products.colName'),
-      cell: (product) => <span className="font-semibold">{product.name}</span>,
+      cell: (product) => (
+        <span className="flex items-center gap-2">
+          <span className="font-semibold">{product.name}</span>
+          {/* Only the demo product is badged — it is the exception, and a
+              "real" badge on every other row would label the normal case. */}
+          {product.type === 'demo' && <Badge variant="tag">{t('products.typeDemo')}</Badge>}
+        </span>
+      ),
       sortable: true,
       sortKey: 'name',
     },
@@ -341,6 +355,9 @@ export default function ProductsPage() {
       <ProductFormModal
         open={formOpen}
         product={editing}
+        demoTaken={(query.data ?? []).some(
+          (product) => product.type === 'demo' && product.id !== editing?.id,
+        )}
         saving={saveProduct.isPending}
         error={saveProduct.error}
         onSubmit={(values) => saveProduct.mutate(values)}

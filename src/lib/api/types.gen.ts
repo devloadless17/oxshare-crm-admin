@@ -5493,6 +5493,11 @@ export interface components {
             description?: string | null;
             /** @description A disabled product stops being sold and keeps its accounts. */
             enabled: boolean;
+            /**
+             * @description Fixed at creation. At most ONE demo product exists; it is offered to every client for demo accounts regardless of agency, and cannot be assigned to an agency. Real products carry live groups, the demo product carries demo groups.
+             * @enum {string}
+             */
+            type: "real" | "demo";
             /** @example 0 */
             sortOrder: number;
             groups: components["schemas"]["ProductGroupDto"][];
@@ -5519,6 +5524,8 @@ export interface components {
             description?: string | null;
             /** @example true */
             enabled: boolean;
+            /** @enum {string} */
+            type?: "real" | "demo";
             /** @example 0 */
             sortOrder: number;
         };
@@ -5706,8 +5713,6 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
-            /** @description A tag the platform itself assigns (new-client intake, D-60). Undeletable; label and colour editable; un-assigning from a client is how they are triaged out of it. */
-            isSystem: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -5872,8 +5877,6 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
-            /** @description A tag the platform itself assigns (new-client intake, D-60). Undeletable; label and colour editable; un-assigning from a client is how they are triaged out of it. */
-            isSystem: boolean;
             /** Format: date-time */
             createdAt: string;
             /** @description How many clients carry this tag. */

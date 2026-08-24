@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import ProductsPage from './page';
 import { ALL_PERMISSIONS } from '@/test/permissions';
@@ -66,6 +67,7 @@ function product(over: Partial<Product> = {}): Product {
     name: 'Standard',
     description: 'The default account.',
     enabled: true,
+    type: 'real',
     sortOrder: 0,
     groups: [{ id: 'g-1', environment: 'live', mt5Group: 'real\\Standard-USD', currency: 'USD' }],
     ...over,
@@ -143,5 +145,54 @@ describe('the product catalogue — who may change it', () => {
 
     await screen.findByText('Standard');
     expect(screen.queryByRole('button', { name: /add product/i })).toBeNull();
+  });
+});
+
+/*
+ * ── Real vs demo ──
+ *
+ * At most ONE demo product exists, and it is offered to every client
+ * automatically. The table has to say which row that is, and the create form
+ * has to stop a second one before the API refuses it.
+ */
+describe('the product catalogue — real and demo', () => {
+  it('badges the demo product and leaves the real rows unbadged', async () => {
+    getProducts.mockResolvedValue([
+      product(),
+      product({ id: 'p-2', name: 'Practice', type: 'demo', groups: [] }),
+    ]);
+    renderWithProviders(<ProductsPage />);
+
+    const demoRow = (await screen.findByText('Practice')).closest('tr');
+    const realRow = screen.getByText('Standard').closest('tr');
+    expect(demoRow).not.toBeNull();
+    expect(within(demoRow as HTMLElement).getByText(/^demo$/i)).toBeInTheDocument();
+    expect(within(realRow as HTMLElement).queryByText(/^demo$/i)).toBeNull();
+  });
+
+  it('disables the demo choice when a demo product already exists', async () => {
+    getProducts.mockResolvedValue([
+      product(),
+      product({ id: 'p-2', name: 'Practice', type: 'demo', groups: [] }),
+    ]);
+    const user = userEvent.setup();
+    renderWithProviders(<ProductsPage />);
+
+    await screen.findByText('Standard');
+    await user.click(screen.getByRole('button', { name: /add product/i }));
+
+    expect(await screen.findByRole('radio', { name: /demo/i })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: /real/i })).toBeEnabled();
+    expect(screen.getByText(/a demo product already exists/i)).toBeInTheDocument();
+  });
+
+  it('offers the demo choice when none exists yet', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ProductsPage />);
+
+    await screen.findByText('Standard');
+    await user.click(screen.getByRole('button', { name: /add product/i }));
+
+    expect(await screen.findByRole('radio', { name: /demo/i })).toBeEnabled();
   });
 });

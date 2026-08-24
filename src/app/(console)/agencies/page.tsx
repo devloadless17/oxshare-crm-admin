@@ -293,7 +293,12 @@ export default function AgenciesPage() {
       <AgencyFormModal
         open={formOpen}
         agency={editing}
-        products={products.data ?? []}
+        /*
+         * Real products only. The demo product is offered to every client
+         * automatically, and the API refuses to put it on an agency — a
+         * checkbox that always errors is worse than no checkbox.
+         */
+        products={(products.data ?? []).filter((product) => product.type === 'real')}
         saving={saveAgency.isPending}
         error={saveAgency.error}
         onSubmit={(values) => saveAgency.mutate(values)}
