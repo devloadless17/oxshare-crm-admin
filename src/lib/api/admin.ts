@@ -808,6 +808,16 @@ export type TradingSettings = components['schemas']['TradingSettingsDto'];
 export type UpdateTradingSettings = components['schemas']['UpdateTradingSettingsDto'];
 
 /**
+ * WHICH of the broker's earnings a partner's rate applies to — FR-IB-16.
+ *
+ * Aliased from the generated response rather than hand-written as a union, so
+ * the day the API adds or renames a basis this file stops compiling instead of
+ * quietly offering an option the engine does not implement. Same rule as every
+ * other type in this module.
+ */
+export type RevenueBasis = TradingSettings['ibRevenueBasis'];
+
+/**
  * The mail configuration.
  *
  * There is no `password` on the RESPONSE type, and that is the contract rather

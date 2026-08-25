@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, LineChart } from 'lucide-react';
 import { Spinner } from '@/components/ui/loader';
-import { adminApi, type TradingSettings } from '@/lib/api/admin';
+import { adminApi, type RevenueBasis, type TradingSettings } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -78,6 +78,13 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
   const [maxDemoDeposit, setMaxDemoDeposit] = React.useState(trimAmount(settings.maxDemoDeposit));
   const [ibCap, setIbCap] = React.useState(trimAmount(settings.ibMaxRevenueSharePct));
   const [holdHours, setHoldHours] = React.useState(String(settings.ibCommissionHoldHours));
+  /*
+   * WHAT a partner is paid on — FR-IB-16. A closed set, so a <select>: the
+   * other controls on this form are values an operator chooses freely, and
+   * this one is a choice between three implementations. A text box here would
+   * make a typo look like a decision.
+   */
+  const [revenueBasis, setRevenueBasis] = React.useState<RevenueBasis>(settings.ibRevenueBasis);
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
   const queryClient = useQueryClient();
@@ -90,6 +97,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         maxDemoDeposit: maxDemoDeposit.trim(),
         ibMaxRevenueSharePct: ibCap.trim(),
         ibCommissionHoldHours: parseHours(holdHours, settings.ibCommissionHoldHours),
+        ibRevenueBasis: revenueBasis,
       }),
     onSuccess: () => {
       setError(null);
@@ -108,7 +116,8 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
     maxDemoAccounts.trim() !== String(settings.maxDemoAccounts) ||
     maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit) ||
     ibCap.trim() !== trimAmount(settings.ibMaxRevenueSharePct) ||
-    holdHours.trim() !== String(settings.ibCommissionHoldHours);
+    holdHours.trim() !== String(settings.ibCommissionHoldHours) ||
+    revenueBasis !== settings.ibRevenueBasis;
 
   const disabled = !canManage || mutation.isPending;
   const clear = () => setError(null);
@@ -273,6 +282,53 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         />
       </Field>
 
+      {/*
+        WHAT a partner is paid on — FR-IB-16, and the only control on this form
+        that changes the SIZE of every future accrual rather than its timing.
+
+        Placed directly under the settlement window because the two are read
+        together: that one decides when a commission becomes spendable, this one
+        decides what it was a share of. Both were constants in the API's source
+        until they became settings, for the same reason — the people who make a
+        commercial decision should be able to see it and make it, and the change
+        should record who made it.
+      */}
+      <Field
+        id="trading-revenue-basis"
+        label={t('tradingSettings.revenueBasis')}
+        hint={t('tradingSettings.revenueBasisHint')}
+      >
+        <select
+          id="trading-revenue-basis"
+          value={revenueBasis}
+          onChange={(e) => {
+            setRevenueBasis(e.target.value as RevenueBasis);
+            clear();
+          }}
+          disabled={disabled}
+          className={INPUT_CLASS}
+        >
+          {REVENUE_BASES.map((basis) => (
+            <option key={basis} value={basis}>
+              {t(`tradingSettings.revenueBasis.${basis}` as Parameters<typeof t>[0])}
+            </option>
+          ))}
+        </select>
+
+        {/*
+          Shown only when the choice would actually read the markups, because a
+          warning that is always on screen is one nobody reads. The ORDER is the
+          whole content: a product left at 0 earns nothing, and a trade that
+          earns nothing is closed permanently — so this cannot be undone by
+          changing the field back, which is exactly what somebody would try.
+        */}
+        {revenueBasis !== 'commission_swap' && (
+          <p role="status" className="text-[11px] font-medium text-warning">
+            {t('tradingSettings.revenueBasisWarning')}
+          </p>
+        )}
+      </Field>
+
       {error && (
         <p role="alert" className="text-[11px] text-destructive">
           {error}
@@ -353,6 +409,16 @@ function trimAmount(value: string): string {
   if (!value.includes('.')) return value;
   return value.replace(/0+$/, '').replace(/\.$/, '');
 }
+
+/**
+ * The order the options are OFFERED in, which is not arbitrary.
+ *
+ * The default first, so the list opens on what the platform is already doing;
+ * then the two that re-price the book. Declared here rather than derived from
+ * the generated union because a union has no order, and an operator scanning
+ * three similar phrases should meet the safe one first.
+ */
+const REVENUE_BASES = ['commission_swap', 'spread', 'commission_swap_spread'] as const;
 
 const INPUT_CLASS =
   'h-9 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60';

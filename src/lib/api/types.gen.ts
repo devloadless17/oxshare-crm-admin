@@ -1082,6 +1082,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ib/accruals/{id}/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reverse a commission or rebate accrual
+         * @description The remedy for a dealer-cancelled trade, a mistyped rate caught late, or a duplicate. A PENDING accrual reverses for free — the money never moved. A CONFIRMED one posts a compensating ledger entry against the wallet that was credited, because `ledger_entries` is append-only and a credit is never edited. Reversing twice is a no-op, not a second debit. If the beneficiary has already spent or withdrawn the money the reversal REFUSES: wallets cannot go negative, so the recovery is a conversation rather than an API call.
+         */
+        post: operations["AdminIbController_reverseAccrual"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ib/partners": {
         parameters: {
             query?: never;
@@ -4497,6 +4517,13 @@ export interface components {
             /** @description The reviewer's own words, appended to the label. */
             note?: string;
         };
+        ReverseAccrualDto: {
+            /**
+             * @description Recorded on the audit row. Name the cancellation or the decision behind it.
+             * @example MT5 deal 41207 cancelled by the dealer on 2026-08-24.
+             */
+            reason: string;
+        };
         IbPartnerPersonDto: {
             userId: string;
             email: string;
@@ -5434,6 +5461,17 @@ export interface components {
              * @example 24
              */
             ibCommissionHoldHours: number;
+            /**
+             * @description When commission starts being paid from. NULL means NOBODY HAS DECIDED, and the engine holds rather than paying a historical backlog by accident. "all" pays the whole history deliberately; an ISO instant pays from there and marks everything older decided-and-unpaid.
+             * @example 2026-08-24T00:00:00.000Z
+             */
+            ibAccrualStart?: string | null;
+            /**
+             * @description Which of the broker's earnings a partner's rate applies to. 'commission_swap' (the default, and what the platform shipped on) is MT5's charged commission + swap; 'spread' is lots x the product's spread markup per lot; 'commission_swap_spread' is both. Changing it re-prices every FUTURE trade and nothing already decided.
+             * @example commission_swap
+             * @enum {string}
+             */
+            ibRevenueBasis: "commission_swap" | "spread" | "commission_swap_spread";
             /** Format: date-time */
             updatedAt?: string | null;
         };
@@ -5454,6 +5492,17 @@ export interface components {
             ibMaxRevenueSharePct: string;
             /** @example 24 */
             ibCommissionHoldHours: number;
+            /**
+             * @description null holds the engine, "all" pays the whole backlog, or an ISO 8601 instant. Applies ONLY to deals not yet decided — a deal already processed is never revisited, so moving this date backwards later recovers nothing and reports no error.
+             * @example 2026-08-24T00:00:00.000Z
+             */
+            ibAccrualStart?: string | null;
+            /**
+             * @description 'commission_swap' (default) pays on MT5's charged commission + swap; 'spread' pays on lots x the product's spread markup; 'commission_swap_spread' pays on both. Applies to FUTURE trades only. Populate product spread markups BEFORE choosing a spread-inclusive basis: a zero markup yields zero revenue, and a zero-revenue deal is decided permanently.
+             * @example commission_swap
+             * @enum {string}
+             */
+            ibRevenueBasis?: "commission_swap" | "spread" | "commission_swap_spread";
         };
         SmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */
@@ -8349,6 +8398,29 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminIbController_reverseAccrual: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReverseAccrualDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

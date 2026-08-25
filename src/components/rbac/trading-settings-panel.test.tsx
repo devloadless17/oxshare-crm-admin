@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { TradingSettingsPanel, parseHours } from './trading-settings-panel';
@@ -39,6 +39,13 @@ const SAVED = {
   maxDemoDeposit: '1000000.00000000',
   ibMaxRevenueSharePct: '50.00',
   ibCommissionHoldHours: 24,
+  /*
+   * The basis the platform actually ships on. Present in the fixture rather
+   * than omitted, because the select is CONTROLLED — an absent value would
+   * make it uncontrolled and every assertion below would be reading a widget
+   * React is not managing.
+   */
+  ibRevenueBasis: 'commission_swap' as const,
   updatedAt: null,
 };
 
@@ -145,5 +152,103 @@ describe('parseHours', () => {
     // engine having stopped.
     expect(parseHours('24000', 24)).toBe(24);
     expect(parseHours('8760', 24)).toBe(8760);
+  });
+});
+
+/**
+ * WHAT a partner is paid on — FR-IB-16.
+ *
+ * The FSD calls commission spread-based and the engine computes on charges,
+ * because MT5 reports no per-deal spread revenue to compute from. That argument
+ * holds; what did not hold was that the one number deciding what every partner
+ * earns lived as a constant in the API's source, reachable only by deploy and
+ * recorded nowhere.
+ *
+ * So these cases are about a decision having an owner. The first two are the
+ * compatibility guarantee — nothing re-prices itself — and the last is the
+ * warning that stops an operator doing it in the wrong order.
+ */
+describe('what partners are paid on', () => {
+  async function basisBox() {
+    return await screen.findByLabelText(/partners are paid on/i);
+  }
+
+  it('opens on what the platform is actually paying', async () => {
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    expect(await basisBox()).toHaveValue('commission_swap');
+  });
+
+  it('offers the default FIRST, so the safe option is the one met first', async () => {
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    const options = within(await basisBox()).getAllByRole('option');
+    expect(options.map((o) => o.getAttribute('value'))).toEqual([
+      'commission_swap',
+      'spread',
+      'commission_swap_spread',
+    ]);
+  });
+
+  it('leaves the basis alone when an unrelated field is saved', async () => {
+    /*
+     * The guarantee that matters most on this form. Every other control here is
+     * a term an operator adjusts casually; this one re-prices the book. Adjusting
+     * the demo cap and saving must not carry a repricing along with it.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    const box = await windowBox();
+    await user.clear(box);
+    await user.type(box, '48');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(updateTradingSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ ibCommissionHoldHours: 48, ibRevenueBasis: 'commission_swap' }),
+      ),
+    );
+  });
+
+  it('sends the chosen basis', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    await user.selectOptions(await basisBox(), 'commission_swap_spread');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(updateTradingSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ ibRevenueBasis: 'commission_swap_spread' }),
+      ),
+    );
+  });
+
+  it('warns about the ORDER only when the choice would read the markups', async () => {
+    /*
+     * The irreversible half, and the reason the warning is conditional rather
+     * than permanent: under the default the markups are never read, so the
+     * warning would be noise — and a warning that is always on screen is one
+     * nobody reads on the day it matters.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    const box = await basisBox();
+    expect(screen.queryByText(/set the spread markup on every product/i)).not.toBeInTheDocument();
+
+    await user.selectOptions(box, 'spread');
+    expect(screen.getByText(/set the spread markup on every product/i)).toBeInTheDocument();
+    expect(screen.getByText(/changing this back will not recover it/i)).toBeInTheDocument();
+
+    await user.selectOptions(box, 'commission_swap');
+    expect(screen.queryByText(/set the spread markup on every product/i)).not.toBeInTheDocument();
+  });
+
+  it('cannot be changed without the permission', async () => {
+    renderWithProviders(<TradingSettingsPanel canManage={false} />);
+
+    expect(await basisBox()).toBeDisabled();
   });
 });
