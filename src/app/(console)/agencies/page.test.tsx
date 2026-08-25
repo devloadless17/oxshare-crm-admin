@@ -80,6 +80,10 @@ function product(over: Partial<Product> = {}): Product {
     description: null,
     enabled: true,
     type: 'real',
+    // Required on ProductDto, so a fixture without it stops compiling — which
+    // is the contract guard doing its job rather than a chore. A commercial
+    // record only: nothing on this screen computes from it.
+    spreadMarkupPerLot: '0.00000000',
     sortOrder: 0,
     groups: [],
     ...over,

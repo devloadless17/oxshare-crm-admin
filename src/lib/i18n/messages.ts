@@ -1378,6 +1378,15 @@ export const messages = {
   'products.createTitle': 'Add product',
   'products.saving': 'Saving...',
   'products.orderHint': 'Lower comes first in the client’s list.',
+  'products.markup': 'Spread markup per lot',
+  /*
+   * Says what it does AND what it does not, because the second is the part
+   * somebody will otherwise assume. Nothing computes from this figure — it is
+   * what the desk says the product is sold on — and an operator who believed it
+   * changed partner payouts would set it very differently.
+   */
+  'products.markupHint':
+    'What the desk sells this product on, in the account currency. Recorded for reference only — it does not change what any partner is paid.',
   'products.saveSucceeded': '{name} saved',
   'products.deleteSucceeded': '{name} deleted',
   'products.enabledSucceeded': '{name} is now active',
@@ -1394,6 +1403,7 @@ export const messages = {
   'products.colGroups': 'Groups',
   'products.colCurrencies': 'Currencies',
   'products.colOrder': 'Order',
+  'products.colMarkup': 'Markup / lot',
   'products.colStatus': 'Status',
   'products.statusActive': 'Active',
   'products.statusInactive': 'Inactive',
@@ -2380,6 +2390,16 @@ export const messages = {
   'ibPrograms.enabledHint':
     'A disabled programme pays nothing and takes no new partners. One that partners are already ' +
     'on cannot be disabled — move them first.',
+  'ibPrograms.order': 'Order',
+  'ibPrograms.orderAppend': 'Last',
+  /*
+   * Names the CONSEQUENCE, not the mechanic. "Lower comes first" would be true
+   * and useless: what this number decides is which terms a newly approved
+   * partner is paid on, and nothing else on the screen says so.
+   */
+  'ibPrograms.orderHint':
+    'Lowest order wins: a newly approved partner is put on the lowest-ordered programme that is ' +
+    'enabled. Leave blank to add this one at the end.',
   // Every leg is a share of the SAME revenue, so they add up. Saying what the
   // broker keeps is the other half of the sentence, and it is the number an
   // operator is actually deciding.

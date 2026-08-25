@@ -32,6 +32,15 @@ export interface ProductFormValues {
   enabled: boolean;
   /** Chosen at creation, immutable after — the API refuses a change. */
   type: 'real' | 'demo';
+  /**
+   * A decimal STRING, and it stays one all the way to the column.
+   *
+   * `NUMERIC(28,8)` on the backend. A JSON number would round-trip through a
+   * float somewhere between this input and the database, and a markup of `1.5`
+   * that arrives as `1.4999999999` is the kind of wrong that survives review
+   * because it looks almost right. Same rule as the commission rates.
+   */
+  spreadMarkupPerLot: string;
   sortOrder: number;
   /** The complete set the operator wants. The caller diffs it against the row. */
   groups: StagedGroup[];
@@ -136,6 +145,13 @@ function ProductForm({
    */
   const enabled = product?.enabled ?? true;
   const [sortOrder, setSortOrder] = React.useState(String(product?.sortOrder ?? 0));
+  /*
+   * Seeded from the stored STRING, never from a number. `String(x)` on a parsed
+   * value would already have lost the trailing zeros the column keeps, so an
+   * operator opening the form would see a different number from the one they
+   * saved.
+   */
+  const [markup, setMarkup] = React.useState(product?.spreadMarkupPerLot ?? '0');
   const [groups, setGroups] = React.useState<StagedGroup[]>(product?.groups ?? []);
 
   /*
@@ -198,6 +214,16 @@ function ProductForm({
       description: description.trim() || null,
       enabled,
       type,
+      /*
+       * Trimmed, and an empty box means ZERO rather than "leave it alone".
+       *
+       * The API treats an omitted markup as unchanged — which is what protects
+       * it from the enable/disable toggle, which sends a PUT without this field
+       * at all. A form that always SHOWS the current value is a different
+       * promise: somebody who clears the box means nought, and sending nothing
+       * would quietly ignore them.
+       */
+      spreadMarkupPerLot: markup.trim() === '' ? '0' : markup.trim(),
       sortOrder: parseOrder(sortOrder),
       groups,
     });
@@ -228,6 +254,28 @@ function ProductForm({
           className={INPUT_CLASS}
         />
         <span className="block text-[11px] text-muted-foreground">{t('products.orderHint')}</span>
+      </label>
+
+      <label className="space-y-1.5 sm:col-span-2">
+        <span className="block text-xs font-semibold">{t('products.markup')}</span>
+        {/*
+          `type="text"`, deliberately, with `inputMode="decimal"` for the phone
+          keypad. A number input hands back a NUMBER, which is the one thing
+          this value must never become between the form and a NUMERIC(28,8)
+          column — and it also lets a browser's spinner round a value nobody
+          touched. The API validates the shape and refuses anything else.
+        */}
+        <input
+          type="text"
+          inputMode="decimal"
+          value={markup}
+          onChange={(event) => setMarkup(event.target.value)}
+          placeholder="0"
+          className={INPUT_CLASS}
+        />
+        <span className="block text-[11px] leading-relaxed text-muted-foreground">
+          {t('products.markupHint')}
+        </span>
       </label>
 
       <label className="space-y-1.5 sm:col-span-2">
