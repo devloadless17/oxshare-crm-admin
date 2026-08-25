@@ -2,7 +2,13 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
-import { TradingSettingsPanel, parseHours } from './trading-settings-panel';
+import {
+  TradingSettingsPanel,
+  accrualDateOf,
+  accrualModeOf,
+  accrualStartValue,
+  parseHours,
+} from './trading-settings-panel';
 
 /**
  * The Trading tab, and in particular the SETTLEMENT WINDOW that just arrived on
@@ -46,6 +52,8 @@ const SAVED = {
    * React is not managing.
    */
   ibRevenueBasis: 'commission_swap' as const,
+  /* Undecided, which is the state a platform that has not chosen is in. */
+  ibAccrualStart: null,
   updatedAt: null,
 };
 
@@ -250,5 +258,203 @@ describe('what partners are paid on', () => {
     renderWithProviders(<TradingSettingsPanel canManage={false} />);
 
     expect(await basisBox()).toBeDisabled();
+  });
+});
+
+/**
+ * The BACKLOG DECISION — which trades the engine pays for at all.
+ *
+ * It had an API, a column and an audit trail, and no control anywhere, so the
+ * only way to make the platform's most irreversible decision was to write to
+ * the database by hand. These cases cover the three things that can go wrong
+ * now that a person can make it from a form: reading a stored value back
+ * wrongly, turning a picked date into the wrong instant, and letting an
+ * irreversible change through without anybody confirming it.
+ */
+describe('accrualModeOf / accrualDateOf', () => {
+  it('reads an absent value as undecided', () => {
+    expect(accrualModeOf(null)).toBe('unset');
+    expect(accrualModeOf(undefined)).toBe('unset');
+    expect(accrualModeOf('')).toBe('unset');
+  });
+
+  it('reads the two decided shapes', () => {
+    expect(accrualModeOf('all')).toBe('all');
+    expect(accrualModeOf('2026-08-01T00:00:00.000Z')).toBe('from');
+  });
+
+  it('takes the date part WITHOUT going through UTC', () => {
+    /*
+     * The bug this exists to prevent: `new Date(stored).toISOString().slice(0, 10)`
+     * converts to UTC first, so a value saved as local midnight in an eastern
+     * zone reads back as the previous day — the operator opens the form and
+     * finds a decision one day earlier than the one they made.
+     */
+    expect(accrualDateOf('2026-08-01T00:00:00.000Z')).toBe('2026-08-01');
+    expect(accrualDateOf('2026-08-01T23:30:00.000Z')).toBe('2026-08-01');
+  });
+
+  it('has no date to show for the other two shapes', () => {
+    expect(accrualDateOf('all')).toBe('');
+    expect(accrualDateOf(null)).toBe('');
+  });
+});
+
+describe('accrualStartValue', () => {
+  it('sends null for undecided, whatever is in the date box', () => {
+    expect(accrualStartValue('unset', '2026-08-01')).toBeNull();
+  });
+
+  it('sends the literal for the whole backlog', () => {
+    expect(accrualStartValue('all', '')).toBe('all');
+  });
+
+  it('turns a picked date into LOCAL midnight, not UTC midnight', () => {
+    /*
+     * An operator choosing 1 August means their own 1 August. UTC midnight is
+     * the evening of 31 July in the Americas, so trades either side of the
+     * boundary would be decided against a day nobody picked.
+     */
+    expect(accrualStartValue('from', '2026-08-01')).toBe(
+      new Date('2026-08-01T00:00:00').toISOString(),
+    );
+  });
+
+  it('is refused rather than sent malformed when no date was picked', () => {
+    // The caller turns this into "choose the date", which beats the API's
+    // pattern message naming a regex.
+    expect(accrualStartValue('from', '')).toBeNull();
+    expect(accrualStartValue('from', '2026-08')).toBeNull();
+    expect(accrualStartValue('from', 'tomorrow')).toBeNull();
+  });
+
+  it('produces a value the API DTO would accept', () => {
+    // The backend validates this exact pattern. Pinned here so a change to
+    // either side fails in this repo rather than at runtime.
+    const pattern = /^(all|\d{4}-\d{2}-\d{2}T[\d:.]+Z?)$/;
+    expect(pattern.test(String(accrualStartValue('all', '')))).toBe(true);
+    expect(pattern.test(String(accrualStartValue('from', '2026-08-01')))).toBe(true);
+  });
+});
+
+describe('the backlog decision on the trading form', () => {
+  async function modeBox() {
+    return await screen.findByLabelText(/commission is paid from/i);
+  }
+
+  it('opens on undecided, and says what that state costs', async () => {
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    expect(await modeBox()).toHaveValue('unset');
+    expect(screen.getByText(/the engine stops rather than paying a backlog/i)).toBeInTheDocument();
+  });
+
+  it('shows a date box only when a date is what is being chosen', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    const box = await modeBox();
+    expect(screen.queryByLabelText(/paying from/i)).not.toBeInTheDocument();
+
+    await user.selectOptions(box, 'from');
+    expect(screen.getByLabelText(/paying from/i)).toBeInTheDocument();
+
+    await user.selectOptions(box, 'all');
+    expect(screen.queryByLabelText(/paying from/i)).not.toBeInTheDocument();
+  });
+
+  it('refuses "from a date" with no date, naming the field', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    await user.selectOptions(await modeBox(), 'from');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/choose the date/i);
+    expect(updateTradingSettings).not.toHaveBeenCalled();
+  });
+
+  it('will not pay the whole backlog without a confirmation', async () => {
+    /*
+     * The one that matters. "Pay everything" can credit months of commission in
+     * a single run, and it does not come back by changing the field.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    await user.selectOptions(await modeBox(), 'all');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    expect(await screen.findByText(/pay commission on every trade on record/i)).toBeInTheDocument();
+    expect(updateTradingSettings).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: /set the start date/i }));
+
+    await waitFor(() =>
+      expect(updateTradingSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ ibAccrualStart: 'all' }),
+      ),
+    );
+  });
+
+  it('sends nothing when the confirmation is declined', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    await user.selectOptions(await modeBox(), 'all');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    await screen.findByText(/pay commission on every trade on record/i);
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    await waitFor(() => expect(updateTradingSettings).not.toHaveBeenCalled());
+  });
+
+  it('does NOT confirm when an unrelated field is saved', async () => {
+    /*
+     * A confirmation on every save is one people learn to click through. It
+     * fires when the decision changes, and not otherwise.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    const box = await windowBox();
+    await user.clear(box);
+    await user.type(box, '48');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(updateTradingSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ ibCommissionHoldHours: 48, ibAccrualStart: null }),
+      ),
+    );
+    expect(screen.queryByText(/pay commission on every trade on record/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a decision already made, and clears back to undecided freely', async () => {
+    const user = userEvent.setup();
+    getTradingSettings.mockResolvedValue({ ...SAVED, ibAccrualStart: 'all' });
+    renderWithProviders(<TradingSettingsPanel canManage />);
+
+    expect(await modeBox()).toHaveValue('all');
+
+    /*
+     * Back to undecided needs NO confirmation: it stops the engine rather than
+     * paying anything, which is the safe direction. Gating the safe direction
+     * as heavily as the dangerous one is how a gate stops being read.
+     */
+    await user.selectOptions(await modeBox(), 'unset');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(updateTradingSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ ibAccrualStart: null }),
+      ),
+    );
+  });
+
+  it('cannot be changed without the permission', async () => {
+    renderWithProviders(<TradingSettingsPanel canManage={false} />);
+
+    expect(await modeBox()).toBeDisabled();
   });
 });
