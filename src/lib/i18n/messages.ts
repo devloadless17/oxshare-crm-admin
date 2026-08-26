@@ -1365,6 +1365,51 @@ export const messages = {
   'tradingSettings.holdHoursHint':
     'How long a commission is held before a partner can spend it. 0 pays as soon as it is ' +
     'calculated, which leaves no window to reverse a trade in.',
+  // WHAT a partner is paid on, as against how long it is held. This was a
+  // constant in the API's source until it became a setting, so the hint carries
+  // the whole decision: what each option means, and the order that matters.
+  'tradingSettings.revenueBasis': 'Partners are paid on',
+  'tradingSettings.revenueBasisHint':
+    'Which of the broker earnings a partner rate applies to. Charges is what the platform has ' +
+    'always paid on. Changing this re-prices FUTURE trades only — nothing already calculated is ' +
+    'restated.',
+  'tradingSettings.revenueBasisWarning':
+    'Before choosing an option that includes spread, set the spread markup on every product. A ' +
+    'product left at 0 earns nothing, and a trade that earns nothing is closed permanently — ' +
+    'changing this back will not recover it.',
+  'tradingSettings.revenueBasis.commission_swap': 'Charges — commission + swap (default)',
+  'tradingSettings.revenueBasis.spread': 'Spread — lots x the product markup',
+  'tradingSettings.revenueBasis.commission_swap_spread': 'Both — charges and spread',
+  // The BACKLOG DECISION — the only irreversible field on this form, and the
+  // one that had no control at all until now. Three meanings, one of which is a
+  // moment, so the copy has to carry what each option actually does rather than
+  // leaving an operator to infer it from a date box.
+  'tradingSettings.accrualStart': 'Commission is paid from',
+  'tradingSettings.accrualStartHint':
+    'Which trades the engine will pay partners for. This applies ONLY to trades it has not already ' +
+    'decided — a trade already processed is never revisited, so changing this later re-prices ' +
+    'nothing and reports no error.',
+  'tradingSettings.accrualStart.unset': 'Not decided yet — the engine holds',
+  'tradingSettings.accrualStart.all': 'Every trade on record, including history',
+  'tradingSettings.accrualStart.from': 'Trades from a date onwards',
+  'tradingSettings.accrualStartDate': 'Paying from',
+  'tradingSettings.accrualStartUnsetNote':
+    'While this is undecided the engine stops rather than paying a backlog nobody chose. That is ' +
+    'the safe state, and it is also indistinguishable from "no trades yet" — so it will not ' +
+    'resolve itself.',
+  'tradingSettings.accrualStartWarning':
+    'Money paid to a partner for a trade nobody meant to pay for comes back by conversation, not ' +
+    'by changing this field.',
+  'tradingSettings.accrualStartDateMissing': 'Choose the date commission should be paid from.',
+  'tradingSettings.confirmAccrualTitle': 'Pay commission on every trade on record?',
+  'tradingSettings.confirmAccrualAllBody':
+    'This includes the whole history the platform has ingested. On a busy book that can be months ' +
+    'of commission credited in a single run, and it cannot be undone from this screen.',
+  'tradingSettings.confirmAccrualFromTitle': 'Start paying commission from {date}?',
+  'tradingSettings.confirmAccrualFromBody':
+    'Trades before this date will be marked decided and will never accrue. Trades from it onwards ' +
+    'will be paid on the next run. Neither is reversible from this screen.',
+  'tradingSettings.confirmAccrualAction': 'Set the start date',
   'tradingSettings.readOnly': 'You do not have permission to change these.',
   'tradingSettings.updateFailed': 'Could not save the trading settings.',
   'tradingSettings.save': 'Save changes',
