@@ -12030,10 +12030,14 @@ export interface operations {
             query?: {
                 format?: "csv";
                 direction?: "deposit" | "withdrawal";
+                /** @description payment = crossed the platform boundary through a provider; transfer = wallet ⇄ trading account; commission_transfer = partner earnings to their main wallet. */
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Narrow to one client (UUID). */
                 userId?: string;
+                /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
+                /** @description Search the client’s email and name — the same columns every other queue searches. */
                 q?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 from?: string;
@@ -12061,10 +12065,14 @@ export interface operations {
         parameters: {
             query?: {
                 direction?: "deposit" | "withdrawal";
+                /** @description payment = crossed the platform boundary through a provider; transfer = wallet ⇄ trading account; commission_transfer = partner earnings to their main wallet. */
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Narrow to one client (UUID). */
                 userId?: string;
+                /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
+                /** @description Search the client’s email and name — the same columns every other queue searches. */
                 q?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 from?: string;
@@ -12096,6 +12104,7 @@ export interface operations {
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description Narrow to one client (UUID). */
                 userId?: string;
+                /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
                 /** @description Search the client’s email and name — the same columns every other queue searches. */
                 q?: string;
