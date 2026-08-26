@@ -649,10 +649,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-
-        {/* Account menu — identity, theme and sign-out, behind one trigger.
-            Matches the portal's sidebar foot; see layout/user-menu.tsx. */}
-        <UserMenu collapsed={collapsed} />
       </aside>
 
       {/* Main Content Area */}
@@ -735,19 +731,15 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <NotificationsSheet />
 
             {/*
-              The theme toggle used to live here — a two-button light/dark
-              control with no way to say "follow the OS". It is now Light / Dark
-              / System inside the account menu at the foot of the sidebar, which
-              is where a personal preference belongs rather than beside system
-              status and notifications.
-
-              `lg:hidden` because on desktop the sidebar footer already carries
-              it; on mobile the sidebar is a drawer, so the account menu needs a
-              second home in the header.
+              The account menu lives HERE, at every breakpoint — the top-right
+              placement the product owner asked for, matching the portal. It
+              used to sit at the foot of the sidebar on desktop with this
+              header copy gated `lg:hidden`; one menu in one place means one
+              selector for the tests and no duplicate trigger for a screen
+              reader to announce twice. The theme control (Light/Dark/System)
+              lives inside it — a personal preference, not system status.
             */}
-            <div className="lg:hidden">
-              <UserMenu collapsed variant="header" />
-            </div>
+            <UserMenu collapsed variant="header" />
           </div>
         </header>
 
