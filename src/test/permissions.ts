@@ -69,9 +69,6 @@ export const ALL_PERMISSIONS: string[] = [
   'ib.view',
   'ib.approve',
   'ib.reject',
-  'ib.levels.create',
-  'ib.levels.edit',
-  'ib.levels.delete',
   /*
    * The programme keys, missing since the catalogue screen shipped — the exact
    * drift the note at the top of this file warns about. Without them an

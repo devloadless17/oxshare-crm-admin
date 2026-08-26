@@ -33,8 +33,10 @@ function program(over: Partial<IbProgram> = {}): IbProgram {
     name: 'Gold',
     sortOrder: 0,
     mode: 'commission_only',
-    level1Rate: '60.0000',
-    level2Rate: '40.0000',
+    tiers: [
+      { depth: 1, rate: '60.0000' },
+      { depth: 2, rate: '40.0000' },
+    ],
     rebateRate: '0.0000',
     enabled: true,
     partnerCount: 3,
@@ -65,7 +67,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   getIbPrograms.mockResolvedValue([
     program(),
-    program({ id: 'p-silver', name: 'Silver', level1Rate: '30.0000', level2Rate: '10.0000' }),
+    program({
+      id: 'p-silver',
+      name: 'Silver',
+      tiers: [
+        { depth: 1, rate: '30.0000' },
+        { depth: 2, rate: '10.0000' },
+      ],
+    }),
   ]);
   changeIbPartnerProgram.mockResolvedValue({});
 });
@@ -91,16 +100,42 @@ describe('moving a partner onto another programme', () => {
 
   /*
    * "Gold" alone does not say what an operator is about to change somebody's
-   * pay TO. The rates are the decision, and they keep their scale on the way to
-   * the DOM for the same reason every other rate on this product does.
+   * pay TO. The LADDER is the decision — every level, and how many of them,
+   * because the count is how far this partner's earnings will reach. The rates
+   * keep their scale on the way to the DOM for the same reason every other rate
+   * on this product does.
    */
-  it('shows the rates beside each name, not just the name', async () => {
+  it('shows the whole ladder beside each name, not just the name', async () => {
+    renderDialog();
+
+    expect(await screen.findByText(/L1 60% · L2 40% — reaches 2 level\(s\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/L1 30% · L2 10% — reaches 2 level\(s\)/i)).toBeInTheDocument();
+  });
+
+  /*
+   * A programme reaching further is a materially different offer, and the count
+   * is the only part of it that is not a percentage. Pinned separately because
+   * a renderer that dropped the deepest tier would still pass the assertion
+   * above on its first two levels.
+   */
+  it('says how far a deeper programme reaches', async () => {
+    getIbPrograms.mockResolvedValue([
+      program(),
+      program({
+        id: 'p-deep',
+        name: 'Platinum',
+        tiers: [
+          { depth: 1, rate: '40.0000' },
+          { depth: 2, rate: '20.0000' },
+          { depth: 3, rate: '5.0000' },
+        ],
+      }),
+    ]);
     renderDialog();
 
     expect(
-      await screen.findByText(/60% own clients · 40% sub-partner clients/i),
+      await screen.findByText(/L1 40% · L2 20% · L3 5% — reaches 3 level\(s\)/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/30% own clients · 10% sub-partner clients/i)).toBeInTheDocument();
   });
 
   it('starts on the programme the partner is already paid by', async () => {

@@ -68,8 +68,10 @@ function program(over: Partial<IbProgram> = {}): IbProgram {
     name: 'Gold',
     sortOrder: 0,
     mode: 'commission_only',
-    level1Rate: '60.0000',
-    level2Rate: '40.0000',
+    tiers: [
+      { depth: 1, rate: '60.0000' },
+      { depth: 2, rate: '40.0000' },
+    ],
     rebateRate: '0.0000',
     enabled: true,
     partnerCount: 0,
@@ -85,6 +87,20 @@ beforeEach(() => {
   getIbPrograms.mockResolvedValue([program()]);
   deleteIbProgram.mockResolvedValue(undefined);
 });
+
+/**
+ * Open one row's actions menu.
+ *
+ * The edit and delete controls moved off the row and into `RowActions` when
+ * this page adopted the shared `DataTable` — the same menu every other
+ * catalogue screen uses. A wide table scrolls inline buttons off the trailing
+ * edge; a pinned menu does not.
+ */
+async function openRowActions(user: typeof userEvent, name = 'Gold') {
+  await user.click(
+    await screen.findByRole('button', { name: new RegExp(`actions for ${name}`, 'i') }),
+  );
+}
 
 describe('the commission programme catalogue', () => {
   it('lists the programmes a partner can be paid on', async () => {
@@ -133,16 +149,21 @@ describe('the commission programme catalogue', () => {
     expect(screen.queryByText('5.0000%')).toBeNull();
   });
 
-  it('hides BOTH partner legs on a rebate-only programme', async () => {
+  it('hides the whole ladder on a rebate-only programme', async () => {
     getIbPrograms.mockResolvedValue([
-      program({ mode: 'rebate_only', level1Rate: '60.0000', rebateRate: '10.0000' }),
+      program({
+        mode: 'rebate_only',
+        tiers: [{ depth: 1, rate: '60.0000' }],
+        rebateRate: '10.0000',
+      }),
     ]);
     renderWithProviders(<IbProgramsPage />);
 
     await screen.findByText('Gold');
-    // Two dashes: own clients and sub-partners' clients. The rebate is the one
-    // leg that pays, and it keeps its scale.
-    expect(screen.getAllByText('—')).toHaveLength(2);
+    // One dash where the ladder would be. The rebate is the one leg that pays,
+    // and it keeps its scale. A carried-but-unpaid tier must not be presented
+    // as a rate that pays somebody.
+    expect(screen.getAllByText('—')).toHaveLength(1);
     expect(screen.getByText('10.0000%')).toBeInTheDocument();
     expect(screen.queryByText('60.0000%')).toBeNull();
   });
@@ -204,8 +225,10 @@ describe('the commission programme catalogue — who may change what partners ar
     renderWithProviders(<IbProgramsPage />);
 
     await screen.findByText('Gold');
-    expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^delete$/i })).toBeNull();
+    await openRowActions(userEvent);
+
+    expect(screen.getByRole('menuitem', { name: /^edit$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /^delete$/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /add programme/i })).toBeNull();
   });
 
@@ -215,7 +238,15 @@ describe('the commission programme catalogue — who may change what partners ar
 
     await screen.findByText('Gold');
     expect(screen.getByRole('button', { name: /add programme/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^edit$/i })).toBeNull();
+
+    /*
+     * NO ROW MENU AT ALL, not an empty one. `ib.programs.create` grants adding
+     * a programme and nothing else, so every per-row action is withheld — and
+     * `RowActions` renders no trigger when it would open onto nothing, which is
+     * the right answer: a menu button that opens an empty list reads as broken
+     * rather than as forbidden.
+     */
+    expect(screen.queryByRole('button', { name: /actions for gold/i })).toBeNull();
   });
 });
 
@@ -231,7 +262,8 @@ describe('deleting a programme', () => {
     renderWithProviders(<IbProgramsPage />);
     await screen.findByText('Gold');
 
-    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+    await openRowActions(userEvent);
+    await userEvent.click(screen.getByRole('menuitem', { name: /^delete$/i }));
     const message = await answerConfirm(userEvent, 'cancel');
 
     expect(message).toContain('14');
@@ -243,7 +275,8 @@ describe('deleting a programme', () => {
     renderWithProviders(<IbProgramsPage />);
     await screen.findByText('Gold');
 
-    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+    await openRowActions(userEvent);
+    await userEvent.click(screen.getByRole('menuitem', { name: /^delete$/i }));
     await answerConfirm(userEvent, 'confirm');
 
     await waitFor(() => expect(deleteIbProgram).toHaveBeenCalledWith('p-gold'));

@@ -99,13 +99,13 @@ beforeEach(() => {
     maxLiveAccounts: 5,
     maxDemoAccounts: 5,
     maxDemoDeposit: '1000000.00000000',
-    // Required since the broker's revenue cap arrived. Without it the panel's
-    // `trimAmount` reads undefined and the whole form throws — which surfaced
-    // as an unrelated tab-navigation failure, three tests away.
-    ibMaxRevenueSharePct: '50.00',
-    // Same lesson as the line above, one field later: the panel seeds a text
-    // box from this and an absent value renders the string 'undefined'.
-    ibCommissionHoldHours: 24,
+    /*
+     * No IB fields. They were required here while the panel seeded text boxes
+     * from them — an absent value rendered the string 'undefined' and, in one
+     * case, threw inside `trimAmount` and surfaced as an unrelated
+     * tab-navigation failure three tests away. All four went in 0103/0104 with
+     * the controls that read them.
+     */
     updatedAt: null,
   });
   getSmtpSettings.mockResolvedValue({

@@ -8,7 +8,6 @@ import {
   Pencil,
   Coins,
   FileText,
-  Layers,
   Network,
   Percent,
   ShieldCheck,
@@ -58,7 +57,6 @@ export function ClientActionsMenu({
   profile,
   partner,
   onManageTags,
-  onChangeLevel,
   onChangeProgram,
   onReassignParent,
   onEditProfile,
@@ -68,7 +66,6 @@ export function ClientActionsMenu({
   /** Null when this client is not a partner — the partner block is then absent. */
   partner: IbPartnerDetail | null;
   onManageTags: () => void;
-  onChangeLevel: () => void;
   onChangeProgram: () => void;
   onReassignParent: () => void;
   onEditProfile: () => void;
@@ -246,18 +243,14 @@ export function ClientActionsMenu({
       : []),
     ...(partner && canEditPartner
       ? [
-          {
-            label: t('clientProfile.actionChangeLevel'),
-            icon: Layers,
-            separatorBefore: !canSuspendPartner,
-            onSelect: onChangeLevel,
-          },
-          /* Terms, not placement — the entry above moves them on the ladder,
-             this one changes what they are paid. Both behind `ib.partners.edit`,
-             which the API enforces independently. */
+          /* The TERMS. "Change level" used to sit above this, moving a partner
+             on the ladder — a rung that decided nothing, presented beside the
+             control that decided everything. 0102 removed it; this is the one
+             entry that changes what a partner is paid. */
           {
             label: t('clientProfile.actionChangeProgram'),
             icon: Percent,
+            separatorBefore: !canSuspendPartner,
             onSelect: onChangeProgram,
           },
           {

@@ -4,12 +4,11 @@ import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, LineChart } from 'lucide-react';
 import { Spinner } from '@/components/ui/loader';
-import { adminApi, type RevenueBasis, type TradingSettings } from '@/lib/api/admin';
+import { adminApi, type TradingSettings } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { toastSuccess } from '@/lib/toast';
-import { useConfirm } from '@/components/ui/confirm-dialog';
 import { t } from '@/lib/i18n';
 
 /**
@@ -77,34 +76,33 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
   // Trailing zeros trimmed for display: the column is numeric(28,8) and
   // '1000000.00000000' in a text box is a number nobody typed.
   const [maxDemoDeposit, setMaxDemoDeposit] = React.useState(trimAmount(settings.maxDemoDeposit));
-  const [ibCap, setIbCap] = React.useState(trimAmount(settings.ibMaxRevenueSharePct));
-  const [holdHours, setHoldHours] = React.useState(String(settings.ibCommissionHoldHours));
   /*
-   * WHAT a partner is paid on — FR-IB-16. A closed set, so a <select>: the
-   * other controls on this form are values an operator chooses freely, and
-   * this one is a choice between three implementations. A text box here would
-   * make a typo look like a decision.
+   * The ladder ceiling (0105) — the ONE IB number on this form, and it is a
+   * different kind of thing from the four below. Those decided what partners
+   * are PAID; this bounds what the Commission Programmes page will accept.
    */
-  const [revenueBasis, setRevenueBasis] = React.useState<RevenueBasis>(settings.ibRevenueBasis);
+  const [maxLevels, setMaxLevels] = React.useState(String(settings.ibMaxLevels));
   /*
-   * The BACKLOG DECISION, held as two pieces of state rather than one string.
+   * ── NO OTHER IB STATE HERE (0104) ────────────────────────────────────────
    *
-   * The stored value carries three meanings — `null` (undecided), `'all'`, and
-   * an ISO instant — and only the third has a date in it. A single text box
-   * would ask an operator to type one of three things correctly, with the
-   * irreversible option one typo away. A mode plus a date makes each meaning a
-   * separate act.
+   * Four more controls lived on this form and each changed what every partner
+   * is paid: the broker cap, the settlement window, the backlog decision and
+   * the revenue basis.
+   *
+   * Commission is configured on the Commission Programmes page. A second screen
+   * that also decides partner pay is a second place for two answers to
+   * disagree, with nothing telling an operator which one the money used — the
+   * same fault removed from the catalogue itself when `ib_levels` sat beside
+   * `ib_programs`.
+   *
+   * The window and the backlog decision read `IB_COMMISSION_HOLD_HOURS` and
+   * `IB_ACCRUAL_START` from the environment. The aged-backlog guard is
+   * unchanged: unset, a run facing months of ingested history HOLDS rather than
+   * paying it.
    */
-  const [accrualMode, setAccrualMode] = React.useState<AccrualMode>(() =>
-    accrualModeOf(settings.ibAccrualStart),
-  );
-  const [accrualDate, setAccrualDate] = React.useState(() =>
-    accrualDateOf(settings.ibAccrualStart),
-  );
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
   const queryClient = useQueryClient();
-  const confirm = useConfirm();
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -112,16 +110,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         maxLiveAccounts: parseCount(maxLiveAccounts),
         maxDemoAccounts: parseCount(maxDemoAccounts),
         maxDemoDeposit: maxDemoDeposit.trim(),
-        ibMaxRevenueSharePct: ibCap.trim(),
-        ibCommissionHoldHours: parseHours(holdHours, settings.ibCommissionHoldHours),
-        ibRevenueBasis: revenueBasis,
-        /*
-         * Always sent, never omitted. The API reads `undefined` as "the caller
-         * did not touch this" and keeps what is stored — right for a console
-         * that predates the field, wrong for this one, which is now the place
-         * the decision is made.
-         */
-        ibAccrualStart: accrualStartValue(accrualMode, accrualDate),
+        ibMaxLevels: parseLevels(maxLevels, settings.ibMaxLevels),
       }),
     onSuccess: () => {
       setError(null);
@@ -139,73 +128,31 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
     maxLiveAccounts.trim() !== String(settings.maxLiveAccounts) ||
     maxDemoAccounts.trim() !== String(settings.maxDemoAccounts) ||
     maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit) ||
-    ibCap.trim() !== trimAmount(settings.ibMaxRevenueSharePct) ||
-    holdHours.trim() !== String(settings.ibCommissionHoldHours) ||
-    revenueBasis !== settings.ibRevenueBasis ||
-    accrualStartValue(accrualMode, accrualDate) !== settings.ibAccrualStart ||
-    /*
-     * The MODE counts as a change even when the value it produces does not.
-     *
-     * Picking "from a date" and not yet choosing one resolves to `null`, which
-     * equals the stored value when nothing was decided — so without this the
-     * Save button stayed greyed out on a form the operator had visibly
-     * changed, with nothing saying why and no way to reach the message that
-     * explains the date is missing. A disabled control that looks like a bug
-     * is worse than an enabled one that refuses and says what it needs.
-     */
-    accrualMode !== accrualModeOf(settings.ibAccrualStart);
+    maxLevels.trim() !== String(settings.ibMaxLevels);
 
   const disabled = !canManage || mutation.isPending;
   const clear = () => setError(null);
 
-  /**
-   * Everything that must happen between pressing Save and the request leaving.
+  /*
+   * `submit` IS GONE (0104), and it existed only for the backlog decision.
    *
-   * Only the backlog decision gets a gate, and only when it CHANGES. The other
-   * fields on this form are terms an operator adjusts and re-adjusts; this one
-   * decides which trades are paid for, marks the rest decided for ever, and is
-   * not undone by setting the field back. A confirmation on every save would
-   * train people to click through it, so it fires exactly when it means
-   * something.
+   * It gated Save behind a confirmation when the accrual start CHANGED —
+   * that field decides which trades are ever paid for, marks the rest decided
+   * for ever, and is not undone by setting it back. Nothing left on this form
+   * has that shape: the account caps and the demo ceiling are terms an operator
+   * adjusts and re-adjusts, and a confirmation on every save trains people to
+   * click through it.
+   *
+   * The decision still exists as `IB_ACCRUAL_START`, deliberate by being a
+   * deploy rather than by being a dialog.
    */
-  const submit = async () => {
-    const next = accrualStartValue(accrualMode, accrualDate);
-
-    // "From a date" with no date is not a decision, and the API would refuse
-    // it with a pattern message that names a regex rather than the field.
-    if (accrualMode === 'from' && next === null) {
-      setError(t('tradingSettings.accrualStartDateMissing'));
-      return;
-    }
-
-    if (next !== settings.ibAccrualStart && next !== null) {
-      const ok = await confirm(
-        next === 'all'
-          ? {
-              title: t('tradingSettings.confirmAccrualTitle'),
-              description: t('tradingSettings.confirmAccrualAllBody'),
-              confirmLabel: t('tradingSettings.confirmAccrualAction'),
-              destructive: true,
-            }
-          : {
-              title: t('tradingSettings.confirmAccrualFromTitle', { date: accrualDate }),
-              description: t('tradingSettings.confirmAccrualFromBody'),
-              confirmLabel: t('tradingSettings.confirmAccrualAction'),
-              destructive: true,
-            },
-      );
-      if (!ok) return;
-    }
-
-    mutation.mutate();
-  };
 
   return (
     <form
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        void submit();
+        mutation.mutate();
       }}
     >
       {/*
@@ -301,192 +248,46 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
       </Field>
 
       <Field
-        id="trading-ib-cap"
-        label={t('tradingSettings.ibCap')}
-        hint={t('tradingSettings.ibCapHint')}
+        id="trading-max-levels"
+        label={t('tradingSettings.maxLevels')}
+        hint={t('tradingSettings.maxLevelsHint')}
       >
-        {/*
-          Text with a numeric pattern, not `type="number"` — this is a rate that
-          reaches a money calculation, and a number input hands back a value the
-          browser has already normalised through a float.
-        */}
         <input
-          id="trading-ib-cap"
-          type="text"
-          inputMode="decimal"
-          value={ibCap}
-          onChange={(e) => {
-            setIbCap(e.target.value);
-            clear();
-          }}
-          disabled={disabled}
-          required
-          pattern="(100(\.0{1,2})?|\d{1,2}(\.\d{1,2})?)"
-          maxLength={6}
-          className={`${INPUT_CLASS} font-mono tabular-nums`}
-        />
-      </Field>
-
-      <Field
-        id="trading-hold-hours"
-        label={t('tradingSettings.holdHours')}
-        hint={t('tradingSettings.holdHoursHint')}
-      >
-        {/*
-          A whole number of hours, so `type="number"` is right here where it is
-          wrong on the two money fields above: nothing about this value reaches
-          a decimal calculation, and the spinner is genuinely useful on a value
-          most brokers set once.
-
-          `max` is a year — not a policy limit, a typo guard. A mistyped 24000
-          would hold every partner's commission for three years while every
-          component reported success, which looks exactly like the engine having
-          stopped. The same bound is a CHECK on the column.
-        */}
-        <input
-          id="trading-hold-hours"
+          id="trading-max-levels"
           type="number"
-          inputMode="numeric"
-          value={holdHours}
+          value={maxLevels}
           onChange={(e) => {
-            setHoldHours(e.target.value);
+            setMaxLevels(e.target.value);
             clear();
           }}
           disabled={disabled}
           required
-          min={0}
-          max={8760}
+          /*
+           * 1 to 10, matching the API and the two depth CHECKs behind it. No
+           * zero: unlike the account caps above, where 0 means "stop opening
+           * new ones" and is a state somebody may want, a ceiling of zero would
+           * make every commission-paying programme unsaveable.
+           */
+          min={1}
+          max={10}
+          step={1}
           className={`${INPUT_CLASS} font-mono tabular-nums`}
         />
       </Field>
 
       {/*
-        WHAT a partner is paid on — FR-IB-16, and the only control on this form
-        that changes the SIZE of every future accrual rather than its timing.
+        ── THE OTHER IB CONTROLS ARE GONE FROM THIS FORM (0104) ──────────────
 
-        Placed directly under the settlement window because the two are read
-        together: that one decides when a commission becomes spendable, this one
-        decides what it was a share of. Both were constants in the API's source
-        until they became settings, for the same reason — the people who make a
-        commercial decision should be able to see it and make it, and the change
-        should record who made it.
+        Four fields sat here and every one changed what partners are paid:
+        "Maximum paid to partners (%)", the settlement window, "Commission is
+        paid from" / "Paying from", and "Partners are paid on".
+
+        Commission is configured on the Commission Programmes page. Keeping a
+        second screen that also decides partner pay is a second place for two
+        answers to disagree, with nothing telling an operator which one the
+        money used — the same fault removed from the catalogue itself when
+        `ib_levels` sat beside `ib_programs`.
       */}
-      <Field
-        id="trading-revenue-basis"
-        label={t('tradingSettings.revenueBasis')}
-        hint={t('tradingSettings.revenueBasisHint')}
-      >
-        <select
-          id="trading-revenue-basis"
-          value={revenueBasis}
-          onChange={(e) => {
-            setRevenueBasis(e.target.value as RevenueBasis);
-            clear();
-          }}
-          disabled={disabled}
-          className={INPUT_CLASS}
-        >
-          {REVENUE_BASES.map((basis) => (
-            <option key={basis} value={basis}>
-              {t(`tradingSettings.revenueBasis.${basis}` as Parameters<typeof t>[0])}
-            </option>
-          ))}
-        </select>
-
-        {/*
-          Shown only when the choice would actually read the markups, because a
-          warning that is always on screen is one nobody reads. The ORDER is the
-          whole content: a product left at 0 earns nothing, and a trade that
-          earns nothing is closed permanently — so this cannot be undone by
-          changing the field back, which is exactly what somebody would try.
-        */}
-        {revenueBasis !== 'commission_swap' && (
-          <p role="status" className="text-[11px] font-medium text-warning">
-            {t('tradingSettings.revenueBasisWarning')}
-          </p>
-        )}
-      </Field>
-
-      {/*
-        The BACKLOG DECISION — which trades the engine will pay for at all.
-
-        Beneath the basis because the three read as one paragraph: how long a
-        commission is held, what it is a share of, and which trades earn one.
-        Until now this field had an API, a column and an audit trail, and no
-        control anywhere — so the only way to make the platform's single most
-        irreversible decision was to write to the database by hand.
-      */}
-      <Field
-        id="trading-accrual-mode"
-        label={t('tradingSettings.accrualStart')}
-        hint={t('tradingSettings.accrualStartHint')}
-      >
-        <select
-          id="trading-accrual-mode"
-          value={accrualMode}
-          onChange={(e) => {
-            setAccrualMode(e.target.value as AccrualMode);
-            clear();
-          }}
-          disabled={disabled}
-          className={INPUT_CLASS}
-        >
-          {ACCRUAL_MODES.map((mode) => (
-            <option key={mode} value={mode}>
-              {t(`tradingSettings.accrualStart.${mode}` as Parameters<typeof t>[0])}
-            </option>
-          ))}
-        </select>
-
-        {accrualMode === 'from' && (
-          <div className="space-y-1.5 pt-1">
-            <label
-              htmlFor="trading-accrual-date"
-              className="block text-[11px] font-semibold text-foreground"
-            >
-              {t('tradingSettings.accrualStartDate')}
-            </label>
-            {/*
-              A date, not a datetime. An operator deciding "pay from the first
-              of the month" is not choosing a minute, and offering one invites a
-              precision the decision does not have. `accrualStartValue` widens
-              it to local midnight, which is the instant they mean.
-
-              `max` is today: paying from a FUTURE date would mark every trade
-              between now and then decided-and-unpaid as it arrives, which is a
-              way to lose commission that looks like scheduling.
-            */}
-            <input
-              id="trading-accrual-date"
-              type="date"
-              value={accrualDate}
-              max={todayIso()}
-              onChange={(e) => {
-                setAccrualDate(e.target.value);
-                clear();
-              }}
-              disabled={disabled}
-              className={`${INPUT_CLASS} font-mono tabular-nums`}
-            />
-          </div>
-        )}
-
-        {/*
-          Two notes, and only ever one of them. Undecided is a STATE worth
-          explaining — it looks exactly like "no trades yet" from outside, and
-          it does not resolve itself. Anything else is a decision worth warning
-          about before it is made, not after.
-        */}
-        {accrualMode === 'unset' ? (
-          <p role="status" className="text-[11px] text-muted-foreground">
-            {t('tradingSettings.accrualStartUnsetNote')}
-          </p>
-        ) : (
-          <p role="status" className="text-[11px] font-medium text-warning">
-            {t('tradingSettings.accrualStartWarning')}
-          </p>
-        )}
-      </Field>
 
       {error && (
         <p role="alert" className="text-[11px] text-destructive">
@@ -532,28 +333,24 @@ function parseCount(value: string): number {
 }
 
 /**
- * The settlement window, falling back to the SAVED value and never to zero.
+ * A ladder ceiling the API will accept, or the SAVED value when the box is not
+ * a usable number.
  *
- * `parseCount` above answers 0 for anything unparseable, which is right for an
- * account cap — 0 means "no new ones" and is a state somebody may want. It is
- * wrong here: 0 hours means every commission becomes spendable the instant it
- * is calculated, so a half-deleted box submitted by an Enter key would turn the
- * one rule between earned and spendable off, and the save would look like a
- * success. Falling back to what is already stored makes the worst case "nothing
- * changed".
+ * Falling back to what is stored rather than to 1 or to 10, and the direction
+ * is the point in both directions: 10 would let a typo widen what every future
+ * trade pays out, and 1 would silently make deeper programmes unsaveable. The
+ * stored value is the only answer that changes nothing.
+ *
+ * `Number(x) || fallback` is banned here for the reason it is banned on every
+ * other numeric control in this app: it is the idiom that turns a typo into a
+ * plausible number nobody typed.
  */
-export function parseHours(value: string, fallback: number): number {
+function parseLevels(value: string, fallback: number): number {
   const trimmed = value.trim();
-  /*
-   * WHOLLY numeric, not `parseInt` alone. `parseInt('12.5h')` is 12 and
-   * `parseInt('24 hours')` is 24 — it reads a prefix and discards the rest, so
-   * a typed unit or a stray character would be saved as a window nobody chose
-   * while the form reported success.
-   */
   if (!/^\d+$/.test(trimmed)) return fallback;
 
   const parsed = Number.parseInt(trimmed, 10);
-  if (!Number.isInteger(parsed) || parsed > 8760) return fallback;
+  if (parsed < 1 || parsed > 10) return fallback;
   return parsed;
 }
 
@@ -569,80 +366,18 @@ function trimAmount(value: string): string {
   return value.replace(/0+$/, '').replace(/\.$/, '');
 }
 
-/**
- * The order the options are OFFERED in, which is not arbitrary.
+/*
+ * `parseHours`, `REVENUE_BASES`, `ACCRUAL_MODES`, `accrualModeOf`,
+ * `accrualDateOf`, `todayIso` and `accrualStartValue` all went in 0104 with the
+ * IB controls they served.
  *
- * The default first, so the list opens on what the platform is already doing;
- * then the two that re-price the book. Declared here rather than derived from
- * the generated union because a union has no order, and an operator scanning
- * three similar phrases should meet the safe one first.
+ * They were the interesting half of this file — a settlement window that must
+ * never parse a typo into zero, and a backlog decision held as a mode plus a
+ * date so each of its three meanings was a separate act. All of it belongs to
+ * settings this form no longer owns: the window and the backlog start read
+ * `IB_COMMISSION_HOLD_HOURS` and `IB_ACCRUAL_START` from the environment, and
+ * the revenue basis is a constant.
  */
-const REVENUE_BASES = ['commission_swap', 'spread', 'commission_swap_spread'] as const;
-
-/**
- * The three shapes `ib_accrual_start` can hold, as a mode a person picks.
- *
- * `unset` FIRST, deliberately: it is the state a platform that has not decided
- * is already in, so the list opens on the truth rather than on an option.
- */
-export const ACCRUAL_MODES = ['unset', 'all', 'from'] as const;
-export type AccrualMode = (typeof ACCRUAL_MODES)[number];
-
-/** Which mode a stored value represents. */
-export function accrualModeOf(stored: string | null | undefined): AccrualMode {
-  if (stored === 'all') return 'all';
-  return stored ? 'from' : 'unset';
-}
-
-/**
- * The date part of a stored instant, for the date box.
- *
- * **Never `toISOString().split('T')[0]`.** That converts to UTC first, so a
- * value saved as local midnight in an eastern zone reads back as the previous
- * day — the operator opens the form and finds a decision they did not make,
- * one day earlier than the one they did. The stored string is already ISO, so
- * the date part is the first ten characters of it and no arithmetic is
- * involved at all.
- */
-export function accrualDateOf(stored: string | null | undefined): string {
-  if (!stored || stored === 'all') return '';
-  return stored.slice(0, 10);
-}
-
-/** Today, from LOCAL getters — same reason `accrualDateOf` avoids UTC. */
-export function todayIso(): string {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-/**
- * What the mode and the date mean as a value the API accepts.
- *
- * `null` for undecided, `'all'`, or an ISO instant — the three the DTO
- * validates, and nothing else.
- *
- * ## The date becomes LOCAL midnight, not UTC midnight
- *
- * An operator choosing "1 August" means their own first of August. Sending
- * `2026-08-01T00:00:00Z` would mean UTC midnight, which is the evening of 31
- * July in the Americas and mid-morning of the 1st in Asia — so trades either
- * side of the boundary would be decided against a day nobody picked. Parsing
- * without a `Z` gives local midnight, and `toISOString` then states that same
- * instant in the form the API asks for.
- *
- * An unparseable date returns `null` rather than an invalid string: the caller
- * checks for it and says which field is missing, which is a better answer than
- * the API's pattern message naming a regex.
- */
-export function accrualStartValue(mode: AccrualMode, date: string): string | null {
-  if (mode === 'unset') return null;
-  if (mode === 'all') return 'all';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-
-  const at = new Date(`${date}T00:00:00`);
-  return Number.isNaN(at.getTime()) ? null : at.toISOString();
-}
 
 const INPUT_CLASS =
   'h-9 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60';

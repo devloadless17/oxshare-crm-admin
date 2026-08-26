@@ -779,12 +779,11 @@ export const messages = {
 
   // ── The partner tab. Rendered only for a client who IS one. ───────────────
   'clientProfile.partnerStanding': 'Partner standing',
-  'clientProfile.partnerLevel': 'Level',
-  'clientProfile.partnerLevelNumber': '(rung {level})',
+  'clientProfile.partnerProgramme': 'Commission programme',
   // The rung was deleted behind them — `ib_accounts.level` is a restrict FK, so
   // this should be unreachable, and saying so beats rendering a bare number.
-  'clientProfile.partnerLevelGone': 'Level no longer configured',
-  'clientProfile.partnerRate': 'Share of broker revenue',
+  'clientProfile.partnerProgrammeGone': 'Programme no longer configured',
+  'clientProfile.partnerLadder': 'Levels and rates',
   'clientProfile.partnerCode': 'Referral code',
   'clientProfile.partnerState': 'Standing',
   'clientProfile.partnerActive': 'Earning',
@@ -858,11 +857,10 @@ export const messages = {
   'clientProfile.programFailed': 'Could not change the commission programme.',
   // The rates, because a name alone does not tell an operator what they are
   // about to change somebody's pay TO.
-  'clientProfile.programRates': '{own}% own clients · {sub}% sub-partner clients',
+  'clientProfile.programLadder': '{rates} — reaches {count} level(s)',
   'clientProfile.programRebateOnly': 'Client rebate {rebate}% · the partner earns nothing',
   'clientProfile.programNoneEnabled':
     'No commission programme is enabled, so there is nothing to move this partner to.',
-  'clientProfile.actionChangeLevel': 'Change level',
   'clientProfile.actionReassignParent': 'Reassign parent',
   'clientProfile.actionManageTags': 'Manage tags',
   'clientProfile.actionOpenKyc': 'Open KYC review',
@@ -905,13 +903,6 @@ export const messages = {
   'clientProfile.changeEmailSubmit': 'Change it',
   'clientProfile.changeEmailSaved': 'Sign-in email changed',
   'clientProfile.changeEmailFailed': 'The sign-in email could not be changed.',
-
-  'clientProfile.changeLevelTitle': 'Change {name}’s level',
-  'clientProfile.changeLevelBody':
-    'Their rate follows the rung. Existing accruals are not recalculated — this decides what they earn from the next closed trade.',
-  'clientProfile.changeLevelSave': 'Move them',
-  'clientProfile.levelChanged': 'Moved to level {level}',
-  'clientProfile.levelFailed': 'Their level could not be changed.',
 
   'clientProfile.reassignParentTitle': 'Reassign {name}’s parent',
   'clientProfile.reassignParentBody':
@@ -1352,12 +1343,17 @@ export const messages = {
   'tradingSettings.maxDemoAccounts': 'Demo accounts per client',
   'tradingSettings.maxDemoAccountsHint':
     'Same, for practice accounts. Every one is a real row on the broker’s server.',
+  // The ladder ceiling. The hint says what it BOUNDS rather than what it is —
+  // "maximum commission levels" alone reads as a number without consequences,
+  // and this one decides how many partners a single trade can pay.
+  'tradingSettings.maxLevels': 'Maximum commission levels',
+  'tradingSettings.maxLevelsHint':
+    'How deep a commission programme’s ladder may go — how many partners above a client can ' +
+    'earn from one trade. Two is the agreed structure. Raising it lets deeper programmes be ' +
+    'saved; it does not change what existing programmes pay.',
   'tradingSettings.maxDemoDeposit': 'Largest demo starting balance',
   'tradingSettings.maxDemoDepositHint':
     'A client asking for more gets this instead. Practice with position sizes nobody would really trade teaches nothing.',
-  'tradingSettings.ibCap': 'Maximum paid to partners (%)',
-  'tradingSettings.ibCapHint':
-    'The most of its own revenue on a trade the broker will pay out across the whole partner chain. Partner level rates each take a share of the full revenue, so they add up — this caps the total and scales it proportionally. 100 means the broker keeps nothing.',
   'tradingSettings.holdHours': 'Settlement window (hours)',
   // The rule between earned and spendable, said plainly: an operator setting
   // this is deciding how long the desk has to catch a reversal before a
@@ -2383,17 +2379,23 @@ export const messages = {
   'nav.partnerApprovals': 'Partner Applications',
   'nav.partners': 'Partners',
   'nav.ibPrograms': 'Commission Programmes',
-  'nav.ibLevels': 'IB Levels',
   // ── Commission programmes (FR-ADM-10) ─────────────────────────────────────
   // The TERMS a partner is paid on, as distinct from the LADDER, which is where
   // they stand. Every string here names whose client traded rather than saying
   // "level 1" on its own: the short form reads as the rung, and that is the
   // misreading an operator would price a programme on.
   'ibPrograms.title': 'Commission Programmes',
+  // The description had to change with the screen: it pointed at "the IB Levels
+  // screen", which was deleted along with the second catalogue it owned. What
+  // replaces it says the three things an operator actually needs before they
+  // touch anything here — what a programme decides, that it is the only place
+  // deciding it, and that editing one does not restate what has been paid.
   'ibPrograms.subtitle':
-    'What a partner is paid, what their clients get back, and which of those legs pay. Each ' +
-    'partner is on exactly one programme; the IB Levels screen decides where they stand, not ' +
-    'what they earn.',
+    'The terms every partner is paid on. A programme sets what the partner earns at each level, ' +
+    'how far down their network those earnings reach, and what their clients get back. Each ' +
+    'partner is on exactly one, chosen when their application is approved and changeable from ' +
+    'their profile. Editing a programme applies to the next trade — nothing already earned is ' +
+    'restated.',
   'ibPrograms.add': 'Add programme',
   'ibPrograms.loading': 'Loading programmes…',
   'ibPrograms.loadFailed': 'Could not load the commission programmes.',
@@ -2402,8 +2404,7 @@ export const messages = {
 
   'ibPrograms.colName': 'Programme',
   'ibPrograms.colMode': 'Pays',
-  'ibPrograms.colLevel1': 'Own clients',
-  'ibPrograms.colLevel2': 'Sub-partner clients',
+  'ibPrograms.colLadder': 'Levels',
   'ibPrograms.colRebate': 'Client rebate',
   'ibPrograms.colPartners': 'Partners',
 
@@ -2420,13 +2421,35 @@ export const messages = {
     'The clients get a rebate on their trading and the partner earns nothing — a real ' +
     'arrangement, not a misconfiguration.',
   'ibPrograms.modeHint_hybrid': 'The partner earns and their clients get a rebate.',
-  'ibPrograms.level1': 'From their own clients',
-  'ibPrograms.level1Hint':
-    'Their share of the broker’s revenue when a client they introduced CLOSES a position. ' +
+  'ibPrograms.ladder': 'Commission levels',
+  // The REACH in a sentence. A count of rows is a thing an operator has to work
+  // out; how far the money travels is the decision they are actually making.
+  'ibPrograms.ladderReach':
+    'Earnings reach {count} level(s) below a partner on this programme. Add a level to extend ' +
+    'how far it pays; remove the deepest to shorten it.',
+  'ibPrograms.ladderEmpty':
+    'No levels yet, so this programme pays no partner at any depth. Add one.',
+  'ibPrograms.tierLabel': 'Level {depth}',
+  'ibPrograms.tierHintOwn':
+    'Their share of the broker’s revenue when a client THEY introduced CLOSES a position. ' +
     'Nothing is earned on an open position, a deposit, a withdrawal or a transfer.',
-  'ibPrograms.level2': 'From their sub-partners’ clients',
-  'ibPrograms.level2Hint':
-    'Their share when the closed position belongs to a client of a partner beneath them.',
+  'ibPrograms.tierHintSub':
+    'Their share when the closed position belongs to a client further down their network, at ' +
+    'this many hops below them.',
+  'ibPrograms.addTier': 'Add a level',
+  // Names the ceiling AND its source. "Maximum 2 levels" alone reads as a hard
+  // product limit somebody would file a bug about, rather than a setting.
+  'ibPrograms.maxTiersReached':
+    'Maximum {max} level(s) — the committed structure. Raise IB_MAX_LEVELS to pay deeper.',
+  'ibPrograms.removeTier': 'Remove level {depth}',
+  // Removing a middle level renumbers everything beneath it, which silently
+  // re-prices those levels. Shortening from the bottom is the only edit whose
+  // meaning is unambiguous, so the others are disabled and say why.
+  'ibPrograms.removeDeepestOnly':
+    'Only the deepest level can be removed — removing one in the middle would re-price every ' +
+    'level below it.',
+  'ibPrograms.reachShort': 'reaches {count} level(s)',
+  'ibPrograms.tierChipTitle': 'Level {depth}: {rate}% of the broker’s revenue',
   'ibPrograms.rebate': 'Back to the client',
   'ibPrograms.rebateHint':
     'What the trading client receives, as a share of the same closed-position revenue. Credited ' +
@@ -2465,76 +2488,9 @@ export const messages = {
   'ibPrograms.deleteSucceeded': '“{name}” deleted.',
   'ibPrograms.deleteFailed': 'Could not delete the programme.',
 
-  'ibLevels.title': 'IB Levels',
-  'ibLevels.subtitle':
-    'How far partner earnings travel, and what each level takes. The number of enabled levels is the depth of the payout chain, not a limit on how many partners you can have.',
-  'ibLevels.caption': 'Partner payout ladder',
-  'ibLevels.loading': 'Loading the payout ladder',
-  'ibLevels.loadFailed': 'Could not load the payout ladder.',
-  'ibLevels.empty':
-    'No levels configured yet. Partners cannot be approved until at least one exists.',
-  'ibLevels.create': 'Add level',
-  'ibLevels.createTitle': 'Add a level',
-  'ibLevels.editTitle': 'Edit level',
-  'ibLevels.save': 'Save',
-  'ibLevels.saving': 'Saving…',
-  'ibLevels.saveFailed': 'Could not save that level.',
-  'ibLevels.deleteFailed': 'Could not remove that level.',
-
-  'ibLevels.depthLabel': 'Payout chain depth',
-  'ibLevels.depthHint':
-    'A client’s activity pays their direct partner and {depth} level(s) up the chain, then stops.',
-  'ibLevels.allocatedLabel': 'Revenue share allocated',
-  'ibLevels.allocatedHint': '{remaining}% of the commission pool is still unallocated.',
-
-  'ibLevels.colLevel': 'Level',
-  'ibLevels.colName': 'Name',
-  'ibLevels.colModel': 'Model',
-  'ibLevels.colRate': 'Rate',
-  'ibLevels.colMaxDirect': 'Max direct partners',
-  'ibLevels.colStatus': 'Status',
-  'ibLevels.colActions': 'Actions',
-  'ibLevels.statusEnabled': 'Enabled',
-  'ibLevels.statusDisabled': 'Disabled',
-
-  'ibLevels.edit': 'Edit',
-  'ibLevels.editAria': 'Edit level {level}',
-  'ibLevels.delete': 'Remove',
-  'ibLevels.deleteAria': 'Remove level {level}',
-  'ibLevels.enable': 'Enable',
-  'ibLevels.disable': 'Disable',
-  'ibLevels.confirmDeleteTitle': 'Remove level {level} ({name})?',
-  'ibLevels.confirmDelete':
-    'Partners already placed at this level keep their position, but no new partner can be placed here.',
-  'ibLevels.deleteSucceeded': 'Level {level} removed',
-  'ibLevels.reorderSucceeded': 'Payout chain reordered',
-  'ibLevels.enabledSucceeded': 'Level {level} enabled',
-  'ibLevels.disabledSucceeded': 'Level {level} disabled',
-  'ibLevels.saveSucceeded': 'Level {level} saved',
-
-  'ibLevels.level': 'Level number',
-  'ibLevels.levelLocked': 'The level number cannot change — partner records reference it.',
-  // Replaces `levelHint`, which explained a field the form no longer has. The
-  // rung still HAS a number; the operator just does not choose it.
-  'ibLevels.levelAppended': 'Added one level below the deepest rung.',
-  'ibLevels.name': 'Name',
-  'ibLevels.rate': 'Rate',
-  'ibLevels.rateHintPercent':
-    'Percentage of what the broker earned on the closed trade, e.g. 70 for 70%.',
-  // These four are still used by the LIST and the tree, which must keep
-  // rendering a level already configured per-lot correctly. The FORM no longer
-  // offers the model; the read paths still have to describe one.
-  'ibLevels.modelRevenueShare': 'Revenue share',
-  'ibLevels.modelPerLot': 'Per lot',
-  'ibLevels.perLotSuffix': '/lot',
-  'ibLevels.perLotValue': '{value} per lot',
-  'ibLevels.unlimitedPartners': 'Unlimited direct partners',
-  'ibLevels.maxPartners': 'Up to {max} direct partners',
-  'ibLevels.reorderFailed': 'The ladder could not be reordered.',
-  'ibLevels.unlimited': 'Unlimited',
-  'ibLevels.enabled': 'Enabled',
-  'ibLevels.enabledHint':
-    'A disabled level takes no share and accepts no new partners. Partners already placed there keep their position.',
+  // `ibLevels.*` went in 0102 with the rung ladder they described. Everything an
+  // operator used to read there — how far earnings travel, what each level takes
+  // — is now on the programme, under `ibPrograms.ladder*` and `ibPrograms.tier*`.
 
   // ── Partner application review ────────────────────────────────────────────
   'partnerReview.title': 'Partner Applications',
@@ -2612,6 +2568,20 @@ export const messages = {
   'partnerReview.chooseAgency': 'Choose the agency',
   'partnerReview.chooseAgencyHint':
     'This application names none, so pick the programme to appoint them under. It decides what they and their clients may trade.',
+  // ── The commission programme, chosen at approval ─────────────────────────
+  // Asked every time, unlike the agency: the agency is what the APPLICANT
+  // requested, the programme is what the BROKER decides. There is no request to
+  // honour, so nothing is being second-guessed by asking.
+  'partnerReview.programmeLabel': 'Commission programme',
+  'partnerReview.programmeHint':
+    'What this partner will be paid on. The first one is used unless you choose otherwise, and ' +
+    'it can be changed later from their profile.',
+  'partnerReview.programmeLadder': '{rates} — reaches {count} level(s)',
+  'partnerReview.programmeRebateOnly': 'Pays no partner commission · {rebate}% client rebate',
+  'partnerReview.noProgrammesEnabled':
+    'No commission programme is enabled, so an approved partner would have no terms to be paid ' +
+    'on. Enable one on the Commission Programmes page first.',
+
   'partnerReview.approvingUnder': 'Appointing them under {agency}, as they requested.',
   'partnerReview.agencyClosed': 'Closed to new applications — still valid for this one.',
   'partnerReview.noAgenciesConfigured':
@@ -2658,7 +2628,8 @@ export const messages = {
   // and swap — never the client's deposit, volume or profit.
   'commissions.colBasis': 'Broker revenue x rate',
   'commissions.colAmount': 'Commission',
-  'commissions.colLevel': 'Level',
+  'commissions.colDepth': 'Depth',
+  'commissions.colProgramme': 'Programme',
   'commissions.colStatus': 'Status',
   'commissions.filterStatus': 'Status',
   'commissions.filterStatusAll': 'All statuses',

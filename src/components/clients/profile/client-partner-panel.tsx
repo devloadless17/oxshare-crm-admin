@@ -43,21 +43,28 @@ export function ClientPartnerPanel({
     <div className="grid gap-6 lg:grid-cols-2">
       <ProfileCard title={t('clientProfile.partnerStanding')}>
         <dl className="grid grid-cols-2 gap-4">
-          <Cell label={t('clientProfile.partnerLevel')}>
+          {/* The TERMS, which replaced the rung and its rate (0102). Both of
+              those described a placement that had decided nothing since the
+              programmes landed — printed here as if they were what the partner
+              earns. */}
+          <Cell label={t('clientProfile.partnerProgramme')}>
             <span className="font-semibold">
-              {detail.levelName ?? t('clientProfile.partnerLevelGone')}
-            </span>
-            <span className="ms-1.5 text-xs text-muted-foreground">
-              {t('clientProfile.partnerLevelNumber', { level: String(detail.level) })}
+              {detail.programName ?? t('clientProfile.partnerProgrammeGone')}
             </span>
           </Cell>
 
-          <Cell label={t('clientProfile.partnerRate')}>
-            {/* The rung's share of the broker's revenue on a closed trade —
-                always a percentage since the payout model was removed. */}
-            <span className="tabular font-semibold">
-              {detail.rateValue === null ? '—' : `${formatDecimal(detail.rateValue)}%`}
-            </span>
+          <Cell label={t('clientProfile.partnerLadder')}>
+            {/* Every level and the REACH. The count is not decoration: it is how
+                far down this partner's network their earnings travel. */}
+            {detail.programTiers.length === 0 ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              <span className="tabular font-semibold">
+                {detail.programTiers
+                  .map((tier) => `L${tier.depth} ${formatDecimal(tier.rate)}%`)
+                  .join(' · ')}
+              </span>
+            )}
           </Cell>
 
           <Cell label={t('clientProfile.partnerCode')}>
@@ -176,7 +183,7 @@ export function ClientPartnerPanel({
                   <span className="font-mono text-[11px] text-muted-foreground">
                     {sub.referralCode}
                   </span>
-                  <Badge variant="tag">{sub.levelName}</Badge>
+                  <Badge variant="tag">{sub.programName}</Badge>
                   {!sub.active && (
                     <Badge variant="warning">{t('clientProfile.partnerSuspended')}</Badge>
                   )}

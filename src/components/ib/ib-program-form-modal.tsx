@@ -2,10 +2,27 @@
 
 import * as React from 'react';
 import Decimal from 'decimal.js';
-import type { IbProgram, IbProgramMode } from '@/lib/api/admin';
+import { Plus, Trash2 } from 'lucide-react';
+import api from '@/lib/api';
+import type { IbProgram, IbProgramLimits, IbProgramMode, IbProgramTier } from '@/lib/api/admin';
+import { useResource } from '@/hooks/use-resource';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
+
+/**
+ * The ceiling to assume while the real one is still loading.
+ *
+ * ONE, not ten, and the direction is deliberate. Guessing HIGH would let an
+ * operator add levels for a moment and then have them refused when the answer
+ * arrives; guessing LOW only disables a button for the length of one request.
+ * A control that appears and then withdraws is worse than one that arrives.
+ *
+ * The real ceiling is `IB_MAX_LEVELS` — a deployment setting, default 2 — read
+ * from `GET /admin/ib-programs/limits`. Hardcoding it here would drift the day
+ * a broker negotiates a third level.
+ */
+const ASSUMED_MAX_TIERS = 1;
 
 /**
  * An order the API will take, or `undefined` for "append".
@@ -27,8 +44,19 @@ function parseSortOrder(value: string): number | undefined {
 export interface IbProgramFormValues {
   name: string;
   mode: IbProgramMode;
-  level1Rate: string;
-  level2Rate: string;
+  /**
+   * The ladder, depth 1 first — FR-IB-06's "tier ladder".
+   *
+   * Replaced a fixed `level1Rate` / `level2Rate` pair, which put a two-level
+   * ceiling in the form itself. The LENGTH of this array is how far the
+   * programme's earnings reach, so adding a row is how a broker extends a
+   * programme to a third level.
+   *
+   * Sent whole on every save: the API treats `tiers` as replace-all, because
+   * "the ladder is now just level 1" has to be expressible and a merge cannot
+   * say it.
+   */
+  tiers: IbProgramTier[];
   rebateRate: string;
   enabled: boolean;
   /**
@@ -50,15 +78,26 @@ export interface IbProgramFormValues {
 
 const MODES: IbProgramMode[] = ['commission_only', 'rebate_only', 'hybrid'];
 
+/** What a brand-new commission programme starts as: one level, paying nothing yet. */
+const STARTER_TIERS: IbProgramTier[] = [{ depth: 1, rate: '0.0000' }];
+
 /**
  * Create or edit a commission programme — the terms a partner is paid on.
  *
- * ## The two rates are per DEPTH, and the labels have to say so
+ * ## The ladder is a LIST, and its length is the feature
  *
- * "Level 1" and "level 2" as bare words read as the RUNG a partner stands on,
- * which is a different fact and the one an operator would misprice on. So the
- * fields are labelled by whose client traded: your partner's own clients, or
- * their sub-partners'.
+ * This form used to have two rate boxes, "level 1" and "level 2", which was the
+ * two-level cap rendered as a layout. FR-IB-17 makes reach a commercial
+ * decision — "the exact per-level split is configured per the agreed program
+ * ladder" — so levels are ADDED and REMOVED here, and the count is stated in
+ * words beneath them. An operator who wants three levels adds a row.
+ *
+ * ## The rates are per DEPTH, and the labels have to say so
+ *
+ * "Level 1" as a bare phrase reads as the RUNG a partner stands on, which is a
+ * different fact and the one an operator would misprice on. So each row is
+ * labelled by WHOSE CLIENT TRADED: their own clients, a sub-partner's, and so
+ * on down.
  *
  * ## The running total is shown, even though the API enforces it
  *
@@ -103,7 +142,7 @@ export function IbProgramFormModal({
           programme's numbers. Re-seeding state in an effect renders once with
           the PREVIOUS programme's rates before correcting itself, and on a
           payout screen that intermediate state is one somebody could read and
-          act on. Same pattern as `IbLevelFormModal`. */}
+          act on. */}
       <IbProgramForm
         key={`${program?.id ?? 'new'}-${String(open)}`}
         program={program}
@@ -131,8 +170,16 @@ function IbProgramForm({
 }) {
   const [name, setName] = React.useState(program?.name ?? '');
   const [mode, setMode] = React.useState<IbProgramMode>(program?.mode ?? 'commission_only');
-  const [level1Rate, setLevel1Rate] = React.useState(program?.level1Rate ?? '0.0000');
-  const [level2Rate, setLevel2Rate] = React.useState(program?.level2Rate ?? '0.0000');
+  /*
+   * An EXISTING programme's ladder, or one starter level when creating.
+   *
+   * A `rebate_only` programme legitimately has none, and an empty array is
+   * carried through as an empty array — the API refuses tiers on that mode, so
+   * inventing a starter row for one would be a field the operator cannot save.
+   */
+  const [tiers, setTiers] = React.useState<IbProgramTier[]>(
+    program ? program.tiers : STARTER_TIERS,
+  );
   const [rebateRate, setRebateRate] = React.useState(program?.rebateRate ?? '0.0000');
   const [enabled, setEnabled] = React.useState(program?.enabled ?? true);
   /*
@@ -145,15 +192,48 @@ function IbProgramForm({
     program === undefined ? '' : String(program.sortOrder),
   );
 
+  /*
+   * How deep this deployment lets a ladder go. Cached by react-query under its
+   * own key, so opening the modal repeatedly costs one request in total.
+   */
+  const limits = useResource<IbProgramLimits>(['admin', 'ib-program-limits'], (signal) =>
+    api.admin.getIbProgramLimits(signal),
+  );
+  const maxTiers = limits.data?.maxLevels ?? ASSUMED_MAX_TIERS;
+
   const paysCommission = mode !== 'rebate_only';
   const paysRebate = mode !== 'commission_only';
+
+  /*
+   * Depths are ALWAYS renumbered 1..n from position, never edited directly.
+   *
+   * The API refuses a ladder with a gap, because the row count is what decides
+   * reach and 1-then-3 claims a reach it does not have. Deriving the depth from
+   * the row's position means a gap is not a thing this form can produce —
+   * removing level 2 of three renumbers the third to 2, which is the only
+   * interpretation of "delete this level" that leaves a valid ladder.
+   */
+  const setRate = (index: number, rate: string) =>
+    setTiers((current) => current.map((tier, i) => (i === index ? { ...tier, rate } : tier)));
+
+  const addTier = () =>
+    setTiers((current) =>
+      current.length >= maxTiers
+        ? current
+        : [...current, { depth: current.length + 1, rate: '0.0000' }],
+    );
+
+  const removeTier = (index: number) =>
+    setTiers((current) =>
+      current.filter((_, i) => i !== index).map((tier, i) => ({ ...tier, depth: i + 1 })),
+    );
 
   /*
    * ── EVERY rate counts, including the ones this mode does not pay ──────────
    *
    * This used to sum only the legs the current mode pays, which read as the
    * more informative answer and was the wrong one: the API's `assertShareFits`
-   * and the database CHECK both add all three unconditionally. So a
+   * and the database trigger both add everything unconditionally. So a
    * commission-only programme carrying a stored 40% rebate showed "85% kept"
    * and was then refused for paying out 105% — the form disagreeing with the
    * server about the only number on the screen.
@@ -174,8 +254,8 @@ function IbProgramForm({
       }
     };
 
-    return decimal(level1Rate).plus(decimal(level2Rate)).plus(decimal(rebateRate));
-  }, [level1Rate, level2Rate, rebateRate]);
+    return tiers.reduce((sum, tier) => sum.plus(decimal(tier.rate)), decimal(rebateRate));
+  }, [tiers, rebateRate]);
 
   const overAllocated = total.greaterThan(100);
 
@@ -184,10 +264,18 @@ function IbProgramForm({
     onSubmit({
       name: name.trim(),
       mode,
-      // STRINGS, never parsed to numbers: they multiply money, and a round trip
-      // through a float is exactly what §6.1 forbids.
-      level1Rate: level1Rate.trim(),
-      level2Rate: level2Rate.trim(),
+      /*
+       * STRINGS, never parsed to numbers: they multiply money, and a round trip
+       * through a float is exactly what §6.1 forbids.
+       *
+       * A `rebate_only` programme sends NO tiers. The API refuses them on that
+       * mode — `calculate` skips the commission legs outright, so a saved ladder
+       * there is a rate card that never pays and the operator has no way to tell
+       * it from one that does.
+       */
+      tiers: paysCommission
+        ? tiers.map((tier, index) => ({ depth: index + 1, rate: tier.rate.trim() }))
+        : [],
       rebateRate: rebateRate.trim(),
       enabled,
       sortOrder: parseSortOrder(sortOrder),
@@ -240,35 +328,94 @@ function IbProgramForm({
         </label>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {paysCommission && (
-          <>
-            <RateField
-              id="ib-program-level1"
-              label={t('ibPrograms.level1')}
-              hint={t('ibPrograms.level1Hint')}
-              value={level1Rate}
-              onChange={setLevel1Rate}
-            />
-            <RateField
-              id="ib-program-level2"
-              label={t('ibPrograms.level2')}
-              hint={t('ibPrograms.level2Hint')}
-              value={level2Rate}
-              onChange={setLevel2Rate}
-            />
-          </>
-        )}
-        {paysRebate && (
-          <RateField
-            id="ib-program-rebate"
-            label={t('ibPrograms.rebate')}
-            hint={t('ibPrograms.rebateHint')}
-            value={rebateRate}
-            onChange={setRebateRate}
-          />
-        )}
-      </div>
+      {paysCommission && (
+        <fieldset className="space-y-2 rounded-lg border border-border p-3">
+          <legend className="px-1 text-xs font-semibold text-foreground">
+            {t('ibPrograms.ladder')}
+          </legend>
+          {/*
+            The reach, in words, above the rows. A count of table rows is a
+            thing an operator has to work out; "earnings reach 3 levels below
+            this partner" is the decision they are actually making.
+          */}
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {tiers.length === 0
+              ? t('ibPrograms.ladderEmpty')
+              : t('ibPrograms.ladderReach', { count: String(tiers.length) })}
+          </p>
+
+          <div className="space-y-2">
+            {tiers.map((tier, index) => (
+              <div key={index} className="flex items-end gap-2">
+                <div className="flex-1">
+                  <RateField
+                    id={`ib-program-tier-${index}`}
+                    label={t('ibPrograms.tierLabel', { depth: String(index + 1) })}
+                    hint={index === 0 ? t('ibPrograms.tierHintOwn') : t('ibPrograms.tierHintSub')}
+                    value={tier.rate}
+                    onChange={(value) => setRate(index, value)}
+                  />
+                </div>
+                {/*
+                  Only the DEEPEST level can be removed, and that is not a
+                  limitation — removing a middle one renumbers everything below
+                  it, so an operator deleting "level 2" of four silently
+                  re-prices levels 3 and 4. Shortening from the bottom is the
+                  only edit whose meaning is unambiguous.
+                */}
+                <button
+                  type="button"
+                  onClick={() => removeTier(index)}
+                  disabled={index !== tiers.length - 1}
+                  aria-label={t('ibPrograms.removeTier', { depth: String(index + 1) })}
+                  title={
+                    index === tiers.length - 1
+                      ? t('ibPrograms.removeTier', { depth: String(index + 1) })
+                      : t('ibPrograms.removeDeepestOnly')
+                  }
+                  className="mb-[22px] inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-30 focus-outline"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <button
+              type="button"
+              onClick={addTier}
+              disabled={tiers.length >= maxTiers}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-[11px] font-semibold hover:bg-muted disabled:opacity-40 focus-outline"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('ibPrograms.addTier')}
+            </button>
+
+            {/*
+              WHY the button is dim, said next to it. A disabled control with no
+              explanation reads as broken; this one is a deployment setting, and
+              an operator who needs a third level needs to know that is the
+              thing to change rather than filing a bug against the form.
+            */}
+            {tiers.length >= maxTiers && (
+              <span className="text-[11px] text-muted-foreground">
+                {t('ibPrograms.maxTiersReached', { max: String(maxTiers) })}
+              </span>
+            )}
+          </div>
+        </fieldset>
+      )}
+
+      {paysRebate && (
+        <RateField
+          id="ib-program-rebate"
+          label={t('ibPrograms.rebate')}
+          hint={t('ibPrograms.rebateHint')}
+          value={rebateRate}
+          onChange={setRebateRate}
+        />
+      )}
 
       {/*
         The running total, and the broker's own share beside it. An operator

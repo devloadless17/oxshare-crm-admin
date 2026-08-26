@@ -128,8 +128,19 @@ export default function PartnerApprovalsPage() {
   const [approving, setApproving] = React.useState<IbApplicationPage['rows'][number] | null>(null);
 
   const approve = useMutation({
-    mutationFn: ({ id, agencyId }: { id: string; agencyId?: string }) =>
-      api.admin.approveIbApplication(id, agencyId ? { agencyId } : {}),
+    mutationFn: ({
+      id,
+      agencyId,
+      programId,
+    }: {
+      id: string;
+      agencyId?: string;
+      programId?: string;
+    }) =>
+      api.admin.approveIbApplication(id, {
+        ...(agencyId ? { agencyId } : {}),
+        ...(programId ? { programId } : {}),
+      }),
     onSuccess: async () => {
       await invalidate();
       setApproving(null);
@@ -539,9 +550,9 @@ export default function PartnerApprovalsPage() {
           setApproving(null);
           approve.reset();
         }}
-        onConfirm={(agencyId) => {
+        onConfirm={({ agencyId, programId }) => {
           if (!approving) return;
-          approve.mutate({ id: approving.application.id, agencyId });
+          approve.mutate({ id: approving.application.id, agencyId, programId });
         }}
       />
 

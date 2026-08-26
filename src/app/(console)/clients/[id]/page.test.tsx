@@ -274,9 +274,19 @@ describe('a client the viewer may not see', () => {
  */
 const partnerDetail = (over: Record<string, unknown> = {}) => ({
   userId: 'c-1',
-  level: 2,
-  levelName: 'Sub Partner',
-  rateValue: '40.0000',
+  /*
+   * The TERMS, replacing `level` / `levelName` / `rateValue` (0102). A rung
+   * named a placement that had decided no rate since the programmes landed;
+   * `programTiers` says what this partner is paid AND how far it reaches.
+   */
+  programId: 'prog-silver',
+  programName: 'Silver',
+  programMode: 'commission_only' as const,
+  programTiers: [
+    { depth: 1, rate: '40.0000' },
+    { depth: 2, rate: '15.0000' },
+  ],
+  programRebateRate: '0.0000',
   referralCode: 'JFSA8BQB',
   active: true,
   approvedAt: '2026-08-13T00:00:00.000Z',
@@ -323,17 +333,22 @@ describe('the partner tab', () => {
     expect(screen.queryByRole('tab', { name: /partner/i })).not.toBeInTheDocument();
   });
 
-  it('shows the rung, the rate and the code for a partner', async () => {
+  it('shows the programme, its whole ladder and the code for a partner', async () => {
     getPartnerDetail.mockResolvedValue(partnerDetail());
     renderWithProviders(<ClientProfilePage />);
 
     await screen.findByText('John Doe');
     await openTab(/partner/i);
 
-    expect(screen.getByText('Sub Partner')).toBeInTheDocument();
+    expect(screen.getByText('Silver')).toBeInTheDocument();
     expect(screen.getByText('JFSA8BQB')).toBeInTheDocument();
-    // The rate is TRIMMED for reading — the stored scale is for arithmetic.
-    expect(screen.getByText('40%')).toBeInTheDocument();
+    /*
+     * EVERY level, not just the first. The rung this replaced showed one rate,
+     * which on a partner paid at two depths was half the answer — and the half
+     * that reads as the whole one. Rates are TRIMMED for reading; the stored
+     * scale is for arithmetic.
+     */
+    expect(screen.getByText('L1 40% · L2 15%')).toBeInTheDocument();
   });
 
   it('names the parent, and says so plainly when there is none', async () => {

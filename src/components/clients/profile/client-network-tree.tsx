@@ -30,14 +30,19 @@ import { t } from '@/lib/i18n';
  * issues no request at all, and react-query caches by node id — collapsing and
  * reopening is free.
  *
- * ## Depth is bounded by the ladder, not by this component
+ * ## `MAX_DEPTH` is now the ONLY bound, and that changed in 0102
  *
- * `ib_levels` decides how deep placement can go (two rungs today), so the
- * recursion terminates because the DATA terminates. `MAX_DEPTH` is a backstop
- * against a cycle — `parent_ib_user_id` is a self-FK and Postgres cannot prevent
- * one, which is the same hazard `resolveChain` guards on the money path. A tree
- * that recursed forever would hang the browser rather than the server, which is
- * why the guard is here as well as there.
+ * `ib_levels` used to cap how deep placement could go — two rungs — so the
+ * recursion terminated because the DATA terminated, and this guard was a
+ * backstop against a cycle. There is no platform-wide ceiling any more: a
+ * hierarchy may nest as deep as an operator builds it, and how far EARNINGS
+ * travel is a separate question answered per programme.
+ *
+ * So this is load-bearing twice over. It still guards a cycle —
+ * `parent_ib_user_id` is a self-FK and Postgres cannot prevent one, the same
+ * hazard `resolveChain` guards on the money path — and it now also bounds a
+ * legitimately deep tree, where a runaway recursion hangs the BROWSER rather
+ * than the server.
  */
 const MAX_DEPTH = 6;
 
@@ -70,7 +75,7 @@ export function ClientNetworkTree({
             <User className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
           <span className="text-sm font-semibold">{rootName}</span>
-          {partner && <Badge variant="tag">{partner.levelName ?? `L${partner.level}`}</Badge>}
+          {partner?.programName && <Badge variant="tag">{partner.programName}</Badge>}
         </div>
 
         <div className="ms-3 border-s border-border ps-3">
@@ -207,7 +212,7 @@ function PartnerNode({
           {name}
         </PermittedLink>
 
-        <Badge variant="tag">{sub.levelName}</Badge>
+        <Badge variant="tag">{sub.programName}</Badge>
         {!sub.active && <Badge variant="warning">{t('clientProfile.partnerSuspended')}</Badge>}
         <span className="font-mono text-[10px] text-muted-foreground">{sub.referralCode}</span>
       </div>

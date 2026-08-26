@@ -157,15 +157,12 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    */
   { prefix: '/products', requirement: { permission: 'settings.view' } },
   { prefix: '/agencies', requirement: { permission: 'settings.view' } },
-  // `ib.view` reads the ladder; `ib.manage` is what the page checks before it
-  // renders any write control. Route access is the weaker of the two on
-  // purpose — an operator who may see partners should be able to see the rules
-  // they are paid under.
   /*
-   * READ is `ib.view`, matching /ib-levels — the write keys
-   * (`ib.programs.create` / `.edit` / `.delete`) are checked by the controls
-   * inside, so an operator who may see the terms is not also required to be
-   * able to change them.
+   * READ is `ib.view` — the write keys (`ib.programs.create` / `.edit` /
+   * `.delete`) are checked by the controls inside, so an operator who may see
+   * the terms is not also required to be able to change them. Route access is
+   * the weaker of the two on purpose: somebody who may see partners should be
+   * able to see the rules they are paid under.
    *
    * Registering it here is not optional: `canAccess` returns FALSE for any path
    * this table does not list, so a screen with a nav entry and no requirement is
@@ -173,7 +170,6 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * for `partners.view` and `payouts.review`.
    */
   { prefix: '/ib-programs', requirement: { permission: 'ib.view' } },
-  { prefix: '/ib-levels', requirement: { permission: 'ib.view' } },
   /*
    * `ib.view`, not `ib.approve`. Seeing the queue and deciding on it are
    * separate powers — the buttons inside each check their own — so requiring

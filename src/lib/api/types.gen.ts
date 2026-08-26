@@ -1037,7 +1037,7 @@ export interface paths {
         head?: never;
         /**
          * Approve an application and create the partner account
-         * @description One transaction: the application moves out of pending and the account is created together, so there is no state where a client has been told they were accepted and has no referral code. Refuses if another reviewer already decided it.
+         * @description One transaction: the application moves out of pending and the account is created together, so there is no state where a client has been told they were accepted and has no referral code. Refuses if another reviewer already decided it. `programId` names the terms to appoint them on (FR-IB-06) and defaults to the first enabled programme; a disabled one is refused, because it would pay them nothing while their referral link kept working.
          */
         patch: operations["AdminIbController_approve"];
         trace?: never;
@@ -1111,7 +1111,7 @@ export interface paths {
         };
         /**
          * The partner list
-         * @description Joined to the person and their level, newest approval first.
+         * @description Joined to the person and the programme they are paid on, newest approval first.
          */
         get: operations["AdminIbController_listPartners"];
         put?: never;
@@ -1131,7 +1131,7 @@ export interface paths {
         };
         /**
          * Export the partner list as CSV
-         * @description Every partner the acting admin may see, joined to the person and their level. The list takes no filters, so neither does its export.
+         * @description Every partner the acting admin may see, joined to the person and their programme. The list takes no filters, so neither does its export.
          */
         get: operations["AdminIbController_exportPartners"];
         put?: never;
@@ -1151,7 +1151,7 @@ export interface paths {
         };
         /**
          * One partner’s standing, their line and their earnings
-         * @description The partner account joined to its level and agency, the partner above them, the partners directly beneath them, how many clients they introduced, and their confirmed and pending earnings. Answers `null` when the client is not a partner — every client profile asks, and most clients are not one, so that is an ordinary answer rather than a 404.
+         * @description The partner account joined to its programme (with its tier ladder) and agency, the partner above them, the partners directly beneath them, how many clients they introduced, and their confirmed and pending earnings. Answers `null` when the client is not a partner — every client profile asks, and most clients are not one, so that is an ordinary answer rather than a 404.
          */
         get: operations["AdminIbController_partnerDetail"];
         put?: never;
@@ -1160,26 +1160,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/ib/partners/{userId}/level": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Move a partner to a different level
-         * @description The target level must be ENABLED — a disabled one takes no share, so placing somebody on it stops their earnings silently rather than demoting them visibly.
-         */
-        patch: operations["AdminIbController_changeLevel"];
         trace?: never;
     };
     "/v1/admin/ib/partners/{userId}/program": {
@@ -1242,58 +1222,6 @@ export interface paths {
         patch: operations["AdminIbController_setActive"];
         trace?: never;
     };
-    "/v1/admin/ib-levels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The payout ladder, shallowest level first
-         * @description Includes disabled levels — managing them is the point of the screen. The number of ENABLED levels is the depth of the payout chain.
-         */
-        get: operations["AdminIbLevelsController_list"];
-        put?: never;
-        /**
-         * Add a level to the ladder
-         * @description The level number is chosen, not auto-assigned. Under revenue_share the enabled levels must total at most 100% — the refusal names the current total and the room left.
-         */
-        post: operations["AdminIbLevelsController_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Renumber the ladder
-         * @description Takes every existing level exactly once, in the order they should appear, and renumbers them 1..n. Partner placements are remapped in the same transaction, so a partner keeps the rung they were placed on.
-         */
-        patch: operations["AdminIbLevelsController_reorder"];
-        trace?: never;
-    };
-    "/v1/admin/ib-levels/{level}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove a level
-         * @description Refuses to empty the ladder: a platform with no levels can approve no partners. Once partner records exist this will also refuse a level anybody is placed at.
-         */
-        delete: operations["AdminIbLevelsController_remove"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a level
-         * @description PATCH, and `level` itself is not editable: it is the primary key and partner records reference it, so renumbering is a data migration rather than an edit.
-         */
-        patch: operations["AdminIbLevelsController_update"];
-        trace?: never;
-    };
     "/v1/admin/ib-programs": {
         parameters: {
             query?: never;
@@ -1309,9 +1237,29 @@ export interface paths {
         put?: never;
         /**
          * Add a programme
-         * @description Every leg is a share of the same revenue, so level 1 + level 2 + the rebate must total at most 100% — the refusal names the three numbers and their total. Terms that pay nobody are refused too: they are indistinguishable from a broken engine from the partner’s side.
+         * @description The ladder runs 1, 2, 3 … with no gaps, and its LENGTH is how many levels this programme’s earnings reach. Every leg is a share of the same revenue, so the levels plus the rebate must total at most 100% — the refusal names each number and the total. Terms that pay nobody are refused too: from the partner’s side they are indistinguishable from a broken engine.
          */
         post: operations["AdminIbProgramsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ib-programs/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The bounds a programme must fit inside
+         * @description How many levels a ladder may reach, from `IB_MAX_LEVELS`. Read by the form so it stops offering "add a level" at the right point — a hardcoded copy would drift the day a broker negotiates a deeper structure.
+         */
+        get: operations["AdminIbProgramsController_limits"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1337,7 +1285,7 @@ export interface paths {
         head?: never;
         /**
          * Update a programme
-         * @description Applies to the NEXT trade. Accruals record the rate they were calculated at, so nothing already earned is restated. Disabling one that partners are on is refused — a disabled programme stops paying, and their referral links would keep working while they earned nothing.
+         * @description Applies to the NEXT trade. Accruals record the rate AND the programme they were calculated under, so nothing already earned is restated. `tiers` REPLACES the whole ladder — send every level you want to keep, or omit the field to leave it alone. Disabling one that partners are on is refused: a disabled programme stops paying, and their referral links would keep working while they earned nothing.
          */
         patch: operations["AdminIbProgramsController_update"];
         trace?: never;
@@ -4276,16 +4224,17 @@ export interface components {
             /** @description Set when the applicant was introduced by an existing partner and therefore inherits that partner's programme — the portal must not offer a choice in that case. Null when the applicant chooses: any client not introduced by a partner, or one whose introducer carries no programme. */
             inheritedAgency: components["schemas"]["InheritedAgencyDto"] | null;
         };
-        IbLevelSummaryDto: {
-            /** @example 1 */
-            level: number;
-            /** @example Master Partner */
-            name: string;
+        IbProgramTierSummaryDto: {
             /**
-             * @description The percentage of the broker’s revenue on a closed trade that this rung takes. A decimal string, never a number (§6.1).
-             * @example 70.0000
+             * @description Hops above the trading client. 1 is a client this partner introduced themselves; 2 is a client of one of their sub-partners.
+             * @example 1
              */
-            rateValue: string;
+            depth: number;
+            /**
+             * @description Their share of the broker’s revenue on a closed trade at this depth, as a percentage. A decimal string, never a number (§6.1).
+             * @example 60.0000
+             */
+            rate: string;
         };
         IbProgramSummaryDto: {
             /** @example Gold */
@@ -4295,16 +4244,8 @@ export interface components {
              * @enum {string}
              */
             mode: "commission_only" | "rebate_only" | "hybrid";
-            /**
-             * @description Their share of the broker’s revenue on their OWN client’s closed trade, as a percentage. A decimal string, never a number (§6.1).
-             * @example 60.0000
-             */
-            level1Rate: string;
-            /**
-             * @description Their share when the trade belongs to a sub-partner’s client.
-             * @example 40.0000
-             */
-            level2Rate: string;
+            /** @description What this partner takes at each depth, shallowest first. The COUNT is how many levels below them their earnings reach. Empty on a rebate-only programme, which pays no partner. */
+            tiers: components["schemas"]["IbProgramTierSummaryDto"][];
             /**
              * @description What their clients get back, as a percentage of the same revenue. Zero unless the mode pays a rebate.
              * @example 0.0000
@@ -4381,15 +4322,17 @@ export interface components {
         IbSubPartnerDto: {
             userId: string;
             name: string;
-            /** @example 2 */
-            level: number;
+            /**
+             * @description The terms this sub-partner is on. Replaced `level` in 0102 — a rung named a placement that decided nothing, while a programme is what they are actually paid on.
+             * @example Silver
+             */
+            programName: string;
             /** @description A suspended sub-partner keeps their tree and stops earning. */
             active: boolean;
             /** Format: date-time */
             since: string;
         };
         IbOverviewDto: {
-            level: components["schemas"]["IbLevelSummaryDto"] | null;
             programme: components["schemas"]["IbProgramSummaryDto"] | null;
             earnings: components["schemas"]["IbEarningsDto"];
             commissionWallets: components["schemas"]["WalletDto"][];
@@ -4501,8 +4444,11 @@ export interface components {
             website?: string;
         };
         ApproveIbApplicationDto: {
-            /** @description Which rung to place them on. Omitted, the service derives it: the shallowest enabled level with no parent, one below the parent otherwise. */
-            level?: number;
+            /**
+             * Format: uuid
+             * @description The commission programme to appoint them on. Omitted, the first enabled programme is used. A disabled programme is refused — it would pay them nothing.
+             */
+            programId?: string;
             /** @description The partner who introduced them. Omitted or null means they deal direct. */
             parentIbUserId?: string | null;
             /**
@@ -4524,6 +4470,18 @@ export interface components {
              */
             reason: string;
         };
+        IbProgramTierDto: {
+            /**
+             * @description Hops above the trading client. 1 is the introducer, 2 is their parent. Levels must run 1, 2, 3 … with no gaps.
+             * @example 1
+             */
+            depth: number;
+            /**
+             * @description The holder’s share of the broker’s revenue at this depth, as a percentage. A decimal string, never a number (§6.1). Must be above zero — a level that pays nothing is removed rather than zeroed, because the number of levels is what decides how far a programme pays.
+             * @example 60.0000
+             */
+            rate: string;
+        };
         IbPartnerPersonDto: {
             userId: string;
             email: string;
@@ -4535,8 +4493,13 @@ export interface components {
             email: string;
             firstName: string | null;
             lastName: string | null;
-            level: number;
-            levelName: string;
+            /** Format: uuid */
+            programId: string;
+            /**
+             * @description Replaced `level` / `levelName` in 0102. A rung named a placement that decided nothing; a programme is what this sub-partner is actually paid on.
+             * @example Silver
+             */
+            programName: string;
             referralCode: string;
             active: boolean;
             /** Format: date-time */
@@ -4550,10 +4513,6 @@ export interface components {
         };
         IbPartnerDetailDto: {
             userId: string;
-            level: number;
-            levelName: string | null;
-            /** @description The rung’s percentage of the broker’s revenue. A decimal string, never a number. */
-            rateValue: string | null;
             /**
              * Format: uuid
              * @description The terms this partner is paid on.
@@ -4561,6 +4520,15 @@ export interface components {
             programId: string;
             /** @description Null only if the programme row vanished, which the foreign key prevents. */
             programName: string | null;
+            /**
+             * @description Which legs their programme pays.
+             * @enum {string|null}
+             */
+            programMode: "commission_only" | "rebate_only" | "hybrid" | null;
+            /** @description What they take at each depth, shallowest first. The COUNT is how many levels below them their earnings reach. */
+            programTiers: components["schemas"]["IbProgramTierDto"][];
+            /** @description What their clients get back, as a percentage of the same revenue. */
+            programRebateRate: string | null;
             referralCode: string;
             /** @description A suspended partner keeps their code and tree, and stops earning. */
             active: boolean;
@@ -4576,10 +4544,6 @@ export interface components {
             referredClientCount: number;
             earnings: components["schemas"]["IbPartnerEarningsDto"];
         };
-        ChangeIbLevelDto: {
-            /** @description Must be an ENABLED level. */
-            level: number;
-        };
         ChangeIbProgramDto: {
             /**
              * Format: uuid
@@ -4594,56 +4558,6 @@ export interface components {
         SetIbActiveDto: {
             /** @description False suspends: the referral code and the tree are kept, the earning stops. There is no delete — removing the row would orphan every partner beneath them. */
             active: boolean;
-        };
-        IbLevelDto: {
-            /**
-             * @description 1 is closest to the broker; higher sits further down.
-             * @example 1
-             */
-            level: number;
-            /** @example Master Partner */
-            name: string;
-            /**
-             * @description The percentage of the broker’s revenue on a closed trade that this rung takes. A decimal string, never a number (§6.1).
-             * @example 70.0000
-             */
-            rateValue: string;
-            /** @description A disabled level takes no share and accepts no new partners. */
-            enabled: boolean;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        CreateIbLevelDto: {
-            /**
-             * @description Omit to append one below the deepest existing level.
-             * @example 3
-             */
-            level?: number;
-            /** @example Sub Partner */
-            name: string;
-            /** @example 30.0000 */
-            rateValue: string;
-            /** @description Defaults to true. */
-            enabled?: boolean;
-        };
-        UpdateIbLevelDto: {
-            /** @example Sub Partner */
-            name?: string;
-            /** @example 30.0000 */
-            rateValue?: string;
-            enabled?: boolean;
-        };
-        ReorderIbLevelsDto: {
-            /**
-             * @description Current level numbers, in the order they should now appear.
-             * @example [
-             *       2,
-             *       1
-             *     ]
-             */
-            order: number[];
         };
         IbProgramDto: {
             /** Format: uuid */
@@ -4663,18 +4577,10 @@ export interface components {
              * @enum {string}
              */
             mode: "commission_only" | "rebate_only" | "hybrid";
+            /** @description What this programme pays at each depth, shallowest first. The COUNT is how many levels its holder’s earnings reach. Empty on a `rebate_only` programme, which pays no partner. */
+            tiers: components["schemas"]["IbProgramTierDto"][];
             /**
-             * @description The holder’s share of the broker’s revenue on their OWN client’s closed trade, as a percentage. A decimal string, never a number (§6.1).
-             * @example 60.0000
-             */
-            level1Rate: string;
-            /**
-             * @description Their share when the trade belongs to a SUB-partner’s client.
-             * @example 40.0000
-             */
-            level2Rate: string;
-            /**
-             * @description What returns to the TRADING CLIENT, as a percentage of the same revenue. Paid only when `mode` is `rebate_only` or `hybrid`.
+             * @description What returns to the TRADING CLIENT, as a percentage of the same revenue. Paid only when `mode` is `rebate_only` or `hybrid`. On the programme rather than per depth because there is one trading client per trade, in one relationship — with their introducer.
              * @example 0.0000
              */
             rebateRate: string;
@@ -4690,6 +4596,13 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        IbProgramLimitsDto: {
+            /**
+             * @description The most levels a programme may define, from `IB_MAX_LEVELS`. Defaults to 2 — the committed two-level structure (Feature List Rev 9, IB-17). Raising it is a commercial decision, not a deploy-time accident.
+             * @example 2
+             */
+            maxLevels: number;
+        };
         CreateIbProgramDto: {
             /** @example Gold */
             name: string;
@@ -4703,14 +4616,12 @@ export interface components {
              * @enum {string}
              */
             mode: "commission_only" | "rebate_only" | "hybrid";
-            /** @example 60 */
-            level1Rate?: string;
-            /** @example 40 */
-            level2Rate?: string;
+            /** @description The ladder, 1..N with no gaps. Omit for a rebate-only programme. */
+            tiers?: components["schemas"]["IbProgramTierDto"][];
             /** @example 0 */
             rebateRate?: string;
-            /** @default true */
-            enabled: boolean;
+            /** @description Defaults to true. */
+            enabled?: boolean;
         };
         UpdateIbProgramDto: {
             /** @example Gold */
@@ -4719,10 +4630,8 @@ export interface components {
             sortOrder?: number;
             /** @enum {string} */
             mode?: "commission_only" | "rebate_only" | "hybrid";
-            /** @example 60 */
-            level1Rate?: string;
-            /** @example 40 */
-            level2Rate?: string;
+            /** @description REPLACES the whole ladder. Send every level you want to keep; omit the field to leave the existing ladder alone. An empty array removes every level. */
+            tiers?: components["schemas"]["IbProgramTierDto"][];
             /** @example 0 */
             rebateRate?: string;
             enabled?: boolean;
@@ -5452,26 +5361,10 @@ export interface components {
              */
             maxDemoDeposit: string;
             /**
-             * @description The most of its revenue the broker pays partners. IB level rates are each a share of the FULL revenue and therefore add up; this caps the chain total and scales it pro rata.
-             * @example 50.00
+             * @description How many levels a commission programme’s ladder may reach. Defaults to 2 — the committed two-level structure (Feature List Rev 9, IB-17). Bounds what may be SAVED: lowering it leaves existing programmes paying exactly what they paid before.
+             * @example 2
              */
-            ibMaxRevenueSharePct: string;
-            /**
-             * @description Hours a commission is HELD before it may be confirmed — the rule between earned and spendable. 0 pays as soon as it is calculated.
-             * @example 24
-             */
-            ibCommissionHoldHours: number;
-            /**
-             * @description When commission starts being paid from. NULL means NOBODY HAS DECIDED, and the engine holds rather than paying a historical backlog by accident. "all" pays the whole history deliberately; an ISO instant pays from there and marks everything older decided-and-unpaid.
-             * @example 2026-08-24T00:00:00.000Z
-             */
-            ibAccrualStart?: string | null;
-            /**
-             * @description Which of the broker's earnings a partner's rate applies to. 'commission_swap' (the default, and what the platform shipped on) is MT5's charged commission + swap; 'spread' is lots x the product's spread markup per lot; 'commission_swap_spread' is both. Changing it re-prices every FUTURE trade and nothing already decided.
-             * @example commission_swap
-             * @enum {string}
-             */
-            ibRevenueBasis: "commission_swap" | "spread" | "commission_swap_spread";
+            ibMaxLevels: number;
             /** Format: date-time */
             updatedAt?: string | null;
         };
@@ -5485,24 +5378,8 @@ export interface components {
              * @example 1000000.00
              */
             maxDemoDeposit: string;
-            /**
-             * @description Percent, 0 to 100.
-             * @example 50.00
-             */
-            ibMaxRevenueSharePct: string;
-            /** @example 24 */
-            ibCommissionHoldHours: number;
-            /**
-             * @description null holds the engine, "all" pays the whole backlog, or an ISO 8601 instant. Applies ONLY to deals not yet decided — a deal already processed is never revisited, so moving this date backwards later recovers nothing and reports no error.
-             * @example 2026-08-24T00:00:00.000Z
-             */
-            ibAccrualStart?: string | null;
-            /**
-             * @description 'commission_swap' (default) pays on MT5's charged commission + swap; 'spread' pays on lots x the product's spread markup; 'commission_swap_spread' pays on both. Applies to FUTURE trades only. Populate product spread markups BEFORE choosing a spread-inclusive basis: a zero markup yields zero revenue, and a zero-revenue deal is decided permanently.
-             * @example commission_swap
-             * @enum {string}
-             */
-            ibRevenueBasis?: "commission_swap" | "spread" | "commission_swap_spread";
+            /** @example 2 */
+            ibMaxLevels: number;
         };
         SmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */
@@ -8388,7 +8265,7 @@ export interface operations {
                 /** @description Restrict to one client. */
                 clientUserId?: string;
                 status?: "pending" | "confirmed" | "reversed";
-                sort?: "createdAt" | "amount" | "status" | "level";
+                sort?: "createdAt" | "amount" | "status" | "depth";
                 order?: "asc" | "desc";
             };
             header?: never;
@@ -8433,7 +8310,7 @@ export interface operations {
             query?: {
                 page?: string;
                 limit?: string;
-                sort?: "approvedAt" | "level" | "referralCode" | "userEmail" | "userFirstName";
+                sort?: "approvedAt" | "programName" | "referralCode" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
             };
             header?: never;
@@ -8489,31 +8366,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbPartnerDetailDto"];
-                };
-            };
-        };
-    };
-    AdminIbController_changeLevel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChangeIbLevelDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbAccountDto"];
                 };
             };
         };
@@ -8593,115 +8445,6 @@ export interface operations {
             };
         };
     };
-    AdminIbLevelsController_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbLevelDto"][];
-                };
-            };
-        };
-    };
-    AdminIbLevelsController_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateIbLevelDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbLevelDto"];
-                };
-            };
-        };
-    };
-    AdminIbLevelsController_reorder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReorderIbLevelsDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbLevelDto"][];
-                };
-            };
-        };
-    };
-    AdminIbLevelsController_remove: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                level: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AdminIbLevelsController_update: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                level: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateIbLevelDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbLevelDto"];
-                };
-            };
-        };
-    };
     AdminIbProgramsController_list: {
         parameters: {
             query?: never;
@@ -8740,6 +8483,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbProgramDto"];
+                };
+            };
+        };
+    };
+    AdminIbProgramsController_limits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbProgramLimitsDto"];
                 };
             };
         };

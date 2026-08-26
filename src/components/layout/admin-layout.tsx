@@ -21,7 +21,6 @@ import {
   Gauge,
   CreditCard,
   Handshake,
-  Layers,
   Percent,
   ClipboardList,
   ShieldCheck,
@@ -200,11 +199,11 @@ const NAV_SECTIONS: NavSection[] = [
          screen reachable only by typing its URL — the navigation lists places
          an operator can go, and /commissions is one.) */
       { label: 'nav.commissions', href: '/commissions', icon: Coins },
-      /* Programmes BEFORE the ladder: the terms are what a partner is paid on
-         and the ladder is where they stand, and an operator arriving here is
-         nearly always asking the first question. */
+      /* One entry, because there is one catalogue. `nav.ibLevels` pointed at a
+         second screen owning "where a partner stands"; 0102 folded that into the
+         programme's own tier ladder, so the terms and their reach are configured
+         in one place and cannot disagree. */
       { label: 'nav.ibPrograms', href: '/ib-programs', icon: Percent },
-      { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
       /*
        * Agencies sit with the partners rather than with Products, because that
        * is who they are about: a وكالة is the programme a partner is appointed
