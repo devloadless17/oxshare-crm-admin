@@ -234,6 +234,19 @@ export function AdminIdentityPanel({
           value={t('profile.permissionCount', { count: admin.permissions?.length ?? 0 })}
         />
         <Field label={t('profile.fieldCreated')} value={formatDate(admin.createdAt)} />
+        {/*
+          A null here is a real state — the column was added after these
+          accounts existed, so "never recorded" is the honest reading and not
+          "never changed". Stated rather than guessed, exactly as the DTO says.
+        */}
+        <Field
+          label={t('profile.fieldPasswordChanged')}
+          value={
+            admin.passwordChangedAt
+              ? formatDate(admin.passwordChangedAt)
+              : t('profile.fieldPasswordNever')
+          }
+        />
       </dl>
     </section>
   );

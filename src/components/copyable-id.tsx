@@ -16,6 +16,30 @@ import { t } from '@/lib/i18n';
  */
 export function CopyableId({ value, full = false }: { value: string; full?: boolean }) {
   const [copied, setCopied] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
+
+  /*
+   * A copy that fails must SAY so.
+   *
+   * `navigator.clipboard` is undefined over plain HTTP (a synchronous
+   * TypeError, not a rejection) and the promise rejects when the permission is
+   * denied — so an unguarded call leaves the button looking exactly as it did
+   * before the click. The operator believes the id is on their clipboard and
+   * pastes the previous contents into a support ticket. The client portal has
+   * treated this as a hazard in four places since it shipped; this is the same
+   * rule on the console.
+   */
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setFailed(false);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+      setFailed(true);
+    }
+  };
 
   return (
     <span className="inline-flex min-w-0 items-center gap-1">
@@ -33,18 +57,20 @@ export function CopyableId({ value, full = false }: { value: string; full?: bool
         onClick={(event) => {
           // Never let the copy click reach a row-level affordance beneath it.
           event.stopPropagation();
-          void navigator.clipboard.writeText(value).then(() => {
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 1500);
-          });
+          void copy();
         }}
       >
         {copied ? (
           <Check className="h-3.5 w-3.5 text-success" aria-hidden="true" />
         ) : (
-          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+          <Copy className={`h-3.5 w-3.5 ${failed ? 'text-destructive' : ''}`} aria-hidden="true" />
         )}
       </button>
+      {failed && (
+        <span role="alert" className="text-[11px] text-destructive">
+          {t('common.copyFailed')}
+        </span>
+      )}
     </span>
   );
 }

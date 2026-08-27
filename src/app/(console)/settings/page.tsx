@@ -227,7 +227,7 @@ function AdminSettingsContent() {
         <TabPanel value="platforms" activeValue={active} idPrefix="settings">
           {/*
             Rendered for EVERY admin, with the controls disabled without
-            `settings.manage`, rather than hidden like the Email tab. The two are
+            `settings.edit`, rather than hidden like the Email tab. The two are
             different kinds of secret: where the mail relay points is worth
             withholding, whereas which platforms have a download is something an
             operator needs to look up without holding a permission they do not

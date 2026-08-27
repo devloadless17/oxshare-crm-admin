@@ -72,6 +72,13 @@ const FILTERS: Array<{ value: string; label: string }> = [
    * which is why it reads as its own tab rather than being folded into Pending:
    * those are submissions waiting on a REVIEWER.
    */
+  /*
+   * FIRST, because it is what the dashboard tile and the sidebar badge count
+   * and therefore what an operator arrives here holding. It is a SET, not a
+   * column value — the API resolves `needs_review` to submitted +
+   * under_review (see kyc.store.ts).
+   */
+  { value: 'needs_review', label: t('kycReview.filterNeedsReview') },
   { value: 'in_progress', label: t('kycReview.filterInProgress') },
   { value: 'submitted', label: t('kycReview.filterPending') },
   { value: 'under_review', label: t('kycReview.filterUnderReview') },

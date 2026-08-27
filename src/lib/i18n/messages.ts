@@ -1066,6 +1066,13 @@ export const messages = {
    * on a reviewer, which is why this one reads differently on purpose.
    */
   'kycReview.filterInProgress': 'In Progress',
+  /*
+   * The whole QUEUE — submitted plus under_review, the set the dashboard tile
+   * and the sidebar badge count. Both used to link to `submitted` alone, so a
+   * badge reading 17 opened a list of 12 and the five somebody had already
+   * picked up fell off the daily sweep.
+   */
+  'kycReview.filterNeedsReview': 'Needs review',
   'kycReview.filterPending': 'Pending',
   'kycReview.filterUnderReview': 'Under Review',
   'kycReview.filterApproved': 'Approved',
@@ -1103,6 +1110,13 @@ export const messages = {
   'kycReview.docIdBack': 'ID document (back)',
   'kycReview.docSelfie': 'Selfie verification',
   'kycReview.docAddress': 'Proof of address',
+  /*
+   * A proof of address can be TWO pages — a bank statement's second sheet is
+   * where the address often is. The client can upload it and the API stores
+   * and serves it; until this label existed the review grid built four
+   * candidates and silently dropped it, so a reviewer decided on page 1 alone.
+   */
+  'kycReview.docAddress2': 'Proof of address — page 2',
   // Signals a reviewer needs that the API was already sending and the screen
   // never rendered — a brand-new account and a two-year-old one looked identical.
   'kycReview.accountLabel': 'Account',
@@ -1417,6 +1431,16 @@ export const messages = {
   'tradingSettings.readOnly': 'You do not have permission to change these.',
   'tradingSettings.updateFailed': 'Could not save the trading settings.',
   'tradingSettings.save': 'Save changes',
+  /*
+   * WHO last saved this, and when.
+   *
+   * Every settings save records the administrator and no panel showed it, so
+   * "who changed the commission basis / the leverage ladder / the SMTP host,
+   * and when" was answerable only from the audit log — on settings that decide
+   * what partners are paid and whether mail leaves the building.
+   */
+  'settings.lastSavedBy': 'Last saved by {who} · {when}',
+  'settings.lastSavedAt': 'Last saved {when}',
   'tradingSettings.saving': 'Saving...',
   'tradingSettings.saved': 'Saved',
 
@@ -1494,6 +1518,16 @@ export const messages = {
   // Not "unavailable": the group exists, it simply belongs somewhere else, and
   // the operator needs to know which of those two it is.
   'products.claimed': 'already on another product',
+  /*
+   * A picker that cannot say how stale it is reads exactly like a current one.
+   *
+   * The catalogue endpoint falls back to the SYNCED list when MT5 cannot be
+   * reached, and every row carries `lastSeenAt` for precisely this — its own
+   * DTO ends "Surface it". Nothing rendered it, so an operator attaching a
+   * group during an outage picked from a possibly-weeks-old list presented as
+   * live.
+   */
+  'products.groupsStale': 'MT5 is unreachable — showing the last synced list (confirmed {at}).',
   'products.groupsUnavailable':
     'Could not read the groups from MT5. The bridge may be down — attaching needs it, because the group is verified against the server.',
   'products.live': 'Live',
@@ -1987,6 +2021,13 @@ export const messages = {
   /* The CopyableId button. Says what lands on the clipboard — the FULL uuid,
      not the 8 truncated characters the cell shows. */
   'common.copyId': 'Copy full ID',
+  /*
+   * Copying can FAIL, and silently: `navigator.clipboard` is undefined on
+   * plain HTTP and the promise rejects when permission is denied. Without a
+   * message the button looks identical to one that was never pressed, and the
+   * operator pastes whatever was on the clipboard before.
+   */
+  'common.copyFailed': 'Could not copy — select the value and copy it manually.',
   'common.copied': 'Copied',
   'common.cancel': 'Cancel',
   'common.saving': 'Saving…',
@@ -2263,6 +2304,19 @@ export const messages = {
   'reconciliation.mismatch.body':
     'Investigate before making any correction. Nothing here is repaired automatically: a compensating entry written for an undiagnosed cause hides the problem instead of fixing it.',
   'reconciliation.checkedAt': 'Checked {count} wallet(s) · last run {at}',
+  /*
+   * The SCALE of the break, which the screen could not state.
+   *
+   * `walletDiscrepancies` is capped at 20 rows server-side and the response
+   * carries the real `discrepancyCount` and `totalDifference` beside it — its
+   * own DTO warns that "a screen that counts this array reports 20 on a
+   * database with thousands". Until these strings existed the page rendered
+   * the sample and no figure, so a systemic ledger break read as twenty
+   * isolated ones.
+   */
+  'reconciliation.mismatch.scale': '{count} wallet(s) affected · {total} out of balance',
+  'reconciliation.sampleNote':
+    'Showing the first {shown} of {count}. Investigate these, then re-run.',
   'reconciliation.caption': 'Wallets whose balance does not match their ledger',
   'reconciliation.empty': 'No discrepancies — every wallet matches its ledger.',
   'reconciliation.column.client': 'Client',
@@ -2933,6 +2987,15 @@ export const messages = {
   'profile.fieldStatus': 'Status',
   'profile.fieldPermissions': 'Permissions',
   'profile.fieldCreated': 'Member since',
+  /*
+   * WHEN this administrator's password last changed. It is on every
+   * `/admin/auth/me` payload and its DTO claims "the profile screen words it
+   * as unknown rather than guessing" — which was false, because no screen
+   * showed it at all. On a console that can approve payouts, "when did I last
+   * rotate this" is a question the profile should answer.
+   */
+  'profile.fieldPasswordChanged': 'Password changed',
+  'profile.fieldPasswordNever': 'Not since this was recorded',
   'profile.permissionCount': '{count} granted',
   'profile.statusActive': 'Active',
   'profile.statusSuspended': 'Suspended',

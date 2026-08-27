@@ -206,6 +206,18 @@ function ProductForm({
    * hunting for a group they can see in their terminal.
    */
   const staged = new Set(groups.map((group) => group.mt5Group.toLowerCase()));
+  /*
+   * The oldest confirmation in the list, or null when the read was live. Rows
+   * only carry `lastSeenAt` on the fallback path, so any non-null value means
+   * the whole list came from the catalogue rather than from MT5.
+   */
+  const staleAt =
+    available.status === 'ready'
+      ? (available.data ?? [])
+          .map((group) => group.lastSeenAt)
+          .filter((seen): seen is string => Boolean(seen))
+          .sort()[0]
+      : undefined;
 
   const addGroup = () => {
     const match = available.data?.find((group) => group.name === chosen);
@@ -438,6 +450,18 @@ function ProductForm({
               })}
             </SelectContent>
           </Select>
+          {/*
+            SAY when the list was last confirmed. `lastSeenAt` is non-null
+            exactly when the live MT5 read failed and this fell back to the
+            synced catalogue — attaching still validates against the live
+            server, so a stale row cannot become a stored configuration, but an
+            operator choosing from it deserves to know what they are reading.
+          */}
+          {staleAt && (
+            <p className="mt-1 text-xs text-warning">
+              {t('products.groupsStale', { at: new Date(staleAt).toLocaleString() })}
+            </p>
+          )}
 
           <button
             type="button"

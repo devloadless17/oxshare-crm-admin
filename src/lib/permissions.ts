@@ -79,9 +79,12 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * `/wallets` and `/trading-accounts` were listed here while they still
    * rendered BackendPending, because `canAccess` denies an unlisted path and a
    * page with no route requirement shows the "no access" panel instead of
-   * itself. Both now list real rows off `AdminHoldingsController`, and both are
-   * reads only — the pages draw no write control, and the API refuses writes
-   * regardless.
+   * itself. Both now list real rows off `AdminHoldingsController`. They are NO LONGER
+   * read-only, which this comment claimed for a while after it stopped being
+   * true: `/wallets` draws credit and close controls, `/trading-accounts`
+   * draws create, deposit and withdraw. Each is gated on its own key in the
+   * page and the API refuses regardless — the route requirement here decides
+   * who reaches the screen, not what they may do on it.
    */
   /*
    * The Financial page's own key — not `withdrawals.view` (the leak the

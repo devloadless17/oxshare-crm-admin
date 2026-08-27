@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
-import { ChevronsUpDown, LogOut, Monitor, Moon, Sun, UserCircle } from 'lucide-react';
+import { ChevronDown, ChevronsUpDown, LogOut, Monitor, Moon, Sun, UserCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -24,8 +24,9 @@ import { t } from '@/lib/i18n';
 import { toastError } from '@/lib/toast';
 
 /**
- * The account menu at the foot of the sidebar — the portal's `UserMenu`, on the
- * admin's identity.
+ * The account menu, top-right in the header — the portal's `UserMenu`, on the
+ * admin's identity. It began at the foot of the sidebar; the product owner
+ * moved both apps' menus to the header's right edge.
  *
  * Replaces a block that showed the admin's name, e-mail, a green "online" dot
  * and a bare log-out icon, all at once and all always visible. The same three
@@ -63,15 +64,23 @@ export function UserMenu({
 }: {
   collapsed: boolean;
   /**
-   * `header` is the mobile placement: the trigger is the avatar alone, with no
-   * surrounding panel, because the header has to hold a hamburger and a search
-   * box on a phone. The MENU is identical — it already repeats the identity
-   * inside, which is what makes an avatar-only trigger safe on a shared machine.
+   * `header` is the top-right placement, at every breakpoint: a pill trigger —
+   * avatar, name, chevron — from `md` up, collapsing to the avatar alone below,
+   * because the mobile header also holds a hamburger and the search box. The
+   * MENU repeats the identity inside either way, which is what makes an
+   * avatar-only trigger safe on a shared back-office machine.
    */
   variant?: 'sidebar' | 'header';
 }) {
   const { admin, logout } = useAdmin();
   const [logoutError, setLogoutError] = React.useState<string | null>(null);
+  /*
+   * Controlled, because a FAILED sign-out must keep the menu open: the error
+   * line renders inside it, and Radix's default is to close on item select —
+   * which would flash the message for one frame and leave a signed-in console
+   * that looks like nothing happened.
+   */
+  const [open, setOpen] = React.useState(false);
 
   const name = admin?.name?.trim() ?? '';
   /*
@@ -109,13 +118,16 @@ export function UserMenu({
     setLogoutError(null);
     try {
       await logout();
+      setOpen(false);
     } catch (error) {
       /*
-       * Surfaced TWICE on purpose. The inline line under the trigger is only
-       * rendered in the expanded sidebar; in the header variant and on a
-       * collapsed sidebar there is no room for it — so a failed sign-out was
-       * completely silent there, which is the one outcome this whole path
-       * exists to prevent (see api/auth.ts). The toast reaches every layout.
+       * Surfaced TWICE on purpose: as a line INSIDE the still-open menu (the
+       * reader's eyes are already there — the item they just pressed did not
+       * work) and as a toast, which survives even if they click away before
+       * reading. Never navigate here: only the server can end this session,
+       * so a failed call leaves the admin fully signed in, and a sign-in
+       * screen over a live session is the one outcome this whole path exists
+       * to prevent (see api/auth.ts).
        */
       toastError(error, t('session.logoutFailed'));
       setLogoutError(t('session.logoutFailed'));
@@ -126,19 +138,44 @@ export function UserMenu({
 
   return (
     <div className={variant === 'header' ? '' : 'border-t border-border p-3'}>
-      <DropdownMenu>
+      <DropdownMenu
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          // A failure message from a PREVIOUS attempt must not greet the next
+          // open as if it just happened — it describes a moment, not a state.
+          if (!next) setLogoutError(null);
+        }}
+      >
         <DropdownMenuTrigger
-          className={`flex items-center gap-3 rounded-lg text-left transition-colors focus-outline cursor-pointer ${
+          className={`flex items-center text-left transition-colors focus-outline cursor-pointer ${
             variant === 'header'
-              ? 'shrink-0 rounded-full'
-              : `w-full bg-muted p-2.5 hover:bg-accent ${collapsed ? 'justify-center p-2' : ''}`
+              ? 'h-9 shrink-0 gap-2 rounded-full py-1 ps-1 pe-1 hover:bg-muted md:pe-2.5 data-[state=open]:bg-muted'
+              : `w-full gap-3 rounded-lg bg-muted p-2.5 hover:bg-accent ${collapsed ? 'justify-center p-2' : ''}`
           }`}
           aria-label={t('nav.accountMenu')}
         >
-          <Avatar>
+          <Avatar className={variant === 'header' ? 'h-7 w-7' : undefined}>
             <AvatarImage src={photo} alt="" />
-            <AvatarFallback>{initials}</AvatarFallback>
+            <AvatarFallback className={variant === 'header' ? 'text-[11px]' : undefined}>
+              {initials}
+            </AvatarFallback>
           </Avatar>
+
+          {variant === 'header' && (
+            /*
+             * The name and chevron appear from `md` up — the pill of every
+             * mature dashboard. Below `md` the trigger collapses to the avatar
+             * alone, so the mobile header keeps its width beside the hamburger
+             * and the search box.
+             */
+            <span className="hidden min-w-0 items-center gap-1.5 md:flex">
+              <span className="max-w-40 truncate text-sm font-medium text-foreground">
+                {name || t('nav.accountMenu')}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </span>
+          )}
 
           {!compact && (
             <>
@@ -165,9 +202,15 @@ export function UserMenu({
           )}
         </DropdownMenuTrigger>
 
-        {/* `side="top"` because the trigger is at the very bottom of a
-            full-height sidebar; a menu opening downwards would be off-screen. */}
-        <DropdownMenuContent side="top" align="start" className="w-60" sideOffset={8}>
+        {/* In the header the menu drops DOWN from the top-right, anchored to
+            the trigger's end edge. The sidebar variant still opens upwards —
+            its trigger sat at the very bottom of a full-height rail. */}
+        <DropdownMenuContent
+          side={variant === 'header' ? 'bottom' : 'top'}
+          align={variant === 'header' ? 'end' : 'start'}
+          className="w-60"
+          sideOffset={8}
+        >
           {/* The identity repeats inside the menu deliberately. On a collapsed
               sidebar the trigger is an avatar and nothing else, so this is the
               only place the operator can confirm WHICH account they are about
@@ -204,20 +247,29 @@ export function UserMenu({
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
-            onSelect={() => void handleLogout()}
+            onSelect={(event) => {
+              // Keep the menu mounted while the request runs: on success the
+              // navigation unmounts everything anyway, and on failure the
+              // error line below needs somewhere to appear.
+              event.preventDefault();
+              void handleLogout();
+            }}
             className="text-destructive focus:bg-destructive/10 focus:text-destructive"
           >
             <LogOut />
             <span>{t('nav.logout')}</span>
           </DropdownMenuItem>
+
+          {logoutError && (
+            <p
+              role="alert"
+              className="mx-1 mb-1 mt-1.5 rounded-md bg-destructive/10 px-2.5 py-2 text-[11px] leading-snug text-destructive"
+            >
+              {logoutError}
+            </p>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {logoutError && !compact && (
-        <p role="alert" className="mt-2 text-[11px] text-destructive">
-          {logoutError}
-        </p>
-      )}
     </div>
   );
 }

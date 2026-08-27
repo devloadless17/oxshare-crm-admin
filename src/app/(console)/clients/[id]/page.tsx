@@ -301,6 +301,21 @@ export default function ClientProfilePage() {
                   onReassignParent={() => setParentOpen(true)}
                   onEditProfile={() => setEditOpen(true)}
                   onChangeEmail={() => setEmailOpen(true)}
+                  /*
+                   * Tab moves, not links. `TabPanel` unmounts what is not
+                   * active, so the documents anchor exists only while Overview
+                   * is selected — the scroll is deferred a frame so the panel
+                   * has mounted before it looks for the target.
+                   */
+                  onShowDocuments={() => {
+                    setTab(TAB_OVERVIEW);
+                    requestAnimationFrame(() =>
+                      document
+                        .getElementById('documents')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                    );
+                  }}
+                  onShowNetwork={() => setTab(TAB_NETWORK)}
                 />
               </div>
             </header>

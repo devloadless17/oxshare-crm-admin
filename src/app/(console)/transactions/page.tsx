@@ -969,7 +969,17 @@ function TransactionsPageContent() {
             </Detail>
             {detailsTarget.reviewedAt && (
               <Detail label={t('withdrawals.detailsReviewed')}>
-                {formatDateTime(detailsTarget.reviewedAt)}
+                {/*
+                  WHO, then when. The id has been recorded on every decision
+                  since this lifecycle existed and this screen showed only the
+                  timestamp — on a console that splits approve from settle so
+                  two people can be required, "Reviewed 12 Aug 14:32" named
+                  neither of them. The name is omitted rather than guessed when
+                  the administrator has since been deleted.
+                */}
+                {detailsTarget.reviewedByName
+                  ? `${detailsTarget.reviewedByName} · ${formatDateTime(detailsTarget.reviewedAt)}`
+                  : formatDateTime(detailsTarget.reviewedAt)}
               </Detail>
             )}
             {detailsTarget.settledAt && (

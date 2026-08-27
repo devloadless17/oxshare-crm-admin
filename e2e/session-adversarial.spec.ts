@@ -267,8 +267,52 @@ test('a completed password reset reaches a live browser immediately', async ({ b
   }
 });
 
-test('three tabs waking together all stay signed in', async ({ context, page }) => {
+/*
+ * ⚠️ THE TWO RACE TESTS BELOW MINT THEIR OWN ADMIN, and must keep doing so.
+ *
+ * They deliberately fire concurrent refreshes at ONE rotating cookie. That is
+ * exactly the situation the storage-state jar cannot survive: the token
+ * rotates two or three times inside the browser while the file on disk still
+ * holds an earlier one, so the NEXT spec to load the shared jar presents a
+ * token that has already been rotated away — reuse detection destroys the
+ * family, and every console page after it renders the sign-in form. It cost a
+ * full sweep exactly once, and the symptom (a dozen unrelated pages failing an
+ * accessibility check on the login page's password toggle) points nowhere near
+ * the cause.
+ *
+ * A dedicated identity contains the blast radius to the test that lit it.
+ */
+async function raceAdmin(): Promise<{
+  state: Awaited<ReturnType<typeof browserStateFrom>>;
+  cleanup: () => Promise<void>;
+}> {
+  const master = await adminApiSession();
+  const invited = await master.post('/admin/invite', {
+    email: `e2e-race-${Date.now()}@oxshare-e2e.test`,
+    name: 'E2E Refresh Race',
+    permissions: ['clients.view'],
+  });
+  expect(invited.ok(), `invite answered ${invited.status()}`).toBe(true);
+  const token = new URL(
+    ((await invited.json()) as { inviteUrl?: string }).inviteUrl ?? 'http://x/',
+  ).searchParams.get('token')!;
+  const racer = await acceptAdminInvite(token, `Race-${Date.now()}-123!`);
+
+  return {
+    state: await browserStateFrom(racer.ctx),
+    cleanup: async () => {
+      await master.patch(`/admin/users/${racer.id}/status`, { status: 'suspended' });
+      await racer.ctx.dispose();
+      await master.dispose();
+    },
+  };
+}
+
+test('three tabs waking together all stay signed in', async ({ browser }) => {
   test.setTimeout(180_000);
+  const racer = await raceAdmin();
+  const context = await browser.newContext({ storageState: racer.state });
+  const page = await context.newPage();
   /*
    * The fleet race the cross-tab lock + SESSION_SUPERSEDED retry exist for: a
    * laptop wakes with three console tabs, every tab's access token lapsed,
@@ -298,6 +342,8 @@ test('three tabs waking together all stay signed in', async ({ context, page }) 
   }
   await tab2.close();
   await tab3.close();
+  await context.close();
+  await racer.cleanup();
 });
 
 test('two tabs racing WITHOUT Web Locks still both survive', async ({ browser }) => {
@@ -308,7 +354,8 @@ test('two tabs racing WITHOUT Web Locks still both survive', async ({ browser })
    * on the backend, whose 30s retry grace + SESSION_SUPERSEDED retry must
    * absorb it end to end — this is the only place that combination is proven.
    */
-  const ctx = await browser.newContext({ storageState: 'e2e/.auth/admin.json' });
+  const racer = await raceAdmin();
+  const ctx = await browser.newContext({ storageState: racer.state });
   await ctx.addInitScript(() => {
     // Simulate a browser with no Web Locks API, before any app script runs.
     Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true });
@@ -325,6 +372,8 @@ test('two tabs racing WITHOUT Web Locks still both survive', async ({ browser })
   } finally {
     await ctx.close();
   }
+  await ctx.close();
+  await racer.cleanup();
 });
 
 test('the invite MODAL grants exactly the territory it shows', async ({ page }) => {

@@ -368,16 +368,30 @@ function TradingAccountsPageContent() {
       cell: (a) => (
         <RowActions
           label={t('tradingAccounts.rowActions', { login: a.login ?? a.id })}
-          items={[
-            {
-              label: t('tradingAccounts.adjustBalance'),
-              icon: Wallet,
-              // No MT5 login means no account on the server to move money on.
-              // Suspended accounts are refused by the API too.
-              disabled: !a.login || a.status !== 'active',
-              onSelect: () => setAdjusting(a),
-            },
-          ]}
+          /*
+           * OMITTED, not disabled.
+           *
+           * This is the row's only action, so a disabled item made the whole
+           * menu a dead entry — and Radix strips the title from a disabled
+           * item, so the reason (no MT5 login yet, or the account is not
+           * active) appeared nowhere on screen. `RowActions` already states
+           * the rule for the empty case in its own docstring: "a control that
+           * only ever explains why it cannot be used is worse than its
+           * absence". An account awaiting provisioning has no login, which is
+           * the normal state for a freshly created row — and the Login and
+           * Status columns beside this one already say so.
+           */
+          items={
+            a.login && a.status === 'active'
+              ? [
+                  {
+                    label: t('tradingAccounts.adjustBalance'),
+                    icon: Wallet,
+                    onSelect: () => setAdjusting(a),
+                  },
+                ]
+              : []
+          }
         />
       ),
     });

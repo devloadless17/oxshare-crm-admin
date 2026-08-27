@@ -5387,6 +5387,7 @@ export interface components {
             ibMaxTotalPayoutPct: string;
             /** Format: date-time */
             updatedAt?: string | null;
+            updatedByName?: string | null;
         };
         UpdateTradingSettingsDto: {
             /** @example 5 */
@@ -5429,6 +5430,7 @@ export interface components {
             source: "database" | "environment";
             /** Format: date-time */
             updatedAt?: string | null;
+            updatedByName?: string | null;
         };
         UpdateSmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */
@@ -5963,6 +5965,20 @@ export interface components {
             color?: string;
             description?: string;
         };
+        ClientTagAssignmentDto: {
+            id: string;
+            /** @description Stable machine name. Filter with ?tag=<slug>; a rename does not change it. */
+            slug: string;
+            label: string;
+            color?: string;
+            description?: string;
+            /** Format: date-time */
+            createdAt: string;
+            assignedBy?: string | null;
+            assignedByName?: string | null;
+            /** Format: date-time */
+            assignedAt: string;
+        };
         KycDocumentDto: {
             docType?: string;
             frontFilePath?: string;
@@ -6338,6 +6354,7 @@ export interface components {
             requestedAt: string;
             /** Format: date-time */
             reviewedAt?: string | null;
+            reviewedByName?: string | null;
             /** Format: date-time */
             settledAt?: string | null;
             /** @description The payment platform’s withdrawal id, once submitted. Null before. */
@@ -10595,7 +10612,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagDto"][];
+                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
                 };
             };
         };
@@ -10617,7 +10634,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagDto"][];
+                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
                 };
             };
         };
@@ -10639,7 +10656,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagDto"][];
+                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
                 };
             };
         };
@@ -11821,10 +11838,14 @@ export interface operations {
             query?: {
                 format?: "csv";
                 direction?: "deposit" | "withdrawal";
+                /** @description payment = crossed the platform boundary through a provider; transfer = wallet ⇄ trading account; commission_transfer = partner earnings to their main wallet. */
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Narrow to one client (UUID). */
                 userId?: string;
+                /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
+                /** @description Search the client’s email and name — the same columns every other queue searches. */
                 q?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 from?: string;
@@ -11852,10 +11873,14 @@ export interface operations {
         parameters: {
             query?: {
                 direction?: "deposit" | "withdrawal";
+                /** @description payment = crossed the platform boundary through a provider; transfer = wallet ⇄ trading account; commission_transfer = partner earnings to their main wallet. */
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Narrow to one client (UUID). */
                 userId?: string;
+                /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
+                /** @description Search the client’s email and name — the same columns every other queue searches. */
                 q?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 from?: string;
@@ -11887,6 +11912,7 @@ export interface operations {
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description Narrow to one client (UUID). */
                 userId?: string;
+                /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
                 /** @description Search the client’s email and name — the same columns every other queue searches. */
                 q?: string;

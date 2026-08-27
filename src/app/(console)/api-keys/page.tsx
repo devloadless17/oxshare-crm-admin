@@ -275,6 +275,7 @@ function RevealModal({ plaintext, onClose }: { plaintext: string; onClose: () =>
   // No reset effect: the call site keys this component on `plaintext`, so a new
   // secret mounts a new component and `copied` starts false by construction.
   const [copied, setCopied] = React.useState(false);
+  const [copyFailed, setCopyFailed] = React.useState(false);
 
   return (
     <Modal
@@ -307,7 +308,23 @@ function RevealModal({ plaintext, onClose }: { plaintext: string; onClose: () =>
           <button
             type="button"
             onClick={() => {
-              void navigator.clipboard.writeText(plaintext).then(() => setCopied(true));
+              /*
+               * This is the ONE time the key is ever shown. A silent copy
+               * failure — plain HTTP, or a denied permission — means the
+               * operator closes this dialog believing they have it, and the
+               * only way back is to revoke and reissue. So the failure is
+               * stated, and the key stays selectable in the block beside it.
+               */
+              void (async () => {
+                try {
+                  await navigator.clipboard.writeText(plaintext);
+                  setCopyFailed(false);
+                  setCopied(true);
+                } catch {
+                  setCopied(false);
+                  setCopyFailed(true);
+                }
+              })();
             }}
             className="focus-outline inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-accent"
           >
@@ -319,6 +336,11 @@ function RevealModal({ plaintext, onClose }: { plaintext: string; onClose: () =>
             {copied ? t('apiKeys.reveal.copied') : t('apiKeys.reveal.copy')}
           </button>
         </div>
+        {copyFailed && (
+          <p role="alert" className="text-xs text-destructive">
+            {t('common.copyFailed')}
+          </p>
+        )}
       </div>
     </Modal>
   );

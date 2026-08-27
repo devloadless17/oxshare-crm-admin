@@ -173,8 +173,17 @@ describe('headline tiles', () => {
     // Awaited on something the QUERY renders, not a header control — the
     // header is present during `loading` and would assert against no data.
     expect(await screen.findByRole('link', { name: /total clients 1,204/i })).toBeInTheDocument();
-    // New this month, with today and this week in the hint.
-    expect(screen.getByRole('link', { name: /new this month 84/i })).toBeInTheDocument();
+    /*
+     * New this month is NOT a link, deliberately: the client list has no
+     * registration-date filter, so linking sent an operator to an unfiltered
+     * list of every client where the 84 they clicked could not be found.
+     * `StatTile`'s contract is "a tile is a LINK when there is somewhere to
+     * act on it" — asserting the absence keeps a well-meant `href` from
+     * quietly coming back.
+     */
+    expect(screen.getByText(/new this month/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /new this month/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /verified 900/i })).toBeNull();
     expect(screen.getByText(/3 today/)).toBeInTheDocument();
     // Partners, and the applications waiting. Scoped to the tile's own link —
     // the funnel and the donut both carry bare counts that a loose text query

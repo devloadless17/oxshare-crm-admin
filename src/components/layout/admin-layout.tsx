@@ -49,7 +49,20 @@ import { t, type MessageKey } from '@/lib/i18n';
 interface NavItem {
   /** A message key, not a string — resolved through t() at render time. */
   label: MessageKey;
+  /**
+   * The ROUTE, and only the route. Active-state matching and the badge lookup
+   * both key on this, and `usePathname()` carries no query string — so a
+   * filter belongs in `query` below, never appended here.
+   */
   href: string;
+  /**
+   * A default filter the LINK carries, when the item's badge counts something
+   * narrower than the page's own default view. `/kyc` opens on `submitted`
+   * while the badge counts `submitted + under_review`, so clicking a badge
+   * reading 17 used to open a list of 12 — the five a reviewer had already
+   * picked up simply fell off the daily sweep.
+   */
+  query?: string;
   icon: React.ElementType;
   badge?: string | number;
 }
@@ -170,7 +183,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'nav.section.approvals',
     items: [
-      { label: 'nav.kyc', href: '/kyc', icon: FileCheck },
+      { label: 'nav.kyc', href: '/kyc', query: 'status=needs_review', icon: FileCheck },
       { label: 'nav.partnerApprovals', href: '/approvals/ib', icon: Handshake },
       { label: 'nav.transactions', href: '/transactions', icon: ArrowLeftRight },
     ],
@@ -597,7 +610,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={item.query ? `${item.href}?${item.query}` : item.href}
                       onClick={closeMobile}
                       title={collapsed ? t(item.label) : undefined}
                       /*
@@ -648,10 +661,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-
-        {/* Account menu — identity, theme and sign-out, behind one trigger.
-            Matches the portal's sidebar foot; see layout/user-menu.tsx. */}
-        <UserMenu collapsed={collapsed} />
       </aside>
 
       {/* Main Content Area */}
@@ -734,19 +743,15 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <NotificationsSheet />
 
             {/*
-              The theme toggle used to live here — a two-button light/dark
-              control with no way to say "follow the OS". It is now Light / Dark
-              / System inside the account menu at the foot of the sidebar, which
-              is where a personal preference belongs rather than beside system
-              status and notifications.
-
-              `lg:hidden` because on desktop the sidebar footer already carries
-              it; on mobile the sidebar is a drawer, so the account menu needs a
-              second home in the header.
+              The account menu lives HERE, at every breakpoint — the top-right
+              placement the product owner asked for, matching the portal. It
+              used to sit at the foot of the sidebar on desktop with this
+              header copy gated `lg:hidden`; one menu in one place means one
+              selector for the tests and no duplicate trigger for a screen
+              reader to announce twice. The theme control (Light/Dark/System)
+              lives inside it — a personal preference, not system status.
             */}
-            <div className="lg:hidden">
-              <UserMenu collapsed variant="header" />
-            </div>
+            <UserMenu collapsed variant="header" />
           </div>
         </header>
 
