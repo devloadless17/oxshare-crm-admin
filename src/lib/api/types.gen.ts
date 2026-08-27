@@ -6432,6 +6432,7 @@ export interface components {
             requestedAt: string;
             /** Format: date-time */
             reviewedAt?: string | null;
+            reviewedByName?: string | null;
             /** Format: date-time */
             settledAt?: string | null;
             /** @description The payment platform’s withdrawal id, once submitted. Null before. */
