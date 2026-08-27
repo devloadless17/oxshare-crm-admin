@@ -82,10 +82,20 @@ test.describe('what a MASTER admin can reach', () => {
      * every other masking assertion in this file depends on.
      */
     await page.goto('/roles');
-    await page
-      .getByRole('row', { name: /e2e restricted/i })
-      .getByRole('button', { name: /actions for/i })
-      .click();
+    /*
+     * The list is PAGED, and specs that mint roles grow it — so the seeded
+     * fixture drifts off page one as the dev database ages. Walk to it rather
+     * than assuming where it sits. (The specs that create roles now delete
+     * them too; this is the belt to that pair of braces.)
+     */
+    const row = page.getByRole('row', { name: /e2e restricted/i });
+    for (let hop = 0; hop < 15 && (await row.count()) === 0; hop += 1) {
+      const next = page.getByRole('button', { name: /^next$/i });
+      if ((await next.count()) === 0 || (await next.isDisabled())) break;
+      await next.click();
+    }
+    await expect(row, 'the E2E Restricted role is not in the list').toBeVisible();
+    await row.getByRole('button', { name: /actions for/i }).click();
     await page.getByRole('menuitem', { name: /edit/i }).click();
     await page.waitForURL(/\/roles\/.+\/edit/);
 
