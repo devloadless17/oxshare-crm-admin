@@ -2491,6 +2491,28 @@ export const messages = {
 
   'ibPrograms.createTitle': 'Add a commission programme',
   'ibPrograms.editTitle': 'Edit commission programme',
+  'ibPrograms.backToList': 'Back to commission programmes',
+  'ibPrograms.createSubtitle':
+    'The terms a partner is paid on: what they earn at each level, what goes back to their ' +
+    'clients, and which revenue those percentages are a share of.',
+  'ibPrograms.editSubtitle':
+    'Changes apply to the next closed trade. Commission already earned records the rate it was ' +
+    'calculated at and is not restated.',
+  'ibPrograms.createSave': 'Create programme',
+  'ibPrograms.createSucceeded': '“{name}” was created.',
+  'ibPrograms.notFound': 'That commission programme no longer exists. It may have been deleted.',
+  // Switching a programme off — an ACTION now, not a field on the form.
+  'ibPrograms.enable': 'Enable',
+  'ibPrograms.disable': 'Disable',
+  'ibPrograms.enabledSucceeded': '“{name}” is enabled and can be assigned again.',
+  'ibPrograms.disabledSucceeded': '“{name}” is disabled and has stopped paying.',
+  'ibPrograms.toggleFailed': 'Could not change whether this programme is enabled.',
+  'ibPrograms.confirmDisableTitle': 'Disable “{name}”?',
+  // States the CONSEQUENCE rather than asking "are you sure". Both halves are
+  // immediate, and neither is visible on the row afterwards.
+  'ibPrograms.confirmDisable':
+    'It stops paying commission straight away and cannot be assigned to new partners. ' +
+    '{count} partner(s) are on it today. You can enable it again at any time.',
   'ibPrograms.name': 'Name',
   'ibPrograms.nameHint': 'What an operator picks, and what the partner is told they are on.',
   'ibPrograms.mode': 'Pays',

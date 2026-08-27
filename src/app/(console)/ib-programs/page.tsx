@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Percent, Plus, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { PauseCircle, Pencil, Percent, PlayCircle, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import type { IbProgram } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -14,10 +15,6 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
-import {
-  IbProgramFormModal,
-  type IbProgramFormValues,
-} from '@/components/ib/ib-program-form-modal';
 import { t } from '@/lib/i18n';
 
 /**
@@ -59,8 +56,6 @@ export default function IbProgramsPage() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
-  const [editing, setEditing] = React.useState<IbProgram | undefined>(undefined);
-  const [formOpen, setFormOpen] = React.useState(false);
   /* Which row's actions are mid-flight, so only that menu shows a spinner. */
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
@@ -70,17 +65,39 @@ export default function IbProgramsPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'ib-programs'] });
 
-  const saveProgram = useMutation({
-    mutationFn: (values: IbProgramFormValues) =>
-      editing ? api.admin.updateIbProgram(editing.id, values) : api.admin.createIbProgram(values),
-    onSuccess: async (_data, values) => {
-      setFormOpen(false);
-      setEditing(undefined);
-      await invalidate();
-      toastSuccess(t('ibPrograms.saveSucceeded', { name: values.name }));
+  /*
+   * ── SWITCHING A PROGRAMME OFF IS AN ACTION, NOT A FIELD ──────────────────
+   *
+   * It was a checkbox on the form, saved alongside the rates. Those are not the
+   * same kind of act: a rate edit takes effect on the next trade, and disabling
+   * stops the programme paying ANYBODY and refuses new partners the moment it
+   * lands. Behind one Save button they were one click, and the destructive half
+   * was the silent one.
+   *
+   * A PUT with only `enabled` — every other field is optional on that endpoint,
+   * and omitting them is what keeps this from re-sending a rate card the
+   * operator may not have looked at since it was fetched.
+   */
+  const toggleEnabled = useMutation({
+    mutationFn: (program: IbProgram) => {
+      setBusyId(program.id);
+      return api.admin.updateIbProgram(program.id, { enabled: !program.enabled });
     },
-    // Inline in the modal, which stays open: the API's refusal names the
-    // numbers, and it has to be read where they can be corrected.
+    onSuccess: async (_data, program) => {
+      await invalidate();
+      toastSuccess(
+        program.enabled
+          ? t('ibPrograms.disabledSucceeded', { name: program.name })
+          : t('ibPrograms.enabledSucceeded', { name: program.name }),
+      );
+    },
+    /*
+     * The API's own message. `IbProgramsService.update` refuses to disable a
+     * programme partners stand on and names the count — a generic failure would
+     * turn that into "it did not work".
+     */
+    onError: (error) => toastError(error, t('ibPrograms.toggleFailed')),
+    onSettled: () => setBusyId(null),
   });
 
   const deleteProgram = useMutation({
@@ -96,24 +113,39 @@ export default function IbProgramsPage() {
     onSettled: () => setBusyId(null),
   });
 
-  const openCreate = () => {
-    setEditing(undefined);
-    saveProgram.reset();
-    setFormOpen(true);
-  };
-
-  const openEdit = (program: IbProgram) => {
-    setEditing(program);
-    saveProgram.reset();
-    setFormOpen(true);
-  };
-
   /*
    * The partner count is in the question, because it is the whole answer.
    * "Delete Gold?" and "Delete Gold, which 14 partners are paid by?" are
    * different decisions, and the API refuses the second anyway — asking with
    * the number saves the operator finding out by being refused.
    */
+  /*
+   * ASKED, because the consequence is immediate and invisible on this screen.
+   *
+   * Disabling stops the programme paying every partner on it and refuses new
+   * ones; the row goes grey and nothing else says what changed. The partner
+   * count is in the question for the same reason it is in the delete one —
+   * "Disable Gold?" and "Disable Gold, which 14 partners are paid by?" are
+   * different decisions.
+   *
+   * Enabling is NOT asked. It has no victim, and a confirmation on a harmless
+   * act is what teaches operators to dismiss the one that matters.
+   */
+  const confirmToggle = async (program: IbProgram) => {
+    if (!program.enabled) {
+      toggleEnabled.mutate(program);
+      return;
+    }
+
+    const ok = await confirm({
+      title: t('ibPrograms.confirmDisableTitle', { name: program.name }),
+      description: t('ibPrograms.confirmDisable', { count: String(program.partnerCount) }),
+      confirmLabel: t('ibPrograms.disable'),
+      destructive: true,
+    });
+    if (ok) toggleEnabled.mutate(program);
+  };
+
   const confirmDelete = async (program: IbProgram) => {
     const ok = await confirm({
       title: t('ibPrograms.confirmDeleteTitle', { name: program.name }),
@@ -255,7 +287,27 @@ export default function IbProgramsPage() {
         busy={busyId === program.id}
         items={[
           ...(canEdit
-            ? [{ label: t('common.edit'), icon: Pencil, onSelect: () => openEdit(program) }]
+            ? [
+                {
+                  label: t('common.edit'),
+                  icon: Pencil,
+                  href: `/ib-programs/${program.id}/edit`,
+                },
+                {
+                  /*
+                   * DESTRUCTIVE when switching OFF, and only then. Disabling
+                   * stops the programme paying anybody and refuses new
+                   * partners; enabling one is an ordinary act with no victim.
+                   * The same control, two very different consequences — and
+                   * the styling is what says which one is about to happen.
+                   */
+                  label: program.enabled ? t('ibPrograms.disable') : t('ibPrograms.enable'),
+                  icon: program.enabled ? PauseCircle : PlayCircle,
+                  destructive: program.enabled,
+                  separatorBefore: true,
+                  onSelect: () => void confirmToggle(program),
+                },
+              ]
             : []),
           ...(canDelete
             ? [
@@ -285,15 +337,16 @@ export default function IbProgramsPage() {
           <h1 className="text-2xl font-bold tracking-tight">{t('ibPrograms.title')}</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t('ibPrograms.subtitle')}</p>
         </div>
+        {/* A LINK, not a button: the editor is a page now, so this is an
+            address — middle-clickable, bookmarkable, and back-navigable. */}
         {canCreate && (
-          <button
-            type="button"
-            onClick={openCreate}
+          <Link
+            href="/ib-programs/new"
             className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-input px-3 text-xs font-semibold transition-transform duration-100 hover:bg-muted active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:transform-none focus-outline"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t('ibPrograms.add')}
-          </button>
+          </Link>
         )}
       </div>
 
@@ -317,19 +370,6 @@ export default function IbProgramsPage() {
           empty={<EmptyState icon={Percent} message={t('ibPrograms.empty')} />}
         />
       </AsyncBoundary>
-
-      <IbProgramFormModal
-        open={formOpen}
-        program={editing}
-        saving={saveProgram.isPending}
-        error={
-          saveProgram.isError
-            ? apiErrorMessage(saveProgram.error, t('ibPrograms.saveFailed'))
-            : undefined
-        }
-        onClose={() => setFormOpen(false)}
-        onSubmit={(values) => saveProgram.mutate(values)}
-      />
     </div>
   );
 }

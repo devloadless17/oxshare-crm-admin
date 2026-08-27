@@ -4640,11 +4640,8 @@ export interface components {
             sortOrder?: number;
             /** @enum {string} */
             mode?: "commission_only" | "rebate_only" | "hybrid";
-            /**
-             * @default commission_swap
-             * @enum {string}
-             */
-            revenueBasis: "commission_swap" | "spread" | "commission_swap_spread";
+            /** @enum {string} */
+            revenueBasis?: "commission_swap" | "spread" | "commission_swap_spread";
             /** @description REPLACES the whole ladder. Send every level you want to keep; omit the field to leave the existing ladder alone. An empty array removes every level. */
             tiers?: components["schemas"]["IbProgramTierDto"][];
             /** @example 0 */

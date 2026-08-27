@@ -12,8 +12,6 @@ import type {
   RevenueBasis,
 } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
 
 /**
@@ -64,7 +62,12 @@ export interface IbProgramFormValues {
    */
   tiers: IbProgramTier[];
   rebateRate: string;
-  enabled: boolean;
+  /*
+   * NO `enabled` HERE. It is a row action with a confirmation, not a field —
+   * see the component's own note. A create POSTs without it and the API
+   * defaults to true, which is the only sensible state for a programme
+   * somebody just took the trouble to define.
+   */
   /**
    * WHICH revenue this programme's rates are a percentage of — FR-IB-16.
    *
@@ -143,56 +146,43 @@ const STARTER_TIERS: IbProgramTier[] = [{ depth: 1, rate: '0.0000' }];
  * in and watch do nothing. Hidden rather than disabled, because a disabled
  * field still reads as part of the terms.
  */
-export function IbProgramFormModal({
-  open,
+/**
+ * The programme editor — A PAGE, not a modal.
+ *
+ * ## Why it stopped being a modal
+ *
+ * A programme is a rate card: a name, a mode, the revenue it is priced on, a
+ * ladder of any length, a client rebate and an order. The ladder alone grows a
+ * row per level, so the tallest thing on the screen is the part an operator is
+ * actually reasoning about — and a modal answers that by scrolling INSIDE
+ * itself, which hides the running total and the save button at the same time.
+ *
+ * The full width matters for the same reason: the ladder reads as "depth 1
+ * pays X, depth 2 pays Y", and a 28rem column turns each rung into two wrapped
+ * lines. `roles/` made this move first; this follows it.
+ *
+ * ## `enabled` IS NOT ON THIS FORM
+ *
+ * It was a checkbox here and is a row action with a confirmation now. Editing a
+ * rate and switching a programme OFF are not the same kind of act: the first
+ * takes effect on the next trade, the second stops the programme paying
+ * anybody and refuses new partners immediately. Bundled behind one Save button
+ * they were one click, and the destructive half was silent.
+ */
+export function IbProgramForm({
   program,
   saving,
   error,
-  onClose,
+  submitLabel,
+  onCancel,
   onSubmit,
 }: {
-  open: boolean;
   /** Present when editing; absent when creating. */
   program?: IbProgram;
   saving: boolean;
   error?: string;
-  onClose: () => void;
-  onSubmit: (values: IbProgramFormValues) => void;
-}) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={program ? t('ibPrograms.editTitle') : t('ibPrograms.createTitle')}
-    >
-      {/* KEYED, so opening on a different programme REMOUNTS the form with that
-          programme's numbers. Re-seeding state in an effect renders once with
-          the PREVIOUS programme's rates before correcting itself, and on a
-          payout screen that intermediate state is one somebody could read and
-          act on. */}
-      <IbProgramForm
-        key={`${program?.id ?? 'new'}-${String(open)}`}
-        program={program}
-        saving={saving}
-        error={error}
-        onClose={onClose}
-        onSubmit={onSubmit}
-      />
-    </Modal>
-  );
-}
-
-function IbProgramForm({
-  program,
-  saving,
-  error,
-  onClose,
-  onSubmit,
-}: {
-  program?: IbProgram;
-  saving: boolean;
-  error?: string;
-  onClose: () => void;
+  submitLabel: string;
+  onCancel: () => void;
   onSubmit: (values: IbProgramFormValues) => void;
 }) {
   const [name, setName] = React.useState(program?.name ?? '');
@@ -208,7 +198,6 @@ function IbProgramForm({
     program ? program.tiers : STARTER_TIERS,
   );
   const [rebateRate, setRebateRate] = React.useState(program?.rebateRate ?? '0.0000');
-  const [enabled, setEnabled] = React.useState(program?.enabled ?? true);
   /*
    * Blank while creating, so the API appends. Seeded with the stored value when
    * editing, because that is the number the operator is deciding about — and
@@ -309,13 +298,14 @@ function IbProgramForm({
         : [],
       rebateRate: rebateRate.trim(),
       revenueBasis,
-      enabled,
       sortOrder: parseSortOrder(sortOrder),
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    /* `w-full`, not a modal's fixed column: the ladder reads as a row per rung
+       and a narrow measure wraps each one onto two lines. */
+    <form onSubmit={handleSubmit} className="w-full space-y-4">
       {error && (
         <div
           role="alert"
@@ -539,27 +529,10 @@ function IbProgramForm({
         </span>
       </label>
 
-      <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 p-3">
-        <Checkbox
-          id="ib-program-enabled"
-          checked={enabled}
-          onCheckedChange={(checked) => setEnabled(checked === true)}
-          className="mt-0.5"
-        />
-        <label htmlFor="ib-program-enabled" className="cursor-pointer space-y-0.5">
-          <span className="block text-xs font-semibold text-foreground">
-            {t('ibPrograms.enabled')}
-          </span>
-          <span className="block text-[11px] leading-relaxed text-muted-foreground">
-            {t('ibPrograms.enabledHint')}
-          </span>
-        </label>
-      </div>
-
       <div className="flex justify-end gap-2 pt-1">
         <button
           type="button"
-          onClick={onClose}
+          onClick={onCancel}
           className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-semibold hover:bg-muted focus-outline"
         >
           {t('common.cancel')}
@@ -575,7 +548,7 @@ function IbProgramForm({
           disabled={saving}
           className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
         >
-          {saving ? t('ibPrograms.saving') : t('ibPrograms.save')}
+          {saving ? t('ibPrograms.saving') : submitLabel}
         </button>
       </div>
     </form>

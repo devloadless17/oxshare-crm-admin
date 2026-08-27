@@ -212,7 +212,8 @@ describe('the commission programme catalogue — who may change what partners ar
     renderWithProviders(<IbProgramsPage />);
 
     await screen.findByText('Gold');
-    expect(screen.queryByRole('button', { name: /add programme/i })).toBeNull();
+    /* A LINK, not a button — the editor is a page now, so Add is an address. */
+    expect(screen.queryByRole('link', { name: /add programme/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /^edit$/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /^delete$/i })).toBeNull();
   });
@@ -239,7 +240,10 @@ describe('the commission programme catalogue — who may change what partners ar
     renderWithProviders(<IbProgramsPage />);
 
     await screen.findByText('Gold');
-    expect(screen.getByRole('button', { name: /add programme/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /add programme/i })).toHaveAttribute(
+      'href',
+      '/ib-programs/new',
+    );
 
     /*
      * NO ROW MENU AT ALL, not an empty one. `ib.programs.create` grants adding

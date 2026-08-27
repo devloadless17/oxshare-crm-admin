@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import type { IbProgram } from '@/lib/api/admin';
-import { IbProgramFormModal } from './ib-program-form-modal';
+import { IbProgramForm } from './ib-program-form';
 
 /**
  * The ladder ceiling is READ, not assumed — `IB_MAX_LEVELS` via
@@ -49,7 +49,7 @@ vi.mock('@/lib/api', () => {
  *     convincingly.
  */
 const onSubmit = vi.fn();
-const onClose = vi.fn();
+const onCancel = vi.fn();
 
 function program(over: Partial<IbProgram> = {}): IbProgram {
   return {
@@ -74,11 +74,13 @@ function program(over: Partial<IbProgram> = {}): IbProgram {
 
 function renderForm(over: Partial<IbProgram> = {}) {
   return renderWithProviders(
-    <IbProgramFormModal
-      open
+    /* The form directly — it is a PAGE now, so there is no modal to open and
+       nothing to assert about its open state. */
+    <IbProgramForm
       program={program(over)}
       saving={false}
-      onClose={onClose}
+      submitLabel="Save programme"
+      onCancel={onCancel}
       onSubmit={onSubmit}
     />,
   );
