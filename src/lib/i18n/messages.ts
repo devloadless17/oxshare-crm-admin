@@ -1075,6 +1075,13 @@ export const messages = {
    * on a reviewer, which is why this one reads differently on purpose.
    */
   'kycReview.filterInProgress': 'In Progress',
+  /*
+   * The whole QUEUE — submitted plus under_review, the set the dashboard tile
+   * and the sidebar badge count. Both used to link to `submitted` alone, so a
+   * badge reading 17 opened a list of 12 and the five somebody had already
+   * picked up fell off the daily sweep.
+   */
+  'kycReview.filterNeedsReview': 'Needs review',
   'kycReview.filterPending': 'Pending',
   'kycReview.filterUnderReview': 'Under Review',
   'kycReview.filterApproved': 'Approved',

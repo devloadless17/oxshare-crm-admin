@@ -309,7 +309,7 @@ export default function AdminDashboardPage() {
               value={formatCount(pendingKyc)}
               hint={t('dashboard.tilePendingKycHint')}
               icon={FileCheck}
-              href="/kyc"
+              href="/kyc?status=needs_review"
               accent={pendingKyc > 0}
             />
           )}
@@ -495,7 +495,7 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
               <Link
-                href="/kyc"
+                href="/kyc?status=needs_review"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-link hover:underline focus-outline rounded-sm shrink-0"
               >
                 <span>{t('adminDashboard.viewAll')}</span>

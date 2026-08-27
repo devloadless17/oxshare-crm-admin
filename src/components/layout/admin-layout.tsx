@@ -50,7 +50,20 @@ import { t, type MessageKey } from '@/lib/i18n';
 interface NavItem {
   /** A message key, not a string — resolved through t() at render time. */
   label: MessageKey;
+  /**
+   * The ROUTE, and only the route. Active-state matching and the badge lookup
+   * both key on this, and `usePathname()` carries no query string — so a
+   * filter belongs in `query` below, never appended here.
+   */
   href: string;
+  /**
+   * A default filter the LINK carries, when the item's badge counts something
+   * narrower than the page's own default view. `/kyc` opens on `submitted`
+   * while the badge counts `submitted + under_review`, so clicking a badge
+   * reading 17 used to open a list of 12 — the five a reviewer had already
+   * picked up simply fell off the daily sweep.
+   */
+  query?: string;
   icon: React.ElementType;
   badge?: string | number;
 }
@@ -171,7 +184,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'nav.section.approvals',
     items: [
-      { label: 'nav.kyc', href: '/kyc', icon: FileCheck },
+      { label: 'nav.kyc', href: '/kyc', query: 'status=needs_review', icon: FileCheck },
       { label: 'nav.partnerApprovals', href: '/approvals/ib', icon: Handshake },
       { label: 'nav.transactions', href: '/transactions', icon: ArrowLeftRight },
     ],
@@ -598,7 +611,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={item.query ? `${item.href}?${item.query}` : item.href}
                       onClick={closeMobile}
                       title={collapsed ? t(item.label) : undefined}
                       /*
