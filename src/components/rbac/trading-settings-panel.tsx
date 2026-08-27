@@ -83,11 +83,32 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
    */
   const [maxLevels, setMaxLevels] = React.useState(String(settings.ibMaxLevels));
   /*
+   * The total payout ceiling (0106) — the SECOND number of that kind, and it
+   * bounds something no programme can see about itself.
+   *
+   * `ib_programs_share_fits` already stops ONE programme paying out more than
+   * 100%. It cannot stop two: the earners on a trade may hold different
+   * programmes, each inside its own limit and together over the broker's. The
+   * seeded catalogue was exactly that — 60% at depth 1 and 40% at depth 2 paid
+   * out the entire revenue and nothing refused it.
+   *
+   * Kept as the RAW STRING the user typed, like `maxDemoDeposit` beside it and
+   * unlike the counts: it is a decimal that reaches the money path, and
+   * round-tripping it through a number is what §6.1 exists to prevent.
+   */
+  const [maxPayout, setMaxPayout] = React.useState(trimAmount(settings.ibMaxTotalPayoutPct));
+  /*
    * ── NO OTHER IB STATE HERE (0104) ────────────────────────────────────────
    *
    * Four more controls lived on this form and each changed what every partner
    * is paid: the broker cap, the settlement window, the backlog decision and
    * the revenue basis.
+   *
+   * The ceiling above is NOT that broker cap returning. That one SCALED every
+   * leg pro rata to fit and paid immediately, so a partner quietly received
+   * less than their programme promised with nothing saying so. This one
+   * REFUSES: the deal defers, the queue alarm fires, and it pays in full once
+   * the rates are corrected.
    *
    * Commission is configured on the Commission Programmes page. A second screen
    * that also decides partner pay is a second place for two answers to
@@ -111,6 +132,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         maxDemoAccounts: parseCount(maxDemoAccounts),
         maxDemoDeposit: maxDemoDeposit.trim(),
         ibMaxLevels: parseLevels(maxLevels, settings.ibMaxLevels),
+        ibMaxTotalPayoutPct: maxPayout.trim(),
       }),
     onSuccess: () => {
       setError(null);
@@ -128,7 +150,8 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
     maxLiveAccounts.trim() !== String(settings.maxLiveAccounts) ||
     maxDemoAccounts.trim() !== String(settings.maxDemoAccounts) ||
     maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit) ||
-    maxLevels.trim() !== String(settings.ibMaxLevels);
+    maxLevels.trim() !== String(settings.ibMaxLevels) ||
+    maxPayout.trim() !== trimAmount(settings.ibMaxTotalPayoutPct);
 
   const disabled = !canManage || mutation.isPending;
   const clear = () => setError(null);
@@ -271,6 +294,41 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
           min={1}
           max={10}
           step={1}
+          className={`${INPUT_CLASS} font-mono tabular-nums`}
+        />
+      </Field>
+
+      <Field
+        id="trading-max-payout"
+        label={t('tradingSettings.maxPayout')}
+        hint={t('tradingSettings.maxPayoutHint')}
+      >
+        <input
+          id="trading-max-payout"
+          type="number"
+          value={maxPayout}
+          onChange={(e) => {
+            setMaxPayout(e.target.value);
+            clear();
+          }}
+          disabled={disabled}
+          required
+          /*
+           * Above 0 and at most 100, matching the CHECK behind the column.
+           *
+           * Not zero, for a harder reason than the ladder ceiling above: zero
+           * here refuses every chain on the platform, which is a way to stop
+           * paying every partner by typing a number into a settings form.
+           * Switching terms off is what a programme's own `enabled` flag does,
+           * and that control says so on the screen it lives on.
+           *
+           * `step` is 0.01 rather than 1 because this is a rate, not a count —
+           * 62.5 is an ordinary answer here and a whole-number stepper would
+           * make it look like a mistake.
+           */
+          min={0.01}
+          max={100}
+          step={0.01}
           className={`${INPUT_CLASS} font-mono tabular-nums`}
         />
       </Field>

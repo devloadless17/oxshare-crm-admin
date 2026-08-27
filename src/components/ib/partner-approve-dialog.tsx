@@ -73,9 +73,16 @@ export function PartnerApproveDialog({
   const agencies = useResource<Agency[]>(
     ['admin', 'agencies'],
     (signal) => api.admin.getAgencies(signal),
-    // Only when the reviewer actually has to pick — an application that names
-    // one needs no catalogue read.
-    { enabled: open && requestedAgencyName === null },
+    /*
+     * Fetched whenever the dialog is open, not only when the reviewer must
+     * pick one.
+     *
+     * An application that already names an agency still needs the row, because
+     * the agency carries `defaultProgramId` (0107) and that is what should be
+     * pre-selected below. The list is small, shares its cache key with the
+     * agencies screen, and only loads when somebody opens this dialog.
+     */
+    { enabled: open },
   );
 
   const programs = useResource<IbProgram[]>(
@@ -85,7 +92,9 @@ export function PartnerApproveDialog({
   );
 
   const mustChoose = requestedAgencyName === null;
-  const options = agencies.data ?? [];
+  /* Memoised because `activeAgency` depends on it — a fresh `[]` on every
+     render would recompute that lookup on every keystroke elsewhere. */
+  const options = React.useMemo(() => agencies.data ?? [], [agencies.data]);
 
   /*
    * ENABLED only, in the order the API resolves its own default — lowest
@@ -106,7 +115,41 @@ export function PartnerApproveDialog({
    * two decisions instead of one, and "leave it alone" is not a thing a radio
    * group can express.
    */
-  const defaultProgramId = programOptions[0]?.id ?? '';
+  /*
+   * ── THE AGENCY'S OWN DEFAULT COMES FIRST (0107) ──────────────────────────
+   *
+   * Resolved the same way the API resolves it, so the pre-selection is a true
+   * preview of what approving without touching this control would do. A dialog
+   * that showed one programme and saved another would be worse than showing
+   * nothing.
+   *
+   *   the agency the reviewer just picked  → its default
+   *   the agency the application names     → its default
+   *   otherwise                            → the catalogue default
+   *
+   * Matched by NAME for the requested case, because the application row carries
+   * `agencyName` and not an id. Safe rather than convenient: `agencies.name` is
+   * `NOT NULL UNIQUE` in the schema, so a name identifies exactly one row.
+   */
+  const activeAgency = React.useMemo(() => {
+    if (agencyId) return options.find((agency) => agency.id === agencyId) ?? null;
+    if (requestedAgencyName === null) return null;
+    return options.find((agency) => agency.name === requestedAgencyName) ?? null;
+  }, [agencyId, options, requestedAgencyName]);
+
+  /*
+   * The agency's default is honoured only while it is ENABLED — which is also
+   * what the API does. A disabled default falls through there rather than
+   * refusing, so pre-selecting it here would preview an outcome that cannot
+   * happen.
+   */
+  const agencyDefaultId = programOptions.some(
+    (program) => program.id === activeAgency?.defaultProgramId,
+  )
+    ? (activeAgency?.defaultProgramId ?? '')
+    : '';
+
+  const defaultProgramId = agencyDefaultId || (programOptions[0]?.id ?? '');
   const chosenProgramId = programId || defaultProgramId;
 
   return (

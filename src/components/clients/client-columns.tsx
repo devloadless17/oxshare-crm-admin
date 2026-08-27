@@ -1,4 +1,4 @@
-import { Eye, PauseCircle, PlayCircle } from 'lucide-react';
+import { Eye, PauseCircle, PlayCircle, Wallet } from 'lucide-react';
 import type { ClientRow, ClientSortKey } from '@/lib/api/admin';
 import { kycStatusLabel, kycStatusVariant } from '@/lib/kyc-status';
 import { CLIENT_SORT_KEYS } from '@/lib/api/admin';
@@ -65,15 +65,20 @@ const sortableBy = (key: ClientSortKey) => ({
 export function clientColumns({
   canSuspend,
   canViewTags,
+  canEditPartners,
   maskedFields,
   actingId,
   onToggleStatus,
+  onChangeProgram,
 }: {
   canSuspend: boolean;
   canViewTags: boolean;
+  /** `ib.partners.edit` — the same permission the API enforces on the PATCH. */
+  canEditPartners: boolean;
   maskedFields: readonly string[];
   actingId: string | null | undefined;
   onToggleStatus: (client: ClientRow) => void;
+  onChangeProgram: (client: ClientRow) => void;
 }): Column<ClientRow>[] {
   const hidden = (field: string) => isMasked(field, maskedFields);
 
@@ -214,7 +219,14 @@ export function clientColumns({
     cellClassName: 'text-muted-foreground',
   });
 
-  if (canSuspend) {
+  /*
+   * The Actions column appears if EITHER action is permitted, not only
+   * suspension. Gating the whole column on `canSuspend` would hide the
+   * programme control from somebody who holds `ib.partners.edit` and not
+   * `clients.suspend` — a commission operator, which is exactly the role that
+   * needs it most.
+   */
+  if (canSuspend || canEditPartners) {
     /*
      * `actionsColumn` rather than a hand-written column, so this table gets the
      * same pinned, unsortable, right-aligned Actions affordance as every other
@@ -240,15 +252,37 @@ export function clientColumns({
                 icon: Eye,
                 href: `/clients/${c.id}`,
               },
-              {
-                label: c.status === 'suspended' ? t('clients.reactivate') : t('clients.suspend'),
-                icon: c.status === 'suspended' ? PlayCircle : PauseCircle,
-                // Only suspending is destructive. They are the same control,
-                // but only one of them locks somebody out of their account.
-                destructive: c.status !== 'suspended',
-                separatorBefore: true,
-                onSelect: () => onToggleStatus(c),
-              },
+              /*
+               * PARTNERS ONLY, and `type` is what says so — an individual or a
+               * referral client has no `ib_accounts` row, so the PATCH behind
+               * this would 404. An action whose only outcome is a "not found"
+               * is worse than an absent one: it reads as a broken screen.
+               */
+              ...(canEditPartners && c.type === 'partner'
+                ? [
+                    {
+                      label: t('clientProfile.actionChangeProgram'),
+                      icon: Wallet,
+                      separatorBefore: true,
+                      onSelect: () => onChangeProgram(c),
+                    },
+                  ]
+                : []),
+              ...(canSuspend
+                ? [
+                    {
+                      label:
+                        c.status === 'suspended' ? t('clients.reactivate') : t('clients.suspend'),
+                      icon: c.status === 'suspended' ? PlayCircle : PauseCircle,
+                      // Only suspending is destructive. They are the same
+                      // control, but only one locks somebody out of their
+                      // account.
+                      destructive: c.status !== 'suspended',
+                      separatorBefore: true,
+                      onSelect: () => onToggleStatus(c),
+                    },
+                  ]
+                : []),
             ]}
           />
         ),

@@ -144,6 +144,24 @@ export default function IbProgramsPage() {
               {t('ibPrograms.disabled')}
             </span>
           )}
+          {/*
+            Shown ONLY when the basis is not the default (FR-IB-16).
+
+            A badge on every row would be noise — every programme prices on
+            commission and swap unless somebody deliberately changed it. A badge
+            on the exception is the opposite: `spread` prices against a product
+            markup that may still be 0, and a programme silently earning nothing
+            is precisely what an operator needs to spot from the list rather
+            than by opening each one.
+          */}
+          {program.revenueBasis !== 'commission_swap' && (
+            <span
+              title={t(`ibPrograms.basisHint_${program.revenueBasis}` as Parameters<typeof t>[0])}
+              className="rounded border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground"
+            >
+              {t(`ibPrograms.basis_${program.revenueBasis}` as Parameters<typeof t>[0])}
+            </span>
+          )}
         </span>
       ),
       sortable: true,

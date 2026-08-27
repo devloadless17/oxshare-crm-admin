@@ -57,6 +57,8 @@ function program(over: Partial<IbProgram> = {}): IbProgram {
     name: 'Gold',
     sortOrder: 0,
     mode: 'commission_only',
+    /* What the platform actually computes on, and the shipped default. */
+    revenueBasis: 'commission_swap',
     tiers: [
       { depth: 1, rate: '60.0000' },
       { depth: 2, rate: '40.0000' },
@@ -386,8 +388,15 @@ describe('the mode', () => {
     renderForm({ mode: 'commission_only' });
 
     expect(screen.queryByLabelText(/back to the client/i)).toBeNull();
+    /*
+     * Named, not positional. There are two selects on this form since the
+     * revenue basis joined it (FR-IB-16), and a bare `findByRole('combobox')`
+     * matched both — failing on ambiguity rather than on anything this test is
+     * about. Naming the one being driven is also what keeps it passing when a
+     * third control lands.
+     */
     await userEvent.selectOptions(
-      await screen.findByRole('combobox'),
+      await screen.findByRole('combobox', { name: /^pays$/i }),
       screen.getByRole('option', { name: /partner and client/i }),
     );
 

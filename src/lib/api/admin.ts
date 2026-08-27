@@ -90,6 +90,13 @@ export type IbProgramTier = IbProgram['tiers'][number];
  */
 export type IbProgramLimits = components['schemas']['IbProgramLimitsDto'];
 export type IbProgramMode = IbProgram['mode'];
+/**
+ * Which revenue a programme's rates are a percentage of — FR-IB-16.
+ *
+ * Derived from the response type rather than written out, so adding a basis on
+ * the server reaches every form that offers one without a second edit here.
+ */
+export type RevenueBasis = IbProgram['revenueBasis'];
 export type CreateIbProgram = components['schemas']['CreateIbProgramDto'];
 export type UpdateIbProgram = components['schemas']['UpdateIbProgramDto'];
 export type IbApplication = components['schemas']['IbApplicationDto'];

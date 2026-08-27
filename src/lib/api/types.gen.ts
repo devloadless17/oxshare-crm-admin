@@ -4577,6 +4577,11 @@ export interface components {
              * @enum {string}
              */
             mode: "commission_only" | "rebate_only" | "hybrid";
+            /**
+             * @description Which revenue this programme’s rates are a percentage OF (FR-IB-16). `commission_swap` is MT5’s charged commission plus swap and is what every deployment computes on. `spread` prices lots against the product’s spread markup. ⚠️ Selecting `spread` before markups are populated pays nothing on every deal that follows, permanently — a zero-revenue deal is marked done, not retried.
+             * @enum {string}
+             */
+            revenueBasis: "commission_swap" | "spread" | "commission_swap_spread";
             /** @description What this programme pays at each depth, shallowest first. The COUNT is how many levels its holder’s earnings reach. Empty on a `rebate_only` programme, which pays no partner. */
             tiers: components["schemas"]["IbProgramTierDto"][];
             /**
@@ -4616,6 +4621,11 @@ export interface components {
              * @enum {string}
              */
             mode: "commission_only" | "rebate_only" | "hybrid";
+            /**
+             * @default commission_swap
+             * @enum {string}
+             */
+            revenueBasis: "commission_swap" | "spread" | "commission_swap_spread";
             /** @description The ladder, 1..N with no gaps. Omit for a rebate-only programme. */
             tiers?: components["schemas"]["IbProgramTierDto"][];
             /** @example 0 */
@@ -4630,6 +4640,11 @@ export interface components {
             sortOrder?: number;
             /** @enum {string} */
             mode?: "commission_only" | "rebate_only" | "hybrid";
+            /**
+             * @default commission_swap
+             * @enum {string}
+             */
+            revenueBasis: "commission_swap" | "spread" | "commission_swap_spread";
             /** @description REPLACES the whole ladder. Send every level you want to keep; omit the field to leave the existing ladder alone. An empty array removes every level. */
             tiers?: components["schemas"]["IbProgramTierDto"][];
             /** @example 0 */
@@ -5365,6 +5380,11 @@ export interface components {
              * @example 2
              */
             ibMaxLevels: number;
+            /**
+             * @description The most one trade may pay out in total, as a % of the broker’s revenue on it — every commission leg plus the client’s rebate. Defaults to 100, which refuses only a chain costing more than the trade earned. A chain over the ceiling is REFUSED and retried, never silently scaled down.
+             * @example 100.0000
+             */
+            ibMaxTotalPayoutPct: string;
             /** Format: date-time */
             updatedAt?: string | null;
         };
@@ -5380,6 +5400,8 @@ export interface components {
             maxDemoDeposit: string;
             /** @example 2 */
             ibMaxLevels: number;
+            /** @example 100.0000 */
+            ibMaxTotalPayoutPct: string;
         };
         SmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */
@@ -5565,7 +5587,7 @@ export interface components {
             /** @example 1.50000000 */
             spreadMarkupPerLot?: string;
             /** @example 0 */
-            sortOrder: number;
+            sortOrder?: number;
         };
         AttachGroupDto: {
             /** @enum {string} */
@@ -5587,6 +5609,11 @@ export interface components {
             enabled: boolean;
             /** @example 0 */
             sortOrder: number;
+            /**
+             * Format: uuid
+             * @description The commission programme partners of this agency are appointed on (0107). Null means the agency expresses no preference, and approval falls through to the lowest-sorted enabled programme. A reviewer’s explicit choice always wins over this.
+             */
+            defaultProgramId: string | null;
             /** @description The products this agency sells. */
             productIds: string[];
         };
@@ -5597,7 +5624,9 @@ export interface components {
             /** @example true */
             enabled: boolean;
             /** @example 0 */
-            sortOrder: number;
+            sortOrder?: number;
+            /** Format: uuid */
+            defaultProgramId?: string | null;
         };
         SetAgencyProductsDto: {
             productIds: string[];

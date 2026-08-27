@@ -185,8 +185,18 @@ describe('the product catalogue — real and demo', () => {
     await screen.findByText('Standard');
     await user.click(screen.getByRole('button', { name: /add product/i }));
 
-    expect(await screen.findByRole('radio', { name: /demo/i })).toBeDisabled();
-    expect(screen.getByRole('radio', { name: /real/i })).toBeEnabled();
+    /*
+     * The type is a shadcn `Select` now, not two bare radios — so the options
+     * live behind the trigger and only exist once it is opened. `option` rather
+     * than `radio` is the role Radix gives them.
+     */
+    await user.click(await screen.findByRole('combobox', { name: /type/i }));
+
+    expect(await screen.findByRole('option', { name: /demo/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('option', { name: /real/i })).not.toHaveAttribute('aria-disabled');
     expect(screen.getByText(/a demo product already exists/i)).toBeInTheDocument();
   });
 
@@ -197,7 +207,11 @@ describe('the product catalogue — real and demo', () => {
     await screen.findByText('Standard');
     await user.click(screen.getByRole('button', { name: /add product/i }));
 
-    expect(await screen.findByRole('radio', { name: /demo/i })).toBeEnabled();
+    await user.click(await screen.findByRole('combobox', { name: /type/i }));
+
+    expect(await screen.findByRole('option', { name: /demo/i })).not.toHaveAttribute(
+      'aria-disabled',
+    );
   });
 });
 

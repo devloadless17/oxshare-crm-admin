@@ -4,7 +4,13 @@ import * as React from 'react';
 import Decimal from 'decimal.js';
 import { Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
-import type { IbProgram, IbProgramLimits, IbProgramMode, IbProgramTier } from '@/lib/api/admin';
+import type {
+  IbProgram,
+  IbProgramLimits,
+  IbProgramMode,
+  IbProgramTier,
+  RevenueBasis,
+} from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
@@ -60,6 +66,15 @@ export interface IbProgramFormValues {
   rebateRate: string;
   enabled: boolean;
   /**
+   * WHICH revenue this programme's rates are a percentage of — FR-IB-16.
+   *
+   * The base is half of what a partner agreed to: "30% of the spread markup"
+   * and "30% of commission and swap" are different contracts. It sits on the
+   * programme rather than on a platform switch so that changing one broker's
+   * terms does not re-price every partner at once.
+   */
+  revenueBasis: RevenueBasis;
+  /**
    * Where this programme sits in the order — and therefore whether a NEWLY
    * approved partner lands on it.
    *
@@ -77,6 +92,18 @@ export interface IbProgramFormValues {
 }
 
 const MODES: IbProgramMode[] = ['commission_only', 'rebate_only', 'hybrid'];
+
+/*
+ * The bases a programme may price on, in the order they are offered.
+ *
+ * `commission_swap` FIRST and selected by default, and that ordering is a
+ * safety rule rather than a preference: it is what every deployment computes
+ * on, and the other two multiply a product's spread markup — which is 0 until
+ * somebody populates it. A programme quietly saved on `spread` against unset
+ * markups pays NOTHING on every deal it touches, permanently, because a
+ * zero-revenue deal is marked done rather than retried.
+ */
+const REVENUE_BASES: RevenueBasis[] = ['commission_swap', 'spread', 'commission_swap_spread'];
 
 /** What a brand-new commission programme starts as: one level, paying nothing yet. */
 const STARTER_TIERS: IbProgramTier[] = [{ depth: 1, rate: '0.0000' }];
@@ -192,6 +219,10 @@ function IbProgramForm({
     program === undefined ? '' : String(program.sortOrder),
   );
 
+  const [revenueBasis, setRevenueBasis] = React.useState<RevenueBasis>(
+    program?.revenueBasis ?? 'commission_swap',
+  );
+
   /*
    * How deep this deployment lets a ladder go. Cached by react-query under its
    * own key, so opening the modal repeatedly costs one request in total.
@@ -277,6 +308,7 @@ function IbProgramForm({
         ? tiers.map((tier, index) => ({ depth: index + 1, rate: tier.rate.trim() }))
         : [],
       rebateRate: rebateRate.trim(),
+      revenueBasis,
       enabled,
       sortOrder: parseSortOrder(sortOrder),
     });
@@ -312,6 +344,17 @@ function IbProgramForm({
         <label className="space-y-1.5">
           <span className="text-xs font-semibold text-foreground">{t('ibPrograms.mode')}</span>
           <select
+            /*
+             * NAMED explicitly, on both selects here.
+             *
+             * These are wrapping `<label>`s, so the accessible name is the
+             * label's whole text content — the title AND the hint paragraph
+             * under it. That makes the name long, unstable against copy edits,
+             * and nearly unusable from a screen reader's control list. The
+             * `aria-label` is exactly the visible title, so it disagrees with
+             * nothing on screen.
+             */
+            aria-label={t('ibPrograms.mode')}
             value={mode}
             onChange={(e) => setMode(e.target.value as IbProgramMode)}
             className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
@@ -327,6 +370,44 @@ function IbProgramForm({
           </span>
         </label>
       </div>
+
+      {/*
+        FR-IB-16 — which revenue this programme's rates are a percentage OF.
+
+        Full width beneath the pair above, because the warning matters more than
+        the control: `spread` and `commission_swap_spread` price against a
+        product's spread markup, and on a deployment where those are still 0 a
+        programme saved on either pays NOTHING on every deal it touches. That is
+        not recoverable — a zero-revenue deal is marked done rather than
+        retried — so the consequence is spelled out on the screen rather than
+        left to the operator to discover.
+      */}
+      <label className="space-y-1.5">
+        <span className="text-xs font-semibold text-foreground">{t('ibPrograms.basis')}</span>
+        <select
+          aria-label={t('ibPrograms.basis')}
+          value={revenueBasis}
+          onChange={(e) => setRevenueBasis(e.target.value as RevenueBasis)}
+          className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
+        >
+          {REVENUE_BASES.map((value) => (
+            <option key={value} value={value}>
+              {t(`ibPrograms.basis_${value}` as Parameters<typeof t>[0])}
+            </option>
+          ))}
+        </select>
+        <span className="block text-[11px] text-muted-foreground">
+          {t(`ibPrograms.basisHint_${revenueBasis}` as Parameters<typeof t>[0])}
+        </span>
+        {revenueBasis !== 'commission_swap' && (
+          <span
+            role="note"
+            className="block rounded-lg border border-warning/30 bg-warning/10 p-2 text-[11px] text-warning-foreground"
+          >
+            {t('ibPrograms.basisSpreadWarning')}
+          </span>
+        )}
+      </label>
 
       {paysCommission && (
         <fieldset className="space-y-2 rounded-lg border border-border p-3">

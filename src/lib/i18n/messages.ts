@@ -1351,6 +1351,14 @@ export const messages = {
     'How deep a commission programme’s ladder may go — how many partners above a client can ' +
     'earn from one trade. Two is the agreed structure. Raising it lets deeper programmes be ' +
     'saved; it does not change what existing programmes pay.',
+  // The total payout ceiling. Named for the BROKER's side of the trade, because
+  // that is the question it answers — "how much of this am I keeping" — and an
+  // operator setting it is deciding a margin, not a partner's rate.
+  'tradingSettings.maxPayout': 'Most one trade may pay out (%)',
+  'tradingSettings.maxPayoutHint':
+    'The largest share of a trade’s revenue that may go to partners and client rebates ' +
+    'combined, across every level. A chain costing more is held back and retried — nobody is ' +
+    'quietly paid less — so lowering this stops those commissions until the programmes fit.',
   'tradingSettings.maxDemoDeposit': 'Largest demo starting balance',
   'tradingSettings.maxDemoDepositHint':
     'A client asking for more gets this instead. Practice with position sizes nobody would really trade teaches nothing.',
@@ -1418,7 +1426,11 @@ export const messages = {
   'products.editTitle': 'Edit product',
   'products.createTitle': 'Add product',
   'products.saving': 'Saving...',
-  'products.orderHint': 'Lower comes first in the client’s list.',
+  // Says what the number DOES to the rest of the list, because it now moves
+  // them. "Lower comes first" described a sort key; this describes an insert.
+  'products.orderHint':
+    'Where it sits in the client’s list. Taking a position pushes the products below it down.',
+  'products.orderPlaceholder': 'Last',
   'products.markup': 'Spread markup per lot',
   /*
    * Says what it does AND what it does not, because the second is the part
@@ -1498,6 +1510,21 @@ export const messages = {
   // ── Agencies tab ──────────────────────────────────────────────────────────
   'agencies.title': 'Agencies',
   'agencies.pageTitle': 'Agencies',
+  // The agency's default terms. Labelled for WHEN it applies, because it is a
+  // default and not an assignment — a reviewer can still choose otherwise at
+  // approval, and a label reading "Commission programme" would hide that.
+  'agencies.colProgram': 'Programme',
+  'agencies.programNotSet': 'Not set',
+  // Shown when the agency points at a programme the catalogue no longer lists —
+  // deletion clears the pointer, so in practice this catches a partial read
+  // rather than a real dangling reference. Named rather than blank: an empty
+  // cell reads as "not set", which is a different and less urgent state.
+  'agencies.programMissing': 'Unknown programme',
+  'agencies.defaultProgram': 'Commission programme for new partners',
+  'agencies.defaultProgramNone': 'None — use the first enabled programme',
+  'agencies.defaultProgramHint':
+    'Pre-selected when a partner is approved into this agency. The reviewer can still pick a ' +
+    'different one, and changing it never re-prices partners already approved.',
   'agencies.editTitle': 'Edit agency',
   'agencies.createTitle': 'Add agency',
   'agencies.saving': 'Saving...',
@@ -2421,6 +2448,29 @@ export const messages = {
     'The clients get a rebate on their trading and the partner earns nothing — a real ' +
     'arrangement, not a misconfiguration.',
   'ibPrograms.modeHint_hybrid': 'The partner earns and their clients get a rebate.',
+
+  // FR-IB-16 — which revenue the rates above are a percentage OF.
+  //
+  // Labelled "Rates are a share of" rather than "Revenue basis": an operator
+  // setting this is answering "a share of WHAT", and the technical name answers
+  // a question nobody on that screen is asking.
+  'ibPrograms.basis': 'Rates are a share of',
+  'ibPrograms.basis_commission_swap': 'Commission and swap charged',
+  'ibPrograms.basis_spread': 'The spread markup',
+  'ibPrograms.basis_commission_swap_spread': 'Commission, swap and the spread markup',
+  'ibPrograms.basisHint_commission_swap':
+    'What MT5 actually charged the client on the trade. This is what the platform pays on today.',
+  'ibPrograms.basisHint_spread':
+    'Lots traded × the markup set on the client’s product. Needs a markup on every product ' +
+    'partners on this programme can trade.',
+  'ibPrograms.basisHint_commission_swap_spread':
+    'Both together — everything the trade earned the broker.',
+  // Stated as CONSEQUENCE, not as caution. "Be careful" is ignored; "commission
+  // is lost permanently and switching back does not recover it" is not.
+  'ibPrograms.basisSpreadWarning':
+    'Set a spread markup on every product first. Trades on a product with no markup earn this ' +
+    'programme nothing, and that commission cannot be recovered later — the trade is already ' +
+    'settled by the time anyone notices.',
   'ibPrograms.ladder': 'Commission levels',
   // The REACH in a sentence. A count of rows is a thing an operator has to work
   // out; how far the money travels is the decision they are actually making.

@@ -33,6 +33,8 @@ function program(over: Partial<IbProgram> = {}): IbProgram {
     name: 'Gold',
     sortOrder: 0,
     mode: 'commission_only',
+    /* What the platform actually computes on, and the shipped default. */
+    revenueBasis: 'commission_swap',
     tiers: [
       { depth: 1, rate: '60.0000' },
       { depth: 2, rate: '40.0000' },

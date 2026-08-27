@@ -58,6 +58,14 @@ const SAVED = {
    * failure surfaces three tests away as "the request was never made".
    */
   ibMaxLevels: 2,
+  /*
+   * The total payout ceiling (0106), and REQUIRED here for a sharper version of
+   * the reason above: the panel seeds this box through `trimAmount`, which
+   * calls `.includes` on it. An absent value is not a blank field, it is a
+   * TypeError during render — the whole form disappears and every assertion in
+   * this file fails as "unable to find a label", naming nothing that is wrong.
+   */
+  ibMaxTotalPayoutPct: '100.0000',
   updatedAt: null,
 };
 

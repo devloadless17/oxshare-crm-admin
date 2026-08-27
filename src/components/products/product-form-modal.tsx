@@ -41,7 +41,15 @@ export interface ProductFormValues {
    * because it looks almost right. Same rule as the commission rates.
    */
   spreadMarkupPerLot: string;
-  sortOrder: number;
+  /**
+   * Where in the list this product sits, or `undefined` for "wherever".
+   *
+   * OPTIONAL, and that is the fix: the API appends when no position is given
+   * and inserts — pushing the rest down — when one is. A create that always
+   * sent a number could not express "just add it", so the box opened on 0 and
+   * every new product went to the FRONT of the client's list.
+   */
+  sortOrder: number | undefined;
   /** The complete set the operator wants. The caller diffs it against the row. */
   groups: StagedGroup[];
 }
@@ -144,7 +152,16 @@ function ProductForm({
    * silently put it back on sale.
    */
   const enabled = product?.enabled ?? true;
-  const [sortOrder, setSortOrder] = React.useState(String(product?.sortOrder ?? 0));
+  /*
+   * BLANK on create, not '0'.
+   *
+   * Since ordering became "insert here and push the rest down", 0 is a real
+   * instruction — put this first — and it was the one every new product silently
+   * gave. Empty means "no opinion", which the API turns into an append.
+   */
+  const [sortOrder, setSortOrder] = React.useState(
+    product === undefined ? '' : String(product.sortOrder),
+  );
   /*
    * Seeded from the stored STRING, never from a number. `String(x)` on a parsed
    * value would already have lost the trailing zeros the column keeps, so an
@@ -251,6 +268,9 @@ function ProductForm({
           onChange={(event) => setSortOrder(event.target.value)}
           min={0}
           max={1000}
+          /* Says what leaving it alone DOES, so the empty box is a choice
+             rather than something the operator thinks they forgot. */
+          placeholder={t('products.orderPlaceholder')}
           className={INPUT_CLASS}
         />
         <span className="block text-[11px] text-muted-foreground">{t('products.orderHint')}</span>
@@ -306,37 +326,39 @@ function ProductForm({
             <span className="text-[11px] text-muted-foreground">{t('products.typeLocked')}</span>
           </p>
         ) : (
-          <fieldset className="space-y-1.5">
-            <legend className="sr-only">{t('products.type')}</legend>
-            <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="radio"
-                name="product-type"
-                checked={type === 'real'}
-                onChange={() => changeType('real')}
-                className="h-3.5 w-3.5"
-              />
-              {t('products.typeReal')}
-            </label>
-            <label
-              className={`flex items-center gap-2 text-xs ${
-                demoTaken ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
-              }`}
-            >
-              <input
-                type="radio"
-                name="product-type"
-                checked={type === 'demo'}
-                onChange={() => changeType('demo')}
-                disabled={demoTaken}
-                className="h-3.5 w-3.5"
-              />
-              {t('products.typeDemo')}
-            </label>
+          <div className="space-y-1.5">
+            {/*
+              shadcn `Select` rather than the two bare `<input type="radio">`
+              this replaced — the only unstyled controls left on this form, so
+              they rendered in the browser's own chrome beside inputs that did
+              not, and ignored the theme in dark mode.
+
+              A select rather than a radio group: this repo has no
+              `radio-group.tsx` and `@radix-ui/react-radio-group` is not a
+              dependency, so a group would mean adding a package to render a
+              two-way choice that a select already states in one line. The
+              options are mutually exclusive and always exactly two.
+
+              `demoTaken` disables the OPTION, not the control. The rule is
+              "there is already a demo product", which is a fact about that one
+              choice — disabling the whole select would also take away the real
+              option, which is always available.
+            */}
+            <Select value={type} onValueChange={(next) => changeType(next as 'real' | 'demo')}>
+              <SelectTrigger className="h-9 w-full" aria-label={t('products.type')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="real">{t('products.typeReal')}</SelectItem>
+                <SelectItem value="demo" disabled={demoTaken}>
+                  {t('products.typeDemo')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <span className="block text-[11px] leading-relaxed text-muted-foreground">
               {demoTaken ? t('products.typeDemoExists') : t('products.typeHint')}
             </span>
-          </fieldset>
+          </div>
         )}
       </div>
 
@@ -473,9 +495,17 @@ const INPUT_CLASS =
  * codebase where it appears on the harmless fields is one where it appears on
  * the others too.
  */
-function parseOrder(value: string): number {
-  const parsed = Number.parseInt(value.trim(), 10);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+function parseOrder(value: string): number | undefined {
+  const trimmed = value.trim();
+  /* Empty is "no opinion" — the API appends. Returning 0 here is what put every
+     new product at the front of the list. */
+  if (trimmed === '') return undefined;
+
+  const parsed = Number.parseInt(trimmed, 10);
+  /* A typo is also "no opinion" rather than position zero: `Number(x) || 0` is
+     the idiom that turns a fat finger into a silent reorder, and this form is
+     one keystroke from the money screens that must never use it. */
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 export type { ProductGroup };

@@ -269,11 +269,20 @@ describe('the approve dialog', () => {
     renderWithProviders(<ApprovalsIbPage />);
     await openApproveDialog(user);
 
-    // The settled question is stated, not re-asked: no AGENCY radio list and no
-    // catalogue read, just "appointing them under what they requested".
+    // The settled question is stated, not re-asked: no AGENCY radio list, just
+    // "appointing them under what they requested".
     expect(await screen.findByText(/appointing them under levant partners/i)).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /gulf desk/i })).toBeNull();
-    expect(getAgencies).not.toHaveBeenCalled();
+    /*
+     * `getAgencies` IS called now, and this line used to assert it was not.
+     *
+     * That was a real optimisation while the agency only answered "which one" —
+     * an application naming one needed no catalogue read. Since 0107 the agency
+     * also carries `defaultProgramId`, which is what the programme picker
+     * pre-selects, so the row is needed even when the agency is settled. The
+     * assertion below is what the skipped read was protecting: the reviewer is
+     * still not ASKED to choose one.
+     */
 
     await user.click(screen.getByRole('button', { name: /^approve$/i }));
     // The programme still travels: it defaults to the first enabled one, which
