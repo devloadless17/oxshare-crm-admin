@@ -1500,6 +1500,16 @@ export const messages = {
   // Not "unavailable": the group exists, it simply belongs somewhere else, and
   // the operator needs to know which of those two it is.
   'products.claimed': 'already on another product',
+  /*
+   * A picker that cannot say how stale it is reads exactly like a current one.
+   *
+   * The catalogue endpoint falls back to the SYNCED list when MT5 cannot be
+   * reached, and every row carries `lastSeenAt` for precisely this — its own
+   * DTO ends "Surface it". Nothing rendered it, so an operator attaching a
+   * group during an outage picked from a possibly-weeks-old list presented as
+   * live.
+   */
+  'products.groupsStale': 'MT5 is unreachable — showing the last synced list (confirmed {at}).',
   'products.groupsUnavailable':
     'Could not read the groups from MT5. The bridge may be down — attaching needs it, because the group is verified against the server.',
   'products.live': 'Live',
@@ -2946,6 +2956,15 @@ export const messages = {
   'profile.fieldStatus': 'Status',
   'profile.fieldPermissions': 'Permissions',
   'profile.fieldCreated': 'Member since',
+  /*
+   * WHEN this administrator's password last changed. It is on every
+   * `/admin/auth/me` payload and its DTO claims "the profile screen words it
+   * as unknown rather than guessing" — which was false, because no screen
+   * showed it at all. On a console that can approve payouts, "when did I last
+   * rotate this" is a question the profile should answer.
+   */
+  'profile.fieldPasswordChanged': 'Password changed',
+  'profile.fieldPasswordNever': 'Not since this was recorded',
   'profile.permissionCount': '{count} granted',
   'profile.statusActive': 'Active',
   'profile.statusSuspended': 'Suspended',

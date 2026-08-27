@@ -282,6 +282,17 @@ export default function AdminDashboardPage() {
                 icon={Users}
                 href="/clients"
               />
+              {/*
+                NOT a link, and that is the honest version. `StatTile`'s
+                contract is "a tile is a LINK when there is somewhere to act on
+                it", and the client list has no registration-date filter — so
+                this used to send an operator to an unfiltered list of every
+                client, where the 143 they clicked could not be found. Three
+                tiles carrying three different numbers all opened the same
+                page, which reads as a mis-click or a filter that silently
+                failed. Give it a link again in the commit that gives the list
+                a date filter.
+              */}
               <StatTile
                 label={t('dashboard.tileNewThisMonth')}
                 value={formatCount(clients.registered.thisMonth)}
@@ -290,8 +301,13 @@ export default function AdminDashboardPage() {
                   week: formatCount(clients.registered.thisWeek),
                 })}
                 icon={UserPlus}
-                href="/clients"
               />
+              {/*
+                Not a link either, and for the same reason: `level`,
+                `emailVerified` and `kycStatus` were deliberately removed from
+                the client filters (client-filters.tsx says why), so there is
+                no way to isolate the verified set at the destination.
+              */}
               <StatTile
                 label={t('dashboard.tileVerified')}
                 value={formatCount(clients.byVerification.verified)}
@@ -299,7 +315,6 @@ export default function AdminDashboardPage() {
                   notVerified: formatCount(clients.byVerification.notVerified),
                 })}
                 icon={BadgeCheck}
-                href="/clients"
               />
             </>
           )}
