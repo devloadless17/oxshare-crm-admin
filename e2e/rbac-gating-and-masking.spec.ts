@@ -198,6 +198,15 @@ test.describe('what a RESTRICTED sub-admin cannot reach', () => {
   });
 
   test('cannot see a client outside its tag scope, and a deep link 404s', async ({ page }) => {
+    /*
+     * This test opens a MASTER API session mid-body (the only identity allowed
+     * to know the out-of-scope client's id). Admin login is capped at five a
+     * minute per IP and `adminApiSession` waits the window out rather than
+     * weakening the cap — a 65-second backoff that the default 60-second test
+     * timeout cannot survive. Past one full window, so a busy run costs a
+     * slow test rather than a red one.
+     */
+    test.setTimeout(180_000);
     await page.goto('/clients');
     await searchOwnClients(page);
 
