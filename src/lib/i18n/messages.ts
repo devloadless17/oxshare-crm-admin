@@ -1427,6 +1427,16 @@ export const messages = {
   'tradingSettings.readOnly': 'You do not have permission to change these.',
   'tradingSettings.updateFailed': 'Could not save the trading settings.',
   'tradingSettings.save': 'Save changes',
+  /*
+   * WHO last saved this, and when.
+   *
+   * Every settings save records the administrator and no panel showed it, so
+   * "who changed the commission basis / the leverage ladder / the SMTP host,
+   * and when" was answerable only from the audit log — on settings that decide
+   * what partners are paid and whether mail leaves the building.
+   */
+  'settings.lastSavedBy': 'Last saved by {who} · {when}',
+  'settings.lastSavedAt': 'Last saved {when}',
   'tradingSettings.saving': 'Saving...',
   'tradingSettings.saved': 'Saved',
 

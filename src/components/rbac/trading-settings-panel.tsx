@@ -11,6 +11,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { toastSuccess } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { t } from '@/lib/i18n';
+import { SettingsSavedLine } from './settings-saved-line';
 
 /**
  * The terms a client may open a trading account on — the Trading tab.
@@ -513,6 +514,10 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
           <span>{t('tradingSettings.save')}</span>
         )}
       </button>
+      {/* WHO last saved this, and when — recorded on every save and shown
+          nowhere until now. Renders nothing on a row still using its boot
+          configuration, which has no author. */}
+      <SettingsSavedLine updatedAt={settings.updatedAt} updatedByName={settings.updatedByName} />
     </form>
   );
 }

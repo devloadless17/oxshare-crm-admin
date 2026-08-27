@@ -5474,6 +5474,7 @@ export interface components {
             ibRevenueBasis: "commission_swap" | "spread" | "commission_swap_spread";
             /** Format: date-time */
             updatedAt?: string | null;
+            updatedByName?: string | null;
         };
         UpdateTradingSettingsDto: {
             /** @example 5 */
@@ -5530,6 +5531,7 @@ export interface components {
             source: "database" | "environment";
             /** Format: date-time */
             updatedAt?: string | null;
+            updatedByName?: string | null;
         };
         UpdateSmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */
@@ -6056,6 +6058,20 @@ export interface components {
             /** @example #b45309 */
             color?: string;
             description?: string;
+        };
+        ClientTagAssignmentDto: {
+            id: string;
+            /** @description Stable machine name. Filter with ?tag=<slug>; a rename does not change it. */
+            slug: string;
+            label: string;
+            color?: string;
+            description?: string;
+            /** Format: date-time */
+            createdAt: string;
+            assignedBy?: string | null;
+            assignedByName?: string | null;
+            /** Format: date-time */
+            assignedAt: string;
         };
         KycDocumentDto: {
             docType?: string;
@@ -10805,7 +10821,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagDto"][];
+                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
                 };
             };
         };
@@ -10827,7 +10843,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagDto"][];
+                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
                 };
             };
         };
@@ -10849,7 +10865,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagDto"][];
+                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
                 };
             };
         };

@@ -27,12 +27,14 @@ import { apiClient } from './client';
  * rather than a second, drifting filter language. The response is a file body
  * with `Content-Disposition: attachment; filename=…`.
  *
- * MOST OF THESE ENDPOINTS DO NOT EXIST YET — `wallets`, `trading-accounts`
- * and `transactions` are the three that have shipped. The button surfaces a
- * 404 as its own state (`unavailable`) rather than as a failure, so the
- * remainder render as not-built instead of broken — the same rule
- * `BackendPending` follows for whole screens, and the reason no call site has
- * to know which of these is live today.
+ * EVERY ONE OF THESE NOW EXISTS. The list began with three (`wallets`,
+ * `trading-accounts`, `transactions`) and this comment said so for months
+ * after the rest shipped — clients, withdrawals, kyc, audit-log, currencies,
+ * tags, payment-methods, both IB exports, roles and admin-users all answer
+ * today. The 404 → `unavailable` path below is therefore unreachable in
+ * practice and is KEPT anyway: it costs nothing, it is the same rule
+ * `BackendPending` follows for whole screens, and it is what lets a call site
+ * stay ignorant of which resources are live.
  */
 export type ExportResource =
   | 'clients'
