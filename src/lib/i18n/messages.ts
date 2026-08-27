@@ -1112,6 +1112,13 @@ export const messages = {
   'kycReview.docIdBack': 'ID document (back)',
   'kycReview.docSelfie': 'Selfie verification',
   'kycReview.docAddress': 'Proof of address',
+  /*
+   * A proof of address can be TWO pages — a bank statement's second sheet is
+   * where the address often is. The client can upload it and the API stores
+   * and serves it; until this label existed the review grid built four
+   * candidates and silently dropped it, so a reviewer decided on page 1 alone.
+   */
+  'kycReview.docAddress2': 'Proof of address — page 2',
   // Signals a reviewer needs that the API was already sending and the screen
   // never rendered — a brand-new account and a two-year-old one looked identical.
   'kycReview.accountLabel': 'Account',
@@ -1964,6 +1971,13 @@ export const messages = {
   /* The CopyableId button. Says what lands on the clipboard — the FULL uuid,
      not the 8 truncated characters the cell shows. */
   'common.copyId': 'Copy full ID',
+  /*
+   * Copying can FAIL, and silently: `navigator.clipboard` is undefined on
+   * plain HTTP and the promise rejects when permission is denied. Without a
+   * message the button looks identical to one that was never pressed, and the
+   * operator pastes whatever was on the clipboard before.
+   */
+  'common.copyFailed': 'Could not copy — select the value and copy it manually.',
   'common.copied': 'Copied',
   'common.cancel': 'Cancel',
   'common.saving': 'Saving…',
