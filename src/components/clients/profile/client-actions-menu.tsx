@@ -63,6 +63,8 @@ export function ClientActionsMenu({
   onReassignParent,
   onEditProfile,
   onChangeEmail,
+  onShowDocuments,
+  onShowNetwork,
 }: {
   profile: ClientProfile;
   /** Null when this client is not a partner — the partner block is then absent. */
@@ -73,6 +75,15 @@ export function ClientActionsMenu({
   onReassignParent: () => void;
   onEditProfile: () => void;
   onChangeEmail: () => void;
+  /**
+   * Both of these move the page to a TAB, which is why they are callbacks and
+   * not links. The menu renders above the tab strip and is therefore reachable
+   * from all six tabs, while their targets live inside one — a `TabPanel`
+   * returns null when it is not active, so the old `#documents` hash resolved
+   * to nothing five-sixths of the time and the item read as broken.
+   */
+  onShowDocuments: () => void;
+  onShowNetwork: () => void;
 }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
@@ -222,9 +233,13 @@ export function ClientActionsMenu({
           {
             label: t('clientProfile.actionViewDocuments'),
             icon: FileText,
-            // The documents live on the compliance tab; this is a scroll target
-            // rather than a route, so it stays a hash on this page.
-            href: `#documents`,
+            /*
+             * Selects the Overview tab and THEN scrolls. It used to be a bare
+             * `#documents` hash, which only resolves while Overview is the
+             * active tab — from Money, Partner, Positions, History or Network
+             * the click added a fragment to the URL and moved nothing.
+             */
+            onSelect: onShowDocuments,
             separatorBefore: !canReviewKyc && (canSuspendClient || canAssignTags),
           },
         ]
@@ -281,7 +296,16 @@ export function ClientActionsMenu({
           {
             label: t('clientProfile.actionViewReferred'),
             icon: Users,
-            href: `/clients?type=referral`,
+            /*
+             * The NETWORK tab, which lists the clients THIS partner
+             * introduced. It used to link to `/clients?type=referral`, and
+             * `type` is derived as "referred by ANY partner" — so an item
+             * inside a menu titled "Actions for {this partner}" opened a
+             * platform-wide list, and an operator answering "how many clients
+             * has this partner brought in" read the whole platform's referral
+             * count as theirs.
+             */
+            onSelect: onShowNetwork,
           },
         ]
       : []),

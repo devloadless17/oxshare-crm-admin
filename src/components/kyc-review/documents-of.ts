@@ -49,6 +49,21 @@ export function documentsOf(data: KycSubmission): LightboxDoc[] {
       fileName: data.addressProof?.fileName,
       label: t('kycReview.docAddress'),
     },
+    /*
+     * PAGE TWO, which the reviewer could not see.
+     *
+     * The wizard offers a second address slot (`address_proof_2`), the API
+     * stores it, counts it in the document total and serves it — and this list
+     * stopped at page 1. So a two-page bank statement was approved or refused
+     * on half its evidence, while the client's profile said four documents
+     * were on file. The filter below still drops it when it was never
+     * uploaded, which is the common case.
+     */
+    {
+      filePath: data.addressProof?.page2FilePath,
+      fileName: data.addressProof?.page2FileName,
+      label: t('kycReview.docAddress2'),
+    },
   ];
 
   return candidates.filter((d): d is LightboxDoc => typeof d.filePath === 'string' && !!d.filePath);

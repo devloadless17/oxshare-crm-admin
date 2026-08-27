@@ -188,21 +188,39 @@ export function DocLightbox({
               src={buildKycDocUrl(doc.filePath)}
               alt={doc.label}
               draggable={false}
-              onMouseDown={(e) => {
+              /*
+               * POINTER events, not mouse events.
+               *
+               * Pan was `onMouse*` only, so on a tablet a reviewer could zoom
+               * to 300% with the + button and then not move the image — which
+               * is exactly when panning becomes necessary, and it put a
+               * passport number in the corner of a scan out of reach. Pointer
+               * events cover mouse, touch and pen in one handler; capture
+               * keeps the drag alive when the finger leaves the image, which
+               * is the common case at high zoom. `touch-none` stops the
+               * browser claiming the gesture for a page scroll first.
+               */
+              onPointerDown={(e) => {
                 if (zoom <= 1) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
                 dragFrom.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
               }}
-              onMouseMove={(e) => {
+              onPointerMove={(e) => {
                 if (!dragFrom.current) return;
                 setOffset({ x: e.clientX - dragFrom.current.x, y: e.clientY - dragFrom.current.y });
               }}
-              onMouseUp={() => (dragFrom.current = null)}
-              onMouseLeave={() => (dragFrom.current = null)}
+              onPointerUp={(e) => {
+                if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                }
+                dragFrom.current = null;
+              }}
+              onPointerCancel={() => (dragFrom.current = null)}
               style={{
                 transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom}) rotate(${turns * 90}deg)`,
                 cursor: zoom > 1 ? 'grab' : 'default',
               }}
-              className="max-h-[80vh] max-w-[92vw] select-none object-contain transition-transform duration-100"
+              className="max-h-[80vh] max-w-[92vw] touch-none select-none object-contain transition-transform duration-100"
             />
           )}
 

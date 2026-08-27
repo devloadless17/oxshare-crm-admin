@@ -94,6 +94,18 @@ test('a role edit lands on the holder’s VERY NEXT request — revoke and re-gr
     } finally {
       await master.patch(`/admin/users/${holder.id}/status`, { status: 'suspended' });
       await holder.ctx.dispose();
+      /*
+       * The role is left behind, and it CANNOT be otherwise: its holder is
+       * assigned to it, the API refuses to delete an assigned role (rightly),
+       * and there is no way to delete an administrator. So this run adds a row
+       * to a PAGED list other specs read — twenty-seven had accumulated before
+       * a sweep failed on it, because `rbac-gating-and-masking` looked for the
+       * seeded fixture on page one and it had drifted off.
+       *
+       * The durable fix is therefore in the READER: that spec walks the pages.
+       * Recorded here so the next person adding a fixture-creating spec knows
+       * the cost lands on somebody else's assertion.
+       */
     }
   } finally {
     await master.dispose();
@@ -233,6 +245,12 @@ test('the subset rule holds every escalation door shut, from a REAL limited sess
       await master.patch(`/admin/users/${bystander.id}/status`, { status: 'suspended' });
       await manager.ctx.dispose();
       await bystander.ctx.dispose();
+      /*
+       * `biggerRole` CAN go — the escalation attempt to put the bystander on
+       * it was refused, so nobody holds it. `limitedRole` cannot: the manager
+       * is on it, and an assigned role is undeletable by design.
+       */
+      await master.del(`/admin/roles/${biggerRole.id}`);
     }
   } finally {
     await master.dispose();

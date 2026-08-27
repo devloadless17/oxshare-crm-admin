@@ -110,7 +110,14 @@ test.describe('a dead session always has a way out', () => {
       route.fulfill({ status: 401, body: JSON.stringify({ code: 'SESSION_REVOKED' }) }),
     );
 
-    await page.goto('/clients');
+    /*
+     * The eviction is a HARD navigation, and it can win the race against this
+     * goto — Chromium then reports the goto's own load as ERR_ABORTED. That is
+     * the behaviour under test happening promptly, not a failure, so the URL
+     * assertion below is the real check. Same tolerance the other eviction
+     * specs carry.
+     */
+    await page.goto('/clients').catch(() => null);
 
     await expect(page, 'a permanently-401ing session never reached sign-in').toHaveURL(/\/login/, {
       timeout: 20_000,

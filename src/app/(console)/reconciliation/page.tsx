@@ -204,6 +204,20 @@ export default function ReconciliationPage() {
                     <p className="text-sm font-semibold text-destructive">
                       {t('reconciliation.mismatch.title')}
                     </p>
+                    {/*
+                      The SIZE of the break, from the figures the response
+                      already carried. The table below is a capped SAMPLE (20
+                      rows), so counting it reported twenty on a database with
+                      thousands — the DTO says so in as many words. A number
+                      nobody can act on is bad; a number that is quietly wrong
+                      by three orders of magnitude is worse.
+                    */}
+                    <p className="mt-1 text-sm font-semibold text-destructive">
+                      {t('reconciliation.mismatch.scale', {
+                        count: report.discrepancyCount,
+                        total: formatMoney(report.totalDifference, 'USD'),
+                      })}
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {t('reconciliation.mismatch.body')}
                     </p>
@@ -219,6 +233,15 @@ export default function ReconciliationPage() {
               at: report ? new Date(report.checkedAt).toLocaleString() : '—',
             })}
           </p>
+
+          {report && report.discrepancyCount > report.walletDiscrepancies.length && (
+            <p className="shrink-0 text-xs text-warning">
+              {t('reconciliation.sampleNote', {
+                shown: report.walletDiscrepancies.length,
+                count: report.discrepancyCount,
+              })}
+            </p>
+          )}
 
           <DataTable
             fill

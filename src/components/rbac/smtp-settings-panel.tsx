@@ -11,6 +11,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { SettingsSavedLine } from './settings-saved-line';
 
 /**
  * The mail server — the Email tab. Master admin only.
@@ -285,6 +286,10 @@ function SmtpForm({ settings, canManage }: { settings: SmtpSettings; canManage: 
           )}
         </button>
       </div>
+      {/* WHO last saved this, and when — recorded on every save and shown
+          nowhere until now. Renders nothing on a row still using its boot
+          configuration, which has no author. */}
+      <SettingsSavedLine updatedAt={settings.updatedAt} updatedByName={settings.updatedByName} />
     </form>
   );
 }

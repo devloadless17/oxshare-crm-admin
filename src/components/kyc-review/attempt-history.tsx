@@ -122,6 +122,30 @@ export function AttemptHistory({ attempts }: { attempts: KycAttempt[] }) {
                       fileName={a.addressProof?.fileName}
                       label={t('kycReview.docAddress')}
                     />
+                    {/*
+                      The BACK of an ID and PAGE 2 of an address proof, both
+                      stored on the attempt and both absent from this grid.
+                      This table exists to answer "what did the document we
+                      refused actually look like" — an ID re-sent with only its
+                      back page corrected, or a bank statement whose address is
+                      on the second sheet, was unreadable in exactly the place
+                      built to read it. `DocViewer` renders nothing for an
+                      absent path, so a passport attempt is unchanged.
+                    */}
+                    {a.document?.backFilePath && (
+                      <DocViewer
+                        filePath={a.document.backFilePath}
+                        fileName={a.document.backFileName}
+                        label={t('kycReview.docIdBack')}
+                      />
+                    )}
+                    {a.addressProof?.page2FilePath && (
+                      <DocViewer
+                        filePath={a.addressProof.page2FilePath}
+                        fileName={a.addressProof.page2FileName}
+                        label={t('kycReview.docAddress2')}
+                      />
+                    )}
                   </div>
                 </div>
               )}

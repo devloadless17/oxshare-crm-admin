@@ -351,6 +351,7 @@ function CopyBlock({ label, value }: { label: string; value: string }) {
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
   return (
     <button
       type="button"
@@ -358,16 +359,25 @@ function CopyButton({ value }: { value: string }) {
       title={t('rival.copy')}
       className="rounded p-1 text-muted-foreground hover:text-foreground focus-outline"
       onClick={() => {
-        void navigator.clipboard.writeText(value).then(() => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1500);
-        });
+        // A silent failure here (plain HTTP, denied permission) looks exactly
+        // like a button nobody pressed — say so instead.
+        void (async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            setFailed(false);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+          } catch {
+            setCopied(false);
+            setFailed(true);
+          }
+        })();
       }}
     >
       {copied ? (
         <Check className="h-3.5 w-3.5 text-success" aria-hidden="true" />
       ) : (
-        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+        <Copy className={`h-3.5 w-3.5 ${failed ? 'text-destructive' : ''}`} aria-hidden="true" />
       )}
     </button>
   );
