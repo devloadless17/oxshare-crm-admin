@@ -2254,6 +2254,19 @@ export const messages = {
   'reconciliation.mismatch.body':
     'Investigate before making any correction. Nothing here is repaired automatically: a compensating entry written for an undiagnosed cause hides the problem instead of fixing it.',
   'reconciliation.checkedAt': 'Checked {count} wallet(s) · last run {at}',
+  /*
+   * The SCALE of the break, which the screen could not state.
+   *
+   * `walletDiscrepancies` is capped at 20 rows server-side and the response
+   * carries the real `discrepancyCount` and `totalDifference` beside it — its
+   * own DTO warns that "a screen that counts this array reports 20 on a
+   * database with thousands". Until these strings existed the page rendered
+   * the sample and no figure, so a systemic ledger break read as twenty
+   * isolated ones.
+   */
+  'reconciliation.mismatch.scale': '{count} wallet(s) affected · {total} out of balance',
+  'reconciliation.sampleNote':
+    'Showing the first {shown} of {count}. Investigate these, then re-run.',
   'reconciliation.caption': 'Wallets whose balance does not match their ledger',
   'reconciliation.empty': 'No discrepancies — every wallet matches its ledger.',
   'reconciliation.column.client': 'Client',
