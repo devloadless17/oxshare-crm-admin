@@ -99,13 +99,20 @@ beforeEach(() => {
     maxLiveAccounts: 5,
     maxDemoAccounts: 5,
     maxDemoDeposit: '1000000.00000000',
-    // Required since the broker's revenue cap arrived. Without it the panel's
-    // `trimAmount` reads undefined and the whole form throws — which surfaced
-    // as an unrelated tab-navigation failure, three tests away.
-    ibMaxRevenueSharePct: '50.00',
-    // Same lesson as the line above, one field later: the panel seeds a text
-    // box from this and an absent value renders the string 'undefined'.
-    ibCommissionHoldHours: 24,
+    /*
+     * TWO IB fields, and both are required — the note that stood here predicted
+     * precisely what happens without them, and then it happened.
+     *
+     * The four that decided what partners are PAID went in 0103/0104. These two
+     * BOUND the Commission Programmes page instead: the ladder ceiling (0105)
+     * and the total payout ceiling (0106). The panel seeds a text box from each,
+     * and `ibMaxTotalPayoutPct` goes through `trimAmount`, which calls
+     * `.includes` on it — so an absent value is not a blank field but a
+     * TypeError during render, surfacing as an unrelated tab-navigation failure
+     * three tests away.
+     */
+    ibMaxLevels: 2,
+    ibMaxTotalPayoutPct: '100.0000',
     updatedAt: null,
   });
   getSmtpSettings.mockResolvedValue({

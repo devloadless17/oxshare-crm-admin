@@ -66,6 +66,10 @@ function agency(over: Partial<Agency> = {}): Agency {
     description: 'The flagship package.',
     enabled: true,
     sortOrder: 0,
+    /* No default programme (0107). Always PRESENT on a response, so the fixture
+       states the null rather than omitting the key — the two are different, and
+       omitting it is what the response DTO was corrected to stop expressing. */
+    defaultProgramId: null,
     // The products this agency sells. Required — the row renders their count,
     // and omitting it is what made the whole screen throw rather than render.
     productIds: ['p-1'],

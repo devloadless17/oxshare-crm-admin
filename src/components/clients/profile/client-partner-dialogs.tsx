@@ -14,118 +14,35 @@ import { formatDecimal } from '@/lib/money';
  * The two partner edits that need a CHOICE, so neither fits in a confirm.
  *
  * Suspending is a yes/no and lives in the actions menu behind `confirm()`.
- * Moving a rung and reassigning a parent both need the operator to pick from a
- * list the screen has to fetch — and both are writes against live placement, so
- * each states its consequence above the control rather than after the fact.
+ * Changing a partner's TERMS and reassigning their PARENT both need the
+ * operator to pick from a list the screen has to fetch — and both are writes
+ * against a live money relationship, so each states its consequence above the
+ * control rather than after the fact.
  *
  * Each invalidates BOTH the profile and the partner detail, for the reason the
  * actions menu records: they are separate requests about the same person, and
  * refreshing one leaves the header and the tab disagreeing.
  */
 
-/** Move a partner to a different rung of the ladder. */
-export function ChangeLevelDialog({
-  open,
-  onClose,
-  partner,
-  name,
-}: {
-  open: boolean;
-  onClose: () => void;
-  partner: IbPartnerDetail;
-  name: string;
-}) {
-  const queryClient = useQueryClient();
-  const [level, setLevel] = React.useState(partner.level);
-
-  const levels = useResource(['admin', 'ib-levels'], (signal) => api.admin.getIbLevels(signal), {
-    enabled: open,
-  });
-
-  const save = useMutation({
-    mutationFn: () => api.admin.changeIbPartnerLevel(partner.userId, level),
-    onSuccess: async () => {
-      await invalidateBoth(queryClient, partner.userId);
-      toastSuccess(t('clientProfile.levelChanged', { level: String(level) }));
-      onClose();
-    },
-    onError: (error) => toastError(error, t('clientProfile.levelFailed')),
-  });
-
-  /*
-   * ENABLED levels only. `resolveLevel` refuses a disabled rung on the API, so
-   * offering one here would be a choice whose only outcome is a refusal — and
-   * the operator would read the refusal as the move being impossible rather
-   * than the rung being switched off.
-   */
-  const options = (levels.data ?? []).filter((entry) => entry.enabled);
-
-  return (
-    <Modal open={open} onClose={onClose} title={t('clientProfile.changeLevelTitle', { name })}>
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save.mutate();
-        }}
-      >
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {t('clientProfile.changeLevelBody')}
-        </p>
-
-        <div className="space-y-1.5">
-          {options.map((entry) => (
-            <label
-              key={entry.level}
-              className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 ${
-                level === entry.level ? 'border-primary bg-primary/5' : 'border-border'
-              }`}
-            >
-              <span className="flex items-center gap-2.5">
-                <input
-                  type="radio"
-                  name="ib-level"
-                  checked={level === entry.level}
-                  onChange={() => setLevel(entry.level)}
-                  className="h-3.5 w-3.5"
-                />
-                <span className="text-sm font-medium">{entry.name}</span>
-              </span>
-              <span className="tabular text-xs font-semibold text-muted-foreground">
-                {formatDecimal(entry.rateValue)}%
-              </span>
-            </label>
-          ))}
-        </div>
-
-        {save.isError && (
-          <p
-            role="alert"
-            className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive"
-          >
-            {t('clientProfile.levelFailed')}
-          </p>
-        )}
-
-        <Footer
-          onClose={onClose}
-          saving={save.isPending}
-          disabled={options.length === 0 || level === partner.level}
-          label={t('clientProfile.changeLevelSave')}
-        />
-      </form>
-    </Modal>
-  );
-}
+/*
+ * `ChangeLevelDialog` IS GONE (0102), with the rung it moved a partner between.
+ *
+ * It presented itself as the control over what somebody earns — "a disabled
+ * level takes no share" — and had not decided a rate since the programmes
+ * landed. The two questions it conflated each have an owner now:
+ * `ChangeProgramDialog` below for the TERMS, and `ChangeParentDialog` for where
+ * they sit in the tree.
+ */
 
 /**
  * Move a partner onto different TERMS.
  *
- * The sibling of `ChangeLevelDialog`, and the distinction between them is the
- * whole point of the programme model: the LADDER decides where a partner
- * stands, the PROGRAMME decides what they are paid. Until this control existed
- * a partner's terms were written once at approval and never again — an operator
- * could build a catalogue of programmes and assign nobody to any of them.
+ * Until this control existed a partner's terms were written once at approval
+ * and never again — an operator could build a catalogue of programmes and
+ * assign nobody to any of them.
+ *
+ * Since 0102 it is also the only control over what somebody earns: the rung
+ * dialog that used to sit beside it decided nothing and is gone.
  *
  * ENABLED programmes only. The API refuses a disabled one, so offering it here
  * would be a choice whose only outcome is a refusal — and the operator would
@@ -195,16 +112,20 @@ export function ChangeProgramDialog({
                 />
                 <span>
                   <span className="block text-sm font-medium">{entry.name}</span>
-                  {/* The rates, because "Gold" alone does not tell an operator
-                      what they are about to change somebody's pay TO. */}
+                  {/* The LADDER, because "Gold" alone does not tell an operator
+                      what they are about to change somebody's pay TO — and the
+                      number of levels is half of that answer, not decoration:
+                      it is how far this partner's earnings will reach. */}
                   <span className="block text-[11px] text-muted-foreground">
                     {entry.mode === 'rebate_only'
                       ? t('clientProfile.programRebateOnly', {
                           rebate: formatDecimal(entry.rebateRate),
                         })
-                      : t('clientProfile.programRates', {
-                          own: formatDecimal(entry.level1Rate),
-                          sub: formatDecimal(entry.level2Rate),
+                      : t('clientProfile.programLadder', {
+                          rates: entry.tiers
+                            .map((tier) => `L${tier.depth} ${formatDecimal(tier.rate)}%`)
+                            .join(' · '),
+                          count: String(entry.tiers.length),
                         })}
                   </span>
                 </span>
@@ -339,8 +260,12 @@ export function ReassignParentDialog({
                   </span>
                 </span>
               </span>
+              {/* The candidate parent's TERMS, replacing their rung (0102).
+                  Worth showing here because it is what decides whether this
+                  parent earns anything from the sub-tree they are about to be
+                  given. */}
               <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
-                {row.levelName}
+                {row.programName}
               </span>
             </label>
           ))}
@@ -391,7 +316,7 @@ function Footer({
         disabled={saving || disabled}
         className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
       >
-        {saving ? t('ibLevels.saving') : label}
+        {saving ? t('ibPrograms.saving') : label}
       </button>
     </div>
   );

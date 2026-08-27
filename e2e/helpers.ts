@@ -271,7 +271,6 @@ export const CONSOLE_PAGES = [
   // together (partners are reached at /clients?type=partner). A table entry
   // for a route that does not exist tests Next's 404, not this app.
   '/approvals/ib',
-  '/ib-levels',
   '/commissions',
   '/reconciliation',
   // ADM-13. The ledger sits beside reconciliation: the report says whether the

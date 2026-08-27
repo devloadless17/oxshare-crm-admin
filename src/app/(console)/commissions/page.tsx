@@ -206,11 +206,24 @@ function CommissionsPageContent() {
       cellClassName: 'font-mono font-semibold text-foreground whitespace-nowrap tabular',
     },
     {
-      header: t('commissions.colLevel'),
+      /*
+       * DEPTH, not the rung it replaced (0102). "How far above the client was
+       * this partner on this trade" is the question a ledger row answers; the
+       * rung answered "where do they sit", which the money never used.
+       */
+      header: t('commissions.colDepth'),
       align: 'right',
-      ...sortableBy('level'),
-      cell: (r) => r.accrual.level,
+      ...sortableBy('depth'),
+      cell: (r) => r.accrual.depth,
       cellClassName: 'tabular',
+    },
+    {
+      /* The TERMS. Null only on a row accrued before the column existed —
+         rendered as a dash rather than blank, so "we cannot say" reads
+         differently from "nothing there". */
+      header: t('commissions.colProgramme'),
+      cell: (r) => r.accrual.programName ?? '—',
+      cellClassName: 'whitespace-nowrap text-muted-foreground',
     },
     {
       header: t('commissions.colStatus'),

@@ -3,7 +3,29 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import type { IbProgram } from '@/lib/api/admin';
-import { IbProgramFormModal } from './ib-program-form-modal';
+import { IbProgramForm } from './ib-program-form';
+
+/**
+ * The ladder ceiling is READ, not assumed — `IB_MAX_LEVELS` via
+ * `GET /admin/ib-programs/limits`, defaulting to the committed two levels.
+ *
+ * Mocked at THREE here rather than two, deliberately: the cases below add a
+ * second level, and a fixture pinned to the production default would make
+ * "the Add button stops at the ceiling" and "the Add button works" the same
+ * assertion. `maxLevels` gets its own case further down.
+ *
+ * BOTH the named export and the default — see admin/CLAUDE.md. Mocking only
+ * `default` leaves the named `api` undefined and the component throws on first
+ * use, which surfaces as a render failure rather than as a broken mock.
+ */
+const { getIbProgramLimits } = vi.hoisted(() => ({
+  getIbProgramLimits: vi.fn().mockResolvedValue({ maxLevels: 3 }),
+}));
+
+vi.mock('@/lib/api', () => {
+  const api = { admin: { getIbProgramLimits } };
+  return { api, default: api };
+});
 
 /**
  * The form that sets what partners are paid.
@@ -27,7 +49,7 @@ import { IbProgramFormModal } from './ib-program-form-modal';
  *     convincingly.
  */
 const onSubmit = vi.fn();
-const onClose = vi.fn();
+const onCancel = vi.fn();
 
 function program(over: Partial<IbProgram> = {}): IbProgram {
   return {
@@ -35,8 +57,12 @@ function program(over: Partial<IbProgram> = {}): IbProgram {
     name: 'Gold',
     sortOrder: 0,
     mode: 'commission_only',
-    level1Rate: '60.0000',
-    level2Rate: '40.0000',
+    /* What the platform actually computes on, and the shipped default. */
+    revenueBasis: 'commission_swap',
+    tiers: [
+      { depth: 1, rate: '60.0000' },
+      { depth: 2, rate: '40.0000' },
+    ],
     rebateRate: '0.0000',
     enabled: true,
     partnerCount: 0,
@@ -48,11 +74,13 @@ function program(over: Partial<IbProgram> = {}): IbProgram {
 
 function renderForm(over: Partial<IbProgram> = {}) {
   return renderWithProviders(
-    <IbProgramFormModal
-      open
+    /* The form directly — it is a PAGE now, so there is no modal to open and
+       nothing to assert about its open state. */
+    <IbProgramForm
       program={program(over)}
       saving={false}
-      onClose={onClose}
+      submitLabel="Save programme"
+      onCancel={onCancel}
       onSubmit={onSubmit}
     />,
   );
@@ -64,7 +92,13 @@ beforeEach(() => {
 
 describe('the running total on a commission programme', () => {
   it('says what the broker keeps, which is the number being decided', async () => {
-    renderForm({ level1Rate: '60.0000', level2Rate: '10.0000', rebateRate: '0.0000' });
+    renderForm({
+      tiers: [
+        { depth: 1, rate: '60.0000' },
+        { depth: 2, rate: '10.0000' },
+      ],
+      rebateRate: '0.0000',
+    });
 
     expect(await screen.findByText(/pay out 70% .* leaving 30%/i)).toBeInTheDocument();
   });
@@ -80,8 +114,10 @@ describe('the running total on a commission programme', () => {
   it('counts a rate this mode does not pay, because the server does', async () => {
     renderForm({
       mode: 'commission_only',
-      level1Rate: '60.0000',
-      level2Rate: '0.0000',
+      tiers: [
+        { depth: 1, rate: '60.0000' },
+        { depth: 2, rate: '0.0000' },
+      ],
       rebateRate: '50.0000',
     });
 
@@ -101,8 +137,10 @@ describe('the running total on a commission programme', () => {
   it('totals in decimal, not floating point', async () => {
     renderForm({
       mode: 'hybrid',
-      level1Rate: '27.6000',
-      level2Rate: '39.4286',
+      tiers: [
+        { depth: 1, rate: '27.6000' },
+        { depth: 2, rate: '39.4286' },
+      ],
       rebateRate: '32.9714',
     });
 
@@ -113,9 +151,9 @@ describe('the running total on a commission programme', () => {
   });
 
   it('follows the rate as it is typed', async () => {
-    renderForm({ level1Rate: '10.0000', level2Rate: '0.0000', rebateRate: '0.0000' });
+    renderForm({ tiers: [{ depth: 1, rate: '10.0000' }], rebateRate: '0.0000' });
 
-    const level1 = await screen.findByLabelText(/from their own clients/i);
+    const level1 = await screen.findByLabelText(/^level 1/i);
     await userEvent.clear(level1);
     await userEvent.type(level1, '25.5');
 
@@ -125,15 +163,22 @@ describe('the running total on a commission programme', () => {
 
 describe('what the form sends', () => {
   it('sends rates as decimal strings, with their scale intact', async () => {
-    renderForm({ level1Rate: '60.0000', level2Rate: '40.0000' });
+    renderForm({
+      tiers: [
+        { depth: 1, rate: '60.0000' },
+        { depth: 2, rate: '40.0000' },
+      ],
+    });
 
     await userEvent.click(await screen.findByRole('button', { name: /save programme/i }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         // `60`, not `60.0000`, is what a number round trip leaves behind.
-        level1Rate: '60.0000',
-        level2Rate: '40.0000',
+        tiers: [
+          { depth: 1, rate: '60.0000' },
+          { depth: 2, rate: '40.0000' },
+        ],
       }),
     );
   });
@@ -158,7 +203,13 @@ describe('what the form sends', () => {
    * explains nothing. The banner above it already says what is wrong.
    */
   it('still lets an over-allocated programme be submitted, so the API can refuse it', async () => {
-    renderForm({ mode: 'hybrid', level1Rate: '80.0000', level2Rate: '40.0000' });
+    renderForm({
+      mode: 'hybrid',
+      tiers: [
+        { depth: 1, rate: '80.0000' },
+        { depth: 2, rate: '40.0000' },
+      ],
+    });
 
     const save = await screen.findByRole('button', { name: /save programme/i });
     expect(save).toBeEnabled();
@@ -167,21 +218,187 @@ describe('what the form sends', () => {
   });
 });
 
+/**
+ * ── THE LADDER, WHICH IS THE 0102 CAPABILITY ──────────────────────────────
+ *
+ * The form used to have two rate boxes, "level 1" and "level 2", which was the
+ * two-level cap rendered as a layout. FR-IB-17 makes reach a commercial
+ * decision, so levels are added and removed here and the COUNT is what decides
+ * how far a programme pays.
+ *
+ * Every case below is one where a wrong answer changes what somebody is paid:
+ * a ladder sent with a gap is refused by the API, a middle row removed
+ * re-prices every level beneath it, and a rebate-only programme carrying tiers
+ * is a rate card that never pays.
+ */
+describe('the commission ladder', () => {
+  it('states how far the programme reaches, rather than leaving it to be counted', async () => {
+    renderForm({
+      tiers: [
+        { depth: 1, rate: '50.0000' },
+        { depth: 2, rate: '20.0000' },
+        { depth: 3, rate: '10.0000' },
+      ],
+    });
+
+    expect(await screen.findByText(/earnings reach 3 level\(s\) below/i)).toBeInTheDocument();
+  });
+
+  it('adds a level, and sends it', async () => {
+    const user = userEvent.setup();
+    renderForm({ tiers: [{ depth: 1, rate: '50.0000' }] });
+
+    await user.click(await screen.findByRole('button', { name: /add a level/i }));
+
+    const level2 = screen.getByLabelText(/^level 2/i);
+    await user.clear(level2);
+    await user.type(level2, '15');
+    await user.click(screen.getByRole('button', { name: /save programme/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tiers: [
+          { depth: 1, rate: '50.0000' },
+          { depth: 2, rate: '15' },
+        ],
+      }),
+    );
+  });
+
+  /*
+   * Shortening a programme. The API treats `tiers` as REPLACE-ALL precisely so
+   * this is expressible — a merge could not say "the ladder is now just level
+   * 1", which is the edit an operator removing a level is making.
+   */
+  it('removes the deepest level, and sends the shorter ladder', async () => {
+    const user = userEvent.setup();
+    renderForm({
+      tiers: [
+        { depth: 1, rate: '50.0000' },
+        { depth: 2, rate: '20.0000' },
+      ],
+    });
+
+    await user.click(await screen.findByRole('button', { name: /remove level 2/i }));
+    await user.click(screen.getByRole('button', { name: /save programme/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ tiers: [{ depth: 1, rate: '50.0000' }] }),
+    );
+  });
+
+  /*
+   * ── THE COMMITTED TWO-LEVEL STRUCTURE, at the control ────────────────────
+   *
+   * Feature List Rev 9, IB-17: "no level beyond L2". `IB_MAX_LEVELS` carries
+   * that and defaults to 2, and the form READS it rather than hardcoding a
+   * copy — a hardcoded one would drift the day a broker negotiates a third
+   * level, refusing at two while the API accepted three.
+   */
+  it('stops offering levels at the configured ceiling, and says why', async () => {
+    getIbProgramLimits.mockResolvedValue({ maxLevels: 2 });
+    const user = userEvent.setup();
+    renderForm({
+      tiers: [
+        { depth: 1, rate: '60.0000' },
+        { depth: 2, rate: '25.0000' },
+      ],
+    });
+
+    const add = await screen.findByRole('button', { name: /add a level/i });
+    await user.click(add);
+
+    // Still two — the click did nothing.
+    expect(screen.queryByLabelText(/^level 3/i)).toBeNull();
+    expect(add).toBeDisabled();
+
+    /*
+     * And the reason is on screen. A dim button with no explanation reads as
+     * broken; an operator who needs a third level has to know the thing to
+     * change is a setting, not to file a bug against the form.
+     */
+    expect(screen.getByText(/maximum 2 level\(s\).*IB_MAX_LEVELS/i)).toBeInTheDocument();
+  });
+
+  /*
+   * ⚠️ Removing a MIDDLE level renumbers everything beneath it, which silently
+   * re-prices those levels: delete level 2 of four and the old level 3 becomes
+   * level 2, paid at a rate chosen for a different depth. Shortening from the
+   * bottom is the only edit whose meaning is unambiguous.
+   */
+  it('refuses to remove a level from the middle of the ladder', async () => {
+    renderForm({
+      tiers: [
+        { depth: 1, rate: '50.0000' },
+        { depth: 2, rate: '20.0000' },
+        { depth: 3, rate: '10.0000' },
+      ],
+    });
+
+    expect(await screen.findByRole('button', { name: /remove level 1/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /remove level 2/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /remove level 3/i })).toBeEnabled();
+  });
+
+  /*
+   * Every tier is a share of the same revenue, so the ladder ADDS — and the
+   * total has to count all of it, not the first two rows the old form could
+   * show.
+   */
+  it('counts every level in the running total', async () => {
+    renderForm({
+      tiers: [
+        { depth: 1, rate: '50.0000' },
+        { depth: 2, rate: '30.0000' },
+        { depth: 3, rate: '15.0000' },
+      ],
+    });
+
+    expect(await screen.findByText(/pay out 95% .* leaving 5%/i)).toBeInTheDocument();
+  });
+
+  /*
+   * A `rebate_only` programme pays the client and no partner, so `calculate`
+   * skips the commission legs whatever they say. Sending a ladder anyway would
+   * store a rate card that never pays — and the API refuses it, so the form
+   * must not offer the operator a refusal it can avoid.
+   */
+  it('sends no ladder at all on a rebate-only programme', async () => {
+    const user = userEvent.setup();
+    renderForm({
+      mode: 'rebate_only',
+      tiers: [{ depth: 1, rate: '50.0000' }],
+      rebateRate: '10.0000',
+    });
+
+    await user.click(await screen.findByRole('button', { name: /save programme/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ tiers: [] }));
+  });
+});
+
 describe('the mode', () => {
   it('hides both partner legs on a rebate-only programme', async () => {
     renderForm({ mode: 'rebate_only' });
 
     expect(await screen.findByLabelText(/back to the client/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/from their own clients/i)).toBeNull();
-    expect(screen.queryByLabelText(/sub-partners/i)).toBeNull();
+    expect(screen.queryByLabelText(/^level 1/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /add a level/i })).toBeNull();
   });
 
   it('reveals the client leg when the mode starts paying it', async () => {
     renderForm({ mode: 'commission_only' });
 
     expect(screen.queryByLabelText(/back to the client/i)).toBeNull();
+    /*
+     * Named, not positional. There are two selects on this form since the
+     * revenue basis joined it (FR-IB-16), and a bare `findByRole('combobox')`
+     * matched both — failing on ambiguity rather than on anything this test is
+     * about. Naming the one being driven is also what keeps it passing when a
+     * third control lands.
+     */
     await userEvent.selectOptions(
-      await screen.findByRole('combobox'),
+      await screen.findByRole('combobox', { name: /^pays$/i }),
       screen.getByRole('option', { name: /partner and client/i }),
     );
 

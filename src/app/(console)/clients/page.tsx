@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import api from '@/lib/api';
@@ -19,6 +19,7 @@ import { PageLoader } from '@/components/ui/loader';
 import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
+import { ChangeProgramFromList } from '@/components/clients/change-program-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -58,6 +59,8 @@ export default function ClientsPage() {
 function ClientsPageContent() {
   const { admin } = useAdmin();
   const canSuspend = hasPermission(admin, 'clients.suspend');
+  /* The same key `PermissionsGuard` enforces on PATCH /admin/ib/partners/:id/program. */
+  const canEditPartners = hasPermission(admin, 'ib.partners.edit');
   const canViewTags = hasPermission(admin, 'tags.view') || hasPermission(admin, 'clients.view');
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -198,16 +201,40 @@ function ClientsPageContent() {
    * Removed at the operator's request; the COLUMN stays, because reading where
    * a client is from is useful on its own.
    */
+  /*
+   * The partner whose terms are being changed, or null when the dialog is shut.
+   *
+   * The ROW is held rather than just the id, because the dialog's title names
+   * the person — and once it is open the list underneath may have re-fetched
+   * and re-sorted, so looking the row back up by id is a race the title loses.
+   */
+  const [programTarget, setProgramTarget] = useState<ClientRow | null>(null);
+
   const columns = clientColumns({
     canSuspend,
     canViewTags,
+    canEditPartners,
     maskedFields,
     actingId,
     onToggleStatus: (client: ClientRow) => void toggleStatus(client),
+    onChangeProgram: setProgramTarget,
   });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
+      {programTarget && (
+        <ChangeProgramFromList
+          open
+          onClose={() => setProgramTarget(null)}
+          userId={programTarget.id}
+          name={
+            [programTarget.firstName, programTarget.lastName].filter(Boolean).join(' ') ||
+            programTarget.email ||
+            programTarget.id
+          }
+        />
+      )}
+
       <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('clients.title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t('clients.subtitle')}</p>

@@ -57,18 +57,46 @@ export type Currency = components['schemas']['CurrencyDto'];
 export type Leverage = components['schemas']['LeverageDto'];
 export type CreateLeverage = components['schemas']['CreateLeverageDto'];
 export type UpdateLeverage = components['schemas']['UpdateLeverageDto'];
-export type IbLevel = components['schemas']['IbLevelDto'];
-
 /**
- * A named commission programme — FR-ADM-10's "commission plan".
+ * A named commission programme — FR-ADM-10's "commission plan", and the ONLY
+ * catalogue of terms.
  *
- * Distinct from `IbLevel`, and the distinction is the money: the LADDER decides
- * where a partner stands and what the rung is called; the PROGRAMME decides
- * what they are paid, what their clients get back, and which of those legs pay
- * at all. `IbLevel.rateValue` still exists on the wire and decides nothing.
+ * `IbLevel` used to sit beside it: a rung ladder deciding where a partner stood
+ * and what that rung was called, carrying a `rateValue` that had decided
+ * nothing since the programmes landed. 0102 removed it and folded reach into
+ * `tiers` below, so what a partner is paid and how far it travels are one
+ * record.
  */
 export type IbProgram = components['schemas']['IbProgramDto'];
+
+/**
+ * One rung of a programme's ladder: the rate at a given DEPTH.
+ *
+ * Depth 1 is the partner who introduced the trading client, depth 2 is that
+ * partner's parent, and so on upward. The COUNT of these is how far this
+ * programme's earnings reach.
+ */
+export type IbProgramTier = IbProgram['tiers'][number];
+
+/**
+ * The bounds a programme must fit inside — `GET /admin/ib-programs/limits`.
+ *
+ * READ rather than assumed. `maxLevels` is `IB_MAX_LEVELS`, a deployment
+ * setting defaulting to 2 (the committed two-level structure, Feature List Rev
+ * 9 IB-17). A hardcoded copy here would drift the day a broker negotiates a
+ * third level: the form would keep refusing at two while the API accepted
+ * three, which is the console-versus-engine disagreement the setting exists to
+ * end.
+ */
+export type IbProgramLimits = components['schemas']['IbProgramLimitsDto'];
 export type IbProgramMode = IbProgram['mode'];
+/**
+ * Which revenue a programme's rates are a percentage of — FR-IB-16.
+ *
+ * Derived from the response type rather than written out, so adding a basis on
+ * the server reaches every form that offers one without a second edit here.
+ */
+export type RevenueBasis = IbProgram['revenueBasis'];
 export type CreateIbProgram = components['schemas']['CreateIbProgramDto'];
 export type UpdateIbProgram = components['schemas']['UpdateIbProgramDto'];
 export type IbApplication = components['schemas']['IbApplicationDto'];
@@ -111,7 +139,15 @@ export interface IbPartnerPage {
   rows: Array<{
     account: IbAccount;
     user: { id: string; email: string; firstName: string; lastName: string };
-    levelName: string;
+    /**
+     * The TERMS this partner is paid on, by name.
+     *
+     * Replaced `levelName` in 0102. The rung it named decided nothing after the
+     * programmes landed, so a partner list column headed "Level" answered a
+     * question nobody was asking while the one they were — what is this person
+     * paid? — was not on the screen at all.
+     */
+    programName: string;
     /**
      * What this partner has earned, summed by the SERVER across all their
      * accruals — decimal strings (§6.1), never numbers.
@@ -221,8 +257,6 @@ export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'
  * wrong deposit path. The server derives the flow from the key now.
  */
 
-export type CreateIbLevel = components['schemas']['CreateIbLevelDto'];
-export type UpdateIbLevel = components['schemas']['UpdateIbLevelDto'];
 export type CreateCurrency = components['schemas']['CreateCurrencyDto'];
 export type UpdateCurrency = components['schemas']['UpdateCurrencyDto'];
 
@@ -434,8 +468,16 @@ export interface IbAccrual {
     baseAmount: string;
     rateValue: string;
     currency: string;
-    level: number;
+    /**
+     * How many hops above the trading client this partner stood on THIS trade.
+     *
+     * `level` sat beside it until 0102 — the rung they occupied, which had
+     * decided no rate since the programmes landed. Two numbers that looked
+     * interchangeable and were not; `depth` is the one the money used.
+     */
     depth: number;
+    /** The terms that produced it. Null on a row accrued before 0102. */
+    programName: string | null;
     sourceType: string;
     sourceId: string;
     createdAt: string;
@@ -455,7 +497,7 @@ export interface IbAccrualPage {
 }
 
 /** The sort keys `GET /admin/ib/accruals` accepts — mirrors the API allow-list. */
-export const IB_ACCRUAL_SORT_KEYS = ['createdAt', 'amount', 'status', 'level'] as const;
+export const IB_ACCRUAL_SORT_KEYS = ['createdAt', 'amount', 'status', 'depth'] as const;
 export type IbAccrualSortKey = (typeof IB_ACCRUAL_SORT_KEYS)[number];
 /** One movement of a client's money — what `creditWallet` answers with. */
 export type Transaction = components['schemas']['TransactionDto'];
@@ -807,15 +849,13 @@ export type UpsertAgency = components['schemas']['UpsertAgencyDto'];
 export type TradingSettings = components['schemas']['TradingSettingsDto'];
 export type UpdateTradingSettings = components['schemas']['UpdateTradingSettingsDto'];
 
-/**
- * WHICH of the broker's earnings a partner's rate applies to — FR-IB-16.
- *
- * Aliased from the generated response rather than hand-written as a union, so
- * the day the API adds or renames a basis this file stops compiling instead of
- * quietly offering an option the engine does not implement. Same rule as every
- * other type in this module.
+/*
+ * `RevenueBasis` IS GONE (0104), with the "Partners are paid on" control it
+ * typed. The basis is a constant in the API now — the commission + swap this
+ * platform has always paid on — because commission is configured on the
+ * Commission Programmes page and a Trading-settings control that re-prices
+ * every partner is a second place for two answers to disagree.
  */
-export type RevenueBasis = TradingSettings['ibRevenueBasis'];
 
 /**
  * The mail configuration.
@@ -961,17 +1001,6 @@ export const adminApi = {
    */
   async deleteCurrency(code: string): Promise<void> {
     await apiClient.delete(`/admin/currencies/${code}`);
-  },
-
-  /**
-   * The IB payout ladder, shallowest level first.
-   *
-   * Includes DISABLED levels — managing them is the point of the screen, and a
-   * level you cannot see is one you cannot re-enable.
-   */
-  async getIbLevels(signal?: AbortSignal): Promise<IbLevel[]> {
-    const { data } = await apiClient.get<IbLevel[]>('/admin/ib-levels', { signal });
-    return data;
   },
 
   /**
@@ -1131,35 +1160,6 @@ export const adminApi = {
     return data;
   },
 
-  async reorderIbLevels(order: number[]): Promise<IbLevel[]> {
-    const { data } = await apiClient.patch<IbLevel[]>('/admin/ib-levels', { order });
-    return data;
-  },
-
-  async createIbLevel(body: CreateIbLevel): Promise<IbLevel> {
-    const { data } = await apiClient.post<IbLevel>('/admin/ib-levels', body);
-    return data;
-  },
-
-  /**
-   * PATCH, and `level` is not in the body: it is the primary key and partner
-   * records reference it, so renumbering is a data migration rather than an
-   * edit.
-   *
-   * Under `revenue_share` the API refuses a change that would push the enabled
-   * levels past 100% between them, and its message names the current total and
-   * the room left. Surface it verbatim — a generic failure throws that away.
-   */
-  async updateIbLevel(level: number, body: UpdateIbLevel): Promise<IbLevel> {
-    const { data } = await apiClient.patch<IbLevel>(`/admin/ib-levels/${level}`, body);
-    return data;
-  },
-
-  /** Refuses to empty the ladder: with no levels, no partner can be approved. */
-  async deleteIbLevel(level: number): Promise<void> {
-    await apiClient.delete(`/admin/ib-levels/${level}`);
-  },
-
   /* ── Commission programmes (FR-ADM-10) ──────────────────────────────── */
 
   /**
@@ -1174,11 +1174,17 @@ export const adminApi = {
     return data;
   },
 
+  /** How deep a ladder may go, so the form can stop offering levels in time. */
+  async getIbProgramLimits(signal?: AbortSignal): Promise<IbProgramLimits> {
+    const { data } = await apiClient.get<IbProgramLimits>('/admin/ib-programs/limits', { signal });
+    return data;
+  },
+
   /**
    * The API refuses terms whose legs total more than 100% of the broker's
-   * revenue, and terms that pay nobody at all. Both messages name the numbers
-   * involved — surface them verbatim, because a generic failure throws away the
-   * only part an operator can act on.
+   * revenue, terms that pay nobody at all, and a ladder with a gap in it. Every
+   * message names the numbers involved — surface them verbatim, because a
+   * generic failure throws away the only part an operator can act on.
    */
   async createIbProgram(body: CreateIbProgram): Promise<IbProgram> {
     const { data } = await apiClient.post<IbProgram>('/admin/ib-programs', body);
@@ -1191,6 +1197,11 @@ export const adminApi = {
    *
    * Disabling one that partners stand on is refused by the API, because a
    * disabled programme stops paying while their referral links keep working.
+   *
+   * ⚠️ `tiers` is REPLACE-ALL, not a merge. Send every level the programme
+   * should keep, or omit the field to leave the ladder untouched — a merge
+   * could not express "the ladder is now just level 1", which is exactly the
+   * edit an operator shortening a programme is making.
    */
   async updateIbProgram(id: string, body: UpdateIbProgram): Promise<IbProgram> {
     const { data } = await apiClient.patch<IbProgram>(`/admin/ib-programs/${id}`, body);
