@@ -57,6 +57,23 @@ export type Currency = components['schemas']['CurrencyDto'];
 export type Leverage = components['schemas']['LeverageDto'];
 export type CreateLeverage = components['schemas']['CreateLeverageDto'];
 export type UpdateLeverage = components['schemas']['UpdateLeverageDto'];
+
+/**
+ * A link the operator puts on the client portal's sidebar — an economic
+ * calendar, a help centre, a Telegram channel.
+ *
+ * `id` is a SURROGATE, unlike `Leverage.ratio` and `Currency.code`. A link has
+ * no natural key: two entries may legitimately share a title, and the URL is
+ * the field edited most often — keying on either would turn a typo correction
+ * into a delete-and-recreate, taking the row's position with it.
+ *
+ * This is the ADMIN shape and it carries `enabled`. The portal receives
+ * `ClientExternalLinkDto`, which does not: every row it gets is enabled, and a
+ * client has no use for knowing which links are switched off.
+ */
+export type ExternalLink = components['schemas']['ExternalLinkDto'];
+export type CreateExternalLink = components['schemas']['CreateExternalLinkDto'];
+export type UpdateExternalLink = components['schemas']['UpdateExternalLinkDto'];
 /**
  * A named commission programme — FR-ADM-10's "commission plan", and the ONLY
  * catalogue of terms.
@@ -968,6 +985,33 @@ export const adminApi = {
 
   async deleteLeverage(ratio: number): Promise<void> {
     await apiClient.delete(`/admin/leverages/${ratio}`);
+  },
+
+  /**
+   * The links on the client portal's sidebar.
+   *
+   * The ADMIN list — includes HIDDEN links, unlike the portal's
+   * `GET /external-links`, because somebody has to see what they took down in
+   * order to put it back.
+   */
+  async getExternalLinks(signal?: AbortSignal): Promise<ExternalLink[]> {
+    const { data } = await apiClient.get<ExternalLink[]>('/admin/external-links', { signal });
+    return data;
+  },
+
+  async createExternalLink(body: CreateExternalLink): Promise<ExternalLink> {
+    const { data } = await apiClient.post<ExternalLink>('/admin/external-links', body);
+    return data;
+  },
+
+  /** PATCH, and only the supplied fields change. An empty `description` clears it. */
+  async updateExternalLink(id: string, body: UpdateExternalLink): Promise<ExternalLink> {
+    const { data } = await apiClient.patch<ExternalLink>(`/admin/external-links/${id}`, body);
+    return data;
+  },
+
+  async deleteExternalLink(id: string): Promise<void> {
+    await apiClient.delete(`/admin/external-links/${id}`);
   },
 
   async createCurrency(body: CreateCurrency): Promise<Currency> {

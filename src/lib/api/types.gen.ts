@@ -808,6 +808,74 @@ export interface paths {
         patch: operations["AdminLeveragesController_update"];
         trace?: never;
     };
+    "/v1/external-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The links on this client’s sidebar, in the operator’s order
+         * @description Hidden links are ABSENT rather than flagged — a client has no use for one they cannot open, and a portal that received them would have to remember to filter. An empty array is an ordinary answer: it means the operator has added no links, and the sidebar simply shows no extra section.
+         */
+        get: operations["ExternalLinksController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/external-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every link, operator order first
+         * @description Includes HIDDEN links, unlike `GET /external-links` — an operator has to see what they took down in order to put it back.
+         */
+        get: operations["AdminExternalLinksController_list"];
+        put?: never;
+        /**
+         * Add a link
+         * @description Only http and https are accepted: this URL becomes an `href` in every client’s browser, and `javascript:` there would be stored XSS against all of them. Omitting `sortOrder` appends to the end of the menu.
+         */
+        post: operations["AdminExternalLinksController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/external-links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a link for good
+         * @description Nothing references a link, so this orphans nothing — but the title, description and position go with it. To take one off the client menu and keep it, hide it instead. The remaining links close up the gap in the ordering.
+         */
+        delete: operations["AdminExternalLinksController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit, reorder, or hide a link
+         * @description Only the fields sent are changed. `enabled: false` takes the link off the client menu and keeps everything about it, which is the ordinary way to withdraw one. An empty `description` clears it.
+         */
+        patch: operations["AdminExternalLinksController_update"];
+        trace?: never;
+    };
     "/v1/ib/status": {
         parameters: {
             query?: never;
@@ -4175,6 +4243,53 @@ export interface components {
         };
         UpdateLeverageDto: {
             label?: string;
+            enabled?: boolean;
+            sortOrder?: number;
+        };
+        ClientExternalLinkDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Economic calendar */
+            title: string;
+            description: string | null;
+            /** @example https://example.com/calendar */
+            url: string;
+            /** @description The operator’s order, which is the order to render. */
+            sortOrder: number;
+        };
+        ExternalLinkDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Economic calendar */
+            title: string;
+            /** @description One line of context under the title. Null is a real answer, not an omission. */
+            description: string | null;
+            /** @example https://example.com/calendar */
+            url: string;
+            /** @description A disabled link is off the client menu and still on this screen. */
+            enabled: boolean;
+            /** @description The operator’s order, which is the order the sidebar renders. */
+            sortOrder: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateExternalLinkDto: {
+            /** @example Economic calendar */
+            title: string;
+            description?: string;
+            /** @example https://example.com/calendar */
+            url: string;
+            /** @default true */
+            enabled: boolean;
+            /** @description Omitted appends to the end of the menu. */
+            sortOrder?: number;
+        };
+        UpdateExternalLinkDto: {
+            title?: string;
+            description?: string;
+            url?: string;
             enabled?: boolean;
             sortOrder?: number;
         };
@@ -8036,6 +8151,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeverageDto"];
+                };
+            };
+        };
+    };
+    ExternalLinksController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientExternalLinkDto"][];
+                };
+            };
+        };
+    };
+    AdminExternalLinksController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalLinkDto"][];
+                };
+            };
+        };
+    };
+    AdminExternalLinksController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExternalLinkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalLinkDto"];
+                };
+            };
+        };
+    };
+    AdminExternalLinksController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminExternalLinksController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateExternalLinkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalLinkDto"];
                 };
             };
         };

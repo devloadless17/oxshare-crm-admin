@@ -153,6 +153,23 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    */
   { prefix: '/leverages', requirement: { permission: 'leverages.view' } },
   /*
+   * Its OWN key, following currencies and leverages for the third time.
+   *
+   * `settings.view` was the obvious guard — the platform download links, which
+   * are the closest thing on this console, sit under `settings.edit` — and it
+   * is the same mistake those two catalogues each corrected: it is how the
+   * support-email grant also carried the power to delete a currency.
+   *
+   * What decides it here is what a row on that screen DOES: it puts a
+   * destination of the operator's choosing into the chrome of every signed-in
+   * client's page. That is a grant somebody should make deliberately.
+   *
+   * `externallinks.view` is a key no hand-built role holds, so this screen is
+   * invisible until somebody grants it. Backend migration 0110 gives it to
+   * `Administrator`; anyone else is a deliberate edit on the Roles screen.
+   */
+  { prefix: '/external-links', requirement: { permission: 'externallinks.view' } },
+  /*
    * The catalogue: what the broker sells, and the programmes partners sell it
    * under. `settings.*` rather than keys of their own — see the note on the
    * backend controller. Reading is the weaker half on purpose: an operator who
