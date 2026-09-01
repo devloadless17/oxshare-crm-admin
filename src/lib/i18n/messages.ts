@@ -2159,6 +2159,7 @@ export const messages = {
   'ledger.type.adjustment': 'Adjustment',
   'nav.bridge': 'MT5 bridge',
   'nav.apiKeys': 'API keys',
+  'nav.externalLinks': 'External links',
 
   // ── API keys ───────────────────────────────────────────────────────────────
   'apiKeys.title': 'API keys',
@@ -2389,6 +2390,80 @@ export const messages = {
   'leverages.fieldEnabled': 'Offer this leverage to clients',
   'leverages.fieldEnabledHint':
     'Unticked, it is withdrawn: off the account-opening menu, with existing accounts unaffected.',
+
+  // ── The portal's sidebar links ────────────────────────────────────────────
+  'externalLinks.title': 'External links',
+  'externalLinks.subtitle':
+    'Links shown to clients in the portal sidebar — an economic calendar, a help centre, a Telegram channel. They open in a new tab.',
+  'externalLinks.loading': 'Loading links',
+  'externalLinks.loadFailed': 'The links could not be loaded.',
+  'externalLinks.empty': 'No links yet. Add one and it appears in every client’s sidebar.',
+  'externalLinks.add': 'Add link',
+  'externalLinks.addTitle': 'Add a link',
+  'externalLinks.editTitle': 'Edit link',
+  'externalLinks.edit': 'Edit',
+  'externalLinks.save': 'Save',
+  'externalLinks.saving': 'Saving…',
+  'externalLinks.saveFailed': 'The link could not be saved.',
+  'externalLinks.created': 'Link added',
+  'externalLinks.updated': 'Link updated',
+
+  'externalLinks.colTitle': 'Title',
+  'externalLinks.colDescription': 'Description',
+  'externalLinks.colUrl': 'Link',
+  'externalLinks.colStatus': 'Status',
+  'externalLinks.colOrder': 'Order',
+  'externalLinks.colActions': 'Actions',
+  'externalLinks.noDescription': 'No description',
+  'externalLinks.actionsFor': 'Actions for {title}',
+  'externalLinks.openInNewTab': 'Open {title} in a new tab',
+
+  /*
+   * "Shown" and "Hidden", not "Enabled" and "Disabled".
+   *
+   * The operator's question about a row on this screen is whether clients can
+   * see it, and those two words answer it directly. "Disabled" reads as though
+   * the link stopped working.
+   */
+  'externalLinks.statusShown': 'Shown',
+  'externalLinks.statusHidden': 'Hidden',
+  'externalLinks.show': 'Show to clients',
+  'externalLinks.hide': 'Hide from clients',
+  'externalLinks.shown': 'Link is shown to clients again',
+  'externalLinks.hidden': 'Link hidden — it keeps its title, description and position',
+
+  'externalLinks.delete': 'Delete',
+  'externalLinks.deleted': 'Link deleted',
+  'externalLinks.deleteFailed': 'The link could not be deleted.',
+  'externalLinks.confirmDeleteTitle': 'Delete “{title}”?',
+  'externalLinks.confirmDelete':
+    'This removes the link, its description and its position for good. To take it off the client sidebar and keep all three, hide it instead.',
+
+  'externalLinks.fieldTitle': 'Title',
+  'externalLinks.fieldTitleHint': 'What the client reads in the sidebar.',
+  'externalLinks.fieldDescription': 'Description (optional)',
+  'externalLinks.fieldDescriptionHint':
+    'One line of context. Clients see it as a tooltip; leaving it blank is fine.',
+  'externalLinks.fieldUrl': 'Link',
+  'externalLinks.fieldUrlHint':
+    'Include the scheme — https://example.com/calendar. Only http and https are accepted.',
+  'externalLinks.fieldUrlInvalid': 'That is not a complete URL. Start with https://',
+  /*
+   * Not "(optional)" any more, and the select is never empty.
+   *
+   * A blank field standing for "append" was the one state the control could be
+   * in that was not a position — so the answer the operator got was one the form
+   * never showed them. Adding now defaults to the last slot, which is the same
+   * outcome, said out loud.
+   */
+  'externalLinks.fieldSortOrder': 'Position in the sidebar',
+  'externalLinks.orderFirst': '{position} — first',
+  'externalLinks.orderLast': '{position} — last',
+  'externalLinks.fieldSortOrderHint':
+    'Where this link sits in the client’s menu. The links below it move down to make room.',
+  'externalLinks.fieldEnabled': 'Show this link to clients',
+  'externalLinks.fieldEnabledHint':
+    'Unticked, it is off the client sidebar and still on this screen, with its title, description and position kept.',
 
   'currencies.title': 'Currencies',
   'currencies.subtitle':

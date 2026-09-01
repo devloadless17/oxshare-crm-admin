@@ -34,6 +34,7 @@ import {
   Tags,
   Activity,
   Banknote,
+  Link2,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { UserMenu } from './user-menu';
@@ -284,6 +285,17 @@ const NAV_SECTIONS: NavSection[] = [
       // Machine credentials for the admin API. In Administration rather than
       // Finance: it configures who may reach this console, not what it holds.
       { label: 'nav.apiKeys', href: '/api-keys', icon: KeyRound },
+      /*
+       * The links the portal shows clients in its own sidebar. Administration
+       * rather than Finance, beside Settings: it configures what the CONSOLE
+       * puts in front of clients, not anything the broker holds or owes.
+       *
+       * `Link2`, not `ExternalLink` — that icon is the little arrow this app
+       * already uses to mean "this opens off-site", and reusing it for a
+       * navigation entry that goes to an ordinary internal page would say the
+       * wrong thing at a glance.
+       */
+      { label: 'nav.externalLinks', href: '/external-links', icon: Link2 },
       { label: 'nav.settings', href: '/settings', icon: Lock },
     ],
   },

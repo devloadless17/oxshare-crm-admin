@@ -392,6 +392,12 @@ describe('assertPermissionKeysExist', () => {
     'leverages.create',
     'leverages.edit',
     'leverages.delete',
+    // The portal's sidebar links — their own module on the backend, for the
+    // reason currencies and leverages are theirs (backend migration 0110).
+    'externallinks.view',
+    'externallinks.create',
+    'externallinks.edit',
+    'externallinks.delete',
     'payments.view',
     'payments.create',
     'payments.edit',

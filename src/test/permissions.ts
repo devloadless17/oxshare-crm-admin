@@ -99,6 +99,17 @@ export const ALL_PERMISSIONS: string[] = [
   'leverages.create',
   'leverages.edit',
   'leverages.delete',
+  /*
+   * The portal's sidebar links (backend migration 0110). Their own module for
+   * the reason currencies and leverages have theirs: a row on that screen puts
+   * a destination of the operator's choosing into the chrome of every
+   * signed-in client's page, which is a grant somebody makes deliberately
+   * rather than one that arrives attached to `settings.*`.
+   */
+  'externallinks.view',
+  'externallinks.create',
+  'externallinks.edit',
+  'externallinks.delete',
   'payments.view',
   'payments.create',
   'payments.edit',
