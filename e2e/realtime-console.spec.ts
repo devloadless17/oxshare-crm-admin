@@ -89,6 +89,50 @@ async function expectBadge(page: Page, predicate: (n: number) => boolean, what: 
     .toBe(true);
 }
 
+/**
+ * Watch this page's realtime transport, and wait until it has JOINED.
+ *
+ * ⚠️ Not optional for any test that causes an event from outside the browser.
+ * Socket.IO has NO REPLAY: an event emitted while the handshake is still in
+ * flight is delivered to nobody and is gone, so the assertion that follows
+ * fails on a feature that works. It cost a CI-only failure here and an
+ * identical one in the portal's frame-capture spec on the same day — the
+ * console's dev server compiles a route on first navigation, so the gap is
+ * wide on CI and invisible on a warm local machine.
+ *
+ * `40/realtime` is the Engine.IO frame for "namespace joined" — the transport's
+ * own signal, rather than a sleep that becomes a timing guess on slower
+ * hardware.
+ */
+function watchSocketFrames(page: Page): string[] {
+  const frames: string[] = [];
+  page.on('websocket', (ws) => {
+    if (!ws.url().includes('/socket.io/')) return;
+    ws.on('framereceived', (frame) => frames.push(frame.payload.toString()));
+  });
+  // Socket.IO starts on long-polling and upgrades, so an early join arrives in
+  // a polling RESPONSE rather than a WebSocket frame. Both are watched.
+  page.on('response', (res) => {
+    if (res.url().includes('/socket.io/') && res.url().includes('transport=polling')) {
+      void res
+        .text()
+        .then((body) => frames.push(body))
+        .catch(() => undefined);
+    }
+  });
+  return frames;
+}
+
+/** `40/realtime` is the Engine.IO frame for "namespace joined". */
+async function awaitSocketJoined(frames: string[]): Promise<void> {
+  await expect
+    .poll(() => frames.some((f) => f.includes('40/realtime')), {
+      timeout: 30_000,
+      message: 'the console never joined the realtime namespace',
+    })
+    .toBe(true);
+}
+
 test.describe('the KYC queue and its badge move together, without a refresh', () => {
   let admin: Awaited<ReturnType<typeof adminApiSession>>;
   let mine: MintedClient;
@@ -183,8 +227,18 @@ test.describe('the KYC queue and its badge move together, without a refresh', ()
      *      list that had stopped being true.
      */
     test.setTimeout(300_000);
+    /*
+     * ⚠️ REGISTERED BEFORE THE NAVIGATION. The handshake happens as the page
+     * mounts, so listeners attached after `goto` miss the very frames they are
+     * waiting for — which is how the first attempt at this gate timed out on a
+     * socket that had connected perfectly.
+     */
+    const frames = watchSocketFrames(page);
     await page.goto('/kyc');
     await expect(kycNav(page)).toBeVisible();
+    // Both halves below are caused from OUTSIDE this browser, so the socket
+    // has to be listening before either happens.
+    await awaitSocketJoined(frames);
     /*
      * Settle before recording the baseline, but do NOT require it to be
      * non-zero: an empty queue is a legitimate state of this database, and a
