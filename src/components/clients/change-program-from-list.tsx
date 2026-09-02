@@ -5,6 +5,7 @@ import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
 import { ChangeProgramDialog } from '@/components/clients/profile/client-partner-dialogs';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Open the partner's TERMS dialog from the clients list.
@@ -45,7 +46,7 @@ export function ChangeProgramFromList({
    * previous partner's ladder while the new one loads.
    */
   const detail = useResource(
-    ['admin', 'ib-partner', userId],
+    keys.ibPartners.detail(userId),
     (signal) => api.admin.getPartnerDetail(userId, signal),
     { enabled: open },
   );

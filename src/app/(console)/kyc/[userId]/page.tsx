@@ -24,6 +24,7 @@ import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
 import { t } from '@/lib/i18n';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
+import { keys } from '@/lib/query-keys';
 
 /**
  * An ALIAS, not a hand-written copy — R-1.1.
@@ -74,7 +75,7 @@ export default function KycDetailPage() {
 
   const queryClient = useQueryClient();
   const query = useResource<KycDetail>(
-    ['kyc', userId],
+    keys.kyc.detail(userId),
     async (signal) => (await api.get<KycDetail>(`/admin/kyc/${userId}`, { signal })).data,
   );
 
@@ -87,10 +88,37 @@ export default function KycDetailPage() {
    * it must not stop the reviewer deciding on what is in front of them.
    */
   const history = useResource<KycAttempt[]>(
-    ['kyc', userId, 'history'],
+    keys.kyc.history(userId),
     async (signal) =>
       (await api.get<KycAttempt[]>(`/admin/kyc/${userId}/history`, { signal })).data,
   );
+
+  /**
+   * Everything a KYC decision changes, in one place.
+   *
+   * ⚠️ This used to be `invalidateQueries({ queryKey: ['kyc'] })` and it was
+   * REPORTED FROM PRODUCTION: approve a document and the sidebar's "KYC
+   * review" count keeps reading 1 until the page is refreshed. The badge sat
+   * at `['admin','kyc','pending-count']`, which shares no prefix with
+   * `['kyc']`, so the invalidate matched nothing, resolved happily and
+   * refetched nothing — the silent failure the key registry exists to remove.
+   * The badge is `keys.kyc.pendingCount()` now, UNDER `keys.kyc.all()`, so the
+   * first line below covers the queue, this detail page and the badge at once.
+   *
+   * The other three are surfaces a reviewer reaches straight afterwards, each
+   * of which reads something an approval just wrote: the dashboard counts
+   * pending reviews, the client's profile shows their verification level (the
+   * approval sets it, plus their verified phone and country), and the clients
+   * list carries a KYC status column and a KYC filter.
+   */
+  const refreshAfterDecision = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: keys.kyc.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.stats.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.clients.detail(userId) }),
+      queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
+    ]);
+  };
 
   const data = query.data ?? null;
   const loading = query.status === 'loading';
@@ -122,7 +150,7 @@ export default function KycDetailPage() {
     setActionError('');
     try {
       await api.patch(`/admin/kyc/${userId}/approve`);
-      await queryClient.invalidateQueries({ queryKey: ['kyc'] });
+      await refreshAfterDecision();
       setShowApproveConfirm(false);
     } catch (e: unknown) {
       setActionError(apiErrorMessage(e, t('kycReview.approveFailed')));
@@ -136,7 +164,7 @@ export default function KycDetailPage() {
     setActionError('');
     try {
       await api.patch(`/admin/kyc/${userId}/claim`);
-      await queryClient.invalidateQueries({ queryKey: ['kyc'] });
+      await refreshAfterDecision();
     } catch (e: unknown) {
       setActionError(apiErrorMessage(e, t('kycReview.claimFailed')));
     } finally {
@@ -162,7 +190,7 @@ export default function KycDetailPage() {
         reason: rejectReason.trim() || undefined,
         rejectedFields: selectedRejectedFields,
       });
-      await queryClient.invalidateQueries({ queryKey: ['kyc'] });
+      await refreshAfterDecision();
       setShowRejectModal(false);
       setRejectReason('');
       setSelectedReasonId('');

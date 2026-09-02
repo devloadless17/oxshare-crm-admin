@@ -104,6 +104,31 @@ const ALLOWED_JSX_LITERALS = [
   '0',
 ];
 
+/**
+ * Query keys come from `src/lib/query-keys.ts`, never from an array literal.
+ *
+ * Spread into EVERY `no-restricted-syntax` block rather than living in one of
+ * its own. ESLint's flat config merges rules by NAME, so the last config
+ * object matching a file REPLACES that rule's options — a standalone block
+ * silently disarmed the §6.1 `Number()` ban on the money files it overlapped,
+ * and would have been disarmed in turn by the i18n block. Caught by putting a
+ * `Number()` back into money.ts and finding lint quiet. Re-verify the same way
+ * after touching this file.
+ */
+const QUERY_KEY_SELECTORS = [
+  {
+    selector: "Property[key.name='queryKey'] > ArrayExpression",
+    message:
+      'Query keys come from src/lib/query-keys.ts. An inline key silently drifts from the one the screen reads, and React Query reports nothing when it does.',
+  },
+  {
+    selector:
+      'CallExpression[callee.property.name=/^(invalidate|remove|cancel|refetch|reset)Queries$/] ArrayExpression',
+    message:
+      'Invalidate through src/lib/query-keys.ts. An invalidate against a key no query uses matches nothing and resolves successfully — the exact failure the registry exists to remove.',
+  },
+];
+
 export default defineConfig([
   globalIgnores([
     // Defaults from eslint-config-next, restated because we override its ignores.
@@ -200,6 +225,26 @@ export default defineConfig([
   },
 
   {
+    // ── Query keys come from the registry (the BROAD pass) ─────────────────
+    // Deliberately placed BEFORE the money and i18n blocks: those match a
+    // subset of these files and set `no-restricted-syntax` of their own, and
+    // the LAST matching config object wins per rule name. They spread
+    // QUERY_KEY_SELECTORS in for exactly that reason, so every file is covered
+    // either by this block or by a more specific one that includes it.
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: [
+      'src/lib/query-keys.ts',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      // The generic primitive: it RECEIVES a key, it does not author one.
+      'src/hooks/use-resource.ts',
+    ],
+    rules: {
+      'no-restricted-syntax': ['error', ...QUERY_KEY_SELECTORS],
+    },
+  },
+
+  {
     // ── Money paths: no coercion at all ─────────────────────────────────────
     // PLATFORM-CONVENTIONS R-2.6 / R-2.5.5. The global rule above bans only
     // `parseFloat`; the backend additionally bans `Number()` inside
@@ -230,6 +275,7 @@ export default defineConfig([
     rules: {
       'no-restricted-syntax': [
         'error',
+        ...QUERY_KEY_SELECTORS,
         {
           selector: "CallExpression[callee.name='Number']",
           message:
@@ -372,6 +418,7 @@ export default defineConfig([
       // is repeated here so both rules apply. Change one, change the other.
       'no-restricted-syntax': [
         'error',
+        ...QUERY_KEY_SELECTORS,
         {
           selector: "CallExpression[callee.name='Number']",
           message:

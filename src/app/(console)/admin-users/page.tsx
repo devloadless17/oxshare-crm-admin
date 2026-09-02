@@ -18,6 +18,7 @@ import { apiErrorMessage } from '@/lib/api/errors';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * FR-RBAC-07 — create, view, edit and manage administrator accounts.
@@ -56,7 +57,7 @@ export default function AdminUsersPage() {
 
   const queryClient = useQueryClient();
   const confirm = useConfirm();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.adminUsers.all() });
 
   /*
    * Invites are their OWN resource, even though they are rows in the same
@@ -68,10 +69,10 @@ export default function AdminUsersPage() {
    * would make the whole table wait on, and fail with, a list that is usually
    * empty. Merged in the table, separate on the wire.
    */
-  const invitesQuery = useResource(['admin-invites'], () => api.admin.getPendingInvites());
+  const invitesQuery = useResource(keys.adminUsers.invites(), () => api.admin.getPendingInvites());
   const invites: PendingInvite[] = invitesQuery.data ?? [];
 
-  const query = useResource(['admin-users'], async () => {
+  const query = useResource(keys.adminUsers.all(), async () => {
     /*
      * Four reads in one resource: the directory, the roles the edit modal
      * assigns from, the tag vocabulary its scope panel offers, and the
@@ -101,7 +102,7 @@ export default function AdminUsersPage() {
    * "no access" over a page that role legitimately holds. Forbidden here means
    * the scope panel offers no territories, nothing more.
    */
-  const tagsQuery = useResource(['client-tags'], (signal) => api.admin.getTags(signal));
+  const tagsQuery = useResource(keys.tags.all(), (signal) => api.admin.getTags(signal));
 
   const roles: Role[] = query.data?.roles ?? [];
   const adminUsers: AdminUser[] = query.data?.adminUsers ?? [];
@@ -121,7 +122,7 @@ export default function AdminUsersPage() {
   const revokeInvite = useMutation({
     mutationFn: (invite: PendingInvite) => api.admin.revokeInvite(invite.id),
     onSuccess: async (_data, invite) => {
-      await queryClient.invalidateQueries({ queryKey: ['admin-invites'] });
+      await queryClient.invalidateQueries({ queryKey: keys.adminUsers.invites() });
       toastSuccess(t('adminUsers.revokeSucceeded', { email: invite.email }));
     },
     /*
@@ -341,7 +342,9 @@ export default function AdminUsersPage() {
         onClose={() => setInviting(false)}
         // The new invite is a row in the table behind this modal — it appears
         // there while the link is still on screen to copy.
-        onInvited={() => void queryClient.invalidateQueries({ queryKey: ['admin-invites'] })}
+        onInvited={() =>
+          void queryClient.invalidateQueries({ queryKey: keys.adminUsers.invites() })
+        }
       />
 
       {editing && (

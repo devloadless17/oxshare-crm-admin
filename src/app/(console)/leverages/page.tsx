@@ -20,6 +20,7 @@ import {
   type LeverageFormValues,
 } from '@/components/leverages/leverage-form-modal';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The leverage ladder a client may open an account on.
@@ -61,13 +62,13 @@ export default function LeveragesPage() {
   const canDelete = hasPermission(admin, 'leverages.delete');
   const canManage = canCreate || canEdit || canDelete;
 
-  const query = useResource(['admin', 'leverages'], (signal) => api.admin.getLeverages(signal));
+  const query = useResource(keys.leverages.all(), (signal) => api.admin.getLeverages(signal));
 
   const [formOpen, setFormOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Leverage | null>(null);
   const [formError, setFormError] = React.useState<string | undefined>();
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'leverages'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.leverages.all() });
 
   const save = useMutation({
     mutationFn: (values: LeverageFormValues) =>

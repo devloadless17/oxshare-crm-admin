@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { t } from '@/lib/i18n';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
+import { keys } from '@/lib/query-keys';
 
 /** A row plus the expiry verdict stamped when it was fetched. */
 type ApiKeyRow = ApiKey & { isExpired: boolean };
@@ -79,7 +80,7 @@ export default function ApiKeysPage() {
    * It is only a DISPLAY hint. The backend makes the same comparison and
    * refuses the key regardless of what this screen shows.
    */
-  const keys = useResource(['api-keys'], async (signal) => {
+  const apiKeys = useResource(keys.apiKeys.all(), async (signal) => {
     const rows = await api.admin.listApiKeys(signal);
     const now = Date.now();
     return rows.map((row) => ({
@@ -115,7 +116,7 @@ export default function ApiKeysPage() {
   const revoke = useMutation({
     mutationFn: (key: ApiKeyRow) => api.admin.revokeApiKey(key.id),
     onSuccess: async (_data, key) => {
-      await queryClient.invalidateQueries({ queryKey: ['api-keys'] });
+      await queryClient.invalidateQueries({ queryKey: keys.apiKeys.all() });
       toastSuccess(t('apiKeys.revokeSucceeded', { name: key.name }));
     },
     onError: (err) => toastError(err, t('apiKeys.revokeFailed')),
@@ -218,21 +219,21 @@ export default function ApiKeysPage() {
       </div>
 
       <AsyncBoundary
-        status={keys.status}
+        status={apiKeys.status}
         label={t('apiKeys.loading')}
         endpoints={['GET /admin/api-keys']}
-        onRetry={keys.refetch}
+        onRetry={apiKeys.refetch}
         errorMessage={t('apiKeys.loadFailed')}
-        error={keys.error}
+        error={apiKeys.error}
         fill
       >
         <DataTable
           fill
           caption={t('apiKeys.caption')}
           columns={columns}
-          rows={keys.data ?? []}
+          rows={apiKeys.data ?? []}
           rowKey={(row) => row.id}
-          dimmed={keys.isFetching}
+          dimmed={apiKeys.isFetching}
           empty={<EmptyState icon={KeyRound} message={t('apiKeys.empty')} />}
         />
       </AsyncBoundary>

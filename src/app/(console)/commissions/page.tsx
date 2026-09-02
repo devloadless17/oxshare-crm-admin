@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The commission ledger — `GET /admin/ib/accruals`.
@@ -140,7 +141,7 @@ function CommissionsPageContent() {
     order: sortKey ? url.sort.order : undefined,
   };
 
-  const query = useResource<IbAccrualPage>(['admin', 'ib', 'accruals', params], (signal) =>
+  const query = useResource<IbAccrualPage>(keys.ibAccruals.list(params), (signal) =>
     api.admin.getIbAccruals(params, signal),
   );
 

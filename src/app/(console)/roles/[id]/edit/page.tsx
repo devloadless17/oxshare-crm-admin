@@ -13,6 +13,7 @@ import { hasPermission } from '@/lib/permissions';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Edit one role — was the "edit" state of a modal on /roles.
@@ -46,7 +47,7 @@ export default function EditRolePage() {
 
   // The roles list, the permission catalog, and the RBAC-03 field vocabulary —
   // the mask section is back (13 Aug), so the form needs all three.
-  const query = useResource(['roles', 'edit', roleId], async () => {
+  const query = useResource(keys.roles.edit(roleId), async () => {
     const [roles, catalog, fieldCatalog] = await Promise.all([
       api.admin.getRoles(),
       api.admin.getPermissions(),
@@ -60,10 +61,10 @@ export default function EditRolePage() {
   const save = useMutation({
     mutationFn: (values: RoleFormValues) => api.admin.updateRole(roleId, values),
     onSuccess: async (_data, values) => {
-      await queryClient.invalidateQueries({ queryKey: ['roles'] });
+      await queryClient.invalidateQueries({ queryKey: keys.roles.all() });
       // A role's permissions decide what its holders may do, so the directory's
       // cache is stale from here too.
-      await queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      await queryClient.invalidateQueries({ queryKey: keys.adminUsers.all() });
       router.push('/roles');
       // After the navigation — the form unmounts, so the root-layout Toaster is
       // the only thing left that can confirm the save. See roles/new.

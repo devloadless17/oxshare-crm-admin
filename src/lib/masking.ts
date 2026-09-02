@@ -52,10 +52,55 @@ export function fieldVisibility(
  * Labels rather than raw keys: `client.phone` is a catalog key, and an operator
  * reading "2 fields are hidden: client.phone, client.email" is being shown the
  * database's vocabulary rather than their own.
+ *
+ * ⚠️ It said that and did the opposite. The fallback was `labels[key] ?? key`,
+ * so any key the caller's map did not know printed raw — and `maskedFields`
+ * carries the catalog's ALIASES, which exist to strip the same person from
+ * OTHER responses. Hiding a client's first name produced:
+ *
+ *   "Some columns are hidden by your permissions: Name,
+ *    client.referrer.firstName, client.referredClients.firstName"
+ *
+ * Two of those three are not columns of this table and name nothing an
+ * operator can see. Reported from the running console.
+ *
+ * So an unlabelled key is DROPPED rather than printed. The map is per-screen
+ * and lists exactly the columns that screen can hide; a key outside it is
+ * either an alias about a different response or a column this table does not
+ * render, and in both cases the honest banner does not mention it.
+ *
+ * Deduplicated for the same reason: `client.firstName` and `client.lastName`
+ * both label as "Name", and "hidden: Name, Name" reads as a bug in the
+ * console rather than a fact about permissions.
  */
 export function maskedFieldLabels(
   masked: readonly string[] | undefined,
   labels: Readonly<Record<string, string>>,
 ): string[] {
-  return (masked ?? []).map((key) => labels[key] ?? key);
+  const seen = new Set<string>();
+  const unlabelled: string[] = [];
+  for (const key of masked ?? []) {
+    const label = labels[key];
+    if (label === undefined) unlabelled.push(key);
+    else seen.add(label);
+  }
+  /*
+   * The earlier version PRINTED these, reasoning that "saying one field is
+   * hidden without naming it is worse than showing the raw key". The concern
+   * was right and the remedy was not: the keys it printed were catalog
+   * ALIASES, so the banner named fields that are not on the screen at all.
+   *
+   * Warning in development keeps the concern — a column this screen really
+   * does hide, whose key the map forgot, is now noisy for the DEVELOPER
+   * instead of for the operator. Same shape as `assertPermissionKeysExist`.
+   */
+  if (process.env.NODE_ENV === 'development' && unlabelled.length > 0) {
+    console.warn(
+      `[masking] no label for hidden field(s): ${unlabelled.join(', ')}. ` +
+        'If any of these is a COLUMN this screen renders, add it to the ' +
+        "screen's FIELD_LABELS map — otherwise it is a catalog alias and is " +
+        'correctly not announced here.',
+    );
+  }
+  return [...seen];
 }

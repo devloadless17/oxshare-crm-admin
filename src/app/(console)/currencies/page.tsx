@@ -21,6 +21,7 @@ import {
   type CurrencyFormValues,
 } from '@/components/currencies/currency-form-modal';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * What money this platform can hold.
@@ -85,11 +86,11 @@ export default function CurrenciesPage() {
   const [editing, setEditing] = React.useState<Currency | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
 
-  const query = useResource<Currency[]>(['admin', 'currencies'], (signal) =>
+  const query = useResource<Currency[]>(keys.currencies.all(), (signal) =>
     api.admin.getCurrencies(signal),
   );
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'currencies'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.currencies.all() });
 
   const saveCurrency = useMutation({
     mutationFn: (values: CurrencyFormValues) => {

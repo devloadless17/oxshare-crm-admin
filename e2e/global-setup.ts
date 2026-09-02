@@ -47,6 +47,37 @@ async function assertCrossHostBackend(appOrigin: string): Promise<void> {
   }
 }
 
+/**
+ * The realtime server is a SECOND listener, and nothing else here would notice
+ * it is down.
+ *
+ * `REALTIME_ENGINE=uws` (the default) runs Socket.IO on uWebSockets.js, which
+ * owns its own TCP listener on `REALTIME_PORT` — so the API answering /health
+ * says nothing about whether live updates work. Without this probe the
+ * live-update specs fail at their five-second budget with a message about a
+ * badge that did not move, which reads as a broken feature rather than a
+ * server that was never up.
+ *
+ * A WARNING, not a failure: most specs do not need the socket, and a whole
+ * suite refusing to run because one optional server is down is the kind of
+ * gate people disable. The specs that DO need it fail on their own assertions,
+ * now with this line above them in the log.
+ */
+async function warnIfRealtimeIsDown(): Promise<void> {
+  const probe = `${TOPOLOGY.realtimeOrigin}/socket.io/?EIO=4&transport=polling`;
+  try {
+    const res = await fetch(probe, { signal: AbortSignal.timeout(5_000) });
+    if (res.ok) return;
+    console.warn(`[e2e] the realtime server answered ${res.status} at ${probe}.`);
+  } catch (error) {
+    console.warn(
+      `[e2e] the realtime server is NOT reachable at ${TOPOLOGY.realtimeOrigin} ` +
+        `(${error instanceof Error ? error.message : String(error)}).\n` +
+        '      Live-update specs will fail. It starts with the API; check REALTIME_PORT.',
+    );
+  }
+}
+
 export default async function globalSetup(): Promise<void> {
   let reachable = false;
   let detail = '';
@@ -74,4 +105,5 @@ export default async function globalSetup(): Promise<void> {
   }
 
   await assertCrossHostBackend(TOPOLOGY.adminOrigin);
+  await warnIfRealtimeIsDown();
 }

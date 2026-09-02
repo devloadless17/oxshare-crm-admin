@@ -22,6 +22,7 @@ import { RowActions, type RowAction } from '@/components/row-actions';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Everything an operator can DO to this client, behind one trigger.
@@ -110,10 +111,17 @@ export function ClientActionsMenu({
   const name =
     [profile.firstName, profile.lastName].filter(Boolean).join(' ') || profile.email || '';
 
+  /*
+   * `clients.all()` rather than the detail key alone: suspending from the
+   * profile and pressing Back showed the row still reading Active, because the
+   * LIST used to live under a different root (`['clients']`) from the PROFILE
+   * (`['client', id]`) and no invalidate could reach both. One root now, so
+   * this covers the list, this profile and the partner panel together.
+   */
   const invalidate = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['client', profile.id] }),
-      queryClient.invalidateQueries({ queryKey: ['client', profile.id, 'partner'] }),
+      queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.stats.all() }),
     ]);
   };
 

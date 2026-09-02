@@ -363,7 +363,34 @@ export function refreshAdminSession(): Promise<RefreshOutcome> {
         const rotation = await axios.post(
           `${API_BASE_URL}${REFRESH_PATH}`,
           {},
-          { withCredentials: true, headers: { 'X-Request-Id': newCorrelationId() } },
+          {
+            withCredentials: true,
+            headers: { 'X-Request-Id': newCorrelationId() },
+            /*
+             * A TIMEOUT, because this call is outside `apiClient` and axios
+             * defaults to none.
+             *
+             * Reported from production: register → verify → sign in → an
+             * infinite spinner that a page refresh cleared. This is why. A
+             * request 401s, the interceptor awaits this refresh, the
+             * connection stalls (a dying mobile link, a cold API, the
+             * cross-host hop) — and with `timeout: 0` the promise NEVER
+             * settles. The original request never settles either, `isPending`
+             * stays true, and `RequireAuth` renders its loader for ever. The
+             * session was fine the whole time, which is why reloading fixed
+             * it: a new JS context asks again.
+             *
+             * Shorter than `apiClient`'s 60s: that ceiling exists for uploads
+             * on a slow connection, and this is a bodyless POST. A refresh
+             * that has not answered in twenty seconds is not going to.
+             *
+             * On timeout axios reports no `response`, so `outcomeOf` reads it
+             * as `unreachable` — the session is KEPT and the "cannot reach"
+             * screen appears, which is recoverable and honest. Never `dead`:
+             * a stalled network must not sign anybody out.
+             */
+            timeout: 20_000,
+          },
         );
         /*
          * Learn the ROTATED anti-forgery token off THIS response.
@@ -418,7 +445,13 @@ export function refreshAdminSession(): Promise<RefreshOutcome> {
             const retriedRotation = await axios.post(
               `${API_BASE_URL}${REFRESH_PATH}`,
               {},
-              { withCredentials: true, headers: { 'X-Request-Id': newCorrelationId() } },
+              {
+                withCredentials: true,
+                headers: { 'X-Request-Id': newCorrelationId() },
+                // Same reason as the first attempt: no timeout means a stalled
+                // retry hangs the caller for ever.
+                timeout: 20_000,
+              },
             );
             // Rotates the token exactly as the first attempt does, so it has to be
             // learned here too - see the note on the call above.

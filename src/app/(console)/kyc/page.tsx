@@ -21,6 +21,7 @@ import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { limitParam, pageParam } from '@/lib/page-param';
 import { PageLoader } from '@/components/ui/loader';
+import { keys } from '@/lib/query-keys';
 
 /*
  * The local `KycStatus` union that sat here is gone — a fourth hand-written
@@ -194,7 +195,7 @@ function KycQueue() {
   // Server-side filtering/search/sorting/pagination; counts come from the API
   // over the full set, so tab counts stay correct while a filter is active.
   const query = useResource<KycListResponse>(
-    ['kyc', page, pageSize, filter, debouncedSearch, sort?.key, sort?.order],
+    keys.kyc.queue([page, pageSize, filter, debouncedSearch, sort?.key, sort?.order]),
     async (signal) => {
       const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
       if (filter) params.set('status', filter);

@@ -14,6 +14,7 @@ import { hasPermission } from '@/lib/permissions';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Create a role — was the "create" state of a modal on /roles.
@@ -36,7 +37,7 @@ export default function NewRolePage() {
 
   // The permission catalog and the RBAC-03 field vocabulary, together — the
   // mask section is back (13 Aug), so the form needs both to render.
-  const query = useResource(['role-form-catalogs'], async () => {
+  const query = useResource(keys.roles.formCatalogs(), async () => {
     const [catalog, fieldCatalog] = await Promise.all([
       api.admin.getPermissions(),
       api.admin.getClientFields(),
@@ -47,7 +48,7 @@ export default function NewRolePage() {
   const save = useMutation({
     mutationFn: (values: RoleFormValues) => api.admin.createRole(values),
     onSuccess: async (_data, values) => {
-      await queryClient.invalidateQueries({ queryKey: ['roles'] });
+      await queryClient.invalidateQueries({ queryKey: keys.roles.all() });
       router.push('/roles');
       /*
        * AFTER the navigation, and that is the point of a toast here rather than

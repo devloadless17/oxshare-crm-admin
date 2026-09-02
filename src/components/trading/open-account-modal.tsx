@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Open an MT5 trading account for a client.
@@ -67,7 +68,7 @@ export function OpenAccountModal({
   const [created, setCreated] = React.useState<CreatedMt5Account | null>(null);
 
   const groups = useResource<Mt5Group[]>(
-    ['admin', 'mt5-groups'],
+    keys.tradingAccounts.mt5Groups(),
     (signal) => adminApi.getMt5Groups(signal),
     // Only while the dialog is open: this hits the broker's server, and a
     // background refetch on a closed dialog is a call nobody asked for.
@@ -87,7 +88,10 @@ export function OpenAccountModal({
     onSuccess: (account) => {
       setError(null);
       setCreated(account);
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'trading-accounts'] });
+      void queryClient.invalidateQueries({ queryKey: keys.tradingAccounts.all() });
+      // The client's profile lists their accounts, and the dashboard counts them.
+      void queryClient.invalidateQueries({ queryKey: keys.clients.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.stats.all() });
       toastSuccess(t('tradingAccounts.opened', { login: account.login }));
     },
     onError: (e: unknown) => setError(apiErrorMessage(e, t('tradingAccounts.openFailed'))),

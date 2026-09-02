@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 export interface PaymentMethodFormValues {
   key: string;
@@ -248,7 +249,7 @@ function PaymentMethodForm({
  * is a correction an operator must be able to make without a developer.
  */
 function CurrencyField({ value, onChange }: { value: string; onChange: (code: string) => void }) {
-  const currencies = useResource<Currency[]>(['admin', 'currencies'], (signal) =>
+  const currencies = useResource<Currency[]>(keys.currencies.all(), (signal) =>
     api.admin.getCurrencies(signal),
   );
 

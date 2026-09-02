@@ -36,6 +36,7 @@ import { OpenAccountModal } from '@/components/trading/open-account-modal';
 import { AdjustBalanceModal } from '@/components/trading/adjust-balance-modal';
 import { relativeTime } from '@/lib/relative-time';
 import { formatMoney } from '@/lib/money';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Client trading accounts — `GET /admin/trading-accounts`.
@@ -163,7 +164,7 @@ function TradingAccountsPageContent() {
   const [adjusting, setAdjusting] = React.useState<TradingAccountRow | null>(null);
 
   const query = useResource<TradingAccountListResponse>(
-    ['admin', 'trading-accounts', params],
+    keys.tradingAccounts.list(params),
     (signal) => api.admin.getTradingAccounts(params, signal),
   );
 

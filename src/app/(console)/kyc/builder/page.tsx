@@ -17,6 +17,7 @@ import { StepCard, type KycStepConfig } from '@/components/kyc-builder/step-card
 import { type KycDocumentType, type KycFieldConfig } from '@/components/kyc-builder/field-editor';
 import { SortableList, SortableRow } from '@/components/kyc-builder/sortable-row';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 export type { KycFieldConfig, KycStepConfig };
 
@@ -69,7 +70,7 @@ export default function KycBuilderPage() {
   const [newStepDesc, setNewStepDesc] = React.useState('');
 
   const query = useResource<KycStepConfig[]>(
-    ['kyc-config'],
+    keys.kyc.config(),
     async (signal) => (await api.get<KycStepConfig[]>('/admin/kyc-config', { signal })).data,
   );
 
@@ -79,7 +80,7 @@ export default function KycBuilderPage() {
    * from too, and two copies of it would drift the moment one was edited.
    */
   const catalogueQuery = useResource<KycDocumentType[]>(
-    ['kyc-document-catalogue'],
+    keys.kyc.documentCatalogue(),
     async (signal) =>
       (await api.get<KycDocumentType[]>('/admin/kyc-config/document-catalogue', { signal })).data,
   );

@@ -24,6 +24,7 @@ import { clientColumns } from '@/components/clients/client-columns';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Catalog key → what an operator calls it, for the "hidden columns" notice.
@@ -137,13 +138,13 @@ function ClientsPageContent() {
     order: sortKey ? url.sort.order : undefined,
   };
 
-  const query = useResource<ClientListResponse>(['clients', params], (signal) =>
+  const query = useResource<ClientListResponse>(keys.clients.list(params), (signal) =>
     api.admin.getClients(params, signal),
   );
 
   // The tag vocabulary, for the filter chips and the row chips. Its own
   // resource so a tags failure degrades the filter bar rather than the list.
-  const tagsQuery = useResource(['tags'], (signal) => api.admin.getTags(signal), {
+  const tagsQuery = useResource(keys.tags.all(), (signal) => api.admin.getTags(signal), {
     enabled: canViewTags,
   });
 
@@ -151,7 +152,7 @@ function ClientsPageContent() {
     mutationFn: ({ client, next }: { client: ClientRow; next: 'active' | 'suspended' }) =>
       api.admin.setClientStatus(client.id, next),
     onSuccess: async (_data, { client, next }) => {
-      await queryClient.invalidateQueries({ queryKey: ['clients'] });
+      await queryClient.invalidateQueries({ queryKey: keys.clients.all() });
       const who = client.email ?? client.id;
       toastSuccess(
         next === 'suspended'

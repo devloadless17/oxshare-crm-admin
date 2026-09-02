@@ -16,6 +16,7 @@ import { AccessDenied } from '@/components/access-denied';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Edit a commission programme — was the "edit" state of a modal on
@@ -41,7 +42,7 @@ export default function EditIbProgramPage({ params }: { params: Promise<{ id: st
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const query = useResource<IbProgram[]>(['admin', 'ib-programs'], (signal) =>
+  const query = useResource<IbProgram[]>(keys.ibPrograms.all(), (signal) =>
     api.admin.getIbPrograms(signal),
   );
   const program = query.data?.find((entry) => entry.id === id);
@@ -49,7 +50,7 @@ export default function EditIbProgramPage({ params }: { params: Promise<{ id: st
   const save = useMutation({
     mutationFn: (values: IbProgramFormValues) => api.admin.updateIbProgram(id, values),
     onSuccess: async (_data, values) => {
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'ib-programs'] });
+      await queryClient.invalidateQueries({ queryKey: keys.ibPrograms.all() });
       router.push('/ib-programs');
       toastSuccess(t('ibPrograms.saveSucceeded', { name: values.name }));
     },

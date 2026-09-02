@@ -19,6 +19,7 @@ import { TagFormModal, type TagFormValues } from '@/components/tags/tag-form-mod
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * ADM-14's vocabulary — the tags themselves, not the clients carrying them.
@@ -81,9 +82,11 @@ export default function TagsPage() {
   const [editing, setEditing] = React.useState<ClientTag | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
 
-  const query = useResource<ClientTagWithCount[]>(['tags'], (signal) => api.admin.getTags(signal));
+  const query = useResource<ClientTagWithCount[]>(keys.tags.all(), (signal) =>
+    api.admin.getTags(signal),
+  );
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['tags'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.tags.all() });
 
   const saveTag = useMutation({
     mutationFn: (values: TagFormValues) =>

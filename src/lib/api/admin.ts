@@ -1,5 +1,36 @@
 import { apiClient, idempotent } from './client';
-import type { components } from './types.gen';
+import type { components, operations } from './types.gen';
+
+/**
+ * The sort keys an endpoint ACTUALLY accepts, read off the generated contract.
+ *
+ * Every list controller publishes its allowlist to OpenAPI
+ * (`@ApiQuery({ name: 'sort', enum: Object.keys(X_SORT_COLUMNS) })`), so the
+ * truth has always been in `types.gen.ts`. The `*_SORT_KEYS` arrays below were
+ * hand-written beside it anyway, and one of them drifted:
+ * `CLIENT_SORT_KEYS` gained `'type'`, which no backend allowlist has ever
+ * contained. `sortableBy` is typed against that hand-written list, so the
+ * console offered a sortable "Type" header, the API answered R-2.5's 400
+ * ("Cannot sort clients by \"type\". Allowed: …"), and the whole table was
+ * replaced by an error card. Reported from the running app.
+ *
+ * `IB_PARTNER_SORT_KEYS` had the same drift, latent: it still listed `level`,
+ * which migration 0102 replaced with `programName`. Nothing consumes it yet,
+ * so it would have shipped the identical failure the day somebody built that
+ * screen.
+ *
+ * Each array is now `satisfies readonly SortKeysOf<Operation>[]`, which
+ * catches the DANGEROUS direction — offering a key the API refuses — while
+ * still allowing a list to omit one the API would accept, because a table is
+ * entitled not to offer a sort it has no column for.
+ */
+type SortKeysOf<Op extends keyof operations> = operations[Op] extends {
+  parameters: { query?: infer Q };
+}
+  ? Q extends { sort?: infer S }
+    ? NonNullable<S>
+    : never
+  : never;
 
 // Types are ALIASES of the schemas generated from the backend's Swagger
 // (npm run gen:api-types, with the backend running). Never hand-write an
@@ -290,10 +321,18 @@ export const CLIENT_SORT_KEYS = [
   'email',
   'firstName',
   'status',
-  'type',
+  /*
+   * NOT 'type'. It was here, and the API has never accepted it: a client's
+   * type is DERIVED (`DERIVED_CLIENT_TYPE` — a CASE over `ib_accounts` and
+   * `referred_by_ib_user_id`), because `users.type` is a label nothing
+   * maintains. An expression reading another table cannot be indexed, so the
+   * backend does not offer it as an ordering, and clicking the Type header
+   * replaced the whole table with R-2.5's 400. Filtering by type is offered
+   * and answers the same question.
+   */
   'verificationLevel',
   'country',
-] as const;
+] as const satisfies readonly SortKeysOf<'AdminClientsController_listClients'>[];
 export type ClientSortKey = (typeof CLIENT_SORT_KEYS)[number];
 
 export interface ClientListParams {
@@ -374,7 +413,7 @@ export const WITHDRAWAL_SORT_KEYS = [
   'state',
   'userEmail',
   'userFirstName',
-] as const;
+] as const satisfies readonly SortKeysOf<'AdminMoneyController_listWithdrawals'>[];
 export type WithdrawalSortKey = (typeof WITHDRAWAL_SORT_KEYS)[number];
 
 export interface WithdrawalListParams {
@@ -424,7 +463,11 @@ export const TRANSACTION_STATES = [
  * indexes, so `userEmail` is not offered (R-2.5 — the allowlist may not
  * exceed the indexes, and an undeclared key would be a 400, not a fallback).
  */
-export const TRANSACTION_SORT_KEYS = ['createdAt', 'amount', 'state'] as const;
+export const TRANSACTION_SORT_KEYS = [
+  'createdAt',
+  'amount',
+  'state',
+] as const satisfies readonly SortKeysOf<'AdminFinancialController_listTransactions'>[];
 export type TransactionSortKey = (typeof TRANSACTION_SORT_KEYS)[number];
 
 export interface TransactionListParams {
@@ -514,7 +557,12 @@ export interface IbAccrualPage {
 }
 
 /** The sort keys `GET /admin/ib/accruals` accepts — mirrors the API allow-list. */
-export const IB_ACCRUAL_SORT_KEYS = ['createdAt', 'amount', 'status', 'depth'] as const;
+export const IB_ACCRUAL_SORT_KEYS = [
+  'createdAt',
+  'amount',
+  'status',
+  'depth',
+] as const satisfies readonly SortKeysOf<'AdminIbController_listAccruals'>[];
 export type IbAccrualSortKey = (typeof IB_ACCRUAL_SORT_KEYS)[number];
 /** One movement of a client's money — what `creditWallet` answers with. */
 export type Transaction = components['schemas']['TransactionDto'];
@@ -559,7 +607,7 @@ export const WALLET_SORT_KEYS = [
   'currency',
   'userEmail',
   'userFirstName',
-] as const;
+] as const satisfies readonly SortKeysOf<'AdminHoldingsController_listWallets'>[];
 export type WalletSortKey = (typeof WALLET_SORT_KEYS)[number];
 
 export interface WalletListParams {
@@ -655,7 +703,7 @@ export const TRADING_ACCOUNT_SORT_KEYS = [
   'environment',
   'userEmail',
   'userFirstName',
-] as const;
+] as const satisfies readonly SortKeysOf<'AdminHoldingsController_listTradingAccounts'>[];
 export type TradingAccountSortKey = (typeof TRADING_ACCOUNT_SORT_KEYS)[number];
 
 export interface TradingAccountListParams {
@@ -683,7 +731,7 @@ export const KYC_SORT_KEYS = [
   'createdAt',
   'userEmail',
   'userFirstName',
-] as const;
+] as const satisfies readonly SortKeysOf<'AdminComplianceController_listKyc'>[];
 export type KycSortKey = (typeof KYC_SORT_KEYS)[number];
 
 /**
@@ -767,7 +815,11 @@ export type AuditAction = components['schemas']['AuditActionDto'];
  * a JSON blob. R-2.5 makes an unrecognised sort a 400 rather than a silent
  * fallback, so those columns must keep declaring `sortable: false`.
  */
-export const AUDIT_SORT_KEYS = ['createdAt', 'action', 'actorEmail'] as const;
+export const AUDIT_SORT_KEYS = [
+  'createdAt',
+  'action',
+  'actorEmail',
+] as const satisfies readonly SortKeysOf<'AdminAuditController_listAuditLog'>[];
 export type AuditSortKey = (typeof AUDIT_SORT_KEYS)[number];
 
 /**
@@ -786,7 +838,7 @@ export const IB_APPLICATION_SORT_KEYS = [
   'status',
   'userEmail',
   'userFirstName',
-] as const;
+] as const satisfies readonly SortKeysOf<'AdminIbController_list'>[];
 export type IbApplicationSortKey = (typeof IB_APPLICATION_SORT_KEYS)[number];
 
 /**
@@ -804,11 +856,15 @@ export type IbApplicationSortKey = (typeof IB_APPLICATION_SORT_KEYS)[number];
  */
 export const IB_PARTNER_SORT_KEYS = [
   'approvedAt',
-  'level',
+  // `programName`, not `level`: migration 0102 moved every rate onto the
+  // named programme and left the rung deciding nothing. This list still said
+  // `level` — the same drift as CLIENT_SORT_KEYS' `type`, undiscovered only
+  // because nothing consumes this yet.
+  'programName',
   'referralCode',
   'userEmail',
   'userFirstName',
-] as const;
+] as const satisfies readonly SortKeysOf<'AdminIbController_listPartners'>[];
 export type IbPartnerSortKey = (typeof IB_PARTNER_SORT_KEYS)[number];
 
 // Request bodies, aliased too. These were hand-written until the backend moved

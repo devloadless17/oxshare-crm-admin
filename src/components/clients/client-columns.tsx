@@ -84,10 +84,42 @@ export function clientColumns({
 
   const columns: Column<ClientRow>[] = [];
 
-  if (!hidden('client.firstName') && !hidden('client.lastName')) {
+  /*
+   * ⚠️ EITHER half of the name is enough to keep this column.
+   *
+   * This read `!hidden(firstName) && !hidden(lastName)` — drop the column
+   * unless BOTH are permitted — so a role that hid only the first name lost
+   * the surname too. Reported: "when I choose to hide a first name only, both
+   * first and last name are hidden."
+   *
+   * They are separate entries in the backend catalog with separate aliases,
+   * so the server strips exactly the one that was masked and leaves the other
+   * on the row. Nothing needed a partial renderer: the cell already joins the
+   * parts it was given, so with `firstName` stripped it renders the surname
+   * alone, which is the truthful answer to "what of this person's name may I
+   * see". The column goes only when there is nothing left to put in it.
+   *
+   * `MaskedFieldsNotice` above the table is what says WHICH half is hidden,
+   * so a half-name is never mistaken for a whole one.
+   */
+  if (!hidden('client.firstName') || !hidden('client.lastName')) {
     columns.push({
       header: t('clients.colName'),
-      ...sortableBy('firstName'),
+      /*
+       * Sortable only while the first name is actually visible. The API orders
+       * by `users.first_name`, so offering the header to a viewer who cannot
+       * see that column turns it into an ordering oracle: click, and the
+       * alphabetical sequence of names you are not allowed to read is on
+       * screen beside the ids.
+       *
+       * ⚠️ This is the UI half only. `GET /admin/clients?sort=firstName` still
+       * accepts it for a masked viewer — `applyMaskAll` strips the field from
+       * the response and nothing consults the mask when choosing the ORDER.
+       * The same is true of `?q=`, which matches against names the caller
+       * cannot see. Both are worth closing server-side; neither is closed by
+       * this line.
+       */
+      ...(hidden('client.firstName') ? { sortable: false as const } : sortableBy('firstName')),
       cell: (c) => (
         // The entry point to the profile (FR-ADM-01). A row that opens
         // something is the one affordance a directory needs, and putting it on
@@ -130,7 +162,20 @@ export function clientColumns({
   columns.push(
     {
       header: t('clients.colType'),
-      ...sortableBy('type'),
+      /*
+       * NOT sortable, and this column is why the whole table used to vanish
+       * behind an error card. `type` is DERIVED server-side — a CASE over
+       * `ib_accounts` and `referred_by_ib_user_id`, because `users.type` is a
+       * label nothing maintains — and an expression reading another table
+       * cannot be indexed, so `CLIENT_SORT_COLUMNS` has never offered it as an
+       * ordering. R-2.5 makes an unrecognised sort a 400 rather than a silent
+       * fallback, which is the right call and is exactly what the operator saw.
+       *
+       * The FILTER above the table answers the same question ("show me the
+       * partners") and is offered. `CLIENT_SORT_KEYS` is derived from the
+       * generated contract now, so `sortableBy('type')` no longer compiles.
+       */
+      sortable: false,
       cell: (c) => TYPE_LABELS[c.type] ?? c.type,
     },
     {

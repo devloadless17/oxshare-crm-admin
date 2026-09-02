@@ -27,6 +27,7 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * RBAC-01/02 — what a role may do.
@@ -79,7 +80,7 @@ export default function RolesPage() {
 
   const queryClient = useQueryClient();
 
-  const query = useResource(['roles'], () => api.admin.getRoles());
+  const query = useResource(keys.roles.all(), () => api.admin.getRoles());
 
   /*
    * System roles are not listed.
@@ -104,8 +105,8 @@ export default function RolesPage() {
     // deleted, so the directory's cache is stale from here too.
     onSuccess: async (_data, role) => {
       setPendingDelete(null);
-      await queryClient.invalidateQueries({ queryKey: ['roles'] });
-      await queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      await queryClient.invalidateQueries({ queryKey: keys.roles.all() });
+      await queryClient.invalidateQueries({ queryKey: keys.adminUsers.all() });
       toastSuccess(t('roles.deleteSucceeded', { name: role.name }));
     },
     // Deliberately NOT closing on error. 409 "still assigned" is the common

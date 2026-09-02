@@ -52,6 +52,7 @@ import {
 import { t, type MessageKey } from '@/lib/i18n';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { formatMoney } from '@/lib/money';
+import { keys } from '@/lib/query-keys';
 
 /**
  * ADM-03 / §8.4 — the withdrawal approval queue.
@@ -287,7 +288,7 @@ function TransactionsPageContent() {
     order: sortKey ? url.sort.order : undefined,
   };
 
-  const query = useResource<WithdrawalListResponse>(['admin', 'withdrawals', params], (signal) =>
+  const query = useResource<WithdrawalListResponse>(keys.withdrawals.list(params), (signal) =>
     api.admin.getWithdrawals(params, signal),
   );
 
@@ -306,13 +307,32 @@ function TransactionsPageContent() {
    * request.
    */
   const reasonsQuery = useResource<RejectionReason[]>(
-    ['admin', 'rejection-reasons', 'withdrawal'],
+    keys.withdrawals.rejectionReasons(),
     () => api.admin.getRejectionReasons('withdrawal'),
     { enabled: rejectTarget !== null },
   );
   const reasons = reasonsQuery.data ?? [];
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'withdrawals'] });
+  /*
+   * A withdrawal decision is not confined to this desk. Approving DEBITS and
+   * paying out settles; rejecting and cancelling post a COMPENSATING CREDIT
+   * back to the client's wallet (transactions.service.ts:300). So the balance
+   * screens, the Financial list and the ledger all just changed, and an
+   * operator who rejects a payout and then opens the client's wallets panel
+   * must not be shown the pre-refund balance.
+   *
+   * `withdrawals.all()` covers this list AND the sidebar badge — they share a
+   * root deliberately; see lib/query-keys.ts.
+   */
+  const invalidate = async (): Promise<void> => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: keys.withdrawals.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.wallets.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.transactions.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.ledger.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.stats.all() }),
+    ]);
+  };
 
   /*
    * One key per intended ACTION on one withdrawal — R-5.2.
@@ -964,6 +984,22 @@ function TransactionsPageContent() {
             <Detail label={t('withdrawals.detailsProviderRef')}>
               <span className="break-all font-mono">{detailsTarget.providerRef ?? '—'}</span>
             </Detail>
+            {/*
+              The payment platform's OWN id, beside ours.
+              A support ticket needs BOTH: theirs is what Rival looks up
+              directly, ours is what confirms it is the right row. Until this
+              existed the id was stored and shown nowhere, so an operator
+              chasing a payment had half the pair and had to ask an engineer
+              for the other half.
+              Rendered only when there is one — a manual desk credit went
+              through no rail, and an em dash there would imply something is
+              missing rather than absent by nature.
+            */}
+            {detailsTarget.rivalWithdrawalId && (
+              <Detail label={t('withdrawals.detailsRivalRef')}>
+                <span className="break-all font-mono">{detailsTarget.rivalWithdrawalId}</span>
+              </Detail>
+            )}
             <Detail label={t('withdrawals.colRequested')}>
               {formatDateTime(detailsTarget.requestedAt)}
             </Detail>

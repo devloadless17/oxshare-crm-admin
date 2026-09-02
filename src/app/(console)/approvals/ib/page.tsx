@@ -22,6 +22,7 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The partner application queue.
@@ -100,7 +101,7 @@ export default function PartnerApprovalsPage() {
    * new sort — rows that do not match what the header claims.
    */
   const query = useResource<IbApplicationPage>(
-    ['admin', 'ib-applications', status, debouncedSearch, page, pageSize, sort?.key, sort?.order],
+    keys.ibApplications.list([status, debouncedSearch, page, pageSize, sort?.key, sort?.order]),
     (signal) =>
       api.admin.getIbApplications(
         {
@@ -115,8 +116,7 @@ export default function PartnerApprovalsPage() {
       ),
   );
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['admin', 'ib-applications'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.ibApplications.all() });
 
   /*
    * The row awaiting approval, held so the dialog can read its agency.

@@ -20,6 +20,7 @@ import {
   type PaymentMethodFormValues,
 } from '@/components/payment-methods/payment-method-form-modal';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 const METHOD_PAGING = { noun: ['method', 'methods'] as [string, string] };
 
@@ -38,12 +39,11 @@ export default function PaymentMethodsPage() {
   const [editing, setEditing] = React.useState<PaymentMethod | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
 
-  const query = useResource<PaymentMethod[]>(['admin', 'payment-methods'], (signal) =>
+  const query = useResource<PaymentMethod[]>(keys.paymentMethods.all(), (signal) =>
     api.admin.getPaymentMethods(signal),
   );
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['admin', 'payment-methods'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.paymentMethods.all() });
 
   const saveMethod = useMutation({
     mutationFn: (values: PaymentMethodFormValues) => {

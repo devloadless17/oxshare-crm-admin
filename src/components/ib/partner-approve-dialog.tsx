@@ -7,6 +7,7 @@ import { formatDecimal } from '@/lib/money';
 import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Approve an application, choosing the agency when it does not carry one.
@@ -71,7 +72,7 @@ export function PartnerApproveDialog({
   const [programId, setProgramId] = React.useState('');
 
   const agencies = useResource<Agency[]>(
-    ['admin', 'agencies'],
+    keys.agencies.all(),
     (signal) => api.admin.getAgencies(signal),
     /*
      * Fetched whenever the dialog is open, not only when the reviewer must
@@ -86,7 +87,7 @@ export function PartnerApproveDialog({
   );
 
   const programs = useResource<IbProgram[]>(
-    ['admin', 'ib-programs'],
+    keys.ibPrograms.all(),
     (signal) => api.admin.getIbPrograms(signal),
     { enabled: open },
   );

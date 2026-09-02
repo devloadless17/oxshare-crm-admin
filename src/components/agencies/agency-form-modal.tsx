@@ -17,6 +17,7 @@ import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The value standing for "no default programme".
@@ -157,9 +158,7 @@ function AgencyForm({
    */
   /* No `enabled` gate: this form is only mounted while the modal is open, so
      the fetch already costs nothing until somebody opens one. */
-  const programs = useResource(['admin', 'ib-programs'], (signal) =>
-    api.admin.getIbPrograms(signal),
-  );
+  const programs = useResource(keys.ibPrograms.all(), (signal) => api.admin.getIbPrograms(signal));
   const programOptions = (programs.data ?? []).filter((entry) => entry.enabled);
 
   const toggleProduct = (id: string) =>

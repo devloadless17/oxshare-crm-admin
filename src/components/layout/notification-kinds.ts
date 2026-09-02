@@ -10,6 +10,7 @@ import {
 import type { MessageKey } from '@/lib/i18n';
 import { formatMoney } from '@/lib/money';
 import type { AdminNotification } from '@/lib/api/admin';
+import { keys, type AdminQueryKey } from '@/lib/query-keys';
 
 /**
  * The admin bell's kind catalogue — how a backend `{kind, params}` row becomes
@@ -172,25 +173,136 @@ export const KIND_CONFIG: Record<string, KindConfig> = {
 };
 
 /**
- * Which DATA a kind invalidates — the piece that makes the console realtime
+ * Which DATA a kind refreshes — the piece that makes the console realtime
  * rather than merely noisy. The toast announces; this refreshes the table the
- * announcement is about, so the operator never reads "awaiting payout" on a
- * row the platform already decided. Prefix-matched so new withdrawal.* kinds
- * inherit the behaviour before this map learns their names.
+ * announcement is about, so an operator never reads "awaiting payout" on a row
+ * the platform already decided.
+ *
+ * ⚠️ THREE of these keys used to name NOTHING, and nothing said so.
+ * `admin.partner.applied` invalidated `['admin','partner-applications']` while
+ * the queue lives under `ib-applications`; `admin.client.registered` and
+ * `admin.deposit.submitted` invalidated `['admin','clients']` while the list
+ * lives under `clients`; and `admin.kyc.*` invalidated `['admin','kyc']`,
+ * which reached the sidebar badge but NOT the queue table beneath it. Each one
+ * resolved happily and refetched nothing, so the operator got a chime, a toast
+ * and a stale screen — the worst of the three outcomes, because it looks live.
+ *
+ * They cannot recur: the return type is the registry's own union, so a key
+ * naming nothing is a compile error. Keep it that way — do not widen it to
+ * `string[][]`.
+ *
+ * Prefix-matched, so a new `withdrawal.*` kind inherits the behaviour before
+ * this map learns its name.
  */
-export function queryKeysFor(kind: string): string[][] {
+export function queryKeysFor(kind: string): readonly AdminQueryKey[] {
+  /*
+   * Every withdrawal event — the desk's own decisions and the Rival rail's
+   * asynchronous answers. `rival_paid` and `rival_rejected` MOVE MONEY (a
+   * rejection posts a compensating credit back to the wallet), so they reach
+   * past the desk into the balances and the ledger that record it.
+   */
   if (kind.startsWith('withdrawal.') || kind.startsWith('admin.withdrawal.')) {
-    return [['admin', 'withdrawals']];
-  }
-  if (kind.startsWith('admin.deposit.'))
     return [
-      ['admin', 'withdrawals'],
-      ['admin', 'clients'],
+      keys.withdrawals.all(), // the desk list AND its sidebar badge
+      keys.transactions.all(), // Financial: every movement, not just payouts
+      keys.wallets.all(), // a refusal refunds; a payout debits
+      keys.ledger.all(),
+      keys.stats.all(), // the dashboard's withdrawal-volume tile
     ];
-  if (kind.startsWith('admin.kyc.')) return [['admin', 'kyc']];
-  if (kind.startsWith('admin.partner.')) return [['admin', 'partner-applications']];
-  if (kind.startsWith('admin.client.')) return [['admin', 'clients']];
+  }
+
+  // A declared manual deposit is a pending row on Financial. It credits
+  // nothing yet — the wallet moves on `deposit.succeeded`, which is a CLIENT
+  // kind — so wallets are deliberately absent here.
+  if (kind.startsWith('admin.deposit.')) {
+    return [keys.transactions.all(), keys.stats.all()];
+  }
+
+  /*
+   * `kyc.all()` is the whole point of the registry: one key now covers the
+   * queue, the open detail page and the sidebar badge, which sat under three
+   * different roots before. `clients.all()` because the list carries a KYC
+   * status column and a KYC filter.
+   */
+  if (kind.startsWith('admin.kyc.')) {
+    return [keys.kyc.all(), keys.clients.all(), keys.stats.all()];
+  }
+
+  if (kind.startsWith('admin.partner.')) {
+    return [keys.ibApplications.all(), keys.stats.all()];
+  }
+
+  if (kind.startsWith('admin.trading_account.')) {
+    return [keys.tradingAccounts.all(), keys.clients.all(), keys.stats.all()];
+  }
+
+  if (kind.startsWith('admin.client.')) {
+    return [keys.clients.all(), keys.stats.all()];
+  }
+
   return [];
+}
+
+/**
+ * Every resource the backend can announce a change to.
+ *
+ * Mirrors `RESOURCES` in the backend's `common/realtime/resource-changed.ts`.
+ * It exists so a RECONNECT can re-sync all of them at once: a
+ * `resource.changed` missed while the socket was down leaves no trace to
+ * recover from later, unlike a notification, which is a row.
+ */
+export const BROADCAST_RESOURCES = [
+  'kyc',
+  'withdrawals',
+  'ib-applications',
+  'clients',
+  'wallets',
+] as const;
+
+/**
+ * Which DATA a CROSS-OPERATOR change refreshes.
+ *
+ * The sibling of `queryKeysFor`, for the other half of "realtime": that map
+ * answers "a client did something", this one answers "another operator
+ * decided something you are looking at". Both were needed, and only the first
+ * existed — so two reviewers working the same queue each saw a list that had
+ * stopped being true, for up to the sixty seconds of the badge poll, with
+ * nothing on screen suggesting it.
+ *
+ * The event carries a resource NAME and nothing else (see the backend's
+ * `resource-changed.ts` for why that emptiness is deliberate), so this map is
+ * the entire interpretation. A resource this build does not know refreshes
+ * nothing, exactly like an unknown kind.
+ */
+export function resourceKeysFor(resource: string): readonly AdminQueryKey[] {
+  switch (resource) {
+    case 'kyc':
+      // The queue, the open detail page and the sidebar badge share one root.
+      return [keys.kyc.all(), keys.clients.all(), keys.stats.all()];
+    case 'withdrawals':
+      return [
+        keys.withdrawals.all(),
+        keys.transactions.all(),
+        keys.wallets.all(),
+        keys.ledger.all(),
+        keys.stats.all(),
+      ];
+    case 'ib-applications':
+      return [keys.ibApplications.all(), keys.stats.all()];
+    case 'clients':
+      return [keys.clients.all(), keys.stats.all()];
+    case 'wallets':
+      return [
+        keys.wallets.all(),
+        keys.transactions.all(),
+        keys.ledger.all(),
+        keys.clients.all(),
+        keys.reconciliation.all(),
+        keys.stats.all(),
+      ];
+    default:
+      return [];
+  }
 }
 
 export function resolveKind(kind: string): KindConfig | undefined {

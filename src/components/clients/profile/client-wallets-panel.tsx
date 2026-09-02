@@ -24,6 +24,7 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, type RowAction } from '@/components/row-actions';
 import { t } from '@/lib/i18n';
 import { formatMoney, isZeroMoney } from '@/lib/money';
+import { keys } from '@/lib/query-keys';
 
 /**
  * A client's wallets, on their profile — with the three things an operator can
@@ -65,11 +66,11 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
    * inside a profile card would be chrome around three rows.
    */
   const params = { userId, limit: 100, page: 1 };
-  const wallets = useResource<WalletListResponse>(['admin', 'wallets', params], (signal) =>
+  const wallets = useResource<WalletListResponse>(keys.wallets.list(params), (signal) =>
     api.admin.getWallets(params, signal),
   );
 
-  const currencies = useResource<Currency[]>(['admin', 'currencies'], (signal) =>
+  const currencies = useResource<Currency[]>(keys.currencies.all(), (signal) =>
     api.admin.getCurrencies(signal),
   );
 
@@ -90,8 +91,18 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
   const [crediting, setCrediting] = React.useState<WalletRow | undefined>();
   const [newCurrency, setNewCurrency] = React.useState('');
 
+  /*
+   * A credit here writes a transaction and a ledger entry as well as moving
+   * the balance — and on THIS screen the client's transactions tab is one
+   * click away from the panel that did it, so a wallets-only invalidate left
+   * an operator looking straight at the omission.
+   */
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: ['admin', 'wallets'] });
+    void queryClient.invalidateQueries({ queryKey: keys.wallets.all() });
+    void queryClient.invalidateQueries({ queryKey: keys.clients.all() });
+    void queryClient.invalidateQueries({ queryKey: keys.transactions.all() });
+    void queryClient.invalidateQueries({ queryKey: keys.ledger.all() });
+    void queryClient.invalidateQueries({ queryKey: keys.reconciliation.all() });
   };
 
   const open = useMutation({

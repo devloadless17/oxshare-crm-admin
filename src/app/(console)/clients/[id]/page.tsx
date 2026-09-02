@@ -45,6 +45,8 @@ import { buildKycDocUrl } from '@/lib/kyc-doc-url';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
+import { keys } from '@/lib/query-keys';
+import { isMasked } from '@/lib/masking';
 
 /**
  * FR-ADM-01's full client profile.
@@ -103,7 +105,7 @@ export default function ClientProfilePage() {
   const [editOpen, setEditOpen] = React.useState(false);
   const [emailOpen, setEmailOpen] = React.useState(false);
 
-  const query = useResource<ClientProfile>(['client', clientId], (signal) =>
+  const query = useResource<ClientProfile>(keys.clients.detail(clientId), (signal) =>
     api.admin.getClient(clientId, signal),
   );
 
@@ -121,12 +123,12 @@ export default function ClientProfilePage() {
    * appear.
    */
   const partnerQuery = useResource<IbPartnerDetail | null>(
-    ['client', clientId, 'partner'],
+    keys.clients.partner(clientId),
     (signal) => api.admin.getPartnerDetail(clientId, signal),
     { enabled: canViewPartners },
   );
 
-  const tagsQuery = useResource(['tags'], (signal) => api.admin.getTags(signal), {
+  const tagsQuery = useResource(keys.tags.all(), (signal) => api.admin.getTags(signal), {
     enabled: canAssignTags,
   });
 
@@ -134,7 +136,13 @@ export default function ClientProfilePage() {
     mutationFn: ({ tagId, attached }: { tagId: string; attached: boolean }) =>
       attached ? api.admin.unassignTag(clientId, tagId) : api.admin.assignTag(clientId, tagId),
     onSuccess: async (_data, { tagId, attached }) => {
-      await queryClient.invalidateQueries({ queryKey: ['client', clientId] });
+      // Also the tags screen: `getTags` returns ClientTagWithCount, so
+      // attaching or detaching moves a number an operator reads elsewhere.
+      // And `clients.all()`, because the list renders each client's tags.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
+        queryClient.invalidateQueries({ queryKey: keys.tags.all() }),
+      ]);
       const label = (tagsQuery.data ?? []).find((tag) => tag.id === tagId)?.label ?? tagId;
       toastSuccess(
         attached
@@ -166,6 +174,20 @@ export default function ClientProfilePage() {
   const attachedIds = new Set((profile?.tags ?? []).map((tag) => tag.id));
   const displayName =
     [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || t('clients.unnamed');
+
+  /*
+   * Is there ANY of this person's name left to show?
+   *
+   * `client.firstName` and `client.lastName` are separate catalog entries, and
+   * the server strips exactly the one that was masked — so `displayName` above
+   * already holds only the permitted halves. The heading used to wrap it in a
+   * `Field` keyed on `client.firstName` alone, which replaced the WHOLE name
+   * with the redaction chip the moment the first name was hidden, taking a
+   * surname the viewer was entitled to read with it. Reported.
+   */
+  const nameFullyMasked =
+    isMasked('client.firstName', profile?.maskedFields) &&
+    isMasked('client.lastName', profile?.maskedFields);
 
   const tabs: TabDefinition[] = [
     {
@@ -254,9 +276,15 @@ export default function ClientProfilePage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold tracking-tight">
-                    <Field label="" field="client.firstName" profile={profile}>
-                      {displayName}
-                    </Field>
+                    {/*
+                      The chip only when nothing of the name survives the mask;
+                      otherwise the halves the viewer may actually see.
+                    */}
+                    {nameFullyMasked ? (
+                      <Field label="" field="client.firstName" profile={profile} />
+                    ) : (
+                      displayName
+                    )}
                   </h1>
                   <p className="mt-1 text-sm text-muted-foreground">
                     <Field label="" field="client.email" profile={profile} />

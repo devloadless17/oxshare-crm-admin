@@ -15,6 +15,7 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { AgencyFormModal, type AgencyFormValues } from '@/components/agencies/agency-form-modal';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Agencies (وكالة) — the programmes a partner is appointed under.
@@ -54,13 +55,13 @@ export default function AgenciesPage() {
   const [editing, setEditing] = React.useState<Agency | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
 
-  const query = useResource<Agency[]>(['admin', 'agencies'], () => adminApi.getAgencies());
+  const query = useResource<Agency[]>(keys.agencies.all(), () => adminApi.getAgencies());
   /*
    * The products list, for the names in the table and the picker in the modal.
    * Fetched alongside rather than inside the modal: the table renders product
    * names on every row, so it is needed either way.
    */
-  const products = useResource<Product[]>(['admin', 'products'], () => adminApi.getProducts());
+  const products = useResource<Product[]>(keys.products.all(), () => adminApi.getProducts());
   /*
    * The catalogue, for the Programme column's NAMES.
    *
@@ -70,11 +71,9 @@ export default function AgenciesPage() {
    * is exactly the misconfiguration worth seeing, and blanking it would hide
    * the one row an operator needs to fix.
    */
-  const programs = useResource(['admin', 'ib-programs'], (signal) =>
-    adminApi.getIbPrograms(signal),
-  );
+  const programs = useResource(keys.ibPrograms.all(), (signal) => adminApi.getIbPrograms(signal));
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'agencies'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.agencies.all() });
 
   /**
    * Save the agency AND the products it sells.

@@ -10,6 +10,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { t } from '@/lib/i18n';
 import { formatMoney } from '@/lib/money';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Does the money add up — the §12.2 reconciliation, on screen.
@@ -41,7 +42,9 @@ import { formatMoney } from '@/lib/money';
  * subset is the opposite of what a reconciliation is for.
  */
 export default function ReconciliationPage() {
-  const query = useResource(['reconciliation'], (signal) => api.admin.getReconciliation(signal));
+  const query = useResource(keys.reconciliation.all(), (signal) =>
+    api.admin.getReconciliation(signal),
+  );
 
   const report = query.data;
   const discrepancies = report?.walletDiscrepancies ?? [];

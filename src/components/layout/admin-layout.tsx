@@ -46,6 +46,7 @@ import { canAccess, hasPermission } from '@/lib/permissions';
 import { AccessDenied } from '@/components/access-denied';
 import { PageLoader } from '@/components/ui/loader';
 import { t, type MessageKey } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 interface NavItem {
   /** A message key, not a string — resolved through t() at render time. */
@@ -334,7 +335,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
    */
   const canSeeApprovals = hasPermission(admin, 'ib.view');
   const pendingApplications = useQuery({
-    queryKey: ['admin', 'ib-applications', 'pending-count'],
+    queryKey: keys.ibApplications.pendingCount(),
     queryFn: () => api.admin.getIbApplications({ status: 'pending', limit: 1 }),
     enabled: canSeeApprovals,
     refetchInterval: 60_000,
@@ -357,9 +358,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
    */
   const canReviewKyc = hasPermission(admin, 'kyc.review') || hasPermission(admin, 'kyc.view');
   const pendingKyc = useQuery({
-    queryKey: ['admin', 'kyc', 'pending-count'],
+    queryKey: keys.kyc.pendingCount(),
     queryFn: async () =>
-      (await api.get<KycListResponse>('/admin/kyc?status=submitted&limit=1')).data,
+      (await api.get<KycListResponse>('/admin/kyc?status=needs_review&limit=1')).data,
     enabled: canReviewKyc,
     refetchInterval: 60_000,
     retry: false,
@@ -367,7 +368,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const canSeeWithdrawals = hasPermission(admin, 'withdrawals.view');
   const pendingWithdrawals = useQuery({
-    queryKey: ['admin', 'withdrawals', 'pending-count'],
+    queryKey: keys.withdrawals.pendingCount(),
     queryFn: () => api.admin.getWithdrawals({ state: 'pending', limit: 1 }),
     enabled: canSeeWithdrawals,
     refetchInterval: 60_000,

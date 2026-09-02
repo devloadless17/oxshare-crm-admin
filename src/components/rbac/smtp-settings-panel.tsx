@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { SettingsSavedLine } from './settings-saved-line';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The mail server — the Email tab. Master admin only.
@@ -46,7 +47,9 @@ import { SettingsSavedLine } from './settings-saved-line';
  * an untouched field produces below — is what keeps the stored password.
  */
 export function SmtpSettingsPanel({ canManage }: { canManage: boolean }) {
-  const settings = useResource<SmtpSettings>(['smtp-settings'], () => adminApi.getSmtpSettings());
+  const settings = useResource<SmtpSettings>(keys.settings.smtp(), () =>
+    adminApi.getSmtpSettings(),
+  );
 
   return (
     <section className="rounded-xl border border-border bg-card p-5 space-y-4">
@@ -107,7 +110,7 @@ function SmtpForm({ settings, canManage }: { settings: SmtpSettings; canManage: 
       setSaved(true);
       setPassword('');
       window.setTimeout(() => setSaved(false), 2000);
-      void queryClient.invalidateQueries({ queryKey: ['smtp-settings'] });
+      void queryClient.invalidateQueries({ queryKey: keys.settings.smtp() });
       /*
        * The button's own "Saved ✓" is a two-second state of the CONTROL; this
        * is the console-wide record of the write, and the two are not the same

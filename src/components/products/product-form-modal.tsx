@@ -16,6 +16,7 @@ import {
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /** A group the form is holding, whether or not the server has it yet. */
 export interface StagedGroup {
@@ -192,7 +193,7 @@ function ProductForm({
    * the modal opens, not with the page. It is a round trip to the MT5 server,
    * and most visits to the products table never open this.
    */
-  const available = useResource<AvailableGroup[]>(['admin', 'available-groups'], () =>
+  const available = useResource<AvailableGroup[]>(keys.products.availableGroups(), () =>
     adminApi.getAvailableGroups(),
   );
 
