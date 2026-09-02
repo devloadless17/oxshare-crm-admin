@@ -75,7 +75,7 @@ export interface Resource<T> {
 export function useResource<T>(
   key: QueryKey,
   fetcher: (signal: AbortSignal) => Promise<T>,
-  options?: { enabled?: boolean; retry?: number },
+  options?: { enabled?: boolean; retry?: number; refetchInterval?: number },
 ): Resource<T> {
   const query = useQuery({
     queryKey: key,
@@ -97,6 +97,22 @@ export function useResource<T>(
      * `0` where a person is sitting in front of a retry button anyway.
      */
     retry: options?.retry,
+    /**
+     * Poll, for a screen whose value is written by something other than the
+     * person looking at it.
+     *
+     * OPT-IN per caller rather than a default, and the split is the same one
+     * `retry` above makes: what this costs depends entirely on what sits behind
+     * the endpoint. A list served from our own database is one cheap read and
+     * can be polled happily; anything crossing the bridge to MT5 must NOT be,
+     * because every one of those calls takes the bridge's single MT5 session
+     * lock and the throttle on those routes is 12/min per client.
+     *
+     * React Query pauses the interval while the tab is hidden, so this does not
+     * run in the background — and with `refetchOnWindowFocus` on, coming back to
+     * the tab refreshes immediately rather than waiting out the remainder.
+     */
+    refetchInterval: options?.refetchInterval,
     placeholderData: (previous) => previous, // keep the page visible while paging
   });
 
