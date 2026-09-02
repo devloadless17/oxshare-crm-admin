@@ -78,10 +78,37 @@ describe('maskedFieldLabels', () => {
     ]);
   });
 
-  it('falls back to the key rather than dropping an unknown field', () => {
-    // A key the catalog no longer describes is still hidden, and saying "one
-    // field is hidden" without naming it is worse than showing the raw key.
-    expect(maskedFieldLabels(['client.gone'], {})).toEqual(['client.gone']);
+  it('does NOT announce a key it has no label for', () => {
+    /*
+     * This asserted the opposite, on the reasoning that "saying one field is
+     * hidden without naming it is worse than showing the raw key". The concern
+     * was right; the remedy leaked the database's vocabulary onto the screen.
+     *
+     * `maskedFields` carries the catalog's ALIASES — entries that exist to
+     * strip the same person from OTHER responses — so hiding a client's first
+     * name produced, verbatim from the running console:
+     *
+     *   "Some columns are hidden by your permissions: Name,
+     *    client.referrer.firstName, client.referredClients.firstName"
+     *
+     * Two of those are not columns of that table. The label map is per-screen
+     * and lists exactly what that screen can hide, so a key outside it is not
+     * something the reader can look for and fail to find. A dev-only
+     * console.warn keeps the original concern pointed at the developer.
+     */
+    expect(maskedFieldLabels(['client.referrer.firstName'], {})).toEqual([]);
+  });
+
+  it('says a shared label once, not once per key behind it', () => {
+    // `client.firstName` and `client.lastName` both label as "Name", and
+    // "hidden: Name, Name" reads as a bug in the console rather than a fact
+    // about permissions.
+    expect(
+      maskedFieldLabels(['client.firstName', 'client.lastName'], {
+        'client.firstName': 'Name',
+        'client.lastName': 'Name',
+      }),
+    ).toEqual(['Name']);
   });
 
   it('is empty when nothing is hidden', () => {

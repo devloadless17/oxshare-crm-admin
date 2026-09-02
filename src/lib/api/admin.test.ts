@@ -84,22 +84,36 @@ describe('clientListSearchParams', () => {
 describe('CLIENT_SORT_KEYS', () => {
   it('matches the backend allowlist exactly', () => {
     /*
-     * Hand-kept, and the reason it is asserted rather than trusted: the API
-     * answers 400 for a sort key it does not recognise, so a column here that
-     * the backend dropped turns a header click into an error page instead of a
-     * reordered list.
+     * ⚠️ THIS TEST USED TO CONTAIN THE BUG IT EXISTS TO CATCH.
      *
-     * Kept in step by `client-list-indexes.spec.ts` on the other side, which
-     * derives its cases from `CLIENT_SORT_COLUMNS` and fails when a key has no
-     * index. Between the two, a key can only be added deliberately.
+     * Its expected list was a LITERAL, and that literal included `'type'` —
+     * which `CLIENT_SORT_COLUMNS` has never contained. So the guard passed
+     * happily while the console offered a sortable "Type" header, and the
+     * operator's click returned R-2.5's 400 and replaced the whole client
+     * directory with an error card. Reported from the running app.
+     *
+     * The header above it claimed the pair was "kept in step by
+     * `client-list-indexes.spec.ts` on the other side". That backend test
+     * DERIVES its cases from `CLIENT_SORT_COLUMNS`, so it was right all along;
+     * this one restated a hand-written list from memory, and a test that
+     * restates a list cannot detect that the list is wrong.
+     *
+     * The real guard is now a TYPE: `CLIENT_SORT_KEYS` is
+     * `satisfies readonly SortKeysOf<'AdminClientsController_listClients'>[]`,
+     * read off the generated OpenAPI contract, so an offered key the API
+     * refuses no longer compiles. What is left worth asserting at runtime is
+     * the thing a type cannot say — that the list is not empty, and that the
+     * specific key which shipped broken is gone.
      */
+    expect(CLIENT_SORT_KEYS.length).toBeGreaterThan(0);
+    expect([...CLIENT_SORT_KEYS], 'the sort that took the client list down').not.toContain('type');
+    // Every key it does offer is one a column is allowed to claim.
     expect([...CLIENT_SORT_KEYS].sort()).toEqual([
       'country',
       'createdAt',
       'email',
       'firstName',
       'status',
-      'type',
       'verificationLevel',
     ]);
   });

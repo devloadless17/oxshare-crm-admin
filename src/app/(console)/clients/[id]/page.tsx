@@ -46,6 +46,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
 import { keys } from '@/lib/query-keys';
+import { isMasked } from '@/lib/masking';
 
 /**
  * FR-ADM-01's full client profile.
@@ -174,6 +175,20 @@ export default function ClientProfilePage() {
   const displayName =
     [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || t('clients.unnamed');
 
+  /*
+   * Is there ANY of this person's name left to show?
+   *
+   * `client.firstName` and `client.lastName` are separate catalog entries, and
+   * the server strips exactly the one that was masked — so `displayName` above
+   * already holds only the permitted halves. The heading used to wrap it in a
+   * `Field` keyed on `client.firstName` alone, which replaced the WHOLE name
+   * with the redaction chip the moment the first name was hidden, taking a
+   * surname the viewer was entitled to read with it. Reported.
+   */
+  const nameFullyMasked =
+    isMasked('client.firstName', profile?.maskedFields) &&
+    isMasked('client.lastName', profile?.maskedFields);
+
   const tabs: TabDefinition[] = [
     {
       value: TAB_OVERVIEW,
@@ -261,9 +276,15 @@ export default function ClientProfilePage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold tracking-tight">
-                    <Field label="" field="client.firstName" profile={profile}>
-                      {displayName}
-                    </Field>
+                    {/*
+                      The chip only when nothing of the name survives the mask;
+                      otherwise the halves the viewer may actually see.
+                    */}
+                    {nameFullyMasked ? (
+                      <Field label="" field="client.firstName" profile={profile} />
+                    ) : (
+                      displayName
+                    )}
                   </h1>
                   <p className="mt-1 text-sm text-muted-foreground">
                     <Field label="" field="client.email" profile={profile} />
