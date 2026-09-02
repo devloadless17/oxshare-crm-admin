@@ -221,6 +221,17 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s
           --health-timeout 5s --health-retries 10
+      # Mail is part of these journeys, not a detail beside them: registration,
+      # verification, invitation and password reset all continue through a
+      # link that only exists in an inbox. Without this the specs that use one
+      # fail on `waitForMail` — which reads as a broken app and is a missing
+      # container.
+      mailpit:
+        image: axllent/mailpit:latest
+        ports: ['1025:1025', '8025:8025']
+        options: >-
+          --health-cmd "wget -q -O- http://localhost:8025/readyz || exit 1"
+          --health-interval 5s --health-timeout 5s --health-retries 12
 
     steps:
       - uses: actions/checkout@v4
@@ -293,6 +304,28 @@ jobs:
           # applies to the seeds — and saying so beats the engine holding while
           # the journeys blame the screen.
           IB_ACCRUAL_START: all
+
+      # SMTP is ADMIN-CONFIGURED, in the database — `env.validation.ts` says
+      # "THERE ARE NO SMTP_* VARIABLES AT ALL", deliberately, so that a deploy
+      # missing mail cannot start up quietly and swallow every message. The
+      # consequence for CI is that a Mailpit container alone sends nothing:
+      # somebody has to save the settings, exactly as an operator would on
+      # Settings → Email. This is that, over the same endpoint.
+      - name: Point SMTP at Mailpit
+        run: |
+          JAR=$(mktemp)
+          curl -fsS -c "$JAR" -o /dev/null -X POST http://localhost:3001/v1/admin/auth/login \
+            -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' \
+            -d '{"email":"admin@oxshare.com","password":"admin123"}'
+          # The anti-forgery token is a cookie here (same host), so it is read
+          # from the jar rather than the echo header the browser path uses.
+          CSRF=$(awk '$6 ~ /csrf/ {print $7}' "$JAR" | tail -1)
+          test -n "$CSRF" || { echo "no CSRF cookie after admin login"; exit 1; }
+          curl -fsS -b "$JAR" -o /dev/null -X PUT http://localhost:3001/v1/admin/settings/smtp \
+            -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' \
+            -H "X-OxShare-CSRF: $CSRF" \
+            -d '{"host":"localhost","port":1025,"username":null,"password":null,"fromAddress":"\"OxShare CI\" <no-reply@oxshare.test>","secure":false}'
+          echo "SMTP points at Mailpit."
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund

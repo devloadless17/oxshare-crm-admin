@@ -244,8 +244,16 @@ test.describe('filtering the client directory', () => {
     await expect(page.locator('thead')).toBeVisible({ timeout: 30_000 });
 
     await pickFilter(page, /^all account states$/i, /^active$/i);
-    expect(sent.some((s) => s.includes('status=active'))).toBe(true);
-    expect(sent.some((s) => s.includes('kycStatus='))).toBe(false);
+    /*
+     * POLLED, not read once. `pickFilter` waits for networkidle, which is not
+     * the same as "React Query has fired the request the URL change caused" —
+     * a synchronous read here passed locally and failed in CI, which is the
+     * only difference between this and the TYPE case above. Both poll now.
+     */
+    await expect
+      .poll(() => sent.filter((q) => q.includes('status=active')).length, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    expect(sent.some((q) => q.includes('kycStatus='))).toBe(false);
     await expect(errorCard(page)).toBeHidden();
   });
 
