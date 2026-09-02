@@ -127,6 +127,24 @@ export function transactionColumns({
             </span>
           )}
           {/*
+            The payment platform's OWN id, under ours.
+            A support ticket about a payment needs BOTH: theirs is the one
+            Rival looks up directly, ours is what confirms it is the right
+            row. It was stored from day one of the integration and rendered
+            nowhere, so an operator had half the pair and an engineer had to
+            run SQL for the other half.
+            `title` carries a prefix because two bare monospace strings
+            stacked are indistinguishable at 11px.
+          */}
+          {row.rivalExternalId && (
+            <span
+              className="font-mono text-[11px] text-muted-foreground/70"
+              title={`${t('financial.rivalRefTitle')}: ${row.rivalExternalId}`}
+            >
+              {row.rivalExternalId}
+            </span>
+          )}
+          {/*
             The desk link, only where the desk can actually act: a PENDING
             payment withdrawal. The desk's q-filter lands on this client's
             requests (state=all so an already-actioned row still resolves) —

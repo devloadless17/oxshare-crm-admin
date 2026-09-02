@@ -4888,6 +4888,8 @@ export interface components {
             methodName?: string | null;
             /** @description The provider's own reference. Backs UNIQUE(provider, provider_ref), which is what makes settlement idempotent in the database (§6.3). */
             providerRef?: string | null;
+            /** @description The payment platform's OWN id for this movement — what Rival shows as its reference, and the identifier its team can look up directly. Null for anything that never went through a rail (a manual desk credit) and for a row whose create is still in flight. */
+            rivalExternalId?: string | null;
             destination?: string | null;
             rejectionReason?: string | null;
             reviewedBy?: string | null;
@@ -6624,6 +6626,8 @@ export interface components {
             methodName: string;
             provider: string;
             providerRef?: string | null;
+            /** @description The payment platform's OWN id for this movement — what Rival shows as its reference and what its team can look up directly. Null for a manual desk credit, which went through no rail. */
+            rivalExternalId?: string | null;
             destination?: string | null;
             rejectionReason?: string | null;
             /** @description The trading account a TRANSFER moved money to or from. Null on other kinds. */

@@ -2747,6 +2747,8 @@ export const messages = {
     'This pays {name} immediately — one step, straight to settled. The money leaves now and there is no undo.',
   'withdrawals.detailsTitle': 'Withdrawal details',
   'withdrawals.detailsProviderRef': 'Provider reference',
+  'withdrawals.detailsRivalRef': 'Payment platform reference',
+  'financial.rivalRefTitle': 'Payment platform reference',
   'withdrawals.detailsReviewed': 'Reviewed',
   'withdrawals.detailsSettled': 'Settled',
   /*

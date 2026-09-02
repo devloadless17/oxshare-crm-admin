@@ -984,6 +984,22 @@ function TransactionsPageContent() {
             <Detail label={t('withdrawals.detailsProviderRef')}>
               <span className="break-all font-mono">{detailsTarget.providerRef ?? '—'}</span>
             </Detail>
+            {/*
+              The payment platform's OWN id, beside ours.
+              A support ticket needs BOTH: theirs is what Rival looks up
+              directly, ours is what confirms it is the right row. Until this
+              existed the id was stored and shown nowhere, so an operator
+              chasing a payment had half the pair and had to ask an engineer
+              for the other half.
+              Rendered only when there is one — a manual desk credit went
+              through no rail, and an em dash there would imply something is
+              missing rather than absent by nature.
+            */}
+            {detailsTarget.rivalWithdrawalId && (
+              <Detail label={t('withdrawals.detailsRivalRef')}>
+                <span className="break-all font-mono">{detailsTarget.rivalWithdrawalId}</span>
+              </Detail>
+            )}
             <Detail label={t('withdrawals.colRequested')}>
               {formatDateTime(detailsTarget.requestedAt)}
             </Detail>

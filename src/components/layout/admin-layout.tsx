@@ -358,7 +358,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
    */
   const canReviewKyc = hasPermission(admin, 'kyc.review') || hasPermission(admin, 'kyc.view');
   const pendingKyc = useQuery({
-    queryKey: ['admin', 'kyc', 'pending-count'],
+    queryKey: keys.kyc.pendingCount(),
     queryFn: async () =>
       (await api.get<KycListResponse>('/admin/kyc?status=needs_review&limit=1')).data,
     enabled: canReviewKyc,
