@@ -1,12 +1,10 @@
-import { request, type APIRequestContext } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
   adminApiSession,
   API_NODE_BASE,
-  linkIn,
-  requirePrecondition,
+  mintClientWithPendingKyc,
   TOPOLOGY_PORTAL_ORIGIN,
-  waitForMail,
+  type MintedClient,
 } from './helpers';
 
 /**
@@ -24,93 +22,19 @@ import {
  * would accumulate this run's rows into every later assertion.
  */
 
-const PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64',
-);
-
-/** A portal API session for one fresh client, everything by wire. */
-async function mintApprovedClient(admin: Awaited<ReturnType<typeof adminApiSession>>): Promise<{
-  portal: APIRequestContext;
-  csrf: string;
-  email: string;
-  id: string;
-  dispose: () => Promise<void>;
-}> {
-  const email = `e2e-desk-${Date.now()}@oxshare-e2e-signup.test`;
-  const password = 'Desk-journey-123!';
-  const portal = await request.newContext({ storageState: { cookies: [], origins: [] } });
-  const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
-
-  const registered = await portal.post(`${API_NODE_BASE}/auth/register`, {
-    headers: origin,
-    data: { email, password, firstName: 'Desk', lastName: 'Journey' },
-  });
-  requirePrecondition(registered.status() === 429, 'registration is rate limited right now (10/h)');
-  expect(registered.ok(), `register answered ${registered.status()}`).toBe(true);
-
-  const mail = await waitForMail(email, { subject: /verify/i });
-  const token = new URL(linkIn(mail, TOPOLOGY_PORTAL_ORIGIN)).searchParams.get('token')!;
-  expect(
-    (
-      await portal.post(`${API_NODE_BASE}/auth/verify-email`, { headers: origin, data: { token } })
-    ).ok(),
-  ).toBe(true);
-
-  const login = await portal.post(`${API_NODE_BASE}/auth/login`, {
-    headers: origin,
-    data: { email, password },
-  });
-  requirePrecondition(login.status() === 429, 'portal login is rate limited right now');
-  expect(login.ok(), `login answered ${login.status()}`).toBe(true);
-  const csrf =
-    (await portal.storageState()).cookies.find((c) => c.name.includes('portal_csrf'))?.value ?? '';
-  expect(csrf, 'no portal CSRF cookie after login').toBeTruthy();
-  const write = { ...origin, 'X-OxShare-CSRF': csrf };
-
-  // The three-document KYC, by wire, then the administrator's approval.
-  const step = (stepName: string, data: Record<string, unknown>) =>
-    portal.post(`${API_NODE_BASE}/kyc/step`, { headers: write, data: { step: stepName, data } });
-  expect(
-    (
-      await step('personal', {
-        firstName: 'Desk',
-        lastName: 'Journey',
-        dateOfBirth: '1988-08-08',
-        phone: '+96170000010',
-        nationality: 'Lebanon',
-        country: 'Lebanon',
-      })
-    ).ok(),
-  ).toBe(true);
-  expect((await step('document', { docType: 'passport' })).ok()).toBe(true);
-  for (const field of ['doc_front', 'selfie']) {
-    const up = await portal.post(`${API_NODE_BASE}/kyc/upload`, {
-      headers: write,
-      multipart: { file: { name: `${field}.png`, mimeType: 'image/png', buffer: PNG }, field },
-    });
-    expect(up.ok(), `uploading ${field} answered ${up.status()}`).toBe(true);
-  }
-  expect((await step('address', { docType: 'utility_bill' })).ok()).toBe(true);
-  const up = await portal.post(`${API_NODE_BASE}/kyc/upload`, {
-    headers: write,
-    multipart: {
-      file: { name: 'address_proof.png', mimeType: 'image/png', buffer: PNG },
-      field: 'address_proof',
-    },
-  });
-  expect(up.ok()).toBe(true);
-  expect((await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write })).ok()).toBe(true);
-
-  const found = await admin.get(`/admin/clients?q=${encodeURIComponent(email)}&limit=5`);
-  const id =
-    ((await found.json()) as { items: { id: string; email: string }[] }).items.find(
-      (c) => c.email === email,
-    )?.id ?? '';
-  expect(id, 'the fresh client is not on the admin index').toBeTruthy();
-  expect((await admin.patch(`/admin/kyc/${id}/approve`)).ok()).toBe(true);
-
-  return { portal, csrf, email, id, dispose: () => portal.dispose() };
+/**
+ * A fresh client, KYC APPROVED and ready to be credited.
+ *
+ * The journey up to the submission lives in `helpers.ts` — the realtime spec
+ * needs the same client one step earlier, with the review still pending,
+ * because there the approval is the thing under test.
+ */
+async function mintApprovedClient(
+  admin: Awaited<ReturnType<typeof adminApiSession>>,
+): Promise<MintedClient> {
+  const client = await mintClientWithPendingKyc(admin, 'desk');
+  expect((await admin.patch(`/admin/kyc/${client.id}/approve`)).ok()).toBe(true);
+  return client;
 }
 
 test('credit → request ×3 → approve+settle, reject, and cancel — every leg refunds or pays exactly once', async ({

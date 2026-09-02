@@ -30,7 +30,7 @@ Every page is `'use client'`.
 ### The gate reads a MARKER, never the session
 
 `src/proxy.ts` cannot see the session and the file says so at length: the refresh cookie is
-`__Host-` prefixed and set by the API's host, so the browser locks it there. What it *can* read
+`__Host-` prefixed and set by the API's host, so the browser locks it there. What it _can_ read
 is `lib/session-hint.ts` — a non-sensitive cookie this app writes on its OWN host whenever
 `/admin/auth/me` answers "signed in", and clears when it answers 401.
 
@@ -82,6 +82,62 @@ Async handlers on JSX attributes need an explicit `void`: `onClick={() => void s
 `onSubmit={(e) => void submit(e)}`. React types those as returning `void`, and
 `no-misused-promises` is an error here. `AsyncBoundary.onRetry` is typed `() => unknown`
 precisely so `onRetry={query.refetch}` needs no wrapper.
+
+## Query keys come from the registry — `src/lib/query-keys.ts`
+
+Every `queryKey` and every `invalidateQueries` resolves through it. Lint refuses an array
+literal in either position, and `queryKeysFor`/`resourceKeysFor` return the registry's own
+union type, so an invented key is a compile error.
+
+**Why it is enforced rather than encouraged.** React Query's prefix matching fails SILENTLY:
+an invalidate against a key no query uses matches nothing, resolves successfully, and
+refetches nothing. No error, no warning, nothing in the network tab. That produced five
+production-visible staleness bugs at once — a KYC approval leaving the sidebar badge reading
+1 (reported by the owner), a client suspended from their profile still listed as Active, and
+three realtime events refreshing keys that named nothing at all.
+
+Two rules the registry encodes:
+
+1. **A badge shares a root with the list it counts**, so one invalidate covers both. Their
+   living under different roots (`['kyc',…]` vs `['admin','kyc','pending-count']`) _was_ the
+   reported bug.
+2. **One resource, one root.** The old code mixed `['admin', X]` and bare `['X']`, and every
+   bug above was a pair that landed on opposite sides of that line.
+
+Keys are internal cache addresses — never persisted, never in a URL — so renaming one is free.
+
+⚠️ **The lint rule is spread into every `no-restricted-syntax` block, not given one of its
+own.** Flat config merges rules by NAME, so the last matching config object replaces that
+rule's options: a standalone block silently disarmed the §6.1 `Number()` ban on the money
+files it overlapped. After touching `eslint.config.mjs`, re-verify by putting a `Number()`
+back into `money.ts` and confirming lint complains.
+
+## Realtime: two events, and what must NOT be live
+
+The socket (`hooks/use-realtime.ts`, a twin) carries two events into
+`components/layout/notifications-sheet.tsx`:
+
+| event                  | means                              | maps through                |
+| ---------------------- | ---------------------------------- | --------------------------- |
+| `notification.created` | a CLIENT did something             | `queryKeysFor(kind)`        |
+| `resource.changed`     | another OPERATOR decided something | `resourceKeysFor(resource)` |
+
+The second has no bell, no chime and no toast, deliberately: a notification row per reviewer
+per decision fills every bell with "somebody else approved a document for a client you cannot
+see", which is how a bell stops being read. It carries a resource NAME and nothing else, which
+is why fan-out is not permission-scoped — see the backend's `common/realtime/resource-changed.ts`.
+
+A missed `resource.changed` leaves NO trace (no row, no badge), so the reconnect effect
+re-syncs every `BROADCAST_RESOURCES` entry. Do not narrow that back to the bell.
+
+**Deliberately not live**, and covered by tests that assert it stays that way:
+
+- **The audit log.** A forensic record read deliberately and paginated; refetching it under
+  its reader moves the rows they are reading.
+- **Settings, roles and any open form.** Realtime targets lists and counts; detail keys are
+  invalidated by their own mutation only.
+- **Money is refetched, never patched.** No `setQueryData` computing a balance — §6.1 bans
+  client-side money arithmetic, and an optimistic balance is a plausible invented number.
 
 ## API types are generated, never hand-written
 

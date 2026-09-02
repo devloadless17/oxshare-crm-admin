@@ -773,3 +773,137 @@ export async function browserStateFrom(ctx: APIRequestContext): Promise<{
     origins: [],
   };
 }
+
+/** A 1×1 PNG — real bytes, because the upload endpoint sniffs the type. */
+export const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+export interface MintedClient {
+  portal: APIRequestContext;
+  csrf: string;
+  email: string;
+  id: string;
+  dispose: () => Promise<void>;
+}
+
+/**
+ * A client minted for this run alone, carried by wire all the way to a KYC
+ * submission that is WAITING FOR A REVIEWER.
+ *
+ * Fresh rather than seeded, because both the KYC queue and the money ledger
+ * are append-only: a shared fixture accumulates every run's rows into every
+ * later assertion. It stops one step short of approval so the caller decides
+ * — the withdrawals desk approves immediately, the realtime spec approves in
+ * a BROWSER because the approval is the thing under test.
+ *
+ * Extracted from `withdrawals-desk.spec.ts`, which owned the only copy.
+ *
+ * @param label distinguishes concurrent runs in the mailbox and the audit log.
+ */
+export async function mintClientWithPendingKyc(
+  admin: { get: (path: string) => Promise<Response | { json: () => Promise<unknown> }> },
+  label: string,
+): Promise<MintedClient> {
+  const email = `e2e-${label}-${Date.now()}@oxshare-e2e-signup.test`;
+  const password = `E2e-${label}-123!`;
+  const portal = await apiRequest.newContext({ storageState: { cookies: [], origins: [] } });
+  const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
+
+  const registered = await portal.post(`${API_NODE_BASE}/auth/register`, {
+    headers: origin,
+    data: { email, password, firstName: 'E2e', lastName: label },
+  });
+  requirePrecondition(registered.status() === 429, 'registration is rate limited right now (10/h)');
+  expect(registered.ok(), `register answered ${registered.status()}`).toBe(true);
+
+  const mail = await waitForMail(email, { subject: /verify/i });
+  const token = new URL(linkIn(mail, TOPOLOGY_PORTAL_ORIGIN)).searchParams.get('token')!;
+  expect(
+    (
+      await portal.post(`${API_NODE_BASE}/auth/verify-email`, { headers: origin, data: { token } })
+    ).ok(),
+  ).toBe(true);
+
+  const login = await portal.post(`${API_NODE_BASE}/auth/login`, {
+    headers: origin,
+    data: { email, password },
+  });
+  requirePrecondition(login.status() === 429, 'portal login is rate limited right now');
+  expect(login.ok(), `login answered ${login.status()}`).toBe(true);
+  const csrf =
+    (await portal.storageState()).cookies.find((c) => c.name.includes('portal_csrf'))?.value ?? '';
+  expect(csrf, 'no portal CSRF cookie after login').toBeTruthy();
+  const write = { ...origin, 'X-OxShare-CSRF': csrf };
+
+  const step = (stepName: string, data: Record<string, unknown>) =>
+    portal.post(`${API_NODE_BASE}/kyc/step`, { headers: write, data: { step: stepName, data } });
+
+  /*
+   * Uploads are capped at 10 a minute PER IP, and a KYC submission needs
+   * three. Two clients minted close together therefore reach the cap on the
+   * second one's last document.
+   *
+   * WAITED OUT, never weakened — the same choice `adminApiSession` makes about
+   * the five-a-minute login cap. Raising a real rate limit so a test suite fits
+   * inside it removes the protection from production to make CI green, which
+   * is the wrong trade on a system that accepts identity documents.
+   */
+  const upload = async (field: string): Promise<void> => {
+    const send = () =>
+      portal.post(`${API_NODE_BASE}/kyc/upload`, {
+        headers: write,
+        multipart: {
+          file: { name: `${field}.png`, mimeType: 'image/png', buffer: TINY_PNG },
+          field,
+        },
+      });
+    let res = await send();
+    if (res.status() === 429) {
+      await new Promise((resolve) => setTimeout(resolve, 61_000));
+      res = await send();
+    }
+    expect(res.ok(), `uploading ${field} answered ${res.status()}`).toBe(true);
+  };
+  expect(
+    (
+      await step('personal', {
+        firstName: 'E2e',
+        lastName: label,
+        dateOfBirth: '1988-08-08',
+        phone: '+96170000010',
+        nationality: 'Lebanon',
+        country: 'Lebanon',
+      })
+    ).ok(),
+  ).toBe(true);
+  expect((await step('document', { docType: 'passport' })).ok()).toBe(true);
+  for (const field of ['doc_front', 'selfie']) await upload(field);
+  expect((await step('address', { docType: 'utility_bill' })).ok()).toBe(true);
+  await upload('address_proof');
+  expect((await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write })).ok()).toBe(true);
+
+  const id = await clientIdByEmail(admin, email);
+  return { portal, csrf, email, id, dispose: () => portal.dispose() };
+}
+
+/**
+ * Resolve a client's uuid from their address, through the admin index.
+ *
+ * The lookup was copy-pasted into four specs, each re-deriving that
+ * `?q=<email>` is a SEARCH and can return near-matches — so the exact-email
+ * `find` is the part that actually matters and the part most easily dropped.
+ */
+export async function clientIdByEmail(
+  admin: { get: (path: string) => Promise<{ json: () => Promise<unknown> }> },
+  email: string,
+): Promise<string> {
+  const found = await admin.get(`/admin/clients?q=${encodeURIComponent(email)}&limit=5`);
+  const id =
+    ((await found.json()) as { items: { id: string; email: string }[] }).items.find(
+      (c) => c.email === email,
+    )?.id ?? '';
+  expect(id, `${email} is not on the admin index`).toBeTruthy();
+  return id;
+}
