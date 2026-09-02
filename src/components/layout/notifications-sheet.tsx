@@ -24,7 +24,7 @@ import { t } from '@/lib/i18n';
 import { toastError } from '@/lib/toast';
 import { relativeTime } from '@/lib/relative-time';
 import { useRealtime } from '@/hooks/use-realtime';
-import { queryKeysFor } from './notification-kinds';
+import { BROADCAST_RESOURCES, resourceKeysFor, queryKeysFor } from './notification-kinds';
 import {
   playNotificationSound,
   primeNotificationSound,
@@ -137,6 +137,32 @@ export function NotificationsSheet() {
        */
       toastNotification(payload, (href) => router.push(href));
     },
+
+    /*
+     * ANOTHER OPERATOR decided something. No bell, no chime, no toast — just
+     * the data.
+     *
+     * That asymmetry is the whole design. A row per reviewer per decision
+     * would fill every bell with "somebody else approved a document for a
+     * client you cannot see", which is how a bell stops being read. What an
+     * operator actually needs is for the queue in front of them to stop
+     * showing an item that has already been dealt with.
+     *
+     * The payload is a resource NAME and nothing else, so nothing here reads
+     * a client id, an amount or a status — the tables below refetch through
+     * the same permission- and scope-guarded endpoints they always did. The
+     * operator who ACTED is excluded server-side, so this is never an echo of
+     * one's own work.
+     */
+    'resource.changed': (payload) => {
+      const resource =
+        payload && typeof payload === 'object' && typeof payload.resource === 'string'
+          ? payload.resource
+          : '';
+      for (const key of resourceKeysFor(resource)) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
+    },
   });
 
   /*
@@ -154,10 +180,23 @@ export function NotificationsSheet() {
    *
    * Invalidating on every connect closes that window: reconnecting IS the
    * moment to ask what was missed.
+   *
+   * It re-syncs the QUEUES as well as the bell, and that half is not optional
+   * now that another operator's decision arrives over the same socket with no
+   * bell row behind it. A `resource.changed` missed during a drop leaves no
+   * trace anywhere — there is no row to fetch later and no badge to catch up —
+   * so a reviewer who was briefly offline would work from a list that had
+   * silently stopped being true. The bell at least self-heals from its own
+   * table; this is the only thing that heals the tables beside it.
    */
   React.useEffect(() => {
     if (!connected) return;
     void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+    for (const resource of BROADCAST_RESOURCES) {
+      for (const key of resourceKeysFor(resource)) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
+    }
   }, [connected, queryClient]);
 
   const count = useQuery({

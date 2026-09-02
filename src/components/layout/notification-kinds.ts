@@ -243,6 +243,68 @@ export function queryKeysFor(kind: string): readonly AdminQueryKey[] {
   return [];
 }
 
+/**
+ * Every resource the backend can announce a change to.
+ *
+ * Mirrors `RESOURCES` in the backend's `common/realtime/resource-changed.ts`.
+ * It exists so a RECONNECT can re-sync all of them at once: a
+ * `resource.changed` missed while the socket was down leaves no trace to
+ * recover from later, unlike a notification, which is a row.
+ */
+export const BROADCAST_RESOURCES = [
+  'kyc',
+  'withdrawals',
+  'ib-applications',
+  'clients',
+  'wallets',
+] as const;
+
+/**
+ * Which DATA a CROSS-OPERATOR change refreshes.
+ *
+ * The sibling of `queryKeysFor`, for the other half of "realtime": that map
+ * answers "a client did something", this one answers "another operator
+ * decided something you are looking at". Both were needed, and only the first
+ * existed — so two reviewers working the same queue each saw a list that had
+ * stopped being true, for up to the sixty seconds of the badge poll, with
+ * nothing on screen suggesting it.
+ *
+ * The event carries a resource NAME and nothing else (see the backend's
+ * `resource-changed.ts` for why that emptiness is deliberate), so this map is
+ * the entire interpretation. A resource this build does not know refreshes
+ * nothing, exactly like an unknown kind.
+ */
+export function resourceKeysFor(resource: string): readonly AdminQueryKey[] {
+  switch (resource) {
+    case 'kyc':
+      // The queue, the open detail page and the sidebar badge share one root.
+      return [keys.kyc.all(), keys.clients.all(), keys.stats.all()];
+    case 'withdrawals':
+      return [
+        keys.withdrawals.all(),
+        keys.transactions.all(),
+        keys.wallets.all(),
+        keys.ledger.all(),
+        keys.stats.all(),
+      ];
+    case 'ib-applications':
+      return [keys.ibApplications.all(), keys.stats.all()];
+    case 'clients':
+      return [keys.clients.all(), keys.stats.all()];
+    case 'wallets':
+      return [
+        keys.wallets.all(),
+        keys.transactions.all(),
+        keys.ledger.all(),
+        keys.clients.all(),
+        keys.reconciliation.all(),
+        keys.stats.all(),
+      ];
+    default:
+      return [];
+  }
+}
+
 export function resolveKind(kind: string): KindConfig | undefined {
   // `Object.hasOwn`, not a bare lookup: a hostile or accidental kind slug of
   // 'constructor' or 'toString' would otherwise return an inherited function —

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { KIND_CONFIG, queryKeysFor } from './notification-kinds';
+import {
+  BROADCAST_RESOURCES,
+  KIND_CONFIG,
+  queryKeysFor,
+  resourceKeysFor,
+} from './notification-kinds';
 import { keys, REGISTERED_ROOTS } from '@/lib/query-keys';
 
 /**
@@ -114,5 +119,59 @@ describe('queryKeysFor', () => {
 
   it('ignores a kind the backend invented after this build', () => {
     expect(queryKeysFor('something.nobody.shipped')).toEqual([]);
+  });
+});
+
+describe('resourceKeysFor', () => {
+  it('gives every announced resource something to refresh', () => {
+    /*
+     * The list mirrors the backend's `RESOURCES`. A name only one side knows
+     * is an event that costs a round trip and refreshes nothing — the same
+     * dead-key failure as `queryKeysFor`, arriving from the other direction.
+     */
+    for (const resource of BROADCAST_RESOURCES) {
+      expect(resourceKeysFor(resource), `${resource} refreshes nothing`).not.toHaveLength(0);
+    }
+  });
+
+  it('never invalidates a key no screen reads', () => {
+    for (const resource of BROADCAST_RESOURCES) {
+      for (const key of resourceKeysFor(resource)) {
+        expect(REGISTERED_ROOTS, `${resource} -> ${JSON.stringify(key)}`).toContain(key[0]);
+      }
+    }
+  });
+
+  it("moves another operator's KYC decision off this operator's queue AND badge", () => {
+    // The cross-operator case: two reviewers on one queue. Without this, a row
+    // somebody else had already approved sat in front of the second reviewer
+    // for up to the sixty seconds of the badge poll.
+    const invalidated = resourceKeysFor('kyc');
+    for (const surface of [keys.kyc.queue({ page: 1 }), keys.kyc.pendingCount()]) {
+      expect(invalidated.some((key) => invalidates(key, surface))).toBe(true);
+    }
+  });
+
+  it('reaches the balances a settled withdrawal moved', () => {
+    const invalidated = resourceKeysFor('withdrawals');
+    for (const surface of [
+      keys.withdrawals.pendingCount(),
+      keys.wallets.list({}),
+      keys.ledger.list({}),
+    ]) {
+      expect(invalidated.some((key) => invalidates(key, surface))).toBe(true);
+    }
+  });
+
+  it('leaves the audit log alone', () => {
+    for (const resource of BROADCAST_RESOURCES) {
+      for (const key of resourceKeysFor(resource)) {
+        expect(invalidates(key, keys.auditLog.list({ page: 1 }))).toBe(false);
+      }
+    }
+  });
+
+  it('ignores a resource this build does not know', () => {
+    expect(resourceKeysFor('something-the-backend-added')).toEqual([]);
   });
 });
