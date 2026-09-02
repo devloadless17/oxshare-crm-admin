@@ -11,6 +11,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { SettingsSavedLine } from './settings-saved-line';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The terms a client may open a trading account on — the Trading tab.
@@ -28,7 +29,7 @@ import { SettingsSavedLine } from './settings-saved-line';
  * screen.
  */
 export function TradingSettingsPanel({ canManage }: { canManage: boolean }) {
-  const settings = useResource<TradingSettings>(['trading-settings'], () =>
+  const settings = useResource<TradingSettings>(keys.settings.trading(), () =>
     adminApi.getTradingSettings(),
   );
 
@@ -139,7 +140,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
       setError(null);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2000);
-      void queryClient.invalidateQueries({ queryKey: ['trading-settings'] });
+      void queryClient.invalidateQueries({ queryKey: keys.settings.trading() });
       toastSuccess(t('tradingSettings.saved'));
     },
     // The API's own message. It names the offending leverage — "1OO is not a

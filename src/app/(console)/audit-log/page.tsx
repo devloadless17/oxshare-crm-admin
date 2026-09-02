@@ -19,6 +19,7 @@ import {
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 // D-21: append-only admin action log. Read-only view — there is deliberately
 // no edit or delete anywhere in this flow.
@@ -125,7 +126,7 @@ function AuditLogPageContent() {
    * log. The trail is the thing somebody came for; losing it because a
    * vocabulary request failed would be the wrong trade.
    */
-  const actionsQuery = useResource(['audit-actions'], (signal) =>
+  const actionsQuery = useResource(keys.auditLog.actions(), (signal) =>
     api.admin.getAuditActions(signal),
   );
   const actionOptions = actionsQuery.data ?? [];
@@ -137,7 +138,14 @@ function AuditLogPageContent() {
    * trail is a screen showing rows that do not match what the header claims.
    */
   const { status, data, error, isFetching, refetch } = useResource<AuditListResponse>(
-    ['audit-log', page, pageSize, action, subjectType, sortKey, sortKey ? url.sort.order : null],
+    keys.auditLog.list([
+      page,
+      pageSize,
+      action,
+      subjectType,
+      sortKey,
+      sortKey ? url.sort.order : null,
+    ]),
     async (signal) => {
       const params = new URLSearchParams({
         page: String(page),

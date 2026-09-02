@@ -35,6 +35,7 @@ import {
 } from '@/lib/notification-sound';
 import { resolveKind } from './notification-kinds';
 import { toastNotification } from './notification-toast';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The notification bell, and the panel behind it — live since the
@@ -63,8 +64,8 @@ import { toastNotification } from './notification-toast';
  * row; "Mark all as read" is a button.
  */
 
-const COUNT_KEY = ['admin', 'notifications', 'unread-count'] as const;
-const LIST_KEY = ['admin', 'notifications'] as const;
+const COUNT_KEY = keys.notifications.unreadCount();
+const LIST_KEY = keys.notifications.all();
 const PAGE_SIZE = 30;
 
 export function NotificationsSheet() {
@@ -248,7 +249,7 @@ export function NotificationsSheet() {
 function NotificationsList({ unreadCount }: { unreadCount: number }) {
   const queryClient = useQueryClient();
 
-  const query = useResource([...LIST_KEY, 'list'], (signal) =>
+  const query = useResource(keys.notifications.list(), (signal) =>
     api.admin.getNotifications({ limit: PAGE_SIZE }, signal),
   );
 

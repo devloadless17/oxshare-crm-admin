@@ -11,6 +11,7 @@ import { authApi, type AdminSession } from '@/lib/api/auth';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Where this account is signed in, and a way to end any of it.
@@ -36,14 +37,14 @@ export function AdminSessionsPanel({ icon: Icon }: { icon: LucideIcon }) {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
-  const sessions = useResource<AdminSession[]>(['admin-sessions'], (signal) =>
+  const sessions = useResource<AdminSession[]>(keys.adminUsers.sessions(), (signal) =>
     authApi.sessions(signal),
   );
 
   const revoke = useMutation({
     mutationFn: (id: string) => authApi.revokeSession(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-sessions'] });
+      void queryClient.invalidateQueries({ queryKey: keys.adminUsers.sessions() });
       toastSuccess(t('profile.sessionEnded'));
     },
     onError: (e: unknown) => toastError(e, t('profile.sessionEndFailed')),

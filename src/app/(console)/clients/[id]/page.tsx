@@ -45,6 +45,7 @@ import { buildKycDocUrl } from '@/lib/kyc-doc-url';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
+import { keys } from '@/lib/query-keys';
 
 /**
  * FR-ADM-01's full client profile.
@@ -103,7 +104,7 @@ export default function ClientProfilePage() {
   const [editOpen, setEditOpen] = React.useState(false);
   const [emailOpen, setEmailOpen] = React.useState(false);
 
-  const query = useResource<ClientProfile>(['client', clientId], (signal) =>
+  const query = useResource<ClientProfile>(keys.clients.detail(clientId), (signal) =>
     api.admin.getClient(clientId, signal),
   );
 
@@ -121,12 +122,12 @@ export default function ClientProfilePage() {
    * appear.
    */
   const partnerQuery = useResource<IbPartnerDetail | null>(
-    ['client', clientId, 'partner'],
+    keys.clients.partner(clientId),
     (signal) => api.admin.getPartnerDetail(clientId, signal),
     { enabled: canViewPartners },
   );
 
-  const tagsQuery = useResource(['tags'], (signal) => api.admin.getTags(signal), {
+  const tagsQuery = useResource(keys.tags.all(), (signal) => api.admin.getTags(signal), {
     enabled: canAssignTags,
   });
 
@@ -134,7 +135,13 @@ export default function ClientProfilePage() {
     mutationFn: ({ tagId, attached }: { tagId: string; attached: boolean }) =>
       attached ? api.admin.unassignTag(clientId, tagId) : api.admin.assignTag(clientId, tagId),
     onSuccess: async (_data, { tagId, attached }) => {
-      await queryClient.invalidateQueries({ queryKey: ['client', clientId] });
+      // Also the tags screen: `getTags` returns ClientTagWithCount, so
+      // attaching or detaching moves a number an operator reads elsewhere.
+      // And `clients.all()`, because the list renders each client's tags.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
+        queryClient.invalidateQueries({ queryKey: keys.tags.all() }),
+      ]);
       const label = (tagsQuery.data ?? []).find((tag) => tag.id === tagId)?.label ?? tagId;
       toastSuccess(
         attached

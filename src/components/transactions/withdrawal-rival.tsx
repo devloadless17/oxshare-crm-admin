@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The Rival leg of the withdrawal desk — badge, cancel, and retry.
@@ -164,7 +165,7 @@ export function CancelWithdrawalDialog({
   const [error, setError] = React.useState<string | null>(null);
 
   const reasons = useResource<RejectionReason[]>(
-    ['rejection-reasons', 'withdrawal'],
+    keys.withdrawals.rejectionReasons(),
     () => adminApi.getRejectionReasons('withdrawal'),
     { enabled: target !== null },
   );

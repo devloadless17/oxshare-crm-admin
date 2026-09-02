@@ -12,6 +12,7 @@ import { AccessDenied } from '@/components/access-denied';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Create a commission programme — was the "create" state of a modal on
@@ -45,7 +46,7 @@ export default function NewIbProgramPage() {
   const save = useMutation({
     mutationFn: (values: IbProgramFormValues) => api.admin.createIbProgram(values),
     onSuccess: async (_data, values) => {
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'ib-programs'] });
+      await queryClient.invalidateQueries({ queryKey: keys.ibPrograms.all() });
       router.push('/ib-programs');
       /*
        * AFTER the navigation, and that is why this is a toast rather than

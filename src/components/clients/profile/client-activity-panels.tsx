@@ -10,6 +10,7 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { formatDecimal, formatMoney, isZeroMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The client's own trading and money history, as two tables.
@@ -60,7 +61,7 @@ export function ClientPositionsPanel({
   const [page, setPage] = React.useState(1);
 
   const query = useResource(
-    ['client', userId, 'positions', status, page],
+    keys.clients.positions(userId, status, page),
     (signal) => api.admin.getClientPositions(userId, { status, page, limit: PAGE_SIZE }, signal),
     { enabled: Boolean(userId) },
   );
@@ -181,7 +182,7 @@ export function ClientTransactionsPanel({ userId }: { userId: string }) {
   const [page, setPage] = React.useState(1);
 
   const query = useResource(
-    ['client', userId, 'transactions', page],
+    keys.clients.transactions(userId, page),
     (signal) => api.admin.getClientTransactions(userId, { page, limit: PAGE_SIZE }, signal),
     { enabled: Boolean(userId) },
   );

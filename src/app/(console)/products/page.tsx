@@ -16,6 +16,7 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ProductFormModal, type ProductFormValues } from '@/components/products/product-form-modal';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * What the broker sells.
@@ -65,9 +66,9 @@ export default function ProductsPage() {
   const [editing, setEditing] = React.useState<Product | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
 
-  const query = useResource<Product[]>(['admin', 'products'], () => adminApi.getProducts());
+  const query = useResource<Product[]>(keys.products.all(), () => adminApi.getProducts());
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.products.all() });
 
   /**
    * Save the product AND reconcile its groups.
@@ -127,7 +128,7 @@ export default function ProductsPage() {
       setFormOpen(false);
       setEditing(undefined);
       await invalidate();
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'available-groups'] });
+      await queryClient.invalidateQueries({ queryKey: keys.products.availableGroups() });
       toastSuccess(t('products.saveSucceeded', { name: values.name }));
     },
     // Inline in the modal, which stays open — the refusals here name the field,

@@ -13,6 +13,7 @@ import type {
 } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The ceiling to assume while the real one is still loading.
@@ -216,7 +217,7 @@ export function IbProgramForm({
    * How deep this deployment lets a ladder go. Cached by react-query under its
    * own key, so opening the modal repeatedly costs one request in total.
    */
-  const limits = useResource<IbProgramLimits>(['admin', 'ib-program-limits'], (signal) =>
+  const limits = useResource<IbProgramLimits>(keys.ibPrograms.limits(), (signal) =>
     api.admin.getIbProgramLimits(signal),
   );
   const maxTiers = limits.data?.maxLevels ?? ASSUMED_MAX_TIERS;

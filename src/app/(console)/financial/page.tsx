@@ -32,6 +32,7 @@ import { TransactionFilters } from '@/components/financial/transaction-filters';
 import { TransactionSummary } from '@/components/financial/transaction-summary';
 import { transactionColumns } from '@/components/financial/transaction-columns';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * RBAC-03 — what each masked catalog key is CALLED in the notice above the
@@ -135,7 +136,7 @@ function FinancialPageContent() {
     order: sortKey ? url.sort.order : undefined,
   };
 
-  const query = useResource<TransactionListResponse>(['admin', 'transactions', params], (signal) =>
+  const query = useResource<TransactionListResponse>(keys.transactions.list(params), (signal) =>
     api.admin.getTransactions(params, signal),
   );
   /*
@@ -146,12 +147,12 @@ function FinancialPageContent() {
    */
   const summaryParams = { ...filterParams, direction: undefined, kind: undefined };
   const summaryQuery = useResource<TransactionsSummary>(
-    ['admin', 'transactions', 'summary', summaryParams],
+    keys.transactions.summary(summaryParams),
     (signal) => api.admin.getTransactionsSummary(summaryParams, signal),
   );
   // The currency vocabulary from its own endpoint, never from the rows on
   // screen — the wallets page records why (paging would change the options).
-  const currenciesQuery = useResource<Currency[]>(['admin', 'currencies'], (signal) =>
+  const currenciesQuery = useResource<Currency[]>(keys.currencies.all(), (signal) =>
     api.admin.getCurrencies(signal),
   );
 

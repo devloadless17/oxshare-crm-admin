@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PageLoader } from '@/components/ui/loader';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Set a password and activate an invited administrator account.
@@ -75,7 +76,7 @@ function AcceptInviteContent() {
   // version wrote the failure into the same `error` box the password form uses,
   // so a bad token and a bad password were indistinguishable.
   const validation = useQuery({
-    queryKey: ['invite', token],
+    queryKey: keys.invite.one(token),
     // Typed against the generated schema. This route carried no @ApiOkResponse,
     // so its shape was hand-written here — outside the one mechanism that stops
     // these two repos drifting apart. The backend now publishes it.

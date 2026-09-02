@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { formatDecimal } from '@/lib/money';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The two partner edits that need a CHOICE, so neither fits in a confirm.
@@ -63,16 +64,14 @@ export function ChangeProgramDialog({
   const queryClient = useQueryClient();
   const [programId, setProgramId] = React.useState(partner.programId);
 
-  const programs = useResource(
-    ['admin', 'ib-programs'],
-    (signal) => api.admin.getIbPrograms(signal),
-    { enabled: open },
-  );
+  const programs = useResource(keys.ibPrograms.all(), (signal) => api.admin.getIbPrograms(signal), {
+    enabled: open,
+  });
 
   const save = useMutation({
     mutationFn: () => api.admin.changeIbPartnerProgram(partner.userId, programId),
     onSuccess: async () => {
-      await invalidateBoth(queryClient, partner.userId);
+      await invalidatePartnerViews(queryClient);
       toastSuccess(t('clientProfile.programChanged'));
       onClose();
     },
@@ -176,7 +175,7 @@ export function ReassignParentDialog({
   const [parentId, setParentId] = React.useState<string | null>(partner.parent?.userId ?? null);
 
   const partners = useResource(
-    ['admin', 'ib-partners', 'for-reassign'],
+    keys.ibPartners.forReassign(),
     (signal) => api.admin.getIbPartners({ page: 1, limit: 100 }, signal),
     { enabled: open },
   );
@@ -184,7 +183,7 @@ export function ReassignParentDialog({
   const save = useMutation({
     mutationFn: () => api.admin.reassignIbPartnerParent(partner.userId, parentId),
     onSuccess: async () => {
-      await invalidateBoth(queryClient, partner.userId);
+      await invalidatePartnerViews(queryClient);
       toastSuccess(t('clientProfile.parentChanged'));
       onClose();
     },
@@ -322,12 +321,26 @@ function Footer({
   );
 }
 
-async function invalidateBoth(
+/**
+ * Every screen a partner change is read back from.
+ *
+ * It was `invalidateBoth(queryClient, userId)` — the profile and its partner
+ * panel — and the name was accurate about what it did and wrong about what was
+ * needed. One `clients.all()` now covers the profile, its panels and the list;
+ * `ibPartners.all()` covers the list-side picker.
+ */
+async function invalidatePartnerViews(
   queryClient: ReturnType<typeof useQueryClient>,
-  userId: string,
 ): Promise<void> {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: ['client', userId] }),
-    queryClient.invalidateQueries({ queryKey: ['client', userId, 'partner'] }),
+    queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
+    /*
+     * The clients LIST opens this same dialog through
+     * `change-program-from-list.tsx`, which reads the partner under
+     * `ibPartners.detail(userId)` — a key nothing used to invalidate, so
+     * reopening the same row within the 30s staleTime showed the programme
+     * the operator had just changed away from.
+     */
+    queryClient.invalidateQueries({ queryKey: keys.ibPartners.all() }),
   ]);
 }

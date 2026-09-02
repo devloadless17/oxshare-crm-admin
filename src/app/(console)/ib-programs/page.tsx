@@ -16,6 +16,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Commission programmes — FR-ADM-10, and the screen behind FR-IB-05/06/16.
@@ -59,11 +60,11 @@ export default function IbProgramsPage() {
   /* Which row's actions are mid-flight, so only that menu shows a spinner. */
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
-  const query = useResource<IbProgram[]>(['admin', 'ib-programs'], (signal) =>
+  const query = useResource<IbProgram[]>(keys.ibPrograms.all(), (signal) =>
     api.admin.getIbPrograms(signal),
   );
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'ib-programs'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.ibPrograms.all() });
 
   /*
    * ── SWITCHING A PROGRAMME OFF IS AN ACTION, NOT A FIELD ──────────────────

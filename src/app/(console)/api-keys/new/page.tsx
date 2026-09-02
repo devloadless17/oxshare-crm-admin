@@ -14,6 +14,7 @@ import { t } from '@/lib/i18n';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { AccessDenied } from '@/components/access-denied';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Issue an API key — a page, not a dialog.
@@ -71,7 +72,7 @@ function NewApiKeyForm() {
   // The catalog is the server's vocabulary (R-4.5) — the frontend must never
   // invent a permission key, so the picker is built from what the API returns.
   const catalog = useQuery({
-    queryKey: ['permissions'],
+    queryKey: keys.permissions.all(),
     queryFn: () => api.admin.getPermissions(),
   });
 

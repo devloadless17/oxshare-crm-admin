@@ -41,6 +41,7 @@ import { WithdrawalStateChart } from '@/components/dashboard/withdrawal-state-ch
 import { WithdrawalVolumeChart } from '@/components/dashboard/withdrawal-volume-chart';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The back-office dashboard.
@@ -101,7 +102,7 @@ export default function AdminDashboardPage() {
   const canAnyStats = canViewClients || canReviewKyc || canViewWithdrawals || canViewIb;
 
   const overview = useResource<StatsOverview>(
-    ['admin', 'stats', 'overview'],
+    keys.stats.overview(),
     (signal) => api.admin.getStatsOverview(signal),
     { enabled: canAnyStats },
   );
@@ -113,25 +114,25 @@ export default function AdminDashboardPage() {
    * previous render on screen meanwhile, which is what `ChartCard` dims.
    */
   const registrations = useResource<RegistrationSeries>(
-    ['admin', 'stats', 'registrations', days],
+    keys.stats.registrations(days),
     (signal) => api.admin.getRegistrationSeries(days, signal),
     { enabled: canViewClients },
   );
 
   const kycTrend = useResource<KycTrendSeries>(
-    ['admin', 'stats', 'kyc-trend', days],
+    keys.stats.kycTrend(days),
     (signal) => api.admin.getKycTrend(days, signal),
     { enabled: canReviewKyc },
   );
 
   const withdrawalVolume = useResource<WithdrawalVolumeSeries>(
-    ['admin', 'stats', 'withdrawal-volume', days],
+    keys.stats.withdrawalVolume(days),
     (signal) => api.admin.getWithdrawalVolume(days, signal),
     { enabled: canViewWithdrawals },
   );
 
   const recentKyc = useResource<KycListResponse>(
-    ['admin', 'stats', 'recent-kyc'],
+    keys.stats.recentKyc(),
     async (signal) =>
       (await api.get<KycListResponse>('/admin/kyc?status=submitted&limit=5', { signal })).data,
     { enabled: canReviewKyc },

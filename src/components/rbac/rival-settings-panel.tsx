@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The Rival connection — the Payments tab.
@@ -41,7 +42,7 @@ import { t } from '@/lib/i18n';
  * view exists for exactly that conversation.
  */
 export function RivalSettingsPanel({ canManage }: { canManage: boolean }) {
-  const settings = useResource<RivalSettings>(['rival-settings'], () =>
+  const settings = useResource<RivalSettings>(keys.settings.rival(), () =>
     adminApi.getRivalSettings(),
   );
 
@@ -93,7 +94,7 @@ function RivalForm({ settings, canManage }: { settings: RivalSettings; canManage
       setSaved(true);
       setApiKey('');
       window.setTimeout(() => setSaved(false), 2000);
-      void queryClient.invalidateQueries({ queryKey: ['rival-settings'] });
+      void queryClient.invalidateQueries({ queryKey: keys.settings.rival() });
       toastSuccess(t('rival.saved'));
     },
     onError: (e: unknown) => setError(apiErrorMessage(e, t('rival.updateFailed'))),
@@ -104,7 +105,7 @@ function RivalForm({ settings, canManage }: { settings: RivalSettings; canManage
     onSuccess: (key) => {
       setError(null);
       setMinted(key);
-      void queryClient.invalidateQueries({ queryKey: ['rival-settings'] });
+      void queryClient.invalidateQueries({ queryKey: keys.settings.rival() });
     },
     onError: (e: unknown) => setError(apiErrorMessage(e, t('rival.mintFailed'))),
   });

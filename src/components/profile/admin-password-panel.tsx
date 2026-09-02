@@ -10,6 +10,7 @@ import { authApi } from '@/lib/api/auth';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /** The server's floor, mirrored so the button can say so before the round trip. */
 const MIN_LENGTH = 8;
@@ -56,7 +57,7 @@ export function AdminPasswordPanel({ icon: Icon }: { icon: LucideIcon }) {
       setNewPassword('');
       setConfirmPassword('');
       // The other sessions are gone as of this response — see above.
-      void queryClient.invalidateQueries({ queryKey: ['admin-sessions'] });
+      void queryClient.invalidateQueries({ queryKey: keys.adminUsers.sessions() });
       toastSuccess(t('profile.passwordChanged'), result.message);
     },
     // The API's own message: it distinguishes "current password is not correct"

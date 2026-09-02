@@ -10,6 +10,7 @@ import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { toastSuccess } from '@/lib/toast';
 import { t, type MessageKey } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The trading-terminal download links clients see on their Platforms page.
@@ -44,7 +45,9 @@ const LABELS: Record<string, MessageKey> = {
 };
 
 export function PlatformLinksPanel({ canManage }: { canManage: boolean }) {
-  const links = useResource<PlatformLink[]>(['platform-links'], () => adminApi.getPlatformLinks());
+  const links = useResource<PlatformLink[]>(keys.settings.platformLinks(), () =>
+    adminApi.getPlatformLinks(),
+  );
 
   return (
     <section className="rounded-xl border border-border bg-card p-5 space-y-4">
@@ -97,7 +100,7 @@ function PlatformRow({ link, canManage }: { link: PlatformLink; canManage: boole
       setError(null);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2000);
-      void queryClient.invalidateQueries({ queryKey: ['platform-links'] });
+      void queryClient.invalidateQueries({ queryKey: keys.settings.platformLinks() });
       /*
        * The button's own "Saved ✓" is a two-second state of the CONTROL; this
        * is the console-wide record of the write, and the two are not the same

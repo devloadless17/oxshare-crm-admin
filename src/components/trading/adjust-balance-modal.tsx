@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Credit or debit a trading account directly on MT5.
@@ -72,7 +73,12 @@ export function AdjustBalanceModal({
       }),
     onSuccess: (result) => {
       setError(null);
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'trading-accounts'] });
+      // An adjustment writes a transaction row, so the Financial page, the
+      // ledger and the client's transactions tab all changed with it.
+      void queryClient.invalidateQueries({ queryKey: keys.tradingAccounts.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.transactions.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.ledger.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.clients.all() });
       toastSuccess(
         t(direction === 'deposit' ? 'tradingAccounts.deposited' : 'tradingAccounts.withdrawn', {
           amount: `${amount.trim()} ${currency}`,

@@ -9,6 +9,7 @@ import { useResource } from '@/hooks/use-resource';
 import { Badge } from '@/components/ui/badge';
 import { PermittedLink } from '@/components/permitted-link';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The downline, drawn as the tree it actually is.
@@ -113,12 +114,12 @@ function Branch({
   const needsFetch = enabled && preloadedPartner === undefined;
 
   const partnerQuery = useResource<IbPartnerDetail | null>(
-    ['client', userId, 'partner'],
+    keys.clients.partner(userId),
     (signal) => api.admin.getPartnerDetail(userId, signal),
     { enabled: needsFetch },
   );
   const profileQuery = useResource<ClientProfile>(
-    ['client', userId],
+    keys.clients.detail(userId),
     (signal) => api.admin.getClient(userId, signal),
     { enabled: needsFetch },
   );

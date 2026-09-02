@@ -8,6 +8,7 @@ import type { ClientProfile } from '@/lib/api/admin';
 import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * CORE-18's two client edits, and they are deliberately two dialogs.
@@ -44,7 +45,7 @@ async function refreshProfile(
   queryClient: ReturnType<typeof useQueryClient>,
   clientId: string,
 ): Promise<void> {
-  await queryClient.invalidateQueries({ queryKey: ['client', clientId] });
+  await queryClient.invalidateQueries({ queryKey: keys.clients.detail(clientId) });
 }
 
 /* ── Profile ──────────────────────────────────────────────────────────────── */

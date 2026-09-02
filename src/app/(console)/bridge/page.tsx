@@ -10,6 +10,7 @@ import { t } from '@/lib/i18n';
 import { BridgeLogsPanel } from '@/components/bridge/bridge-logs-panel';
 import { BridgeOperationsPanel } from '@/components/bridge/bridge-operations-panel';
 import { BridgeOutboxPanel } from '@/components/bridge/bridge-outbox-panel';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Is the MT5 bridge doing its job — and did it leave anything unresolved.
@@ -78,7 +79,7 @@ function OutboxTab() {
   const [pendingOnly, setPendingOnly] = React.useState(false);
 
   const outbox = useResource(
-    ['bridge-outbox', pendingOnly],
+    keys.bridge.outbox(pendingOnly),
     (signal) => api.admin.getBridgeOutbox({ pending: pendingOnly, limit: 200 }, signal),
     // One attempt. A bridge that is down should say so immediately rather than
     // after three silent retries — the delay is the whole cost on a screen
@@ -109,7 +110,7 @@ function OperationsTab() {
   const [stuckOnly, setStuckOnly] = React.useState(false);
 
   const operations = useResource(
-    ['bridge-operations', stuckOnly],
+    keys.bridge.operations(stuckOnly),
     (signal) => api.admin.getBridgeOperations({ stuck: stuckOnly, limit: 200 }, signal),
     { retry: 0 },
   );
@@ -142,7 +143,7 @@ function LogsTab() {
    * term — the one moment a log view actively misleads.
    */
   const logs = useResource(
-    ['bridge-logs', contains],
+    keys.bridge.logs(contains),
     (signal) => api.admin.getBridgeLogs({ lines: 400, contains: contains || undefined }, signal),
     { retry: 0 },
   );

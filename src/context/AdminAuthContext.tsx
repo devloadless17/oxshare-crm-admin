@@ -11,6 +11,7 @@ import { isPublicPath } from '@/lib/public-paths';
 import { clearSessionHint, markSessionHint } from '@/lib/session-hint';
 import { loginPathFor } from '@/lib/return-to';
 import type { components } from '@/lib/api/types.gen';
+import { keys } from '@/lib/query-keys';
 
 // Generated from the backend's Swagger — never hand-written. A rename of
 // `permissions` becomes a compile error here instead of hasPermission()
@@ -103,7 +104,7 @@ export function AdminAuthProvider({
     error,
     refetch: refetchMe,
   } = useQuery({
-    queryKey: ['admin', 'me'],
+    queryKey: keys.session.me(),
     queryFn: async () => {
       const res = await apiClient.get<AdminProfile>('/admin/auth/me');
       startProactiveRefresh();
@@ -183,7 +184,7 @@ export function AdminAuthProvider({
   }, [refetchMe]);
 
   const refetchAdmin = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['admin', 'me'] });
+    await queryClient.invalidateQueries({ queryKey: keys.session.me() });
     // `invalidateQueries` resolves even when the refetch behind it errored, so
     // the ANSWER has to be read from the query itself.
     const result = await refetchMe();

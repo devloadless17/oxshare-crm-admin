@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * ADM-13 — the append-only ledger. `GET /admin/ledger`.
@@ -98,7 +99,7 @@ function LedgerPageContent() {
     walletId: walletId || undefined,
   };
 
-  const query = useResource<LedgerListResponse>(['admin', 'ledger', params], (signal) =>
+  const query = useResource<LedgerListResponse>(keys.ledger.list(params), (signal) =>
     api.admin.getLedger(params, signal),
   );
 

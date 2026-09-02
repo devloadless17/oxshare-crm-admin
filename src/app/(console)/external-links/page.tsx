@@ -20,6 +20,7 @@ import {
   type ExternalLinkFormValues,
 } from '@/components/external-links/external-link-form-modal';
 import { t } from '@/lib/i18n';
+import { keys } from '@/lib/query-keys';
 
 /**
  * The links the operator puts on the client portal's sidebar.
@@ -59,7 +60,7 @@ export default function ExternalLinksPage() {
   const canDelete = hasPermission(admin, 'externallinks.delete');
   const canManage = canCreate || canEdit || canDelete;
 
-  const query = useResource(['admin', 'external-links'], (signal) =>
+  const query = useResource(keys.externalLinks.all(), (signal) =>
     api.admin.getExternalLinks(signal),
   );
 
@@ -67,7 +68,7 @@ export default function ExternalLinksPage() {
   const [editing, setEditing] = React.useState<ExternalLink | null>(null);
   const [formError, setFormError] = React.useState<string | undefined>();
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'external-links'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.externalLinks.all() });
 
   const save = useMutation({
     mutationFn: (values: ExternalLinkFormValues) =>

@@ -252,6 +252,43 @@ export default defineConfig([
   },
 
   {
+    // ── Query keys come from the registry, never from a literal ─────────────
+    // React Query's prefix matching fails SILENTLY: an invalidate against a
+    // key no query uses matches nothing, resolves happily, and refetches
+    // nothing. There is no error and no warning. That produced five separate
+    // production-visible staleness bugs in this app — a KYC approval leaving
+    // the sidebar badge reading 1, a suspended client still listed as Active,
+    // and three realtime events refreshing keys that named nothing at all.
+    //
+    // `src/lib/query-keys.ts` is the single definition of every key. This rule
+    // is what stops the next screen from inventing one beside it.
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: [
+      'src/lib/query-keys.ts',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      // The generic primitive: it RECEIVES a key, it does not author one.
+      'src/hooks/use-resource.ts',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "Property[key.name='queryKey'] > ArrayExpression",
+          message:
+            'Query keys come from src/lib/query-keys.ts (e.g. keys.kyc.queue(params)). An inline key silently drifts from the one the screen reads, and React Query reports nothing when it does.',
+        },
+        {
+          selector:
+            'CallExpression[callee.property.name=/^(invalidate|remove|cancel|refetch|reset)Queries$/] ArrayExpression',
+          message:
+            'Invalidate through src/lib/query-keys.ts (e.g. keys.kyc.all()). An invalidate against a key no query uses matches nothing and resolves successfully — the exact failure this registry exists to remove.',
+        },
+      ],
+    },
+  },
+
+  {
     // ── Layering: the shared layers know nothing about the pages ────────────
     // PLATFORM-CONVENTIONS R-2.5.1. The backend enforces the same direction
     // (`store/`, `common/`, `config/`, `database/` may not import `modules/**`);

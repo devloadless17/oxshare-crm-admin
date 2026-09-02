@@ -10,6 +10,7 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { keys } from '@/lib/query-keys';
 
 /**
  * RBAC-08 — which networks may reach the administration API.
@@ -40,14 +41,14 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
  */
 export function IpAllowlistPanel({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient();
-  const query = useResource<IpAllowlistStatus>(['admin', 'ip-allowlist'], (signal) =>
+  const query = useResource<IpAllowlistStatus>(keys.settings.ipAllowlist(), (signal) =>
     api.admin.getIpAllowlist(signal),
   );
 
   const [cidr, setCidr] = React.useState('');
   const [label, setLabel] = React.useState('');
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin', 'ip-allowlist'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.settings.ipAllowlist() });
 
   const addRule = useMutation({
     mutationFn: () => api.admin.addIpAllowlistRule({ cidr: cidr.trim(), label: label.trim() }),

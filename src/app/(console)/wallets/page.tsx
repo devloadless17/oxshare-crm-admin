@@ -41,6 +41,7 @@ import { t } from '@/lib/i18n';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { formatMoney } from '@/lib/money';
+import { keys } from '@/lib/query-keys';
 
 /**
  * Client wallets — `GET /admin/wallets`.
@@ -140,7 +141,7 @@ function WalletsPageContent() {
     order: sortKey ? url.sort.order : undefined,
   };
 
-  const query = useResource<WalletListResponse>(['admin', 'wallets', params], (signal) =>
+  const query = useResource<WalletListResponse>(keys.wallets.list(params), (signal) =>
     api.admin.getWallets(params, signal),
   );
 
@@ -154,7 +155,7 @@ function WalletsPageContent() {
    * defect the client list's country filter was removed for. Its own resource,
    * so a failure here degrades the filter rather than the wallet list.
    */
-  const currenciesQuery = useResource<Currency[]>(['admin', 'currencies'], (signal) =>
+  const currenciesQuery = useResource<Currency[]>(keys.currencies.all(), (signal) =>
     api.admin.getCurrencies(signal),
   );
   const currencies = currenciesQuery.data ?? [];
@@ -196,7 +197,7 @@ function WalletsPageContent() {
       const wallet = closing;
       setClosing(undefined);
       setCloseError(undefined);
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'wallets'] });
+      void queryClient.invalidateQueries({ queryKey: keys.wallets.all() });
       toastSuccess(
         t('wallets.closeSucceeded', {
           currency: wallet?.currency ?? '',
@@ -247,8 +248,19 @@ function WalletsPageContent() {
       const wallet = crediting;
       setCrediting(undefined);
       setCreditError(undefined);
-      // The balance and the client's transaction list both changed.
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'wallets'] });
+      /*
+       * The balance and the client's transaction list both changed — this
+       * comment said so while the code invalidated only the first, so the
+       * Financial page and the ledger kept showing the state before the
+       * credit. `creditWallet` goes through `creditDeposit`, which writes a
+       * transaction row and a ledger entry beside the wallet update.
+       */
+      void queryClient.invalidateQueries({ queryKey: keys.wallets.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.transactions.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.ledger.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.clients.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.reconciliation.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.stats.all() });
       /*
        * The AMOUNT is in the toast, formatted, because this is the one action in
        * the console that moves money on an operator's say-so alone. The modal
