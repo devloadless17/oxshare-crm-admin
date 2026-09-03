@@ -21,7 +21,7 @@ import {
   Gauge,
   CreditCard,
   Handshake,
-  Percent,
+  Layers,
   ClipboardList,
   ShieldCheck,
   Lock,
@@ -218,7 +218,7 @@ const NAV_SECTIONS: NavSection[] = [
          second screen owning "where a partner stands"; 0102 folded that into the
          programme's own tier ladder, so the terms and their reach are configured
          in one place and cannot disagree. */
-      { label: 'nav.ibPrograms', href: '/ib-programs', icon: Percent },
+      { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
       /*
        * Agencies sit with the partners rather than with Products, because that
        * is who they are about: a وكالة is the programme a partner is appointed

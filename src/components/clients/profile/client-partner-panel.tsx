@@ -43,26 +43,55 @@ export function ClientPartnerPanel({
     <div className="grid gap-6 lg:grid-cols-2">
       <ProfileCard title={t('clientProfile.partnerStanding')}>
         <dl className="grid grid-cols-2 gap-4">
-          {/* The TERMS, which replaced the rung and its rate (0102). Both of
-              those described a placement that had decided nothing since the
-              programmes landed — printed here as if they were what the partner
-              earns. */}
-          <Cell label={t('clientProfile.partnerProgramme')}>
+          {/*
+              The RUNG and the terms it carries (0112). Both replaced a named
+              programme with its per-depth ladder — and, before that, a rung and
+              a rate that had decided nothing since the programmes landed.
+
+              The terms are NULLABLE and are not rendered as zeroes when absent:
+              a partner standing deeper than the ladder is configured for has no
+              terms at all, and showing "0%" would present that as a decision
+              somebody made rather than as the gap it is.
+          */}
+          <Cell label={t('clientProfile.partnerLevel')}>
             <span className="font-semibold">
-              {detail.programName ?? t('clientProfile.partnerProgrammeGone')}
+              {detail.levelName === null
+                ? t('clientProfile.partnerLevelUnconfigured', { level: String(detail.level) })
+                : t('clientProfile.levelOption', {
+                    level: String(detail.level),
+                    name: detail.levelName,
+                  })}
             </span>
+            {!detail.levelEnabled && (
+              <span className="mt-0.5 block text-[11px] text-warning">
+                {t('clientProfile.partnerLevelNotPaying')}
+              </span>
+            )}
           </Cell>
 
-          <Cell label={t('clientProfile.partnerLadder')}>
-            {/* Every level and the REACH. The count is not decoration: it is how
-                far down this partner's network their earnings travel. */}
-            {detail.programTiers.length === 0 ? (
+          <Cell label={t('clientProfile.partnerTerms')}>
+            {detail.levelCommissionMode === null ? (
               <span className="text-muted-foreground">—</span>
             ) : (
               <span className="tabular font-semibold">
-                {detail.programTiers
-                  .map((tier) => `L${tier.depth} ${formatDecimal(tier.rate)}%`)
-                  .join(' · ')}
+                {t('clientProfile.levelTerms', {
+                  commission:
+                    detail.levelCommissionMode === 'per_lot'
+                      ? t('clientProfile.termPerLot', {
+                          amount: formatDecimal(detail.levelCommissionAmountPerLot ?? '0'),
+                        })
+                      : t('clientProfile.termPercent', {
+                          rate: formatDecimal(detail.levelCommissionRate ?? '0'),
+                        }),
+                  rebate:
+                    detail.levelRebateMode === 'per_lot'
+                      ? t('clientProfile.termPerLot', {
+                          amount: formatDecimal(detail.levelRebateAmountPerLot ?? '0'),
+                        })
+                      : t('clientProfile.termPercent', {
+                          rate: formatDecimal(detail.levelRebateRate ?? '0'),
+                        }),
+                })}
               </span>
             )}
           </Cell>
@@ -183,7 +212,9 @@ export function ClientPartnerPanel({
                   <span className="font-mono text-[11px] text-muted-foreground">
                     {sub.referralCode}
                   </span>
-                  <Badge variant="tag">{sub.programName}</Badge>
+                  <Badge variant="tag">
+                    {t('clientProfile.levelBadge', { level: String(sub.level) })}
+                  </Badge>
                   {!sub.active && (
                     <Badge variant="warning">{t('clientProfile.partnerSuspended')}</Badge>
                   )}

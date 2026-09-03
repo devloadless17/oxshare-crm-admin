@@ -85,20 +85,17 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
    */
   const [maxLevels, setMaxLevels] = React.useState(String(settings.ibMaxLevels));
   /*
-   * The total payout ceiling (0106) — the SECOND number of that kind, and it
-   * bounds something no programme can see about itself.
+   * ── THE TWO PAYOUT CEILINGS ARE NOT ON THIS FORM (0112) ──────────────────
    *
-   * `ib_programs_share_fits` already stops ONE programme paying out more than
-   * 100%. It cannot stop two: the earners on a trade may hold different
-   * programmes, each inside its own limit and together over the broker's. The
-   * seeded catalogue was exactly that — 60% at depth 1 and 40% at depth 2 paid
-   * out the entire revenue and nothing refused it.
+   * `ibMaxTotalPayoutPct` and `ibMaxPayoutPerLot` had inputs here. Both are
+   * still stored and still enforced on every accrual — they are the
+   * unit-error backstop that refuses a rate meaning 70x rather than 70%.
+   * What went is the CONTROL, on an explicit instruction.
    *
-   * Kept as the RAW STRING the user typed, like `maxDemoDeposit` beside it and
-   * unlike the counts: it is a decimal that reaches the money path, and
-   * round-tripping it through a number is what §6.1 exists to prevent.
+   * The API dropped them from the PUT with the fields, so this form no longer
+   * sends them and the columns keep whatever they hold — 100% and $50 a lot by
+   * default, both far above any real rate card.
    */
-  const [maxPayout, setMaxPayout] = React.useState(trimAmount(settings.ibMaxTotalPayoutPct));
   /*
    * ── NO OTHER IB STATE HERE (0104) ────────────────────────────────────────
    *
@@ -134,7 +131,6 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         maxDemoAccounts: parseCount(maxDemoAccounts),
         maxDemoDeposit: maxDemoDeposit.trim(),
         ibMaxLevels: parseLevels(maxLevels, settings.ibMaxLevels),
-        ibMaxTotalPayoutPct: maxPayout.trim(),
       }),
     onSuccess: () => {
       setError(null);
@@ -152,8 +148,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
     maxLiveAccounts.trim() !== String(settings.maxLiveAccounts) ||
     maxDemoAccounts.trim() !== String(settings.maxDemoAccounts) ||
     maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit) ||
-    maxLevels.trim() !== String(settings.ibMaxLevels) ||
-    maxPayout.trim() !== trimAmount(settings.ibMaxTotalPayoutPct);
+    maxLevels.trim() !== String(settings.ibMaxLevels);
 
   const disabled = !canManage || mutation.isPending;
   const clear = () => setError(null);
@@ -300,53 +295,20 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         />
       </Field>
 
-      <Field
-        id="trading-max-payout"
-        label={t('tradingSettings.maxPayout')}
-        hint={t('tradingSettings.maxPayoutHint')}
-      >
-        <input
-          id="trading-max-payout"
-          type="number"
-          value={maxPayout}
-          onChange={(e) => {
-            setMaxPayout(e.target.value);
-            clear();
-          }}
-          disabled={disabled}
-          required
-          /*
-           * Above 0 and at most 100, matching the CHECK behind the column.
-           *
-           * Not zero, for a harder reason than the ladder ceiling above: zero
-           * here refuses every chain on the platform, which is a way to stop
-           * paying every partner by typing a number into a settings form.
-           * Switching terms off is what a programme's own `enabled` flag does,
-           * and that control says so on the screen it lives on.
-           *
-           * `step` is 0.01 rather than 1 because this is a rate, not a count —
-           * 62.5 is an ordinary answer here and a whole-number stepper would
-           * make it look like a mistake.
-           */
-          min={0.01}
-          max={100}
-          step={0.01}
-          className={`${INPUT_CLASS} font-mono tabular-nums`}
-        />
-      </Field>
-
       {/*
-        ── THE OTHER IB CONTROLS ARE GONE FROM THIS FORM (0104) ──────────────
+        ── EVERY OTHER IB CONTROL IS GONE FROM THIS FORM (0104, 0112) ────────
 
-        Four fields sat here and every one changed what partners are paid:
+        Four fields went in 0104 and each changed what partners are paid:
         "Maximum paid to partners (%)", the settlement window, "Commission is
-        paid from" / "Paying from", and "Partners are paid on".
+        paid from" / "Paying from", and "Partners are paid on". The two payout
+        ceilings followed them in 0112.
 
-        Commission is configured on the Commission Programmes page. Keeping a
-        second screen that also decides partner pay is a second place for two
-        answers to disagree, with nothing telling an operator which one the
-        money used — the same fault removed from the catalogue itself when
-        `ib_levels` sat beside `ib_programs`.
+        Commission is configured on the Commission Levels page. A second screen
+        that also decides partner pay is a second place for two answers to
+        disagree, with nothing telling an operator which one the money used.
+
+        What is LEFT here passes the test those failed: the ladder ceiling
+        BOUNDS how deep that page may reach rather than restating what it pays.
       */}
 
       {error && (

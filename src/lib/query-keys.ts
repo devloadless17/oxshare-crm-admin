@@ -127,9 +127,9 @@ export const keys = {
     pendingCount: () => ['ib-applications', 'pending-count'] as const,
   },
 
-  ibPrograms: {
-    all: () => ['ib-programs'] as const,
-    limits: () => ['ib-programs', 'limits'] as const,
+  ibLevels: {
+    all: () => ['ib-levels'] as const,
+    limits: () => ['ib-levels', 'limits'] as const,
   },
 
   ibPartners: {

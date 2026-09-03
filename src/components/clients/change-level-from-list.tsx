@@ -3,7 +3,7 @@
 import api from '@/lib/api';
 import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
-import { ChangeProgramDialog } from '@/components/clients/profile/client-partner-dialogs';
+import { ChangeLevelDialog } from '@/components/clients/profile/client-partner-dialogs';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -12,24 +12,24 @@ import { keys } from '@/lib/query-keys';
  *
  * ## Why this wrapper exists rather than a second dialog
  *
- * `ChangeProgramDialog` takes an `IbPartnerDetail` — it shows the ladder the
- * partner is on today, so it cannot render from a `ClientRow`, which carries a
- * name and a status and nothing about commission. The list therefore has to
- * FETCH that detail before the dialog has anything to say.
+ * `ChangeLevelDialog` takes an `IbPartnerDetail` — it seeds the picker from the
+ * rung the partner stands on today, so it cannot render from a `ClientRow`,
+ * which carries a name and a status and nothing about commission. The list
+ * therefore has to FETCH that detail before the dialog has anything to say.
  *
  * Fetching here rather than teaching the dialog two modes keeps one control
  * over a partner's terms in one file. Two dialogs that both write
- * `PATCH /admin/ib/partners/:id/program` is how the profile page and the list
- * start disagreeing about which programmes may be offered — the exact thing the
- * dialog's own note about disabled programmes is guarding.
+ * `PATCH /admin/ib/partners/:id/level` is how the profile page and the list
+ * start disagreeing about which rungs may be offered — the exact thing the
+ * dialog's own note about disabled levels is guarding.
  *
  * ## Why the row action is on the list at all
  *
  * Reaching a partner's terms meant opening their profile and finding the
- * partner tab. An operator moving several partners onto a new programme — the
- * ordinary case after the catalogue is edited — did that once per person.
+ * partner tab. An operator moving several partners onto a new rung — the
+ * ordinary case after the ladder is edited — did that once per person.
  */
-export function ChangeProgramFromList({
+export function ChangeLevelFromList({
   open,
   onClose,
   userId,
@@ -53,22 +53,22 @@ export function ChangeProgramFromList({
 
   /*
    * The dialog is mounted only once the detail is in hand — it seeds its
-   * `programId` state from `partner.programId` on first render, so mounting it
-   * against a placeholder would leave the picker seeded to the wrong programme
-   * after the real data arrived.
+   * `level` state from `partner.level` on first render, so mounting it against
+   * a placeholder would leave the picker seeded to the wrong rung after the
+   * real data arrived.
    *
    * Until then this renders a modal of its own rather than nothing, because an
    * action that appears to do nothing for a second reads as broken and gets
    * clicked again.
    */
   if (detail.data) {
-    return <ChangeProgramDialog open={open} onClose={onClose} partner={detail.data} name={name} />;
+    return <ChangeLevelDialog open={open} onClose={onClose} partner={detail.data} name={name} />;
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={t('clientProfile.changeProgramTitle', { name })}>
+    <Modal open={open} onClose={onClose} title={t('clientProfile.changeLevelTitle', { name })}>
       <p className="text-xs text-muted-foreground">
-        {detail.error ? t('clientProfile.programFailed') : t('common.loading')}
+        {detail.error ? t('clientProfile.levelFailed') : t('common.loading')}
       </p>
     </Modal>
   );
