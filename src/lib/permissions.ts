@@ -178,7 +178,7 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/products', requirement: { permission: 'settings.view' } },
   { prefix: '/agencies', requirement: { permission: 'settings.view' } },
   /*
-   * READ is `ib.view` — the write keys (`ib.programs.create` / `.edit` /
+   * READ is `ib.view` — the write keys (`ib.levels.create` / `.edit` /
    * `.delete`) are checked by the controls inside, so an operator who may see
    * the terms is not also required to be able to change them. Route access is
    * the weaker of the two on purpose: somebody who may see partners should be
@@ -189,7 +189,7 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * unreachable for everybody — the exact failure this file's docblock records
    * for `partners.view` and `payouts.review`.
    */
-  { prefix: '/ib-programs', requirement: { permission: 'ib.view' } },
+  { prefix: '/ib-levels', requirement: { permission: 'ib.view' } },
   /*
    * `ib.view`, not `ib.approve`. Seeing the queue and deciding on it are
    * separate powers — the buttons inside each check their own — so requiring

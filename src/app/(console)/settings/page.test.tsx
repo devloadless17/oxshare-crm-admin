@@ -100,19 +100,19 @@ beforeEach(() => {
     maxDemoAccounts: 5,
     maxDemoDeposit: '1000000.00000000',
     /*
-     * TWO IB fields, and both are required — the note that stood here predicted
-     * precisely what happens without them, and then it happened.
+     * ONE IB field, and it is required — the note that stood here predicted
+     * precisely what happens without it, and then it happened.
      *
-     * The four that decided what partners are PAID went in 0103/0104. These two
-     * BOUND the Commission Programmes page instead: the ladder ceiling (0105)
-     * and the total payout ceiling (0106). The panel seeds a text box from each,
-     * and `ibMaxTotalPayoutPct` goes through `trimAmount`, which calls
-     * `.includes` on it — so an absent value is not a blank field but a
-     * TypeError during render, surfacing as an unrelated tab-navigation failure
-     * three tests away.
+     * The four that decided what partners are PAID went in 0103/0104. The two
+     * payout CEILINGS left this form in 0112 — still stored, still enforced on
+     * every accrual, simply no longer controls — so what is left is the ladder
+     * ceiling (0105), which BOUNDS the Commission Levels page rather than
+     * restating it.
+     *
+     * Absent, it is not a blank field but a TypeError during render, surfacing
+     * as an unrelated tab-navigation failure three tests away.
      */
     ibMaxLevels: 2,
-    ibMaxTotalPayoutPct: '100.0000',
     updatedAt: null,
   });
   getSmtpSettings.mockResolvedValue({

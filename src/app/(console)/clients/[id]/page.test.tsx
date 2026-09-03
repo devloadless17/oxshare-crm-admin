@@ -275,18 +275,25 @@ describe('a client the viewer may not see', () => {
 const partnerDetail = (over: Record<string, unknown> = {}) => ({
   userId: 'c-1',
   /*
-   * The TERMS, replacing `level` / `levelName` / `rateValue` (0102). A rung
-   * named a placement that had decided no rate since the programmes landed;
-   * `programTiers` says what this partner is paid AND how far it reaches.
+   * The RUNG and the terms it carries (0112). These replaced a named programme
+   * with its per-depth ladder, which had itself replaced `level` / `levelName`
+   * / `rateValue` in 0102 — so the field names have moved twice and the
+   * question has not: what is this partner paid, and can the screen say it.
+   *
+   * Per-lot on purpose. It is the shape the business asked for on the main
+   * partner's rung, and it is the one that catches a renderer dropping the
+   * UNIT: "$10 per lot" and "10% of revenue" are two entirely different
+   * payouts, and only one of them is right here.
    */
-  programId: 'prog-silver',
-  programName: 'Silver',
-  programMode: 'commission_only' as const,
-  programTiers: [
-    { depth: 1, rate: '40.0000' },
-    { depth: 2, rate: '15.0000' },
-  ],
-  programRebateRate: '0.0000',
+  level: 1,
+  levelName: 'Main Partner',
+  levelEnabled: true,
+  levelCommissionMode: 'per_lot' as const,
+  levelCommissionRate: '0.0000',
+  levelCommissionAmountPerLot: '10.00000000',
+  levelRebateMode: 'per_lot' as const,
+  levelRebateRate: '0.0000',
+  levelRebateAmountPerLot: '2.00000000',
   referralCode: 'JFSA8BQB',
   active: true,
   approvedAt: '2026-08-13T00:00:00.000Z',
@@ -333,22 +340,22 @@ describe('the partner tab', () => {
     expect(screen.queryByRole('tab', { name: /partner/i })).not.toBeInTheDocument();
   });
 
-  it('shows the programme, its whole ladder and the code for a partner', async () => {
+  it('shows the level, the terms it carries and the code for a partner', async () => {
     getPartnerDetail.mockResolvedValue(partnerDetail());
     renderWithProviders(<ClientProfilePage />);
 
     await screen.findByText('John Doe');
     await openTab(/partner/i);
 
-    expect(screen.getByText('Silver')).toBeInTheDocument();
+    expect(screen.getByText(/Level 1 · Main Partner/)).toBeInTheDocument();
     expect(screen.getByText('JFSA8BQB')).toBeInTheDocument();
     /*
-     * EVERY level, not just the first. The rung this replaced showed one rate,
-     * which on a partner paid at two depths was half the answer — and the half
-     * that reads as the whole one. Rates are TRIMMED for reading; the stored
-     * scale is for arithmetic.
+     * BOTH terms and both UNITS. The rung this replaced showed one rate, which
+     * on a partner paid at two depths was half the answer — and the half that
+     * reads as the whole one. The unit matters just as much: "10" alone is two
+     * different payouts, and only the glyph says which.
      */
-    expect(screen.getByText('L1 40% · L2 15%')).toBeInTheDocument();
+    expect(screen.getByText(/\$10 per lot · client rebate \$2 per lot/i)).toBeInTheDocument();
   });
 
   it('names the parent, and says so plainly when there is none', async () => {

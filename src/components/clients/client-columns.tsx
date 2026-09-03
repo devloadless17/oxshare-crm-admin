@@ -267,7 +267,7 @@ export function clientColumns({
   /*
    * The Actions column appears if EITHER action is permitted, not only
    * suspension. Gating the whole column on `canSuspend` would hide the
-   * programme control from somebody who holds `ib.partners.edit` and not
+   * level control from somebody who holds `ib.partners.edit` and not
    * `clients.suspend` — a commission operator, which is exactly the role that
    * needs it most.
    */
@@ -306,7 +306,7 @@ export function clientColumns({
               ...(canEditPartners && c.type === 'partner'
                 ? [
                     {
-                      label: t('clientProfile.actionChangeProgram'),
+                      label: t('clientProfile.actionChangeLevel'),
                       icon: Wallet,
                       separatorBefore: true,
                       onSelect: () => onChangeProgram(c),

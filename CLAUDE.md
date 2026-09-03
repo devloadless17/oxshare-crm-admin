@@ -229,7 +229,7 @@ portal's. Diff it by hand.
 
 ## Tests
 
-`npm test` → Vitest, 238 tests. `*.test.ts` / `*.test.tsx` colocated beside the code.
+`npm test` → Vitest, 889 tests. `*.test.ts` / `*.test.tsx` colocated beside the code.
 jsdom and testing-library **are** configured (`vitest.config.mts`, `vitest.setup.ts`), so a screen
 can be rendered and asserted on — `admin-layout.test.tsx`, `login/page.test.tsx` and
 `settings/page.test.tsx` are the patterns to copy. Render through `src/test/render.tsx`, which

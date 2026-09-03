@@ -5,42 +5,15 @@ import { Spinner } from '@/components/ui/loader';
 
 import type { Agency, Product } from '@/lib/api/admin';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import api from '@/lib/api';
-import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
-import { keys } from '@/lib/query-keys';
-
-/**
- * The value standing for "no default programme".
- *
- * Radix `Select` refuses an empty-string item value — it reserves '' for the
- * placeholder state — so the absence of a choice needs a sentinel of its own,
- * mapped back to `null` at the boundary.
- */
-const NO_PROGRAMME = '__none__';
 
 export interface AgencyFormValues {
   name: string;
   description: string | null;
   enabled: boolean;
   sortOrder: number;
-  /**
-   * The commission programme partners of this agency are appointed on, or
-   * `null` for none.
-   *
-   * A DEFAULT, not an assignment: a reviewer's explicit pick at approval still
-   * wins, and `null` falls through to the lowest-sorted enabled programme.
-   */
-  defaultProgramId: string | null;
   /** The complete set the operator wants. The caller diffs it against the row. */
   productIds: string[];
 }
@@ -145,21 +118,7 @@ function AgencyForm({
    * a list somebody had arranged.
    */
   const sortOrder = agency?.sortOrder ?? 0;
-  const [defaultProgramId, setDefaultProgramId] = React.useState<string | null>(
-    agency?.defaultProgramId ?? null,
-  );
   const [productIds, setProductIds] = React.useState<string[]>(agency?.productIds ?? []);
-
-  /*
-   * ENABLED programmes only, and the reason matches the partner dialog's: the
-   * API falls THROUGH a disabled default rather than honouring it, so offering
-   * one here would be a choice with no effect — read as configured when it is
-   * being ignored on every approval.
-   */
-  /* No `enabled` gate: this form is only mounted while the modal is open, so
-     the fetch already costs nothing until somebody opens one. */
-  const programs = useResource(keys.ibPrograms.all(), (signal) => api.admin.getIbPrograms(signal));
-  const programOptions = (programs.data ?? []).filter((entry) => entry.enabled);
 
   const toggleProduct = (id: string) =>
     setProductIds((current) =>
@@ -173,46 +132,12 @@ function AgencyForm({
       description: description.trim() || null,
       enabled,
       sortOrder,
-      defaultProgramId,
       productIds,
     });
   };
 
   return (
     <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
-      {/*
-        The commission programme new partners of this agency are appointed on.
-
-        Full width, and phrased as a DEFAULT rather than an assignment: a
-        reviewer's explicit pick at approval still wins, and "None" falls
-        through to the lowest-sorted enabled programme — which is what every
-        agency did before this existed.
-      */}
-      <label className="space-y-1.5 sm:col-span-2">
-        <span className="block text-xs font-semibold">{t('agencies.defaultProgram')}</span>
-        <Select
-          value={defaultProgramId ?? NO_PROGRAMME}
-          onValueChange={(next) => setDefaultProgramId(next === NO_PROGRAMME ? null : next)}
-        >
-          <SelectTrigger className="h-9 w-full" aria-label={t('agencies.defaultProgram')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {/* Radix refuses an empty-string value, so "no default" needs a
-                sentinel rather than ''. Mapped back to null on the way out. */}
-            <SelectItem value={NO_PROGRAMME}>{t('agencies.defaultProgramNone')}</SelectItem>
-            {programOptions.map((entry) => (
-              <SelectItem key={entry.id} value={entry.id}>
-                {entry.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="block text-[11px] text-muted-foreground">
-          {t('agencies.defaultProgramHint')}
-        </span>
-      </label>
-
       <label className="space-y-1.5 sm:col-span-2">
         <span className="block text-xs font-semibold">{t('agencies.name')}</span>
         <input

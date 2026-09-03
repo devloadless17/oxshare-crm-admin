@@ -62,16 +62,6 @@ export default function AgenciesPage() {
    * names on every row, so it is needed either way.
    */
   const products = useResource<Product[]>(keys.products.all(), () => adminApi.getProducts());
-  /*
-   * The catalogue, for the Programme column's NAMES.
-   *
-   * ALL programmes, not just enabled ones — unlike the form's picker, which
-   * offers only enabled. This column reports what an agency is POINTING AT, and
-   * a default that has since been switched off must still render its name: it
-   * is exactly the misconfiguration worth seeing, and blanking it would hide
-   * the one row an operator needs to fix.
-   */
-  const programs = useResource(keys.ibPrograms.all(), (signal) => adminApi.getIbPrograms(signal));
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.agencies.all() });
 
@@ -180,11 +170,6 @@ export default function AgenciesPage() {
     [products.data],
   );
 
-  const programNameOf = React.useMemo(
-    () => new Map((programs.data ?? []).map((program) => [program.id, program.name])),
-    [programs.data],
-  );
-
   const columns: Column<Agency>[] = [
     {
       header: t('agencies.colName'),
@@ -237,31 +222,6 @@ export default function AgenciesPage() {
               .map((id) => nameOf.get(id))
               .filter(Boolean)
               .join(', ')}
-          </span>
-        ),
-    },
-    {
-      /*
-       * The terms new partners of this agency land on (0107).
-       *
-       * Its own column rather than a line in the modal, for the reason the
-       * Products column gives: an operator scanning this table is asking "which
-       * agency pays what", and an answer that requires opening four modals is
-       * not an answer. It is also the check against the mistake the feature
-       * exists to prevent — a Gold agency quietly pointing at Standard terms.
-       *
-       * "Not set" is stated rather than left blank, and in the muted tone
-       * rather than the warning one: no default is a legitimate configuration
-       * that falls through to the first enabled programme, unlike an agency
-       * selling no products, which sells nothing.
-       */
-      header: t('agencies.colProgram'),
-      cell: (agency) =>
-        agency.defaultProgramId === null ? (
-          <span className="text-muted-foreground">{t('agencies.programNotSet')}</span>
-        ) : (
-          <span className="text-muted-foreground">
-            {programNameOf.get(agency.defaultProgramId) ?? t('agencies.programMissing')}
           </span>
         ),
     },

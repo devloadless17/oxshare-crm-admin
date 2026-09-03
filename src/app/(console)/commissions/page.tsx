@@ -222,8 +222,8 @@ function CommissionsPageContent() {
       /* The TERMS. Null only on a row accrued before the column existed —
          rendered as a dash rather than blank, so "we cannot say" reads
          differently from "nothing there". */
-      header: t('commissions.colProgramme'),
-      cell: (r) => r.accrual.programName ?? '—',
+      header: t('commissions.colTerms'),
+      cell: (r) => r.accrual.termsName ?? '—',
       cellClassName: 'whitespace-nowrap text-muted-foreground',
     },
     {
