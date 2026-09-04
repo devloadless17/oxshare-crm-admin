@@ -8584,6 +8584,8 @@ export interface operations {
                 /** @description Restrict to one client. */
                 clientUserId?: string;
                 status?: "pending" | "confirmed" | "reversed";
+                /** @description commission (paid to the partner) or rebate (paid back to the trading client). Absent returns both, which is what makes this one screen rather than two. */
+                kind?: "commission" | "rebate";
                 sort?: "createdAt" | "amount" | "status" | "depth";
                 order?: "asc" | "desc";
             };

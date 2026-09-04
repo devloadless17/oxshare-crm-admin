@@ -2877,6 +2877,22 @@ export const messages = {
   'commissions.colStatus': 'Status',
   'commissions.filterStatus': 'Status',
   'commissions.filterStatusAll': 'All statuses',
+  /*
+   * Commission and rebate are ONE screen with a filter, not two screens.
+   *
+   * They are the same table differing by one column — same partner, client,
+   * rate, rung and reversal path — so two pages would be two sets of columns,
+   * sorting, permissions and PII masking to keep in step.
+   *
+   * "Client rebate" rather than bare "Rebate": the word alone does not say who
+   * received it, and the whole reason the column exists is that the two legs of
+   * one trade are paid to different people.
+   */
+  'commissions.colKind': 'Type',
+  'commissions.kind.commission': 'Commission',
+  'commissions.kind.rebate': 'Client rebate',
+  'commissions.filterKind': 'Filter by type',
+  'commissions.filterKindAll': 'Commission and rebates',
   'commissions.clearFilters': 'Clear',
   'commissions.noun': 'commission',
   'commissions.nounPlural': 'commissions',

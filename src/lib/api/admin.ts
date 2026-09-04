@@ -534,6 +534,13 @@ export interface IbAccrual {
   accrual: {
     id: string;
     status: 'pending' | 'confirmed' | 'reversed';
+    /*
+     * WHICH LEG — and the two are paid to DIFFERENT PEOPLE from one trade.
+     * A commission goes to the partner on the row; a rebate goes to the
+     * client on it. Reading one as the other is how an introducer gets paid
+     * their own client's rebate.
+     */
+    kind: 'commission' | 'rebate';
     amount: string;
     baseAmount: string;
     rateValue: string;
