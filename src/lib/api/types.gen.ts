@@ -4674,13 +4674,15 @@ export interface components {
             level: number;
             /** @example Main Partner */
             name: string;
+            /** @description What this tier is for, in the desk’s own words. Nothing computes with it. */
+            description: string | null;
             /** @description A disabled rung pays nobody standing on it. Disabling is refused while partners are there — see the service. */
             enabled: boolean;
             /**
              * @description How the PARTNER’s leg is priced.
              * @enum {string}
              */
-            commissionMode: "percent" | "per_lot";
+            commissionMode: "percent" | "per_lot" | "share_of_parent";
             /**
              * @description The partner’s share of broker revenue, as a percentage. Read in `percent` mode.
              * @example 30.0000
@@ -4695,7 +4697,7 @@ export interface components {
              * @description How the CLIENT’s rebate is priced.
              * @enum {string}
              */
-            rebateMode: "percent" | "per_lot";
+            rebateMode: "percent" | "per_lot" | "share_of_parent";
             /** @example 0.0000 */
             rebateRate: string;
             /** @example 2.00000000 */
@@ -4732,11 +4734,12 @@ export interface components {
             level: number;
             /** @example Sub Partner */
             name: string;
+            description?: string | null;
             /**
              * @default percent
              * @enum {string}
              */
-            commissionMode: "percent" | "per_lot";
+            commissionMode: "percent" | "per_lot" | "share_of_parent";
             /** @example 30.0000 */
             commissionRate?: string;
             /** @example 10.00000000 */
@@ -4745,7 +4748,7 @@ export interface components {
              * @default percent
              * @enum {string}
              */
-            rebateMode: "percent" | "per_lot";
+            rebateMode: "percent" | "per_lot" | "share_of_parent";
             /** @example 0.0000 */
             rebateRate?: string;
             /** @example 2.00000000 */
@@ -4757,12 +4760,13 @@ export interface components {
         };
         UpdateIbLevelDto: {
             name?: string;
+            description?: string | null;
             /** @enum {string} */
-            commissionMode?: "percent" | "per_lot";
+            commissionMode?: "percent" | "per_lot" | "share_of_parent";
             commissionRate?: string;
             commissionAmountPerLot?: string;
             /** @enum {string} */
-            rebateMode?: "percent" | "per_lot";
+            rebateMode?: "percent" | "per_lot" | "share_of_parent";
             rebateRate?: string;
             rebateAmountPerLot?: string;
             /** @enum {string} */

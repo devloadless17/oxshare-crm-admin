@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { ALL_PERMISSIONS } from '@/test/permissions';
@@ -71,6 +71,7 @@ function mainPartner(over: Partial<IbLevel> = {}): IbLevel {
     id: 'l-1',
     level: 1,
     name: 'Main Partner',
+    description: null,
     enabled: true,
     commissionMode: 'per_lot',
     commissionRate: '0.0000',
@@ -87,18 +88,25 @@ function mainPartner(over: Partial<IbLevel> = {}): IbLevel {
   };
 }
 
-/** Level 2 as the business asked for it: a percentage. */
+/**
+ * Level 2 as the business asked for it: "the sub-partner takes thirty percent
+ * of the ten dollars the main partner gets, and he gets three dollars".
+ *
+ * That is `share_of_parent` — a percentage of the RUNG ABOVE's per-lot rate,
+ * not of broker revenue. The two are both "30%" and are wildly different
+ * amounts, which is why the fixture uses the real one.
+ */
 function subPartner(over: Partial<IbLevel> = {}): IbLevel {
   return mainPartner({
     id: 'l-2',
     level: 2,
     name: 'Sub Partner',
-    commissionMode: 'percent',
+    commissionMode: 'share_of_parent',
     commissionRate: '30.0000',
     commissionAmountPerLot: null,
-    rebateMode: 'percent',
-    rebateRate: '5.0000',
-    rebateAmountPerLot: null,
+    rebateMode: 'per_lot',
+    rebateRate: '0.0000',
+    rebateAmountPerLot: '3.00000000',
     ...over,
   });
 }
@@ -125,51 +133,190 @@ describe('the commission ladder', () => {
      * A disabled rung is SHOWN, not filtered — managing it is the point of the
      * screen, and terms you cannot see are terms you cannot re-enable.
      */
-    expect(await screen.findByDisplayValue('Main Partner')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Retired Tier')).toBeInTheDocument();
+    expect(await screen.findByText('Main Partner')).toBeInTheDocument();
+    expect(screen.getByText('Retired Tier')).toBeInTheDocument();
   });
 
   /*
    * The UNIT is the whole point. "10" is ten dollars a lot or ten percent of
    * the broker's revenue, and those are not close to the same amount of money.
-   * A screen that dropped the glyph would misstate every per-lot rung while
+   * A card that dropped the glyph would misstate every per-lot rung while
    * looking entirely correct.
    */
   it('shows a per-lot rung in money and a percentage rung in percent', async () => {
-    renderWithProviders(<IbLevelsPage />);
-
-    await screen.findByDisplayValue('Main Partner');
-
-    /* Level 1's two terms are per-lot; level 2's are percentages. */
-    expect(screen.getAllByText('/lot')).toHaveLength(2);
-    expect(screen.getAllByText('%')).toHaveLength(2);
-  });
-
-  /*
-   * The FLOAT trap, carried over from the catalogue this replaced — where three
-   * rates totalling 100 summed to 100.00000000000001 and were flagged red.
-   * decimal.js is what keeps the total exact, and the assertion is on the
-   * SAVE BUTTON rather than on the text, because being disabled is the
-   * consequence an operator actually hits.
-   */
-  it('does not flag an exactly-100 rung as over-allocated', async () => {
     getIbLevels.mockResolvedValue([
-      subPartner({ commissionRate: '33.3333', rebateRate: '66.6667' }),
+      mainPartner(),
+      subPartner({ commissionMode: 'percent', commissionRate: '30.0000' }),
     ]);
     renderWithProviders(<IbLevelsPage />);
 
-    await screen.findByDisplayValue('Sub Partner');
-    expect(screen.getByRole('button', { name: /save changes/i })).toBeEnabled();
+    /* Level 1's commission is $10 a lot; level 2's is 30% of revenue. */
+    expect(await screen.findByText('$10 / lot')).toBeInTheDocument();
+    expect(screen.getByText('30% of revenue')).toBeInTheDocument();
+  });
+
+  /*
+   * ── THE SHARE RESOLVES ON THE CARD, AND THAT IS THE POINT OF IT ──────────
+   *
+   * "30%" on a card is unreadable — 30% of what? The business asked for "thirty
+   * percent of the ten dollars the main partner gets, and he gets three
+   * dollars", so the card has to show the three dollars.
+   */
+  it('resolves a share of the rung above into money', async () => {
+    renderWithProviders(<IbLevelsPage />);
+
+    /* Level 2 is 30% of level 1's $10 a lot. */
+    expect(await screen.findByText('30% above = $3.00 / lot')).toBeInTheDocument();
+  });
+
+  /*
+   * A share of a rung that pays a PERCENTAGE has nothing per-lot to take a
+   * share of, and the engine skips it. Said on the card rather than left to be
+   * discovered from a trade that paid nobody.
+   */
+  it('says so when a share cannot resolve', async () => {
+    getIbLevels.mockResolvedValue([
+      mainPartner({
+        commissionMode: 'percent',
+        commissionRate: '25.0000',
+        commissionAmountPerLot: null,
+      }),
+      subPartner(),
+    ]);
+    renderWithProviders(<IbLevelsPage />);
+
+    expect(await screen.findByText(/unresolved/i)).toBeInTheDocument();
+  });
+
+  /*
+   * Level 1 is never removable: every partner chain starts there, so deleting
+   * it would stop the ladder paying rather than shortening it. The API refuses
+   * it too — this stops an operator learning that by being refused.
+   */
+  it('offers no delete on level 1', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<IbLevelsPage />);
+
+    await screen.findByText('Main Partner');
+
+    /*
+     * Checked INSIDE the open menu. Asserting on the closed page would pass
+     * whether or not the item exists.
+     */
+    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
+    expect(screen.queryByRole('menuitem', { name: /remove level 1/i })).toBeNull();
+  });
+
+  it('offers delete on a deeper rung', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<IbLevelsPage />);
+
+    await screen.findByText('Sub Partner');
+    await user.click(screen.getByRole('button', { name: /actions for level 2/i }));
+    expect(await screen.findByRole('menuitem', { name: /remove level 2/i })).toBeInTheDocument();
+  });
+
+  /*
+   * ── EDITING IS A DIALOG, NOT AN INLINE FORM ─────────────────────────────
+   *
+   * The card is a read-only summary so the whole ladder fits on a screen. That
+   * only works if the edit path actually opens the form, seeded with what the
+   * rung currently holds — an empty dialog would silently blank the terms it
+   * saved.
+   */
+  it('opens the edit dialog seeded with the rung’s current terms', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<IbLevelsPage />);
+
+    await screen.findByText('Main Partner');
+    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+
+    expect(await screen.findByLabelText(/^level name$/i)).toHaveValue('Main Partner');
+    /*
+     * $10 a lot, as stored — the form must not round-trip it into something
+     * else. Matched by ROLE because the term's label names both the number and
+     * its mode selector, and `getByLabelText` cannot tell them apart.
+     */
+    expect(screen.getByRole('textbox', { name: /the partner earns/i })).toHaveValue('10.00000000');
+  });
+
+  /*
+   * ── THE PATCH SENDS BOTH SHAPES, AND THAT IS LOAD-BEARING ────────────────
+   *
+   * `ib_levels_commission_shape` requires exactly the column the mode reads and
+   * FORBIDS the other. A save that sent only the mode and the newly-relevant
+   * field would switch a rung to per-lot with no amount — which the database
+   * refuses, correctly, as a term that pays on nothing.
+   */
+  it('sends both the rate and the per-lot amount when saving', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<IbLevelsPage />);
+
+    await screen.findByText('Main Partner');
+    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+
+    await screen.findByLabelText(/^level name$/i);
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(updateIbLevel).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          commissionMode: 'per_lot',
+          commissionAmountPerLot: '10.00000000',
+          commissionRate: expect.any(String),
+        }),
+      ),
+    );
+  });
+
+  /*
+   * The FLOAT trap, carried over from the catalogue this screen replaced —
+   * where three rates totalling 100 summed to 100.00000000000001 and were
+   * flagged red. decimal.js is what keeps the total exact.
+   */
+  it('does not flag an exactly-100 rung as over-allocated', async () => {
+    getIbLevels.mockResolvedValue([
+      mainPartner({
+        commissionMode: 'percent',
+        commissionRate: '33.3333',
+        commissionAmountPerLot: null,
+        rebateMode: 'percent',
+        rebateRate: '66.6667',
+        rebateAmountPerLot: null,
+      }),
+    ]);
+    const user = userEvent.setup();
+    renderWithProviders(<IbLevelsPage />);
+
+    await screen.findByText('Main Partner');
+    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+
+    expect(await screen.findByRole('button', { name: /save changes/i })).toBeEnabled();
   });
 
   it('refuses to save a rung whose two percentages exceed the revenue', async () => {
     getIbLevels.mockResolvedValue([
-      subPartner({ commissionRate: '80.0000', rebateRate: '30.0000' }),
+      mainPartner({
+        commissionMode: 'percent',
+        commissionRate: '80.0000',
+        commissionAmountPerLot: null,
+        rebateMode: 'percent',
+        rebateRate: '30.0000',
+        rebateAmountPerLot: null,
+      }),
     ]);
+    const user = userEvent.setup();
     renderWithProviders(<IbLevelsPage />);
 
-    await screen.findByDisplayValue('Sub Partner');
-    expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled();
+    await screen.findByText('Main Partner');
+    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+
+    expect(await screen.findByRole('button', { name: /save changes/i })).toBeDisabled();
   });
 
   /*
@@ -179,75 +326,22 @@ describe('the commission ladder', () => {
    */
   it('does not add a per-lot amount into the percentage total', async () => {
     getIbLevels.mockResolvedValue([
-      subPartner({
+      mainPartner({
         commissionMode: 'per_lot',
-        commissionRate: '0.0000',
         commissionAmountPerLot: '80.00000000',
         rebateMode: 'percent',
         rebateRate: '30.0000',
         rebateAmountPerLot: null,
       }),
     ]);
-    renderWithProviders(<IbLevelsPage />);
-
-    await screen.findByDisplayValue('Sub Partner');
-    expect(screen.getByRole('button', { name: /save changes/i })).toBeEnabled();
-  });
-
-  /*
-   * ── THE PATCH SENDS BOTH SHAPES, AND THAT IS LOAD-BEARING ────────────────
-   *
-   * `ib_levels_commission_shape` requires exactly the column the mode reads and
-   * FORBIDS the other. A PATCH that sent only the mode and the newly-relevant
-   * field would switch a rung to per-lot with no amount — which the database
-   * refuses, correctly, as a term that pays on nothing.
-   */
-  it('sends both the rate and the per-lot amount when saving', async () => {
     const user = userEvent.setup();
     renderWithProviders(<IbLevelsPage />);
 
-    await screen.findByDisplayValue('Main Partner');
-    /*
-     * Scoped to the CARD, not indexed out of a list. Every rung renders the same
-     * button, so `[0]` would silently follow whatever order the ladder came back
-     * in — and this assertion is specifically about level 1's per-lot shape.
-     */
-    const card = within(screen.getByRole('form', { name: /level 1/i }));
-    await user.click(card.getByRole('button', { name: /save changes/i }));
+    await screen.findByText('Main Partner');
+    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    await waitFor(() =>
-      expect(updateIbLevel).toHaveBeenCalledWith(
-        1,
-        expect.objectContaining({
-          commissionMode: 'per_lot',
-          commissionRate: '0.0000',
-          commissionAmountPerLot: '10.00000000',
-          rebateMode: 'per_lot',
-          rebateAmountPerLot: '2.00000000',
-        }),
-      ),
-    );
-  });
-
-  /*
-   * The RATE keeps its stored scale on the way to the DOM and back. A value
-   * that went through a number would come back as '30' where '30.0000' was
-   * stored — which reads as correct and is a different string in the audit row.
-   */
-  it('round-trips a rate without losing its scale', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<IbLevelsPage />);
-
-    await screen.findByDisplayValue('Sub Partner');
-    const card = within(screen.getByRole('form', { name: /level 2/i }));
-    await user.click(card.getByRole('button', { name: /save changes/i }));
-
-    await waitFor(() =>
-      expect(updateIbLevel).toHaveBeenCalledWith(
-        2,
-        expect.objectContaining({ commissionRate: '30.0000', rebateRate: '5.0000' }),
-      ),
-    );
+    expect(await screen.findByRole('button', { name: /save changes/i })).toBeEnabled();
   });
 
   /*
@@ -259,41 +353,43 @@ describe('the commission ladder', () => {
   it('offers no deeper rung past what the engine pays, and says why', async () => {
     renderWithProviders(<IbLevelsPage />);
 
-    await screen.findByDisplayValue('Main Partner');
+    await screen.findByText('Main Partner');
     expect(screen.queryByRole('button', { name: /add level/i })).toBeNull();
     expect(screen.getByText(/as far as the commission engine pays/i)).toBeInTheDocument();
   });
 
-  it('offers a deeper rung once the ceiling allows one', async () => {
+  it('collects the new rung’s details before creating it', async () => {
     getIbLevelLimits.mockResolvedValue({ maxLevels: 3, absoluteMaxLevels: 10 });
     const user = userEvent.setup();
     renderWithProviders(<IbLevelsPage />);
 
-    const add = await screen.findByRole('button', { name: /add level 3/i });
-    await user.click(add);
+    /*
+     * The rounded PLUS opens a dialog rather than creating a blank rung. A
+     * half-configured level pays nobody, and on this screen "pays nobody" and
+     * "not configured yet" look identical — so the terms are collected first.
+     */
+    await user.click(await screen.findByRole('button', { name: /add level 3/i }));
+
+    const name = await screen.findByLabelText(/^level name$/i);
+    await user.clear(name);
+    await user.type(name, 'Deep Tier');
+    await user.click(screen.getByRole('button', { name: /^add level$/i }));
 
     /*
-     * Created at ZERO, which pays nobody and says so on the card. A new rung
-     * must not start paying on a number nobody chose.
+     * A rung deeper than the first defaults to `share_of_parent` at 30% —
+     * "the sub-partner takes thirty percent of the ten dollars the main partner
+     * gets", which is the shape the business asked for.
      */
     await waitFor(() =>
       expect(createIbLevel).toHaveBeenCalledWith(
-        expect.objectContaining({ level: 3, commissionRate: '0', rebateRate: '0' }),
+        expect.objectContaining({
+          level: 3,
+          name: 'Deep Tier',
+          commissionMode: 'share_of_parent',
+          commissionRate: '30',
+        }),
       ),
     );
-  });
-
-  /*
-   * Level 1 is never removable: every partner chain starts there, so deleting
-   * it would stop the ladder paying rather than shortening it. The API refuses
-   * it too — this stops an operator learning that by being refused.
-   */
-  it('offers no delete on level 1', async () => {
-    renderWithProviders(<IbLevelsPage />);
-
-    await screen.findByDisplayValue('Main Partner');
-    expect(screen.queryByRole('button', { name: /remove level 1/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /remove level 2/i })).toBeInTheDocument();
   });
 
   /*
@@ -305,9 +401,8 @@ describe('the commission ladder', () => {
     permissions.current = ['ib.view'];
     renderWithProviders(<IbLevelsPage />);
 
-    await screen.findByDisplayValue('Main Partner');
-    expect(screen.queryByRole('button', { name: /save changes/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /disable/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /remove level/i })).toBeNull();
+    await screen.findByText('Main Partner');
+    expect(screen.queryByRole('button', { name: /actions for level/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /add level/i })).toBeNull();
   });
 });

@@ -870,6 +870,7 @@ export const messages = {
   'clientProfile.levelTerms': 'Partner {commission} · client rebate {rebate}',
   'clientProfile.termPercent': '{rate}% of revenue',
   'clientProfile.termPerLot': '${amount} per lot',
+  'clientProfile.termShareOfParent': '{rate}% of the level above',
   'clientProfile.levelNoneEnabled':
     'No commission level is enabled, so there is nothing to move this partner to.',
   'clientProfile.actionReassignParent': 'Reassign parent',
@@ -2619,6 +2620,40 @@ export const messages = {
   'ibLevels.modeFor': 'How “{term}” is priced',
   'ibLevels.payoutMode_percent': 'of revenue',
   'ibLevels.payoutMode_per_lot': 'per lot',
+  'ibLevels.payoutMode_share_of_parent': 'of the level above',
+  // The share is a percentage of a number on ANOTHER card, so both the card and
+  // the dialog show what it comes to in money. "30%" alone is unreadable here.
+  'ibLevels.shareResolves': '{rate}% of ${parent} per lot = ${result} per lot',
+  // A share of a rung that pays a PERCENTAGE has nothing to take a share of,
+  // and the engine skips it. Better learned here than from a trade that paid
+  // nobody.
+  'ibLevels.shareUnresolvable':
+    'The level above is not paid a flat amount per lot, so there is nothing to take a share of. ' +
+    'This level would earn nothing.',
+  'ibLevels.rowActions': 'Actions for level {level}',
+  'ibLevels.description': 'Description',
+  'ibLevels.descriptionPlaceholder': 'What this tier is for — who qualifies, what was agreed.',
+  'ibLevels.commissionMode': 'How the partner is paid',
+  'ibLevels.addTitle': 'Add level {level}',
+  'ibLevels.addDescription':
+    'Partners recruited by a level {parent} partner sit here. Set what they earn before anybody ' +
+    'is placed on it — a level paying nothing looks the same as one nobody has configured.',
+  'ibLevels.addSave': 'Add level',
+  'ibLevels.editTitle': 'Edit level {level}',
+  'ibLevels.partners': 'Partners',
+  // The card shows terms READ-ONLY, so each needs its unit in the string. "10"
+  // means two entirely different payouts under the two modes, and this is read
+  // while deciding somebody's pay.
+  'ibLevels.termPerLot': '${amount} / lot',
+  'ibLevels.termPercent': '{rate}% of revenue',
+  // A share resolves to money, and the card shows BOTH: the percentage that was
+  // configured and what it comes to, because a percentage of a number on
+  // another card is not a figure anybody can hold in their head.
+  'ibLevels.termShare': '{rate}% above = ${result} / lot',
+  // The rung above pays a percentage, so there is nothing per-lot to take a
+  // share of and this level earns nothing. Said on the card rather than left to
+  // be discovered from a trade that paid nobody.
+  'ibLevels.termShareUnresolved': '{rate}% above — unresolved',
   'ibLevels.unitPerLot': '/lot',
 
   'ibLevels.basis': 'Percentages are a share of',

@@ -31,6 +31,7 @@ function level(over: Partial<IbLevel> = {}): IbLevel {
     id: 'l-1',
     level: 1,
     name: 'Main Partner',
+    description: null,
     enabled: true,
     commissionMode: 'per_lot',
     commissionRate: '0.0000',
