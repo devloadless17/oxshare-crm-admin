@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { Banknote } from 'lucide-react';
 import api from '@/lib/api';
 import {
@@ -14,6 +14,7 @@ import {
   type TransactionListParams,
   type TransactionListResponse,
   type TransactionSortKey,
+  type TransactionRow,
   type TransactionState,
   type TransactionsSummary,
 } from '@/lib/api/admin';
@@ -31,6 +32,9 @@ import { maskedFieldLabels } from '@/lib/masking';
 import { TransactionFilters } from '@/components/financial/transaction-filters';
 import { TransactionSummary } from '@/components/financial/transaction-summary';
 import { transactionColumns } from '@/components/financial/transaction-columns';
+import { AbandonTransferDialog } from '@/components/financial/abandon-transfer-dialog';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -164,6 +168,18 @@ function FinancialPageContent() {
   // RBAC-03 — the `financial.*` keys this viewer's response omitted.
   const maskedFields = query.data?.maskedFields ?? [];
 
+  /*
+   * Releasing a stuck transfer — the one ACTION on this otherwise read-only
+   * screen, and the only place in the console a transfer can be acted on at
+   * all (it has no desk of its own; see `transaction-columns`).
+   *
+   * `transfers.abandon` is the sibling of `withdrawals.settle`: both mean
+   * "decide money did or did not move, on evidence outside this system".
+   */
+  const { admin } = useAdmin();
+  const canAbandon = hasPermission(admin, 'transfers.abandon');
+  const [abandonTarget, setAbandonTarget] = useState<TransactionRow | null>(null);
+
   const isFiltered = Boolean(
     direction || kind || state || currency || from || to || userId || url.get('q'),
   );
@@ -246,7 +262,15 @@ function FinancialPageContent() {
         <DataTable
           fill
           caption={t('financial.caption')}
-          columns={transactionColumns({ maskedFields })}
+          columns={transactionColumns({
+            maskedFields,
+            /*
+             * Undefined without the permission, which is what HIDES the
+             * control rather than showing one that 403s. UX only —
+             * `PermissionsGuard` is the enforcement (R-4.1).
+             */
+            onAbandon: canAbandon ? setAbandonTarget : undefined,
+          })}
           rows={rows}
           rowKey={(row) => row.id}
           dimmed={query.isFetching}
@@ -280,6 +304,20 @@ function FinancialPageContent() {
           }}
         />
       </AsyncBoundary>
+
+      {/*
+        Mounted unconditionally and driven by its target, like every other
+        confirm dialog here. It refetches on success rather than patching the
+        row: the release also frees the wallet hold, and the tiles above the
+        table are computed server-side from the same movements.
+      */}
+      <AbandonTransferDialog
+        target={abandonTarget}
+        onClose={() => setAbandonTarget(null)}
+        onDone={async () => {
+          await Promise.all([query.refetch(), summaryQuery.refetch()]);
+        }}
+      />
     </div>
   );
 }

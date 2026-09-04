@@ -2117,6 +2117,33 @@ export const messages = {
   'financial.state.failure': 'Failure',
   'financial.state.rejected': 'Rejected',
   'financial.stateAll': 'All states',
+  /*
+   * Releasing a transfer the bridge left in flight.
+   *
+   * Every string here is written for the one moment that matters: an operator
+   * about to state that money did NOT move, on evidence this system cannot see.
+   * The warning is not decoration — releasing a transfer MT5 actually applied
+   * lets the client spend the same money twice — so it names the check to make
+   * rather than saying "are you sure".
+   */
+  'financial.rowActionsLabel': 'Actions for this movement',
+  'financial.abandon': 'Release hold',
+  'financial.abandonTitle': 'Release this stuck transfer',
+  'financial.abandonIntro':
+    'This transfer has been waiting on the MT5 bridge since {created}. Releasing it frees the ' +
+    'hold on {amount} {currency} and makes the money spendable again for {email}.',
+  'financial.abandonWarning':
+    'Check the broker’s own deal history first. If MT5 did apply this movement, releasing the ' +
+    'hold lets the client spend money that has already left their account.',
+  'financial.abandonReason': 'What did the broker’s record show?',
+  'financial.abandonReasonHint': 'Required, and shown to the client beside the failed transfer.',
+  'financial.abandonReasonPlaceholder':
+    'Confirmed with the broker that the trading account was never credited.',
+  'financial.abandonConfirm': 'Release the hold',
+  'financial.abandoning': 'Releasing…',
+  'financial.abandonSucceeded': 'Hold released on {amount} — the money is spendable again',
+  'financial.abandonFailed': 'Could not release the hold.',
+
   'financial.filterKind': 'Kind',
   'financial.filterState': 'State',
   'financial.filterCurrency': 'Currency',
@@ -2560,12 +2587,23 @@ export const messages = {
   // form wrongly read as the rung; here the rung is exactly what it means, and
   // the misreading to avoid is depth ("the trade was two hops below me").
   'ibLevels.title': 'Commission Levels',
+  /*
+   * ONE sentence, and it says what the page IS.
+   *
+   * This ran to five and explained the whole model — how a level is derived,
+   * that edits are not retroactive, what a rung means. All of it true, none of
+   * it what somebody opening this page needs in order to read the tree below it,
+   * and long enough that it was skipped entirely.
+   *
+   * It had also gone WRONG: it named two payout modes when there are three.
+   * `share_of_parent` — a rung taking a cut of the rung above, which is how a
+   * sub-partner earns a share of the main partner's per-lot rate — arrived in
+   * 0114 and this copy never learned about it. A subtitle that enumerates
+   * something is a subtitle that goes stale; this one no longer enumerates.
+   */
   'ibLevels.subtitle':
-    'The ladder every partner is paid on. A partner who deals with the broker directly is ' +
-    'level 1; a partner they recruit is level 2. Each level sets what the partner earns and ' +
-    'what their clients get back, either as a share of the broker’s revenue or as a flat amount ' +
-    'per lot. A partner’s level follows from who recruited them and can be corrected from their ' +
-    'profile. Editing a level applies to the next trade — nothing already earned is restated.',
+    'What each rung of the partner tree earns, and what its clients get back. Changes apply to ' +
+    'the next trade.',
   'ibLevels.loading': 'Loading the commission ladder…',
   'ibLevels.loadFailed': 'Could not load the commission levels.',
   'ibLevels.empty': 'No commission levels are configured, so no partner is being paid.',

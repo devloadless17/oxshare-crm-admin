@@ -3641,6 +3641,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/transfers/{id}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release a stuck transfer — frees the hold and tells the client why
+         * @description For a transfer the MT5 bridge left pending: the movement never reached the trading server, so the hold is released and the money becomes spendable again. Refuses anything that is not still pending.
+         *
+         *     ⚠️ Only after checking the broker’s own record. If MT5 DID apply the movement, releasing the hold lets the client spend money that has already left — which is the one thing the executor refuses to guess at, and the reason this is a person’s decision.
+         */
+        post: operations["AdminMoneyController_abandonTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/transactions/export": {
         parameters: {
             query?: never;
@@ -6549,6 +6571,13 @@ export interface components {
             totalDifference: string;
             /** @description True when nothing is wrong. Read this rather than testing the array length — it is the field the service decides, and a future check can make it false without adding a wallet discrepancy. */
             balanced: boolean;
+        };
+        AbandonTransferDto: {
+            /**
+             * @description What the broker’s record showed. Reaches the client on the failed transfer, and is the audit trail for a decision nothing in this system could make on its own.
+             * @example Checked MT5 deal history for 6480824 — the 1,000 never reached the account.
+             */
+            reason: string;
         };
         AdminTransactionSummaryRowDto: {
             /** @enum {string} */
@@ -12030,6 +12059,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LedgerListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_abandonTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended action, reused only when retrying that same one. The state guard makes a REPLAYED CAUSE a no-op — a second abandon finds the transfer already failed — and this makes a replayed REQUEST one too (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AbandonTransferDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
                 };
             };
         };

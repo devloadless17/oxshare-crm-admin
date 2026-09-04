@@ -1,7 +1,8 @@
 'use client';
 
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Unlock } from 'lucide-react';
 import type { Column } from '@/components/data-table';
+import { RowActions, actionsColumn } from '@/components/row-actions';
 import { PermittedLink } from '@/components/permitted-link';
 import { MovementBadge, TxStateBadge } from '@/components/financial/transaction-badges';
 import {
@@ -16,21 +17,42 @@ import { t } from '@/lib/i18n';
 /**
  * The Financial table's columns, extracted so the page stays a composition.
  *
- * READ-ONLY by contract: no approve, no reject, no edit — the withdrawal desk
- * (`/transactions`) owns those actions, with their idempotency keys and
- * confirmation dialogs, and duplicating them here would be two lifecycles to
- * keep honest. The one affordance is a LINK to that desk on the rows it can
- * action, and `PermittedLink` melts it into plain text for an operator
- * without `withdrawals.view`.
+ * READ-ONLY for anything with a desk of its own: no approve, no reject, no
+ * edit — the withdrawal desk (`/transactions`) owns those actions, with their
+ * idempotency keys and confirmation dialogs, and duplicating them here would be
+ * two lifecycles to keep honest. The one affordance is a LINK to that desk on
+ * the rows it can action, and `PermittedLink` melts it into plain text for an
+ * operator without `withdrawals.view`.
+ *
+ * ## The ONE exception: releasing a stuck transfer
+ *
+ * A transfer has no desk. It is machine-driven end to end — requested in the
+ * portal, executed against MT5 by the bridge, settled by a scheduler — so this
+ * table is the only screen in the console where one is ever looked at.
+ *
+ * When the bridge loses its MT5 session mid-call the transfer stays pending with
+ * the client's money HELD, and nothing expires it. Sending an operator to a desk
+ * that does not exist is why the only previous repair was hand-written SQL. The
+ * action is offered here, gated on `transfers.abandon`, and everything dangerous
+ * about it lives in the dialog rather than in this cell.
  */
 
 const sortableBy = (key: TransactionSortKey) => ({ sortable: true as const, sortKey: key });
 
 export function transactionColumns({
   maskedFields,
+  onAbandon,
 }: {
   /** RBAC-03 — the `financial.*` keys the response removed for this viewer. */
   maskedFields: readonly string[];
+  /**
+   * Opens the release-hold dialog for a stuck transfer.
+   *
+   * `undefined` when the viewer lacks `transfers.abandon`, which is what hides
+   * the control — a button that comes back 403 is worse than no button.
+   * UX only: `PermissionsGuard` is the enforcement (R-4.1).
+   */
+  onAbandon?: (row: TransactionRow) => void;
 }): Column<TransactionRow>[] {
   const hidden = (field: string) => isMasked(field, maskedFields);
   const nameHidden = hidden('financial.user.firstName') && hidden('financial.user.lastName');
@@ -182,5 +204,41 @@ export function transactionColumns({
       cell: (row) => (row.settledAt ? new Date(row.settledAt).toLocaleString() : '—'),
       cellClassName: 'text-muted-foreground whitespace-nowrap',
     },
+    /*
+     * Actions — the shared menu, so this table's one action sits where an
+     * operator already looks for actions on every other table in the console.
+     *
+     * `RowActions` renders NOTHING when its items are empty, which is most rows
+     * here: the column is quiet on a settled payment and grows a trigger only
+     * on the rows that can actually be acted on.
+     */
+    actionsColumn<TransactionRow>((row) => {
+      const items = [];
+
+      /*
+       * Release-hold, on a PENDING transfer only.
+       *
+       * Both transfer kinds qualify: a commission transfer moves money to a
+       * trading account through the same bridge call and wedges the same way.
+       *
+       * Deliberately NOT offered on a pending PAYMENT — that one is waiting on a
+       * person at the withdrawal desk, which is a queue working normally, not a
+       * movement nobody will ever answer for.
+       */
+      if (
+        onAbandon &&
+        (row.kind === 'transfer' || row.kind === 'commission_transfer') &&
+        row.state === 'pending'
+      ) {
+        items.push({
+          label: t('financial.abandon'),
+          icon: Unlock,
+          onSelect: () => onAbandon(row),
+          destructive: true,
+        });
+      }
+
+      return <RowActions items={items} label={t('financial.rowActionsLabel')} />;
+    }),
   ];
 }
