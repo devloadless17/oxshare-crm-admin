@@ -254,6 +254,27 @@ test.describe('the KYC queue and its badge move together, without a refresh', ()
     // three documents → submit. Nothing here touches the browser under test.
     const inbound = await mintClientWithPendingKyc(admin, 'rt-in');
     try {
+      /*
+       * TRANSPORT FIRST, then the UI — so a failure says WHICH half broke.
+       *
+       * This asserted the badge alone and failed in CI while passing locally
+       * in the same suite ordering, which left "did not raise the badge"
+       * meaning any of: the row was never written, the fan-out excluded this
+       * admin, the socket missed it, or the invalidation did nothing. Four
+       * very different bugs behind one message.
+       *
+       * The frame is the seam. If this line fails the event never reached the
+       * browser and the problem is server-side or in delivery; if it passes
+       * and the badge assertion below fails, the event arrived and the console
+       * did not act on it.
+       */
+      await expect
+        .poll(() => frames.join('\n').includes('admin.kyc.submitted'), {
+          timeout: REALTIME_BUDGET_MS * 2,
+          message: 'no admin.kyc.submitted frame reached this console',
+        })
+        .toBe(true);
+
       await expectBadge(page, (n) => n > before, 'a new submission did not raise the badge');
       // And the QUEUE, not only the count. Before the registry those were
       // invalidated by different keys, so the badge moved and the table did not.

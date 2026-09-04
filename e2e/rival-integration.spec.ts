@@ -112,6 +112,21 @@ async function deskRow(
   return items.find((r) => r.id === txId);
 }
 
+/** Poll the desk until the row reaches one of `states`, or give up and return it. */
+async function awaitDeskState(
+  admin: Awaited<ReturnType<typeof adminApiSession>>,
+  txId: string,
+  states: string[],
+  seconds = 30,
+): Promise<Record<string, unknown> | undefined> {
+  for (let i = 0; i < seconds; i += 1) {
+    const row = await deskRow(admin, txId);
+    if (row && states.includes(String(row.state))) return row;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return deskRow(admin, txId);
+}
+
 /** Wait for the post-commit submission to reach Rival. */
 async function awaitRivalId(
   admin: Awaited<ReturnType<typeof adminApiSession>>,
@@ -294,6 +309,69 @@ test.describe('the Rival payout rail', () => {
       await expect(page.getByText('Payment platform reference')).toBeVisible({ timeout: 10_000 });
       await expect(page.getByText(String(rivalId), { exact: false }).first()).toBeVisible({
         timeout: 10_000,
+      });
+    } finally {
+      await client.dispose();
+    }
+  });
+
+  test('a payout Rival completes settles the CRM row — and the money stays gone', async () => {
+    test.setTimeout(300_000);
+    const admin = await adminApiSession();
+    test.skip(!(await railIsLive(admin)), 'the Rival rail is not configured/reachable here');
+
+    const client = await mintFundedClient(admin, 'settle');
+    try {
+      const txId = await requestWithdrawal(client, '25.00000000', 'settle');
+      expect(await usdBalance(admin, client.id), 'debited on request').toBe('475.00000000');
+
+      expect(
+        (
+          await admin.patch(`/admin/withdrawals/${txId}/approve`, undefined, {
+            'idempotency-key': `rival-settle-approve-${txId}`,
+          })
+        ).ok(),
+      ).toBe(true);
+      expect(await awaitRivalId(admin, txId), 'never handed to Rival').toBeTruthy();
+
+      /*
+       * Wait for RIVAL to complete it and its webhook to land.
+       *
+       * This is the one leg that needs something on the other side to act: either
+       * Rival's auto-approval poller, or a human approving in its dashboard. When
+       * neither happens the row stays legitimately `approved`, which is not a
+       * failure of anything this spec is testing — so it SKIPS rather than fails,
+       * with the reason. `WITHDRAWAL_AUTO_APPROVAL_SIMULATE=true` plus an enabled
+       * auto-approval config is what makes it run.
+       */
+      const settled = await awaitDeskState(admin, txId, ['success', 'failure'], 45);
+      test.skip(
+        settled?.state === 'approved',
+        'Rival did not complete the payout — auto-approval is off, so nothing settled it',
+      );
+
+      expect(settled?.state, 'a completed payout settles as success').toBe('success');
+
+      // Not a `test.step`: every assertion here is synchronous, and an async step
+      // with no await trips `require-await`.
+      {
+        expect(settled?.settledAt, 'settledAt is stamped once the money has left').toBeTruthy();
+        // The provider's own reference for the payout. Under simulation it carries
+        // a `SIMULATED-` prefix, which is deliberate: a settlement that never moved
+        // real money stays distinguishable in the data for ever after.
+        // Narrowed rather than String()-ed: the desk row is a bag of `unknown`, and
+        // stringifying one would happily produce "[object Object]".
+        expect(typeof settled?.providerRef, 'a provider reference is recorded').toBe('string');
+        expect(settled?.rivalNeedsAttention, 'a clean settlement flags nobody').toBeFalsy();
+      }
+
+      await test.step('the money LEFT — there is no refund', async () => {
+        /*
+         * The assertion that matters most here, and the one a state check misses.
+         * A successful payout must leave the client debited: if anything credited
+         * them back, the platform has paid the withdrawal AND returned the money.
+         */
+        expect(await usdBalance(admin, client.id)).toBe('475.00000000');
       });
     } finally {
       await client.dispose();

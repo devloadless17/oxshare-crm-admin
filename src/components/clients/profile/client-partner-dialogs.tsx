@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import type { IbPartnerDetail } from '@/lib/api/admin';
+import type { IbPartnerDetail, IbPayoutMode } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -166,14 +166,20 @@ export function ChangeLevelDialog({
  * The UNIT is never dropped, because "10" means two entirely different payouts
  * under the two modes and this string is read while deciding somebody's pay.
  */
-function describeTerm(
-  mode: 'percent' | 'per_lot',
-  rate: string,
-  amountPerLot: string | null,
-): string {
-  return mode === 'per_lot'
-    ? t('clientProfile.termPerLot', { amount: formatDecimal(amountPerLot ?? '0') })
-    : t('clientProfile.termPercent', { rate: formatDecimal(rate) });
+function describeTerm(mode: IbPayoutMode, rate: string, amountPerLot: string | null): string {
+  if (mode === 'per_lot') {
+    return t('clientProfile.termPerLot', { amount: formatDecimal(amountPerLot ?? '0') });
+  }
+  /*
+   * A `share_of_parent` rate is a percentage of the LEVEL ABOVE's per-lot rate,
+   * not of revenue, and this dialog does not hold that rung. Saying "of the
+   * level above" is the honest short form — rendering it as a plain "30%" would
+   * read as 30% of the trade, which is a different and much larger number.
+   */
+  if (mode === 'share_of_parent') {
+    return t('clientProfile.termShareOfParent', { rate: formatDecimal(rate) });
+  }
+  return t('clientProfile.termPercent', { rate: formatDecimal(rate) });
 }
 
 /** Put a partner under a different parent, or none at all. */

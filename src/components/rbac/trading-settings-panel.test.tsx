@@ -51,13 +51,16 @@ const SAVED = {
   maxDemoAccounts: 5,
   maxDemoDeposit: '1000000.00000000',
   /*
-   * The ladder ceiling — the ONE IB number left on this form (0105), and it is
-   * REQUIRED here rather than optional: the panel seeds a number box from it,
-   * and an absent value renders the string 'undefined', leaves the form
-   * permanently dirty, and blocks every save with native validation. That
-   * failure surfaces three tests away as "the request was never made".
+   * The commission cadence (0113), REQUIRED here rather than optional: the
+   * panel seeds a number box from it, and an absent value renders the string
+   * 'undefined', leaves the form permanently dirty, and blocks every save with
+   * native validation. That failure surfaces three tests away as "the request
+   * was never made".
+   *
+   * 3600 so it reads back as "1 hour" — `splitInterval` picks the largest unit
+   * that divides exactly.
    */
-  ibMaxLevels: 2,
+  ibCommissionIntervalSeconds: 3600,
   /*
    * The total payout ceiling (0106), and REQUIRED here for a sharper version of
    * the reason above: the panel seeds this box through `trimAmount`, which
@@ -144,57 +147,51 @@ describe('the account terms on the trading form', () => {
     expect(typeof body.maxDemoDeposit).toBe('string');
   });
 
-  /**
-   * ── THE LADDER CEILING (0105) ────────────────────────────────────────────
-   *
-   * The one IB number on this form, and it is a different kind of thing from
-   * the four that were removed: those decided what partners are PAID, this
-   * bounds what the Commission Programmes page will accept.
-   *
-   * Committed scope is two — Feature List Rev 9, IB-17 — so that is the
-   * default. It lives here rather than in an environment variable because the
-   * people who decide how deep a broker pays do not have shell access, and a
-   * variable records no actor, no timestamp and no reason.
+  /*
+   * The cadence is the one IB number left on this form, and it passes the test
+   * the level ceiling it replaced did not: it decides WHEN partners are paid,
+   * never HOW MUCH. Amounts belong to the IB Levels page alone.
    */
-  it('shows the ceiling the platform is actually holding to', async () => {
+  it('shows the interval the platform is actually running', async () => {
     renderWithProviders(<TradingSettingsPanel canManage />);
 
-    expect(await screen.findByLabelText(/maximum commission levels/i)).toHaveValue(2);
+    /* 3600 seconds read back as 1 HOUR, not 60 minutes — an operator should
+       see the value they typed rather than a unit the form chose. */
+    expect(await screen.findByLabelText(/pay commission every/i)).toHaveValue(1);
   });
 
-  it('saves a raised ceiling', async () => {
+  it('converts the chosen unit to seconds on save', async () => {
     const user = userEvent.setup();
     renderWithProviders(<TradingSettingsPanel canManage />);
 
-    const box = await screen.findByLabelText(/maximum commission levels/i);
+    const box = await screen.findByLabelText(/pay commission every/i);
     await user.clear(box);
-    await user.type(box, '3');
+    await user.type(box, '5');
+    await user.selectOptions(screen.getByLabelText(/unit/i), 'minutes');
     await user.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() =>
       expect(updateTradingSettings).toHaveBeenCalledWith(
-        expect.objectContaining({ ibMaxLevels: 3 }),
+        expect.objectContaining({ ibCommissionIntervalSeconds: 300 }),
       ),
     );
   });
 
   /*
-   * ⚠️ A TYPO MUST NOT MOVE THIS NUMBER, in either direction. Falling back to
-   * 10 would widen what every future trade pays out; falling back to 1 would
-   * silently make deeper programmes unsaveable. The SAVED value is the only
-   * answer that changes nothing.
+   * ⚠️ A TYPO MUST NOT SHORTEN THIS, and the direction is the whole point.
+   * Falling back to the 60-second floor would make a mistyped value remove the
+   * review window — the change nobody would choose deliberately. The SAVED
+   * value is the only answer that changes nothing.
    */
-  it('falls back to the saved ceiling rather than coercing a bad one', async () => {
+  it('falls back to the saved interval rather than coercing a bad one', async () => {
     const user = userEvent.setup();
     renderWithProviders(<TradingSettingsPanel canManage />);
 
-    const box = await screen.findByLabelText(/maximum commission levels/i);
+    const box = await screen.findByLabelText(/pay commission every/i);
     await user.clear(box);
-    // Above the API's own bound, so the browser's `max` refuses the submit and
-    // `parseLevels` is the backstop behind it.
-    await user.type(box, '99');
     await user.click(screen.getByRole('button', { name: /save/i }));
 
+    /* Empty is not zero and not the floor: the form refuses to submit at all. */
     expect(updateTradingSettings).not.toHaveBeenCalled();
   });
 

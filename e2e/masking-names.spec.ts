@@ -35,14 +35,51 @@ async function maskedOperator(
   label: string,
 ) {
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const role = await master.post('/admin/roles', {
-    name: `E2E Mask ${label} ${stamp}`,
-    description: 'Created by masking-names.spec.ts',
-    permissions: ['clients.view'],
-    maskedFields,
-  });
-  expect(role.ok(), `creating the role answered ${role.status()}`).toBe(true);
-  const roleId = ((await role.json()) as { id: string }).id;
+
+  /*
+   * ⚠️ ONE ROLE PER MASK SHAPE, REUSED — not a fresh one per run.
+   *
+   * A role cannot be deleted while any admin references it, and an admin
+   * cannot be deleted at all (suspension is the terminal state), so a
+   * per-run role is a role that accumulates for ever. Nine of them had piled
+   * up locally, which pushed `E2E Restricted` off the first page of the roles
+   * list and failed `rbac-gating-and-masking` — a spec that has nothing to do
+   * with masking names. Test litter that breaks a NEIGHBOUR is the worst kind,
+   * because the failure names the wrong file.
+   *
+   * The name is deterministic, so a second run finds the role it made last
+   * time. Its mask is re-asserted on every use, so an edited row cannot make a
+   * later run assert against terms it did not set.
+   */
+  const roleName = `E2E Mask ${label}`;
+  /*
+   * `GET /admin/roles` answers a BARE ARRAY, not `{ roles: [...] }` — reading
+   * the property that is not there left `existing` undefined, so this posted a
+   * duplicate name and got a 409. Both shapes are accepted here because the
+   * admin app's own client tolerates both, and a test that guesses wrong fails
+   * as a conflict rather than as a shape mismatch.
+   */
+  const roleList = (await (await master.get('/admin/roles')).json()) as
+    { id: string; name: string }[] | { roles?: { id: string; name: string }[] };
+  const existing = (Array.isArray(roleList) ? roleList : (roleList.roles ?? [])).find(
+    (r) => r.name === roleName,
+  );
+
+  const saved = existing
+    ? await master.put(`/admin/roles/${existing.id}`, {
+        name: roleName,
+        description: 'Reused by masking-names.spec.ts',
+        permissions: ['clients.view'],
+        maskedFields,
+      })
+    : await master.post('/admin/roles', {
+        name: roleName,
+        description: 'Reused by masking-names.spec.ts',
+        permissions: ['clients.view'],
+        maskedFields,
+      });
+  expect(saved.ok(), `saving the role answered ${saved.status()}`).toBe(true);
+  const roleId = existing ? existing.id : ((await saved.json()) as { id: string }).id;
 
   const invited = await master.post('/admin/invite', {
     email: `e2e-mask-${label}-${stamp}@oxshare-e2e.test`,
@@ -60,8 +97,10 @@ async function maskedOperator(
     page: await context.newPage(),
     async dispose() {
       await context.close();
+      // Suspended, never deleted: there is no admin DELETE, and suspension is
+      // the terminal state this console models. The ROLE is deliberately left
+      // in place and reused by the next run — see the note above.
       await master.patch(`/admin/users/${admin.id}/status`, { status: 'suspended' });
-      await master.del(`/admin/roles/${roleId}`).catch(() => null);
       await admin.ctx.dispose();
     },
   };

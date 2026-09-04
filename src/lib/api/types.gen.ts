@@ -942,28 +942,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/ib/positions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Open trades belonging to this partner's direct clients
-         * @description DIRECT clients only. A sub-partner’s clients are somebody else’s book — this partner earns on them through the chain, but listing them here would hand one partner a view of another’s client list.
-         *
-         *     Open positions only: a closed trade already appears in the commission list as the thing it produced.
-         */
-        get: operations["IbController_positions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/ib/agencies": {
         parameters: {
             query?: never;
@@ -4483,21 +4461,6 @@ export interface components {
              */
             confirmedAt?: string | null;
         };
-        IbClientPositionDto: {
-            /** Format: uuid */
-            id: string;
-            clientName: string;
-            symbol: string;
-            /** @enum {string} */
-            side: "buy" | "sell";
-            /** @description Lots. */
-            volume: string;
-            openPrice: string;
-            /** @description Floating, and it moves. Shown because a partner asks "is my book alive", not so they can act on it — they have no control over a client’s trade. */
-            profit?: string | null;
-            /** Format: date-time */
-            openedAt: string;
-        };
         PublicAgencyDto: {
             /** Format: uuid */
             id: string;
@@ -4674,13 +4637,15 @@ export interface components {
             level: number;
             /** @example Main Partner */
             name: string;
+            /** @description What this tier is for, in the desk’s own words. Nothing computes with it. */
+            description: string | null;
             /** @description A disabled rung pays nobody standing on it. Disabling is refused while partners are there — see the service. */
             enabled: boolean;
             /**
              * @description How the PARTNER’s leg is priced.
              * @enum {string}
              */
-            commissionMode: "percent" | "per_lot";
+            commissionMode: "percent" | "per_lot" | "share_of_parent";
             /**
              * @description The partner’s share of broker revenue, as a percentage. Read in `percent` mode.
              * @example 30.0000
@@ -4695,7 +4660,7 @@ export interface components {
              * @description How the CLIENT’s rebate is priced.
              * @enum {string}
              */
-            rebateMode: "percent" | "per_lot";
+            rebateMode: "percent" | "per_lot" | "share_of_parent";
             /** @example 0.0000 */
             rebateRate: string;
             /** @example 2.00000000 */
@@ -4732,11 +4697,12 @@ export interface components {
             level: number;
             /** @example Sub Partner */
             name: string;
+            description?: string | null;
             /**
              * @default percent
              * @enum {string}
              */
-            commissionMode: "percent" | "per_lot";
+            commissionMode: "percent" | "per_lot" | "share_of_parent";
             /** @example 30.0000 */
             commissionRate?: string;
             /** @example 10.00000000 */
@@ -4745,7 +4711,7 @@ export interface components {
              * @default percent
              * @enum {string}
              */
-            rebateMode: "percent" | "per_lot";
+            rebateMode: "percent" | "per_lot" | "share_of_parent";
             /** @example 0.0000 */
             rebateRate?: string;
             /** @example 2.00000000 */
@@ -4757,12 +4723,13 @@ export interface components {
         };
         UpdateIbLevelDto: {
             name?: string;
+            description?: string | null;
             /** @enum {string} */
-            commissionMode?: "percent" | "per_lot";
+            commissionMode?: "percent" | "per_lot" | "share_of_parent";
             commissionRate?: string;
             commissionAmountPerLot?: string;
             /** @enum {string} */
-            rebateMode?: "percent" | "per_lot";
+            rebateMode?: "percent" | "per_lot" | "share_of_parent";
             rebateRate?: string;
             rebateAmountPerLot?: string;
             /** @enum {string} */
@@ -5512,10 +5479,10 @@ export interface components {
              */
             maxDemoDeposit: string;
             /**
-             * @description How many levels a commission programme’s ladder may reach. Defaults to 2 — the committed two-level structure (Feature List Rev 9, IB-17). Bounds what may be SAVED: lowering it leaves existing programmes paying exactly what they paid before.
-             * @example 2
+             * @description Seconds between commission payouts, and how long an accrual matures first. 60 credits a partner about a minute after the trade closes.
+             * @example 3600
              */
-            ibMaxLevels: number;
+            ibCommissionIntervalSeconds: number;
             /** Format: date-time */
             updatedAt?: string | null;
             updatedByName?: string | null;
@@ -5530,8 +5497,11 @@ export interface components {
              * @example 1000000.00
              */
             maxDemoDeposit: string;
-            /** @example 2 */
-            ibMaxLevels: number;
+            /**
+             * @description Seconds between commission payouts, and how long an accrual matures before it is payable. One number for both: either alone leaves the other as the real delay. 60 = a partner is credited about a minute after the trade closes.
+             * @example 3600
+             */
+            ibCommissionIntervalSeconds: number;
         };
         SmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */
@@ -8325,25 +8295,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbCommissionRowDto"][];
-                };
-            };
-        };
-    };
-    IbController_positions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbClientPositionDto"][];
                 };
             };
         };

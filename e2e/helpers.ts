@@ -161,6 +161,11 @@ export async function adminApiSession(
     data?: unknown,
     extra?: Record<string, string>,
   ) => ReturnType<APIRequestContext['patch']>;
+  put: (
+    path: string,
+    data?: unknown,
+    extra?: Record<string, string>,
+  ) => ReturnType<APIRequestContext['put']>;
   del: (path: string) => ReturnType<APIRequestContext['delete']>;
   dispose: () => Promise<void>;
 }> {
@@ -200,6 +205,9 @@ export async function adminApiSession(
       request.post(`${API_NODE_BASE}${path}`, { headers: { ...headers, ...extra }, data }),
     patch: (path, data, extra) =>
       request.patch(`${API_NODE_BASE}${path}`, { headers: { ...headers, ...extra }, data }),
+    // The console's full-replace verb — role edits and settings saves use it.
+    put: (path, data, extra) =>
+      request.put(`${API_NODE_BASE}${path}`, { headers: { ...headers, ...extra }, data }),
     del: (path) => request.delete(`${API_NODE_BASE}${path}`, { headers }),
     dispose: () => request.dispose(),
   };
