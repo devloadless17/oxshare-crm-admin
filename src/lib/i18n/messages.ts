@@ -2676,8 +2676,18 @@ export const messages = {
     'rebate.',
 
   'ibLevels.modeFor': 'How “{term}” is priced',
+  /* `payoutMode_percent` and `payoutMode_share_of_parent` are KEPT: a rung
+     configured before 0117 still renders its old terms on the card, and a
+     missing label there would print a raw enum value on a money screen. Neither
+     is offered by the form any more. */
   'ibLevels.payoutMode_percent': 'of revenue',
   'ibLevels.payoutMode_per_lot': 'per lot',
+  /* Shown when EDITING a rung configured before per-lot pricing. Its money was
+     a percentage of broker revenue, which has no per-lot equivalent — so the
+     form asks rather than inventing one. */
+  'ibLevels.legacyMode':
+    'This level was priced on a model that has been retired. Enter the amount per lot it should ' +
+    'pay from now on — the old percentage cannot be converted automatically.',
   'ibLevels.payoutMode_share_of_parent': 'of the level above',
   // The share is a percentage of a number on ANOTHER card, so both the card and
   // the dialog show what it comes to in money. "30%" alone is unreadable here.
@@ -2877,6 +2887,22 @@ export const messages = {
   'commissions.colStatus': 'Status',
   'commissions.filterStatus': 'Status',
   'commissions.filterStatusAll': 'All statuses',
+  /*
+   * Commission and rebate are ONE screen with a filter, not two screens.
+   *
+   * They are the same table differing by one column — same partner, client,
+   * rate, rung and reversal path — so two pages would be two sets of columns,
+   * sorting, permissions and PII masking to keep in step.
+   *
+   * "Client rebate" rather than bare "Rebate": the word alone does not say who
+   * received it, and the whole reason the column exists is that the two legs of
+   * one trade are paid to different people.
+   */
+  'commissions.colKind': 'Type',
+  'commissions.kind.commission': 'Commission',
+  'commissions.kind.rebate': 'Client rebate',
+  'commissions.filterKind': 'Filter by type',
+  'commissions.filterKindAll': 'Commission and rebates',
   'commissions.clearFilters': 'Clear',
   'commissions.noun': 'commission',
   'commissions.nounPlural': 'commissions',

@@ -298,7 +298,20 @@ describe('the commission ladder', () => {
     expect(await screen.findByRole('button', { name: /save changes/i })).toBeEnabled();
   });
 
-  it('refuses to save a rung whose two percentages exceed the revenue', async () => {
+  /*
+   * ── THE 100% GUARD IS GONE (0117), and this replaces the case that pinned it.
+   *
+   * That test opened a rung paying 80% commission and a 30% rebate and asserted
+   * the save button was disabled. Neither leg can be a percentage any more, so
+   * the state it described is unreachable — the ceiling that still applies is
+   * `ib_max_payout_per_lot`, enforced when a trade is priced, because it has to
+   * compare against the trade's VOLUME.
+   *
+   * What matters on this form now is the rung the migration could NOT convert:
+   * one priced as a percentage of broker revenue, which has no per-lot
+   * equivalent. The form must say so rather than invent a figure.
+   */
+  it('warns when editing a rung priced on a retired model', async () => {
     getIbLevels.mockResolvedValue([
       mainPartner({
         commissionMode: 'percent',
@@ -316,7 +329,7 @@ describe('the commission ladder', () => {
     await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    expect(await screen.findByRole('button', { name: /save changes/i })).toBeDisabled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/retired/i);
   });
 
   /*
@@ -376,17 +389,21 @@ describe('the commission ladder', () => {
     await user.click(screen.getByRole('button', { name: /^add level$/i }));
 
     /*
-     * A rung deeper than the first defaults to `share_of_parent` at 30% —
-     * "the sub-partner takes thirty percent of the ten dollars the main partner
-     * gets", which is the shape the business asked for.
+     * EVERY rung is per lot since 0117 — including a deep one, which used to
+     * default to `share_of_parent` at 30%. That mode was removed because with
+     * several sub-partner rungs a rate nobody can read off the card without
+     * resolving a chain upward is a rate somebody eventually gets wrong.
+     *
+     * The rate is asserted as a literal amount rather than a percentage, which
+     * is the whole point: the card now says what it pays.
      */
     await waitFor(() =>
       expect(createIbLevel).toHaveBeenCalledWith(
         expect.objectContaining({
           level: 3,
           name: 'Deep Tier',
-          commissionMode: 'share_of_parent',
-          commissionRate: '30',
+          commissionMode: 'per_lot',
+          commissionAmountPerLot: '10',
         }),
       ),
     );
