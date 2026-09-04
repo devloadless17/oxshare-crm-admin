@@ -274,6 +274,8 @@ export type ReconciliationReport = components['schemas']['ReconciliationReportDt
  * wallet ⇄ account transfers and commission transfers.
  */
 export type TransactionRow = components['schemas']['AdminTransactionRowDto'];
+export type TransferRow = components['schemas']['TransferDto'];
+export type StuckTransfers = components['schemas']['StuckTransfersDto'];
 export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
 export type TransactionsSummary = components['schemas']['AdminTransactionsSummaryDto'];
 export type TransactionSummaryRow = components['schemas']['AdminTransactionSummaryRowDto'];
@@ -1836,6 +1838,45 @@ export const adminApi = {
     const { data } = await apiClient.patch<WithdrawalRow>(
       `/admin/withdrawals/${id}/settle`,
       { providerRef },
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * How many transfers are stuck, for the Financial banner.
+   *
+   * The condition is already detected server-side and raises a `page`-severity
+   * alert — into a LOG LINE, because no paging provider is wired. This is how
+   * the console finds out instead.
+   *
+   * A count, not a list: the rows are already on the table below the banner.
+   */
+  async getStuckTransfers(signal?: AbortSignal): Promise<StuckTransfers> {
+    const { data } = await apiClient.get<StuckTransfers>('/admin/transfers/stuck', { signal });
+    return data;
+  },
+
+  /**
+   * Release a transfer the MT5 bridge left in flight.
+   *
+   * A `wallet_to_account` transfer HOLDS the money at request time and debits it
+   * on settle. When the bridge loses its session mid-call the transfer stays
+   * pending — correctly, because the executor cannot tell "MT5 refused" from
+   * "MT5 never answered" — and nothing ever expires that hold. The client sees
+   * "Processing" and cannot spend their own money, for as long as nobody looks.
+   *
+   * ⚠️ Only after reading the broker's own record. If MT5 DID apply the
+   * movement, releasing the hold lets the client spend money that has already
+   * left. That is the one thing the executor refuses to guess at, and the whole
+   * reason this is a person's decision rather than a timeout.
+   *
+   * `reason` is required and reaches the client on the failed row.
+   */
+  async abandonTransfer(id: string, reason: string, key: string): Promise<TransferRow> {
+    const { data } = await apiClient.post<TransferRow>(
+      `/admin/transfers/${id}/abandon`,
+      { reason },
       idempotent(key),
     );
     return data;

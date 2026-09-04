@@ -99,6 +99,9 @@ export const keys = {
     all: () => ['transactions'] as const,
     list: (params: Params) => ['transactions', 'list', params] as const,
     summary: (params: Params) => ['transactions', 'summary', params] as const,
+    /* The Financial banner's count. Under the same root as the list, so
+       releasing a stuck transfer refreshes both with one invalidation. */
+    stuck: () => ['transactions', 'stuck'] as const,
   },
 
   ledger: {

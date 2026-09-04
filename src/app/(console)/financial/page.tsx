@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { Banknote } from 'lucide-react';
 import api from '@/lib/api';
 import {
@@ -14,6 +14,8 @@ import {
   type TransactionListParams,
   type TransactionListResponse,
   type TransactionSortKey,
+  type TransactionRow,
+  type StuckTransfers,
   type TransactionState,
   type TransactionsSummary,
 } from '@/lib/api/admin';
@@ -31,6 +33,10 @@ import { maskedFieldLabels } from '@/lib/masking';
 import { TransactionFilters } from '@/components/financial/transaction-filters';
 import { TransactionSummary } from '@/components/financial/transaction-summary';
 import { transactionColumns } from '@/components/financial/transaction-columns';
+import { AbandonTransferDialog } from '@/components/financial/abandon-transfer-dialog';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
+import { StatusBanner } from '@/app/(console)/bridge/page';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -164,6 +170,40 @@ function FinancialPageContent() {
   // RBAC-03 — the `financial.*` keys this viewer's response omitted.
   const maskedFields = query.data?.maskedFields ?? [];
 
+  /*
+   * Releasing a stuck transfer — the one ACTION on this otherwise read-only
+   * screen, and the only place in the console a transfer can be acted on at
+   * all (it has no desk of its own; see `transaction-columns`).
+   *
+   * `transfers.abandon` is the sibling of `withdrawals.settle`: both mean
+   * "decide money did or did not move, on evidence outside this system".
+   */
+  const { admin } = useAdmin();
+  const canAbandon = hasPermission(admin, 'transfers.abandon');
+  const [abandonTarget, setAbandonTarget] = useState<TransactionRow | null>(null);
+
+  /*
+   * ── The stuck-transfer banner ────────────────────────────────────────────
+   *
+   * `TransferResumeScheduler` raises `money.transfer_stuck` at PAGE severity
+   * when a transfer has been pending past its threshold. That alert is a log
+   * line — §12.3 deliberately stops short of choosing a paging provider — so on
+   * a deployment with no log drain it reaches a terminal nobody is watching.
+   *
+   * These transfers have always been rows on the table below. What was missing
+   * was a REASON to look: a stuck one renders as a pending row among settled
+   * history, indistinguishable from a withdrawal waiting on the desk.
+   *
+   * Deliberately NOT filtered by the page's own filters. It answers "is anything
+   * wrong right now", which must not change because somebody narrowed the view
+   * to last month — the same argument the summary tiles make for ignoring the
+   * direction and kind axes.
+   */
+  const stuckQuery = useResource<StuckTransfers>(keys.transactions.stuck(), (signal) =>
+    api.admin.getStuckTransfers(signal),
+  );
+  const stuck = stuckQuery.data;
+
   const isFiltered = Boolean(
     direction || kind || state || currency || from || to || userId || url.get('q'),
   );
@@ -184,6 +224,27 @@ function FinancialPageContent() {
             paging anyway, but not sending it keeps the intent readable. */}
         <ExportButton resource="transactions" filters={exportFilters} disabled={total === 0} />
       </div>
+
+      {/*
+        Shown ONLY when something is stuck — never a green all-clear.
+
+        A permanent banner on a money screen trains the eye to skip the one
+        element that must be read on the day it turns red. The bridge page makes
+        the same call for the same reason.
+
+        It states that no money has moved, because that is the operator's first
+        question and the answer is reassuring: a wallet is debited only once MT5
+        confirms. What is wrong is that a client is watching a spinner.
+      */}
+      {stuck && stuck.count > 0 && (
+        <StatusBanner
+          healthy={false}
+          message={t('financial.stuckBanner', {
+            count: stuck.count,
+            minutes: stuck.thresholdMinutes,
+          })}
+        />
+      )}
 
       <MaskedFieldsNotice labels={maskedFieldLabels(maskedFields, FIELD_LABELS)} />
 
@@ -246,7 +307,15 @@ function FinancialPageContent() {
         <DataTable
           fill
           caption={t('financial.caption')}
-          columns={transactionColumns({ maskedFields })}
+          columns={transactionColumns({
+            maskedFields,
+            /*
+             * Undefined without the permission, which is what HIDES the
+             * control rather than showing one that 403s. UX only —
+             * `PermissionsGuard` is the enforcement (R-4.1).
+             */
+            onAbandon: canAbandon ? setAbandonTarget : undefined,
+          })}
           rows={rows}
           rowKey={(row) => row.id}
           dimmed={query.isFetching}
@@ -280,6 +349,20 @@ function FinancialPageContent() {
           }}
         />
       </AsyncBoundary>
+
+      {/*
+        Mounted unconditionally and driven by its target, like every other
+        confirm dialog here. It refetches on success rather than patching the
+        row: the release also frees the wallet hold, and the tiles above the
+        table are computed server-side from the same movements.
+      */}
+      <AbandonTransferDialog
+        target={abandonTarget}
+        onClose={() => setAbandonTarget(null)}
+        onDone={async () => {
+          await Promise.all([query.refetch(), summaryQuery.refetch(), stuckQuery.refetch()]);
+        }}
+      />
     </div>
   );
 }
