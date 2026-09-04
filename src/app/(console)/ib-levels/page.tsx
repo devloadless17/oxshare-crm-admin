@@ -15,13 +15,6 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { RowActions } from '@/components/row-actions';
 import { Modal } from '@/components/ui/modal';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -222,9 +215,6 @@ export default function IbLevelsPage() {
           key={editing === 'new' ? `new-${deepest + 1}` : editing.id}
           existing={editing === 'new' ? undefined : editing}
           level={editing === 'new' ? deepest + 1 : editing.level}
-          parent={levels.find(
-            (candidate) => candidate.level === (editing === 'new' ? deepest : editing.level - 1),
-          )}
           onClose={() => setEditing(null)}
           onSaved={invalidate}
         />
@@ -373,14 +363,12 @@ function LevelCard({
 function LevelDialog({
   existing,
   level,
-  parent,
   onClose,
   onSaved,
 }: {
   /** Absent when adding. Present when editing, and seeds every field. */
   existing: IbLevel | undefined;
   level: number;
-  parent: IbLevel | undefined;
   onClose: () => void;
   onSaved: () => Promise<unknown>;
 }) {
@@ -388,39 +376,51 @@ function LevelDialog({
     () => existing?.name ?? t('ibLevels.defaultName', { level: String(level) }),
   );
   const [description, setDescription] = React.useState(existing?.description ?? '');
-  const [mode, setMode] = React.useState<IbPayoutMode>(
-    /* A deeper rung defaults to the shape the business asked for: "30% of the
-       ten dollars the main partner gets". */
-    existing?.commissionMode ?? (level > 1 ? 'share_of_parent' : 'per_lot'),
+  /*
+   * Amounts only — every rung is priced per lot since 0117, so there is no mode
+   * to hold and no percentage rate beside it.
+   *
+   * A rung configured before that migration has no stored per-lot amount (its
+   * money lived in the rate column), so the field opens EMPTY rather than at a
+   * default: the API refuses the save until a person states the amount, and
+   * defaulting to "10" here would put a number nobody agreed into a rate card.
+   */
+  /* A rung configured before 0117, whose money lived in the rate column. The
+     form cannot show that rate as a per-lot amount, so it says so and the
+     operator states the figure the broker actually agreed. */
+  const legacy = existing !== undefined && existing.commissionMode !== 'per_lot';
+  const [amount, setAmount] = React.useState(
+    existing ? (existing.commissionAmountPerLot ?? '') : '10',
   );
-  const [rate, setRate] = React.useState(existing?.commissionRate ?? '30');
-  const [amount, setAmount] = React.useState(existing?.commissionAmountPerLot ?? '10');
-  const [rebateMode, setRebateMode] = React.useState<IbPayoutMode>(
-    existing?.rebateMode ?? 'per_lot',
+  const [rebateAmount, setRebateAmount] = React.useState(
+    existing ? (existing.rebateAmountPerLot ?? '') : '0',
   );
-  const [rebateRate, setRebateRate] = React.useState(existing?.rebateRate ?? '0');
-  const [rebateAmount, setRebateAmount] = React.useState(existing?.rebateAmountPerLot ?? '0');
-  const [revenueBasis, setRevenueBasis] = React.useState<RevenueBasis>(
-    existing?.revenueBasis ?? 'commission_swap',
-  );
+  /*
+   * Still SENT, never shown. It qualifies a percentage — of which there are
+   * none since 0117 — but the column is NOT NULL, so a save that omitted it
+   * would be refused. Held at whatever the rung already carries.
+   */
+  const [revenueBasis] = React.useState<RevenueBasis>(existing?.revenueBasis ?? 'commission_swap');
 
   const save = useMutation({
     mutationFn: () => {
       /*
-       * BOTH shapes are sent for each term, not just the active one. The API
-       * writes the column its mode reads and NULLs the other, and a payload
-       * that omitted the newly-relevant field would switch a rung to per-lot
-       * with no amount — which the database refuses, correctly, as a term that
-       * pays on nothing.
+       * `per_lot` is stated rather than left to a default: the DTO still names
+       * the field, and a save that omitted it on a rung configured before 0117
+       * would leave it on a retired mode the database now refuses.
+       *
+       * The rates are sent as hard zeroes for the same reason they are written
+       * as zero server-side — a live-looking percentage beside the amount that
+       * actually pays is how somebody reads the wrong number off the row later.
        */
       const body = {
         name: name.trim(),
         description: description.trim() || null,
-        commissionMode: mode,
-        commissionRate: mode === 'per_lot' ? '0' : rate,
+        commissionMode: 'per_lot' as const,
+        commissionRate: '0',
         commissionAmountPerLot: amount,
-        rebateMode,
-        rebateRate: rebateMode === 'per_lot' ? '0' : rebateRate,
+        rebateMode: 'per_lot' as const,
+        rebateRate: '0',
         rebateAmountPerLot: rebateAmount,
         revenueBasis,
       };
@@ -442,23 +442,21 @@ function LevelDialog({
   });
 
   /*
-   * Both legs are shares of the SAME revenue, so they add — and only the
-   * PERCENTAGE ones do. A per-lot amount is not a share of anything, and a
-   * `share_of_parent` rate is a share of a different number entirely, so
-   * summing either would refuse an honest mixed rung.
+   * ── THE 100% GUARD IS GONE (0117) ─────────────────────────────────────────
+   *
+   * It summed the two legs and refused a rung paying out more than the revenue
+   * behind it. Both legs had to be PERCENTAGES of one revenue figure for that
+   * sum to mean anything, and neither can be a percentage any more — so the
+   * check could only ever compare zero against 100.
+   *
+   * The bound that still applies to a per-lot rung is `ib_max_payout_per_lot`,
+   * enforced by `checkPlausible` when a trade is priced. It has to be enforced
+   * there rather than here because it compares against the trade's VOLUME,
+   * which no form can see.
+   *
+   * The revenue-basis picker went with it. It named WHICH revenue a percentage
+   * was a share of, and there are no percentages left for it to qualify.
    */
-  const share = React.useMemo(() => {
-    const commission = mode === 'percent' ? decimalOrZero(rate) : new Decimal(0);
-    const rebate = rebateMode === 'percent' ? decimalOrZero(rebateRate) : new Decimal(0);
-    return commission.plus(rebate);
-  }, [mode, rate, rebateMode, rebateRate]);
-  const overAllocated = share.greaterThan(100);
-
-  /*
-   * The basis names WHICH revenue a PERCENTAGE is a share of, so it decides
-   * nothing unless one of the two legs is a `percent`.
-   */
-  const pricesOnRevenue = mode === 'percent' || rebateMode === 'percent';
 
   return (
     <Modal
@@ -503,84 +501,30 @@ function LevelDialog({
           />
         </label>
 
+        {legacy && (
+          <p
+            role="alert"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-400"
+          >
+            {t('ibLevels.legacyMode')}
+          </p>
+        )}
+
         <TermField
           id="level-commission"
           label={t('ibLevels.commission')}
           hint={t('ibLevels.commissionHint')}
-          mode={mode}
-          onModeChange={setMode}
-          rate={rate}
-          onRateChange={setRate}
           amount={amount}
           onAmountChange={setAmount}
-          /* Only a rung with one above it can take a share of it. */
-          allowShare={level > 1}
-          parentPerLot={parentPerLotRate(parent)}
         />
 
         <TermField
           id="level-rebate"
           label={t('ibLevels.rebate')}
           hint={t('ibLevels.rebateHint')}
-          mode={rebateMode}
-          onModeChange={setRebateMode}
-          rate={rebateRate}
-          onRateChange={setRebateRate}
           amount={rebateAmount}
           onAmountChange={setRebateAmount}
-          /* A rebate is paid to the CLIENT, so there is no partner rate above
-             for it to be a share of. The mode is deliberately not offered. */
-          allowShare={false}
-          parentPerLot={undefined}
         />
-
-        {pricesOnRevenue && (
-          <label className="block space-y-1.5" htmlFor="level-basis">
-            <span className="text-xs font-semibold">{t('ibLevels.basis')}</span>
-            <Select
-              value={revenueBasis}
-              onValueChange={(next) => setRevenueBasis(next as RevenueBasis)}
-            >
-              <SelectTrigger
-                id="level-basis"
-                className="h-10 w-full"
-                aria-label={t('ibLevels.basis')}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="commission_swap">
-                  {t('ibLevels.basis_commission_swap')}
-                </SelectItem>
-                <SelectItem value="spread">{t('ibLevels.basis_spread')}</SelectItem>
-                <SelectItem value="commission_swap_spread">
-                  {t('ibLevels.basis_commission_swap_spread')}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {/*
-              The IRREVERSIBLE one, warned about where it is chosen. Under
-              `spread`, a product whose markup is still 0 produces zero revenue —
-              and a zero-revenue deal is marked DONE rather than retried, so
-              switching before the markups are populated drains the queue paying
-              nothing, permanently.
-            */}
-            {revenueBasis !== 'commission_swap' && (
-              <span className="block text-[11px] leading-relaxed text-warning">
-                {t('ibLevels.basisSpreadWarning')}
-              </span>
-            )}
-          </label>
-        )}
-
-        {overAllocated && (
-          <p
-            role="alert"
-            className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-[11px] text-destructive"
-          >
-            {t('ibLevels.shareTotal', { total: share.toString() })} — {t('ibLevels.overAllocated')}
-          </p>
-        )}
 
         <div className="flex justify-end gap-2 pt-1">
           <button
@@ -592,7 +536,7 @@ function LevelDialog({
           </button>
           <button
             type="submit"
-            disabled={save.isPending || overAllocated}
+            disabled={save.isPending}
             className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
           >
             {save.isPending
@@ -615,87 +559,66 @@ function LevelDialog({
  * "30%" flips between them, and losing the figure each time would make the
  * comparison impossible.
  */
+/**
+ * One term — a flat amount per standard lot.
+ *
+ * ## Why there is no mode picker any more (0117)
+ *
+ * It offered three: a percentage of broker revenue, a flat per-lot amount, and
+ * a percentage of the rung above.
+ *
+ * `percent` was removed because its base is MT5's charged commission plus swap,
+ * which is ZERO on a raw-spread group — so a rate card reading "30%" paid
+ * nothing at all on a whole class of accounts, silently, because 30% of nothing
+ * looks like a legitimate zero. That is the live bug this deployment already
+ * hit, where every closed trade was marked processed having paid nobody.
+ *
+ * `share_of_parent` worked correctly — 30% of the rung above's $10 resolved to
+ * $3 a lot, and it kept a ladder proportional when the top rate was
+ * renegotiated. It was removed on an explicit instruction, and the reason is a
+ * good one: with several sub-partner rungs, a rate nobody can read off the card
+ * without resolving a chain upward is a rate somebody eventually gets wrong.
+ *
+ * The trade, stated plainly: raising level 1 from $10 to $12 no longer moves
+ * level 2. Every rung is now edited on its own, deliberately.
+ */
 function TermField({
   id,
   label,
   hint,
-  mode,
-  onModeChange,
-  rate,
-  onRateChange,
   amount,
   onAmountChange,
-  allowShare,
-  parentPerLot,
 }: {
   id: string;
   label: string;
   hint: string;
-  mode: IbPayoutMode;
-  onModeChange: (mode: IbPayoutMode) => void;
-  rate: string;
-  onRateChange: (value: string) => void;
   amount: string;
   onAmountChange: (value: string) => void;
-  /** `share_of_parent` is offered only where there IS a rung above. */
-  allowShare: boolean;
-  /** That rung's per-lot rate, for the "= $3 a lot" hint. */
-  parentPerLot: Decimal | undefined;
 }) {
-  const perLot = mode === 'per_lot';
-
   return (
     <div className="space-y-1.5">
       <span className="text-xs font-semibold">{label}</span>
-      <div className="flex items-start gap-2">
-        <div className="relative flex-1">
-          <input
-            id={id}
-            value={perLot ? amount : rate}
-            onChange={(e) => (perLot ? onAmountChange : onRateChange)(e.target.value)}
-            required
-            inputMode="decimal"
-            aria-label={label}
-            /*
-             * The pattern follows the MODE, because the two are different kinds
-             * of number: a percentage with eight decimals is a typo, and money
-             * rounded to four is a payout that disagrees with the ledger it
-             * lands in (§6.1).
-             */
-            pattern={perLot ? '\\d{1,8}(\\.\\d{1,8})?' : '\\d{1,8}(\\.\\d{1,4})?'}
-            className="flex h-10 w-full rounded-lg border border-input bg-card pl-3 pr-12 text-xs tabular focus-outline"
-          />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
-            {perLot ? t('ibLevels.unitPerLot') : '%'}
-          </span>
-        </div>
-        <Select value={mode} onValueChange={(next) => onModeChange(next as IbPayoutMode)}>
-          <SelectTrigger
-            className="h-10 w-44 shrink-0"
-            aria-label={t('ibLevels.modeFor', { term: label })}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="per_lot">{t('ibLevels.payoutMode_per_lot')}</SelectItem>
-            <SelectItem value="percent">{t('ibLevels.payoutMode_percent')}</SelectItem>
-            {allowShare && (
-              <SelectItem value="share_of_parent">
-                {t('ibLevels.payoutMode_share_of_parent')}
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-      {/*
-        A share is a percentage of a number on ANOTHER rung, so the form has to
-        show what it comes to. "30%" alone is unreadable here — 30% of what?
-      */}
-      {mode === 'share_of_parent' && (
-        <span className="block text-[11px] leading-relaxed text-muted-foreground">
-          {shareHint(rate, parentPerLot)}
+      <div className="relative">
+        <input
+          id={id}
+          value={amount}
+          onChange={(e) => onAmountChange(e.target.value)}
+          required
+          inputMode="decimal"
+          aria-label={label}
+          /*
+           * EIGHT decimal places, because this is money: the column is
+           * NUMERIC(28,8) and a figure rounded to four here would disagree with
+           * the ledger it lands in (§6.1). The percentage pattern that used to
+           * sit beside this one is gone with the mode it belonged to.
+           */
+          pattern="\d{1,8}(\.\d{1,8})?"
+          className="flex h-10 w-full rounded-lg border border-input bg-card pl-3 pr-12 text-xs tabular focus-outline"
+        />
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
+          {t('ibLevels.unitPerLot')}
         </span>
-      )}
+      </div>
       <span className="block text-[11px] leading-relaxed text-muted-foreground">{hint}</span>
     </div>
   );
@@ -740,24 +663,6 @@ function trim(value: string): string {
 function parentPerLotRate(parent: IbLevel | undefined): Decimal | undefined {
   if (!parent || parent.commissionMode !== 'per_lot') return undefined;
   return decimalOrZero(parent.commissionAmountPerLot ?? '0');
-}
-
-/**
- * "30% of $10.00 = $3.00 per lot", or a plain refusal when it cannot resolve.
- *
- * The refusal is worth SHOWING rather than hiding the hint: a share of a rung
- * that pays a PERCENTAGE has nothing to take a share of, and the engine skips
- * it. An operator should learn that here rather than from a trade that paid
- * nobody.
- */
-function shareHint(rate: string, parentPerLot: Decimal | undefined): string {
-  if (parentPerLot === undefined) return t('ibLevels.shareUnresolvable');
-  const resolved = parentPerLot.times(decimalOrZero(rate)).dividedBy(100);
-  return t('ibLevels.shareResolves', {
-    rate: decimalOrZero(rate).toString(),
-    parent: parentPerLot.toFixed(2),
-    result: resolved.toFixed(2),
-  });
 }
 
 /**

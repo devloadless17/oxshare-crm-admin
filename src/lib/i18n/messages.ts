@@ -2676,8 +2676,18 @@ export const messages = {
     'rebate.',
 
   'ibLevels.modeFor': 'How “{term}” is priced',
+  /* `payoutMode_percent` and `payoutMode_share_of_parent` are KEPT: a rung
+     configured before 0117 still renders its old terms on the card, and a
+     missing label there would print a raw enum value on a money screen. Neither
+     is offered by the form any more. */
   'ibLevels.payoutMode_percent': 'of revenue',
   'ibLevels.payoutMode_per_lot': 'per lot',
+  /* Shown when EDITING a rung configured before per-lot pricing. Its money was
+     a percentage of broker revenue, which has no per-lot equivalent — so the
+     form asks rather than inventing one. */
+  'ibLevels.legacyMode':
+    'This level was priced on a model that has been retired. Enter the amount per lot it should ' +
+    'pay from now on — the old percentage cannot be converted automatically.',
   'ibLevels.payoutMode_share_of_parent': 'of the level above',
   // The share is a percentage of a number on ANOTHER card, so both the card and
   // the dialog show what it comes to in money. "30%" alone is unreadable here.

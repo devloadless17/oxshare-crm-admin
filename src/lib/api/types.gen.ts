@@ -972,8 +972,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The last few commission transfers, newest first
-         * @description A short list to sit beside the balance it explains. The FULL history is in `GET /payments/transactions`, which carries these rows alongside every other movement — a partner's own money should not be split across two histories that have to be reconciled against each other.
+         * Commission moved out of the commission wallet, newest first
+         * @description Every transfer, newest first, with the wallet numbers at both ends. It was capped at TEN while it rendered as a short panel beside the balance it explains; it is now a paged tab of its own, and a cap that silently hid a partner’s older transfers was the reason it could not answer “where did my money go”. These rows also appear in `GET /payments/transactions` alongside every other movement — a partner's own money should not be split across two histories that have to be reconciled against each other.
          */
         get: operations["IbController_myWalletTransfers"];
         put?: never;
@@ -4558,6 +4558,16 @@ export interface components {
              * @example 950.00000000
              */
             mainBalance?: string;
+            /**
+             * @description The COMMISSION wallet the money left, by its wallet number.
+             * @example W-4820199
+             */
+            fromWalletNumber?: string | null;
+            /**
+             * @description The MAIN wallet the money arrived in, by its wallet number.
+             * @example W-4820188
+             */
+            toWalletNumber?: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -4704,10 +4714,10 @@ export interface components {
             /** @description A disabled rung pays nobody standing on it. Disabling is refused while partners are there — see the service. */
             enabled: boolean;
             /**
-             * @description How the PARTNER’s leg is priced.
+             * @description How the PARTNER’s leg is priced. Always `per_lot` on anything saved since 0117; the other two appear only on rungs configured before it.
              * @enum {string}
              */
-            commissionMode: "percent" | "per_lot" | "share_of_parent";
+            commissionMode: "per_lot" | "percent" | "share_of_parent";
             /**
              * @description The partner’s share of broker revenue, as a percentage. Read in `percent` mode.
              * @example 30.0000
@@ -4719,10 +4729,10 @@ export interface components {
              */
             commissionAmountPerLot: string | null;
             /**
-             * @description How the CLIENT’s rebate is priced.
+             * @description How the CLIENT’s rebate is priced. Always `per_lot` on anything saved since 0117.
              * @enum {string}
              */
-            rebateMode: "percent" | "per_lot" | "share_of_parent";
+            rebateMode: "per_lot" | "percent" | "share_of_parent";
             /** @example 0.0000 */
             rebateRate: string;
             /** @example 2.00000000 */
@@ -4761,19 +4771,19 @@ export interface components {
             name: string;
             description?: string | null;
             /**
-             * @default percent
+             * @default per_lot
              * @enum {string}
              */
-            commissionMode: "percent" | "per_lot" | "share_of_parent";
+            commissionMode: "per_lot";
             /** @example 30.0000 */
             commissionRate?: string;
             /** @example 10.00000000 */
             commissionAmountPerLot?: string;
             /**
-             * @default percent
+             * @default per_lot
              * @enum {string}
              */
-            rebateMode: "percent" | "per_lot" | "share_of_parent";
+            rebateMode: "per_lot";
             /** @example 0.0000 */
             rebateRate?: string;
             /** @example 2.00000000 */
@@ -4787,11 +4797,11 @@ export interface components {
             name?: string;
             description?: string | null;
             /** @enum {string} */
-            commissionMode?: "percent" | "per_lot" | "share_of_parent";
+            commissionMode?: "per_lot";
             commissionRate?: string;
             commissionAmountPerLot?: string;
             /** @enum {string} */
-            rebateMode?: "percent" | "per_lot" | "share_of_parent";
+            rebateMode?: "per_lot";
             rebateRate?: string;
             rebateAmountPerLot?: string;
             /** @enum {string} */
