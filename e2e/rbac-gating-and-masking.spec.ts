@@ -97,14 +97,39 @@ test.describe('what a MASTER admin can reach', () => {
      * ran to its limit and reported "not in the list". The role was visible on
      * screen the whole time; only the query was wrong.
      */
+    /*
+     * ⚠️ WAIT FOR THE TABLE BEFORE WALKING IT.
+     *
+     * The walk below was reading an EMPTY table: `goto` resolves on the
+     * document, not on the query behind the list, so at that instant there
+     * were no rows and no pager. The loop found no Next button, broke on its
+     * first pass, and reported "not in the list" — about a list that had not
+     * arrived yet.
+     */
+    await expect
+      .poll(() => page.locator('tbody tr').count(), { timeout: 30_000 })
+      .toBeGreaterThan(0);
+
     const row = page.getByRole('row').filter({ hasText: /e2e restricted/i });
     for (let hop = 0; hop < 15 && (await row.count()) === 0; hop += 1) {
       const next = page.getByRole('button', { name: /^next$/i });
       if ((await next.count()) === 0 || (await next.isDisabled())) break;
+      /*
+       * ⚠️ WAIT FOR THE TABLE TO ACTUALLY CHANGE between hops.
+       *
+       * Paging here is CLIENT-side, so `waitForLoadState('networkidle')`
+       * resolves immediately — there is no request to wait for. The loop then
+       * read `row.count()` against the page it had just left, found nothing,
+       * and clicked Next again, sprinting past the page the fixture was
+       * actually on. It reported "not in the list" having never looked at it.
+       *
+       * The first row's text is the cheapest proof the re-render committed.
+       */
+      const before = await page.locator('tbody tr').first().textContent();
       await next.click();
-      // The table re-renders on the click; without this the next `row.count()`
-      // reads the page we just left.
-      await page.waitForLoadState('networkidle');
+      await expect
+        .poll(() => page.locator('tbody tr').first().textContent(), { timeout: 5_000 })
+        .not.toBe(before);
     }
     await expect(row, 'the E2E Restricted role is not in the list').toBeVisible();
     await row.getByRole('button', { name: /actions for/i }).click();
