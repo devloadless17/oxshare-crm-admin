@@ -942,28 +942,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/ib/positions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Open trades belonging to this partner's direct clients
-         * @description DIRECT clients only. A sub-partner’s clients are somebody else’s book — this partner earns on them through the chain, but listing them here would hand one partner a view of another’s client list.
-         *
-         *     Open positions only: a closed trade already appears in the commission list as the thing it produced.
-         */
-        get: operations["IbController_positions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/ib/agencies": {
         parameters: {
             query?: never;
@@ -4482,21 +4460,6 @@ export interface components {
              * @description When it was credited. Null while it is still maturing.
              */
             confirmedAt?: string | null;
-        };
-        IbClientPositionDto: {
-            /** Format: uuid */
-            id: string;
-            clientName: string;
-            symbol: string;
-            /** @enum {string} */
-            side: "buy" | "sell";
-            /** @description Lots. */
-            volume: string;
-            openPrice: string;
-            /** @description Floating, and it moves. Shown because a partner asks "is my book alive", not so they can act on it — they have no control over a client’s trade. */
-            profit?: string | null;
-            /** Format: date-time */
-            openedAt: string;
         };
         PublicAgencyDto: {
             /** Format: uuid */
@@ -8332,25 +8295,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbCommissionRowDto"][];
-                };
-            };
-        };
-    };
-    IbController_positions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IbClientPositionDto"][];
                 };
             };
         };

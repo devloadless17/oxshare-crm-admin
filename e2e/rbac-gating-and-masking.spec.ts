@@ -88,11 +88,23 @@ test.describe('what a MASTER admin can reach', () => {
      * than assuming where it sits. (The specs that create roles now delete
      * them too; this is the belt to that pair of braces.)
      */
-    const row = page.getByRole('row', { name: /e2e restricted/i });
+    /*
+     * ⚠️ FILTERED BY TEXT, not by accessible name.
+     *
+     * `getByRole('row', { name: /e2e restricted/i })` asks for the row's
+     * ACCESSIBLE NAME, which these rows do not carry — so it matched nothing
+     * even with the fixture sitting on page one, and the page-walk below then
+     * ran to its limit and reported "not in the list". The role was visible on
+     * screen the whole time; only the query was wrong.
+     */
+    const row = page.getByRole('row').filter({ hasText: /e2e restricted/i });
     for (let hop = 0; hop < 15 && (await row.count()) === 0; hop += 1) {
       const next = page.getByRole('button', { name: /^next$/i });
       if ((await next.count()) === 0 || (await next.isDisabled())) break;
       await next.click();
+      // The table re-renders on the click; without this the next `row.count()`
+      // reads the page we just left.
+      await page.waitForLoadState('networkidle');
     }
     await expect(row, 'the E2E Restricted role is not in the list').toBeVisible();
     await row.getByRole('button', { name: /actions for/i }).click();

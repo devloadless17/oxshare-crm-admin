@@ -14,10 +14,12 @@ import type { components, operations } from './types.gen';
  * ("Cannot sort clients by \"type\". Allowed: …"), and the whole table was
  * replaced by an error card. Reported from the running app.
  *
- * `IB_PARTNER_SORT_KEYS` had the same drift, latent: it still listed `level`,
- * which migration 0102 replaced with `programName`. Nothing consumes it yet,
- * so it would have shipped the identical failure the day somebody built that
- * screen.
+ * `IB_PARTNER_SORT_KEYS` had the same drift, latent — and then drifted BACK,
+ * which is the better argument for this mechanism than the first pass was.
+ * 0102 replaced the rung with a named programme, so `level` was wrong; 0112
+ * replaced programmes with levels again, so `programName` became wrong in its
+ * turn. A hand-kept list loses that race every time; a list bound to the
+ * generated contract is simply a compile error on the day the schema moves.
  *
  * Each array is now `satisfies readonly SortKeysOf<Operation>[]`, which
  * catches the DANGEROUS direction — offering a key the API refuses — while
