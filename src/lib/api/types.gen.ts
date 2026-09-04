@@ -5512,10 +5512,10 @@ export interface components {
              */
             maxDemoDeposit: string;
             /**
-             * @description How many levels a commission programme’s ladder may reach. Defaults to 2 — the committed two-level structure (Feature List Rev 9, IB-17). Bounds what may be SAVED: lowering it leaves existing programmes paying exactly what they paid before.
-             * @example 2
+             * @description Seconds between commission payouts, and how long an accrual matures first. 60 credits a partner about a minute after the trade closes.
+             * @example 3600
              */
-            ibMaxLevels: number;
+            ibCommissionIntervalSeconds: number;
             /** Format: date-time */
             updatedAt?: string | null;
             updatedByName?: string | null;
@@ -5530,8 +5530,11 @@ export interface components {
              * @example 1000000.00
              */
             maxDemoDeposit: string;
-            /** @example 2 */
-            ibMaxLevels: number;
+            /**
+             * @description Seconds between commission payouts, and how long an accrual matures before it is payable. One number for both: either alone leaves the other as the real delay. 60 = a partner is credited about a minute after the trade closes.
+             * @example 3600
+             */
+            ibCommissionIntervalSeconds: number;
         };
         SmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */

@@ -1368,19 +1368,24 @@ export const messages = {
   'tradingSettings.maxDemoAccounts': 'Demo accounts per client',
   'tradingSettings.maxDemoAccountsHint':
     'Same, for practice accounts. Every one is a real row on the broker’s server.',
-  // The ladder ceiling. The hint says what it BOUNDS rather than what it is —
-  // "maximum commission levels" alone reads as a number without consequences,
-  // and this one decides how many partners a single trade can pay.
-  'tradingSettings.maxLevels': 'Maximum commission levels',
-  'tradingSettings.maxLevelsHint':
-    'How deep a commission programme’s ladder may go — how many partners above a client can ' +
-    'earn from one trade. Two is the agreed structure. Raising it lets deeper programmes be ' +
-    'saved; it does not change what existing programmes pay.',
-  // ── THE TWO PAYOUT-CEILING STRINGS ARE GONE (0112) ────────────────────────
-  // `tradingSettings.maxPayout`, `.maxPayoutHint`, `.maxPerLot` and
-  // `.maxPerLotHint` labelled the two ceiling inputs, removed from this form on
-  // an explicit instruction. Both ceilings are still stored and still enforced
-  // on every accrual — there is simply no control to label.
+  // ── How often commission is paid (0113) ───────────────────────────────────
+  // Replaced "Maximum commission levels", which capped how deep the ladder
+  // could go. That is the IB Levels page's job now — add a rung and it pays.
+  'tradingSettings.commissionInterval': 'Pay commission every',
+  'tradingSettings.commissionIntervalHint':
+    'How often partners are paid, and how long each commission waits before it becomes ' +
+    'spendable — one number for both. Set it to a minute and a partner is credited about a ' +
+    'minute after the trade closes.',
+  'tradingSettings.commissionIntervalUnit': 'Unit',
+  'tradingSettings.unitMinutes': 'minutes',
+  'tradingSettings.unitHours': 'hours',
+  'tradingSettings.unitDays': 'days',
+  // ⚠️ Shown only below an hour, so it keeps its force. The wait is not a delay
+  // for its own sake — it is the window in which a bad trade can be caught
+  // BEFORE the commission on it can be withdrawn.
+  'tradingSettings.commissionIntervalShortWarning':
+    'Under an hour leaves almost no time to review a trade before the commission on it becomes ' +
+    'spendable. Reversing it later means taking back money the partner may already have moved.',
   'tradingSettings.maxDemoDeposit': 'Largest demo starting balance',
   'tradingSettings.maxDemoDepositHint':
     'A client asking for more gets this instead. Practice with position sizes nobody would really trade teaches nothing.',
@@ -2578,9 +2583,12 @@ export const messages = {
   'ibLevels.add': 'Add level {level}',
   'ibLevels.addSucceeded': 'Level {level} was added. Set its rates before anybody is placed on it.',
   'ibLevels.addFailed': 'Could not add the level.',
+  // The ceiling an operator could raise is gone (0113). What is left is the
+  // depth the commission engine actually walks — a rung past it could never be
+  // reached by any trade, so this explains rather than pointing at a setting.
   'ibLevels.atCeiling':
-    'The ladder is at its configured depth of {max}. Raise “Maximum commission levels” on the ' +
-    'Trading settings tab to pay deeper.',
+    'The ladder is {max} levels deep, which is as far as the commission engine pays. A partner ' +
+    'deeper than this earns nothing and the trade pays the levels above them.',
 
   'ibLevels.enable': 'Enable',
   'ibLevels.disable': 'Disable',

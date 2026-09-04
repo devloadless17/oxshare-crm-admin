@@ -251,17 +251,17 @@ describe('the commission ladder', () => {
   });
 
   /*
-   * The ceiling is READ, not hardcoded. With `maxLevels: 2` and two rungs
-   * configured there is nothing to add — and the screen says why, because an
-   * operator who cannot find the button needs to know it is a limit they
-   * control rather than one the product imposes.
+   * The bound is READ, not hardcoded — and since 0113 it is the depth the
+   * commission ENGINE walks rather than a ceiling an operator could raise on
+   * another screen. With the stub reporting 2 and two rungs configured there is
+   * nothing to add, and the page explains that rather than pointing somewhere.
    */
-  it('offers no deeper rung at the configured ceiling, and says why', async () => {
+  it('offers no deeper rung past what the engine pays, and says why', async () => {
     renderWithProviders(<IbLevelsPage />);
 
     await screen.findByDisplayValue('Main Partner');
     expect(screen.queryByRole('button', { name: /add level/i })).toBeNull();
-    expect(screen.getByText(/configured depth of 2/i)).toBeInTheDocument();
+    expect(screen.getByText(/as far as the commission engine pays/i)).toBeInTheDocument();
   });
 
   it('offers a deeper rung once the ceiling allows one', async () => {

@@ -69,10 +69,12 @@ export default function IbLevelsPage() {
   );
 
   /*
-   * How deep this deployment lets the ladder go — `IB_MAX_LEVELS`, a setting on
-   * the Trading tab, default 2. READ rather than hardcoded: a copy here would
-   * drift the day a broker negotiates a third level, and the form would keep
-   * refusing at two while the API accepted three.
+   * How deep the commission engine actually walks. NOT a configurable ceiling
+   * any more (0113): `ib_max_levels` capped this and defaulted to 2, so adding
+   * a third rung meant first raising a number on the Trading settings tab.
+   *
+   * Still READ rather than hardcoded, because the bound is the engine's and a
+   * copy here would drift the day the walk changes.
    */
   const limits = useResource<IbLevelLimits>(keys.ibLevels.limits(), (signal) =>
     api.admin.getIbLevelLimits(signal),
