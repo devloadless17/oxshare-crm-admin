@@ -275,6 +275,7 @@ export type ReconciliationReport = components['schemas']['ReconciliationReportDt
  */
 export type TransactionRow = components['schemas']['AdminTransactionRowDto'];
 export type TransferRow = components['schemas']['TransferDto'];
+export type StuckTransfers = components['schemas']['StuckTransfersDto'];
 export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
 export type TransactionsSummary = components['schemas']['AdminTransactionsSummaryDto'];
 export type TransactionSummaryRow = components['schemas']['AdminTransactionSummaryRowDto'];
@@ -1839,6 +1840,20 @@ export const adminApi = {
       { providerRef },
       idempotent(key),
     );
+    return data;
+  },
+
+  /**
+   * How many transfers are stuck, for the Financial banner.
+   *
+   * The condition is already detected server-side and raises a `page`-severity
+   * alert — into a LOG LINE, because no paging provider is wired. This is how
+   * the console finds out instead.
+   *
+   * A count, not a list: the rows are already on the table below the banner.
+   */
+  async getStuckTransfers(signal?: AbortSignal): Promise<StuckTransfers> {
+    const { data } = await apiClient.get<StuckTransfers>('/admin/transfers/stuck', { signal });
     return data;
   },
 

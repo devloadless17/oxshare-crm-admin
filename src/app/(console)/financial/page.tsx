@@ -15,6 +15,7 @@ import {
   type TransactionListResponse,
   type TransactionSortKey,
   type TransactionRow,
+  type StuckTransfers,
   type TransactionState,
   type TransactionsSummary,
 } from '@/lib/api/admin';
@@ -35,6 +36,7 @@ import { transactionColumns } from '@/components/financial/transaction-columns';
 import { AbandonTransferDialog } from '@/components/financial/abandon-transfer-dialog';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
+import { StatusBanner } from '@/app/(console)/bridge/page';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -180,6 +182,28 @@ function FinancialPageContent() {
   const canAbandon = hasPermission(admin, 'transfers.abandon');
   const [abandonTarget, setAbandonTarget] = useState<TransactionRow | null>(null);
 
+  /*
+   * ── The stuck-transfer banner ────────────────────────────────────────────
+   *
+   * `TransferResumeScheduler` raises `money.transfer_stuck` at PAGE severity
+   * when a transfer has been pending past its threshold. That alert is a log
+   * line — §12.3 deliberately stops short of choosing a paging provider — so on
+   * a deployment with no log drain it reaches a terminal nobody is watching.
+   *
+   * These transfers have always been rows on the table below. What was missing
+   * was a REASON to look: a stuck one renders as a pending row among settled
+   * history, indistinguishable from a withdrawal waiting on the desk.
+   *
+   * Deliberately NOT filtered by the page's own filters. It answers "is anything
+   * wrong right now", which must not change because somebody narrowed the view
+   * to last month — the same argument the summary tiles make for ignoring the
+   * direction and kind axes.
+   */
+  const stuckQuery = useResource<StuckTransfers>(keys.transactions.stuck(), (signal) =>
+    api.admin.getStuckTransfers(signal),
+  );
+  const stuck = stuckQuery.data;
+
   const isFiltered = Boolean(
     direction || kind || state || currency || from || to || userId || url.get('q'),
   );
@@ -200,6 +224,27 @@ function FinancialPageContent() {
             paging anyway, but not sending it keeps the intent readable. */}
         <ExportButton resource="transactions" filters={exportFilters} disabled={total === 0} />
       </div>
+
+      {/*
+        Shown ONLY when something is stuck — never a green all-clear.
+
+        A permanent banner on a money screen trains the eye to skip the one
+        element that must be read on the day it turns red. The bridge page makes
+        the same call for the same reason.
+
+        It states that no money has moved, because that is the operator's first
+        question and the answer is reassuring: a wallet is debited only once MT5
+        confirms. What is wrong is that a client is watching a spinner.
+      */}
+      {stuck && stuck.count > 0 && (
+        <StatusBanner
+          healthy={false}
+          message={t('financial.stuckBanner', {
+            count: stuck.count,
+            minutes: stuck.thresholdMinutes,
+          })}
+        />
+      )}
 
       <MaskedFieldsNotice labels={maskedFieldLabels(maskedFields, FIELD_LABELS)} />
 
@@ -315,7 +360,7 @@ function FinancialPageContent() {
         target={abandonTarget}
         onClose={() => setAbandonTarget(null)}
         onDone={async () => {
-          await Promise.all([query.refetch(), summaryQuery.refetch()]);
+          await Promise.all([query.refetch(), summaryQuery.refetch(), stuckQuery.refetch()]);
         }}
       />
     </div>

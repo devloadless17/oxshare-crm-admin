@@ -2126,6 +2126,21 @@ export const messages = {
    * lets the client spend the same money twice — so it names the check to make
    * rather than saying "are you sure".
    */
+  /*
+   * The stuck-transfer banner.
+   *
+   * Leads with what is NOT wrong. "No money has moved" is the operator's first
+   * question and the answer is reassuring — the wallet is debited only once MT5
+   * confirms — so saying it first stops the banner reading as a loss.
+   *
+   * Then what IS wrong, which is a client watching a spinner, and then the
+   * cause, because the fix is usually on the MT5 side rather than in here.
+   */
+  'financial.stuckBanner':
+    '{count} transfer(s) have been processing for over {minutes} minutes. No money has moved — a ' +
+    'wallet is debited only once MT5 confirms — but the clients are watching a spinner. The ' +
+    'usual cause is the MT5 bridge having lost its session. Release the hold from a row’s ⋯ menu ' +
+    'once the broker confirms the money never arrived.',
   'financial.rowActionsLabel': 'Actions for this movement',
   'financial.abandon': 'Release hold',
   'financial.abandonTitle': 'Release this stuck transfer',
@@ -2136,7 +2151,12 @@ export const messages = {
     'Check the broker’s own deal history first. If MT5 did apply this movement, releasing the ' +
     'hold lets the client spend money that has already left their account.',
   'financial.abandonReason': 'What did the broker’s record show?',
-  'financial.abandonReasonHint': 'Required, and shown to the client beside the failed transfer.',
+  // Counts DOWN the shortfall, not up to the limit: the operator's question
+  // at that moment is "why will this not submit", and the answer is a
+  // number of characters still needed.
+  'financial.abandonReasonTooShort': '{count} more characters',
+  'financial.abandonReasonHint':
+    'At least 10 characters, and shown to the client beside the failed transfer.',
   'financial.abandonReasonPlaceholder':
     'Confirmed with the broker that the trading account was never credited.',
   'financial.abandonConfirm': 'Release the hold',

@@ -1673,6 +1673,26 @@ export interface paths {
         patch: operations["TradingController_renameAccount"];
         trace?: never;
     };
+    "/v1/trading/accounts/{id}/fund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Top up a demo trading account with practice money
+         * @description Demo accounts only — a live account is funded by transferring from a wallet, which posts both sides of the movement. The amount is capped at the operator ceiling reported as `maxDemoDeposit`; a larger request is clamped rather than refused, so a mistyped extra zero still leaves a working account.
+         */
+        post: operations["TradingController_fundDemoAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/trading/accounts/self-service": {
         parameters: {
             query?: never;
@@ -3641,6 +3661,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/transfers/stuck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How many transfers have been pending long enough to need a person
+         * @description Counts transfers still pending past the resume scheduler’s own staleness threshold — the same condition that raises the `money.transfer_stuck` alert. No money has moved on any of them: a wallet is debited only once MT5 confirms.
+         */
+        get: operations["AdminMoneyController_stuckTransfers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/transfers/{id}/abandon": {
         parameters: {
             query?: never;
@@ -5035,6 +5075,13 @@ export interface components {
              * @example Swing trading
              */
             name: string;
+        };
+        FundDemoAccountDto: {
+            /**
+             * @description How much practice money to add. Positive decimal string, capped by the operator ceiling reported as `maxDemoDeposit` on /trading/accounts/self-service.
+             * @example 10000.00
+             */
+            amount: string;
         };
         TradingAccountDto: {
             id: string;
@@ -6571,6 +6618,23 @@ export interface components {
             totalDifference: string;
             /** @description True when nothing is wrong. Read this rather than testing the array length — it is the field the service decides, and a future check can make it false without adding a wallet discrepancy. */
             balanced: boolean;
+        };
+        StuckTransfersDto: {
+            /**
+             * @description Transfers still pending past the staleness threshold. No money has moved on any of them.
+             * @example 1
+             */
+            count: number;
+            /**
+             * Format: date-time
+             * @description When the OLDEST of them was requested, or null when there are none.
+             */
+            oldestAt: string | null;
+            /**
+             * @description The threshold itself, in minutes. Sent so the copy can name it without the frontend keeping its own copy of a number this side owns and can change.
+             * @example 15
+             */
+            thresholdMinutes: number;
         };
         AbandonTransferDto: {
             /**
@@ -9260,6 +9324,29 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TradingController_fundDemoAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FundDemoAccountDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12059,6 +12146,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LedgerListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_stuckTransfers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StuckTransfersDto"];
                 };
             };
         };
