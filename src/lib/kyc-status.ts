@@ -55,14 +55,20 @@ export type KycStatus = (typeof KYC_STATUSES)[number];
  */
 export function kycStatusLabel(status: string): string {
   const key = `kycStatus.${status}` as Parameters<typeof t>[0];
-  const label = t(key);
+  const label: string | undefined = t(key);
   /*
    * A status the API grew and this build has not learned yet degrades to a
    * readable form of the raw value rather than to a blank cell or a visible
-   * `kycStatus.foo`. `t()` returns the key when it has no entry, which is what
-   * this compares against.
+   * `kycStatus.foo`.
+   *
+   * ⚠️ This compared `label === key`, on the belief that `t()` echoes a key it
+   * has no entry for. It does not — `t` is `messages[key]`, so a miss is
+   * `undefined`, the comparison was never true, and the fallback was dead
+   * code. The console would have rendered the literal string "undefined" in
+   * the status pill the day the API grew a seventh status; the guard written
+   * to prevent exactly that could not fire.
    */
-  return label === key ? status.replace(/_/g, ' ') : label;
+  return label ?? status.replace(/_/g, ' ');
 }
 
 /**

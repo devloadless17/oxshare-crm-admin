@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Eye, X } from 'lucide-react';
+import { Check, Eye, Undo2, X } from 'lucide-react';
 import { t } from '@/lib/i18n';
 
 /**
@@ -37,17 +37,31 @@ import { t } from '@/lib/i18n';
 export function ReviewDock({
   /** `submitted` still offers Claim; `under_review` is already claimed. */
   status,
+  /**
+   * WHO is holding it, when somebody is.
+   *
+   * The dock used to justify hiding Claim with "the status pill in the header
+   * already says who has it". The pill says "Under review" and nothing else —
+   * it never named anyone. So the one state where a reviewer needs to know
+   * whether to walk over to a colleague or just take the work told them
+   * neither, and offered no way out of the claim either.
+   */
+  reviewedByName,
   loading,
   error,
   onApprove,
   onReject,
   onClaim,
+  onRelease,
 }: {
   status: string;
+  reviewedByName?: string | null;
   loading: boolean;
   /** Shown ABOVE the dock — a failure has to be visible from where the click was. */
   error?: string;
   onApprove: () => void;
+  /** Hand a claimed submission back to the queue. */
+  onRelease: () => void;
   onReject: () => void;
   onClaim: () => void;
 }) {
@@ -99,6 +113,33 @@ export function ReviewDock({
           button would be a no-op that still looks actionable — and the status
           pill in the header already says who has it.
         */}
+        {/*
+          Claimed: say by whom, and offer the way out. Both halves matter — a
+          name with no release leaves a colleague's absence unresolvable, and a
+          release with no name makes taking somebody's work back a guess.
+        */}
+        {status === 'under_review' && (
+          <>
+            <span aria-hidden="true" className="h-6 w-px bg-border" />
+            <span className="text-xs font-medium text-muted-foreground">
+              {reviewedByName
+                ? t('kycReview.claimedBy', { name: reviewedByName })
+                : t('kycReview.claimedByUnknown')}
+            </span>
+            <button
+              type="button"
+              onClick={onRelease}
+              disabled={loading}
+              title={t('kycReview.releaseHint')}
+              aria-label={t('kycReview.releaseAria')}
+              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-outline"
+            >
+              <Undo2 className="h-4 w-4" aria-hidden="true" />
+              <span>{t('kycReview.release')}</span>
+            </button>
+          </>
+        )}
+
         {status === 'submitted' && (
           <>
             <span aria-hidden="true" className="h-6 w-px bg-border" />

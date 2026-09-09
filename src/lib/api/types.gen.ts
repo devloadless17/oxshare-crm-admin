@@ -2981,6 +2981,26 @@ export interface paths {
         patch: operations["AdminComplianceController_claimKyc"];
         trace?: never;
     };
+    "/v1/admin/kyc/{userId}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Hand a claimed KYC back to the queue (under_review → submitted)
+         * @description The way out of a claim. A reviewer who picked a submission up and cannot finish it — reassigned, off shift, or moved out of that territory — would otherwise leave a row that looks taken to everyone else. Gated exactly like a decision, because approve and reject already accept an under_review row from any reviewer who can see it: a claim is advisory, never a lock. Refuses a submission that has already been DECIDED — reopening one is reject's job, with a reason attached.
+         */
+        patch: operations["AdminComplianceController_releaseKyc"];
+        trace?: never;
+    };
     "/v1/admin/kyc/{userId}/approve": {
         parameters: {
             query?: never;
@@ -6194,6 +6214,7 @@ export interface components {
             /** Format: date-time */
             reviewedAt?: string;
             reviewedBy?: string;
+            reviewedByName?: string | null;
             rejectionReason?: string;
             rejectedFields?: string[];
             personalInfo?: {
@@ -6225,6 +6246,7 @@ export interface components {
             /** Format: date-time */
             reviewedAt?: string;
             reviewedBy?: string;
+            reviewedByName?: string | null;
             rejectionReason?: string;
             rejectedFields?: string[];
             personalInfo?: {
@@ -11085,6 +11107,27 @@ export interface operations {
         };
     };
     AdminComplianceController_claimKyc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycSubmissionDto"];
+                };
+            };
+        };
+    };
+    AdminComplianceController_releaseKyc: {
         parameters: {
             query?: never;
             header?: never;
