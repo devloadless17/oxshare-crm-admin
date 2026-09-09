@@ -41,13 +41,27 @@ import {
 
 test.use({ storageState: STORAGE_STATE });
 
+/**
+ * An INCONCLUSIVE probe throws; only "an operator switched it off" skips.
+ *
+ * Returning `false` on any non-2xx conflated "the rail is off" with "I could
+ * not find out", and the second is routine: admin logins are rate limited per
+ * account, so a 429 here silently skipped the one test that proves a refused
+ * payout is visible to the desk. See the twin in `rival-integration.spec.ts`.
+ */
 async function railIsLive(admin: Awaited<ReturnType<typeof adminApiSession>>): Promise<boolean> {
   const res = await admin.get('/admin/settings/rival');
-  if (!res.ok()) return false;
+  if (res.status() === 429) {
+    throw new Error('Rate limited while checking the Rival rail — inconclusive, not "off".');
+  }
+  if (!res.ok()) throw new Error(`Could not read the Rival settings: HTTP ${res.status()}`);
   const cfg = (await res.json()) as { enabled?: boolean; apiKeySet?: boolean };
   if (!cfg.enabled || !cfg.apiKeySet) return false;
   const probe = await admin.post('/admin/settings/rival/test', {});
-  if (!probe.ok()) return false;
+  if (probe.status() === 429) {
+    throw new Error('Rate limited while probing the Rival connection — inconclusive, not "off".');
+  }
+  if (!probe.ok()) throw new Error(`Rival connection probe failed: HTTP ${probe.status()}`);
   return ((await probe.json()) as { ok?: boolean }).ok === true;
 }
 
@@ -58,7 +72,7 @@ async function railIsLive(admin: Awaited<ReturnType<typeof adminApiSession>>): P
  * day the wallet is funded (the test silently stops testing anything, because
  * the payout SUCCEEDS and every assertion below is skipped) or absurdly large.
  */
-async function unfundableAmount(): Promise<string | null> {
+async function unfundableAmount(): Promise<string> {
   const base = process.env.RIVAL_API ?? 'http://localhost:4001/v1';
   const email = process.env.RIVAL_OWNER_EMAIL ?? 'owner@oxshare-crm.test';
   const password = process.env.RIVAL_OWNER_PASSWORD ?? 'OxShareLocal1!';
@@ -68,10 +82,10 @@ async function unfundableAmount(): Promise<string | null> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!login.ok) return null;
+    if (!login.ok) throw new Error(`Rival owner login answered ${login.status}`);
     const cookie = (login.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0]).join('; ');
     const res = await fetch(`${base}/company/wallets`, { headers: { cookie } });
-    if (!res.ok) return null;
+    if (!res.ok) throw new Error(`Rival /company/wallets answered ${res.status}`);
     /*
      * Rival's LIST endpoints double-nest: `{success, statusCode, data: {data: []}}`,
      * while its single-object endpoints put the object straight in `data`. Reading
@@ -86,11 +100,24 @@ async function unfundableAmount(): Promise<string | null> {
       availableBalance?: string;
     }[];
     const usd = rows.find((w) => w.currency === 'USD');
-    if (!usd?.availableBalance) return null;
+    if (!usd?.availableBalance) {
+      throw new Error(`No USD wallet in Rival's response: ${JSON.stringify(rows).slice(0, 200)}`);
+    }
     // Whole dollars, comfortably clear of the balance and of any fee on top.
     return String(Math.floor(Number(usd.availableBalance)) + 250);
-  } catch {
-    return null;
+  } catch (error) {
+    /*
+     * THROW, never return null.
+     *
+     * This swallowed every failure into "cannot read the balance", which the
+     * caller turned into a SKIP — so a broken Rival connection, a changed
+     * response shape or a wrong password all produced a green run with one
+     * quietly skipped test. Being unable to read the balance is a broken
+     * environment, not a reason to declare the payout rail untestable.
+     */
+    throw new Error(
+      `Could not read OxShare's balance at Rival: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -113,7 +140,6 @@ test.describe('a payout the platform refuses is visible on the desk', () => {
     test.skip(!(await railIsLive(admin)), 'The Rival payout rail is off or unreachable.');
 
     const amount = await unfundableAmount();
-    test.skip(amount === null, 'Could not read OxShare’s balance at Rival.');
 
     // ── produce the refusal ────────────────────────────────────────────────
     const client = await mintClientWithPendingKyc(admin, 'needs-attention');
@@ -128,7 +154,7 @@ test.describe('a payout the platform refuses is visible on the desk', () => {
       ).ok(),
     ).toBe(true);
 
-    const txId = await requestWithdrawal(client, amount!);
+    const txId = await requestWithdrawal(client, amount);
     expect(
       (
         await admin.patch(`/admin/withdrawals/${txId}/approve`, undefined, {
