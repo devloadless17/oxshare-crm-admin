@@ -382,9 +382,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
    */
   const ibPending = pendingApplications.data?.counts.pending || undefined;
 
-  const kycPending =
-    (pendingKyc.data?.counts?.['submitted'] ?? 0) +
-      (pendingKyc.data?.counts?.['under_review'] ?? 0) || undefined;
+  /*
+   * `needs_review`, served by the API — not summed here.
+   *
+   * This added `submitted + under_review` itself, which was right, and was the
+   * THIRD place that definition lived: the backend filter resolves the same
+   * pair, and the queue's own "Needs review" tab read a `counts.needs_review`
+   * key that did not exist and so displayed 0 for ever. Three authors, two
+   * agreeing by luck and one silently wrong. The API computes it once now, so
+   * the badge, the tab and the filter cannot disagree.
+   */
+  const kycPending = pendingKyc.data?.counts?.['needs_review'] || undefined;
 
   /*
    * `counts.pending`, not `total`. Both read the same today because the query

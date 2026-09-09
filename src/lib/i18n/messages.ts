@@ -1077,16 +1077,13 @@ export const messages = {
    * us. "Pending" and "Under Review" below are both post-submission and waiting
    * on a reviewer, which is why this one reads differently on purpose.
    */
-  'kycReview.filterInProgress': 'In Progress',
   /*
    * The whole QUEUE — submitted plus under_review, the set the dashboard tile
    * and the sidebar badge count. Both used to link to `submitted` alone, so a
    * badge reading 17 opened a list of 12 and the five somebody had already
    * picked up fell off the daily sweep.
    */
-  'kycReview.filterNeedsReview': 'Needs review',
-  'kycReview.filterPending': 'Pending',
-  'kycReview.filterUnderReview': 'Under Review',
+  'kycReview.filterNeedsReview': 'Open',
   'kycReview.filterApproved': 'Approved',
   'kycReview.filterRejected': 'Rejected',
   'kycReview.backToList': 'Back to KYC list',
@@ -1143,6 +1140,14 @@ export const messages = {
   'kycReview.approveFailed': 'Failed to approve the submission. Please try again.',
   'kycReview.claimFailed': 'Failed to claim the submission for review.',
   'kycReview.rejectFailed': 'Failed to reject the submission. Please try again.',
+  'kycReview.colReviewer': 'Reviewer',
+  'kycReview.release': 'Hand back',
+  'kycReview.releaseAria': 'Hand this submission back to the queue',
+  'kycReview.releaseHint':
+    'Returns it to the queue so any reviewer can pick it up. Nothing is decided.',
+  'kycReview.releaseFailed': 'Could not hand this submission back.',
+  'kycReview.claimedBy': 'Being reviewed by {name}',
+  'kycReview.claimedByUnknown': 'Being reviewed',
   'kycReview.claimHint':
     'Marks this submission as under review by you, so another admin does not review it at the same time',
   /*
@@ -1158,13 +1163,13 @@ export const messages = {
    * accident, and untranslatable by construction.)
    */
   'kycStatus.not_started': 'Not started',
-  'kycStatus.in_progress': 'In progress',
+  'kycStatus.in_progress': 'Incomplete',
   /*
    * "Pending", not "Submitted". The stored value records what the CLIENT did;
    * this says what it means to the DESK — waiting on a decision.
    */
-  'kycStatus.submitted': 'Pending',
-  'kycStatus.under_review': 'Under review',
+  'kycStatus.submitted': 'Awaiting review',
+  'kycStatus.under_review': 'In review',
   'kycStatus.approved': 'Approved',
   'kycStatus.rejected': 'Rejected',
 

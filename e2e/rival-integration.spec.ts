@@ -37,16 +37,49 @@ import {
  * does not.
  */
 
-/** Is the Rival rail configured AND switched on for this database? */
+/**
+ * Is the Rival rail configured AND switched on for this database?
+ *
+ * ## An INCONCLUSIVE probe throws; it does not answer "no"
+ *
+ * This returned `false` on any non-2xx, which conflated two very different
+ * things: "the rail is switched off" (a legitimate reason to skip) and "I could
+ * not find out" (not a reason to skip anything).
+ *
+ * That second case is real and routine here. Admin logins are rate limited per
+ * account, and the three setup projects plus a per-test `adminApiSession()`
+ * exhaust the window — so the probe came back 429, was read as "rail is off",
+ * and the two tests that actually exercise settlement SKIPPED. A green run
+ * reporting "3 passed, 2 skipped" while the rail was demonstrably live, and
+ * nothing said why.
+ *
+ * A skipped test proves nothing, and a skip nobody can distinguish from a pass
+ * is worse than a failure. So: only an explicit, readable answer is allowed to
+ * skip. Anything else is a broken probe and stops the run.
+ */
 async function railIsLive(admin: Awaited<ReturnType<typeof adminApiSession>>): Promise<boolean> {
   const res = await admin.get('/admin/settings/rival');
-  if (!res.ok()) return false;
+  if (res.status() === 429) {
+    throw new Error(
+      'Rate limited while checking the Rival rail. This is a HARNESS problem, not a rail that is ' +
+        'off — re-run with fewer concurrent admin logins rather than trusting a skip.',
+    );
+  }
+  if (!res.ok()) throw new Error(`Could not read the Rival settings: HTTP ${res.status()}`);
+
   const cfg = (await res.json()) as { enabled?: boolean; apiKeySet?: boolean };
+  // The one honest reason to skip: an operator has not switched it on here.
   if (!cfg.enabled || !cfg.apiKeySet) return false;
+
   // Configured is not the same as REACHABLE — the test-connection call is what
   // proves the key is accepted and Rival is answering right now.
   const probe = await admin.post('/admin/settings/rival/test', {});
-  if (!probe.ok()) return false;
+  if (probe.status() === 429) {
+    throw new Error(
+      'Rate limited while probing the Rival connection — inconclusive, not "off". See above.',
+    );
+  }
+  if (!probe.ok()) throw new Error(`Rival connection probe failed: HTTP ${probe.status()}`);
   return ((await probe.json()) as { ok?: boolean }).ok === true;
 }
 
