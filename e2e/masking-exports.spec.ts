@@ -14,6 +14,19 @@ import { adminApiSession, E2E_CLIENTS, E2E_RESTRICTED } from './helpers';
 
 test('the client CSV honours the mask, the territory, and the permission catalog', async () => {
   /*
+   * TWO admin logins in the body, against a 5-a-minute-per-IP cap.
+   *
+   * Run alone this never waits and the default 60s was plenty. Run as test 110
+   * of the full suite it arrives with the window already spent, so
+   * `adminApiSession` sleeps out the cap — 65s, which cannot fit a 60s
+   * timeout. The failure reads as a product timeout on the export and is
+   * nothing of the kind, which is the expensive part.
+   *
+   * 180s, the same allowance every other spec that signs in makes. The cap is
+   * waited out rather than raised: it protects the real login endpoint.
+   */
+  test.setTimeout(180_000);
+  /*
    * Sessions minted over the wire, not read from the storage-state jars: the
    * jars' cookies are scoped to the BROWSER's API host, which in the crosshost
    * topology is not the host Node dials — a jar-seeded request context sends
