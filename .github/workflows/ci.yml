@@ -298,8 +298,32 @@ jobs:
           NODE_ENV: development
           PORT: '3001'
           API_PUBLIC_URL: http://localhost:3001
-          ADMIN_URL: http://localhost:3000
-          PORTAL_URL: http://localhost:3002
+          # ⚠️ THESE WERE INVERTED, and it did not matter until the portal existed.
+          #
+          # The topology is portal :3000, admin :3002 — the backend's own defaults
+          # say so (`PORTAL_URL ?? 'http://localhost:3000'`,
+          # `ADMIN_URL ?? 'http://localhost:3002'`), the sibling client workflow
+          # sets them that way, and `e2e/topology.ts` agrees. This job had them
+          # the other way round.
+          #
+          # Harmless while nothing ran on :3000: the admin app was the only thing
+          # up, and ADMIN_URL pointed at an empty port. The moment the portal was
+          # actually started, the API was telling every cross-app flow that the
+          # portal lived where the admin is and vice versa — and these values feed
+          # socket CORS (realtime.gateway.ts) and session-cookie scoping
+          # (session-cookies.ts), which is exactly what the three cross-app
+          # journeys exercise.
+          ADMIN_URL: http://localhost:3002
+          # E2E ONLY — the counter goes permissive, the guard stays wired.
+          # `env.validation.ts` refuses to boot with this in production, because
+          # these limits ARE the §8.4 control on credential stuffing. It exists
+          # because the browser suites met the real caps and WAITED them out:
+          # ~5.4 minutes of sleeping in a 20-minute job, and the largest class of
+          # flakes this project has — a rate limit reported variously as a
+          # rejected password, a broken invite, a navigation timeout and a
+          # missing screen. The limits stay covered by three backend suites.
+          RELAX_RATE_LIMITS: '1'
+          PORTAL_URL: http://localhost:3000
           # Ephemeral and CI-only. Real deployments supply their own; these
           # exist to satisfy the boot-time validation, which refuses to start on
           # a bad config rather than failing later on the unlucky request.
