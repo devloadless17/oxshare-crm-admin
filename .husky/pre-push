@@ -1,0 +1,55 @@
+#!/usr/bin/env sh
+#
+# THE GATE THAT USED TO BE GITHUB ACTIONS.
+#
+# .github/workflows/ci.yml ran type-check, format:check, lint, test with coverage
+# and build on every push. The Actions allowance for this account was spent on
+# 10 Sep 2026, so that gate stopped firing — and nothing local replaced it AT THE
+# MOMENT IT FIRED. The remaining checks were the Claude Stop hook and
+# scripts/ci-local.sh run BY HAND, neither of which happens on push.
+#
+# The consequence, observed the same evening: a commit landed with `tsc --noEmit`
+# failing and was caught only because somebody happened to run verify afterwards.
+# The system worked, but only because a person ran it.
+#
+# ## Why pre-PUSH and not pre-commit
+#
+# .husky/pre-commit is fast on purpose and argues for it: a commit gate that takes
+# minutes gets bypassed with --no-verify, and a bypassed gate is worse than an
+# honest CI failure. That reasoning is unchanged and this does not touch it.
+# Committing stays cheap. Pushing is rare, is where CI used to fire, and is the
+# last point before work leaves this machine.
+#
+# ## It delegates rather than restates
+#
+# scripts/ci-local.sh already mirrors ci.yml command-for-command and says so in its
+# own header. A second list of steps here would be a second thing to keep in step
+# — the exact drift this layer exists to prevent.
+#
+# ## It fails OPEN when the script is missing, and says so loudly
+#
+# A colleague may have this repo checked out without its siblings, and blocking
+# every push on an absent sibling directory would make the hook the problem. Same
+# convention as check:twins. A MISSING gate is reported; a FAILING gate blocks.
+#
+# Deliberate bypass is still `git push --no-verify`, which at least appears in the
+# shell history of whoever chose it.
+
+repo_root=$(git rev-parse --show-toplevel) || exit 0
+gate="$repo_root/../scripts/ci-local.sh"
+
+if [ ! -f "$gate" ]; then
+  echo "pre-push: $gate not found — the local CI stand-in is not reachable from here." >&2
+  echo "pre-push: PUSHING UNVERIFIED. Run scripts/ci-local.sh verify admin by hand." >&2
+  exit 0
+fi
+
+# ⚠️ NOT `sh "$gate"`. ci-local.sh declares `#!/usr/bin/env bash` and uses
+# `set -o pipefail`, which dash — /bin/sh on Debian and Ubuntu — does not have.
+# Invoking it through `sh` made it die on line 55 having checked NOTHING, and
+# exit 2. That still blocks the push, so it looks like a working gate; it is a
+# gate that refuses every push for a reason unrelated to the code, which is the
+# fastest possible route to somebody adding --no-verify permanently. Caught by
+# running the hook against a deliberately broken file rather than by reading it.
+echo "pre-push: running the gate CI used to run (scripts/ci-local.sh verify admin)"
+"$gate" verify admin
