@@ -53,6 +53,7 @@ export const ALL_PERMISSIONS: string[] = [
   'kyc.create',
   'kyc.edit',
   'kyc.delete',
+  'kyc.identity.correct',
   'wallets.view',
   'wallets.create',
   'wallets.credit',
@@ -62,6 +63,7 @@ export const ALL_PERMISSIONS: string[] = [
   'withdrawals.settle',
   // The Financial page (GET /admin/transactions) — backend module `transactions`.
   'transactions.view',
+  'transfers.abandon',
   'trading.view',
   'trading.create',
   'trading.deposit',
@@ -82,6 +84,7 @@ export const ALL_PERMISSIONS: string[] = [
   'ib.partners.edit',
   'ib.partners.suspend',
   'ib.commissions.view',
+  'ib.commissions.reverse',
   'tags.view',
   'tags.create',
   'tags.edit',

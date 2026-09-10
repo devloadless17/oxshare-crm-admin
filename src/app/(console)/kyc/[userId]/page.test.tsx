@@ -43,11 +43,21 @@ vi.mock('@/context/AdminAuthContext', () => ({
       name: 'Master Admin',
       role: 'master_admin',
       status: 'active',
-      permissions: ALL_PERMISSIONS,
+      /*
+       * MUTABLE, via a getter, so a case can narrow the viewer without a second
+       * mock — the same shape `clients/page.test.tsx` uses. It was a constant
+       * until the identity-correction control landed, which is the first thing
+       * on this screen gated on a key a reviewer may legitimately NOT hold.
+       */
+      get permissions() {
+        return permissions.current;
+      },
       createdAt: new Date().toISOString(),
     },
   }),
 }));
+
+const permissions = { current: ALL_PERMISSIONS };
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ userId: 'u-1' }),
@@ -115,6 +125,7 @@ function getFor(url: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  permissions.current = ALL_PERMISSIONS;
   get.mockImplementation(getFor);
   patch.mockResolvedValue({ data: {} });
   getRejectionReasons.mockResolvedValue(REASONS);
@@ -350,5 +361,108 @@ describe('KYC review — previous attempts', () => {
     // The reason it was refused — the thing a resubmission used to erase.
     expect(await screen.findByText(/passport expired/i)).toBeInTheDocument();
     expect(screen.getByText('doc_front')).toBeInTheDocument();
+  });
+});
+
+/**
+ * CORRECTING AN APPROVED VERIFICATION — CORE-18's screen half.
+ *
+ * A client whose KYC is approved cannot edit their own submission; `resetKyc`
+ * refuses that state and tells them to "contact support if your details have
+ * changed". Support had nothing — the client edit dialog patches the `users`
+ * row, which has no date-of-birth column and no address column — so the product
+ * named a remedy that did not exist. Four of the six KYC states already let the
+ * client fix it themselves. This closes the one that did not.
+ */
+describe('correcting identity details on an approved submission', () => {
+  const approved = { ...SUBMISSION, status: 'approved' };
+
+  /*
+   * DELEGATES to `getFor` for everything but the submission itself. Replacing
+   * the whole implementation drops `/admin/kyc-config`, `useKycStepConfig`
+   * returns nothing, and `personalInfoGroups` throws inside SubmissionSummary —
+   * which surfaces as the control being absent from the DOM, i.e. exactly the
+   * failure these cases are looking for, from an unrelated cause.
+   */
+  const servingApproved = (url: string) =>
+    url.includes('/admin/kyc-config') || url.includes('/history')
+      ? getFor(url)
+      : Promise.resolve({ data: approved });
+
+  it('offers the control on an APPROVED submission', async () => {
+    get.mockImplementation(servingApproved);
+    renderWithProviders(<KycDetailPage />);
+
+    expect(
+      await screen.findByRole('button', { name: /correct identity details/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('does NOT offer it on a submission still awaiting a decision', async () => {
+    /*
+     * The state gate, and the reason it is not merely tidiness: in every other
+     * state the CLIENT can fix this themselves in the wizard. An admin control
+     * there would be a second way to do something they can already do, with
+     * more privilege and less context.
+     */
+    renderWithProviders(<KycDetailPage />);
+    await screen.findByText(/john doe/i);
+
+    expect(
+      screen.queryByRole('button', { name: /correct identity details/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does NOT offer it to a reviewer who lacks kyc.identity.correct', async () => {
+    // Writing a new date of birth onto a VERIFIED record is not the same power
+    // as deciding a submission. A reviewer holding `kyc.review` must not
+    // silently hold this.
+    permissions.current = ALL_PERMISSIONS.filter((p) => p !== 'kyc.identity.correct');
+    get.mockImplementation(servingApproved);
+    renderWithProviders(<KycDetailPage />);
+    await screen.findByText(/john doe/i);
+
+    expect(
+      screen.queryByRole('button', { name: /correct identity details/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders a REFUSAL as a finding about the record, not as a form error', async () => {
+    /*
+     * THE CASE THIS WHOLE CONTROL TURNS ON.
+     *
+     * The corrected value is re-validated against the rules that governed
+     * submission — invalid, future, under 18 — because without that this route
+     * is a bypass for the age rule on the side of the system where it is least
+     * visible, in both directions.
+     *
+     * So a refusal means the operator has just discovered that an APPROVED
+     * client's details are disqualifying. That is a compliance finding about
+     * the RECORD, and the remedy is a rejection rather than another attempt at
+     * this form. Rendering it in the same line as "the network died" would tell
+     * them to retry something that cannot succeed.
+     */
+    const user = userEvent.setup();
+    get.mockImplementation(servingApproved);
+    patch.mockRejectedValue({
+      response: {
+        data: {
+          code: 'KYC_CORRECTION_REFUSED',
+          message: 'The client must be at least 18 years old.',
+        },
+      },
+    });
+
+    renderWithProviders(<KycDetailPage />);
+    await user.click(await screen.findByRole('button', { name: /correct identity details/i }));
+    await user.clear(screen.getByLabelText(/date of birth/i));
+    await user.type(screen.getByLabelText(/date of birth/i), '2015-04-02');
+    await user.click(screen.getByRole('button', { name: /save correction/i }));
+
+    // The server's sentence, under a heading addressed to the record...
+    expect(await screen.findByText(/at least 18 years old/i)).toBeInTheDocument();
+    expect(screen.getByText(/this record cannot hold that value/i)).toBeInTheDocument();
+    // ...and the remedy the product actually has, rather than "try again".
+    expect(screen.getByText(/reject it and ask the client to verify again/i)).toBeInTheDocument();
   });
 });

@@ -5,6 +5,35 @@ import { join } from 'node:path';
 /**
  * EVERY CACHE A SCREEN READS IS INVALIDATED BY SOMETHING THAT CHANGES IT.
  *
+ * ⚠️ BY SOMETHING — NOT BY THE RIGHT THING. READ THIS BEFORE TRUSTING IT.
+ *
+ * This proves each key has AT LEAST ONE invalidator somewhere in the app. It
+ * cannot tell whether the mutation that actually makes a key stale is among
+ * them, because "which writes affect which reads" is a fact about the domain
+ * and not about the source.
+ *
+ * The concrete shape it would miss, found while sweeping Domain 2 on 11 Sep
+ * 2026: `/tags` renders a `clientCount` per tag, and attaching a tag from a
+ * client's profile moves that number. Those live under DIFFERENT roots —
+ * `keys.tags.all()` and `keys.clients.all()` — so nothing about the addressing
+ * connects them. The profile's mutation invalidates BOTH, deliberately, with
+ * the reason in place at `clients/[id]/page.tsx:139`: *"Also the tags screen:
+ * getTags returns ClientTagWithCount, so attaching or detaching moves a number
+ * an operator reads elsewhere."*
+ *
+ * That is correct — and this census would have been just as green without the
+ * second line, because `/tags` invalidates `keys.tags.all()` on its own
+ * create/rename/delete, which satisfies "invalidated by something". The counts
+ * would then have gone stale on exactly the write that moves them, and the
+ * screen would have been right on load and wrong forever after: the very
+ * symptom described below.
+ *
+ * So this closes the case where a key has NO invalidator, which is the one that
+ * produced six reported defects. It does not close CROSS-ROOT staleness, where
+ * a write under one root moves a number read under another. Nothing here
+ * detects that, and a green run must not be read as saying otherwise. That is
+ * a job for the domain sweep, and it is where it was found.
+ *
  * ## The defect class this exists for
  *
  * A stale read after a write is the single most frequent frontend defect in

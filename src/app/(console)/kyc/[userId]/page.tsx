@@ -19,11 +19,13 @@ import { DocLightbox } from '@/components/kyc-review/doc-lightbox';
 import { documentsOf } from '@/components/kyc-review/documents-of';
 import { useRejectOptions } from '@/components/kyc-review/use-reject-options';
 import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
+import { CorrectIdentityDialog } from '@/components/kyc-review/correct-identity-dialog';
 import { ReviewDock } from '@/components/kyc-review/review-dock';
 import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
 import { t } from '@/lib/i18n';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
+import { apiErrorCode } from '@/lib/api/errors';
 import { keys } from '@/lib/query-keys';
 
 /**
@@ -68,6 +70,13 @@ export default function KycDetailPage() {
   const [selectedRejectedFields, setSelectedRejectedFields] = useState<string[]>([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [showCorrectDialog, setShowCorrectDialog] = useState(false);
+  /*
+   * Held apart from `actionError` on purpose — see `correctIdentity`. One means
+   * the request failed; the other means it succeeded in telling us the record
+   * is wrong, and they need different words and a different remedy.
+   */
+  const [correctionRefusal, setCorrectionRefusal] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
   /** Which document the lightbox is showing, or null when it is closed. */
@@ -146,6 +155,33 @@ export default function KycDetailPage() {
       setShowApproveConfirm(false);
     } catch (e: unknown) {
       setActionError(apiErrorMessage(e, t('kycReview.approveFailed')));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const correctIdentity = async (patch: { dateOfBirth?: string; address?: string }) => {
+    setActionLoading(true);
+    setActionError('');
+    setCorrectionRefusal('');
+    try {
+      await api.patch(`/admin/kyc/${userId}/personal-info`, patch);
+      await refreshAfterDecision();
+      setShowCorrectDialog(false);
+    } catch (e: unknown) {
+      /*
+       * A REFUSAL is not a failure. `KYC_CORRECTION_REFUSED` means the request
+       * landed and the corrected value would not have been accepted at
+       * submission — so the operator has discovered that an APPROVED record is
+       * disqualifying, which is a finding about the client rather than about
+       * their typing. Rendering it in the same red line as "the network died"
+       * would tell them to try again, and another attempt cannot succeed.
+       */
+      if (apiErrorCode(e) === 'KYC_CORRECTION_REFUSED') {
+        setCorrectionRefusal(apiErrorMessage(e, t('kycReview.correctRefusedTitle')));
+      } else {
+        setActionError(apiErrorMessage(e, t('kycReview.correctFailed')));
+      }
     } finally {
       setActionLoading(false);
     }
@@ -270,6 +306,21 @@ export default function KycDetailPage() {
   const canReview =
     (data.status === 'submitted' || data.status === 'under_review') &&
     hasPermission(admin, 'kyc.review');
+  /*
+   * APPROVED-only, and behind its OWN permission.
+   *
+   * Every other KYC state lets the client fix their own details in the wizard,
+   * so an admin correction there would be a second way to do something they can
+   * already do, with more privilege and less context. Approved is the one state
+   * with no path — `resetKyc` refuses it and tells the client to contact
+   * support, and support had nothing until this route existed.
+   *
+   * `kyc.identity.correct` rather than `kyc.review`: writing a new date of
+   * birth onto a VERIFIED record is not the same power as deciding a
+   * submission, and a reviewer holding one should not silently hold the other.
+   */
+  const canCorrectIdentity =
+    data.status === 'approved' && hasPermission(admin, 'kyc.identity.correct');
   const waitingDays = daysWaiting(data.status, data.submittedAt);
   // One derived list, shared by the grid and the lightbox, so the two cannot
   // disagree about which documents exist.
@@ -364,7 +415,28 @@ export default function KycDetailPage() {
               column, which put the whole point of the page below however many
               documents the client happened to upload. */}
           {data.status === 'approved' && (
-            <div className="approved-banner">{t('kycReview.approvedNote')}</div>
+            <div className="approved-banner">
+              {t('kycReview.approvedNote')}
+              {/*
+                The ONE thing that can still be changed on an approved
+                verification, offered where the approval is stated rather than
+                in the docked decision bar — that bar is for deciding, and this
+                submission is decided.
+              */}
+              {canCorrectIdentity && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionError('');
+                    setCorrectionRefusal('');
+                    setShowCorrectDialog(true);
+                  }}
+                  className="ms-2 font-semibold underline focus-outline"
+                >
+                  {t('kycReview.correctAction')}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -378,6 +450,20 @@ export default function KycDetailPage() {
           error={actionError}
           onCancel={() => !actionLoading && setShowApproveConfirm(false)}
           onConfirm={approve}
+        />
+      )}
+
+      {showCorrectDialog && (
+        <CorrectIdentityDialog
+          panelRef={approvePanelRef}
+          clientName={`${data.user?.firstName ?? ''} ${data.user?.lastName ?? ''}`.trim()}
+          dateOfBirth={String(data.personalInfo?.['dateOfBirth'] ?? '')}
+          address={String(data.personalInfo?.['address'] ?? '')}
+          loading={actionLoading}
+          error={actionError}
+          refusal={correctionRefusal}
+          onCancel={() => !actionLoading && setShowCorrectDialog(false)}
+          onConfirm={correctIdentity}
         />
       )}
 

@@ -592,6 +592,17 @@ export const messages = {
      click on a chip, which is how the chips used to be cleared. */
   'clients.allTags': 'All tags',
   'clients.clearFilters': 'Clear filters',
+  'kycReview.correctTitle': 'Correct identity details',
+  'kycReview.correctBody':
+    "Corrects the date of birth or address on {client}'s APPROVED verification. Everything else — a wrong name, a wrong document — needs the verification redone.",
+  'kycReview.correctDob': 'Date of birth',
+  'kycReview.correctAddress': 'Address',
+  'kycReview.correctConfirm': 'Save correction',
+  'kycReview.correctAction': 'Correct identity details',
+  'kycReview.correctFailed': 'Could not save the correction.',
+  'kycReview.correctRefusedTitle': 'This record cannot hold that value',
+  'kycReview.correctRefusedRemedy':
+    'These details would not have been accepted at submission, so this approved verification is not valid. Reject it and ask the client to verify again.',
   'clientProfile.networkCapped': 'Showing {shown} of {total} introduced clients.',
   'clientProfile.networkSeeAll': 'See all of them',
   'clients.referredByNotice': 'Showing only the clients introduced by {who}.',

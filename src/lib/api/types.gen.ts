@@ -3001,6 +3001,30 @@ export interface paths {
         patch: operations["AdminComplianceController_releaseKyc"];
         trace?: never;
     };
+    "/v1/admin/kyc/{userId}/personal-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Correct a date of birth or address on an APPROVED submission (CORE-18)
+         * @description The one state where the client cannot correct their own details. `saveStep` lets them edit while not_started, in_progress or rejected and correctly locks submitted and under_review; APPROVED had no path at all, and the refusal on POST /kyc/reset told the client to contact support — who had neither the field nor a route. The only lever left was to REJECT the verification for a typo, which drops verificationLevel to 0 and shuts the money doors.
+         *
+         *     RE-VALIDATED through the same rules as submission. A corrected value that is impossible, in the future or under 18 answers **409**, not 400: that is a fact about the RECORD, not about what was typed, and the operator has just found a different problem — a rejection rather than an edit. `details.kind` names which rule.
+         *
+         *     Audited as `kyc.identity_correct` against the SUBMISSION, with the value on both sides.
+         */
+        patch: operations["AdminComplianceController_correctKycIdentity"];
+        trace?: never;
+    };
     "/v1/admin/kyc/{userId}/approve": {
         parameters: {
             query?: never;
@@ -6280,6 +6304,15 @@ export interface components {
             addressProof?: components["schemas"]["KycAddressProofDto"];
             /** Format: date-time */
             archivedAt: string;
+        };
+        CorrectKycIdentityDto: {
+            /**
+             * @description ISO date. RE-VALIDATED through the same rules as submission: an impossible, future or under-18 date is REFUSED with 409, not 400 — that is a fact about the record rather than about what was typed.
+             * @example 1985-04-12
+             */
+            dateOfBirth?: string;
+            /** @example 12 Rue Verdun, Beirut */
+            address?: string;
         };
         RejectDto: {
             /** @description Free-text reason, when not using a configured reasonId. */
@@ -11179,6 +11212,31 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycSubmissionDto"];
+                };
+            };
+        };
+    };
+    AdminComplianceController_correctKycIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectKycIdentityDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
