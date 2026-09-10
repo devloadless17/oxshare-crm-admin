@@ -6,6 +6,7 @@ import {
   API_NODE_BASE,
   clientIdByEmail,
   mintClientWithPendingKyc,
+  registerClientWithPendingKyc,
   type MintedClient,
 } from './helpers';
 
@@ -252,7 +253,16 @@ test.describe('the KYC queue and its badge move together, without a refresh', ()
 
     // A genuine domain event, entirely by wire: registration → verification →
     // three documents → submit. Nothing here touches the browser under test.
-    const inbound = await mintClientWithPendingKyc(admin, 'rt-in');
+    /*
+     * REGISTERED rather than leased, and this is the one place that is right.
+     *
+     * The assertion is that `admin.kyc.submitted` reaches a console that is
+     * ALREADY OPEN, so the submission has to happen while this test is
+     * watching. A pooled client's submission fired at seed time, before the
+     * browser existed, and no frame would ever arrive — which is exactly how
+     * this failed when the other ten call sites moved to the pool.
+     */
+    const inbound = await registerClientWithPendingKyc(admin, 'rt-in');
     try {
       /*
        * TRANSPORT FIRST, then the UI — so a failure says WHICH half broke.

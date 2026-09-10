@@ -810,7 +810,23 @@ export interface MintedClient {
  *
  * @param label distinguishes concurrent runs in the mailbox and the audit log.
  */
-export async function mintClientWithPendingKyc(
+/**
+ * A client REGISTERED at runtime, carried by wire to a submitted KYC.
+ *
+ * EXPENSIVE, and to be used only where the ACT of submitting is the subject —
+ * a realtime spec asserting that `admin.kyc.submitted` reaches an open console
+ * cannot use a pre-seeded submission, because the event fired before the
+ * browser existed.
+ *
+ * Everything else must use `mintClientWithPendingKyc`, which leases from the
+ * seeded pool. `POST /auth/register` is capped at 10 an hour per IP and this
+ * path also spends `verify-email` (10 per 15 minutes) and three uploads (10 a
+ * minute). Eleven call sites used to take this route, which is why eighteen
+ * tests silently skipped out of a green run.
+ *
+ * ONE caller today. If a second appears, check the budget before adding it.
+ */
+export async function registerClientWithPendingKyc(
   admin: { get: (path: string) => Promise<Response | { json: () => Promise<unknown> }> },
   label: string,
 ): Promise<MintedClient> {
@@ -893,6 +909,85 @@ export async function mintClientWithPendingKyc(
   expect((await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write })).ok()).toBe(true);
 
   const id = await clientIdByEmail(admin, email);
+  return { portal, csrf, email, id, dispose: () => portal.dispose() };
+}
+
+export async function mintClientWithPendingKyc(
+  admin: { get: (path: string) => Promise<Response | { json: () => Promise<unknown> }> },
+  label: string,
+): Promise<MintedClient> {
+  /*
+   * LEASED from the seeded pool, not registered.
+   *
+   * This used to register a client, verify the address, walk four KYC steps and
+   * upload three documents — once per spec that needs a reviewable submission.
+   * The cohort docblock above already explains why that cannot work:
+   * `POST /auth/register` is capped at 10 an hour per IP.
+   *
+   * There are ELEVEN of these across the suite. So a single full run cannot
+   * finish inside the budget, never mind a second — the later calls answer 429,
+   * `requirePrecondition` skips, and a skipped Playwright test reports as
+   * PASSING. Eighteen tests vanished from one green run that way, the entire
+   * payout rail among them, and nothing in the output said so.
+   * `verify-email` (10 per 15 minutes) and the upload cap (10 a minute) were
+   * being spent the same way.
+   *
+   * `seed.ts` now creates one pending submission per label and RE-ASSERTS it on
+   * every boot, so a run that approves one finds it pending again. This signs in
+   * as that client and hands back the same shape as before, so no caller
+   * changed.
+   *
+   * ⚠️ WHAT THIS DOES NOT DO is create a NEW client. A spec that needs a
+   * genuinely fresh registration — the registration flow itself — must still
+   * register, and should budget for it.
+   */
+  const email = `e2e-pool-${label}@${E2E_DOMAIN}`;
+  const password = 'client123';
+  const portal = await apiRequest.newContext({ storageState: { cookies: [], origins: [] } });
+  const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
+
+  for (;;) {
+    const login = await portal.post(`${API_NODE_BASE}/auth/login`, {
+      headers: origin,
+      data: { email, password },
+    });
+    if (login.status() === 429) {
+      // Waited out, never weakened — the same choice `adminApiSession` makes.
+      // eslint-disable-next-line no-console
+      console.log(`↻ portal login rate limited; waiting ${RATE_LIMIT_WINDOW_MS / 1000}s…`);
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_WINDOW_MS));
+      continue;
+    }
+    expect(
+      login.ok(),
+      `signing in as the pooled client ${email} answered ${login.status()}. ` +
+        'The pool is seeded at backend boot — restart the API if this is a fresh database.',
+    ).toBe(true);
+    break;
+  }
+
+  const csrf =
+    (await portal.storageState()).cookies.find((c) => c.name.includes('portal_csrf'))?.value ?? '';
+  expect(csrf, 'no portal CSRF cookie after signing in as the pooled client').toBeTruthy();
+
+  const id = await clientIdByEmail(admin, email);
+
+  /*
+   * The submission must be PENDING, and this is checked rather than assumed.
+   *
+   * The seed re-asserts it at boot, so the only way it is decided here is a
+   * second run against a backend that has not restarted. That is a real
+   * situation with a one-line remedy, and it must not present as the test
+   * failing for its own reasons — so it is reported as the precondition it is,
+   * naming the fix.
+   */
+  const submission = (await (await admin.get(`/admin/kyc/${id}`)).json()) as { status?: string };
+  requirePrecondition(
+    submission.status !== 'submitted' && submission.status !== 'under_review',
+    `the pooled submission for '${label}' is '${submission.status}' rather than pending — ` +
+      'a previous run decided it. Restart the backend to re-seed the pool.',
+  );
+
   return { portal, csrf, email, id, dispose: () => portal.dispose() };
 }
 
