@@ -137,27 +137,34 @@ describe('the list itself', () => {
     expect(getRoles).toHaveBeenCalledTimes(1);
   });
 
-  it('does not list system roles at all', async () => {
-    // Master Admin cannot be edited or deleted and holds `*`, so it rendered as
-    // a row with no menu and a permission count that undersold it by eighty.
-    // A management list opening with an unmanageable entry teaches the reader
-    // to skip the first row.
+  it('lists a system role, badged and with no action menu', async () => {
+    // It used to be filtered out entirely. `isSystem` now marks a role whose
+    // permissions the BACKEND maintains against the catalog, which makes it the
+    // most consequential row on the page rather than an unmanageable one — an
+    // operator asking "who can do everything?" must be able to read the answer.
+    //
+    // Read-only is shown, not hidden: the badge says why there is no menu.
     renderWithProviders(<RolesPage />);
     await screen.findByText('Support');
 
-    expect(screen.queryByText('Master Admin')).not.toBeInTheDocument();
-    expect(screen.queryByText(/system role/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Master Admin')).toBeInTheDocument();
+    expect(screen.getByText(/system role/i)).toBeInTheDocument();
+    // No edit and no delete for it — the API refuses both.
+    expect(screen.queryByRole('button', { name: /actions for master admin/i })).toBeNull();
+    // ...while an ordinary role keeps its menu.
     expect(screen.getByRole('button', { name: /actions for support/i })).toBeInTheDocument();
   });
 
-  it('shows the empty state when every role the API returns is a system role', async () => {
-    // Not an error and not a blank card: a fresh install has exactly the system
-    // roles and nothing else, and that is the moment the prompt to create one
-    // is most useful.
+  it('does not show the empty state when the only role is a system role', async () => {
+    // The empty state used to appear here, because the filter left nothing to
+    // render. A database whose only role is `Administrator` is not an empty
+    // one, and telling an operator there are "no roles yet" beside a role that
+    // holds every permission is the most misleading thing this page could say.
     getRoles.mockResolvedValue([SYSTEM]);
     renderWithProviders(<RolesPage />);
 
-    expect(await screen.findByText(/no roles yet/i)).toBeInTheDocument();
+    expect(await screen.findByText('Master Admin')).toBeInTheDocument();
+    expect(screen.queryByText(/no roles yet/i)).toBeNull();
   });
 
   it('hides the create button and every action menu without roles.edit', async () => {

@@ -97,7 +97,13 @@ export function InviteAdminModal({
   const [error, setError] = React.useState('');
   const [copied, setCopied] = React.useState(false);
 
-  const assignable = roles.filter((role) => !role.isSystem);
+  /*
+   * Every role is invitable, INCLUDING system ones — same reasoning as the edit
+   * modal. `isSystem` bounds who may EDIT a role, never who may HOLD it, and
+   * filtering it here meant a new administrator could not be invited onto the
+   * only role that carries the full catalog.
+   */
+  const assignable = roles;
   const chosenRole = assignable.find((role) => role.id === roleId);
   // What the mask panel shows: the override, or the CHOSEN ROLE's mask through
   // the glass — picking a different role updates the inherited view live.

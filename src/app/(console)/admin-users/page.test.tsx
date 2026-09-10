@@ -521,9 +521,16 @@ describe('reassigning a role', () => {
     await waitFor(() => expect(updateAdminUser).toHaveBeenCalledWith('a-2', { roleId: 'r-2' }));
   });
 
-  it('does not offer a SYSTEM role as a reassignment target', async () => {
-    // A system role is not assignable, so offering it would be a control whose
-    // every use the API refuses.
+  it('DOES offer a system role as a reassignment target', async () => {
+    // The inverse of what this asserted before, and the reason is the whole
+    // point of the flag changing meaning. `isSystem` bounds who may EDIT a role,
+    // never who may HOLD it — the API refuses to modify or delete one, and says
+    // nothing about assigning it.
+    //
+    // Filtering it here (and in the invite modal, and on the roles list) made
+    // full access something the console could neither show nor hand out, which
+    // is exactly why `Master Admin` was deleted. Promoting somebody to the role
+    // that carries the whole catalog must not require SQL.
     const user = userEvent.setup();
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
@@ -531,7 +538,7 @@ describe('reassigning a role', () => {
     await chooseRowAction(/sub admin/, /^edit$/i);
     await user.click(screen.getByLabelText(/role/i));
     await screen.findByRole('option', { name: 'KYC Reviewer' });
-    expect(screen.queryByRole('option', { name: 'Master Admin' })).toBeNull();
+    expect(screen.getByRole('option', { name: 'Master Admin' })).toBeInTheDocument();
   });
 });
 
