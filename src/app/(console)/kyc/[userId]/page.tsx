@@ -5,7 +5,7 @@ import type { components } from '@/lib/api/types.gen';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import { PageLoader } from '@/components/ui/loader';
+import { AsyncBoundary } from '@/components/async-boundary';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useResource } from '@/hooks/use-resource';
@@ -121,14 +121,6 @@ export default function KycDetailPage() {
   };
 
   const data = query.data ?? null;
-  const loading = query.status === 'loading';
-  const loadError =
-    query.status === 'unavailable'
-      ? t('kycReview.notFound')
-      : query.status === 'error'
-        ? t('kycReview.loadFailed')
-        : '';
-  const load = query.refetch;
 
   // Escape, Tab cycling, and focus restore — these two dialogs keep their own
   // markup (this page is styled-jsx, not Tailwind) but share the behaviour.
@@ -224,39 +216,49 @@ export default function KycDetailPage() {
   };
 
   /*
-   * CENTRED IN THE SPACE THE PAGE ACTUALLY HAS, not in the first 60% of it.
+   * 404 IS NOT "NOT BUILT", so it keeps its own branch.
    *
-   * `PageLoader`'s own `min-h-[60vh]` centres within 60% of the viewport, which
-   * on this screen put the spinner around a third of the way down with the rest
-   * of the area empty — it read as content that had finished loading rather
-   * than as a page still working. The wrapper takes the full height the console
-   * layout gives (`flex-1` against an `h-screen` ancestor with `min-h-0`), and
-   * `min-h-0` on the loader overrides its own floor so it centres in that
-   * instead. `cn` is twMerge-based, so the later class wins.
+   * `AsyncBoundary`'s `unavailable` state renders `BackendPending`, which tells
+   * the reader an endpoint has not been written yet. That is right almost
+   * everywhere and wrong here: on this route a 404 means the SUBMISSION does
+   * not exist, and a reviewer who followed a stale link needs to be told that,
+   * not that compliance review is unimplemented. Its own render test caught
+   * this the moment the boundary swallowed it.
    */
-  if (loading)
-    return (
-      <div className="flex min-h-0 flex-1 items-center justify-center">
-        <PageLoader label={t('kycReview.loading')} className="min-h-0" />
-      </div>
-    );
-  if (loadError || !data)
+  if (query.status === 'unavailable')
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
-        <p className="text-sm text-muted-foreground">{loadError || t('kycReview.notFound')}</p>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="text-sm font-semibold text-link hover:underline"
-          >
-            {t('common.retryShort')}
-          </button>
-          <Link href="/kyc" className="text-sm text-muted-foreground hover:underline">
-            {t('kycReview.backToList')}
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground">{t('kycReview.notFound')}</p>
+        <Link href="/kyc" className="text-sm text-muted-foreground hover:underline">
+          {t('kycReview.backToList')}
+        </Link>
       </div>
+    );
+
+  /*
+   * EVERY OTHER non-ready state through one boundary.
+   *
+   * This screen used to test `loading`, then `unavailable`, then `error`, and
+   * let everything else fall through to `!data` — which rendered "not found".
+   * So a reviewer denied the detail by RBAC-03 was told the submission does not
+   * exist. `useResource` distinguishes `forbidden` and `unauthenticated`
+   * precisely so a screen need not guess, and `AsyncBoundary` renders each: a
+   * closed-door card with no retry for a 403, and nothing alarming for a 401
+   * because the interceptor is already navigating.
+   */
+  if (query.status !== 'ready' || !data)
+    return (
+      <AsyncBoundary
+        status={query.status}
+        label={t('kycReview.loading')}
+        endpoints={[`GET /admin/kyc/${userId}`]}
+        onRetry={query.refetch}
+        errorMessage={t('kycReview.loadFailed')}
+        error={query.error}
+        fill
+      >
+        {null}
+      </AsyncBoundary>
     );
 
   /*

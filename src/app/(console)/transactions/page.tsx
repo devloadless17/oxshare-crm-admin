@@ -231,8 +231,26 @@ function TransactionsPageContent() {
    * query waits for a pause in typing — an undebounced key fires a request per
    * keystroke and races their responses onto one table.
    */
-  const [search, setSearch] = React.useState('');
+  /*
+   * SEEDED FROM the URL and written BACK to it.
+   *
+   * This was `React.useState('')`: the search never reached the address bar,
+   * while the state tab beside it did. So a refresh kept the tab and silently
+   * dropped the search, a shared link showed the recipient a different row set
+   * than the sender saw, and the table changed without the URL changing —
+   * which is the one signal an operator has that they are looking at a subset.
+   *
+   * `/kyc` already round-trips its search this way; the desk is the screen that
+   * did not, and it is the one where "these are the payouts matching X" being
+   * wrong costs the most.
+   */
+  const [search, setSearch] = React.useState(url.get('q'));
   const debouncedSearch = useDebounced(search, 300);
+  React.useEffect(() => {
+    if (debouncedSearch.trim() !== url.get('q')) {
+      url.set({ q: debouncedSearch.trim() || undefined, page: undefined });
+    }
+  }, [debouncedSearch, url]);
 
   const [rejectTarget, setRejectTarget] = React.useState<WithdrawalRow | null>(null);
   /* The row whose details are open — always reachable. */

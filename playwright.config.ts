@@ -35,11 +35,22 @@ import { STORAGE_STATE } from './e2e/helpers';
  * any of it look like a failed test. `global-setup.ts` checks and says what to
  * start.
  *
- * ## Not in CI yet — deliberately
+ * ## In CI, under E2E_STRICT
  *
- * Running these in CI means Postgres, the API and a browser in the pipeline.
- * Catching these bugs at all is most of the value; catching them locally first
- * is most of that. Add the job once the specs have been stable for a while.
+ * This block used to say "not in CI yet — add the job once the specs have been
+ * stable for a while". That job exists: `.github/workflows/ci.yml` stands up
+ * Postgres, Redis, Mailpit and the API, and runs `npm run e2e` with
+ * `E2E_STRICT=1` on pull requests and `workflow_dispatch`.
+ *
+ * `E2E_STRICT` is what makes that run evidence rather than decoration. A
+ * skipped Playwright test reports as PASSING, so a guard that steps aside for a
+ * missing fixture is indistinguishable in the summary from one that ran. Under
+ * the flag those guards throw instead — see `requirePrecondition` and
+ * `requireRail` in `e2e/helpers.ts`, and the lint rule in `eslint.config.mjs`
+ * that refuses a bare `test.skip()` so the escape cannot be reintroduced.
+ *
+ * The stale sentence is recorded rather than simply deleted: it was believed
+ * for long enough to be quoted back as fact while the job was already running.
  */
 export default defineConfig({
   testDir: './e2e',
