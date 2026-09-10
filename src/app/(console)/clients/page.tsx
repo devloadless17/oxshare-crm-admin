@@ -14,6 +14,7 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { PermittedLink } from '@/components/permitted-link';
 import { DataTable, EmptyState } from '@/components/data-table';
 import { PageLoader } from '@/components/ui/loader';
 import { MaskedFieldsNotice } from '@/components/masked-value';
@@ -131,6 +132,9 @@ function ClientsPageContent() {
     kycStatus: url.get('kycStatus'),
     emailVerified: url.get('emailVerified'),
     tag: url.get('tag'),
+    // Everyone one partner introduced. Reached from the profile's Network tab,
+    // whose list is capped — this is where the rest of the book lives.
+    referredBy: url.get('referredBy'),
     sort: sortKey,
     // Withheld when nothing is sorted. `order` alone describes an ordering of
     // no column — the API is entitled to reject it, and sending it would also
@@ -240,6 +244,45 @@ function ClientsPageContent() {
         <h1 className="text-2xl font-bold tracking-tight">{t('clients.title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t('clients.subtitle')}</p>
       </div>
+
+      {/*
+        A FILTER WITH NO CONTROL HAS TO SAY SO.
+        Every other filter on this screen is visible in the bar below — a
+        select the operator can see and change. `referredBy` has none, because
+        it is a client id rather than something pickable from a list, so
+        without this banner an operator arriving on a shared link sees a
+        SHORTER LIST and nothing anywhere saying why. The "clear filters"
+        control does appear (`isFiltered` counts any key but page/cursor/limit)
+        but a Clear button for an invisible filter is a control whose effect
+        cannot be predicted.
+        It links back to the partner rather than naming them from a second
+        fetch: the id is in the URL and always correct, whereas a name would
+        need a request that can 403 for a scoped reader who can still see the
+        clients themselves.
+      */}
+      {url.get('referredBy') !== '' && (
+        <div
+          className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs"
+          role="status"
+        >
+          <span className="text-muted-foreground">
+            {t('clients.referredByNotice', { who: t('clients.referredByWho') })}
+          </span>
+          <PermittedLink
+            href={`/clients/${url.get('referredBy')}`}
+            className="font-semibold text-link hover:underline focus-outline"
+          >
+            {t('clients.referredByProfile')}
+          </PermittedLink>
+          <button
+            type="button"
+            onClick={() => url.set({ referredBy: undefined, page: undefined })}
+            className="font-semibold text-muted-foreground hover:underline focus-outline"
+          >
+            {t('clients.referredByClear')}
+          </button>
+        </div>
+      )}
 
       <div className="shrink-0">
         <ClientFilters

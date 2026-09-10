@@ -592,6 +592,12 @@ export const messages = {
      click on a chip, which is how the chips used to be cleared. */
   'clients.allTags': 'All tags',
   'clients.clearFilters': 'Clear filters',
+  'clientProfile.networkCapped': 'Showing {shown} of {total} introduced clients.',
+  'clientProfile.networkSeeAll': 'See all of them',
+  'clients.referredByNotice': 'Showing only the clients introduced by {who}.',
+  'clients.referredByWho': 'this partner',
+  'clients.referredByClear': 'Show all clients',
+  'clients.referredByProfile': 'Open their profile',
   'clients.searchLabel': 'Search clients by name, email or client ID',
   /*
    * "Verified" / "Not verified", with no level prefix.

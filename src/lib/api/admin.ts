@@ -383,6 +383,27 @@ export interface ClientListParams {
   emailVerified?: string;
   /** Tag SLUG, not id — a rename must not break a link somebody saved. */
   tag?: string;
+  /**
+   * Everyone one partner introduced — the client id of the REFERRER.
+   *
+   * An id rather than a slug, unlike `tag`, because a client has no stable
+   * human-readable handle to name them by; the id is the only thing that
+   * cannot change under a saved link.
+   *
+   * This exists because the profile's Network tab is CAPPED at 50 and the
+   * constant's own justification says "the full book stays reachable through
+   * the client list filtered by referrer" — a filter that did not exist until
+   * now, which made a partner's other clients unreachable anywhere in the
+   * product. Same shape as `tag`, which has had its click-into-the-filtered-list
+   * path since ADM-14.
+   *
+   * ⚠️ SCOPED, and deliberately unlike the COUNT beside it. This list obeys the
+   * reader's territory like every other filter, while `referredTotal` on the
+   * profile is counted unscoped on purpose — so a scoped admin can legitimately
+   * see "50 of 213" and then a filtered list holding 60. That is correct and
+   * looks like a bug; `UsersStore.countReferredBy` records why.
+   */
+  referredBy?: string;
   sort?: ClientSortKey;
   order?: 'asc' | 'desc';
 }

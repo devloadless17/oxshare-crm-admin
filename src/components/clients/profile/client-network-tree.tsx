@@ -52,13 +52,41 @@ export function ClientNetworkTree({
   rootName,
   partner,
   referredClients,
+  referredShown,
+  referredTotal,
 }: {
   rootUserId: string;
   rootName: string;
   /** Null when the subject is not a partner — then only their referrals show. */
   partner: IbPartnerDetail | null;
   referredClients: ClientProfile['referredClients'];
+  /**
+   * How many rows CAME BACK, and how many there ARE. Both, because neither
+   * alone can say "50 of 213".
+   *
+   * ⚠️ NEVER `referredClients.length` for the total. That is the count of what
+   * FITTED, and reading it as a total is the mistake `IbOverviewDto` forbids by
+   * name — "a screen showing a total must read THIS". Until `referredTotal`
+   * landed this screen showed fifty rows and said nothing at all, so an
+   * operator could not tell a partner with exactly fifty referrals from one
+   * with two hundred.
+   *
+   * Both are SCOPED to the reader's territory, which is why the number here and
+   * the length of the list it links into agree. They did not have to: an
+   * unscoped count over a scoped list would read "12 of 213" and then show 12,
+   * which is correct and looks like a bug.
+   */
+  referredShown?: number;
+  referredTotal?: number;
 }) {
+  /*
+   * Only when there is genuinely more. `referredTotal` is absent for a reader
+   * without ib.view — absent, never zero — and this whole tree is behind that
+   * permission anyway, so an absent total means "not stated" rather than "none"
+   * and must not render as a cap.
+   */
+  const capped =
+    referredShown !== undefined && referredTotal !== undefined && referredTotal > referredShown;
   return (
     <div className="rounded-xl border border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-3">
@@ -91,6 +119,37 @@ export function ClientNetworkTree({
             preloadedClients={referredClients ?? []}
           />
         </div>
+
+        {/*
+          THE CAP, SAID OUT LOUD, AND A WAY PAST IT.
+
+          This list is capped server-side at one screen's worth. Until now the
+          screen showed the cap and said nothing, so a partner with two hundred
+          referrals looked identical to one with exactly fifty — and the
+          constant's own justification, "the full book stays reachable through
+          the client list filtered by referrer", named a filter that did not
+          exist anywhere in the product. Both halves are true now: this states
+          the number, and the link goes to the rest.
+
+          Rendered only when there IS more. A notice on a complete list would
+          teach an operator to ignore it on the one that is not.
+        */}
+        {capped && (
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border px-2 pt-2 text-xs text-muted-foreground">
+            <span>
+              {t('clientProfile.networkCapped', {
+                shown: String(referredShown),
+                total: String(referredTotal),
+              })}
+            </span>
+            <PermittedLink
+              href={`/clients?referredBy=${rootUserId}`}
+              className="font-semibold text-link hover:underline focus-outline"
+            >
+              {t('clientProfile.networkSeeAll')}
+            </PermittedLink>
+          </p>
+        )}
       </div>
     </div>
   );

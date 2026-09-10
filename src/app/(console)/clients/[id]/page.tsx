@@ -592,6 +592,8 @@ export default function ClientProfilePage() {
                       rootName={displayName}
                       partner={partner}
                       referredClients={profile.referredClients}
+                      referredShown={profile.referredShown}
+                      referredTotal={profile.referredTotal}
                     />
 
                     <ProfileCard title={t('clientProfile.parentIb')}>

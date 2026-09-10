@@ -6093,10 +6093,16 @@ export interface components {
             tradingAccounts?: components["schemas"]["ProfileTradingAccountDto"][];
             /** @description Absent without ib.view, and absent when nobody introduced this client — the UI tells the two apart by its own permission check. */
             referrer?: components["schemas"]["ProfileReferrerDto"];
-            /** @description Capped — see referredShown. Absent without ib.view; empty when none. */
+            /** @description Newest first, and CAPPED at one screen — read `referredTotal` for how many there actually are, NEVER this array’s length, which is the count of what fitted. Absent without ib.view; empty when none — those are different facts. SCOPED to the reader’s territory, like every other client row. */
             referredClients?: components["schemas"]["ProfileReferredClientDto"][];
-            /** @description How many referredClients were returned; the list is capped for one screen. */
+            /** @description How many referredClients were RETURNED — the size of what fitted on one screen. Useless alone and it was, until `referredTotal` landed: the cap is published nowhere, so `referredShown: 50` cannot be told from a partner with exactly fifty. The PAIR is what a screen needs — "50 of 213" — and neither half gets there without the other. */
             referredShown?: number;
+            /**
+             * @description How many clients this client introduced IN TOTAL, counted in SQL and SCOPED to the reader’s territory. Distinct from `referredClients.length`, which is capped — a screen showing a total must read THIS. Present exactly when `referredClients` is, so "may not see" stays absent rather than zero.
+             *
+             *     ⚠️ It is the reader’s count, not the partner’s: a scoped admin sees how many of this partner’s clients fall inside their own territory, matching what GET /admin/clients?referredBy= returns for them. An unscoped total here would put "50 of 213" above a filtered list of 60.
+             */
+            referredTotal?: number;
             maskedFields: string[];
         };
         UpdateClientProfileDto: {
@@ -10723,6 +10729,8 @@ export interface operations {
                 kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
+                /** @description Clients introduced by this partner (users.referred_by_ib_user_id). Scoped like every other filter — a reader still only sees their own territory. A value that is not a client id is a 400, never a silently unfiltered list. */
+                referredBy?: string;
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
             };
