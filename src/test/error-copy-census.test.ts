@@ -52,6 +52,94 @@ function walk(dir: string): string[] {
 }
 
 describe('error copy is resolved by the boundary, never by the screen', () => {
+  /** Each `<AsyncBoundary …>` opening tag, with arrows inside props tolerated. */
+  const openingTags = (source: string): { offset: number; tag: string }[] => {
+    const out: { offset: number; tag: string }[] = [];
+    let i = source.indexOf('<AsyncBoundary');
+    while (i >= 0) {
+      let j = i + '<AsyncBoundary'.length;
+      let depth = 0;
+      while (j < source.length) {
+        const c = source[j];
+        if (c === '{') depth += 1;
+        else if (c === '}') depth -= 1;
+        else if (c === '>' && depth === 0 && source[j - 1] !== '=') break;
+        j += 1;
+      }
+      out.push({ offset: i, tag: source.slice(i, j) });
+      i = source.indexOf('<AsyncBoundary', j);
+    }
+    return out;
+  };
+
+  const sourceFiles = () =>
+    walk(SRC).filter((f) => !f.endsWith('.test.ts') && !f.endsWith('.test.tsx'));
+
+  /*
+   * ⚠️ THE CENSUS MUST PROVE IT CAN SEE ITS OWN SUBJECT, AND THIS CASE GOES FIRST.
+   *
+   * Every rule below passes by finding NOTHING. So a scan that finds nothing
+   * because it is broken is indistinguishable from a codebase that is clean —
+   * both are an empty offenders array, and the file reports success either way.
+   *
+   * That is not a theoretical worry. The portal's copy of this census shipped
+   * with `/<AsyncBoundary\b[\s\S]*?>/`, which is non-greedy and therefore stops
+   * at the FIRST `>` in the source — the arrow in `onRetry={() => …}`, which
+   * nearly every boundary here carries. Every "tag" it captured ended before
+   * `errorMessage` was reached, so the rule saw zero call sites out of 65 and
+   * passed. Found by mutation-testing the rule rather than reading it.
+   *
+   * A low count that looks plausible is the dangerous shape: nobody checks a
+   * number that seems about right. So this asserts a FLOOR on what was seen,
+   * and it fails loudly if a future edit to the scanner blinds it. Same
+   * convention as the coverage thresholds and the suite floor — pinned under
+   * the measured number, and it may only ever go up.
+   */
+  it('can SEE the call sites it is censusing — a blind census passes vacuously', () => {
+    const tags = sourceFiles().flatMap((f) => openingTags(readFileSync(f, 'utf8')));
+    const withCopy = tags.filter(({ tag }) => tag.includes('errorMessage='));
+
+    /*
+     * A COUNT FLOOR ALONE DOES NOT CATCH THIS, WHICH I FOUND BY MUTATING IT.
+     *
+     * Restoring the truncating scanner here leaves 36 of the 43 tags still
+     * carrying errorMessage — only the seven with an arrow BEFORE their
+     * errorMessage go dark. So a floor of 30 passed the mutation and told me
+     * the guard worked when it did not. The floor is pinned just under the
+     * measured 43 for the ordinary regression, and the assertion below is what
+     * actually distinguishes a correct scanner from a truncating one.
+     */
+    // Measured 10 Sep 2026: 43 boundaries, all 43 carrying errorMessage.
+    expect(
+      tags.length,
+      'the scanner found far fewer AsyncBoundary tags than this app has — it is ' +
+        'blind, and every rule below is passing over screens it never read. If ' +
+        'boundaries were deliberately deleted, lower this floor in the same commit.',
+    ).toBeGreaterThan(40);
+    expect(
+      withCopy.length,
+      'no boundary appears to carry errorMessage, which cannot be true of this app',
+    ).toBeGreaterThan(40);
+
+    /*
+     * THE TARGETED ONE. A tag whose `onRetry={() => …}` sits BEFORE its
+     * errorMessage is exactly what a `>`-terminated scan cannot see past, so
+     * finding one proves the scan survives an arrow. Measured: seven such tags,
+     * `bridge/page.tsx` among them. This does not drift as screens are added or
+     * removed, which the count floors do.
+     */
+    const arrowBeforeCopy = withCopy.filter(({ tag }) => {
+      const at = tag.indexOf('errorMessage=');
+      return at > 0 && tag.slice(0, at).includes('=>');
+    });
+    expect(
+      arrowBeforeCopy.length,
+      'not one tag was seen with an arrow before its errorMessage, and this app ' +
+        'has seven. The scan is stopping at the `>` of `() =>`, so those tags end ' +
+        'before their props are reached and every rule below skips them silently.',
+    ).toBeGreaterThan(0);
+  });
+
   it('has no call site passing apiErrorMessage into errorMessage', () => {
     const offenders = walk(SRC)
       .filter((f) => !f.endsWith('.test.ts') && !f.endsWith('.test.tsx'))
@@ -98,37 +186,15 @@ describe('error copy is resolved by the boundary, never by the screen', () => {
    * it: the scanner tracks `{}` depth and ignores the `>` of an arrow.
    */
   it('has no call site passing errorMessage without an error to resolve', () => {
-    /** Each `<AsyncBoundary …>` opening tag, with arrows inside props tolerated. */
-    const openingTags = (source: string): { offset: number; tag: string }[] => {
-      const out: { offset: number; tag: string }[] = [];
-      let i = source.indexOf('<AsyncBoundary');
-      while (i >= 0) {
-        let j = i + '<AsyncBoundary'.length;
-        let depth = 0;
-        while (j < source.length) {
-          const c = source[j];
-          if (c === '{') depth += 1;
-          else if (c === '}') depth -= 1;
-          else if (c === '>' && depth === 0 && source[j - 1] !== '=') break;
-          j += 1;
-        }
-        out.push({ offset: i, tag: source.slice(i, j) });
-        i = source.indexOf('<AsyncBoundary', j);
-      }
-      return out;
-    };
-
-    const offenders = walk(SRC)
-      .filter((f) => !f.endsWith('.test.ts') && !f.endsWith('.test.tsx'))
-      .flatMap((file) => {
-        const source = readFileSync(file, 'utf8');
-        return openingTags(source)
-          .filter(({ tag }) => tag.includes('errorMessage=') && !tag.includes('error={'))
-          .map(
-            ({ offset }) =>
-              `${file.replace(SRC, 'src')}:${source.slice(0, offset).split('\n').length}`,
-          );
-      });
+    const offenders = sourceFiles().flatMap((file) => {
+      const source = readFileSync(file, 'utf8');
+      return openingTags(source)
+        .filter(({ tag }) => tag.includes('errorMessage=') && !tag.includes('error={'))
+        .map(
+          ({ offset }) =>
+            `${file.replace(SRC, 'src')}:${source.slice(0, offset).split('\n').length}`,
+        );
+    });
 
     expect(
       offenders,
