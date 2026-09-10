@@ -78,6 +78,54 @@ async function warnIfRealtimeIsDown(): Promise<void> {
   }
 }
 
+/**
+ * Put the pooled KYC fixtures back to pending, once, before the run starts.
+ *
+ * The pool exists because `POST /auth/register` is capped at 10/hour per IP, so
+ * the suite leases pre-seeded pending submissions instead of creating them. Those
+ * fixtures exist to be DECIDED, so a run consumes them — and `seed.ts` only
+ * re-asserts them at BOOT. That made the remedy "restart the backend", which is
+ * one strict run per restart.
+ *
+ * That is not merely inconvenient. The second run of a session fails with ten red
+ * tests naming fixtures rather than code, and the cheapest way to silence it is to
+ * unset E2E_STRICT — which turns every skipped precondition back into a silent
+ * pass, the exact failure the flag exists to prevent.
+ *
+ * Doing it HERE rather than on boot also survives the case that actually happens:
+ * a run that dies mid-suite leaves fixtures decided, and the next run's setup
+ * clears them with no restart involved.
+ *
+ * A WARNING, not a failure, and deliberately so. The route is development-only,
+ * so it is absent whenever these tests are pointed at anything else — and a suite
+ * that refuses to start because an optional convenience is missing is a suite
+ * people route around. A consumed pool still reports itself precisely, at the
+ * lease site, naming the label.
+ */
+async function resetReviewPool(): Promise<void> {
+  const endpoint = `${TOPOLOGY.apiNodeOrigin}/v1/e2e/fixtures/review-pool`;
+  try {
+    const res = await fetch(endpoint, { method: 'POST', signal: AbortSignal.timeout(20_000) });
+    if (res.ok) {
+      const { reset } = (await res.json()) as { reset: number };
+      // Progress, not a problem — same exemption the rate-limit backoff uses.
+      // eslint-disable-next-line no-console
+      console.log(`[e2e] review pool reset to pending (${reset} fixtures).`);
+      return;
+    }
+    console.warn(
+      `[e2e] the review-pool reset answered ${res.status} at ${endpoint}. ` +
+        'Pooled KYC fixtures decided by a previous run will still be decided; ' +
+        'restart the API to re-seed them.',
+    );
+  } catch (error) {
+    console.warn(
+      `[e2e] could not reset the review pool (${error instanceof Error ? error.message : String(error)}). ` +
+        'It is development-only, so this is expected against a non-development API.',
+    );
+  }
+}
+
 export default async function globalSetup(): Promise<void> {
   let reachable = false;
   let detail = '';
@@ -106,4 +154,5 @@ export default async function globalSetup(): Promise<void> {
 
   await assertCrossHostBackend(TOPOLOGY.adminOrigin);
   await warnIfRealtimeIsDown();
+  await resetReviewPool();
 }

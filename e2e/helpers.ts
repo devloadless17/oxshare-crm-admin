@@ -735,6 +735,33 @@ export async function acceptAdminInvite(
  *
  * Set `E2E_STRICT=1` on any run that is meant to be evidence.
  */
+/**
+ * A skip for an OPTIONAL external rail, declared rather than inferred.
+ *
+ * `requirePrecondition` is wrong for the payout rail. A missing fixture is
+ * always a defect in the run; a rail that nobody configured is a legitimate
+ * state, and making it strict would turn CI red for a service CI does not
+ * have. But the old shape — probe, and skip on false — is worse: "the rail is
+ * off" and "the rail is broken" produce the same silent green.
+ *
+ * So the decision moves to a DECLARATION. `E2E_RAIL=on` says an operator
+ * expects the rail to be live here; a rail that then is not live is a failure,
+ * named as one. Without the flag the case skips, and the reason says which
+ * variable would have made it run — so a reader of a green summary can tell
+ * "nobody asked for the rail" from "the rail was asked for and answered".
+ */
+export function requireRail(live: boolean): void {
+  if (live) return;
+  if (process.env['E2E_RAIL'] === 'on') {
+    throw new Error(
+      'E2E_RAIL=on declares the payout rail should be live here, and it is not. ' +
+        'Configure Rival (settings > Rival: enabled, API key set, connection test passing) ' +
+        'or unset E2E_RAIL to let these cases skip.',
+    );
+  }
+  test.skip(true, 'the payout rail is not configured here — set E2E_RAIL=on to require it');
+}
+
 export function requirePrecondition(condition: boolean, reason: string): void {
   if (!condition) return;
   if (process.env['E2E_STRICT'] === '1') {
@@ -912,6 +939,30 @@ export async function registerClientWithPendingKyc(
   return { portal, csrf, email, id, dispose: () => portal.dispose() };
 }
 
+/**
+ * The review-pool labels, MIRRORED from the backend's `REVIEW_POOL_LABELS`.
+ *
+ * Advisory only — it never gates a lease. These are separate repos with no
+ * shared package, so a hard check here would fail a perfectly valid label the
+ * day the backend adds one, which is a worse failure than the message it would
+ * improve. It is used solely to tell two different mistakes apart when a lease
+ * has already failed: a fixture a previous run consumed, versus a label that
+ * was never seeded.
+ */
+const KNOWN_POOL_LABELS: readonly string[] = [
+  'desk',
+  'needs-attention',
+  'claim',
+  'decided',
+  'rt',
+  'rt-in',
+  'auth',
+  'dbl',
+  'rej',
+  'ui',
+  'settle',
+];
+
 export async function mintClientWithPendingKyc(
   admin: { get: (path: string) => Promise<Response | { json: () => Promise<unknown> }> },
   label: string,
@@ -960,8 +1011,14 @@ export async function mintClientWithPendingKyc(
     }
     expect(
       login.ok(),
-      `signing in as the pooled client ${email} answered ${login.status()}. ` +
-        'The pool is seeded at backend boot — restart the API if this is a fresh database.',
+      `signing in as the pooled client ${email} answered ${login.status()}.\n` +
+        (KNOWN_POOL_LABELS.includes(label)
+          ? 'That label IS in the pool, so this is a database or seeding problem: ' +
+            'the API seeds the pool at boot, so restart it if this is a fresh database.'
+          : `'${label}' is NOT a label this suite knows about. If you have just added a ` +
+            'lease site, add the label to REVIEW_POOL_LABELS in ' +
+            'oxshare-crm-backend/src/database/seed.ts (and to KNOWN_POOL_LABELS here) ' +
+            'and restart the API. This is not a consumed fixture.'),
     ).toBe(true);
     break;
   }
@@ -985,7 +1042,10 @@ export async function mintClientWithPendingKyc(
   requirePrecondition(
     submission.status !== 'submitted' && submission.status !== 'under_review',
     `the pooled submission for '${label}' is '${submission.status}' rather than pending — ` +
-      'a previous run decided it. Restart the backend to re-seed the pool.',
+      'a previous run decided it and globalSetup did not reset it. The reset is ' +
+      'development-only, so check the [e2e] line at the top of this run: if it warned, ' +
+      'the API is not in development mode or the route is missing, and restarting the ' +
+      'API will re-seed the pool.',
   );
 
   return { portal, csrf, email, id, dispose: () => portal.dispose() };
