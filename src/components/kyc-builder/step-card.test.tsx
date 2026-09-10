@@ -27,18 +27,17 @@ type KycStepConfig = components['schemas']['KycStepConfigDto'];
  * deletions, each behind its own confirm dialog, then Save, then a success toast,
  * and onboarding was gone for every client in the database.
  */
-const step = (overrides: Partial<KycStepConfig> = {}): KycStepConfig =>
-  ({
-    id: 'step-1',
-    stepNumber: 1,
-    slug: 'personal',
-    title: 'Personal Information',
-    description: 'Legal identity details.',
-    icon: 'User',
-    enabled: true,
-    fields: [],
-    ...overrides,
-  });
+const step = (overrides: Partial<KycStepConfig> = {}): KycStepConfig => ({
+  id: 'step-1',
+  stepNumber: 1,
+  slug: 'personal',
+  title: 'Personal Information',
+  description: 'Legal identity details.',
+  icon: 'User',
+  enabled: true,
+  fields: [],
+  ...overrides,
+});
 
 const noop = vi.fn();
 const props = {

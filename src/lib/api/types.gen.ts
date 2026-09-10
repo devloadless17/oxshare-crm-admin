@@ -6307,12 +6307,14 @@ export interface components {
             /** @example First Name */
             label: string;
             /** @enum {string} */
-            type: "text" | "date" | "phone" | "select" | "file" | "camera" | "checkbox";
+            type: "text" | "date" | "phone" | "select" | "file" | "camera" | "checkbox" | "doc:passport" | "doc:national_id" | "doc:driving_license" | "doc:residence_permit" | "doc:utility_bill" | "doc:bank_statement" | "doc:tenancy_agreement";
             required: boolean;
             /** @description Choices, for type: select. */
             options?: string[];
             /** @example As shown on your ID */
             hint?: string;
+            /** @description Hydrated from `type` on read. Accepted on write and ignored. */
+            document?: Record<string, never>;
         };
         KycStepDto: {
             id?: string;
