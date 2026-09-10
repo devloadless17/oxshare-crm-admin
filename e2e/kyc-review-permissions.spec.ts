@@ -5,6 +5,7 @@ import {
   RESTRICTED_STATE,
   adminApi,
   adminApiSession,
+  requirePrecondition,
 } from './helpers';
 import { type BrowserContext, type Page } from '@playwright/test';
 
@@ -83,7 +84,7 @@ test('a masked reviewer does not receive the client email, under ANY name, on th
   browser,
 }) => {
   const id = alpha;
-  test.skip(!hasSubmission, 'alpha has no KYC submission WAITING for review');
+  requirePrecondition(!hasSubmission, 'alpha has no KYC submission WAITING for review');
 
   const restricted = await browser.newContext({ storageState: RESTRICTED_STATE });
   const { page, bodies } = await openReview(restricted, id);
@@ -99,7 +100,7 @@ test('a masked reviewer does not receive the client email, under ANY name, on th
 
 test('the master still sees the email on the same screen', async ({ browser }) => {
   const id = alpha;
-  test.skip(!hasSubmission, 'alpha has no KYC submission WAITING for review');
+  requirePrecondition(!hasSubmission, 'alpha has no KYC submission WAITING for review');
   const master = await browser.newContext({ storageState: 'e2e/.auth/admin.json' });
   const { bodies } = await openReview(master, id);
   expect(await bodies.all()).toContain(E2E_CLIENTS.alpha.email);
@@ -110,12 +111,15 @@ test('a kyc.view-only reviewer is shown no decision control, and the API refuses
   browser,
 }) => {
   const id = alpha;
-  test.skip(!hasSubmission, 'alpha has no KYC submission WAITING for review');
+  requirePrecondition(!hasSubmission, 'alpha has no KYC submission WAITING for review');
   let viewer: BrowserContext;
   try {
     viewer = await browser.newContext({ storageState: KYC_VIEWER_STATE });
   } catch {
-    test.skip(true, 'no kyc-viewer storage state — is e2e-kyc-viewer@oxshare.com seeded?');
+    requirePrecondition(
+      true,
+      'no kyc-viewer storage state — is e2e-kyc-viewer@oxshare.com seeded?',
+    );
     return;
   }
   const { page } = await openReview(viewer, id);
@@ -133,7 +137,7 @@ test('a kyc.review admin IS shown the decision controls for a waiting submission
   browser,
 }) => {
   const id = alpha;
-  test.skip(!hasSubmission, 'alpha has no KYC submission WAITING for review');
+  requirePrecondition(!hasSubmission, 'alpha has no KYC submission WAITING for review');
   const restricted = await browser.newContext({ storageState: RESTRICTED_STATE });
   const { page } = await openReview(restricted, id);
   await expect(page.getByRole('button', { name: /approve kyc submission/i })).toBeVisible();

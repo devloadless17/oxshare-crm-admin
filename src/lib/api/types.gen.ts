@@ -4703,6 +4703,7 @@ export interface components {
             /** @description How many clients they introduced. */
             referredClientCount: number;
             earnings: components["schemas"]["IbPartnerEarningsDto"];
+            maskedFields?: string[];
         };
         ChangeIbLevelDto: {
             /**
@@ -6578,6 +6579,17 @@ export interface components {
             /** @description WHY the row needs attention, in words the operator can act on. Written whenever rivalNeedsAttention flips true; null once a retry lands or the flag was never raised. */
             rivalAttentionReason?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
+            userId?: string;
+            walletId?: string;
+            direction?: string;
+            methodKey?: string | null;
+            withdrawalMethodKey?: string | null;
+            destinationTradingAccountId?: string | null;
+            reviewedBy?: string | null;
+            rivalExternalId?: string | null;
+            /** Format: date-time */
+            createdAt?: string | null;
+            maskedFields?: string[];
         };
         WithdrawalListResponseDto: {
             items: components["schemas"]["WithdrawalRowDto"][];
@@ -6953,6 +6965,7 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+            maskedFields?: string[];
         };
         TradingAccountRowDto: {
             id: string;
@@ -6986,6 +6999,7 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+            maskedFields?: string[];
         };
         ClientPositionRowDto: {
             id: string;

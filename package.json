@@ -15,7 +15,7 @@
     "gen:api-types": "openapi-typescript http://localhost:3001/api/docs-json -o src/lib/api/types.gen.ts",
     "prepare": "husky",
     "check:twins": "./scripts/check-twins.sh",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --reporter=default --reporter=json --outputFile.json=.vitest-result.json && node scripts/assert-suite-complete.mjs",
     "gen:api-types:contract": "openapi-typescript ../oxshare-crm-backend/openapi.json -o src/lib/api/types.gen.ts",
     "check:api-types": "./scripts/check-api-types.sh",
     "check:css": "node scripts/check-css-classes.mjs",

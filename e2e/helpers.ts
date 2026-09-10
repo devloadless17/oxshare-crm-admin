@@ -735,6 +735,33 @@ export async function acceptAdminInvite(
  *
  * Set `E2E_STRICT=1` on any run that is meant to be evidence.
  */
+/**
+ * A skip for an OPTIONAL external rail, declared rather than inferred.
+ *
+ * `requirePrecondition` is wrong for the payout rail. A missing fixture is
+ * always a defect in the run; a rail that nobody configured is a legitimate
+ * state, and making it strict would turn CI red for a service CI does not
+ * have. But the old shape — probe, and skip on false — is worse: "the rail is
+ * off" and "the rail is broken" produce the same silent green.
+ *
+ * So the decision moves to a DECLARATION. `E2E_RAIL=on` says an operator
+ * expects the rail to be live here; a rail that then is not live is a failure,
+ * named as one. Without the flag the case skips, and the reason says which
+ * variable would have made it run — so a reader of a green summary can tell
+ * "nobody asked for the rail" from "the rail was asked for and answered".
+ */
+export function requireRail(live: boolean): void {
+  if (live) return;
+  if (process.env['E2E_RAIL'] === 'on') {
+    throw new Error(
+      'E2E_RAIL=on declares the payout rail should be live here, and it is not. ' +
+        'Configure Rival (settings > Rival: enabled, API key set, connection test passing) ' +
+        'or unset E2E_RAIL to let these cases skip.',
+    );
+  }
+  test.skip(true, 'the payout rail is not configured here — set E2E_RAIL=on to require it');
+}
+
 export function requirePrecondition(condition: boolean, reason: string): void {
   if (!condition) return;
   if (process.env['E2E_STRICT'] === '1') {
@@ -810,7 +837,23 @@ export interface MintedClient {
  *
  * @param label distinguishes concurrent runs in the mailbox and the audit log.
  */
-export async function mintClientWithPendingKyc(
+/**
+ * A client REGISTERED at runtime, carried by wire to a submitted KYC.
+ *
+ * EXPENSIVE, and to be used only where the ACT of submitting is the subject —
+ * a realtime spec asserting that `admin.kyc.submitted` reaches an open console
+ * cannot use a pre-seeded submission, because the event fired before the
+ * browser existed.
+ *
+ * Everything else must use `mintClientWithPendingKyc`, which leases from the
+ * seeded pool. `POST /auth/register` is capped at 10 an hour per IP and this
+ * path also spends `verify-email` (10 per 15 minutes) and three uploads (10 a
+ * minute). Eleven call sites used to take this route, which is why eighteen
+ * tests silently skipped out of a green run.
+ *
+ * ONE caller today. If a second appears, check the budget before adding it.
+ */
+export async function registerClientWithPendingKyc(
   admin: { get: (path: string) => Promise<Response | { json: () => Promise<unknown> }> },
   label: string,
 ): Promise<MintedClient> {
@@ -893,6 +936,193 @@ export async function mintClientWithPendingKyc(
   expect((await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write })).ok()).toBe(true);
 
   const id = await clientIdByEmail(admin, email);
+  return { portal, csrf, email, id, dispose: () => portal.dispose() };
+}
+
+/**
+ * A BRAND-NEW client with a pending KYC submission — for specs that assert MONEY.
+ *
+ * `mintClientWithPendingKyc` LEASES a pooled fixture, which is right for a spec
+ * that only needs something reviewable and wrong for one that asserts a balance.
+ * A pooled client is reused, so it carries a wallet, a ledger and claimed
+ * idempotency keys from every previous run. `withdrawals-desk` credits 100 under
+ * a key derived from the client id — stable for a pooled client — so after the
+ * first run that credit is a correctly-deduped REPLAY: nothing is added and the
+ * wallet still holds what the last run left. The spec read 90.00000000 where it
+ * expected 100.00000000 and the failure looked like a broken credit.
+ *
+ * This costs NO registration budget: the row is seeded directly through the
+ * development-only fixtures route rather than through `POST /auth/register`
+ * (10/hour per IP), so freshness and the rate limit are no longer a trade-off.
+ *
+ * Returns the same shape as the pooled path, so the two are interchangeable
+ * apart from the history — which is the whole difference that matters.
+ */
+export async function mintFreshClientWithPendingKyc(
+  admin: { get: (path: string) => Promise<Response | { json: () => Promise<unknown> }> },
+  label: string,
+): Promise<MintedClient> {
+  /*
+   * Both are unused and both are kept, so this is a drop-in swap for the pooled
+   * helper at a call site. The id comes back from the route rather than being
+   * looked up through `admin`, and the LABEL is deliberately not sent: the
+   * fixtures route takes no input at all, which is the property that stops it
+   * being able to name an existing client. A label would be harmless in itself
+   * and would still be the first parameter.
+   */
+  void admin;
+  void label;
+  const portal = await apiRequest.newContext({ storageState: { cookies: [], origins: [] } });
+  const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
+
+  const made = await portal.post(`${API_NODE_BASE}/e2e/fixtures/client`, {
+    headers: { Origin: APP_ORIGIN },
+  });
+  requirePrecondition(
+    !made.ok(),
+    `the e2e fixtures route answered ${made.status()} — it is development-only, so a ` +
+      'non-development API has no way to mint a fresh money fixture',
+  );
+  const { id, email, password } = (await made.json()) as {
+    id: string;
+    email: string;
+    password: string;
+  };
+
+  for (;;) {
+    const login = await portal.post(`${API_NODE_BASE}/auth/login`, {
+      headers: origin,
+      data: { email, password },
+    });
+    if (login.status() === 429) {
+      // Waited out, never weakened — the same choice every other login here makes.
+      // eslint-disable-next-line no-console
+      console.log(`↻ portal login rate limited; waiting ${RATE_LIMIT_WINDOW_MS / 1000}s…`);
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_WINDOW_MS));
+      continue;
+    }
+    expect(login.ok(), `signing in as the fresh client ${email} answered ${login.status()}`).toBe(
+      true,
+    );
+    break;
+  }
+
+  const csrf =
+    (await portal.storageState()).cookies.find((c) => c.name.includes('portal_csrf'))?.value ?? '';
+  expect(csrf, 'no portal CSRF cookie after signing in as the fresh client').toBeTruthy();
+
+  return { portal, csrf, email, id, dispose: () => portal.dispose() };
+}
+
+/**
+ * The review-pool labels, MIRRORED from the backend's `REVIEW_POOL_LABELS`.
+ *
+ * Advisory only — it never gates a lease. These are separate repos with no
+ * shared package, so a hard check here would fail a perfectly valid label the
+ * day the backend adds one, which is a worse failure than the message it would
+ * improve. It is used solely to tell two different mistakes apart when a lease
+ * has already failed: a fixture a previous run consumed, versus a label that
+ * was never seeded.
+ */
+const KNOWN_POOL_LABELS: readonly string[] = [
+  'desk',
+  'needs-attention',
+  'claim',
+  'decided',
+  'rt',
+  'rt-in',
+  'auth',
+  'dbl',
+  'rej',
+  'ui',
+  'settle',
+];
+
+export async function mintClientWithPendingKyc(
+  admin: { get: (path: string) => Promise<Response | { json: () => Promise<unknown> }> },
+  label: string,
+): Promise<MintedClient> {
+  /*
+   * LEASED from the seeded pool, not registered.
+   *
+   * This used to register a client, verify the address, walk four KYC steps and
+   * upload three documents — once per spec that needs a reviewable submission.
+   * The cohort docblock above already explains why that cannot work:
+   * `POST /auth/register` is capped at 10 an hour per IP.
+   *
+   * There are ELEVEN of these across the suite. So a single full run cannot
+   * finish inside the budget, never mind a second — the later calls answer 429,
+   * `requirePrecondition` skips, and a skipped Playwright test reports as
+   * PASSING. Eighteen tests vanished from one green run that way, the entire
+   * payout rail among them, and nothing in the output said so.
+   * `verify-email` (10 per 15 minutes) and the upload cap (10 a minute) were
+   * being spent the same way.
+   *
+   * `seed.ts` now creates one pending submission per label and RE-ASSERTS it on
+   * every boot, so a run that approves one finds it pending again. This signs in
+   * as that client and hands back the same shape as before, so no caller
+   * changed.
+   *
+   * ⚠️ WHAT THIS DOES NOT DO is create a NEW client. A spec that needs a
+   * genuinely fresh registration — the registration flow itself — must still
+   * register, and should budget for it.
+   */
+  const email = `e2e-pool-${label}@${E2E_DOMAIN}`;
+  const password = 'client123';
+  const portal = await apiRequest.newContext({ storageState: { cookies: [], origins: [] } });
+  const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
+
+  for (;;) {
+    const login = await portal.post(`${API_NODE_BASE}/auth/login`, {
+      headers: origin,
+      data: { email, password },
+    });
+    if (login.status() === 429) {
+      // Waited out, never weakened — the same choice `adminApiSession` makes.
+      // eslint-disable-next-line no-console
+      console.log(`↻ portal login rate limited; waiting ${RATE_LIMIT_WINDOW_MS / 1000}s…`);
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_WINDOW_MS));
+      continue;
+    }
+    expect(
+      login.ok(),
+      `signing in as the pooled client ${email} answered ${login.status()}.\n` +
+        (KNOWN_POOL_LABELS.includes(label)
+          ? 'That label IS in the pool, so this is a database or seeding problem: ' +
+            'the API seeds the pool at boot, so restart it if this is a fresh database.'
+          : `'${label}' is NOT a label this suite knows about. If you have just added a ` +
+            'lease site, add the label to REVIEW_POOL_LABELS in ' +
+            'oxshare-crm-backend/src/database/seed.ts (and to KNOWN_POOL_LABELS here) ' +
+            'and restart the API. This is not a consumed fixture.'),
+    ).toBe(true);
+    break;
+  }
+
+  const csrf =
+    (await portal.storageState()).cookies.find((c) => c.name.includes('portal_csrf'))?.value ?? '';
+  expect(csrf, 'no portal CSRF cookie after signing in as the pooled client').toBeTruthy();
+
+  const id = await clientIdByEmail(admin, email);
+
+  /*
+   * The submission must be PENDING, and this is checked rather than assumed.
+   *
+   * The seed re-asserts it at boot, so the only way it is decided here is a
+   * second run against a backend that has not restarted. That is a real
+   * situation with a one-line remedy, and it must not present as the test
+   * failing for its own reasons — so it is reported as the precondition it is,
+   * naming the fix.
+   */
+  const submission = (await (await admin.get(`/admin/kyc/${id}`)).json()) as { status?: string };
+  requirePrecondition(
+    submission.status !== 'submitted' && submission.status !== 'under_review',
+    `the pooled submission for '${label}' is '${submission.status}' rather than pending — ` +
+      'a previous run decided it and globalSetup did not reset it. The reset is ' +
+      'development-only, so check the [e2e] line at the top of this run: if it warned, ' +
+      'the API is not in development mode or the route is missing, and restarting the ' +
+      'API will re-seed the pool.',
+  );
+
   return { portal, csrf, email, id, dispose: () => portal.dispose() };
 }
 

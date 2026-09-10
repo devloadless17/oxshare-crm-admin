@@ -8,6 +8,7 @@ import {
   searchOwnClients,
   STORAGE_STATE,
   TOPOLOGY_PORTAL_ORIGIN,
+  requirePrecondition,
 } from './helpers';
 
 /**
@@ -179,7 +180,7 @@ test.describe('CORE-10 — suspension reaches a live portal session', () => {
     const target = ((await lookup.json()) as { items: { id: string; email: string }[] }).items.find(
       (c) => c.email === 'e2e-suspend@oxshare.com',
     );
-    test.skip(!target, 'the e2e-suspend@oxshare.com portal fixture is not seeded');
+    requirePrecondition(!target, 'the e2e-suspend@oxshare.com portal fixture is not seeded');
 
     const portal = await browser.newContext({ baseURL: TOPOLOGY_PORTAL_ORIGIN });
     const client = await portal.newPage();
@@ -187,7 +188,7 @@ test.describe('CORE-10 — suspension reaches a live portal session', () => {
       (r) => r?.ok() ?? false,
       () => false,
     );
-    test.skip(!reachable, `the portal is not running at ${TOPOLOGY_PORTAL_ORIGIN}`);
+    requirePrecondition(!reachable, `the portal is not running at ${TOPOLOGY_PORTAL_ORIGIN}`);
 
     await client.getByPlaceholder('you@example.com').fill('e2e-suspend@oxshare.com');
     await client.locator('input[type="password"]').fill('client123');
@@ -197,7 +198,23 @@ test.describe('CORE-10 — suspension reaches a live portal session', () => {
       ),
       client.getByRole('button', { name: /sign in/i }).click(),
     ]);
-    test.skip(login.status() === 429, 'portal login is rate limited right now');
+    /*
+     * A 429 is INCONCLUSIVE, not a reason to pass.
+     *
+     * This used to `test.skip` on it, so the one case proving an admin's
+     * suspension ends a live portal session disappeared from a green summary
+     * exactly when the suite was under load — the moment it was most likely to
+     * be hiding something. Same reasoning `railIsLive` states for the rail: a
+     * rate limit is a harness problem, and a harness problem must not be
+     * reported as a passing test.
+     */
+    if (login.status() === 429) {
+      throw new Error(
+        'Portal login is rate limited (429), so this run cannot prove suspension ends a live ' +
+          'session. That is a HARNESS condition, not a passing test — re-run with fewer ' +
+          'concurrent portal logins, or wait out the 5/minute cap.',
+      );
+    }
     expect(login.ok(), `portal sign-in answered ${login.status()}`).toBe(true);
     await client.waitForURL(/\/dashboard/);
 

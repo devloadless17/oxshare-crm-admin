@@ -2,9 +2,11 @@ import { expect, test } from './fixtures';
 import {
   adminApiSession,
   API_NODE_BASE,
-  mintClientWithPendingKyc,
+  mintFreshClientWithPendingKyc,
   TOPOLOGY_PORTAL_ORIGIN,
   type MintedClient,
+  requirePrecondition,
+  requireRail,
 } from './helpers';
 
 /**
@@ -32,7 +34,7 @@ import {
 async function mintApprovedClient(
   admin: Awaited<ReturnType<typeof adminApiSession>>,
 ): Promise<MintedClient> {
-  const client = await mintClientWithPendingKyc(admin, 'desk');
+  const client = await mintFreshClientWithPendingKyc(admin, 'desk');
   expect((await admin.patch(`/admin/kyc/${client.id}/approve`)).ok()).toBe(true);
   return client;
 }
@@ -80,7 +82,10 @@ test('credit → request ×3 → approve+settle, reject, and cancel — every le
       });
       expect(methodsRes.ok()).toBe(true);
       const methods = (await methodsRes.json()) as { key: string }[];
-      test.skip(methods.length === 0, 'no withdrawal method is configured on this database');
+      requirePrecondition(
+        methods.length === 0,
+        'no withdrawal method is configured on this database',
+      );
 
       for (let i = 0; i < 3; i++) {
         const res = await client.portal.post(`${API_NODE_BASE}/payments/withdrawals`, {
@@ -165,7 +170,7 @@ test('credit → request ×3 → approve+settle, reject, and cancel — every le
        * approval, and settling a `success` row is the state-guard case the
        * negative assertion below covers rather than the path this step walks.
        */
-      test.skip(!railPaysOut, 'no payout rail is enabled, so approval already settled');
+      requireRail(railPaysOut);
       const settle = (key: string) =>
         admin.patch(
           `/admin/withdrawals/${approvedId}/settle`,

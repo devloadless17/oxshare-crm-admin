@@ -2,10 +2,11 @@ import { expect, test } from './fixtures';
 import {
   adminApiSession,
   API_NODE_BASE,
-  mintClientWithPendingKyc,
+  mintFreshClientWithPendingKyc,
   STORAGE_STATE,
   TOPOLOGY_PORTAL_ORIGIN,
   type MintedClient,
+  requireRail,
 } from './helpers';
 
 /**
@@ -136,13 +137,27 @@ async function requestWithdrawal(client: MintedClient, amount: string): Promise<
 
 test.describe('a payout the platform refuses is visible on the desk', () => {
   test('the row is flagged, the reason is on screen, and a retry is offered', async ({ page }) => {
+    /*
+     * The same 300s its two sibling money specs take, and for the same reason:
+     * this case drives the whole payout lifecycle before it opens a browser —
+     * mint a client, approve KYC, credit the wallet, request, approve, then poll
+     * up to 30s for a post-commit flag — and only then loads the desk.
+     *
+     * It was the only one of the three with NO budget set, so it ran on the 60s
+     * default and timed out on the work rather than on anything being wrong.
+     * That is worth naming because the failure looked like the desk not
+     * flagging the row, which is exactly what this test exists to detect: a
+     * timeout here is indistinguishable from the defect unless the budget is
+     * obviously sufficient.
+     */
+    test.setTimeout(300_000);
     const admin = await adminApiSession();
-    test.skip(!(await railIsLive(admin)), 'The Rival payout rail is off or unreachable.');
+    requireRail(await railIsLive(admin));
 
     const amount = await unfundableAmount();
 
     // ── produce the refusal ────────────────────────────────────────────────
-    const client = await mintClientWithPendingKyc(admin, 'needs-attention');
+    const client = await mintFreshClientWithPendingKyc(admin, 'needs-attention');
     expect((await admin.patch(`/admin/kyc/${client.id}/approve`)).ok()).toBe(true);
     expect(
       (

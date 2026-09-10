@@ -103,13 +103,30 @@ test.describe('RBAC-08 — Network Access', () => {
     await page.goto('/settings?tab=security');
     await expect(page.getByRole('heading', { name: /network access/i })).toBeVisible();
 
-    // Only meaningful while the list is empty; skip cleanly if this database
-    // already has rules, rather than failing on unrelated state.
-    const empty = await page
-      .getByText(/protection is OFF/i)
-      .isVisible()
-      .catch(() => false);
-    test.skip(!empty, 'this database already has allowlist rules');
+    /*
+     * ASSERT the empty state, do not probe for it.
+     *
+     * This was a `test.skip` on `isVisible().catch(() => false)`, meant to step
+     * aside when a database already had rules. Two things were wrong with it.
+     * `isVisible()` does NOT auto-wait — it answers about this instant — so
+     * before the panel finished rendering it returned false and the case
+     * skipped itself for a reason unrelated to any rule. And a skipped
+     * Playwright test reports as PASSING, so the warning that guards the one
+     * irreversible click in RBAC-08 was going unchecked and reading as green.
+     *
+     * It is also the trap alpha's KYC row had: add a single rule by hand and
+     * the test retires permanently, silently, with the suite still green.
+     *
+     * The suite's own contract already fixes the state — the block below this
+     * one asserts the allowlist is a complete no-op "while no rule is
+     * configured", so an empty list is a precondition of this FILE, not a
+     * coincidence of the database. Asserting it makes that explicit: if rules
+     * exist, this run cannot prove what it claims and must say so.
+     */
+    await expect(
+      page.getByText(/protection is OFF/i),
+      'this database already has allowlist rules, so the first-rule warning cannot be observed',
+    ).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByText(/this is the FIRST rule/i)).toBeVisible();
   });

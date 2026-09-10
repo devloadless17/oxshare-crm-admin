@@ -49,50 +49,33 @@ test('refuses to delete a role that is assigned', async ({ context }) => {
   expect(refused.status()).toBe(409);
 });
 
-test('refuses to untick the last roles.edit from the only role carrying it', async ({
-  context,
-}) => {
-  /*
-   * The invariant that replaced the master tier: nobody may leave the system
-   * unmanageable. It used to run only when SUSPENDING the last holder; editing
-   * the role walked straight past it. Asserted here only when this database
-   * has exactly one role carrying `roles.edit` with an active holder — on a
-   * shared dev DB that is usually the Administrator role.
-   */
-  const api = await adminApi(context);
-  const roles = (await (await api.get('/admin/roles')).json()) as {
-    id: string;
-    name: string;
-    permissions: string[];
-    isSystem?: boolean;
-  }[];
-  const admins = (await (await api.get('/admin/users')).json()) as
-    | { items: { roleId?: string; status: string; permissions: string[] }[] }
-    | { roleId?: string; status: string; permissions: string[] }[];
-  const rows = Array.isArray(admins) ? admins : admins.items;
-  const holdersOfRolesEdit = rows.filter(
-    (a) =>
-      a.status === 'active' &&
-      (roles.find((r) => r.id === a.roleId)?.permissions ?? a.permissions).includes('roles.edit'),
-  );
-  const viaRoles = new Set(holdersOfRolesEdit.map((a) => a.roleId).filter(Boolean));
-  test.skip(
-    viaRoles.size !== 1 || holdersOfRolesEdit.some((a) => !a.roleId),
-    `not decidable here: roles.edit is held through ${viaRoles.size} role(s)`,
-  );
-  const [onlyRoleId] = [...viaRoles];
-  const role = roles.find((r) => r.id === onlyRoleId)!;
-  test.skip(Boolean(role.isSystem), 'the only manager role is a system role');
-  // Nobody may edit their OWN role at all (a flat 403, before any other check),
-  // so the case is only decidable from an actor who is not on that role.
-  const me = (await (await api.get('/admin/auth/me')).json()) as { roleId?: string };
-  test.skip(me.roleId === onlyRoleId, 'the only manager role is the one this actor holds');
-
-  const stripped = role.permissions.filter((p) => p !== 'roles.edit');
-  const refused = await api.put(`/admin/roles/${role.id}`, { permissions: stripped });
-  expect(refused.status()).toBe(400);
-  expect(JSON.stringify(await refused.json())).toMatch(/roles\.edit/);
-});
+/*
+ * ── THE LAST-MANAGER CASE MOVED, AND THE REASON IT NEVER RAN WAS NOT THE DATABASE ──
+ *
+ * A case here used to assert that unticking `roles.edit` on the only role
+ * carrying it is refused. It never ran in any environment, and its guards were
+ * blamed on database state: a fresh CI database seeds three roles carrying the
+ * key, and a shared dev database accumulates manager roles forever (54 had
+ * built up), so "exactly one holder" was never true.
+ *
+ * Shaping the database would not have fixed it. On `roles.edit` the refusal is
+ * UNREACHABLE THROUGH THIS DOOR by construction: for the write to be refused
+ * nobody may hold the key afterwards, but editing a role at all requires
+ * holding `roles.edit`, and editing your OWN role is refused earlier and
+ * flatly. The actor is therefore always a surviving holder. No fixture makes
+ * that false.
+ *
+ * The reachable key is `admins.edit` — editing a role does not require holding
+ * it — and that is now proven in the backend suite, which owns a real Postgres
+ * per run via Testcontainers and does not run the seeds:
+ *
+ *   oxshare-crm-backend/test/last-manager-role-edit.spec.ts
+ *
+ * Three cases: the refusal, an ALLOWED control where a second role still
+ * carries the key (so the guard is not simply rejecting every edit), and that
+ * only ACTIVE holders count. The case was pure HTTP and was only ever in the
+ * browser suite by proximity to the roles screen.
+ */
 
 // Keep the domain helper referenced for invitee-style fixtures in sibling specs.
 void E2E_DOMAIN;
