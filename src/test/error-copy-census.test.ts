@@ -71,4 +71,70 @@ describe('error copy is resolved by the boundary, never by the screen', () => {
         'message beneath it. Keep error={…} so there is something to resolve.',
     ).toEqual([]);
   });
+
+  /*
+   * THE OTHER DOOR THE SAME DEFECT COMES BACK THROUGH.
+   *
+   * The failure message above ends "Keep error={…} so there is something to
+   * resolve", and until this case nothing checked that. A screen passing
+   * `errorMessage` with no `error` renders its own sentence with the API's
+   * reason silently absent — which is half the original defect, arriving from
+   * the opposite side: the first door dropped the SCREEN's line, this one drops
+   * the API's.
+   *
+   * There are no offenders today, and that is exactly when a floor is worth
+   * adding: it costs one assertion and it can only ever be lowered by somebody
+   * writing the thing it forbids. Adding it after the first violation would
+   * mean fixing a screen first.
+   *
+   * ## Why the tag is scanned brace-aware rather than line-grepped
+   *
+   * The two props are usually on different lines, so a line-based rule cannot
+   * see them together — and a naive `<AsyncBoundary ... >` regex is worse than
+   * useless here, because `onRetry={() => q.refetch()}` contains a `>` that ends
+   * the match early. A tag truncated before its `errorMessage` is simply skipped
+   * and the case reports success over a screen it never read. That is the
+   * failure this whole file is about, so it would be a poor one to build into
+   * it: the scanner tracks `{}` depth and ignores the `>` of an arrow.
+   */
+  it('has no call site passing errorMessage without an error to resolve', () => {
+    /** Each `<AsyncBoundary …>` opening tag, with arrows inside props tolerated. */
+    const openingTags = (source: string): { offset: number; tag: string }[] => {
+      const out: { offset: number; tag: string }[] = [];
+      let i = source.indexOf('<AsyncBoundary');
+      while (i >= 0) {
+        let j = i + '<AsyncBoundary'.length;
+        let depth = 0;
+        while (j < source.length) {
+          const c = source[j];
+          if (c === '{') depth += 1;
+          else if (c === '}') depth -= 1;
+          else if (c === '>' && depth === 0 && source[j - 1] !== '=') break;
+          j += 1;
+        }
+        out.push({ offset: i, tag: source.slice(i, j) });
+        i = source.indexOf('<AsyncBoundary', j);
+      }
+      return out;
+    };
+
+    const offenders = walk(SRC)
+      .filter((f) => !f.endsWith('.test.ts') && !f.endsWith('.test.tsx'))
+      .flatMap((file) => {
+        const source = readFileSync(file, 'utf8');
+        return openingTags(source)
+          .filter(({ tag }) => tag.includes('errorMessage=') && !tag.includes('error={'))
+          .map(
+            ({ offset }) =>
+              `${file.replace(SRC, 'src')}:${source.slice(0, offset).split('\n').length}`,
+          );
+      });
+
+    expect(
+      offenders,
+      'these screens pass their own sentence but no error for the boundary to resolve, ' +
+        "so the API's reason never reaches the reader — the same defect as above, from " +
+        'the other side. Pass error={query.error} alongside errorMessage.',
+    ).toEqual([]);
+  });
 });
