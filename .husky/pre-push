@@ -36,7 +36,34 @@
 # shell history of whoever chose it.
 
 repo_root=$(git rev-parse --show-toplevel) || exit 0
-gate="$repo_root/../scripts/ci-local.sh"
+
+# TWO CANDIDATES, and the second is the one that survives a fresh machine.
+#
+# `crm/scripts/ci-local.sh` is the documented path and the one the README names,
+# but it is a SYMLINK in `crm/` — and `crm/` is not a git repo, so those symlinks
+# are version-controlled NOWHERE. They exist on whichever machine created them.
+# Clone the four repos plus docs onto a new box and `crm/scripts/` does not exist
+# at all: this hook takes its fail-open branch and the gate that replaced CI does
+# not run. Quietly, on every push, on every fresh checkout.
+#
+# That is this project's own rule broken by its newest gate — "a gate that exists
+# on one machine is not a gate" — and it is the untracked-script finding one
+# level further out: the SCRIPT is version-controlled now, the PATH TO IT was
+# not. The fail-open in front is still correct; failing open EVERY time is
+# indistinguishable from having no hook, which is worse than either branch.
+#
+# `docs/scripts/` is the real home and docs IS a cloned repo, so the second
+# candidate resolves with nothing having been symlinked by hand.
+for candidate in \
+  "$repo_root/../scripts/ci-local.sh" \
+  "$repo_root/../docs/scripts/ci-local.sh"
+do
+  if [ -e "$candidate" ]; then
+    gate="$candidate"
+    break
+  fi
+done
+gate="${gate:-$repo_root/../scripts/ci-local.sh}"
 
 # ⚠️ `-x`, NOT `-f`. A gate that is PRESENT but not EXECUTABLE is the same
 # missing-prerequisite case, and `-f` waves it through to the invocation below,
