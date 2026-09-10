@@ -25,10 +25,43 @@ import { API_ORIGIN, STORAGE_STATE, adminApi, registerClientWithPendingKyc } fro
 test.use({ storageState: STORAGE_STATE });
 
 test.describe('KYC documents are served from object storage', () => {
-  test('a reviewer can open a document, and the browser is not blocked', async ({
-    page,
-    context,
-  }) => {
+  /*
+   * ONE REGISTRATION FOR THE WHOLE FILE, deliberately.
+   *
+   * `registerClientWithPendingKyc` is the expensive path — it spends one of ten
+   * registrations an hour — and its docblock asks that the caller count be
+   * checked before a new one is added: "Two of ten is within budget; a third
+   * should not be added without re-counting." The lightbox cases below need a
+   * submission whose documents have real BYTES (a pooled fixture carries seeded
+   * document names with nothing behind them), so they need this fixture and not
+   * a cheaper one.
+   *
+   * Hoisting it keeps the file at ONE caller rather than adding a third, which
+   * is the honest way to obey that instruction rather than route around it.
+   */
+  let shared: Awaited<ReturnType<typeof registerClientWithPendingKyc>> | undefined;
+  let targetUserId: string;
+
+  test.beforeAll(async ({ browser }) => {
+    test.setTimeout(300_000);
+    const ctx = await browser.newContext({ storageState: STORAGE_STATE });
+    try {
+      const api = await adminApi(ctx);
+      const explicit = process.env['E2E_KYC_USER_ID'];
+      shared = explicit ? undefined : await registerClientWithPendingKyc(api, 'r2docs');
+      targetUserId = explicit ?? shared!.id;
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test.afterAll(async () => {
+    // The minted client owns an API context of its own; leaving it open leaks a
+    // connection per run.
+    await shared?.dispose();
+  });
+
+  test('a reviewer can open a document, and the browser is not blocked', async ({ page }) => {
     const violations: string[] = [];
     page.on('console', (msg) => {
       const text = msg.text();
@@ -70,10 +103,7 @@ test.describe('KYC documents are served from object storage', () => {
      * `E2E_KYC_USER_ID` still wins when the caller already knows which
      * submission to open.
      */
-    const api = await adminApi(context);
-    const explicit = process.env['E2E_KYC_USER_ID'];
-    const minted = explicit ? undefined : await registerClientWithPendingKyc(api, 'r2docs');
-    const targetUser = explicit ?? minted!.id;
+    const targetUser = targetUserId;
 
     await page.goto(`/kyc/${targetUser}`);
     await page.waitForLoadState('networkidle');
@@ -117,9 +147,78 @@ test.describe('KYC documents are served from object storage', () => {
       .toBeGreaterThan(0);
 
     expect(violations, `CSP blocked something:\n${violations.join('\n')}`).toEqual([]);
+  });
 
-    // The minted client owns an API context of its own; leaving it open leaks a
-    // connection per run.
-    await minted?.dispose();
+  /*
+   * PAGING BETWEEN DOCUMENTS, which nothing drove.
+   *
+   * A submission carries three — the document, the selfie and the address proof —
+   * and a reviewer compares them. Opening ONE was covered; moving between them
+   * was not, and the lightbox is where a compliance decision is actually made.
+   */
+  test('a reviewer can page between the documents, and each opens at a clean view', async ({
+    page,
+  }) => {
+    await page.goto(`/kyc/${targetUserId}`);
+
+    const thumbnail = page.locator('img[src*="/uploads/kyc/"]').first();
+    await expect(thumbnail).toBeVisible();
+    await thumbnail.click();
+
+    const lightbox = page.getByRole('dialog');
+    await expect(lightbox, 'clicking a document opened no viewer').toBeVisible();
+
+    const next = page.getByRole('button', { name: /next document/i });
+    const zoomIn = page.getByRole('button', { name: /zoom in/i });
+
+    /*
+     * A submission with one document offers no paging, and asserting on a fixed
+     * count would make this a test about the seeded form rather than the viewer.
+     * The fixture uploads three, so this should be present — and if it is not,
+     * saying so is more useful than skipping.
+     */
+    await expect(
+      next,
+      'the viewer offered no way to reach the other documents in this submission',
+    ).toBeVisible();
+
+    const shown = () => lightbox.locator('img').first().getAttribute('src');
+    const first = await shown();
+
+    /*
+     * ZOOM, THEN PAGE. The lightbox resets zoom and rotation per document, and
+     * its own comment says why: "A new document is a new view: carrying the
+     * previous zoom and rotation over" is wrong. A reviewer who zoomed into a
+     * passport's date of birth and then paged to the selfie would be looking at
+     * a corner of it — and would have no reason to think they were.
+     */
+    await zoomIn.click();
+    await next.click();
+
+    await expect
+      .poll(shown, { timeout: 10_000, message: 'paging showed the same document again' })
+      .not.toBe(first);
+
+    /*
+     * Asserted on the ZOOM READOUT the lightbox shows, not on the computed
+     * transform.
+     *
+     * The transform was the first thing I reached for and it is the wrong
+     * instrument: the viewer animates its entrance, so a document that has just
+     * opened reports a scale mid-flight — `matrix(1.10515, …)` on the run that
+     * caught this. `ZOOM_STEP` is 0.5, so 1.105 is not a zoom level at all and
+     * the assertion was reading an animation and calling it a defect.
+     *
+     * The readout is `Math.round(zoom * 100)%` — the number the reviewer
+     * actually sees, settled rather than in transit, and the thing that would be
+     * wrong if the reset broke.
+     */
+    await expect(
+      lightbox.getByText(/^\s*100%\s*$/),
+      'the next document opened still zoomed — a reviewer would see a corner of it',
+    ).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole('button', { name: /^close$/i }).click();
+    await expect(lightbox, 'the viewer would not close').toBeHidden();
   });
 });
