@@ -6237,6 +6237,10 @@ export interface components {
             addressProof?: components["schemas"]["KycAddressProofDto"];
             user?: components["schemas"]["KycUserDto"] | null;
             maskedFields?: string[];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
         KycListResponseDto: {
             items: components["schemas"]["KycSubmissionDto"][];
