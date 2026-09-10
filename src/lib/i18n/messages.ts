@@ -1849,6 +1849,8 @@ export const messages = {
   'builder.enable': 'Enable',
   'builder.disable': 'Disable',
   'builder.deleteStep': 'Delete step',
+  'builder.deleteLastStepRefused':
+    'This is the only step left. A KYC flow with no steps cannot verify anyone.',
   'builder.deleteStepNamed': 'Delete step {title}',
   'builder.saveAll': 'Save all changes',
   'builder.savingAll': 'Saving…',

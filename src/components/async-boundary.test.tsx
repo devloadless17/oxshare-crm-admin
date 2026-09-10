@@ -108,3 +108,110 @@ describe('AsyncBoundary error state', () => {
     expect(screen.queryByText(/req-7f21c9/)).not.toBeInTheDocument();
   });
 });
+
+/**
+ * THE CALLER'S SENTENCE AND THE API'S, TOGETHER.
+ *
+ * Sixty-five screens across the two apps pass an `errorMessage` saying what
+ * their own failure means, and until 10 Sep 2026 essentially none of it was
+ * shown: this component rendered `apiErrorMessage(error, errorMessage ?? …)`,
+ * and that helper prefers `response.data.message` — which the backend's
+ * `AllExceptionsFilter` puts on EVERY error envelope. The caller's line was
+ * reachable only when there was no body at all.
+ *
+ * The sentence that made the cost concrete is the KYC queue's: *"Failed to load
+ * the review queue. This is NOT an empty queue — submissions may be waiting."*
+ * Written to stop a reviewer reading an outage as a cleared backlog, written
+ * for exactly the server-side case, and invisible in it.
+ *
+ * These pin BOTH halves, because each direction has its own way of being wrong
+ * and fixing one by breaking the other is the trap: dropping the API's message
+ * makes an unrecognised sort (a 400, per R-2.5, so the operator learns what they
+ * got wrong) render as "Failed to load clients."
+ */
+describe('AsyncBoundary shows the domain sentence AND the API message', () => {
+  const domainSentence = 'Failed to load the review queue. This is NOT an empty queue.';
+
+  it("shows the caller's sentence for a 500 that carries a server message", () => {
+    renderWithProviders(
+      <AsyncBoundary
+        status="error"
+        label="Loading"
+        endpoints={[]}
+        onRetry={vi.fn()}
+        errorMessage={domainSentence}
+        error={{ response: { data: { message: 'Internal server error' } } }}
+      >
+        <p>{'never rendered'}</p>
+      </AsyncBoundary>,
+    );
+
+    // The half that was dead. This is the regression that matters.
+    expect(
+      screen.getByText(domainSentence),
+      "the screen's own warning is being replaced by the API's message again",
+    ).toBeInTheDocument();
+    // And the half that must not be lost fixing it.
+    expect(screen.getByText('Internal server error')).toBeInTheDocument();
+  });
+
+  it('keeps a 400 validation message readable (R-2.5), under the context line', () => {
+    /*
+     * The failure this component was ORIGINALLY changed to fix, and the reason
+     * the fix cannot simply be "prefer the caller's line". An unrecognised sort
+     * is a 400 precisely so the operator learns what they got wrong; printing
+     * only "Failed to load clients." over the top of it is a 400 with the
+     * usefulness of a 500.
+     */
+    renderWithProviders(
+      <AsyncBoundary
+        status="error"
+        label="Loading"
+        endpoints={[]}
+        onRetry={vi.fn()}
+        errorMessage="Failed to load clients."
+        error={{ response: { data: { message: 'sort must be one of: createdAt, email' } } }}
+      >
+        <p>{'never rendered'}</p>
+      </AsyncBoundary>,
+    );
+
+    expect(screen.getByText('Failed to load clients.')).toBeInTheDocument();
+    expect(screen.getByText(/sort must be one of/)).toBeInTheDocument();
+  });
+
+  it('does not print the same sentence twice', () => {
+    // A screen whose own copy already matches what the API said should read as
+    // one statement, not as an echo.
+    renderWithProviders(
+      <AsyncBoundary
+        status="error"
+        label="Loading"
+        endpoints={[]}
+        onRetry={vi.fn()}
+        errorMessage="Wallet unavailable."
+        error={{ response: { data: { message: 'Wallet unavailable.' } } }}
+      >
+        <p>{'never rendered'}</p>
+      </AsyncBoundary>,
+    );
+
+    expect(screen.getAllByText('Wallet unavailable.')).toHaveLength(1);
+  });
+
+  it("falls back to the API's message when the caller passes no sentence", () => {
+    renderWithProviders(
+      <AsyncBoundary
+        status="error"
+        label="Loading"
+        endpoints={[]}
+        onRetry={vi.fn()}
+        error={{ response: { data: { message: 'Rate limit exceeded.' } } }}
+      >
+        <p>{'never rendered'}</p>
+      </AsyncBoundary>,
+    );
+
+    expect(screen.getByText('Rate limit exceeded.')).toBeInTheDocument();
+  });
+});

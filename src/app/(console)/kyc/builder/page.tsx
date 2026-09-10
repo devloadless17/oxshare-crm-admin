@@ -229,6 +229,24 @@ export default function KycBuilderPage() {
   // `window.confirm` — every caller must `void` it.
   const deleteStep = async (id: string) => {
     const step = steps.find((s) => s.id === id);
+    /*
+     * The button for this is already disabled at `total <= 1`, and that is UX.
+     * This is the refusal.
+     *
+     * Client-side gating is never the guarantee — the same rule this app states
+     * about permissions. Keeping it here means the rule survives a keyboard
+     * path, a future call site that forgets to pass `total`, and the ordinary
+     * drift of a screen that gets rebuilt. It costs two lines.
+     *
+     * NOT the rule the owner retired on 15 Aug. That one pinned WHICH four
+     * steps were undeletable and refused deletions an operator legitimately
+     * wanted; this refuses only the one that leaves nothing behind, which is
+     * not a configuration but the absence of one.
+     */
+    if (steps.length <= 1) {
+      showNotification(t('builder.deleteLastStepRefused'), 'error');
+      return;
+    }
     const ok = await confirm({
       title: t('builder.confirmDeleteStepTitle', { title: step?.title ?? '' }),
       description: t('builder.confirmDeleteStepBody'),

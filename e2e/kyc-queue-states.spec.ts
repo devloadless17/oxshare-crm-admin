@@ -94,35 +94,26 @@ test.describe('the KYC queue when the API does not answer with rows', () => {
     );
   });
 
-  test("shows the API's own message, NOT the screen's 'this is not an empty queue' copy", async ({
-    page,
-  }) => {
+  test("shows the reviewer BOTH the warning and the API's reason", async ({ page }) => {
     /*
-     * PINNING WHAT IS TRUE, and flagging what it costs. This is not the
-     * behaviour the copy was written for.
+     * `kyc.queueLoadFailed` reads *"Failed to load the review queue. This is NOT
+     * an empty queue — submissions may be waiting."* It was written to stop a
+     * reviewer treating an outage as a cleared backlog.
      *
-     * `AsyncBoundary` renders `apiErrorMessage(error, errorMessage)`, and that
-     * helper prefers `response.data.message` over the fallback. The backend's
-     * `AllExceptionsFilter` puts a `message` on EVERY error envelope — so the
-     * screen's own `kyc.queueLoadFailed` string can only ever appear when there
-     * is no body at all: a dropped connection, or a 502 from a proxy in front
-     * of the API.
+     * IT WAS UNREACHABLE FOR EVERY SERVER-SIDE ERROR until 10 Sep 2026, which
+     * is to say: for the entire case it was written for. `AsyncBoundary`
+     * rendered `apiErrorMessage(error, errorMessage)`, and that helper prefers
+     * `response.data.message` — which `AllExceptionsFilter` puts on every
+     * envelope. The reviewer saw "Internal server error" and nothing else.
      *
-     * That string reads *"Failed to load the review queue. This is NOT an empty
-     * queue — submissions may be waiting."* It was written to stop a reviewer
-     * misreading an outage as a cleared backlog — and it is invisible for every
-     * server-side error, which is the case it was written for. A reviewer sees
-     * "Internal server error" instead.
+     * This spec used to PIN that, on the reasoning that the precedence was a
+     * copy decision for the owner. He asked for it closed rather than recorded,
+     * and he was right to: the two messages answer different questions and the
+     * screen has room for both. The caller's line leads and the API's follows
+     * as detail.
      *
-     * Preferring the API's message is DELIBERATE and defensible on its own
-     * terms — `async-boundary.tsx` argues it, and for a 400 carrying a real
-     * validation message it is plainly right. The open question is whether a
-     * domain-specific warning should be additional to it rather than replaced
-     * by it. That is a copy decision for the owner, not something a test should
-     * settle by asserting the version it prefers.
-     *
-     * So this pins the observable truth. If somebody makes the two coexist,
-     * this test fails and is CORRECT to fail — it will be pointing at the fix.
+     * Both halves are asserted because fixing either one by dropping the other
+     * is the trap — and both apps had done exactly that, in opposite directions.
      */
     const route = await routeHit(page, '/admin/kyc', (r) =>
       r.fulfill({
@@ -138,11 +129,8 @@ test.describe('the KYC queue when the API does not answer with rows', () => {
 
     await page.goto('/kyc');
 
-    await expect(page.getByText('Internal server error')).toBeVisible({ timeout: 30_000 });
-    expect(
-      await page.getByText(/this is NOT an empty queue/i).count(),
-      "the screen's own warning is reachable after all — pin the new behaviour instead",
-    ).toBe(0);
+    await expect(page.getByText(/this is NOT an empty queue/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Internal server error')).toBeVisible();
 
     expect(route.hits(), 'nothing was intercepted').toBeGreaterThan(0);
   });

@@ -111,9 +111,32 @@ export function StepCard({
           <button
             type="button"
             onClick={onDelete}
+            /*
+             * THE LAST STEP CANNOT BE DELETED, and this is not the rule the
+             * owner retired.
+             *
+             * That rule was about WHICH steps may go — it pinned `personal`,
+             * `document`, `selfie` and `address`, and it refused deletions an
+             * operator legitimately wanted. This refuses only the deletion that
+             * leaves NOTHING behind. Zero steps is not a configuration anyone
+             * could choose; it is the absence of one, and no client can ever
+             * verify again.
+             *
+             * Refused at the CLICK rather than at the save. `PUT
+             * /admin/kyc-config` is a full replace, so a rejection arrives
+             * after every edit in the session has been made — it tells an
+             * operator their work was refused without telling them which of
+             * four confirmed deletions caused it. The screen knows which one is
+             * last; it should say so at the moment it matters.
+             */
+            disabled={total <= 1}
             className="focus-outline ms-1 flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-            title={t('builder.deleteStep')}
-            aria-label={t('builder.deleteStepNamed', { title: step.title })}
+            title={total <= 1 ? t('builder.deleteLastStepRefused') : t('builder.deleteStep')}
+            aria-label={
+              total <= 1
+                ? t('builder.deleteLastStepRefused')
+                : t('builder.deleteStepNamed', { title: step.title })
+            }
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>

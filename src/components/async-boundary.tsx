@@ -139,28 +139,51 @@ export function AsyncBoundary({
 
   if (status === 'error') {
     const requestId = apiErrorRequestId(error);
+    /*
+     * BOTH SENTENCES, not one of them. This used to render only
+     * `apiErrorMessage(error, errorMessage ?? generic)`, and that helper prefers
+     * `response.data.message` — which `AllExceptionsFilter` puts on EVERY error
+     * envelope. So the caller's line was reached only when there was no body at
+     * all: a dropped connection, or a 502 from a proxy in front of the API.
+     *
+     * The docblock here used to say `apiErrorMessage` "falls back to the
+     * caller's line for a 500". It does not, and never did — it reads
+     * `data.message ?? error.message ?? fallback` with no reference to the
+     * status. The comment described an intention; the code did something else,
+     * and the gap between them is why nobody noticed that **65 screens across
+     * both apps each wrote what their own failure means and none of it was
+     * being shown**.
+     *
+     * `kyc.queueLoadFailed` is the one that makes the cost concrete: *"Failed
+     * to load the review queue. This is NOT an empty queue — submissions may be
+     * waiting."* It exists to stop a reviewer reading an outage as a cleared
+     * backlog, it was written for exactly the server-side case, and it was
+     * invisible in it. The reviewer saw "Internal server error".
+     *
+     * ## Why both, rather than swapping the precedence back
+     *
+     * The two answer different questions and neither replaces the other. The
+     * caller's line says WHAT FAILED AND WHAT IT MEANS HERE; the API's says
+     * WHY. R-2.5 is the reason the second must stay visible — an unrecognised
+     * sort is a 400 precisely so the operator learns what they got wrong, and
+     * printing "Failed to load clients." over the top of it is a 400 with the
+     * usefulness of a 500. Printing only the validation string is the opposite
+     * failure: correct detail, no context.
+     *
+     * So: the caller's line leads, the API's follows as detail, and the detail
+     * is dropped when it would only repeat the line above it.
+     */
+    const detail = apiErrorMessage(error, '');
+    const headline = errorMessage ?? (detail || 'Something went wrong loading this page.');
+    const showDetail = detail !== '' && detail !== headline;
     return (
       <div className={frame}>
         <div
           className="rounded-xl border border-border bg-card p-8 text-center space-y-3"
           role="alert"
         >
-          <p className="text-sm text-muted-foreground">
-            {/*
-             * The API's OWN message when it sent one, and the generic line only
-             * as a fallback.
-             *
-             * R-2.5 requires an unrecognised filter or sort to be a 400 rather
-             * than a silently empty list, precisely so the operator learns what
-             * they got wrong — and this component was throwing that sentence
-             * away and printing "Failed to load clients." instead. A validation
-             * error the user cannot read is a 400 with the usefulness of a 500.
-             *
-             * `apiErrorMessage` falls back to the caller's line for a 500, where
-             * the server's message is not something to show anybody.
-             */}
-            {apiErrorMessage(error, errorMessage ?? 'Something went wrong loading this page.')}
-          </p>
+          <p className="text-sm text-muted-foreground">{headline}</p>
+          {showDetail && <p className="text-xs text-muted-foreground/80">{detail}</p>}
           {/*
           The id the API already logged with this failure. Rendered small and
           selectable rather than hidden behind a "details" toggle: its whole

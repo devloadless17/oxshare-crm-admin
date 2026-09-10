@@ -47,11 +47,31 @@ fi
 # NOT a twin, deliberately: src/components/async-boundary.tsx.
 # Same props and same four branches. The loader is no longer the reason — both
 # apps now render components/ui/loader, which IS a twin. What still differs is
-# the error branch: admin surfaces the API's own message via apiErrorMessage(),
-# because R-2.5 makes an unrecognised filter a 400 whose sentence tells the
-# operator what they got wrong, and the portal shows a generic line to a client
-# for whom that sentence means nothing. They also use different i18n keys for
-# the forbidden state. Keep the PROPS and the branch behaviour in step by hand.
+# structural: the portal wraps its card in a `card` local so it can be returned
+# with or without the fill frame, and the two use different i18n keys for the
+# forbidden state.
+#
+# ⚠️ THE ERROR BRANCH IS NO LONGER A LEGITIMATE DIFFERENCE — it is now IDENTICAL
+# in both apps and must stay that way. This comment used to record the opposite,
+# and the text is worth keeping because of how it failed:
+#
+#   "admin surfaces the API's own message via apiErrorMessage(), because R-2.5
+#    makes an unrecognised filter a 400 whose sentence tells the operator what
+#    they got wrong, and the portal shows a generic line to a client for whom
+#    that sentence means nothing."
+#
+# A real decision, reasonably argued — and by 10 Sep 2026 it described neither
+# app. Admin's precedence meant the SCREEN's sentence was the half that never
+# appeared (65 call sites across the two apps, none of it reaching a user for
+# any error carrying a body). And the portal was not showing clients a generic
+# line at all: 47 call sites call `apiErrorMessage` themselves, several passing
+# the result straight into this prop — the screens had worked AROUND the
+# component, so the rationale stopped being true with nobody editing it.
+#
+# Both branches now show the caller's sentence with the API's beneath it. This
+# file cannot enforce that, because the exclusion below still applies for the
+# structural reasons above — so the branch is pinned by async-boundary.test.tsx
+# in BOTH repos instead. If you change one, change the other and both tests.
 #
 # NOT a twin, deliberately: src/lib/api/client.ts.
 # Its structure is parallel and its config block is delimited the same way, but two
