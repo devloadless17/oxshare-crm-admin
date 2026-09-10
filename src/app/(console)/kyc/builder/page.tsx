@@ -106,8 +106,13 @@ export default function KycBuilderPage() {
    */
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     if (type === 'error') {
-      // Not `toastError`: these are LOCAL refusals ("that step is mandatory"),
-      // not API failures, so there is no error object to unwrap.
+      // Not `toastError`: these are LOCAL refusals raised by this screen, not
+      // API failures, so there is no error object to unwrap.
+      //
+      // The example this used to give — "that step is mandatory" — no longer
+      // happens. The mandatory-step rule was retired by the owner on 15 Aug
+      // 2026, and `deleteStep` below now confirms and removes ANY step, which
+      // correctly matches what the API accepts.
       toast.error(message, { duration: 8000 });
       return;
     }
