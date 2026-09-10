@@ -46,10 +46,24 @@ vi.mock('@/context/AdminAuthContext', () => ({
       name: 'Master Admin',
       role: 'master_admin',
       /*
-       * The REAL list, not ['*']. `hasPermission` matches keys exactly and does
-       * not expand a wildcard, so a mocked admin holding '*' can reach nothing
-       * — `PermittedLink` then renders a span and the case fails looking like a
-       * missing link rather than a viewer with no permissions.
+       * The REAL list. A mocked admin holding `['*']` reaches NOTHING —
+       * `hasPermission` matches keys exactly, `PermittedLink` then renders a
+       * span instead of an anchor, and the case fails looking like a missing
+       * link rather than a viewer with no permissions.
+       *
+       * ⚠️ THE WILDCARD DOES NOT EXIST, ANYWHERE, AND HAS NOT SINCE 0044.
+       * `seed.ts:121` issues `ALL_PERMISSIONS` — real keys — and no guard
+       * carries a `'*'` branch. So exact matching is not a gap the seed papers
+       * over; it is correct, because nothing issues a wildcard to expand.
+       *
+       * It is written down here because of where the `['*']` in the first draft
+       * of this file came FROM: the root `CLAUDE.md` still describes the seeded
+       * admin as "(`master_admin`, permissions `["*"]`)", and both halves are
+       * dead — `admin.guard.ts:39` says `admins.role` is read by no guard, no
+       * service and no screen after 0044, and the wildcard went with it. A
+       * document that every session loads produced a test double copied from
+       * the DOCUMENT rather than the CODE, and the double then failed for a
+       * reason that looked like a product defect.
        */
       permissions: ALL_PERMISSIONS,
       createdAt: new Date().toISOString(),
