@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { adminApi, STORAGE_STATE } from './helpers';
+import { adminApi, requirePrecondition, STORAGE_STATE } from './helpers';
 import type { BrowserContext, Page } from '@playwright/test';
 
 /**
@@ -197,6 +197,17 @@ test.describe('the KYC step builder', () => {
      */
     const target = snapshot.find((s) => s.slug === 'document');
     expect(target, "no 'document' step — the default config has changed").toBeTruthy();
+    /*
+     * The screen now refuses to delete the LAST remaining step, so this case
+     * needs something left behind to be testing deletion rather than the floor.
+     * Through `requirePrecondition` rather than a bare skip: under E2E_STRICT a
+     * skipped Playwright test reports as PASSING, and a run that never deleted
+     * anything must not be indistinguishable from one that did.
+     */
+    requirePrecondition(
+      snapshot.length <= 1,
+      'only one KYC step is configured, so the last-step guard is what would be exercised',
+    );
 
     await page.goto('/kyc/builder');
     await expect(page.getByRole('button', { name: /save all changes/i })).toBeVisible({
