@@ -175,6 +175,24 @@ test.describe('CORE-10 — suspension reaches a live portal session', () => {
      * the portal lands on sign-in — not fifteen minutes later when a token
      * expires. Reactivated in a `finally`, so the fixture is usable again.
      */
+    /*
+     * A REAL BUDGET, because this is the heaviest case in the file.
+     *
+     * It drives TWO apps and two browser contexts: an admin API session, a
+     * second context against the portal, a portal sign-in, a wait for
+     * /dashboard, an admin write, a navigation, and a redirect assertion — then
+     * reactivates the fixture in a `finally`.
+     *
+     * It ran on the 60s default and took 33s locally. That is not headroom, it
+     * is luck: CI is slower (a cold `next start` portal, three storage-state
+     * setups before it) and it hit exactly 1.0m and died. The failure surfaced
+     * as `page.waitForResponse: Test ended`, which reads as "the login request
+     * was never issued" — a claim about the portal's sign-in form, not about a
+     * budget. Third time today a timeout has worn the costume of the defect its
+     * test exists to detect.
+     */
+    test.setTimeout(180_000);
+
     const master = await adminApi(context);
     const lookup = await master.get('/admin/clients?q=e2e-suspend%40oxshare.com&limit=5');
     const target = ((await lookup.json()) as { items: { id: string; email: string }[] }).items.find(
