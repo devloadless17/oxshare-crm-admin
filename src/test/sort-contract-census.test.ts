@@ -58,6 +58,18 @@ type OpenApiSpec = {
  */
 function loadSpec(): OpenApiSpec | null {
   for (const candidate of [
+    /*
+     * CI FIRST, because that is where this census earns its keep.
+     *
+     * `.contract/openapi.json` is where `.github/workflows/ci.yml` sparse-checks
+     * out the backend's contract for `check-api-types.sh`. Without this entry
+     * the census found no spec in CI and skipped — declared and visible, but
+     * skipped — so the one check that catches a sort key the API refuses ran
+     * only on a machine with all four repos side by side. A contract census
+     * that cannot see the contract in CI is the shape of thing this file exists
+     * to refuse.
+     */
+    '.contract/openapi.json',
     '../oxshare-crm-backend/openapi.json',
     '../../oxshare-crm-backend/openapi.json',
   ]) {

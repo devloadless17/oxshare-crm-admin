@@ -80,6 +80,25 @@ jobs:
 
       # --coverage so the thresholds in vitest.config.mts actually bind. They are
       # floors pinned to measured numbers, not aspirations, and may only go up.
+      # BEFORE the unit tests, deliberately. `src/test/sort-contract-census.test.ts`
+      # reads this file to check every sort the console offers is one the API
+      # accepts. It falls back to a DECLARED skip when the contract is absent, and
+      # this step running after the tests meant CI always took that fallback — the
+      # census was present, visible in the summary as skipped, and protecting
+      # nothing in the one place a refused sort key would reach a user.
+      - name: Fetch the backend contract
+        uses: actions/checkout@v4
+        with:
+          repository: devloadless17/oxshare-crm-backend
+          # Same owner, so the default token works while the repo is visible to
+          # it. If that stops being true the step FAILS the build rather than
+          # degrading to a skip — which is the behaviour this whole change is
+          # about. Set CROSS_REPO_TOKEN to a read-only PAT if needed.
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+          path: .contract
+          sparse-checkout: openapi.json
+          sparse-checkout-cone-mode: false
+
       - name: Unit tests
         run: npm run test:coverage
 
@@ -147,19 +166,6 @@ jobs:
       # So the contract is fetched here, and the script now FAILS rather than
       # skips when it is absent. Both halves are needed: either one alone brings
       # the silent pass back.
-      - name: Fetch the backend contract
-        uses: actions/checkout@v4
-        with:
-          repository: devloadless17/oxshare-crm-backend
-          # Same owner, so the default token works while the repo is visible to
-          # it. If that stops being true the step FAILS the build rather than
-          # degrading to a skip — which is the behaviour this whole change is
-          # about. Set CROSS_REPO_TOKEN to a read-only PAT if needed.
-          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
-          path: .contract
-          sparse-checkout: openapi.json
-          sparse-checkout-cone-mode: false
-
       - name: API types match the backend contract
         env:
           OXSHARE_CONTRACT: ${{ github.workspace }}/.contract/openapi.json
