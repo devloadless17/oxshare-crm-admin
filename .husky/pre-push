@@ -38,8 +38,25 @@
 repo_root=$(git rev-parse --show-toplevel) || exit 0
 gate="$repo_root/../scripts/ci-local.sh"
 
-if [ ! -f "$gate" ]; then
-  echo "pre-push: $gate not found — the local CI stand-in is not reachable from here." >&2
+# ⚠️ `-x`, NOT `-f`. A gate that is PRESENT but not EXECUTABLE is the same
+# missing-prerequisite case, and `-f` waves it through to the invocation below,
+# where it dies with "Permission denied" and exit 126 — which BLOCKS the push,
+# naming a line number in this hook and saying nothing about the code. Measured:
+# exit 126 with `chmod -x` on the gate, exit 0 with it restored.
+#
+# Reachable in the ordinary way. The scripts are committed 100755 and every repo
+# here has core.fileMode=true, so a clone is fine — but an archive extract, a
+# copy off a filesystem with no exec bit, or a checkout with core.fileMode=false
+# (the usual state on a Windows mount, and this project runs on WSL) all lose it.
+# Same rule as the Docker probe in the backend's hook: a missing PREREQUISITE and
+# a failing GATE must not share an exit code.
+if [ ! -x "$gate" ]; then
+  if [ -f "$gate" ]; then
+    echo "pre-push: $gate is present but NOT EXECUTABLE, so the gate cannot run." >&2
+    echo "pre-push: Fix with: chmod +x \"$gate\"" >&2
+  else
+    echo "pre-push: $gate not found — the local CI stand-in is not reachable from here." >&2
+  fi
   echo "pre-push: PUSHING UNVERIFIED. Run scripts/ci-local.sh verify admin by hand." >&2
   exit 0
 fi
