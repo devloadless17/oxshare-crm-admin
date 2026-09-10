@@ -346,6 +346,49 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      # ── The CLIENT PORTAL, because three admin journeys are CROSS-APP ────────
+      #
+      # `client-admin-actions` proves a suspension ends a live PORTAL session,
+      # `realtime-console` proves a CLIENT's submission reaches the console, and
+      # `auth-correctness` drives the portal's dead-session path. None of them can
+      # run without the portal, and this job never started it — so all three
+      # skipped in CI and reported as passing, for as long as the job has existed.
+      #
+      # They only became visible when the runtime skips were converted to declared
+      # preconditions: the same tests then FAILED with "the portal is not running
+      # at http://localhost:3000", which is the mechanism doing exactly its job.
+      #
+      # Started here rather than through Playwright's `webServer` deliberately: the
+      # portal is a SIBLING REPO, and a config that reaches across repos works on a
+      # developer's box and breaks in CI — which this workflow has already been bitten
+      # by once, in the sort-contract census.
+      - name: Check out the client portal
+        uses: actions/checkout@v4
+        with:
+          repository: devloadless17/oxshare-crm-client
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+          path: .portal
+
+      - name: Start the client portal
+        working-directory: .portal
+        # `build && start`, not `dev`: NEXT_PUBLIC_* is baked at COMPILE time, so a
+        # dev server started without it would talk to the wrong API and the failure
+        # would look like a broken portal rather than a mis-set variable.
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          npx next start --port 3000 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://localhost:3000 >/dev/null 2>&1; then
+              echo "Portal up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "The portal did not become reachable on :3000 in 90s"; exit 1
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+          NEXT_PUBLIC_REALTIME_ORIGIN: http://localhost:3003
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
