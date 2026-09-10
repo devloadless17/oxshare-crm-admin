@@ -265,6 +265,16 @@ jobs:
         # journey that needs one into a failure — correctly, but the cause would
         # be this step rather than the app.
         run: |
+          # The API's lockfile needs npm 11, and this step installs the API's
+          # dependencies — so it owes the same pin the backend's own CI carries.
+          # npm 10 mishandles a lockfile whose package.json has `overrides`: it
+          # re-resolves nested ranges against the registry's latest instead of
+          # the locked version, so a release by any transitive dep starts
+          # refusing the committed lockfile with "Missing: <pkg> from lock
+          # file" and no commit involved. esbuild 0.28.2 is what tripped it
+          # here, turning both frontends' E2E red at once with a message about
+          # the API failing to start.
+          npm install -g npm@11
           npm ci --no-audit --no-fund
           npm run build
           npm run db:migrate
