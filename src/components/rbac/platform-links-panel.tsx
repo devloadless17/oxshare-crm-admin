@@ -67,7 +67,7 @@ export function PlatformLinksPanel({ canManage }: { canManage: boolean }) {
         label={t('platforms.loading')}
         endpoints={['GET /admin/platforms']}
         onRetry={() => void links.refetch()}
-        errorMessage={apiErrorMessage(links.error, t('platforms.loadFailed'))}
+        errorMessage={t('platforms.loadFailed')}
         error={links.error}
       >
         <div className="space-y-4">

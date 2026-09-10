@@ -61,7 +61,7 @@ export function RivalSettingsPanel({ canManage }: { canManage: boolean }) {
         label={t('rival.loading')}
         endpoints={['GET /admin/settings/rival']}
         onRetry={() => void settings.refetch()}
-        errorMessage={apiErrorMessage(settings.error, t('rival.loadFailed'))}
+        errorMessage={t('rival.loadFailed')}
         error={settings.error}
       >
         {settings.data && <RivalForm settings={settings.data} canManage={canManage} />}

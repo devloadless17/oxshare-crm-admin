@@ -8,7 +8,6 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { useResource } from '@/hooks/use-resource';
 import { authApi, type AdminSession } from '@/lib/api/auth';
-import { apiErrorMessage } from '@/lib/api/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -77,7 +76,7 @@ export function AdminSessionsPanel({ icon: Icon }: { icon: LucideIcon }) {
         label={t('profile.sessionsLoading')}
         endpoints={['GET /admin/auth/sessions']}
         onRetry={sessions.refetch}
-        errorMessage={apiErrorMessage(sessions.error, t('profile.sessionsFailed'))}
+        errorMessage={t('profile.sessionsFailed')}
         error={sessions.error}
       >
         <ul className="divide-y divide-border">

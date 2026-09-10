@@ -137,7 +137,7 @@ export function OpenAccountModal({
           label={t('tradingAccounts.groupsLoading')}
           endpoints={['GET /admin/mt5/groups']}
           onRetry={groups.refetch}
-          errorMessage={apiErrorMessage(groups.error, t('tradingAccounts.groupsFailed'))}
+          errorMessage={t('tradingAccounts.groupsFailed')}
           error={groups.error}
         >
           <div className="space-y-1.5">

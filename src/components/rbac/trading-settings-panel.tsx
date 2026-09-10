@@ -53,7 +53,7 @@ export function TradingSettingsPanel({ canManage }: { canManage: boolean }) {
         label={t('tradingSettings.loading')}
         endpoints={['GET /admin/settings/trading']}
         onRetry={() => void settings.refetch()}
-        errorMessage={apiErrorMessage(settings.error, t('tradingSettings.loadFailed'))}
+        errorMessage={t('tradingSettings.loadFailed')}
         error={settings.error}
       >
         {settings.data && <TradingForm settings={settings.data} canManage={canManage} />}

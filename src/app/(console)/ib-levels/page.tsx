@@ -9,7 +9,6 @@ import type { IbLevel, IbLevelLimits, IbPayoutMode, RevenueBasis } from '@/lib/a
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage } from '@/lib/api/errors';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -147,7 +146,7 @@ export default function IbLevelsPage() {
         label={t('ibLevels.loading')}
         endpoints={['GET /admin/ib-levels']}
         onRetry={query.refetch}
-        errorMessage={apiErrorMessage(query.error, t('ibLevels.loadFailed'))}
+        errorMessage={t('ibLevels.loadFailed')}
         error={query.error}
         fill
       >

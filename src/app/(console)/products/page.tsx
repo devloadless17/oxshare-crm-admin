@@ -7,7 +7,6 @@ import { adminApi, type Product } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage } from '@/lib/api/errors';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -359,7 +358,7 @@ export default function ProductsPage() {
         label={t('products.loading')}
         endpoints={['GET /admin/products']}
         onRetry={query.refetch}
-        errorMessage={apiErrorMessage(query.error, t('products.loadFailed'))}
+        errorMessage={t('products.loadFailed')}
         error={query.error}
         fill
       >

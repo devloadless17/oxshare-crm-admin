@@ -66,7 +66,7 @@ export function SmtpSettingsPanel({ canManage }: { canManage: boolean }) {
         label={t('smtp.loading')}
         endpoints={['GET /admin/settings/smtp']}
         onRetry={() => void settings.refetch()}
-        errorMessage={apiErrorMessage(settings.error, t('smtp.loadFailed'))}
+        errorMessage={t('smtp.loadFailed')}
         error={settings.error}
       >
         {settings.data && <SmtpForm settings={settings.data} canManage={canManage} />}
