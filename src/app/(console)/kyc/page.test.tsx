@@ -263,5 +263,26 @@ describe('when there is nothing to show', () => {
     get.mockRejectedValue({ response: { status: 500 } });
     renderWithProviders(<KycQueuePage />);
     expect(await screen.findByRole('button', { name: /retry/i })).toBeInTheDocument();
+
+    /*
+     * AND SAYS NOTHING ABOUT AN EMPTY QUEUE. This second assertion is the one
+     * that matters, and it was missing.
+     *
+     * Slice 2 shipped exactly this defect: a failed queue load rendered "No
+     * submissions match the current filters", so an API outage read to a
+     * reviewer as an empty compliance backlog — nobody waiting, nothing to do.
+     * The structure prevents it today, because `empty` is passed to the
+     * DataTable INSIDE `AsyncBoundary`'s children and so is only reachable in
+     * the `ready` branch. Nothing pinned that. A refactor lifting the empty
+     * state out of the boundary would reintroduce the original defect and this
+     * test, asserting only that a retry button exists, would stay green.
+     *
+     * A retry button appearing does not prove the empty message is absent —
+     * both can render at once, which is what the defect looked like.
+     */
+    expect(
+      screen.queryByText(/no submissions match/i),
+      'an outage is being reported to a reviewer as an empty compliance queue',
+    ).not.toBeInTheDocument();
   });
 });
