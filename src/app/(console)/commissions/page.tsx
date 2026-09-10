@@ -116,6 +116,21 @@ function CommissionsPageContent() {
   const pageSize = limitParam(url.get('limit'));
   const status = url.get('status');
   /*
+   * COMMISSION or REBATE — the two things `ib_accruals` holds.
+   *
+   * One screen with a filter rather than two screens, because they are the same
+   * table differing by one column: same partner, same client, same rate, same
+   * rung, same reversal. Two pages would be two sets of columns, sorting,
+   * permissions and masking to keep in step, and the masking is the one that
+   * would eventually drift — RBAC-03 client identity is applied in the store's
+   * mapper, and a second screen is a second chance to forget it.
+   *
+   * Absent means BOTH, which is the honest default: an operator asking "what
+   * did this partner generate" wants the rebate their client received as much
+   * as the commission the partner earned.
+   */
+  const kind = url.get('kind');
+  /*
    * ONE partner's ledger, when the URL names one.
    *
    * `GET /admin/ib/accruals` has always taken `ibUserId`; this screen simply
@@ -134,6 +149,7 @@ function CommissionsPageContent() {
     page,
     limit: pageSize,
     status: status || undefined,
+    kind: kind || undefined,
     ibUserId: ibUserId || undefined,
     sort: sortKey,
     // Withheld when nothing is sorted: `order` alone describes an ordering of no
@@ -208,6 +224,33 @@ function CommissionsPageContent() {
     },
     {
       /*
+       * WHICH LEG this row is — and it earns a column precisely because the
+       * list mixes them by default.
+       *
+       * The two are paid to DIFFERENT PEOPLE from the same trade: a commission
+       * goes to the partner in the Partner column, a rebate goes to the client
+       * in the Client column. Without this, two rows with the same partner,
+       * client and rate look like a duplicate rather than the two halves of one
+       * trade, and an operator reconciling a payout cannot tell who received
+       * which amount.
+       */
+      header: t('commissions.colKind'),
+      cell: (r) => (
+        <span
+          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+            r.accrual.kind === 'rebate'
+              ? 'border-border bg-muted text-muted-foreground'
+              : 'border-primary/30 bg-primary/10 text-primary'
+          }`}
+        >
+          {r.accrual.kind === 'rebate'
+            ? t('commissions.kind.rebate')
+            : t('commissions.kind.commission')}
+        </span>
+      ),
+    },
+    {
+      /*
        * DEPTH, not the rung it replaced (0102). "How far above the client was
        * this partner on this trade" is the question a ledger row answers; the
        * rung answered "where do they sit", which the money never used.
@@ -222,8 +265,8 @@ function CommissionsPageContent() {
       /* The TERMS. Null only on a row accrued before the column existed —
          rendered as a dash rather than blank, so "we cannot say" reads
          differently from "nothing there". */
-      header: t('commissions.colProgramme'),
-      cell: (r) => r.accrual.programName ?? '—',
+      header: t('commissions.colTerms'),
+      cell: (r) => r.accrual.termsName ?? '—',
       cellClassName: 'whitespace-nowrap text-muted-foreground',
     },
     {
@@ -282,7 +325,23 @@ function CommissionsPageContent() {
           </SelectContent>
         </Select>
 
-        {status && (
+        <Select
+          value={kind || 'all'}
+          onValueChange={(value) =>
+            url.set({ kind: value === 'all' ? undefined : value, page: undefined })
+          }
+        >
+          <SelectTrigger className="h-9 w-48" aria-label={t('commissions.filterKind')}>
+            <SelectValue placeholder={t('commissions.filterKindAll')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('commissions.filterKindAll')}</SelectItem>
+            <SelectItem value="commission">{t('commissions.kind.commission')}</SelectItem>
+            <SelectItem value="rebate">{t('commissions.kind.rebate')}</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {(status || kind) && (
           <button
             type="button"
             onClick={() => url.clear()}

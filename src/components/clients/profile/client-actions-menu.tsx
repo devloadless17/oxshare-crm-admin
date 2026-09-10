@@ -271,7 +271,7 @@ export function ClientActionsMenu({
              control that decided everything. 0102 removed it; this is the one
              entry that changes what a partner is paid. */
           {
-            label: t('clientProfile.actionChangeProgram'),
+            label: t('clientProfile.actionChangeLevel'),
             icon: Percent,
             separatorBefore: !canSuspendPartner,
             onSelect: onChangeProgram,

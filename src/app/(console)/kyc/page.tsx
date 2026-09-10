@@ -79,12 +79,26 @@ const FILTERS: Array<{ value: string; label: string }> = [
    * column value — the API resolves `needs_review` to submitted +
    * under_review (see kyc.store.ts).
    */
+  /*
+   * ⚠️ The real statuses take their word from `kycStatusLabel`, not from a
+   * label of their own.
+   *
+   * These six were a FOURTH copy of the same vocabulary — after the client
+   * list's and the dashboard funnel's were both deleted for drifting, which
+   * `messages.ts` records in two places. It drifted here too: the tabs said
+   * "Pending" and "Under Review" while the status pill on the row beside them
+   * said "Awaiting review" and "In review" for the same submission.
+   *
+   * Only the two entries that are NOT statuses keep a label: `needs_review` is
+   * a SET (submitted + under_review, resolved by the API), and `''` is the
+   * absence of a filter.
+   */
   { value: 'needs_review', label: t('kycReview.filterNeedsReview') },
-  { value: 'in_progress', label: t('kycReview.filterInProgress') },
-  { value: 'submitted', label: t('kycReview.filterPending') },
-  { value: 'under_review', label: t('kycReview.filterUnderReview') },
-  { value: 'approved', label: t('kycReview.filterApproved') },
-  { value: 'rejected', label: t('kycReview.filterRejected') },
+  { value: 'in_progress', label: kycStatusLabel('in_progress') },
+  { value: 'submitted', label: kycStatusLabel('submitted') },
+  { value: 'under_review', label: kycStatusLabel('under_review') },
+  { value: 'approved', label: kycStatusLabel('approved') },
+  { value: 'rejected', label: kycStatusLabel('rejected') },
   { value: '', label: t('kycReview.filterAll') },
 ];
 
@@ -302,6 +316,30 @@ function KycQueue() {
           </span>
         );
       },
+    },
+    {
+      header: t('kycReview.colReviewer'),
+      // Not sortable: `reviewedByName` is resolved per page from the admin
+      // table, so there is no column for the API to order by.
+      sortable: false,
+      /*
+       * WHO has it — the question a claim exists to answer for a colleague,
+       * and the one the queue could not answer at all. A row showed as taken,
+       * with the Claim button gone and no name to ask, so the only way to find
+       * out was to interrupt the whole desk.
+       *
+       * An em dash for an unclaimed row rather than blank: "nobody has this"
+       * is an answer, and a column that is sometimes empty and sometimes
+       * missing reads as a loading state.
+       */
+      cell: (row) =>
+        row.status === 'under_review' ? (
+          <span className="text-xs font-medium">
+            {row.reviewedByName ?? t('kycReview.claimedByUnknown')}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       header: t('kycReview.colSubmitted'),

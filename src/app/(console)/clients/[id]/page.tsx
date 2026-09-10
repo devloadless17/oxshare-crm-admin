@@ -31,7 +31,7 @@ import {
 } from '@/components/clients/profile/client-activity-panels';
 import { ClientNetworkTree } from '@/components/clients/profile/client-network-tree';
 import {
-  ChangeProgramDialog,
+  ChangeLevelDialog,
   ReassignParentDialog,
 } from '@/components/clients/profile/client-partner-dialogs';
 import {
@@ -687,7 +687,7 @@ export default function ClientProfilePage() {
 
             {partner && (
               <>
-                <ChangeProgramDialog
+                <ChangeLevelDialog
                   open={programOpen}
                   onClose={() => setProgramOpen(false)}
                   partner={partner}

@@ -28,14 +28,14 @@ import type { IbApplicationPage } from '@/lib/api/admin';
  *  - The queue must never render mock rows. A failed load is a retry, not an
  *    empty success state that reads as "no partners are waiting".
  */
-const { getIbApplications, approveIbApplication, rejectIbApplication, getAgencies, getIbPrograms } =
-  vi.hoisted(() => ({
+const { getIbApplications, approveIbApplication, rejectIbApplication, getAgencies } = vi.hoisted(
+  () => ({
     getIbApplications: vi.fn(),
     approveIbApplication: vi.fn(),
     rejectIbApplication: vi.fn(),
     getAgencies: vi.fn(),
-    getIbPrograms: vi.fn(),
-  }));
+  }),
+);
 
 /*
  * BOTH the named export and the default — see admin/CLAUDE.md. Mocking only
@@ -50,7 +50,6 @@ vi.mock('@/lib/api', () => {
       approveIbApplication,
       rejectIbApplication,
       getAgencies,
-      getIbPrograms,
     },
   };
   return { api, default: api };
@@ -115,55 +114,6 @@ beforeEach(() => {
   getAgencies.mockResolvedValue([
     { id: 'ag-1', name: 'Levant Partners', description: null, enabled: true, productIds: [] },
     { id: 'ag-2', name: 'Gulf Desk', description: null, enabled: true, productIds: [] },
-  ]);
-  /*
-   * Gold FIRST by `sortOrder`, because that is the order the API resolves its
-   * own default in — lowest order, ties by name. The dialog pre-selects the
-   * same one, so "the default" is one fact rather than two that can disagree.
-   *
-   * "Retired" is disabled and must never be offered: a disabled programme pays
-   * nothing, so choosing it is a decision whose only outcome is a refusal.
-   */
-  getIbPrograms.mockResolvedValue([
-    {
-      id: 'prog-gold',
-      name: 'Gold',
-      sortOrder: 0,
-      mode: 'commission_only',
-      tiers: [
-        { depth: 1, rate: '60.0000' },
-        { depth: 2, rate: '25.0000' },
-      ],
-      rebateRate: '0.0000',
-      enabled: true,
-      partnerCount: 4,
-      createdAt: '2026-08-01T00:00:00.000Z',
-      updatedAt: '2026-08-01T00:00:00.000Z',
-    },
-    {
-      id: 'prog-silver',
-      name: 'Silver',
-      sortOrder: 1,
-      mode: 'commission_only',
-      tiers: [{ depth: 1, rate: '40.0000' }],
-      rebateRate: '0.0000',
-      enabled: true,
-      partnerCount: 2,
-      createdAt: '2026-08-01T00:00:00.000Z',
-      updatedAt: '2026-08-01T00:00:00.000Z',
-    },
-    {
-      id: 'prog-retired',
-      name: 'Retired',
-      sortOrder: 2,
-      mode: 'commission_only',
-      tiers: [{ depth: 1, rate: '10.0000' }],
-      rebateRate: '0.0000',
-      enabled: false,
-      partnerCount: 0,
-      createdAt: '2026-08-01T00:00:00.000Z',
-      updatedAt: '2026-08-01T00:00:00.000Z',
-    },
   ]);
 });
 
@@ -285,11 +235,9 @@ describe('the approve dialog', () => {
      */
 
     await user.click(screen.getByRole('button', { name: /^approve$/i }));
-    // The programme still travels: it defaults to the first enabled one, which
-    // is what the API would have picked anyway — stated rather than implied.
-    await waitFor(() =>
-      expect(approveIbApplication).toHaveBeenCalledWith('app-1', { programId: 'prog-gold' }),
-    );
+    // No terms travel any more (0112): a partner's level is derived from who
+    // recruited them, so approval carries the agency and nothing else.
+    await waitFor(() => expect(approveIbApplication).toHaveBeenCalledWith('app-1', {}));
   });
 
   it('asks for an agency when the application names none, and sends the pick', async () => {
@@ -308,77 +256,38 @@ describe('the approve dialog', () => {
     await waitFor(() =>
       expect(approveIbApplication).toHaveBeenCalledWith('app-1', {
         agencyId: 'ag-2',
-        programId: 'prog-gold',
       }),
     );
   });
 
-  /**
-   * ── THE TERMS ARE CHOSEN HERE, AND THAT IS THE POINT ────────────────────
-   *
-   * FR-IB-06 puts every partner on exactly one named programme. Until this
-   * control existed the API's `programId` was reachable only by hand, so every
-   * approved partner landed on whichever programme sorted first — an operator
-   * could build Gold and Silver and assign nobody to either, at the one moment
-   * the decision is naturally made.
-   *
-   * Asked EVERY time, unlike the agency: the agency is what the applicant
-   * requested and re-asking second-guesses them, while the programme is the
-   * broker's decision and the applicant never sees the catalogue at all.
-   */
-  it('sends the programme the reviewer chose over the default', async () => {
-    approveIbApplication.mockResolvedValue({});
-    const user = userEvent.setup();
-    renderWithProviders(<ApprovalsIbPage />);
-    await openApproveDialog(user);
-
-    await user.click(await screen.findByRole('radio', { name: /silver/i }));
-    await user.click(screen.getByRole('button', { name: /^approve$/i }));
-
-    await waitFor(() =>
-      expect(approveIbApplication).toHaveBeenCalledWith('app-1', { programId: 'prog-silver' }),
-    );
-  });
-
-  it('shows each programme’s whole ladder, not just its name', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<ApprovalsIbPage />);
-    await openApproveDialog(user);
-
-    /*
-     * A name alone does not tell a reviewer what they are about to put somebody
-     * on — and the LEVEL COUNT is half that answer, not decoration: it is how
-     * far this partner's earnings will reach.
-     */
-    expect(await screen.findByText(/L1 60% · L2 25% — reaches 2 level/i)).toBeInTheDocument();
-  });
-
   /*
-   * A DISABLED programme pays nothing, so offering one is a choice whose only
-   * outcome is a refusal — and the reviewer would read that refusal as the
-   * approval being impossible rather than the programme being switched off.
+   * ── THE TERMS ARE NOT CHOSEN HERE ANY MORE (0112) ───────────────────────
+   *
+   * Four cases stood here, covering the commission-programme picker: that the
+   * reviewer's choice beat the default, that each programme showed its whole
+   * ladder, that a disabled one was never offered, and that an empty catalogue
+   * dimmed the button.
+   *
+   * There is no catalogue. A partner's terms come from their LEVEL, and a level
+   * is not a choice — it is where they sit: no parent means level 1, and a
+   * partner recruited by another is a rung deeper. So approval has nothing
+   * commercial left in it, and there is no picker for those cases to cover.
+   *
+   * What replaces them is the assertion below: that the dialog asks NOTHING
+   * about terms. It is worth keeping as a test rather than deleting outright,
+   * because the failure it guards against is a control quietly coming back —
+   * which is how this screen ends up deciding pay in two places again.
    */
-  it('offers no disabled programme', async () => {
+  it('asks nothing about commission terms', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ApprovalsIbPage />);
     await openApproveDialog(user);
 
-    await screen.findByRole('radio', { name: /gold/i });
-    expect(screen.queryByRole('radio', { name: /retired/i })).toBeNull();
-  });
+    /* The agency question is still asked, so this waits on a real render. */
+    await screen.findByText(/appointing them under levant partners/i);
 
-  /*
-   * An empty catalogue cannot be approved into: the API refuses it, and a
-   * partner on no terms earns nothing while their referral link keeps working.
-   * A dim button with a sentence beats a 400.
-   */
-  it('refuses to approve when no programme is enabled', async () => {
-    getIbPrograms.mockResolvedValue([]);
-    const user = userEvent.setup();
-    renderWithProviders(<ApprovalsIbPage />);
-    await openApproveDialog(user);
-
-    expect(await screen.findByText(/no commission programme is enabled/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^approve$/i })).toBeDisabled();
+    expect(screen.queryByText(/commission/i)).toBeNull();
+    expect(screen.queryByText(/level/i)).toBeNull();
+    expect(screen.queryByRole('radio', { name: /gold|silver/i })).toBeNull();
   });
 });

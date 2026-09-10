@@ -120,7 +120,20 @@ export function AdminFormModal({
     });
   };
 
-  const assignable = roles.filter((r) => !r.isSystem);
+  /*
+   * Every role is assignable, INCLUDING system ones.
+   *
+   * This filtered `isSystem` out, which meant the one role holding the whole
+   * permission catalog could not be handed to anybody. Combined with the same
+   * filter on the roles list, "full access" became something the console could
+   * neither show nor grant — the exact failure that got `Master Admin` deleted.
+   *
+   * `isSystem` bounds who may EDIT a role, not who may HOLD it: the API refuses
+   * to modify or delete one, and `permission-drift.ts` keeps its permissions in
+   * step with the catalog. Assigning it is an ordinary act, and the upward-reach
+   * rule (D-59) already stops an operator granting a role above their own.
+   */
+  const assignable = roles;
   const nameChanged = name.trim() !== admin.name;
 
   const handleSubmit = (e: React.FormEvent) => {

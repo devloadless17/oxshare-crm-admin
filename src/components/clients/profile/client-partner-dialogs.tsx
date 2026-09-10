@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import type { IbPartnerDetail } from '@/lib/api/admin';
+import type { IbPartnerDetail, IbPayoutMode } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -25,32 +25,30 @@ import { keys } from '@/lib/query-keys';
  * refreshing one leaves the header and the tab disagreeing.
  */
 
-/*
- * `ChangeLevelDialog` IS GONE (0102), with the rung it moved a partner between.
- *
- * It presented itself as the control over what somebody earns — "a disabled
- * level takes no share" — and had not decided a rate since the programmes
- * landed. The two questions it conflated each have an owner now:
- * `ChangeProgramDialog` below for the TERMS, and `ChangeParentDialog` for where
- * they sit in the tree.
- */
-
 /**
- * Move a partner onto different TERMS.
+ * Move a partner to a different LEVEL — what decides their terms (0112).
  *
- * Until this control existed a partner's terms were written once at approval
- * and never again — an operator could build a catalogue of programmes and
- * assign nobody to any of them.
+ * `ChangeProgramDialog` stood here, moving a partner between named commission
+ * programmes. Terms come from a partner's RUNG now, derived from who recruited
+ * them, so the catalogue it picked from no longer exists.
  *
- * Since 0102 it is also the only control over what somebody earns: the rung
- * dialog that used to sit beside it decided nothing and is gone.
+ * ## Why a rung is editable at all, when it is derived
  *
- * ENABLED programmes only. The API refuses a disabled one, so offering it here
- * would be a choice whose only outcome is a refusal — and the operator would
- * read that refusal as the move being impossible rather than the programme
- * being switched off.
+ * Approval writes it from the parent's level, which is right in the ordinary
+ * case and cannot be right in every one: a partner recruited by somebody later
+ * cut loose to deal direct, or one the broker has agreed to treat as a main
+ * partner despite sitting under another. Without this the number was decided
+ * once by the shape of the tree on one particular afternoon.
+ *
+ * ## ENABLED rungs only, and the terms are shown beside each
+ *
+ * The API refuses a disabled or unconfigured level, so offering one here would
+ * be a choice whose only outcome is a refusal — and the operator would read
+ * that refusal as the move being impossible rather than the rung being switched
+ * off. The rates are on the option because "Level 2" alone does not say what
+ * this partner is about to be paid.
  */
-export function ChangeProgramDialog({
+export function ChangeLevelDialog({
   open,
   onClose,
   partner,
@@ -62,26 +60,26 @@ export function ChangeProgramDialog({
   name: string;
 }) {
   const queryClient = useQueryClient();
-  const [programId, setProgramId] = React.useState(partner.programId);
+  const [level, setLevel] = React.useState(partner.level);
 
-  const programs = useResource(keys.ibPrograms.all(), (signal) => api.admin.getIbPrograms(signal), {
+  const levels = useResource(keys.ibLevels.all(), (signal) => api.admin.getIbLevels(signal), {
     enabled: open,
   });
 
   const save = useMutation({
-    mutationFn: () => api.admin.changeIbPartnerProgram(partner.userId, programId),
+    mutationFn: () => api.admin.changeIbPartnerLevel(partner.userId, level),
     onSuccess: async () => {
       await invalidatePartnerViews(queryClient);
-      toastSuccess(t('clientProfile.programChanged'));
+      toastSuccess(t('clientProfile.levelChanged'));
       onClose();
     },
-    onError: (error) => toastError(error, t('clientProfile.programFailed')),
+    onError: (error) => toastError(error, t('clientProfile.levelFailed')),
   });
 
-  const options = (programs.data ?? []).filter((entry) => entry.enabled);
+  const options = (levels.data ?? []).filter((entry) => entry.enabled);
 
   return (
-    <Modal open={open} onClose={onClose} title={t('clientProfile.changeProgramTitle', { name })}>
+    <Modal open={open} onClose={onClose} title={t('clientProfile.changeLevelTitle', { name })}>
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -90,7 +88,7 @@ export function ChangeProgramDialog({
         }}
       >
         <p className="text-xs leading-relaxed text-muted-foreground">
-          {t('clientProfile.changeProgramBody')}
+          {t('clientProfile.changeLevelBody')}
         </p>
 
         <div className="space-y-1.5">
@@ -98,34 +96,37 @@ export function ChangeProgramDialog({
             <label
               key={entry.id}
               className={`flex cursor-pointer items-start justify-between gap-3 rounded-lg border p-3 ${
-                programId === entry.id ? 'border-primary bg-primary/5' : 'border-border'
+                level === entry.level ? 'border-primary bg-primary/5' : 'border-border'
               }`}
             >
               <span className="flex items-start gap-2.5">
                 <input
                   type="radio"
-                  name="ib-program"
-                  checked={programId === entry.id}
-                  onChange={() => setProgramId(entry.id)}
+                  name="ib-level"
+                  checked={level === entry.level}
+                  onChange={() => setLevel(entry.level)}
                   className="mt-0.5 h-3.5 w-3.5"
                 />
                 <span>
-                  <span className="block text-sm font-medium">{entry.name}</span>
-                  {/* The LADDER, because "Gold" alone does not tell an operator
-                      what they are about to change somebody's pay TO — and the
-                      number of levels is half of that answer, not decoration:
-                      it is how far this partner's earnings will reach. */}
+                  <span className="block text-sm font-medium">
+                    {t('clientProfile.levelOption', {
+                      level: String(entry.level),
+                      name: entry.name,
+                    })}
+                  </span>
                   <span className="block text-[11px] text-muted-foreground">
-                    {entry.mode === 'rebate_only'
-                      ? t('clientProfile.programRebateOnly', {
-                          rebate: formatDecimal(entry.rebateRate),
-                        })
-                      : t('clientProfile.programLadder', {
-                          rates: entry.tiers
-                            .map((tier) => `L${tier.depth} ${formatDecimal(tier.rate)}%`)
-                            .join(' · '),
-                          count: String(entry.tiers.length),
-                        })}
+                    {t('clientProfile.levelTerms', {
+                      commission: describeTerm(
+                        entry.commissionMode,
+                        entry.commissionRate,
+                        entry.commissionAmountPerLot,
+                      ),
+                      rebate: describeTerm(
+                        entry.rebateMode,
+                        entry.rebateRate,
+                        entry.rebateAmountPerLot,
+                      ),
+                    })}
                   </span>
                 </span>
               </span>
@@ -135,7 +136,7 @@ export function ChangeProgramDialog({
 
         {options.length === 0 && (
           <p className="rounded-lg border border-border bg-muted/20 p-2.5 text-xs text-muted-foreground">
-            {t('clientProfile.programNoneEnabled')}
+            {t('clientProfile.levelNoneEnabled')}
           </p>
         )}
 
@@ -144,19 +145,41 @@ export function ChangeProgramDialog({
             role="alert"
             className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive"
           >
-            {t('clientProfile.programFailed')}
+            {t('clientProfile.levelFailed')}
           </p>
         )}
 
         <Footer
           onClose={onClose}
           saving={save.isPending}
-          disabled={options.length === 0 || programId === partner.programId}
-          label={t('clientProfile.changeProgramSave')}
+          disabled={options.length === 0 || level === partner.level}
+          label={t('clientProfile.changeLevelSave')}
         />
       </form>
     </Modal>
   );
+}
+
+/**
+ * One term in words — "$10.00 per lot" or "30% of revenue".
+ *
+ * The UNIT is never dropped, because "10" means two entirely different payouts
+ * under the two modes and this string is read while deciding somebody's pay.
+ */
+function describeTerm(mode: IbPayoutMode, rate: string, amountPerLot: string | null): string {
+  if (mode === 'per_lot') {
+    return t('clientProfile.termPerLot', { amount: formatDecimal(amountPerLot ?? '0') });
+  }
+  /*
+   * A `share_of_parent` rate is a percentage of the LEVEL ABOVE's per-lot rate,
+   * not of revenue, and this dialog does not hold that rung. Saying "of the
+   * level above" is the honest short form — rendering it as a plain "30%" would
+   * read as 30% of the trade, which is a different and much larger number.
+   */
+  if (mode === 'share_of_parent') {
+    return t('clientProfile.termShareOfParent', { rate: formatDecimal(rate) });
+  }
+  return t('clientProfile.termPercent', { rate: formatDecimal(rate) });
 }
 
 /** Put a partner under a different parent, or none at all. */
@@ -259,12 +282,11 @@ export function ReassignParentDialog({
                   </span>
                 </span>
               </span>
-              {/* The candidate parent's TERMS, replacing their rung (0102).
-                  Worth showing here because it is what decides whether this
-                  parent earns anything from the sub-tree they are about to be
-                  given. */}
+              {/* The candidate parent's RUNG (0112). Worth showing because it
+                  is what decides whether this parent earns anything from the
+                  sub-tree they are about to be given. */}
               <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
-                {row.programName}
+                {t('clientProfile.levelBadge', { level: String(row.level) })}
               </span>
             </label>
           ))}
@@ -315,7 +337,7 @@ function Footer({
         disabled={saving || disabled}
         className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
       >
-        {saving ? t('ibPrograms.saving') : label}
+        {saving ? t('common.saving') : label}
       </button>
     </div>
   );
@@ -336,7 +358,7 @@ async function invalidatePartnerViews(
     queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
     /*
      * The clients LIST opens this same dialog through
-     * `change-program-from-list.tsx`, which reads the partner under
+     * `change-level-from-list.tsx`, which reads the partner under
      * `ibPartners.detail(userId)` — a key nothing used to invalidate, so
      * reopening the same row within the 30s staleTime showed the programme
      * the operator had just changed away from.

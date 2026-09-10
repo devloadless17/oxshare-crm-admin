@@ -19,7 +19,7 @@ import { PageLoader } from '@/components/ui/loader';
 import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
-import { ChangeProgramFromList } from '@/components/clients/change-program-from-list';
+import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -224,7 +224,7 @@ function ClientsPageContent() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       {programTarget && (
-        <ChangeProgramFromList
+        <ChangeLevelFromList
           open
           onClose={() => setProgramTarget(null)}
           userId={programTarget.id}

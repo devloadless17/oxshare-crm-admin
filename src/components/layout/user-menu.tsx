@@ -3,7 +3,16 @@
 import * as React from 'react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
-import { ChevronDown, ChevronsUpDown, LogOut, Monitor, Moon, Sun, UserCircle } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
+  LogOut,
+  Monitor,
+  Moon,
+  Sun,
+  UserCircle,
+} from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -12,9 +21,6 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -242,7 +248,7 @@ export function UserMenu({
             </Link>
           </DropdownMenuItem>
 
-          <ThemeSubmenu />
+          <ThemePicker />
 
           <DropdownMenuSeparator />
 
@@ -281,42 +287,113 @@ const THEMES = [
 ] as const;
 
 /**
- * Light / Dark / System, as a submenu.
+ * Light / Dark / System, behind a `Theme ▸` row that expands IN PLACE.
  *
- * `system` is the point of the change. The header toggle this replaces offered
- * two states with no way to say "follow the OS", so an operator whose machine
- * is in dark mode got a bright console on every first load and had to opt out
- * by hand, on every device they use.
+ * `system` is the point of the option set. The header toggle this replaces offered two states
+ * with no way to say "follow the OS", so an operator whose machine is in dark
+ * mode got a bright console on every first load and had to opt out by hand, on
+ * every device they use.
  *
- * `useHydrated` gates the ACTIVE MARK, not the menu. The server cannot know
+ * ── Why it expands instead of flying out ───────────────────────────────────
+ *
+ * The row is unchanged — icon, label, chevron, exactly where it was. What
+ * changed is where the three options appear: underneath it, inside the same
+ * menu, rather than in a second panel beside it.
+ *
+ * As a `DropdownMenuSub` the panel opened to the SIDE of a menu already
+ * anchored to the right edge of the header. At 393px there is no room to the
+ * right, so Radix flipped it to the left — and the result was a second floating
+ * card hanging off the first one, over the page content, with nothing
+ * connecting the two. It was reported from a real phone looking exactly like
+ * that.
+ *
+ * Flipping `side` would only have moved the problem: a submenu needs a
+ * panel-width of free space on one side or the other, and a 240px menu on a
+ * 393px screen leaves 150px minus the margin. Nesting popovers is also the
+ * wrong shape for touch regardless — a submenu trigger wants hover intent, and
+ * a finger has none, so on a phone it takes a tap to open something that then
+ * has nowhere to go.
+ *
+ * Expanding in place has no geometry to get wrong at any width: the menu grows
+ * by three rows and Radix keeps the whole of it on screen, which it was already
+ * doing for the menu itself.
+ *
+ * A width sweep could never have caught the old shape: a portalled,
+ * fixed-position panel does not widen `document.scrollWidth`, so the page still
+ * "fits". The portal's `e2e/ux-sweep.spec.ts` opens its own copy of this menu at
+ * 393px and asserts every part of it is inside the viewport.
+ *
+ * `useHydrated` gates the ACTIVE MARK, not the rows. The server cannot know
  * what is in localStorage, so rendering the selected radio during SSR would
  * either mismatch on hydration or show the wrong option as chosen. Rendering
  * the items with nothing selected for one frame is the honest version — and it
  * is invisible, because a closed menu is not on screen anyway.
+ *
+ * The expansion state resets between visits, and nothing here does that: Radix
+ * unmounts `DropdownMenuContent` when the menu closes, so this component and
+ * its `expanded` go with it. The row is collapsed every time the menu opens,
+ * which is how the submenu behaved.
  */
-function ThemeSubmenu() {
+function ThemePicker() {
   const { theme, setTheme } = useTheme();
   const hydrated = useHydrated();
+  const [expanded, setExpanded] = React.useState(false);
 
   return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger className="gap-2 px-2.5 py-2 [&_svg]:size-4">
+    <>
+      <DropdownMenuItem
+        onSelect={(event) => {
+          // Radix closes the menu when an item is chosen. This item does not
+          // choose anything — it reveals the items that do.
+          event.preventDefault();
+          setExpanded((open) => !open);
+        }}
+        aria-expanded={expanded}
+        className="gap-2 px-2.5 py-2 [&_svg]:size-4"
+      >
         <Sun className="h-4 w-4" />
-        <span>{t('theme.label')}</span>
-      </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="p-1.5">
+        <span className="flex-1">{t('theme.label')}</span>
+        {/*
+          Two icons rather than one rotated by 90°: under RTL the collapsed
+          chevron mirrors to point at the leading edge (`rtl:-scale-x-100`), and
+          a rotation composed with that mirror points the open state sideways.
+          "Down" means the same thing in both directions.
+        */}
+        {expanded ? (
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        ) : (
+          <ChevronRight
+            className="h-4 w-4 shrink-0 text-muted-foreground rtl:-scale-x-100"
+            aria-hidden="true"
+          />
+        )}
+      </DropdownMenuItem>
+
+      {expanded && (
         <DropdownMenuRadioGroup
           value={hydrated ? (theme ?? 'system') : undefined}
           onValueChange={setTheme}
         >
           {THEMES.map(({ value, label, icon: Icon }) => (
-            <DropdownMenuRadioItem key={value} value={value} className="gap-2 py-2 pl-8 pr-3">
+            <DropdownMenuRadioItem
+              key={value}
+              value={value}
+              /*
+               * Keep the menu OPEN on select. Radix closes it when a menu item
+               * is chosen, which for a preference read as "the app blinked and
+               * vanished". Held open, the page repaints in the new theme behind
+               * a menu still showing which option is now marked, so the choice
+               * can be tried and changed in one visit.
+               */
+              onSelect={(event) => event.preventDefault()}
+              className="gap-2 py-2 pl-8 pr-3"
+            >
               <Icon className="h-4 w-4" />
               <span>{t(label)}</span>
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
+      )}
+    </>
   );
 }

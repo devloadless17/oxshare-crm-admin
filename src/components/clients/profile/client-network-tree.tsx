@@ -37,7 +37,7 @@ import { keys } from '@/lib/query-keys';
  * recursion terminated because the DATA terminated, and this guard was a
  * backstop against a cycle. There is no platform-wide ceiling any more: a
  * hierarchy may nest as deep as an operator builds it, and how far EARNINGS
- * travel is a separate question answered per programme.
+ * travel is a separate question, answered by the ladder's configured depth.
  *
  * So this is load-bearing twice over. It still guards a cycle —
  * `parent_ib_user_id` is a self-FK and Postgres cannot prevent one, the same
@@ -76,7 +76,11 @@ export function ClientNetworkTree({
             <User className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
           <span className="text-sm font-semibold">{rootName}</span>
-          {partner?.programName && <Badge variant="tag">{partner.programName}</Badge>}
+          {partner && (
+            <Badge variant="tag">
+              {t('clientProfile.levelBadge', { level: String(partner.level) })}
+            </Badge>
+          )}
         </div>
 
         <div className="ms-3 border-s border-border ps-3">
@@ -213,7 +217,7 @@ function PartnerNode({
           {name}
         </PermittedLink>
 
-        <Badge variant="tag">{sub.programName}</Badge>
+        <Badge variant="tag">{t('clientProfile.levelBadge', { level: String(sub.level) })}</Badge>
         {!sub.active && <Badge variant="warning">{t('clientProfile.partnerSuspended')}</Badge>}
         <span className="font-mono text-[10px] text-muted-foreground">{sub.referralCode}</span>
       </div>

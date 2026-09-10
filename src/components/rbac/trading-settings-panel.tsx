@@ -83,22 +83,27 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
    * different kind of thing from the four below. Those decided what partners
    * are PAID; this bounds what the Commission Programmes page will accept.
    */
-  const [maxLevels, setMaxLevels] = React.useState(String(settings.ibMaxLevels));
   /*
-   * The total payout ceiling (0106) — the SECOND number of that kind, and it
-   * bounds something no programme can see about itself.
-   *
-   * `ib_programs_share_fits` already stops ONE programme paying out more than
-   * 100%. It cannot stop two: the earners on a trade may hold different
-   * programmes, each inside its own limit and together over the broker's. The
-   * seeded catalogue was exactly that — 60% at depth 1 and 40% at depth 2 paid
-   * out the entire revenue and nothing refused it.
-   *
-   * Kept as the RAW STRING the user typed, like `maxDemoDeposit` beside it and
-   * unlike the counts: it is a decimal that reaches the money path, and
-   * round-tripping it through a number is what §6.1 exists to prevent.
+   * The interval is stored in SECONDS and edited as a number plus a unit,
+   * because "3600" is not how anybody thinks about how often partners are paid.
+   * `splitInterval` picks the largest unit that divides cleanly, so a stored
+   * 3600 reads back as "1 hour" rather than "60 minutes".
    */
-  const [maxPayout, setMaxPayout] = React.useState(trimAmount(settings.ibMaxTotalPayoutPct));
+  const initialInterval = splitInterval(settings.ibCommissionIntervalSeconds);
+  const [intervalValue, setIntervalValue] = React.useState(String(initialInterval.value));
+  const [intervalUnit, setIntervalUnit] = React.useState<IntervalUnit>(initialInterval.unit);
+  /*
+   * ── THE TWO PAYOUT CEILINGS ARE NOT ON THIS FORM (0112) ──────────────────
+   *
+   * `ibMaxTotalPayoutPct` and `ibMaxPayoutPerLot` had inputs here. Both are
+   * still stored and still enforced on every accrual — they are the
+   * unit-error backstop that refuses a rate meaning 70x rather than 70%.
+   * What went is the CONTROL, on an explicit instruction.
+   *
+   * The API dropped them from the PUT with the fields, so this form no longer
+   * sends them and the columns keep whatever they hold — 100% and $50 a lot by
+   * default, both far above any real rate card.
+   */
   /*
    * ── NO OTHER IB STATE HERE (0104) ────────────────────────────────────────
    *
@@ -133,8 +138,11 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         maxLiveAccounts: parseCount(maxLiveAccounts),
         maxDemoAccounts: parseCount(maxDemoAccounts),
         maxDemoDeposit: maxDemoDeposit.trim(),
-        ibMaxLevels: parseLevels(maxLevels, settings.ibMaxLevels),
-        ibMaxTotalPayoutPct: maxPayout.trim(),
+        ibCommissionIntervalSeconds: parseInterval(
+          intervalValue,
+          intervalUnit,
+          settings.ibCommissionIntervalSeconds,
+        ),
       }),
     onSuccess: () => {
       setError(null);
@@ -152,8 +160,8 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
     maxLiveAccounts.trim() !== String(settings.maxLiveAccounts) ||
     maxDemoAccounts.trim() !== String(settings.maxDemoAccounts) ||
     maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit) ||
-    maxLevels.trim() !== String(settings.ibMaxLevels) ||
-    maxPayout.trim() !== trimAmount(settings.ibMaxTotalPayoutPct);
+    parseInterval(intervalValue, intervalUnit, settings.ibCommissionIntervalSeconds) !==
+      settings.ibCommissionIntervalSeconds;
 
   const disabled = !canManage || mutation.isPending;
   const clear = () => setError(null);
@@ -273,80 +281,76 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
       </Field>
 
       <Field
-        id="trading-max-levels"
-        label={t('tradingSettings.maxLevels')}
-        hint={t('tradingSettings.maxLevelsHint')}
+        id="trading-commission-interval"
+        label={t('tradingSettings.commissionInterval')}
+        hint={t('tradingSettings.commissionIntervalHint')}
       >
-        <input
-          id="trading-max-levels"
-          type="number"
-          value={maxLevels}
-          onChange={(e) => {
-            setMaxLevels(e.target.value);
-            clear();
-          }}
-          disabled={disabled}
-          required
-          /*
-           * 1 to 10, matching the API and the two depth CHECKs behind it. No
-           * zero: unlike the account caps above, where 0 means "stop opening
-           * new ones" and is a state somebody may want, a ceiling of zero would
-           * make every commission-paying programme unsaveable.
-           */
-          min={1}
-          max={10}
-          step={1}
-          className={`${INPUT_CLASS} font-mono tabular-nums`}
-        />
-      </Field>
+        <div className="flex gap-2">
+          <input
+            id="trading-commission-interval"
+            type="number"
+            value={intervalValue}
+            onChange={(e) => {
+              setIntervalValue(e.target.value);
+              clear();
+            }}
+            disabled={disabled}
+            required
+            /*
+             * The FLOOR is expressed in the chosen unit rather than hardcoded:
+             * one minute is the API's minimum, so a minute-based value may not
+             * go below 1, while an hour-based one already clears it.
+             */
+            min={intervalUnit === 'seconds' ? 60 : 1}
+            step={1}
+            className={`${INPUT_CLASS} font-mono tabular-nums`}
+          />
+          <select
+            aria-label={t('tradingSettings.commissionIntervalUnit')}
+            value={intervalUnit}
+            onChange={(e) => {
+              setIntervalUnit(e.target.value as IntervalUnit);
+              clear();
+            }}
+            disabled={disabled}
+            className="h-9 shrink-0 rounded-lg border border-input bg-card px-2 text-xs focus-outline disabled:cursor-not-allowed"
+          >
+            <option value="minutes">{t('tradingSettings.unitMinutes')}</option>
+            <option value="hours">{t('tradingSettings.unitHours')}</option>
+            <option value="days">{t('tradingSettings.unitDays')}</option>
+          </select>
+        </div>
+        {/*
+          ⚠️ THE WARNING IS PART OF THE CONTROL, not decoration.
 
-      <Field
-        id="trading-max-payout"
-        label={t('tradingSettings.maxPayout')}
-        hint={t('tradingSettings.maxPayoutHint')}
-      >
-        <input
-          id="trading-max-payout"
-          type="number"
-          value={maxPayout}
-          onChange={(e) => {
-            setMaxPayout(e.target.value);
-            clear();
-          }}
-          disabled={disabled}
-          required
-          /*
-           * Above 0 and at most 100, matching the CHECK behind the column.
-           *
-           * Not zero, for a harder reason than the ladder ceiling above: zero
-           * here refuses every chain on the platform, which is a way to stop
-           * paying every partner by typing a number into a settings form.
-           * Switching terms off is what a programme's own `enabled` flag does,
-           * and that control says so on the screen it lives on.
-           *
-           * `step` is 0.01 rather than 1 because this is a rate, not a count —
-           * 62.5 is an ordinary answer here and a whole-number stepper would
-           * make it look like a mistake.
-           */
-          min={0.01}
-          max={100}
-          step={0.01}
-          className={`${INPUT_CLASS} font-mono tabular-nums`}
-        />
+          This number is also the REVIEW WINDOW: it is how long a commission
+          matures before it becomes spendable. At a minute a partner is paid
+          before anybody could look at the trade behind it, and a reversal then
+          has to claw back a balance they may already have moved. Shown only
+          when the chosen value is genuinely short, so it stays meaningful.
+        */}
+        {parseInterval(intervalValue, intervalUnit, settings.ibCommissionIntervalSeconds) <
+          3600 && (
+          <span className="mt-1 block text-[11px] leading-relaxed text-warning">
+            {t('tradingSettings.commissionIntervalShortWarning')}
+          </span>
+        )}
       </Field>
 
       {/*
-        ── THE OTHER IB CONTROLS ARE GONE FROM THIS FORM (0104) ──────────────
+        ── EVERY OTHER IB CONTROL IS GONE FROM THIS FORM (0104, 0112) ────────
 
-        Four fields sat here and every one changed what partners are paid:
+        Four fields went in 0104 and each changed what partners are paid:
         "Maximum paid to partners (%)", the settlement window, "Commission is
-        paid from" / "Paying from", and "Partners are paid on".
+        paid from" / "Paying from", and "Partners are paid on". The two payout
+        ceilings followed them in 0112.
 
-        Commission is configured on the Commission Programmes page. Keeping a
-        second screen that also decides partner pay is a second place for two
-        answers to disagree, with nothing telling an operator which one the
-        money used — the same fault removed from the catalogue itself when
-        `ib_levels` sat beside `ib_programs`.
+        Commission is configured on the Commission Levels page. A second screen
+        that also decides partner pay is a second place for two answers to
+        disagree, with nothing telling an operator which one the money used.
+
+        What is LEFT here passes the test those failed: the ladder ceiling
+        BOUNDS how deep that page may reach rather than restating what it pays.
       */}
 
       {error && (
@@ -396,25 +400,56 @@ function parseCount(value: string): number {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+/** The units the interval control offers. Seconds only ever arrive from a stored value. */
+type IntervalUnit = 'seconds' | 'minutes' | 'hours' | 'days';
+
+const UNIT_SECONDS: Record<IntervalUnit, number> = {
+  seconds: 1,
+  minutes: 60,
+  hours: 3600,
+  days: 86400,
+};
+
 /**
- * A ladder ceiling the API will accept, or the SAVED value when the box is not
- * a usable number.
+ * Seconds → the largest unit that divides them exactly.
  *
- * Falling back to what is stored rather than to 1 or to 10, and the direction
- * is the point in both directions: 10 would let a typo widen what every future
- * trade pays out, and 1 would silently make deeper programmes unsaveable. The
- * stored value is the only answer that changes nothing.
+ * 3600 reads back as "1 hour", not "60 minutes" — an operator should see the
+ * value they typed, and a form that silently rewrites their unit on every load
+ * looks like it did not save.
+ *
+ * Falls back to SECONDS for a value no larger unit divides, which is the only
+ * lossless answer: showing "1 minute" for 90 seconds would be a lie the next
+ * save would make true.
+ */
+function splitInterval(seconds: number): { value: number; unit: IntervalUnit } {
+  for (const unit of ['days', 'hours', 'minutes'] as const) {
+    if (seconds >= UNIT_SECONDS[unit] && seconds % UNIT_SECONDS[unit] === 0) {
+      return { value: seconds / UNIT_SECONDS[unit], unit };
+    }
+  }
+  return { value: seconds, unit: 'seconds' };
+}
+
+/**
+ * The typed number and its unit → seconds, or the stored value.
+ *
+ * Falling back to what is STORED rather than to the minimum, and the direction
+ * is the whole point: the floor would make a typo shorten the review window,
+ * which is the change nobody would choose deliberately. The stored value is the
+ * only answer that changes nothing.
  *
  * `Number(x) || fallback` is banned here for the reason it is banned on every
  * other numeric control in this app: it is the idiom that turns a typo into a
  * plausible number nobody typed.
  */
-function parseLevels(value: string, fallback: number): number {
+function parseInterval(value: string, unit: IntervalUnit, fallback: number): number {
   const trimmed = value.trim();
   if (!/^\d+$/.test(trimmed)) return fallback;
 
-  const parsed = Number.parseInt(trimmed, 10);
-  if (parsed < 1 || parsed > 10) return fallback;
+  const parsed = Number.parseInt(trimmed, 10) * UNIT_SECONDS[unit];
+  /* The API's floor. Below it the payout job cannot finish before its next
+     tick, so the server refuses it and the form should not offer it. */
+  if (parsed < 60) return fallback;
   return parsed;
 }
 

@@ -83,21 +83,34 @@ export default function RolesPage() {
   const query = useResource(keys.roles.all(), () => api.admin.getRoles());
 
   /*
-   * System roles are not listed.
+   * System roles ARE listed, read-only.
    *
-   * `Master Admin` cannot be edited, cannot be deleted, and holds `*` — so it
-   * rendered as a row with no action menu and an "Assigned Permissions (1)"
-   * line that undersells it by eighty. Nothing on this page can act on it, and
-   * a management list that opens with an unmanageable entry teaches the reader
-   * to skip the first row.
+   * They used to be filtered out here, and the reasoning was sound for what
+   * `isSystem` meant then: `Master Admin` held `*`, could be neither edited nor
+   * deleted, and rendered as a row with no action menu above an "Assigned
+   * Permissions (1)" line that undersold it by eighty. An unmanageable first row
+   * teaches the reader to skip the first row.
    *
-   * Filtered HERE rather than asked of the API: `GET /admin/roles` is shared
-   * with the admin directory, which assigns roles and therefore does need the
-   * system ones. The Name column and the actions column below still handle
-   * `isSystem` — the backend can add another system role at any time, and it
-   * should not become editable here by the accident of this filter changing.
+   * `isSystem` means something else now. It marks a role whose permissions the
+   * BACKEND maintains: `permission-drift.ts` brings every system role up to
+   * `config/permissions.json` on each boot, so `Administrator` always holds the
+   * whole catalog and a newly added key needs no migration. None of that is a
+   * reason to hide the row — it is the most consequential one on the page, and
+   * an operator asking "who can do everything?" should be able to read it.
+   *
+   * Hiding it also cost something concrete, because this list was never the only
+   * consumer of the flag. The admin directory and the invite modal filtered on
+   * the same `isSystem`, so a system role could not be ASSIGNED either — which
+   * made full access a thing the console could neither show nor hand out. That
+   * is precisely why `Master Admin` was deleted, and it must not return through
+   * a filter.
+   *
+   * Read-only is carried by the Name column's badge and the actions column
+   * below, both of which already handle `isSystem` and both of which were
+   * written for exactly this case. The API refuses the edit and the delete
+   * regardless; this page only has to stop pretending the row is not there.
    */
-  const roles = (query.data ?? []).filter((role) => !role.isSystem);
+  const roles = query.data ?? [];
 
   const deleteRole = useMutation({
     mutationFn: (role: Role) => api.admin.deleteRole(role.id),

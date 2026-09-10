@@ -420,23 +420,46 @@ test('the invite MODAL grants exactly the territory it shows', async ({ page }) 
       `Modalscope-${run}-123!`,
     );
     try {
-      const list = await invitee.ctx.get(`${API_NODE_BASE}/admin/clients?limit=200`);
-      expect(list.ok()).toBe(true);
-      // By NAME, not email: the chosen role masks client.email, so the email
-      // column is (correctly) absent from every row this admin reads — which
-      // is itself part of what this arc proves.
-      const names = (
-        (await list.json()) as {
-          items: { firstName?: string; lastName?: string; email?: string }[];
-        }
-      ).items.map((c) => `${c.firstName} ${c.lastName}`);
-      expect(names, 'the modal scope leaked a foreign-tagged client').not.toContain(
-        'Alpha Aardvark',
+      /*
+       * Membership by targeted SEARCH, never by scanning a page.
+       *
+       * This asked for `limit=200` and read the answer as the whole list. The
+       * API caps a page at 100 (`Math.min(100, …)`, the convention everywhere),
+       * so it silently received a WINDOW — and the e2e-minted clients that every
+       * run leaves behind had grown to 99 of those 100 rows, pushing the seeded
+       * fixtures off the end.
+       *
+       * The positive assertion failed, which is how this was found. The dangerous
+       * one is the NEGATIVE: `not.toContain('Alpha Aardvark')` also passes when
+       * Alpha has merely fallen off the page, so a genuine territory leak would
+       * have been reported green. A search names the row it is asking about, and
+       * cannot be satisfied by pagination.
+       *
+       * By NAME, not email: the chosen role masks `client.email`, so the email
+       * column is (correctly) absent from every row this admin reads — which is
+       * itself part of what this arc proves.
+       */
+      const visibleToInvitee = async (name: string): Promise<boolean> => {
+        const found = await invitee.ctx.get(
+          `${API_NODE_BASE}/admin/clients?limit=100&q=${encodeURIComponent(name)}`,
+        );
+        expect(found.ok(), `searching for ${name} answered ${found.status()}`).toBe(true);
+        const items = (
+          (await found.json()) as { items: { firstName?: string; lastName?: string }[] }
+        ).items;
+        return items.some((c) => `${c.firstName} ${c.lastName}` === name);
+      };
+      expect(
+        await visibleToInvitee('Alpha Aardvark'),
+        'the modal scope leaked a foreign-tagged client',
+      ).toBe(false);
+      expect(await visibleToInvitee('Delta Dunn'), 'the default intake grant is missing').toBe(
+        true,
       );
-      expect(names, 'the default intake grant is missing').toContain('Delta Dunn');
+
       // And the mask reached the wire: no row carries an email for this admin.
       const rows = (
-        (await (await invitee.ctx.get(`${API_NODE_BASE}/admin/clients?limit=200`)).json()) as {
+        (await (await invitee.ctx.get(`${API_NODE_BASE}/admin/clients?limit=100`)).json()) as {
           items: { email?: string }[];
         }
       ).items;

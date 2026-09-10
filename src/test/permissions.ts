@@ -76,9 +76,9 @@ export const ALL_PERMISSIONS: string[] = [
    * control on the one screen that decides what partners are paid, and a test
    * saying so failed pointing at the button rather than at this list.
    */
-  'ib.programs.create',
-  'ib.programs.edit',
-  'ib.programs.delete',
+  'ib.levels.create',
+  'ib.levels.edit',
+  'ib.levels.delete',
   'ib.partners.edit',
   'ib.partners.suspend',
   'ib.commissions.view',

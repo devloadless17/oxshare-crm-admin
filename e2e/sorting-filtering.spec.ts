@@ -76,16 +76,46 @@ test.describe('every sortable header actually sorts', () => {
        * whole file is about.
        */
       const refusals: string[] = [];
+      let throttled = 0;
       page.on('response', (res) => {
         const url = new URL(res.url());
         if (!url.pathname.startsWith('/v1/admin')) return;
-        if (res.status() >= 400) refusals.push(`${res.status()} ${url.pathname}${url.search}`);
+        /*
+         * 429 is counted SEPARATELY and is not a refusal of the sort.
+         *
+         * The global limit is 120/min PER IP and this suite drives 231 tests
+         * from one address, so late in a full run an ordinary page load can be
+         * throttled. Folding that into `refusals` made a rate limit read as
+         * "sorted by something the API refuses", which sends the next person
+         * looking at the allowlist for a bug that is not there. Seen locally
+         * on /commissions at test 190-odd.
+         */
+        if (res.status() === 429) throttled += 1;
+        else if (res.status() >= 400) refusals.push(`${res.status()} ${url.pathname}${url.search}`);
       });
 
+      /*
+       * One retry, and only for a throttled load. The limiter's window is a
+       * minute, so this waits it out rather than failing a sorting test on a
+       * limit that is working exactly as designed.
+       */
       await page.goto(path);
+      if (
+        !(await page
+          .locator('thead')
+          .isVisible()
+          .catch(() => false)) &&
+        throttled > 0
+      ) {
+        await page.waitForTimeout(61_000);
+        await page.goto(path);
+      }
       // The table has to be there before its headers mean anything. A page
       // that legitimately has no rows still renders its head.
-      await expect(page.locator('thead')).toBeVisible({ timeout: 30_000 });
+      await expect(
+        page.locator('thead'),
+        `${path} never rendered a table${throttled > 0 ? ` (${throttled} requests were rate limited)` : ''}`,
+      ).toBeVisible({ timeout: 30_000 });
       expect(await errorCard(page).isVisible(), `${path} failed to load at all`).toBe(false);
 
       const count = await sortableHeaders(page).count();
@@ -115,6 +145,7 @@ test.describe('every sortable header actually sorts', () => {
       }
 
       expect(refusals, `${path} sorted by something the API refuses`).toEqual([]);
+      // Throttling is reported, never asserted on — see the handler above.
     });
   }
 });

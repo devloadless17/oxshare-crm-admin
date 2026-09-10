@@ -14,10 +14,12 @@ import type { components, operations } from './types.gen';
  * ("Cannot sort clients by \"type\". Allowed: …"), and the whole table was
  * replaced by an error card. Reported from the running app.
  *
- * `IB_PARTNER_SORT_KEYS` had the same drift, latent: it still listed `level`,
- * which migration 0102 replaced with `programName`. Nothing consumes it yet,
- * so it would have shipped the identical failure the day somebody built that
- * screen.
+ * `IB_PARTNER_SORT_KEYS` had the same drift, latent — and then drifted BACK,
+ * which is the better argument for this mechanism than the first pass was.
+ * 0102 replaced the rung with a named programme, so `level` was wrong; 0112
+ * replaced programmes with levels again, so `programName` became wrong in its
+ * turn. A hand-kept list loses that race every time; a list bound to the
+ * generated contract is simply a compile error on the day the schema moves.
  *
  * Each array is now `satisfies readonly SortKeysOf<Operation>[]`, which
  * catches the DANGEROUS direction — offering a key the API refuses — while
@@ -106,28 +108,23 @@ export type ExternalLink = components['schemas']['ExternalLinkDto'];
 export type CreateExternalLink = components['schemas']['CreateExternalLinkDto'];
 export type UpdateExternalLink = components['schemas']['UpdateExternalLinkDto'];
 /**
- * A named commission programme — FR-ADM-10's "commission plan", and the ONLY
- * catalogue of terms.
+ * One RUNG of the partner tree, and the terms of everybody standing on it.
  *
- * `IbLevel` used to sit beside it: a rung ladder deciding where a partner stood
- * and what that rung was called, carrying a `rateValue` that had decided
- * nothing since the programmes landed. 0102 removed it and folded reach into
- * `tiers` below, so what a partner is paid and how far it travels are one
- * record.
+ * `IbProgram` used to sit here: a named card assigned to a partner, keyed on
+ * DEPTH — how many hops the trade sat below the earner — so the same partner
+ * was paid differently on their own clients than on a sub-partner's. 0112
+ * replaced it with this, which is keyed on the earner's own POSITION: level 1
+ * deals with the broker directly, and a partner they recruit is level 2.
+ *
+ * The three programme "modes" went with it. They were a label describing which
+ * of two numbers were set, and the numbers say that themselves: a rung with a
+ * zero commission pays no partner, one with a zero rebate returns nothing to
+ * the client, one with both pays both.
  */
-export type IbProgram = components['schemas']['IbProgramDto'];
+export type IbLevel = components['schemas']['IbLevelDto'];
 
 /**
- * One rung of a programme's ladder: the rate at a given DEPTH.
- *
- * Depth 1 is the partner who introduced the trading client, depth 2 is that
- * partner's parent, and so on upward. The COUNT of these is how far this
- * programme's earnings reach.
- */
-export type IbProgramTier = IbProgram['tiers'][number];
-
-/**
- * The bounds a programme must fit inside — `GET /admin/ib-programs/limits`.
+ * The bounds a level must fit inside — `GET /admin/ib-levels/limits`.
  *
  * READ rather than assumed. `maxLevels` is `IB_MAX_LEVELS`, a deployment
  * setting defaulting to 2 (the committed two-level structure, Feature List Rev
@@ -136,17 +133,27 @@ export type IbProgramTier = IbProgram['tiers'][number];
  * three, which is the console-versus-engine disagreement the setting exists to
  * end.
  */
-export type IbProgramLimits = components['schemas']['IbProgramLimitsDto'];
-export type IbProgramMode = IbProgram['mode'];
+export type IbLevelLimits = components['schemas']['IbLevelLimitsDto'];
+
 /**
- * Which revenue a programme's rates are a percentage of — FR-IB-16.
+ * Which revenue a level's percentages are a share of — FR-IB-16.
  *
  * Derived from the response type rather than written out, so adding a basis on
  * the server reaches every form that offers one without a second edit here.
  */
-export type RevenueBasis = IbProgram['revenueBasis'];
-export type CreateIbProgram = components['schemas']['CreateIbProgramDto'];
-export type UpdateIbProgram = components['schemas']['UpdateIbProgramDto'];
+export type RevenueBasis = IbLevel['revenueBasis'];
+
+/**
+ * How a payout leg is priced — a share of the broker's revenue, or a flat amount
+ * for every standard lot traded.
+ *
+ * A level carries this TWICE, once for the partner's commission and once for
+ * the client's rebate, and they are independent: "$10 a lot to the partner, 2%
+ * back to the client" is an ordinary arrangement.
+ */
+export type IbPayoutMode = IbLevel['commissionMode'];
+export type CreateIbLevel = components['schemas']['CreateIbLevelDto'];
+export type UpdateIbLevel = components['schemas']['UpdateIbLevelDto'];
 export type IbApplication = components['schemas']['IbApplicationDto'];
 export type IbApplicationStatus = IbApplication['status'];
 export type IbAccount = components['schemas']['IbAccountDto'];
@@ -188,14 +195,15 @@ export interface IbPartnerPage {
     account: IbAccount;
     user: { id: string; email: string; firstName: string; lastName: string };
     /**
-     * The TERMS this partner is paid on, by name.
+     * The RUNG this partner stands on, and therefore their terms (0112).
      *
-     * Replaced `levelName` in 0102. The rung it named decided nothing after the
-     * programmes landed, so a partner list column headed "Level" answered a
-     * question nobody was asking while the one they were — what is this person
-     * paid? — was not on the screen at all.
+     * A NUMBER rather than a name, unlike the `programName` this replaced. A
+     * level IS its number — the unique key every accrual is priced from — and
+     * the ladder is short enough that "Level 2" is the whole answer. The name
+     * on the level row is a label for the screen that edits it, not an
+     * identifier a partner list has to carry.
      */
-    programName: string;
+    level: number;
     /**
      * What this partner has earned, summed by the SERVER across all their
      * accruals — decimal strings (§6.1), never numbers.
@@ -266,6 +274,8 @@ export type ReconciliationReport = components['schemas']['ReconciliationReportDt
  * wallet ⇄ account transfers and commission transfers.
  */
 export type TransactionRow = components['schemas']['AdminTransactionRowDto'];
+export type TransferRow = components['schemas']['TransferDto'];
+export type StuckTransfers = components['schemas']['StuckTransfersDto'];
 export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
 export type TransactionsSummary = components['schemas']['AdminTransactionsSummaryDto'];
 export type TransactionSummaryRow = components['schemas']['AdminTransactionSummaryRowDto'];
@@ -524,6 +534,13 @@ export interface IbAccrual {
   accrual: {
     id: string;
     status: 'pending' | 'confirmed' | 'reversed';
+    /*
+     * WHICH LEG — and the two are paid to DIFFERENT PEOPLE from one trade.
+     * A commission goes to the partner on the row; a rebate goes to the
+     * client on it. Reading one as the other is how an introducer gets paid
+     * their own client's rebate.
+     */
+    kind: 'commission' | 'rebate';
     amount: string;
     baseAmount: string;
     rateValue: string;
@@ -536,8 +553,15 @@ export interface IbAccrual {
      * interchangeable and were not; `depth` is the one the money used.
      */
     depth: number;
-    /** The terms that produced it. Null on a row accrued before 0102. */
-    programName: string | null;
+    /**
+     * The terms that produced it, by name — from whichever column carries them.
+     *
+     * A row records EXACTLY ONE: the LEVEL that priced it since 0112, the
+     * programme before it. The server coalesces the two so one column can
+     * explain a payout from either era. Null on a row so old it recorded
+     * neither.
+     */
+    termsName: string | null;
     sourceType: string;
     sourceId: string;
     createdAt: string;
@@ -856,11 +880,10 @@ export type IbApplicationSortKey = (typeof IB_APPLICATION_SORT_KEYS)[number];
  */
 export const IB_PARTNER_SORT_KEYS = [
   'approvedAt',
-  // `programName`, not `level`: migration 0102 moved every rate onto the
-  // named programme and left the rung deciding nothing. This list still said
-  // `level` — the same drift as CLIENT_SORT_KEYS' `type`, undiscovered only
-  // because nothing consumes this yet.
-  'programName',
+  // `level`, and it sorts as an INTEGER on the server — which is the whole
+  // reason it is the column rather than the level's name. A rung's identity is
+  // its number, and ordering by text puts "Level 10" before "Level 2".
+  'level',
   'referralCode',
   'userEmail',
   'userFirstName',
@@ -1222,25 +1245,27 @@ export const adminApi = {
     return data ?? null;
   },
 
+  /**
+   * Move a partner to a different RUNG — what they are paid, as opposed to
+   * where they sit in the tree.
+   *
+   * The two are separate calls even though a partner's level is normally
+   * DERIVED from their parent's: reassigning a parent is a statement about the
+   * tree and must not silently re-price anybody, and granting main-partner
+   * terms to somebody sitting under another partner must not require lying
+   * about the tree.
+   *
+   * Applies to the next trade only — accruals record the rate AND the level
+   * they were calculated under, so nothing already credited is restated. The
+   * API refuses a level that is disabled or not configured at all: either pays
+   * nothing, so moving somebody onto one would stop their earnings silently.
+   *
+   * Partners BENEATH them are NOT moved. Cascading would re-price an unbounded
+   * number of people from one edit of somebody else's row.
+   */
   async changeIbPartnerLevel(userId: string, level: number): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/level`, {
       level,
-    });
-    return data;
-  },
-
-  /**
-   * Move a partner onto different TERMS — what they are paid, as opposed to
-   * where they stand.
-   *
-   * Applies to the next trade only: accruals record the rate they were
-   * calculated at, so nothing already credited is restated. The API refuses a
-   * disabled programme, because one pays nothing and moving somebody onto it
-   * would stop their earnings silently.
-   */
-  async changeIbPartnerProgram(userId: string, programId: string): Promise<IbAccount> {
-    const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/program`, {
-      programId,
     });
     return data;
   },
@@ -1263,54 +1288,54 @@ export const adminApi = {
   /* ── Commission programmes (FR-ADM-10) ──────────────────────────────── */
 
   /**
-   * Every programme, disabled ones included — managing them is the point of the
+   * Every rung, disabled ones included — managing them is the point of the
    * screen, and terms you cannot see are terms you cannot re-enable.
    *
    * Each row carries `partnerCount`, so the screen can refuse a delete before
    * the API does and say how many people a rate change affects.
    */
-  async getIbPrograms(signal?: AbortSignal): Promise<IbProgram[]> {
-    const { data } = await apiClient.get<IbProgram[]>('/admin/ib-programs', { signal });
+  async getIbLevels(signal?: AbortSignal): Promise<IbLevel[]> {
+    const { data } = await apiClient.get<IbLevel[]>('/admin/ib-levels', { signal });
     return data;
   },
 
-  /** How deep a ladder may go, so the form can stop offering levels in time. */
-  async getIbProgramLimits(signal?: AbortSignal): Promise<IbProgramLimits> {
-    const { data } = await apiClient.get<IbProgramLimits>('/admin/ib-programs/limits', { signal });
+  /** How deep the ladder may go, so the form can stop offering levels in time. */
+  async getIbLevelLimits(signal?: AbortSignal): Promise<IbLevelLimits> {
+    const { data } = await apiClient.get<IbLevelLimits>('/admin/ib-levels/limits', { signal });
     return data;
   },
 
   /**
-   * The API refuses terms whose legs total more than 100% of the broker's
-   * revenue, terms that pay nobody at all, and a ladder with a gap in it. Every
-   * message names the numbers involved — surface them verbatim, because a
-   * generic failure throws away the only part an operator can act on.
+   * The API refuses a level past the configured ceiling and one whose two
+   * PERCENTAGES total more than 100% of the broker's revenue. Every message
+   * names the numbers involved — surface them verbatim, because a generic
+   * failure throws away the only part an operator can act on.
    */
-  async createIbProgram(body: CreateIbProgram): Promise<IbProgram> {
-    const { data } = await apiClient.post<IbProgram>('/admin/ib-programs', body);
+  async createIbLevel(body: CreateIbLevel): Promise<IbLevel> {
+    const { data } = await apiClient.post<IbLevel>('/admin/ib-levels', body);
     return data;
   },
 
   /**
-   * PATCH: a rate change applies to the NEXT trade, never to what has already
-   * been earned — accruals record the rate they were calculated at.
+   * PATCH, keyed on the level NUMBER rather than an id — a level is its number.
+   *
+   * A rate change applies to the NEXT trade, never to what has already been
+   * earned: accruals record the rate AND the level they were calculated under.
    *
    * Disabling one that partners stand on is refused by the API, because a
-   * disabled programme stops paying while their referral links keep working.
-   *
-   * ⚠️ `tiers` is REPLACE-ALL, not a merge. Send every level the programme
-   * should keep, or omit the field to leave the ladder untouched — a merge
-   * could not express "the ladder is now just level 1", which is exactly the
-   * edit an operator shortening a programme is making.
+   * disabled level stops paying while their referral links keep working.
    */
-  async updateIbProgram(id: string, body: UpdateIbProgram): Promise<IbProgram> {
-    const { data } = await apiClient.patch<IbProgram>(`/admin/ib-programs/${id}`, body);
+  async updateIbLevel(level: number, body: UpdateIbLevel): Promise<IbLevel> {
+    const { data } = await apiClient.patch<IbLevel>(`/admin/ib-levels/${level}`, body);
     return data;
   },
 
-  /** Refused while partners are on it, and refused for the last enabled one. */
-  async deleteIbProgram(id: string): Promise<void> {
-    await apiClient.delete(`/admin/ib-programs/${id}`);
+  /**
+   * Refused while partners stand on it, refused for level 1 — every chain
+   * starts there — and refused while deeper levels sit below it.
+   */
+  async deleteIbLevel(level: number): Promise<void> {
+    await apiClient.delete(`/admin/ib-levels/${level}`);
   },
 
   /* ── The catalogue ──────────────────────────────────────────────────── */
@@ -1820,6 +1845,45 @@ export const adminApi = {
     const { data } = await apiClient.patch<WithdrawalRow>(
       `/admin/withdrawals/${id}/settle`,
       { providerRef },
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * How many transfers are stuck, for the Financial banner.
+   *
+   * The condition is already detected server-side and raises a `page`-severity
+   * alert — into a LOG LINE, because no paging provider is wired. This is how
+   * the console finds out instead.
+   *
+   * A count, not a list: the rows are already on the table below the banner.
+   */
+  async getStuckTransfers(signal?: AbortSignal): Promise<StuckTransfers> {
+    const { data } = await apiClient.get<StuckTransfers>('/admin/transfers/stuck', { signal });
+    return data;
+  },
+
+  /**
+   * Release a transfer the MT5 bridge left in flight.
+   *
+   * A `wallet_to_account` transfer HOLDS the money at request time and debits it
+   * on settle. When the bridge loses its session mid-call the transfer stays
+   * pending — correctly, because the executor cannot tell "MT5 refused" from
+   * "MT5 never answered" — and nothing ever expires that hold. The client sees
+   * "Processing" and cannot spend their own money, for as long as nobody looks.
+   *
+   * ⚠️ Only after reading the broker's own record. If MT5 DID apply the
+   * movement, releasing the hold lets the client spend money that has already
+   * left. That is the one thing the executor refuses to guess at, and the whole
+   * reason this is a person's decision rather than a timeout.
+   *
+   * `reason` is required and reaches the client on the failed row.
+   */
+  async abandonTransfer(id: string, reason: string, key: string): Promise<TransferRow> {
+    const { data } = await apiClient.post<TransferRow>(
+      `/admin/transfers/${id}/abandon`,
+      { reason },
       idempotent(key),
     );
     return data;

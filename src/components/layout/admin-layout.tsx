@@ -21,7 +21,7 @@ import {
   Gauge,
   CreditCard,
   Handshake,
-  Percent,
+  Layers,
   ClipboardList,
   ShieldCheck,
   Lock,
@@ -218,7 +218,7 @@ const NAV_SECTIONS: NavSection[] = [
          second screen owning "where a partner stands"; 0102 folded that into the
          programme's own tier ladder, so the terms and their reach are configured
          in one place and cannot disagree. */
-      { label: 'nav.ibPrograms', href: '/ib-programs', icon: Percent },
+      { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
       /*
        * Agencies sit with the partners rather than with Products, because that
        * is who they are about: a وكالة is the programme a partner is appointed
@@ -382,9 +382,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
    */
   const ibPending = pendingApplications.data?.counts.pending || undefined;
 
-  const kycPending =
-    (pendingKyc.data?.counts?.['submitted'] ?? 0) +
-      (pendingKyc.data?.counts?.['under_review'] ?? 0) || undefined;
+  /*
+   * `needs_review`, served by the API — not summed here.
+   *
+   * This added `submitted + under_review` itself, which was right, and was the
+   * THIRD place that definition lived: the backend filter resolves the same
+   * pair, and the queue's own "Needs review" tab read a `counts.needs_review`
+   * key that did not exist and so displayed 0 for ever. Three authors, two
+   * agreeing by luck and one silently wrong. The API computes it once now, so
+   * the badge, the tab and the filter cannot disagree.
+   */
+  const kycPending = pendingKyc.data?.counts?.['needs_review'] || undefined;
 
   /*
    * `counts.pending`, not `total`. Both read the same today because the query

@@ -47,22 +47,44 @@ export type KycStatus = (typeof KYC_STATUSES)[number];
 /**
  * How a status should READ to an operator.
  *
- * `submitted` is "Pending", and that is the point of the mapping rather than an
- * inconsistency in it: the stored value records what the CLIENT did, and the
- * label says what it means to the DESK — this identity is waiting on a
- * decision. "Submitted" describes a finished action, which is the least useful
- * thing to tell the person who has to act on it.
+ * The stored value records what the CLIENT did; the label says what it means to
+ * the DESK. `submitted` reads "Awaiting review" for that reason — "Submitted"
+ * describes a finished action, which is the least useful thing to tell the
+ * person who still has to act on it.
+ *
+ * The six labels, and the two words that are NOT statuses:
+ *
+ * | stored         | reads as         | means                                  |
+ * |----------------|------------------|----------------------------------------|
+ * | `not_started`  | Not started      | the client has not begun               |
+ * | `in_progress`  | Incomplete       | begun, not yet sent — nothing is owed  |
+ * | `submitted`    | Awaiting review  | sent, nobody has picked it up          |
+ * | `under_review` | In review        | a named reviewer has CLAIMED it        |
+ * | `approved`     | Approved         | decided                                |
+ * | `rejected`     | Rejected         | decided                                |
+ *
+ * `needs_review` is not a status — it is the SET `submitted + under_review`,
+ * resolved by the API, shown as the "Open" tab and counted by the sidebar
+ * badge. "Pending" and "Under Review" were earlier labels for `submitted` and
+ * `under_review`; they are retired, and `kyc-claim-and-territory.spec.ts` keeps
+ * them from coming back.
  */
 export function kycStatusLabel(status: string): string {
   const key = `kycStatus.${status}` as Parameters<typeof t>[0];
-  const label = t(key);
+  const label: string | undefined = t(key);
   /*
    * A status the API grew and this build has not learned yet degrades to a
    * readable form of the raw value rather than to a blank cell or a visible
-   * `kycStatus.foo`. `t()` returns the key when it has no entry, which is what
-   * this compares against.
+   * `kycStatus.foo`.
+   *
+   * ⚠️ This compared `label === key`, on the belief that `t()` echoes a key it
+   * has no entry for. It does not — `t` is `messages[key]`, so a miss is
+   * `undefined`, the comparison was never true, and the fallback was dead
+   * code. The console would have rendered the literal string "undefined" in
+   * the status pill the day the API grew a seventh status; the guard written
+   * to prevent exactly that could not fire.
    */
-  return label === key ? status.replace(/_/g, ' ') : label;
+  return label ?? status.replace(/_/g, ' ');
 }
 
 /**

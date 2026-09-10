@@ -172,6 +172,27 @@ export default function KycDetailPage() {
     }
   };
 
+  /**
+   * Hand a claimed submission back to the queue.
+   *
+   * The same refresh as a decision, because it changes the same things: the
+   * row leaves `under_review`, the queue's counts move, and the sidebar badge
+   * counts `submitted + under_review` so it stays put — which is correct, and
+   * is why the badge is not the thing to watch when testing this.
+   */
+  const release = async () => {
+    setActionLoading(true);
+    setActionError('');
+    try {
+      await api.patch(`/admin/kyc/${userId}/release`);
+      await refreshAfterDecision();
+    } catch (e: unknown) {
+      setActionError(apiErrorMessage(e, t('kycReview.releaseFailed')));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const toggleFieldSelection = (fieldId: string) => {
     setSelectedRejectedFields((prev) =>
       prev.includes(fieldId) ? prev.filter((f) => f !== fieldId) : [...prev, fieldId],
@@ -398,6 +419,7 @@ export default function KycDetailPage() {
       {canReview && lightboxAt === null && (
         <ReviewDock
           status={data.status}
+          reviewedByName={data.reviewedByName}
           loading={actionLoading}
           error={!showRejectModal && !showApproveConfirm ? actionError : ''}
           onApprove={() => {
@@ -409,6 +431,7 @@ export default function KycDetailPage() {
             setShowRejectModal(true);
           }}
           onClaim={() => void claim()}
+          onRelease={() => void release()}
         />
       )}
 

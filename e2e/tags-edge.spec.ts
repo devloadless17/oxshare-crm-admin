@@ -92,11 +92,36 @@ test('territory and system tags refuse deletion; an ordinary tag cascades cleanl
     const afterIds = (Array.isArray(after) ? after : after.items).map((t) => t.id);
     expect(afterIds, 'the deleted tag is still on the client').not.toContain(plain.id);
 
-    const audit = await master.get('/admin/audit-log?action=client_tag.delete&limit=10');
-    const auditText = JSON.stringify(await audit.json());
-    expect(auditText, 'the cascade count is not on the audit row').toMatch(
-      /assignmentsRemoved\\?":\s*1/,
-    );
+    /*
+     * ⚠️ THIS TEST'S OWN ROW, POLLED FOR — not a regex over whatever the last
+     * ten `client_tag.delete` rows happen to be.
+     *
+     * It used to stringify the page and match `assignmentsRemoved": 1`
+     * anywhere in it. That failed in CI for the two reasons a loose match
+     * always eventually fails: the row it read belonged to a DIFFERENT spec
+     * (`audit-trail`'s tag, which legitimately had 0 assignments), and this
+     * test's own row was not visible yet, because the audit write lands after
+     * the response the delete returned.
+     *
+     * Matching on `subjectId` makes it this tag's row or nothing, and polling
+     * covers the write. Together they remove a cross-spec dependency that only
+     * showed up in a full-suite run.
+     */
+    const cascadeRow = async (): Promise<
+      { details?: { assignmentsRemoved?: number } } | undefined
+    > => {
+      const page = await master.get('/admin/audit-log?action=client_tag.delete&limit=25');
+      const body = (await page.json()) as {
+        items?: { subjectId?: string; details?: { assignmentsRemoved?: number } }[];
+      };
+      return (body.items ?? []).find((row) => row.subjectId === plain.id);
+    };
+    await expect
+      .poll(async () => (await cascadeRow())?.details?.assignmentsRemoved, {
+        timeout: 15_000,
+        message: 'no client_tag.delete audit row for the tag this test deleted',
+      })
+      .toBe(1);
 
     // ── Cleanup: free the anchor and take it out properly ─────────────────
     expect((await master.patch(`/admin/users/${scoped.id}`, { scopedTagIds: [] })).ok()).toBe(true);
