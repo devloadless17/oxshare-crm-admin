@@ -167,13 +167,33 @@ test.describe('completing an armed reset through the emailed link', () => {
       expect(created.ok(), `invite answered ${created.status()}`).toBe(true);
       const { inviteUrl } = (await created.json()) as { inviteUrl?: string };
       expect(inviteUrl, 'the invite link is echoed outside production only').toBeTruthy();
-      const accepted = await invitee.post(`${API_NODE_BASE}/admin/invite/accept`, {
-        headers: { Origin: APP_ORIGIN },
-        data: {
-          token: new URL(inviteUrl!).searchParams.get('token')!,
-          password: firstPassword,
-        },
-      });
+      /*
+       * WAIT OUT A 429 HERE TOO. `invite/accept` ESTABLISHES a session, so it
+       * shares the admin login cap (5/min/IP) — and this file already waits the
+       * window out for its two login probes a few lines above. Accept did not,
+       * so a full-suite run that had spent the budget elsewhere failed here with
+       * "accept answered 429", which reads as a broken invite flow and is a
+       * queue of tests sharing a limit.
+       *
+       * Same choice as everywhere else in these suites: the cap is correct and
+       * is waited out, never weakened.
+       */
+      const acceptOnce = () =>
+        invitee.post(`${API_NODE_BASE}/admin/invite/accept`, {
+          headers: { Origin: APP_ORIGIN },
+          data: {
+            token: new URL(inviteUrl!).searchParams.get('token')!,
+            password: firstPassword,
+          },
+        });
+      let accepted = await acceptOnce();
+      for (let attempt = 0; accepted.status() === 429 && attempt < 3; attempt++) {
+        // eslint-disable-next-line no-console
+        console.log('↻ invite/accept rate limited; waiting 65s…');
+        test.setTimeout(65_000 + 120_000);
+        await new Promise((r) => setTimeout(r, 65_000));
+        accepted = await acceptOnce();
+      }
       expect(accepted.ok(), `accept answered ${accepted.status()}`).toBe(true);
       const me = (await (await invitee.get(`${API_NODE_BASE}/admin/auth/me`)).json()) as {
         id: string;
