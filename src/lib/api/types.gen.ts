@@ -4703,6 +4703,7 @@ export interface components {
             /** @description How many clients they introduced. */
             referredClientCount: number;
             earnings: components["schemas"]["IbPartnerEarningsDto"];
+            maskedFields?: string[];
         };
         ChangeIbLevelDto: {
             /**
