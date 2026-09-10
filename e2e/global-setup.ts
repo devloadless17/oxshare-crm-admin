@@ -105,7 +105,17 @@ async function warnIfRealtimeIsDown(): Promise<void> {
 async function resetReviewPool(): Promise<void> {
   const endpoint = `${TOPOLOGY.apiNodeOrigin}/v1/e2e/fixtures/review-pool`;
   try {
-    const res = await fetch(endpoint, { method: 'POST', signal: AbortSignal.timeout(20_000) });
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      /*
+       * `CsrfGuard` validates Origin on EVERY state change, session or not —
+       * a Node fetch sends none, and the refusal reads as "failed anti-forgery
+       * validation" rather than "you forgot a header". Send what the browser
+       * would.
+       */
+      headers: { Origin: TOPOLOGY.adminOrigin },
+      signal: AbortSignal.timeout(20_000),
+    });
     if (res.ok) {
       const { reset } = (await res.json()) as { reset: number };
       // Progress, not a problem — same exemption the rate-limit backoff uses.
