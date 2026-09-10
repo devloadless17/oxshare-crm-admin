@@ -198,8 +198,35 @@ test.describe('sorting edge cases', () => {
     await page.goto('/clients?sort=email&order=asc');
     await expect(page.locator('thead')).toBeVisible({ timeout: 30_000 });
 
-    const next = page.getByRole('button', { name: /next/i });
-    test.skip(!(await next.isEnabled().catch(() => false)), 'only one page of clients here');
+    /*
+     * WAIT for the pager, then require it — do not probe it.
+     *
+     * This was `test.skip(!(await next.isEnabled().catch(() => false)))`, and
+     * the `.catch` is the whole problem: before the pager is attached
+     * `isEnabled()` REJECTS, the catch turns that into false, and the test
+     * skips itself for a reason that has nothing to do with how many clients
+     * exist. A skipped Playwright test reports as passing, so the case was
+     * dropping out on a race and reading as green.
+     *
+     * There is no shortage of rows to page through — the seeded cohort is well
+     * over one screen — so "only one page" is not a state this suite is ever
+     * legitimately in. Waiting for the control and then asserting turns a
+     * silent skip into either a pass or a real failure.
+     */
+    /*
+     * EXACT, because /next/i also matches the Next.js dev-tools button.
+     *
+     * That collision is what actually disabled this case. `getByRole` is strict:
+     * two matches make `isEnabled()` THROW, the old `.catch(() => false)` turned
+     * the throw into "no pager", and the test skipped itself — reporting as
+     * passing — because a dev overlay happens to contain the word "Next".
+     */
+    const next = page.getByRole('button', { name: 'Next', exact: true });
+    await expect(next).toBeVisible({ timeout: 30_000 });
+    await expect(
+      next,
+      'the client directory did not paginate — nothing to page through',
+    ).toBeEnabled();
     await next.click();
     await page.waitForLoadState('networkidle');
 

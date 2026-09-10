@@ -5,6 +5,8 @@ import {
   mintClientWithPendingKyc,
   TOPOLOGY_PORTAL_ORIGIN,
   type MintedClient,
+  requireRail,
+  requirePrecondition,
 } from './helpers';
 
 /**
@@ -180,7 +182,7 @@ test.describe('the Rival payout rail', () => {
   test('D-66: approval AUTHORISES and hands off to Rival — it does not pay', async () => {
     test.setTimeout(300_000);
     const admin = await adminApiSession();
-    test.skip(!(await railIsLive(admin)), 'the Rival rail is not configured/reachable here');
+    requireRail(await railIsLive(admin));
 
     const client = await mintFundedClient(admin, 'auth');
     try {
@@ -234,7 +236,7 @@ test.describe('the Rival payout rail', () => {
   test('a second approval is refused — a double-click cannot pay twice', async () => {
     test.setTimeout(300_000);
     const admin = await adminApiSession();
-    test.skip(!(await railIsLive(admin)), 'the Rival rail is not configured/reachable here');
+    requireRail(await railIsLive(admin));
 
     const client = await mintFundedClient(admin, 'dbl');
     try {
@@ -259,7 +261,7 @@ test.describe('the Rival payout rail', () => {
   test('the desk can still REFUSE before the rail is involved — and the money comes back', async () => {
     test.setTimeout(300_000);
     const admin = await adminApiSession();
-    test.skip(!(await railIsLive(admin)), 'the Rival rail is not configured/reachable here');
+    requireRail(await railIsLive(admin));
 
     const client = await mintFundedClient(admin, 'rej');
     try {
@@ -286,7 +288,7 @@ test.describe('the Rival payout rail', () => {
   test('the console shows the authorised state and both references', async ({ page }) => {
     test.setTimeout(300_000);
     const admin = await adminApiSession();
-    test.skip(!(await railIsLive(admin)), 'the Rival rail is not configured/reachable here');
+    requireRail(await railIsLive(admin));
 
     const client = await mintFundedClient(admin, 'ui');
     try {
@@ -351,7 +353,7 @@ test.describe('the Rival payout rail', () => {
   test('a payout Rival completes settles the CRM row — and the money stays gone', async () => {
     test.setTimeout(300_000);
     const admin = await adminApiSession();
-    test.skip(!(await railIsLive(admin)), 'the Rival rail is not configured/reachable here');
+    requireRail(await railIsLive(admin));
 
     const client = await mintFundedClient(admin, 'settle');
     try {
@@ -378,9 +380,12 @@ test.describe('the Rival payout rail', () => {
        * auto-approval config is what makes it run.
        */
       const settled = await awaitDeskState(admin, txId, ['success', 'failure'], 45);
-      test.skip(
+      requirePrecondition(
         settled?.state === 'approved',
-        'Rival did not complete the payout — auto-approval is off, so nothing settled it',
+        'Rival did not complete the payout — auto-approval is off, so nothing settled it. ' +
+          'WITHDRAWAL_AUTO_APPROVAL_SIMULATE=true plus an enabled auto-approval config is what ' +
+          'makes this run. Reached only when E2E_RAIL declares the rail live, so a strict run ' +
+          'that gets here was told to expect a completed payout.',
       );
 
       expect(settled?.state, 'a completed payout settles as success').toBe('success');

@@ -439,4 +439,47 @@ export default defineConfig([
       ],
     },
   },
+
+  /**
+   * THE SKIP CENSUS — a browser journey may not skip itself silently.
+   *
+   * A skipped Playwright test reports as PASSING in the summary. That is not a
+   * theoretical hazard here: 26 bare `test.skip()` calls had accumulated across
+   * eleven specs, `E2E_STRICT` could not see any of them, and the reasons they
+   * gave were mostly WRONG — "no seeded client row", "this database already has
+   * allowlist rules", "only one page of clients here". Four of the five that
+   * actually fired were racing an unrendered locator or colliding with the
+   * Next.js dev-tools button, not observing the data condition they named. They
+   * had read as reasonable for months because nobody re-checks a plausible
+   * sentence attached to a green test.
+   *
+   * So the guards go through a helper that the environment can escalate:
+   *   `requirePrecondition(cond, why)` — a fixture that should be there. Skips
+   *     locally, FAILS under `E2E_STRICT=1`, which CI sets.
+   *   `requireRail(isLive)` — an optional external rail. Skips unless
+   *     `E2E_RAIL=on` declares it should be live, and then fails.
+   *
+   * `test.skip()` with no condition (an unconditional skip at describe level)
+   * is not matched — this targets the CALL form that decides at runtime, which
+   * is the one that disappears from a summary.
+   *
+   * No other config block matches `e2e/**`, so this cannot be silently replaced
+   * by a rules-merge the way the query-key selectors were. Re-verify that after
+   * touching this file: put a bare `test.skip(true, 'x')` into any spec and
+   * confirm lint goes red.
+   */
+  {
+    files: ['e2e/**/*.spec.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.object.name='test'][callee.property.name='skip'][arguments.length>0]",
+          message:
+            'A bare test.skip() reports as PASSING. Use requirePrecondition(cond, why) for a fixture that should exist, or requireRail(isLive) for the optional payout rail — both in e2e/helpers.ts.',
+        },
+      ],
+    },
+  },
 ]);

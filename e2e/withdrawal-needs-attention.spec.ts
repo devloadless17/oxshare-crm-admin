@@ -6,6 +6,7 @@ import {
   STORAGE_STATE,
   TOPOLOGY_PORTAL_ORIGIN,
   type MintedClient,
+  requireRail,
 } from './helpers';
 
 /**
@@ -137,7 +138,7 @@ async function requestWithdrawal(client: MintedClient, amount: string): Promise<
 test.describe('a payout the platform refuses is visible on the desk', () => {
   test('the row is flagged, the reason is on screen, and a retry is offered', async ({ page }) => {
     const admin = await adminApiSession();
-    test.skip(!(await railIsLive(admin)), 'The Rival payout rail is off or unreachable.');
+    requireRail(await railIsLive(admin));
 
     const amount = await unfundableAmount();
 

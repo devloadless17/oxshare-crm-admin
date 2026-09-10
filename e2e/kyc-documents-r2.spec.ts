@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { API_ORIGIN, STORAGE_STATE } from './helpers';
+import { API_ORIGIN, STORAGE_STATE, adminApi, registerClientWithPendingKyc } from './helpers';
 
 /**
  * A reviewer opening a client's identity documents, now served from Cloudflare R2.
@@ -25,7 +25,10 @@ import { API_ORIGIN, STORAGE_STATE } from './helpers';
 test.use({ storageState: STORAGE_STATE });
 
 test.describe('KYC documents are served from object storage', () => {
-  test('a reviewer can open a document, and the browser is not blocked', async ({ page }) => {
+  test('a reviewer can open a document, and the browser is not blocked', async ({
+    page,
+    context,
+  }) => {
     const violations: string[] = [];
     page.on('console', (msg) => {
       const text = msg.text();
@@ -43,55 +46,43 @@ test.describe('KYC documents are served from object storage', () => {
     });
 
     /*
-     * Open a submission that actually HAS documents.
+     * MINT a submission that has documents, rather than hunting for one.
      *
-     * `E2E_KYC_USER_ID` points straight at one when the caller knows which — the
-     * portal's upload spec creates it. Without it, the queue is walked until a
-     * submission with an image turns up.
+     * This used to walk the first six rows of the queue and `test.skip` when
+     * none carried an image — defended at the time as "a fact about the data,
+     * not a defect in the code". Two things make that wrong now.
      *
-     * Skipped rather than failed when nothing is found: this runs against a shared
-     * dev database, and "nobody has uploaded a document" is a fact about the data,
-     * not a defect in the code. A test that goes red for that gets ignored, which is
-     * worse than one that says why it did not run.
+     * The pooled fixtures sit at the top of the queue and their documents are
+     * seeded NAMES with no bytes behind them (`pool-doc.png`), so the walk
+     * looks at six submissions that structurally cannot satisfy it and gives
+     * up. And in CI the database is fresh — nobody has ever uploaded anything —
+     * so the case could never run at all, while reporting as PASSING. That is
+     * the one thing this spec exists to prevent: a document path that fails
+     * SILENTLY.
+     *
+     * `registerClientWithPendingKyc` uploads three real files through the
+     * portal and submits, so the reviewer opens a submission whose bytes
+     * genuinely exist. It is the expensive path — one registration against a
+     * 10/hour cap — and this is deliberately its SECOND caller, which the
+     * helper's docblock asks be checked before adding. Two of ten is within
+     * budget; a third should not be added without re-counting.
+     *
+     * `E2E_KYC_USER_ID` still wins when the caller already knows which
+     * submission to open.
      */
-    const targetUser = process.env.E2E_KYC_USER_ID;
-    let documentImage = page.locator('img[src*="/uploads/kyc/"]').first();
+    const api = await adminApi(context);
+    const explicit = process.env['E2E_KYC_USER_ID'];
+    const minted = explicit ? undefined : await registerClientWithPendingKyc(api, 'r2docs');
+    const targetUser = explicit ?? minted!.id;
 
-    if (targetUser) {
-      await page.goto(`/kyc/${targetUser}`);
-      await page.waitForLoadState('networkidle');
-    } else {
-      await page.goto('/kyc');
-      await page.waitForLoadState('networkidle');
+    await page.goto(`/kyc/${targetUser}`);
+    await page.waitForLoadState('networkidle');
 
-      const rows = page.getByRole('row');
-      const count = Math.min(await rows.count(), 6);
-      let found = false;
-      for (let i = 1; i < count; i += 1) {
-        // The queue is LIVE — another reviewer (or an earlier spec) approving
-        // a submission removes its row, so the count measured before the walk
-        // can exceed what is rendered now. Re-check instead of timing out.
-        if ((await rows.count()) <= i) break;
-        await rows.nth(i).click();
-        await page.waitForLoadState('networkidle');
-        if ((await documentImage.count()) > 0) {
-          found = true;
-          break;
-        }
-        await page.goBack();
-        await page.waitForLoadState('networkidle');
-      }
-      if (!found) {
-        test.skip(true, 'No submission in the first few rows carries an image document.');
-        return;
-      }
-    }
-
-    documentImage = page.locator('img[src*="/uploads/kyc/"]').first();
-    if ((await documentImage.count()) === 0) {
-      test.skip(true, 'This submission carries no image documents.');
-      return;
-    }
+    const documentImage = page.locator('img[src*="/uploads/kyc/"]').first();
+    await expect(
+      documentImage,
+      'the review screen rendered no stored document for a submission that has three',
+    ).toBeVisible({ timeout: 20_000 });
 
     // ── The bytes arrived, through the API ────────────────────────────────────
     await expect.poll(() => documentResponses.length, { timeout: 20_000 }).toBeGreaterThan(0);
@@ -126,5 +117,9 @@ test.describe('KYC documents are served from object storage', () => {
       .toBeGreaterThan(0);
 
     expect(violations, `CSP blocked something:\n${violations.join('\n')}`).toEqual([]);
+
+    // The minted client owns an API context of its own; leaving it open leaks a
+    // connection per run.
+    await minted?.dispose();
   });
 });

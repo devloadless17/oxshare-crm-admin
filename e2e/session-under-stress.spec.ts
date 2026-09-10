@@ -8,6 +8,7 @@ import {
   APP_ORIGIN,
   deleteCookie,
   routeHit,
+  requirePrecondition,
 } from './helpers';
 
 /**
@@ -199,7 +200,7 @@ test('the IP allowlist admits a covering caller, and the way back out works', as
     const me = await admin.get('/admin/ip-allowlist');
     expect(me.ok()).toBe(true);
     const yourIp = ((await me.json()) as { yourIp?: string }).yourIp;
-    test.skip(!yourIp, 'the server could not determine the caller IP');
+    requirePrecondition(!yourIp, 'the server could not determine the caller IP');
 
     // Lockout guard: a FIRST rule that excludes the author is refused.
     const selfExcluding = await admin.post('/admin/ip-allowlist', {

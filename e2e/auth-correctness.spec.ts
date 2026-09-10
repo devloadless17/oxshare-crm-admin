@@ -167,13 +167,29 @@ test.describe('layout', () => {
      * The existing suite could not see it: `auth-session.spec.ts` reaches the
      * logout button with `.first()`, which passes whether there is one or two.
      */
-    await page.goto('/clients');
+    /*
+     * SEARCH for the fixture rather than hoping it is on page one.
+     *
+     * This used to open `/clients` and skip when no `alpha` link was visible.
+     * Two ways that went wrong, and both reported as PASSING. `isVisible()`
+     * does not auto-wait, so a row that had simply not rendered yet read as
+     * absent. And the directory is paginated — the seeded cohort sits among
+     * far more rows than one page holds, so which page `alpha` lands on is a
+     * property of the sort order, not of the fixture existing.
+     *
+     * `?q=` puts it on the first page by construction, so the case can assert
+     * the row instead of stepping around it. What is under test is that the
+     * profile draws ONE console shell; which page its link was on is nothing
+     * to do with that.
+     */
+    await page.goto('/clients?q=alpha');
     await page.waitForLoadState('networkidle');
 
     const firstClient = page.getByRole('link', { name: /alpha/i }).first();
-    if (!(await firstClient.isVisible().catch(() => false))) {
-      test.skip(true, 'no seeded client row to open — needs the e2e client fixture');
-    }
+    await expect(
+      firstClient,
+      'the alpha fixture is not in the client directory — the seeded cohort is missing',
+    ).toBeVisible({ timeout: 15_000 });
     await firstClient.click();
     await page.waitForLoadState('networkidle');
 
