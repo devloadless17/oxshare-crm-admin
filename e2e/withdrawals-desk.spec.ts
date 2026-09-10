@@ -2,7 +2,7 @@ import { expect, test } from './fixtures';
 import {
   adminApiSession,
   API_NODE_BASE,
-  mintClientWithPendingKyc,
+  mintFreshClientWithPendingKyc,
   TOPOLOGY_PORTAL_ORIGIN,
   type MintedClient,
   requirePrecondition,
@@ -34,7 +34,7 @@ import {
 async function mintApprovedClient(
   admin: Awaited<ReturnType<typeof adminApiSession>>,
 ): Promise<MintedClient> {
-  const client = await mintClientWithPendingKyc(admin, 'desk');
+  const client = await mintFreshClientWithPendingKyc(admin, 'desk');
   expect((await admin.patch(`/admin/kyc/${client.id}/approve`)).ok()).toBe(true);
   return client;
 }

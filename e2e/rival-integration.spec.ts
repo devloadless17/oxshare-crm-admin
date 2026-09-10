@@ -2,7 +2,7 @@ import { expect, test } from './fixtures';
 import {
   adminApiSession,
   API_NODE_BASE,
-  mintClientWithPendingKyc,
+  mintFreshClientWithPendingKyc,
   TOPOLOGY_PORTAL_ORIGIN,
   type MintedClient,
   requireRail,
@@ -90,7 +90,7 @@ async function mintFundedClient(
   label: string,
   amount = '500.00000000',
 ): Promise<MintedClient> {
-  const client = await mintClientWithPendingKyc(admin, label);
+  const client = await mintFreshClientWithPendingKyc(admin, label);
   expect((await admin.patch(`/admin/kyc/${client.id}/approve`)).ok()).toBe(true);
   const credit = await admin.post(
     '/admin/wallets/credit',

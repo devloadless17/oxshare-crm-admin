@@ -940,6 +940,81 @@ export async function registerClientWithPendingKyc(
 }
 
 /**
+ * A BRAND-NEW client with a pending KYC submission — for specs that assert MONEY.
+ *
+ * `mintClientWithPendingKyc` LEASES a pooled fixture, which is right for a spec
+ * that only needs something reviewable and wrong for one that asserts a balance.
+ * A pooled client is reused, so it carries a wallet, a ledger and claimed
+ * idempotency keys from every previous run. `withdrawals-desk` credits 100 under
+ * a key derived from the client id — stable for a pooled client — so after the
+ * first run that credit is a correctly-deduped REPLAY: nothing is added and the
+ * wallet still holds what the last run left. The spec read 90.00000000 where it
+ * expected 100.00000000 and the failure looked like a broken credit.
+ *
+ * This costs NO registration budget: the row is seeded directly through the
+ * development-only fixtures route rather than through `POST /auth/register`
+ * (10/hour per IP), so freshness and the rate limit are no longer a trade-off.
+ *
+ * Returns the same shape as the pooled path, so the two are interchangeable
+ * apart from the history — which is the whole difference that matters.
+ */
+export async function mintFreshClientWithPendingKyc(
+  admin: { get: (path: string) => Promise<Response | { json: () => Promise<unknown> }> },
+  label: string,
+): Promise<MintedClient> {
+  /*
+   * Both are unused and both are kept, so this is a drop-in swap for the pooled
+   * helper at a call site. The id comes back from the route rather than being
+   * looked up through `admin`, and the LABEL is deliberately not sent: the
+   * fixtures route takes no input at all, which is the property that stops it
+   * being able to name an existing client. A label would be harmless in itself
+   * and would still be the first parameter.
+   */
+  void admin;
+  void label;
+  const portal = await apiRequest.newContext({ storageState: { cookies: [], origins: [] } });
+  const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
+
+  const made = await portal.post(`${API_NODE_BASE}/e2e/fixtures/client`, {
+    headers: { Origin: APP_ORIGIN },
+  });
+  requirePrecondition(
+    !made.ok(),
+    `the e2e fixtures route answered ${made.status()} — it is development-only, so a ` +
+      'non-development API has no way to mint a fresh money fixture',
+  );
+  const { id, email, password } = (await made.json()) as {
+    id: string;
+    email: string;
+    password: string;
+  };
+
+  for (;;) {
+    const login = await portal.post(`${API_NODE_BASE}/auth/login`, {
+      headers: origin,
+      data: { email, password },
+    });
+    if (login.status() === 429) {
+      // Waited out, never weakened — the same choice every other login here makes.
+      // eslint-disable-next-line no-console
+      console.log(`↻ portal login rate limited; waiting ${RATE_LIMIT_WINDOW_MS / 1000}s…`);
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_WINDOW_MS));
+      continue;
+    }
+    expect(login.ok(), `signing in as the fresh client ${email} answered ${login.status()}`).toBe(
+      true,
+    );
+    break;
+  }
+
+  const csrf =
+    (await portal.storageState()).cookies.find((c) => c.name.includes('portal_csrf'))?.value ?? '';
+  expect(csrf, 'no portal CSRF cookie after signing in as the fresh client').toBeTruthy();
+
+  return { portal, csrf, email, id, dispose: () => portal.dispose() };
+}
+
+/**
  * The review-pool labels, MIRRORED from the backend's `REVIEW_POOL_LABELS`.
  *
  * Advisory only — it never gates a lease. These are separate repos with no
