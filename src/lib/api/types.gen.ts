@@ -1857,6 +1857,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trading/balance-movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Money moved on the client's MT5 accounts with no trade behind it
+         * @description Deposits, withdrawals, credits, corrections and bonuses across EVERY account the client holds — the movements MT5 records and the CRM ledger does not, because a dealer adjustment has no wallet leg by design.
+         *
+         *     Balance movements ONLY: trades and dealer cancellations are excluded, using the same two predicates the commission engine uses, so a new MT5 action code cannot mean one thing here and another there. It carries NO trade statistics — win rate and realised P/L were removed from the portal deliberately and this does not bring them back.
+         *
+         *     Served from the ingested `mt5_deals` table, so it keeps working while the bridge is down, and a movement from the last few minutes may not have arrived yet. Amounts are SIGNED strings — negative is money leaving. The window defaults to 30 days, is capped at 31, and is inclusive at both ends, exactly as `/accounts/:id/history` is: two money lists in one product must not mean different things by "from".
+         */
+        get: operations["TradingController_myBalanceMovements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dashboard": {
         parameters: {
             query?: never;
@@ -5444,6 +5468,46 @@ export interface components {
             stats: components["schemas"]["AccountStatsDto"];
             /** @description Newest first. */
             deals: components["schemas"]["AccountDealDto"][];
+        };
+        BalanceMovementDto: {
+            /** @description MT5's own deal ticket, quotable to support. */
+            ticket: string;
+            /**
+             * Format: uuid
+             * @description The trading account it happened on.
+             */
+            accountId: string;
+            /** @description The MT5 login, as it appears in MetaTrader. */
+            login: string;
+            /** @description MT5's numeric action code. */
+            action: number;
+            /** @description A readable name for the action. An unknown code renders as `action <n>` rather than as a guess, so a client can quote it. */
+            actionLabel: string;
+            /**
+             * @description The amount, SIGNED — negative is money leaving the account. A string, like every other amount on this surface (§6.1): it is never a JS number.
+             * @example -250.00000000
+             */
+            amount: string;
+            /** @description The dealer's reason, shown in the MT5 deal comment. Null when none was given. ⚠️ `type` is explicit BECAUSE of `nullable`: a nullable property with no declared type generates as `Record<string, never>` in the frontend, which is not a string and not null — the typecheck caught it here rather than a screen rendering an object. */
+            comment: string | null;
+            /** Format: date-time */
+            dealtAt: string;
+        };
+        BalanceMovementPageDto: {
+            /**
+             * Format: date-time
+             * @description Start of the window, inclusive.
+             */
+            from: string;
+            /**
+             * Format: date-time
+             * @description End of the window, inclusive.
+             */
+            to: string;
+            /** @description Newest first, across every account. */
+            items: components["schemas"]["BalanceMovementDto"][];
+            /** @description TRUE when the window held more movements than one response carries, so the list is the most recent 500 rather than all of them. A capped list that does not say it is capped is a number the reader will trust — this product has shipped that twice. */
+            truncated: boolean;
         };
         DashboardStatsDto: {
             /** @description Trading accounts held, live and demo together. */
@@ -9635,6 +9699,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountHistoryDto"];
+                };
+            };
+        };
+    };
+    TradingController_myBalanceMovements: {
+        parameters: {
+            query?: {
+                /** @description Inclusive, YYYY-MM-DD. Defaults to 30 days before `to`. */
+                from?: string;
+                /** @description Inclusive, YYYY-MM-DD. Defaults to today. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BalanceMovementPageDto"];
                 };
             };
         };
