@@ -18,15 +18,21 @@ import type { ClientStats } from '@/lib/api/admin';
  * wrong fix — the day a pending state is wired the count must come back on its
  * own rather than waiting for somebody to remember this file.
  */
-const stats = (over: Partial<ClientStats['byStatus']> = {}): ClientStats =>
-  ({
-    total: 10,
-    registeredToday: 0,
-    registeredThisWeek: 0,
-    registeredThisMonth: 0,
-    byStatus: { active: 8, pending: 0, suspended: 2, ...over },
-    byVerification: { verified: 5, notVerified: 5 },
-  }) as ClientStats;
+/*
+ * NO `as ClientStats`. The first version of this double had one, and the cast is
+ * what let it write `registeredToday / registeredThisWeek / registeredThisMonth`
+ * — a shape the DTO does not have — and still compile here, failing later and
+ * elsewhere. `ClientStats` is an alias of the GENERATED schema, so building the
+ * object to the type is the whole point: it is what makes a contract change show
+ * up as a red test rather than as a green one asserting a shape the API stopped
+ * sending.
+ */
+const stats = (over: Partial<ClientStats['byStatus']> = {}): ClientStats => ({
+  total: 10,
+  registered: { today: 0, thisWeek: 0, thisMonth: 0 },
+  byStatus: { active: 8, pending: 0, suspended: 2, ...over },
+  byVerification: { verified: 5, notVerified: 5 },
+});
 
 describe('the account-status split', () => {
   it('does not offer Pending while nothing can produce it', () => {
