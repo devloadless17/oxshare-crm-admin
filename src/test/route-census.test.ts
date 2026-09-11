@@ -78,7 +78,6 @@ const UNTESTED = new Set([
   'src/app/(console)/currencies/page.tsx',
   'src/app/(console)/payment-methods/page.tsx',
   'src/app/(console)/profile/page.tsx',
-  'src/app/(console)/reconciliation/page.tsx',
   'src/app/(console)/roles/[id]/edit/page.tsx',
   'src/app/(console)/roles/new/page.tsx',
   'src/app/page.tsx',
