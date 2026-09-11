@@ -25,9 +25,10 @@ import { t } from '@/lib/i18n';
  * is also the relief the palette requires — two light-mode slots sit below 3:1
  * on the card, so every value has a text route.
  *
- * Three segments, so slots 1–3 in fixed order. Those three are the set the
+ * Up to three segments, so slots 1–3 in fixed order. Those three are the set the
  * palette validates under `--pairs all`, which is the harder test and the right
- * one here: any two wedges can end up adjacent.
+ * one here: any two wedges can end up adjacent. In practice it renders TWO,
+ * because `pending` is unreachable — see the note beside the segment list.
  */
 
 interface Segment {
@@ -40,6 +41,33 @@ interface Segment {
 export function ClientSplitChart({ stats }: { stats: ClientStats }) {
   const tokens = useChartTokens();
 
+  /*
+   * PENDING IS OMITTED WHILE IT IS ZERO, and that is not a cosmetic tidy.
+   *
+   * `user_status` is active | pending | suspended, but NO CODE PATH PRODUCES
+   * pending: registration writes `active`, and `setClientStatus` is typed
+   * 'active' | 'suspended', so there is no way in and no way out. The count is
+   * therefore permanently 0 — not "0 right now".
+   *
+   * A legend reading "Pending — 0" is read by an operator as a fact about
+   * CLIENTS ("nobody is pending") when it is a fact about the PRODUCT ("nobody
+   * can be"), and nothing on the card tells those apart. That is the identical
+   * defect removed from the client-status FILTER, on a second surface: a control
+   * the DATA cannot back, rather than one the API cannot.
+   *
+   * Kept CONDITIONAL rather than deleted, which is the same shape as the filter
+   * fix — the offer goes, the handling stays. If a real pending state is ever
+   * wired, the segment comes back on its own WITH its transitions rather than
+   * ahead of them, and no one has to remember this file.
+   *
+   * The colour is bound to the KEY, not to the position, so dropping a segment
+   * cannot re-skin the two that remain. Suspended stays slot 3 whether pending
+   * is shown or not.
+   *
+   * Deliberately NOT a general "hide any zero segment" rule. Zero SUSPENDED is
+   * a true and useful statement about a reachable state, and hiding it would
+   * lose information. Only an unreachable state is a lie.
+   */
   const segments: Segment[] = [
     {
       key: 'active',
@@ -59,7 +87,7 @@ export function ClientSplitChart({ stats }: { stats: ClientStats }) {
       count: stats.byStatus.suspended,
       colour: tokens.series[2] ?? '#1baf7a',
     },
-  ];
+  ].filter((segment) => segment.key !== 'pending' || segment.count > 0);
 
   const total = segments.reduce((sum, segment) => sum + segment.count, 0);
 
