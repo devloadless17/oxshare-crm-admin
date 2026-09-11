@@ -61,13 +61,16 @@ function pages(root = 'src/app'): string[] {
 /**
  * Screens with no colocated `page.test.tsx`, as of this check landing.
  *
- * FROZEN. Remove entries as they gain tests; never add one. The most
- * expensive omission is named first: `transactions/page.tsx` is the withdrawals
- * desk, the largest file in the app and the only core money screen with no
- * render test at all.
+ * FROZEN. Remove entries as they gain tests; never add one.
+ *
+ * The entry this list used to name first — `transactions/page.tsx`, the
+ * withdrawals desk, the largest file in the app and once "the only core money
+ * screen with no render test at all" — is GONE from it, which is the ratchet
+ * working. It was closed in Domain 6 because the desk decides whether a
+ * client's money leaves the platform, and a failed load there reads as an empty
+ * queue.
  */
 const UNTESTED = new Set([
-  'src/app/(console)/transactions/page.tsx',
   'src/app/(console)/api-keys/new/page.tsx',
   'src/app/(console)/api-keys/page.tsx',
   'src/app/(console)/bridge/page.tsx',
