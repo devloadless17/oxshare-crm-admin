@@ -61,8 +61,61 @@ export interface Resource<T> {
    * holds the answer.
    */
   updatedAt: number;
-  /** Resolves once the refetch settles, so callers can await it. */
-  refetch: () => Promise<unknown>;
+  /**
+   * Resolves once the refetch settles, so callers can await it — AND says
+   * whether it worked.
+   *
+   * It returned `Promise<unknown>`, which let a caller await the settle and gave
+   * it no way to know the outcome. React Query RESOLVES this promise with a
+   * result object on failure rather than rejecting, so the natural-looking
+   * `try { await refetch() } catch` is dead code — and the profile's session
+   * list shipped exactly that, reporting a successful sign-out while the row it
+   * failed to refresh stayed on screen.
+   *
+   * `isError` is the minimum a caller needs to tell "the screen is up to date"
+   * from "the screen is stale and I know it".
+   */
+  refetch: () => Promise<{ isError: boolean }>;
+  /**
+   * THE LAST REFRESH FAILED AND YOU ARE LOOKING AT THE PREVIOUS ANSWER.
+   *
+   * Only ever true alongside `status: 'ready'` — a screen with no data at all
+   * is an ERROR, and that is what the other five states are for. This is the
+   * case none of them covers: the query HAS data, a refresh was attempted, and
+   * it did not land.
+   *
+   * ── Why this cannot be read off the query ──────────────────────────────────
+   *
+   * It was measured, twice and in both apps, because the answer is not what
+   * anyone expects. After a failed BACKGROUND refetch TanStack reports:
+   *
+   *   status success · isError false · fetchStatus idle · failureCount 0
+   *   failureReason null · errorUpdateCount 0 · errorUpdatedAt 0 · error null
+   *
+   * Every field clean. A query that has just failed to refresh is indis-
+   * tinguishable from one that succeeded, so `AsyncBoundary` renders the happy
+   * branch over stale data and nothing anywhere says so. The only channel
+   * TanStack offers is the value `refetch()` RESOLVES with — which reaches the
+   * one caller that happened to await it, and no one else.
+   *
+   * So this is tracked here, in the one place every screen already goes
+   * through. An ABORT is deliberately not a failure: React Query cancels
+   * superseded requests on every keystroke of a search box, and counting those
+   * would make the flag permanently true on exactly the screens that use it
+   * most — a declaration that is always true is as useless as one that is
+   * always false.
+   *
+   * ── Why it matters more here than it sounds ───────────────────────────────
+   *
+   * On a list of clients, stale means slightly old. On a WALLET it means a
+   * BALANCE that is not the balance — and this project has already shipped that
+   * failure twice from the other direction: a wallet reading `$0.00` to
+   * somebody holding $700, and an accounts page telling a client with three
+   * live accounts they had none. Both were fixed by making the screen render
+   * what the database actually said. This is the third way to get there, and
+   * the only one the six states could not express.
+   */
+  refreshFailed: boolean;
 }
 
 /**
@@ -116,19 +169,59 @@ export function useResource<T>(
     placeholderData: (previous) => previous, // keep the page visible while paging
   });
 
+  /*
+   * ── A FAILED REFRESH OVER DATA WE ALREADY HAVE IS NOT AN ERROR ────────────
+   *
+   * `query.isError` goes TRUE when a BACKGROUND refetch fails, even though the
+   * previous answer is still in `data`. Deriving the status from `isError`
+   * alone therefore replaced a populated screen with an error card on any
+   * transient blip — a balance swapped for "something went wrong" because one
+   * poll missed.
+   *
+   * ⚠️ AND IT DID IT NON-DETERMINISTICALLY, which is why it went unnoticed and
+   * why two separate measurements of it were wrong. Read the observer straight
+   * after the failed refetch and it still says `success`; force ANY unrelated
+   * re-render — a sibling's state, a parent, a modal opening — and the same
+   * query reports `error` with the data still sitting there. Measured:
+   *
+   *   AFTER REFETCH: success/isError=false | AFTER UNRELATED RE-RENDER: error/isError=true
+   *
+   * So whether a screen showed stale data or an error page depended on whether
+   * something else happened to re-render it. Both outcomes were reachable from
+   * the same failure, which is worse than either one.
+   *
+   * The rule below is deterministic: data we hold keeps being shown, and the
+   * failure is reported through `refreshFailed` instead of by blanking the
+   * screen. That is the same principle as the wallet card's — render what the
+   * server actually said, never an invented emptiness.
+   *
+   * THE EXCEPTION IS AUTHORIZATION. A 401 or a 403 arriving on a refresh is not
+   * a blip, it is the answer changing: the session ended, or the permission was
+   * taken away. Continuing to show rows to somebody who has just been refused
+   * them is exactly the leak RBAC-03 exists to prevent, so those two win over
+   * the data we hold.
+   */
+  const httpStatus = httpStatusOf(query.error);
+  const hasData = query.data !== undefined;
   const status: ResourceStatus = query.isPending
     ? 'loading'
     : query.isError
-      ? httpStatusOf(query.error) === 404
-        ? 'unavailable'
-        : httpStatusOf(query.error) === 403
-          ? 'forbidden'
-          : httpStatusOf(query.error) === 401
-            ? 'unauthenticated'
-            : 'error'
+      ? httpStatus === 403
+        ? 'forbidden'
+        : httpStatus === 401
+          ? 'unauthenticated'
+          : hasData
+            ? 'ready'
+            : httpStatus === 404
+              ? 'unavailable'
+              : 'error'
       : 'ready';
 
   return {
+    // Derived, never tracked: it is exactly "the last fetch failed AND we still
+    // have the previous answer to show". Never true beside a spinner or an
+    // error card, because those already say the screen is not current.
+    refreshFailed: query.isError && hasData && status === 'ready',
     status,
     data: query.data,
     isFetching: query.isFetching,

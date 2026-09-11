@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { DataTable, compareValues } from './data-table';
@@ -166,5 +166,70 @@ describe('sort scope note', () => {
     await user.click(screen.getByRole('button', { name: /amount/i }));
 
     expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * A column with no `sortKey` is NOT sortable — the contract the header-text
+ * fallback silently broke.
+ *
+ * `sortKey` used to fall back to the header TEXT, so every column with a string
+ * header offered a sort whatever the caller intended. Both outcomes were
+ * silent, and each app hit a different one:
+ *
+ *   admin   the click set `?sort=Kind` in the URL, the page's allow-list check
+ *           dropped it, and the request went out unsorted — a header that
+ *           toggles an arrow and reorders nothing. /commissions had two.
+ *   portal  the value was sent as `?sort=`, the API answered 400, and the
+ *           screen rendered "Could not load your transactions" over an empty
+ *           page. That is how it was reported.
+ *
+ * Asserted on the RENDERED header rather than on the internals, because the
+ * fallback lived in two places and a test of one would have passed while the
+ * other still broke the screen.
+ */
+describe('sortability is declared, never inferred from the header text', () => {
+  const rows = [{ id: '1', amount: '9.00000000' }];
+  const rowKey = (r: { id: string }) => r.id;
+
+  it('renders no sort control for a column that names no sortKey', () => {
+    renderWithProviders(
+      <DataTable
+        rows={rows}
+        rowKey={rowKey}
+        columns={[{ header: 'Method', cell: () => 'Whish' }]}
+        onSortChange={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /method/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Method')).toBeInTheDocument();
+  });
+
+  it('offers exactly the declared sortKeys, and hands back nothing else', async () => {
+    const user = userEvent.setup();
+    const seen: (string | null)[] = [];
+    renderWithProviders(
+      <DataTable
+        rows={rows}
+        rowKey={rowKey}
+        columns={[
+          { header: 'Method', cell: () => 'Whish' },
+          { header: 'Amount', sortKey: 'amount', sortType: 'money', cell: (r) => r.amount },
+        ]}
+        onSortChange={(key) => seen.push(key)}
+      />,
+    );
+
+    // Click EVERY sort control the table chose to render, not the one column
+    // this test knows about: the fallback's whole effect was rendering extra
+    // ones, so a test that clicks only the keyed column cannot see it.
+    const headers = screen.getAllByRole('columnheader');
+    for (const header of headers) {
+      const control = within(header).queryByRole('button');
+      if (control) await user.click(control);
+    }
+
+    expect(seen).toEqual(['amount']);
   });
 });

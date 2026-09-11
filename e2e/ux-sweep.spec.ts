@@ -111,7 +111,40 @@ test.describe('no page scrolls sideways at its own design width', () => {
       await page.waitForLoadState('networkidle');
 
       const overflow = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
+        /*
+         * ⚠️ `body.scrollWidth`, NEVER `documentElement.scrollWidth`.
+         *
+         * `globals.css` sets `overflow: hidden` on html AND body — deliberately,
+         * it is what makes the shell's own container the only thing that
+         * scrolls. The consequence: `documentElement.scrollWidth` is PINNED to
+         * `clientWidth` and can never exceed it, so the assertion below was
+         * structurally satisfied on every screen whatever its layout.
+         *
+         * MEASURED, not reasoned: on /financial at 400px, injecting a 3000px
+         * child left documentElement at 400 while body.scrollWidth moved to
+         * 3000. Two mutations — shrinking the viewport to 160px, and injecting
+         * that child — BOTH passed against the old form.
+         *
+         * `Math.max` of the two rather than body alone, because THE TWO APPS
+         * DIFFER and a per-app instrument would be a second thing to keep in
+         * step. Measured in the portal by `crm-92`: its `html` computes
+         * `overflow-x: visible`, so `documentElement.scrollWidth` DOES reach
+         * 3000 there and its check was never vacuous. Taking the max is correct
+         * in both without branching.
+         *
+         * ⚠️ And the reason I assumed otherwise is worth keeping: root
+         * `CLAUDE.md` says these two `globals.css` files are byte-identical.
+         * They are not, any more — the admin gained this `overflow: hidden`
+         * rule and the portal never did. A claim about a twin file that was
+         * true when written is still a claim about a document nobody has open.
+         *
+         * The clipping makes it worse rather than better: with overflow hidden
+         * a reader cannot scroll to content that is too wide, so it is
+         * unreachable rather than merely awkward. The symptom is suppressed and
+         * the defect invisible — which is exactly "a test that never attempts
+         * the forbidden thing".
+         */
+        scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
         clientWidth: document.documentElement.clientWidth,
       }));
 
@@ -149,16 +182,74 @@ test.describe('no page scrolls sideways at its own design width', () => {
  * treats as the floor, and it is narrow enough to catch a fixed `min-width` or
  * an unwrapped filter row, which is what actually breaks these layouts.
  */
-test.describe('Domain 4 screens do not scroll sideways on a phone', () => {
+test.describe('console screens do not scroll sideways on a phone', () => {
   test.use({ viewport: { width: 400, height: 800 } });
 
-  for (const path of ['/admin-users', '/roles', '/audit-log']) {
+  /*
+   * ⚠️ THIS LIST IS HAND-MAINTAINED, AND THAT IS THE DEFECT IT KEEPS PRODUCING.
+   *
+   * It was `['/admin-users', '/roles', '/audit-log']` — Domain 4's three
+   * screens — and the block was named for that domain. Domain 6 then closed
+   * without adding the MONEY screens, so the five surfaces where an operator
+   * moves a client's funds were absent from the phone check entirely, while the
+   * 1280px check beside it covered them automatically by deriving from
+   * `CONSOLE_PAGES`.
+   *
+   * The identical gap was found in the portal's own sweep in the same session:
+   * `/deposit`, `/withdraw` and `/transfer` — the three screens that ACT on
+   * money — were missing while the six that merely display it were covered.
+   * **The screens you look at get swept; the screens you act on get forgotten**,
+   * because a hand-written list grows by whoever last remembered it.
+   *
+   * All of them pass, so in both cases the defect was the COVERAGE rather than
+   * the layout. That is worth stating: a gap that turns out to be clean is
+   * still a gap, because nothing was stopping it from being dirty.
+   *
+   * It stays hand-written rather than derived from `CONSOLE_PAGES` because a
+   * phone run of every console page is minutes of CI for screens an operator
+   * genuinely opens at a desk. The judgement is which surfaces a person might
+   * reach on a phone — a withdrawal a client is chasing, a reconciliation
+   * somebody checks after an alert — and that is a decision, not a filesystem
+   * walk. **Adding to it is the maintenance cost of that decision.**
+   */
+  for (const path of [
+    '/admin-users',
+    '/roles',
+    '/audit-log',
+    // Domain 6 — the money surface. An operator chasing a withdrawal or
+    // checking a reconciliation after an alert does it from wherever they are.
+    '/transactions',
+    '/financial',
+    '/reconciliation',
+    '/wallets',
+    '/ledger',
+  ]) {
     test(`${path} fits 400px`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState('networkidle');
 
       const overflow = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
+        /*
+         * ⚠️ `body.scrollWidth`, NEVER `documentElement.scrollWidth`.
+         *
+         * `globals.css` sets `overflow: hidden` on html AND body — deliberately,
+         * it is what makes the shell's own container the only thing that
+         * scrolls. The consequence: `documentElement.scrollWidth` is PINNED to
+         * `clientWidth` and can never exceed it, so the assertion below was
+         * structurally satisfied on every screen whatever its layout.
+         *
+         * MEASURED, not reasoned: on /financial at 400px, injecting a 3000px
+         * child left documentElement at 400 while body.scrollWidth moved to
+         * 3000. Two mutations — shrinking the viewport to 160px, and injecting
+         * that child — BOTH passed against the old form.
+         *
+         * The clipping makes it worse rather than better: with overflow hidden
+         * a reader cannot scroll to content that is too wide, so it is
+         * unreachable rather than merely awkward. The symptom is suppressed and
+         * the defect invisible — which is exactly "a test that never attempts
+         * the forbidden thing".
+         */
+        scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
         clientWidth: document.documentElement.clientWidth,
         height: document.body.scrollHeight,
         text: (document.body.innerText ?? '').trim().length,
@@ -233,7 +324,27 @@ test.describe('Domain 4 screens do not scroll sideways on a phone', () => {
       await expect(page.locator('input[type="password"]').first()).toBeVisible();
 
       const overflow = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
+        /*
+         * ⚠️ `body.scrollWidth`, NEVER `documentElement.scrollWidth`.
+         *
+         * `globals.css` sets `overflow: hidden` on html AND body — deliberately,
+         * it is what makes the shell's own container the only thing that
+         * scrolls. The consequence: `documentElement.scrollWidth` is PINNED to
+         * `clientWidth` and can never exceed it, so the assertion below was
+         * structurally satisfied on every screen whatever its layout.
+         *
+         * MEASURED, not reasoned: on /financial at 400px, injecting a 3000px
+         * child left documentElement at 400 while body.scrollWidth moved to
+         * 3000. Two mutations — shrinking the viewport to 160px, and injecting
+         * that child — BOTH passed against the old form.
+         *
+         * The clipping makes it worse rather than better: with overflow hidden
+         * a reader cannot scroll to content that is too wide, so it is
+         * unreachable rather than merely awkward. The symptom is suppressed and
+         * the defect invisible — which is exactly "a test that never attempts
+         * the forbidden thing".
+         */
+        scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
         clientWidth: document.documentElement.clientWidth,
       }));
       expect(
