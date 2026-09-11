@@ -37,6 +37,36 @@
 
 repo_root=$(git rev-parse --show-toplevel) || exit 0
 
+# ── ⚠️ OPT-IN. THIS DOES NOTHING UNLESS OXSHARE_PREPUSH_VERIFY IS SET ────────
+#
+# It ran for EVERYBODY until 11 Sep 2026, and that was wrong. A push is a normal
+# thing a colleague does several times a day, and this gate made every one of
+# them wait — minutes in the frontends, about TEN in the backend, where the suite
+# starts a real Postgres. It printed three lines, went silent for the whole
+# Testcontainers step, and from outside was indistinguishable from a hang.
+#
+# That is the failure this hook was written to prevent, in the dimension nobody
+# tested: not "does it refuse correctly" but "what does it look like while it
+# works". A gate people wait on and cannot read is one they route around, and the
+# route around is `--no-verify` permanently rather than once.
+#
+# The owner keeps it and carries the cost on purpose — they are the one who
+# answers for CI being green. Everybody else pushes at the speed of a push.
+#
+#   export OXSHARE_PREPUSH_VERIFY=1     # in your shell profile, to opt IN
+#
+# Deliberately an ENV VAR rather than a committed flag: a file would either be in
+# the repo (and therefore on every machine, which is what we are undoing) or
+# gitignored (and therefore a gate that exists on one machine, which this project
+# has a rule about). A variable is honestly per-developer and says so.
+#
+# This is NOT a weakening of the gate. `scripts/ci-local.sh verify <repo>` is the
+# same command, runs the same eight checks, and is one line to type before a
+# push. What changed is who pays for it by default.
+if [ -z "${OXSHARE_PREPUSH_VERIFY:-}" ]; then
+  exit 0
+fi
+
 # TWO CANDIDATES, and the second is the one that survives a fresh machine.
 #
 # `crm/scripts/ci-local.sh` is the documented path and the one the README names,
