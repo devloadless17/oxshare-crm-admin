@@ -81,7 +81,43 @@ async function railIsLive(admin: Awaited<ReturnType<typeof adminApiSession>>): P
       'Rate limited while probing the Rival connection — inconclusive, not "off". See above.',
     );
   }
-  if (!probe.ok()) throw new Error(`Rival connection probe failed: HTTP ${probe.status()}`);
+  /*
+   * A FAILED probe is an ANSWER when nobody declared the rail should be live.
+   *
+   * This threw on any non-ok probe, and the reasoning above — an inconclusive
+   * probe must never be read as "off" — is right and is kept. But it was applied
+   * to a case it does not cover: the rail SERVICE not running at all.
+   * `RIVAL_BASE_URL` is `http://localhost:4001`, and on a machine where nothing
+   * is listening there the backend's own test-connection endpoint answers 502.
+   * That is not "I could not find out". It is the most definite possible "no".
+   *
+   * Treating it as inconclusive cost SEVEN failures in every full admin run —
+   * six here and the cancel leg of `withdrawals-desk`, whose approve step hands
+   * off to this rail. Seven reds that mean "an external service is not running
+   * locally", recurring in every domain's criterion-6 measurement, each needing
+   * a paragraph to discount.
+   *
+   * That is the failure this suite argues against everywhere else: a reader who
+   * learns to skip seven red tests will skip the eighth. `E2E_STRICT` exists so
+   * a SKIP cannot hide; it is worth just as much that a FAILURE means something.
+   *
+   * So the declaration decides. `requireRail` already implements the contract:
+   * with `E2E_RAIL=on` an absent rail is a hard failure naming what to fix;
+   * without it, these cases skip visibly. Returning false here is what lets that
+   * code be reached — it never was, because this line threw first.
+   *
+   * The 429 above still throws, in both modes, because THAT one really is
+   * inconclusive and is the case the docblock was written for.
+   */
+  if (!probe.ok()) {
+    if (process.env['E2E_RAIL'] === 'on') {
+      throw new Error(
+        `Rival connection probe failed: HTTP ${probe.status()} — and E2E_RAIL=on declares ` +
+          'the rail should be live here. Start Rival, or unset E2E_RAIL to let these skip.',
+      );
+    }
+    return false;
+  }
   return ((await probe.json()) as { ok?: boolean }).ok === true;
 }
 
