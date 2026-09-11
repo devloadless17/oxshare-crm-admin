@@ -30,16 +30,26 @@ import { t } from '@/lib/i18n';
  *
  * ## A missing endpoint is a distinct state
  *
- * None of the `/export` routes exist on the backend yet. A 404 therefore means
- * "not built" rather than "broken", exactly as `useResource` treats it for
- * whole screens — so the button says so and stops offering itself, instead of
- * showing a red failure that invites the operator to retry forever. Every other
- * status keeps the API's own message: on a permission-gated back office, "you
- * do not have permission to export clients" is the useful half of a 403.
+ * A 404 means "not built" rather than "broken", exactly as `useResource` treats
+ * it for whole screens — so the button says so and stops offering itself,
+ * instead of showing a red failure that invites the operator to retry forever.
+ * Every other status keeps the API's own message: on a permission-gated back
+ * office, "you do not have permission to export clients" is the useful half of
+ * a 403.
  *
- * The button is NOT hidden pre-emptively while the backend is missing. Hiding
+ * ⚠️ This paragraph opened with "None of the `/export` routes exist on the
+ * backend yet" until 11 Sep 2026, long after they all shipped — and
+ * `lib/api/export.ts` had already corrected itself ("EVERY ONE OF THESE NOW
+ * EXISTS"), so the two files beside each other said opposite things. A reader
+ * of this one concluded the whole export surface was somebody else's to-do.
+ *
+ * The button is NOT hidden pre-emptively while an endpoint is missing. Hiding
  * it would mean nobody notices the day it starts working, and the endpoint list
- * would drift out of the UI the way `BackendPending` exists to prevent.
+ * would drift out of the UI the way `BackendPending` exists to prevent. That
+ * rule is worth stating in the other direction too, because that is the way it
+ * actually failed: `/admin/audit-log/export` was served, permission-gated and
+ * covered by an e2e spec for months while NO SCREEN RENDERED THIS BUTTON for
+ * it. Drift does not need a missing endpoint — a missing call site is enough.
  */
 export function ExportButton({
   resource,

@@ -180,12 +180,33 @@ export function InviteAdminModal({
         email: trimmedEmail,
         roleId,
         /*
-         * Only what was actually chosen. An empty territory is unrestricted —
-         * the absence of a choice, not a value — the mask is sent only when
-         * forked, and the intake grant only when it DIFFERS from the default
-         * the API will apply anyway (true, or false for an inviter who cannot
-         * grant it). Sending the default would demand `admins.scope` for a
-         * choice that was never made.
+         * Only what was actually chosen. The mask is sent only when forked, and
+         * the intake grant only when it DIFFERS from the default the API will
+         * apply anyway (true, or false for an inviter who cannot grant it).
+         * Sending the default would demand `admins.scope` for a choice that was
+         * never made.
+         *
+         * ⚠️ OMITTING `scopedTagIds` IS LOAD-BEARING — do not "tidy" this into
+         * always sending the array. What absence means is decided by WHO IS
+         * INVITING, and the API is the only place that knows:
+         *
+         *   unrestricted inviter, no tags picked → unrestricted invitee
+         *   SCOPED inviter, no tags picked       → inherits the INVITER's territory
+         *
+         * Sending `[]` instead is not equivalent and is not safer. From a
+         * scoped inviter an explicit `[]` is REFUSED by name (`assertScopable`:
+         * an empty scope means every client, which is sight they do not hold),
+         * so an operator who simply picked no tags would get an error instead
+         * of a sensible colleague.
+         *
+         * This comment previously said an empty territory is "unrestricted, the
+         * absence of a choice, not a value", which is what the API did until
+         * 11 Sep 2026 — and it was a privilege escalation: `createInvite` gated
+         * BOTH `admins.scope` and `assertScopable` on the key being present, so
+         * omitting it skipped both, and an invite with no territory produces an
+         * admin with no scope rows, which means UNRESTRICTED. A scoped
+         * sub-admin holding `admins.create` could mint a colleague who saw
+         * every client, and this line is what sent that request.
          */
         ...(scopedTagIds.length > 0 ? { scopedTagIds } : {}),
         ...(seesUntriaged !== canGrantIntake ? { seesUntriaged } : {}),

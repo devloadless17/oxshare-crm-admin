@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * EVERY SORT THE CONSOLE OFFERS IS ONE THE API ACCEPTS.
@@ -120,6 +121,124 @@ function consoleOffers(name: string): Set<string> | null {
   const withoutComments = match[1].replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
   return new Set([...withoutComments.matchAll(/'([^']+)'/g)].map((m) => m[1] ?? ''));
 }
+
+/**
+ * ⚠️ AND EVERY SCREEN THAT OFFERS A SORT MUST BE ONE THIS FILE CAN SEE.
+ *
+ * The census above reads `<NAME>_SORT_KEYS` out of `lib/api/admin.ts`. That is
+ * its subject list, and it is DERIVED — so a screen which declares its sortable
+ * headers INLINE, in its own `columns` array, is not checked by it at all. Not
+ * reported as uncovered: invisible.
+ *
+ * Measured 11 Sep 2026: ten console screens declare `sortKey:`, and SEVEN import
+ * an allowlist. The other three — roles, products, agencies — were outside the
+ * census entirely, and the roles screen offers a `description` sort that
+ * `ROLE_SORT_COLUMNS` does not accept. All three sort client-side against
+ * unpaginated endpoints, so nothing ever asks the API for that key and the 400
+ * it would answer is unreachable.
+ *
+ * That mismatch is left in place DELIBERATELY, and the three files now say so
+ * together (`roles.store.ts`, `roles/page.tsx`, here). Adding the key was tried
+ * and withdrawn the same day: a key in a `*_SORT_COLUMNS` map is a promise of an
+ * INDEX, not of a column — `admin-sort-indexes.spec.ts` imports every allowlist
+ * and EXPLAINs each ordering under `enable_seqscan = off` — so it would have
+ * bought a b-tree on a nullable text column of a ten-row table for a sort no
+ * caller performs. The day any of these three is wired to the server, that spec
+ * forces the index into the same commit, which is the outcome the roles
+ * screen's docblock asks for, arrived at by a failing test rather than by
+ * trusting somebody to have read a comment.
+ *
+ * This is the vacuity shape one level out from the one the file above guards:
+ * the check was correct about everything it looked at, and the thing it did not
+ * look at is where the mismatch was. A derived subject list needs an assertion
+ * that it covers the population — not only a floor on how many it found.
+ *
+ * So a screen with inline sort keys must be one of two things, explicitly:
+ * covered by an allowlist, or declared client-side with the reason. Silence is
+ * the state this refuses.
+ */
+const CLIENT_SIDE_SORTED = new Set([
+  // `GET /admin/roles` returns every role as an array — no page, limit or
+  // cursor — so the screen holds the whole dataset and DataTable orders all of
+  // it. Its endpoint DOES accept sort/order, which the page does not use.
+  'roles',
+  // `GET /admin/products` and `/admin/agencies` take no query parameters at
+  // all. Unpaginated by construction, so client-side ordering IS ordering the
+  // dataset.
+  'products',
+  'agencies',
+]);
+
+describe('every screen that offers a sort is visible to this census', () => {
+  /*
+   * Walked rather than globbed. `fs.globSync` exists on this Node but is not in
+   * the typed surface TypeScript compiles against, so it runs green under vitest
+   * and fails `tsc --noEmit` — a test that passes and a repo that does not
+   * typecheck, which is the split this project's gates exist to close and which
+   * landed in this repo once already today.
+   */
+  const CONSOLE_ROOT = join('src', 'app', '(console)');
+  const walk = (dir: string): string[] =>
+    readdirSync(dir).flatMap((entry) => {
+      const full = join(dir, entry);
+      return statSync(full).isDirectory() ? walk(full) : full.endsWith('page.tsx') ? [full] : [];
+    });
+
+  const screens = walk(CONSOLE_ROOT)
+    .filter((file) => readFileSync(file, 'utf8').includes('sortKey:'))
+    .map((file) => ({
+      file,
+      name: file
+        .slice(CONSOLE_ROOT.length + 1)
+        .replace(/[\\/]page\.tsx$/, '')
+        .replace(/\\/g, '/'),
+      censused: readFileSync(file, 'utf8').includes('_SORT_KEYS'),
+    }));
+
+  it('found the screens it is meant to be checking', () => {
+    /*
+     * NON-VACUITY. Every assertion below passes trivially against an empty
+     * list, and an empty list is exactly what a broken glob produces — which is
+     * the failure this whole file exists to name.
+     */
+    expect(
+      screens.length,
+      'no console screen appears to declare a sortKey, which cannot be true of this app — ' +
+        'the walk or the filter is not matching, and every case below is passing over nothing',
+    ).toBeGreaterThan(5);
+  });
+
+  it('has no screen offering a sort that is neither censused nor declared client-side', () => {
+    const invisible = screens
+      .filter((s) => !s.censused && !CLIENT_SIDE_SORTED.has(s.name))
+      .map((s) => s.name);
+
+    expect(
+      invisible,
+      'these screens offer sortable headers, do not use a *_SORT_KEYS allowlist, and are ' +
+        'not declared client-side — so nothing checks their sort keys against the API. ' +
+        'Either give the screen an allowlist (and add it to OFFERED_TO above), or add it to ' +
+        'CLIENT_SIDE_SORTED with the reason its endpoint is unpaginated.',
+    ).toEqual([]);
+  });
+
+  it('has no STALE client-side exemption — each one still exists and still avoids the allowlist', () => {
+    /*
+     * The mirror, and the reason an exemption list needs one: a name left here
+     * after the screen gained an allowlist, or after the screen was deleted,
+     * silently excuses nothing and looks like diligence.
+     */
+    const names = new Set(screens.map((s) => s.name));
+    const stale = [...CLIENT_SIDE_SORTED].filter(
+      (name) => !names.has(name) || screens.find((s) => s.name === name)?.censused === true,
+    );
+    expect(
+      stale,
+      'these are exempted as client-side but no longer need to be — the screen is gone, or ' +
+        'it now uses an allowlist and is censused for real. Remove them.',
+    ).toEqual([]);
+  });
+});
 
 describe.skipIf(SPEC === null)(
   'every sort the console offers is one the API accepts ' +

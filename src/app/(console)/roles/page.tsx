@@ -136,10 +136,28 @@ export default function RolesPage() {
   /*
    * SORTING HERE IS CLIENT-SIDE, and on this table that is the honest answer.
    *
-   * `GET /admin/roles` takes no `page`, `limit`, `sort` or `order` — it is a
-   * bare `select().from(roles)` returning every role as an array, which this
-   * page then filters. So `rows` IS the dataset rather than a page of it, and
-   * DataTable's comparator orders all of it.
+   * `GET /admin/roles` is UNPAGINATED — no `page`, `limit` or `cursor`. It
+   * returns every role as an array, which this page then filters, so `rows` IS
+   * the dataset rather than a page of it and DataTable's comparator orders all
+   * of it.
+   *
+   * ⚠️ It DOES accept `sort` and `order`, and this said it did not until
+   * 11 Sep 2026. The correction matters because of the rule below: the endpoint
+   * already has the server-side ordering this page would need, so "gain a
+   * server-side handler" is a smaller change than it reads, and a reader who
+   * believed the old sentence would think the API needed building first.
+   *
+   * The offered keys and the API's `ROLE_SORT_COLUMNS` deliberately DIVERGE:
+   * `description` is sortable here and is absent there. That was briefly
+   * "fixed" on 11 Sep 2026 and the fix was withdrawn, because a key in that map
+   * is a promise of an INDEX — `admin-sort-indexes.spec.ts` asks the planner and
+   * refuses an allowlist wider than the indexes serving it — so the one-line
+   * change also bought a b-tree on a nullable text column of a ten-row table,
+   * for a sort no caller performs while this page holds the whole dataset.
+   *
+   * So the key goes in on the day this page paginates, with the index that spec
+   * will demand in the same commit. That is the instruction below arriving as a
+   * failing test rather than as a comment somebody has to have read.
    *
    * R-2.5's objection is that sorting the 25 rows you happen to hold looks
    * identical to sorting the dataset. Here they are the same set, so no

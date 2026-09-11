@@ -7,6 +7,7 @@ import type { AuditEntry, AuditListResponse, AuditSortKey } from '@/lib/api/admi
 import { AUDIT_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { ExportButton } from '@/components/export-button';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { PageLoader } from '@/components/ui/loader';
 import {
@@ -171,6 +172,26 @@ function AuditLogPageContent() {
   const total = data?.total ?? 0;
 
   /*
+   * The SAME two filters the list sends, and never its paging.
+   *
+   * `GET /admin/audit-log/export` takes `action` and `subjectType` and nothing
+   * else, which is exactly this screen's filter set — so "export what I am
+   * looking at" reuses the list's own query language rather than inventing a
+   * second one that can drift from it.
+   *
+   * The export is deliberately NOT the rows in memory: those are one page of
+   * 25, and a file quietly containing 25 of four thousand rows is discovered
+   * during an audit rather than here. The endpoint reads every matching row —
+   * which it did not until 11 Sep 2026, when `AuditLogStore.findAll` was found
+   * clamping the exporter's 1,000-row batch to MAX_PAGE_SIZE, so the CSV
+   * stopped at 100 rows on a table holding 1,600 and the truncation notice was
+   * unreachable. That was the whole value of this control, absent.
+   */
+  const exportFilters = new URLSearchParams();
+  if (action) exportFilters.set('action', action);
+  if (subjectType) exportFilters.set('subjectType', subjectType);
+
+  /*
    * THREE of these sort, and the other two say explicitly that they do not.
    *
    * DataTable treats a column as sortable unless told otherwise — it derives a
@@ -316,6 +337,18 @@ function AuditLogPageContent() {
             ))}
           </SelectContent>
         </Select>
+        {/*
+          The audit log is the one screen an export is least optional on: it is
+          the record a compliance review asks for, and it is read by people who
+          cannot be handed a database. The endpoint has been served and
+          permission-gated on `audit.view` — the same key this screen needs —
+          for as long as the screen has existed, and no control ever offered it.
+          `export-button.tsx` states the rule this violated: a built endpoint
+          that no button reaches drifts out of the UI, and nobody notices.
+        */}
+        <div className="ml-auto">
+          <ExportButton resource="audit-log" filters={exportFilters} disabled={total === 0} />
+        </div>
       </div>
 
       <AsyncBoundary
