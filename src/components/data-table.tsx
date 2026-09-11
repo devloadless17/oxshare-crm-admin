@@ -29,8 +29,32 @@ export interface Column<T> {
   align?: 'left' | 'center' | 'right';
   cellClassName?: string;
   headerClassName?: string;
-  /** Key used for sorting. If true, header is sortable by row property matching index or header */
+  /**
+   * Opt OUT of sorting for a column that names a `sortKey`. Rarely needed —
+   * omitting `sortKey` is the ordinary way to say "not sortable".
+   */
   sortable?: boolean;
+  /**
+   * The ROW PROPERTY this column sorts on. **A column without one is not
+   * sortable**, and that is the whole contract.
+   *
+   * This used to fall back to the header TEXT when `sortKey` was absent, which
+   * made every column with a string header sortable whether or not anything
+   * could sort it. Both outcomes were silent:
+   *
+   *   client-side  the comparator read `row['Method']`, which is `undefined`
+   *                for every row, so the header offered a sort that did
+   *                nothing at all.
+   *   server-side  the header text was sent as `?sort=`, and the API answered
+   *                400 — `Cannot sort transactions by "Method". Allowed:
+   *                createdAt, amount, state.` — which the screen rendered as a
+   *                failed load over an empty table.
+   *
+   * The portal hit the second on its /transactions screen and this app carries
+   * the same shape: five pages here sort SERVER-side, and `transactions` names
+   * two `sortKey`s across seven headers. Every unkeyed header was one click
+   * from a 400.
+   */
   sortKey?: string;
   /**
    * How this column's values compare. Defaults to `text`.
@@ -282,7 +306,7 @@ export function DataTable<T>({
   const sortTypes = React.useMemo(() => {
     const map: Record<string, SortType> = {};
     for (const c of columns) {
-      const key = c.sortKey ?? (typeof c.header === 'string' ? c.header : undefined);
+      const key = c.sortKey;
       if (key) map[key] = c.sortType ?? 'text';
     }
     return map;
@@ -606,8 +630,7 @@ export function DataTable<T>({
 
                 {/* Columns */}
                 {columns.map((c, idx) => {
-                  const sortKey =
-                    c.sortKey ?? (typeof c.header === 'string' ? c.header : undefined);
+                  const sortKey = c.sortKey;
                   const isSortable = c.sortable !== false && Boolean(sortKey);
                   const isActiveSort = isSortable && sortCol === sortKey;
 

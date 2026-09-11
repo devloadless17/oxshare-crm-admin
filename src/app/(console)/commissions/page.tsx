@@ -235,6 +235,9 @@ function CommissionsPageContent() {
        * which amount.
        */
       header: t('commissions.colKind'),
+      // NOT sortable: `kind` is absent from IB_ACCRUAL_SORT_KEYS, so the API
+      // answers 400 and the whole table fails to load.
+      sortable: false,
       cell: (r) => (
         <span
           className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
@@ -266,6 +269,9 @@ function CommissionsPageContent() {
          rendered as a dash rather than blank, so "we cannot say" reads
          differently from "nothing there". */
       header: t('commissions.colTerms'),
+      // NOT sortable, for the same reason as Kind: `termsName` is not on the
+      // API's allow-list.
+      sortable: false,
       cell: (r) => r.accrual.termsName ?? '—',
       cellClassName: 'whitespace-nowrap text-muted-foreground',
     },
