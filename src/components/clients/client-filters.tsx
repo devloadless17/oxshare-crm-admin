@@ -94,14 +94,38 @@ export function ClientFilters({
         ]}
       />
 
-      {/* The ACCOUNT state — whether this person may sign in. */}
+      {/*
+        The ACCOUNT state — whether this person may sign in.
+
+        ⚠️ `pending` IS NOT OFFERED, and its absence is the point.
+
+        It is a real value of the `user_status` enum and the API accepts it as a
+        filter, so this is not a control the endpoint would refuse. It is worse:
+        NO CODE PATH PRODUCES IT. Registration writes `active`
+        (`auth.service.ts:207`), `setClientStatus` is typed `'active' |
+        'suspended'` so there is no way in or out, and the only row that has ever
+        held it was one seed fixture.
+
+        Offering it gave an operator a segment that can never have members, and
+        an empty result reads as a fact about CLIENTS — "nobody is pending" —
+        when it is a fact about the PRODUCT: nobody can be. Those are different
+        sentences and the screen could not tell them apart.
+
+        The value is still READ from the URL by the page, exactly as `country`
+        is: a link somebody bookmarked must still resolve to the segment it
+        names, and dropping the parameter would silently widen a saved filter.
+        This removes the OFFER, not the handling.
+
+        If a real pending state is ever wired — registration writing it,
+        verification promoting out of it — this option comes back with the
+        transitions, not before.
+      */}
       <FilterSelect
         value={values.status}
         onChange={(v) => onChange({ status: v })}
         placeholder={t('clients.allStatusesAccount')}
         options={[
           { value: 'active', label: t('clients.statusActive') },
-          { value: 'pending', label: t('clients.statusPending') },
           { value: 'suspended', label: t('clients.statusSuspended') },
         ]}
       />

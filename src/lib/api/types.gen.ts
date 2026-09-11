@@ -4079,8 +4079,6 @@ export interface components {
         RegistrationResponseDto: {
             /** @example Registration successful. Please check your email to verify your account. */
             message: string;
-            /** @description The new user id. Absent when no account was created — including when one already existed, which this endpoint deliberately does not disclose. No session exists until the email is verified. */
-            userId?: string;
         };
         VerifyEmailDto: {
             /**
