@@ -15,7 +15,20 @@
 export function apiErrorMessage(error: unknown, fallback: string): string {
   const response = (error as { response?: { data?: { message?: string | string[] } } })?.response;
   const message = response?.data?.message ?? (error as { message?: string })?.message ?? fallback;
-  return Array.isArray(message) ? message.join(', ') : message;
+  const text = Array.isArray(message) ? message.join(', ') : message;
+  /*
+   * A BLANK message is an absence, not an answer.
+   *
+   * `??` only falls through on null/undefined, so an empty string — or an array
+   * that joins to nothing — counted as a message and beat the fallback. The
+   * caller then rendered `role="alert"` containing no text: an alert that
+   * announces nothing, which to a screen reader is worse than the generic
+   * sentence it replaced, and on screen is an empty red line.
+   *
+   * Same class as the rest of this session's findings: a value carrying no
+   * information being treated as a definite one.
+   */
+  return text.trim() === '' ? fallback : text;
 }
 
 /**
