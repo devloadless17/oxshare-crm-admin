@@ -59,9 +59,19 @@ test.describe('the client index', () => {
       .getByRole('combobox')
       .filter({ hasText: /all account states/i })
       .click();
-    await page.getByRole('option', { name: /pending/i }).click();
+    /*
+     * SUSPENDED, not "pending", and the swap is the point.
+     *
+     * This used to select Pending — a value no code path can produce. It proved
+     * the URL write and nothing else: the filter it exercised could never have
+     * matched a client, so a broken filter would have looked identical. The
+     * option is gone from the bar for that reason (`client-filters.tsx`), and
+     * the seed now carries a genuinely suspended fixture, so the status this
+     * picks is one a client can actually be in.
+     */
+    await page.getByRole('option', { name: /suspended/i }).click();
 
-    await expect(page).toHaveURL(/status=pending/);
+    await expect(page).toHaveURL(/status=suspended/);
   });
 
   test('restores filters from a shared URL', async ({ page }) => {

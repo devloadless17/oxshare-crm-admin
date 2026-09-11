@@ -10,7 +10,7 @@ import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorCode } from '@/lib/api/errors';
+import { apiErrorCode, apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { CopyableId } from '@/components/copyable-id';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,10 @@ import {
   ClientTransactionsPanel,
 } from '@/components/clients/profile/client-activity-panels';
 import { ClientNetworkTree } from '@/components/clients/profile/client-network-tree';
+import {
+  RecordReferrerDialog,
+  refusalMessage,
+} from '@/components/clients/profile/record-referrer-dialog';
 import {
   ChangeLevelDialog,
   ReassignParentDialog,
@@ -95,6 +99,13 @@ export default function ClientProfilePage() {
     hasPermission(admin, 'kyc.documents.view') || hasPermission(admin, 'kyc.review');
   const canViewTrading = hasPermission(admin, 'trading.view');
   const canViewPartners = hasPermission(admin, 'ib.view');
+  /*
+   * Its OWN key, not `clients.edit`. Recording who introduced a client decides
+   * who is paid commission on their future trading — that is not the same power
+   * as correcting a surname, and an operator holding one should not silently
+   * hold the other.
+   */
+  const canRecordReferrer = hasPermission(admin, 'clients.referrer.set');
   const canViewWallets = hasPermission(admin, 'wallets.view');
   const canAssignTags = hasPermission(admin, 'clients.tag');
 
@@ -104,6 +115,9 @@ export default function ClientProfilePage() {
   const [parentOpen, setParentOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [emailOpen, setEmailOpen] = React.useState(false);
+  const [showRecordReferrer, setShowRecordReferrer] = React.useState(false);
+  const [referrerLoading, setReferrerLoading] = React.useState(false);
+  const [referrerError, setReferrerError] = React.useState('');
 
   const query = useResource<ClientProfile>(keys.clients.detail(clientId), (signal) =>
     api.admin.getClient(clientId, signal),
@@ -131,6 +145,40 @@ export default function ClientProfilePage() {
   const tagsQuery = useResource(keys.tags.all(), (signal) => api.admin.getTags(signal), {
     enabled: canAssignTags,
   });
+
+  const recordReferrer = async (referralCode: string) => {
+    setReferrerLoading(true);
+    setReferrerError('');
+    try {
+      await api.patch(`/admin/clients/${clientId}/referrer`, { referralCode });
+      /*
+       * Both roots. The profile carries the new referrer, and the LIST renders a
+       * derived type that moves with it — `DERIVED_CLIENT_TYPE` reads
+       * `referred_by_ib_user_id`, so recording a partner turns an `individual`
+       * into a `referral` on every row that shows one.
+       */
+      await queryClient.invalidateQueries({ queryKey: keys.clients.all() });
+      setShowRecordReferrer(false);
+      toastSuccess(t('clientProfile.recordReferrerDone'));
+    } catch (e: unknown) {
+      /*
+       * The API gives each refusal its own CODE because they share a status and
+       * not a meaning. `REFERRAL_PARTNER_INACTIVE` in particular says the client
+       * gave the RIGHT code and the partner is suspended — a different
+       * conversation from "check the spelling", and the reason the three are not
+       * one 400. Falling back to the API's own sentence keeps a code we have not
+       * mapped readable rather than swallowing it.
+       */
+      setReferrerError(
+        refusalMessage(
+          apiErrorCode(e),
+          apiErrorMessage(e, t('clientProfile.recordReferrerFailed')),
+        ),
+      );
+    } finally {
+      setReferrerLoading(false);
+    }
+  };
 
   const toggleTag = useMutation({
     mutationFn: ({ tagId, attached }: { tagId: string; attached: boolean }) =>
@@ -614,7 +662,29 @@ export default function ClientProfilePage() {
                           )}
                         </p>
                       ) : (
-                        <EmptySection message={t('clientProfile.noParentIb')} />
+                        <>
+                          <EmptySection message={t('clientProfile.noParentIb')} />
+                          {/*
+                            Offered only where there is NOTHING to change. This
+                            reads as "no partner is recorded, and here is how to
+                            record one" rather than as an edit control on an
+                            existing relationship — which the API refuses anyway
+                            with a 409, so this condition is convenience and not
+                            the guarantee.
+                          */}
+                          {canRecordReferrer && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReferrerError('');
+                                setShowRecordReferrer(true);
+                              }}
+                              className="mt-2 text-xs font-semibold text-link hover:underline focus-outline"
+                            >
+                              {t('clientProfile.recordReferrer')}
+                            </button>
+                          )}
+                        </>
                       )}
                     </ProfileCard>
                   </>
@@ -686,6 +756,16 @@ export default function ClientProfilePage() {
               onClose={() => setEmailOpen(false)}
               profile={profile}
             />
+
+            {showRecordReferrer && (
+              <RecordReferrerDialog
+                clientName={displayName}
+                loading={referrerLoading}
+                error={referrerError}
+                onCancel={() => !referrerLoading && setShowRecordReferrer(false)}
+                onConfirm={recordReferrer}
+              />
+            )}
 
             {partner && (
               <>

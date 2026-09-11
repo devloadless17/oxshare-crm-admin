@@ -2788,6 +2788,34 @@ export interface paths {
         patch: operations["AdminClientsController_changeClientEmail"];
         trace?: never;
     };
+    "/v1/admin/clients/{id}/referrer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Record the partner who introduced a client, when none is recorded
+         * @description Attribution is captured in ONE place — `?ref=` on the registration screen — and both portal auth cross-links dropped it, so a client who followed a partner link, clicked "Sign in", then "Create an account" registered attributed to nobody. Permanently: `referred_by_ib_user_id` was written at registration and nowhere else.
+         *
+         *     ⚠️ **NULL to A only.** A client who already has a referrer answers **409 REFERRER_ALREADY_SET**. Re-pointing attribution would move a partner’s client and their future commissions to somebody else, which `docs/` forbids — and the refusal is in the service rather than in a screen so this route cannot become that flow later.
+         *
+         *     Takes the CODE the client reports, never a partner id: looking a partner up means picking one off a list, which is the shape of choosing who gets paid.
+         *
+         *     Three distinct refusals, because they need three sentences — `REFERRAL_CODE_UNKNOWN` (a typo), `REFERRAL_SELF` (the client’s own code), and `REFERRAL_PARTNER_INACTIVE` (the code was RIGHT; that partner is suspended).
+         *
+         *     Does NOT backdate: commission reads attribution at accrual time, so this pays on deals not yet accrued and restates nothing already credited.
+         */
+        patch: operations["AdminClientsController_setClientReferrer"];
+        trace?: never;
+    };
     "/v1/admin/clients/{id}/status": {
         parameters: {
             query?: never;
@@ -6164,6 +6192,13 @@ export interface components {
         ChangeClientEmailDto: {
             /** @example layla.haddad@example.com */
             email: string;
+        };
+        SetClientReferrerDto: {
+            /**
+             * @description The partner’s referral code, as the client reports it. Case-insensitive and trimmed, exactly as registration resolves it. Refused with distinct codes when it matches no partner, names the client themselves, or names a suspended partner.
+             * @example PARTNER01
+             */
+            referralCode: string;
         };
         ClientStatusDto: {
             /**
@@ -10876,6 +10911,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ChangeClientEmailDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAccountDto"];
+                };
+            };
+        };
+    };
+    AdminClientsController_setClientReferrer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetClientReferrerDto"];
             };
         };
         responses: {

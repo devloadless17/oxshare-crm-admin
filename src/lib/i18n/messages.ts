@@ -592,6 +592,24 @@ export const messages = {
      click on a chip, which is how the chips used to be cleared. */
   'clients.allTags': 'All tags',
   'clients.clearFilters': 'Clear filters',
+  'clientProfile.recordReferrer': 'Record the partner who introduced them',
+  'clientProfile.recordReferrerTitle': 'Record a referring partner',
+  'clientProfile.recordReferrerBody':
+    'Records the partner who introduced {client}, using the referral code the client gives you. This can only be set once — it cannot be changed afterwards, and it cannot move a client from one partner to another.',
+  'clientProfile.recordReferrerField': 'Referral code',
+  'clientProfile.recordReferrerConfirm': 'Record partner',
+  'clientProfile.recordReferrerDone': 'Partner recorded.',
+  'clientProfile.recordReferrerFailed': 'Could not record the partner.',
+  'clientProfile.refUnknown':
+    'No partner holds that code. Check the spelling against what the client sent you.',
+  'clientProfile.refSelf':
+    "That is this client's own referral code — they cannot introduce themselves.",
+  'clientProfile.refInactive':
+    'That code is correct, but the partner it belongs to is suspended. The client gave you the right code; whether attribution should be recorded is a decision about that partner.',
+  'clientProfile.refAlready':
+    'This client already has a referring partner. Attribution is recorded once and cannot be moved.',
+  'clientProfile.refNoBackdate':
+    'Applies to future activity. Commission already credited is not restated.',
   'kycReview.correctTitle': 'Correct identity details',
   'kycReview.correctBody':
     "Corrects the date of birth or address on {client}'s APPROVED verification. Everything else — a wrong name, a wrong document — needs the verification redone.",
