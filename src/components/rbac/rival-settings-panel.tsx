@@ -81,6 +81,26 @@ function RivalForm({ settings, canManage }: { settings: RivalSettings; canManage
   const [testResult, setTestResult] = React.useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  /*
+   * The "saved" flash clears itself on a timer, and that timer has to be
+   * CANCELLED when the panel goes away.
+   *
+   * Left uncancelled it fires into a component that no longer exists. In a
+   * browser that is a stray state update nobody sees; under jsdom the whole
+   * environment has been torn down by then, so `window` is gone and it
+   * surfaces as `ReferenceError: window is not defined` — an unhandled error
+   * attributed to whichever test happened to be running, not to the panel that
+   * armed it. It cost a red gate with 965 passing tests and no failure to point
+   * at.
+   */
+  const flashTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+
   const save = useMutation({
     mutationFn: () =>
       adminApi.updateRivalSettings({
@@ -93,7 +113,7 @@ function RivalForm({ settings, canManage }: { settings: RivalSettings; canManage
       setError(null);
       setSaved(true);
       setApiKey('');
-      window.setTimeout(() => setSaved(false), 2000);
+      flashTimer.current = window.setTimeout(() => setSaved(false), 2000);
       void queryClient.invalidateQueries({ queryKey: keys.settings.rival() });
       toastSuccess(t('rival.saved'));
     },
@@ -353,6 +373,16 @@ function CopyBlock({ label, value }: { label: string; value: string }) {
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
+  // Same cancellation as the save flash above — this one lives inside the
+  // minted-key modal, which is closed by hand and so unmounts mid-timer far
+  // more often than the panel does.
+  const flashTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
   return (
     <button
       type="button"
@@ -367,7 +397,7 @@ function CopyButton({ value }: { value: string }) {
             await navigator.clipboard.writeText(value);
             setFailed(false);
             setCopied(true);
-            window.setTimeout(() => setCopied(false), 1500);
+            flashTimer.current = window.setTimeout(() => setCopied(false), 1500);
           } catch {
             setCopied(false);
             setFailed(true);
