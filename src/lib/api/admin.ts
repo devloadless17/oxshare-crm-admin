@@ -725,6 +725,25 @@ export interface Mt5BalanceResult {
   balance: string | null;
 }
 
+/**
+ * The outcome of funding a trading account by hand — TWO movements.
+ *
+ * `transaction` is the wallet DEPOSIT, which is the leg that always happened by
+ * the time this returns. `transfer` is the onward move to the account, and it is
+ * null with `transferError` set when that second leg did not go through: the
+ * deposit is NOT unwound to punish it, so the money is sitting in the client's
+ * wallet and the operator has to be told rather than shown a success toast.
+ */
+export interface FundTradingAccountResult {
+  transaction: Transaction;
+  /** True when the idempotency key replayed an earlier funding. Nothing moved. */
+  replayed: boolean;
+  /** The settled transfer, or null when the onward leg did not complete. */
+  transfer: { id: string; state: string } | null;
+  /** Why the transfer did not happen. Null on success. */
+  transferError: string | null;
+}
+
 /** What MT5 says an account holds right now — distinct from the cached column. */
 export interface Mt5LiveSnapshot {
   login: number;
@@ -2494,6 +2513,46 @@ export const adminApi = {
     const { data } = await apiClient.post<Mt5BalanceResult>(
       `/admin/trading-accounts/${id}/balance`,
       dto,
+    );
+    return data;
+  },
+
+  /**
+   * Fund a client's trading account by hand — a DEPOSIT plus a TRANSFER.
+   *
+   * ## Not `adjustTradingBalance`, and the difference is the whole point
+   *
+   * That one moves the MT5 balance alone: no wallet leg, no ledger entry,
+   * nothing on the client's statement. Right for a correction or a bonus, wrong
+   * for funding. This one credits the wallet and transfers to the account, so
+   * both movements appear in the client's history, the ledger and the financial
+   * views — which is what "add money to the account" actually means here.
+   *
+   * ## No currency, no userId
+   *
+   * Both are derived server-side from the account: transfers do not convert, so
+   * the wallet currency MUST be the account's, and the owner is implied. Sending
+   * either would let the caller disagree with the account.
+   *
+   * ## `key` is idempotency, enforced in the DATABASE
+   *
+   * Stored as the deposit's `provider_ref` under `UNIQUE(provider,
+   * provider_ref)`, so a double-submitted form converges on ONE funding rather
+   * than relying on a replay cache. Pass a value identifying the INTENT.
+   *
+   * `transferError` is non-null when the wallet credit succeeded but the onward
+   * transfer did not — the money is in the wallet and the caller must say so,
+   * because a deposit is NOT unwound to punish a failed second leg.
+   */
+  async fundTradingAccount(
+    id: string,
+    body: { amount: string; reason: string },
+    key: string,
+  ): Promise<FundTradingAccountResult> {
+    const { data } = await apiClient.post<FundTradingAccountResult>(
+      `/admin/trading-accounts/${id}/fund`,
+      body,
+      idempotent(key),
     );
     return data;
   },

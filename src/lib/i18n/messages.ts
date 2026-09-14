@@ -3314,6 +3314,35 @@ export const messages = {
   'tradingAccounts.adjustBalance': 'Adjust balance on MT5',
   'tradingAccounts.dealerWarning':
     'This moves money on MT5 only — the client wallet and the CRM ledger are untouched. To fund an account from a wallet, use a transfer instead.',
+  /*
+   * FUNDING, which is a different act from the adjustment above and the copy has
+   * to say so on both controls. An operator who reads "add money" and picks the
+   * dealer adjustment has moved money with no ledger entry behind it; one who
+   * picks this for a bonus has minted a deposit onto the client's statement.
+   */
+  'tradingAccounts.fundTitle': 'Add funds to trading account',
+  'tradingAccounts.fundAction': 'Add funds (deposit + transfer)',
+  'tradingAccounts.fundFor': 'To MT5 account {login}, in {currency}.',
+  'tradingAccounts.fundExplainer':
+    'This records TWO movements: a deposit into the client {currency} wallet, then a transfer of the same amount to this account. Both appear on the client statement, in the ledger and in the financial reports.',
+  'tradingAccounts.fundAmount': 'Amount',
+  'tradingAccounts.fundReason': 'Reason',
+  'tradingAccounts.fundReasonPlaceholder': 'Why this money is being added',
+  'tradingAccounts.fundReasonHint':
+    'Required. It goes on the audit entry and into the email telling the client their wallet was credited.',
+  'tradingAccounts.fundConfirm': 'Add funds',
+  'tradingAccounts.fundApplying': 'Adding…',
+  'tradingAccounts.funded': 'Added {amount} to account {login}.',
+  'tradingAccounts.fundReplayed': 'Already added — the stored result was returned.',
+  'tradingAccounts.fundFailed': 'That funding did not go through.',
+  /*
+   * The HALF-DONE case, and it needs its own sentence rather than an error
+   * toast. The deposit is not unwound when the onward transfer fails, so the
+   * money is genuinely in the wallet — telling the operator "it failed" would
+   * send them to fund it a second time.
+   */
+  'tradingAccounts.fundPartial':
+    'The wallet was credited {amount}, but the transfer to the account did not complete: {error} The money is in the client wallet and can be transferred from there.',
   'tradingAccounts.noLoginHint': 'No MT5 account exists for this row, so it has no balance.',
   'tradingAccounts.syncedHint': 'MT5 confirmed this balance {when}.',
   'tradingAccounts.neverSynced': 'never synced',

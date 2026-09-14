@@ -23,10 +23,13 @@ import type { TradingAccountListResponse, TradingAccountRow } from '@/lib/api/ad
  * its own catch turns that into a generic "failed to load", which reads as a
  * broken query rather than a broken mock.
  */
-const { getTradingAccounts } = vi.hoisted(() => ({ getTradingAccounts: vi.fn() }));
+const { getTradingAccounts, fundTradingAccount } = vi.hoisted(() => ({
+  getTradingAccounts: vi.fn(),
+  fundTradingAccount: vi.fn(),
+}));
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getTradingAccounts } };
+  const api = { admin: { getTradingAccounts, fundTradingAccount } };
   return { api, default: api };
 });
 
@@ -366,5 +369,128 @@ describe('trading accounts — the write actions are permission-gated', () => {
 
     expect(screen.getByRole('button', { name: /actions for account/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /open a trading account/i })).toBeNull();
+  });
+});
+
+/**
+ * Funding — the DEPOSIT + TRANSFER action, which is not the dealer adjustment.
+ *
+ * The distinction is the whole reason this action exists, so it is what these
+ * tests pin: who is offered it, that it is withheld from a demo account the
+ * server would refuse anyway, and that the half-done outcome is reported as
+ * money sitting in the wallet rather than as a plain failure.
+ */
+describe('funding a trading account', () => {
+  beforeEach(() => {
+    fundTradingAccount.mockReset();
+    searchParams.current = new URLSearchParams('userId=u-1');
+  });
+
+  /*
+   * BOTH keys, because the action does both things. `trading.deposit` alone
+   * cannot mint the wallet balance the transfer then moves, so offering it
+   * would be a control that always 403s — which is the failure the page's own
+   * permission note says it exists to prevent.
+   */
+  it('is withheld from an operator holding only trading.deposit', async () => {
+    getTradingAccounts.mockResolvedValue(page([account()]));
+    identity.permissions = ['trading.view', 'trading.deposit'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+
+    expect(await screen.findByText(/adjust balance on mt5/i)).toBeInTheDocument();
+    expect(screen.queryByText(/add funds/i)).toBeNull();
+  });
+
+  it('is offered when the operator holds wallets.credit and trading.deposit', async () => {
+    getTradingAccounts.mockResolvedValue(page([account()]));
+    identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+
+    expect(await screen.findByText(/add funds/i)).toBeInTheDocument();
+  });
+
+  /*
+   * A DEMO account has no wallet leg to fund — the server refuses it, and
+   * offering the control anyway would put a guaranteed error in the menu. The
+   * dealer adjustment stays, because that IS how a demo account is topped up.
+   */
+  it('is withheld on a demo account, which has no wallet to fund from', async () => {
+    getTradingAccounts.mockResolvedValue(page([account({ environment: 'demo' })]));
+    identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+
+    expect(await screen.findByText(/adjust balance on mt5/i)).toBeInTheDocument();
+    expect(screen.queryByText(/add funds/i)).toBeNull();
+  });
+
+  /*
+   * The amount travels as the STRING the operator typed and no currency is sent
+   * — the server derives it from the account, because transfers do not convert.
+   */
+  it('sends the typed amount as a string and no currency', async () => {
+    getTradingAccounts.mockResolvedValue(page([account()]));
+    fundTradingAccount.mockResolvedValue({
+      transaction: { id: 'tx-1', amount: '250.00000000', currency: 'USD' },
+      replayed: false,
+      transfer: { id: 'tr-1', state: 'settled' },
+      transferError: null,
+    });
+    identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+    await userEvent.click(await screen.findByText(/add funds/i));
+
+    await userEvent.type(await screen.findByLabelText(/amount/i), '250.5');
+    await userEvent.type(screen.getByLabelText(/reason/i), 'Off-rail wire received');
+    await userEvent.click(screen.getByRole('button', { name: /^add funds$/i }));
+
+    await waitFor(() => expect(fundTradingAccount).toHaveBeenCalledTimes(1));
+    const [id, body] = fundTradingAccount.mock.calls[0]!;
+    expect(id).toBe('ta-1');
+    expect(body).toEqual({ amount: '250.5', reason: 'Off-rail wire received' });
+    expect(body).not.toHaveProperty('currency');
+  });
+
+  /*
+   * ⚠️ THE HALF-DONE CASE, and it must not read as a failure.
+   *
+   * A failed onward transfer does NOT unwind the deposit, so the money is in
+   * the client's wallet. Telling the operator it failed would send them to fund
+   * it again — which would work, and would credit the client twice.
+   */
+  it('says the money is in the wallet when the transfer leg did not complete', async () => {
+    getTradingAccounts.mockResolvedValue(page([account()]));
+    fundTradingAccount.mockResolvedValue({
+      transaction: { id: 'tx-1', amount: '250.00000000', currency: 'USD' },
+      replayed: false,
+      transfer: null,
+      transferError: 'The MT5 bridge is not reachable.',
+    });
+    identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+    await userEvent.click(await screen.findByText(/add funds/i));
+
+    await userEvent.type(await screen.findByLabelText(/amount/i), '250');
+    await userEvent.type(screen.getByLabelText(/reason/i), 'Off-rail wire received');
+    await userEvent.click(screen.getByRole('button', { name: /^add funds$/i }));
+
+    // The wallet is named as holding the money, and the bridge's own reason is
+    // quoted rather than replaced by a generic failure.
+    expect(await screen.findByText(/in the client wallet/i)).toBeInTheDocument();
+    expect(screen.getByText(/bridge is not reachable/i)).toBeInTheDocument();
   });
 });
