@@ -334,9 +334,12 @@ export default function ClientProfilePage() {
                       displayName
                     )}
                   </h1>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  {/* A div, not a <p>: `Field` renders a block element, and a <div>
+                      inside a <p> is invalid HTML that React reports as a
+                      hydration error on every load of this page. */}
+                  <div className="mt-1 text-sm text-muted-foreground">
                     <Field label="" field="client.email" profile={profile} />
-                  </p>
+                  </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <Badge
                       variant={
