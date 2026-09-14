@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { Suspense } from 'react';
-import { CandlestickChart, Plus, Wallet } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Banknote, CandlestickChart, Plus, Wallet } from 'lucide-react';
 import api from '@/lib/api';
 import type {
   TradingAccountEnvironment,
@@ -34,8 +35,11 @@ import { Button } from '@/components/ui/button';
 import { RowActions } from '@/components/row-actions';
 import { OpenAccountModal } from '@/components/trading/open-account-modal';
 import { AdjustBalanceModal } from '@/components/trading/adjust-balance-modal';
+import { FundAccountModal } from '@/components/trading/fund-account-modal';
 import { relativeTime } from '@/lib/relative-time';
 import { formatMoney } from '@/lib/money';
+import { apiErrorMessage } from '@/lib/api/errors';
+import { toastSuccess } from '@/lib/toast';
 import { keys } from '@/lib/query-keys';
 
 /**
@@ -159,9 +163,18 @@ function TradingAccountsPageContent() {
   const canDeposit = hasPermission(admin, 'trading.deposit');
   const canWithdraw = hasPermission(admin, 'trading.withdraw');
   const canAdjust = canDeposit || canWithdraw;
+  /*
+   * FUNDING needs BOTH keys, because it does both things: it mints balance into
+   * a wallet (`wallets.credit`) and then moves it onto a live account
+   * (`trading.deposit`). The service asserts the same pair — this only decides
+   * whether to offer a control that would otherwise always 403.
+   */
+  const canFund = hasPermission(admin, 'wallets.credit') && canDeposit;
 
   const [openFor, setOpenFor] = React.useState<{ userId: string; label: string } | null>(null);
   const [adjusting, setAdjusting] = React.useState<TradingAccountRow | null>(null);
+  const [funding, setFunding] = React.useState<TradingAccountRow | null>(null);
+  const [fundError, setFundError] = React.useState<string | undefined>(undefined);
 
   const query = useResource<TradingAccountListResponse>(
     keys.tradingAccounts.list(params),
@@ -169,6 +182,73 @@ function TradingAccountsPageContent() {
   );
 
   const rows = query.data?.items ?? [];
+
+  const queryClient = useQueryClient();
+
+  /*
+   * Funding writes a DEPOSIT and a TRANSFER, so it moves rather more than this
+   * page shows: the wallet balance, the client's transaction history, the
+   * ledger, and the account's own cached balance column.
+   */
+  const fund = useMutation({
+    mutationFn: (values: { amount: string; reason: string }) =>
+      api.admin.fundTradingAccount(
+        funding!.id,
+        values,
+        /*
+         * ONE key per intended funding, minted from the row rather than per
+         * attempt — the account id plus its current cached balance, so a retry
+         * of the same submission reuses it while a second, deliberate funding
+         * gets a new one (the balance has moved).
+         *
+         * The server stores it as the deposit's `provider_ref`, so this is what
+         * makes a double-click credit once in the DATABASE rather than only in
+         * a cache.
+         */
+        `fund:${funding!.id}:${funding!.balance ?? '0'}`,
+      ),
+    onSuccess: (result, values) => {
+      const account = funding;
+      setFunding(null);
+      setFundError(undefined);
+
+      void queryClient.invalidateQueries({ queryKey: keys.tradingAccounts.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.transactions.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.ledger.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.wallets.all() });
+      void queryClient.invalidateQueries({ queryKey: keys.clients.all() });
+
+      /*
+       * THE HALF-DONE CASE GETS ITS OWN MESSAGE, and it is not an error toast.
+       *
+       * A failed onward transfer does NOT unwind the deposit, so the money is
+       * genuinely in the client's wallet. Reporting a bare failure here would
+       * send the operator to fund it a second time — which would work, and
+       * would leave the client credited twice.
+       */
+      if (result.transferError) {
+        toastSuccess(
+          t('tradingAccounts.fundPartial', {
+            amount: `${values.amount} ${account?.currency ?? ''}`,
+            error: result.transferError,
+          }),
+        );
+        return;
+      }
+
+      toastSuccess(
+        t('tradingAccounts.funded', {
+          amount: `${values.amount} ${account?.currency ?? ''}`,
+          login: account?.login ?? '',
+        }),
+        // Worth surfacing rather than hiding: the key replayed an earlier
+        // funding, so the operator's click moved no money. "Already added" and
+        // "just added" look identical otherwise.
+        result.replayed ? t('tradingAccounts.fundReplayed') : undefined,
+      );
+    },
+    onError: (e: unknown) => setFundError(apiErrorMessage(e, t('tradingAccounts.fundFailed'))),
+  });
 
   /*
    * The BALANCE COLUMN IS A CACHE, and nothing writes to it except a console
@@ -363,7 +443,7 @@ function TradingAccountsPageContent() {
    * only exists for an operator who can act. A row menu that renders empty is
    * a control that looks broken rather than absent.
    */
-  if (canAdjust) {
+  if (canAdjust || canFund) {
     columns.push({
       header: '',
       cell: (a) => (
@@ -382,14 +462,44 @@ function TradingAccountsPageContent() {
            * the normal state for a freshly created row — and the Login and
            * Status columns beside this one already say so.
            */
+          /*
+           * TWO actions now, and the labels are what keep them apart.
+           *
+           * "Add funds (deposit + transfer)" posts both legs and lands on the
+           * client's statement; "Adjust balance on MT5" moves the MT5 figure
+           * alone with no ledger entry. An operator picking the wrong one has
+           * either minted a client-visible deposit for what was meant to be a
+           * bonus, or moved money the ledger cannot explain — so each label
+           * names its mechanism rather than saying "add money" twice.
+           *
+           * Funding is offered on LIVE accounts only: a demo account is not
+           * linked to a wallet, and the server refuses it. A demo top-up is the
+           * dealer adjustment, which is still listed beside it.
+           */
           items={
             a.login && a.status === 'active'
               ? [
-                  {
-                    label: t('tradingAccounts.adjustBalance'),
-                    icon: Wallet,
-                    onSelect: () => setAdjusting(a),
-                  },
+                  ...(canFund && a.environment === 'live'
+                    ? [
+                        {
+                          label: t('tradingAccounts.fundAction'),
+                          icon: Banknote,
+                          onSelect: () => {
+                            setFundError(undefined);
+                            setFunding(a);
+                          },
+                        },
+                      ]
+                    : []),
+                  ...(canAdjust
+                    ? [
+                        {
+                          label: t('tradingAccounts.adjustBalance'),
+                          icon: Wallet,
+                          onSelect: () => setAdjusting(a),
+                        },
+                      ]
+                    : []),
                 ]
               : []
           }
@@ -566,6 +676,21 @@ function TradingAccountsPageContent() {
           onClose={() => setOpenFor(null)}
           userId={openFor.userId}
           clientLabel={openFor.label}
+        />
+      )}
+
+      {funding && (
+        <FundAccountModal
+          open
+          onClose={() => {
+            setFunding(null);
+            setFundError(undefined);
+          }}
+          login={funding.login ?? ''}
+          currency={funding.currency}
+          saving={fund.isPending}
+          error={fundError}
+          onSubmit={(values) => fund.mutate(values)}
         />
       )}
 
