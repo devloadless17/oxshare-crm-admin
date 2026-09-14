@@ -9,37 +9,51 @@ import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
 
 /**
- * Add money to a client's trading account, the way money actually gets there.
+ * Move money on a client's trading account — the console's ONLY money control
+ * for one.
  *
- * ## TWO movements, and the dialog says so before the amount box
+ * ## ⚠️ It replaced a second dialog, and that is the whole point of it
  *
- * A deposit into the client's wallet, then a transfer of the same amount to this
- * account. That is not an implementation detail the operator can be left to
- * infer: it is what they will see afterwards on the client's statement, in the
- * ledger and in the financial reports, and an operator who expected one row and
- * finds two will read it as a double credit.
+ * There used to be two: this one, and "Adjust balance on MT5" — a dealer
+ * operation that moved the MT5 balance with no wallet leg and no ledger entry.
+ * Both appeared in the same row menu, both moved money on the same account, and
+ * the only difference was whether anything was written down.
  *
- * ## ⚠️ NOT the same control as "Adjust balance on MT5"
+ * That is not a choice an operator can be asked to make correctly. The owner's
+ * verdict was that they are the same act, so there is one control and it always
+ * records. A bonus or a goodwill credit now arrives as a real deposit on the
+ * client's statement, which is the more honest answer anyway — the client can
+ * see money they were given.
  *
- * `AdjustBalanceModal` is a DEALER operation — it moves the MT5 balance alone,
- * with no wallet leg and no ledger entry, which is right for a correction or a
- * bonus and wrong for funding. The two sit next to each other in the same row
- * menu, so each one's copy has to name what the other does; a warning that only
- * says "this is careful" on both leaves the operator to guess which is which.
+ * ## Both directions, and NEITHER is a payout
  *
- * ## Who is funded is FIXED and not editable
+ * `deposit` credits the client's wallet and transfers it to the account.
+ * `withdraw` transfers off the account and the money STAYS in their wallet. No
+ * money leaves the platform on either one — paying a client out is the reviewed
+ * withdrawal desk, and an operator who reads "withdraw" here as "paid out" has
+ * told the client something false. The copy says where the money lands.
  *
- * The account, its owner and the currency all come from the row this was opened
+ * ## The amount is unsigned and the direction is a separate control
+ *
+ * The API refuses a signed amount for the same reason this form does not offer
+ * one: an amount and a direction that can disagree is a withdrawal that becomes
+ * a deposit, silently, in the one place that is least recoverable.
+ *
+ * ## Who is affected is FIXED and not editable
+ *
+ * The account, its owner and the currency come from the row this was opened
  * from, and the currency is not sent at all — the server derives it, because
- * transfers do not convert and the wallet leg MUST match the account. Funding
- * the wrong account is the mistake that needs a compensating entry rather than
- * an edit, so there is no picker here.
+ * transfers do not convert and the wallet leg MUST match the account. Moving
+ * money on the wrong account needs a compensating entry rather than an edit, so
+ * there is no picker here.
  */
 export function FundAccountModal({
   open,
   onClose,
   login,
   currency,
+  canDeposit,
+  canWithdraw,
   saving,
   error,
   onSubmit,
@@ -48,9 +62,13 @@ export function FundAccountModal({
   onClose: () => void;
   login: string;
   currency: string;
+  /** `wallets.credit` AND `trading.deposit` — a deposit mints before it moves. */
+  canDeposit: boolean;
+  /** `trading.withdraw` alone — a withdrawal mints nothing. */
+  canWithdraw: boolean;
   saving: boolean;
   error?: string;
-  onSubmit: (values: { amount: string; reason: string }) => void;
+  onSubmit: (values: { amount: string; reason: string; direction: 'deposit' | 'withdraw' }) => void;
 }) {
   return (
     <Modal open={open} onClose={onClose} title={t('tradingAccounts.fundTitle')}>
@@ -58,13 +76,15 @@ export function FundAccountModal({
         KEYED on the account, so opening this for a different row REMOUNTS the
         form and its fields start empty. Without it, an amount typed for one
         client and abandoned would still be in the box when the operator opens
-        the next one — on a control that creates money.
+        the next one — on a control that moves money.
       */}
       {open && (
         <FundForm
           key={login}
           login={login}
           currency={currency}
+          canDeposit={canDeposit}
+          canWithdraw={canWithdraw}
           saving={saving}
           error={error}
           onClose={onClose}
@@ -78,6 +98,8 @@ export function FundAccountModal({
 function FundForm({
   login,
   currency,
+  canDeposit,
+  canWithdraw,
   saving,
   error,
   onClose,
@@ -85,11 +107,24 @@ function FundForm({
 }: {
   login: string;
   currency: string;
+  canDeposit: boolean;
+  canWithdraw: boolean;
   saving: boolean;
   error?: string;
   onClose: () => void;
-  onSubmit: (values: { amount: string; reason: string }) => void;
+  onSubmit: (values: { amount: string; reason: string; direction: 'deposit' | 'withdraw' }) => void;
 }) {
+  /*
+   * Defaults to whichever direction the operator is actually allowed to use.
+   *
+   * The two keys are separate and an admin may hold one without the other.
+   * Defaulting to 'deposit' regardless would open the dialog on a disabled
+   * control for a withdraw-only operator, which reads as the feature being
+   * broken rather than as a permission they lack.
+   */
+  const [direction, setDirection] = React.useState<'deposit' | 'withdraw'>(
+    canDeposit ? 'deposit' : 'withdraw',
+  );
   const [amount, setAmount] = React.useState('');
   const [reason, setReason] = React.useState('');
 
@@ -97,14 +132,15 @@ function FundForm({
   // round trip that will fail. Positive decimals only, up to eight places.
   const amountValid = /^\d+(\.\d{1,8})?$/.test(amount.trim()) && Number.parseFloat(amount) > 0;
   const ready = amountValid && reason.trim().length >= 3;
+  const allowed = direction === 'deposit' ? canDeposit : canWithdraw;
 
   return (
     <form
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!ready) return;
-        onSubmit({ amount: amount.trim(), reason: reason.trim() });
+        if (!ready || !allowed) return;
+        onSubmit({ amount: amount.trim(), reason: reason.trim(), direction });
       }}
     >
       <p className="text-xs text-muted-foreground">
@@ -112,22 +148,69 @@ function FundForm({
       </p>
 
       {/*
+        Two buttons rather than a dropdown. The direction is the single most
+        consequential field here and is worth being visible at a glance rather
+        than one row of a collapsed list.
+
+        NOT coloured destructive, unlike the dealer dialog this replaced. A
+        withdrawal here moves money into the client's own wallet rather than out
+        of their reach, so painting it as dangerous would overstate it — and an
+        operator who learns to expect red on "the risky one" is being trained on
+        the wrong signal.
+      */}
+      <div className="flex gap-2" role="group" aria-label={t('tradingAccounts.fundDirection')}>
+        <Button
+          type="button"
+          size="sm"
+          variant={direction === 'deposit' ? 'default' : 'outline'}
+          disabled={!canDeposit}
+          onClick={() => setDirection('deposit')}
+        >
+          {t('tradingAccounts.deposit')}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={direction === 'withdraw' ? 'default' : 'outline'}
+          disabled={!canWithdraw}
+          onClick={() => setDirection('withdraw')}
+        >
+          {t('tradingAccounts.withdraw')}
+        </Button>
+      </div>
+
+      {/*
         WHAT THIS WILL DO, stated before the amount box rather than as a warning
-        after it. The operator is choosing between this and the dealer
-        adjustment in the same menu, and the two legs are the distinguishing
-        fact — so it is drawn as the flow it is, not buried in a sentence.
+        after it, and redrawn when the direction flips — the two legs run in the
+        opposite order and the destination is what the operator most needs to
+        have right.
       */}
       <div className="rounded-lg border border-border bg-muted/30 p-3">
         <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <Wallet className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-            {t('tradingAccounts.deposit')} · {currency}
-          </span>
-          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-          <span className="font-mono">{login}</span>
+          {direction === 'deposit' ? (
+            <>
+              <span className="inline-flex items-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                {currency} {t('tradingAccounts.fundWallet')}
+              </span>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <span className="font-mono">{login}</span>
+            </>
+          ) : (
+            <>
+              <span className="font-mono">{login}</span>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <span className="inline-flex items-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                {currency} {t('tradingAccounts.fundWallet')}
+              </span>
+            </>
+          )}
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          {t('tradingAccounts.fundExplainer', { currency })}
+          {direction === 'deposit'
+            ? t('tradingAccounts.fundExplainer', { currency })
+            : t('tradingAccounts.withdrawExplainer', { currency })}
         </p>
       </div>
 
@@ -164,7 +247,11 @@ function FundForm({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />
-        <p className="text-[11px] text-muted-foreground">{t('tradingAccounts.fundReasonHint')}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {direction === 'deposit'
+            ? t('tradingAccounts.fundReasonHint')
+            : t('tradingAccounts.withdrawReasonHint')}
+        </p>
       </div>
 
       {error && (
@@ -177,8 +264,12 @@ function FundForm({
         <Button type="button" variant="outline" size="sm" onClick={onClose}>
           {t('common.cancel')}
         </Button>
-        <Button type="submit" size="sm" loading={saving} disabled={!ready}>
-          {saving ? t('tradingAccounts.fundApplying') : t('tradingAccounts.fundConfirm')}
+        <Button type="submit" size="sm" loading={saving} disabled={!ready || !allowed}>
+          {saving
+            ? t('tradingAccounts.fundApplying')
+            : direction === 'deposit'
+              ? t('tradingAccounts.fundConfirm')
+              : t('tradingAccounts.withdrawConfirm')}
         </Button>
       </div>
     </form>

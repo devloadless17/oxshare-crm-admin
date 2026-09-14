@@ -679,9 +679,6 @@ export interface WalletListParams {
 /** `POST /admin/trading-accounts` — the body. */
 export type CreateMt5AccountDto = components['schemas']['CreateMt5AccountDto'];
 
-/** `POST /admin/trading-accounts/{id}/balance` — the body. */
-export type Mt5BalanceDto = components['schemas']['Mt5BalanceDto'];
-
 /**
  * One MT5 group an account may be opened in.
  *
@@ -716,32 +713,33 @@ export interface CreatedMt5Account {
   credentialsSentTo: string;
 }
 
-/** The result of a credit or debit against MT5. */
-export interface Mt5BalanceResult {
-  dealId: string;
-  /** True when the bridge replayed a stored result rather than moving money again. */
-  replayed: boolean;
-  /** MT5's balance after the move, or null if the read-back failed. */
-  balance: string | null;
-}
-
 /**
- * The outcome of funding a trading account by hand — TWO movements.
+ * The outcome of moving money on a trading account by hand.
  *
- * `transaction` is the wallet DEPOSIT, which is the leg that always happened by
- * the time this returns. `transfer` is the onward move to the account, and it is
- * null with `transferError` set when that second leg did not go through: the
- * deposit is NOT unwound to punish it, so the money is sitting in the client's
- * wallet and the operator has to be told rather than shown a success toast.
+ * ## The two directions return DIFFERENT shapes, and the nulls say which
+ *
+ * A DEPOSIT is a wallet credit then a transfer, so `transaction` carries the
+ * credit — the leg that has definitely happened by the time this returns — and
+ * `transferError` is set when the onward move did not go through. The deposit is
+ * NOT unwound to punish that, so the money is sitting in the client's wallet and
+ * the operator has to be told rather than shown a plain success.
+ *
+ * A WITHDRAWAL is one transfer off the account, whose own settlement credits the
+ * wallet. Nothing is minted, so there is no transaction row and `transaction` is
+ * null — and there is no half-done state, so a failure throws rather than
+ * returning, which is why `transferError` is always null in that direction.
  */
 export interface FundTradingAccountResult {
-  transaction: Transaction;
-  /** True when the idempotency key replayed an earlier funding. Nothing moved. */
+  /** The wallet deposit. NULL on a withdrawal, which writes no transaction row. */
+  transaction: Transaction | null;
+  /** True when the idempotency key replayed an earlier movement. Nothing moved. */
   replayed: boolean;
   /** The settled transfer, or null when the onward leg did not complete. */
   transfer: { id: string; state: string } | null;
-  /** Why the transfer did not happen. Null on success. */
+  /** Why the transfer did not happen. Always null on a withdrawal — see above. */
   transferError: string | null;
+  /** Where the money ended up on a withdrawal. Absent on a deposit. */
+  destination?: 'wallet';
 }
 
 /** What MT5 says an account holds right now — distinct from the cached column. */
@@ -2502,31 +2500,35 @@ export const adminApi = {
     return data;
   },
 
-  /**
-   * Credit or debit a trading account on MT5.
+  /*
+   * `adjustTradingBalance` USED TO BE HERE, posting to
+   * `/admin/trading-accounts/:id/balance`.
    *
-   * `amount` is always POSITIVE and `direction` carries the sign — the API
-   * refuses a signed amount. Two sources of truth for a direction is how a
-   * withdrawal becomes a deposit.
+   * Both are gone. It was the DEALER operation: it moved the MT5 balance with
+   * no wallet leg and no ledger entry, which made it the one money action in
+   * the console that left no trace an operator or auditor could follow. It sat
+   * in the same row menu as `fundTradingAccount`, doing the visibly same thing,
+   * and the difference between them was invisible until somebody went looking
+   * for a movement that was not there.
+   *
+   * Its one good idea survives in `FundTradingAccountDto`: the amount is
+   * UNSIGNED and a separate `direction` carries the sign, because two sources of
+   * truth for a direction is how a withdrawal becomes a deposit.
    */
-  async adjustTradingBalance(id: string, dto: Mt5BalanceDto): Promise<Mt5BalanceResult> {
-    const { data } = await apiClient.post<Mt5BalanceResult>(
-      `/admin/trading-accounts/${id}/balance`,
-      dto,
-    );
-    return data;
-  },
 
   /**
-   * Fund a client's trading account by hand — a DEPOSIT plus a TRANSFER.
+   * Move money on a client's trading account by hand — the ONLY way to.
    *
-   * ## Not `adjustTradingBalance`, and the difference is the whole point
+   * ## ⚠️ `adjustTradingBalance` IS GONE, and this replaced it
    *
-   * That one moves the MT5 balance alone: no wallet leg, no ledger entry,
-   * nothing on the client's statement. Right for a correction or a bonus, wrong
-   * for funding. This one credits the wallet and transfers to the account, so
-   * both movements appear in the client's history, the ledger and the financial
-   * views — which is what "add money to the account" actually means here.
+   * That one moved the MT5 balance alone: no wallet leg, no ledger entry,
+   * nothing on the client's statement. It gave the console a second money
+   * control that recorded nothing, and money moved through it could not
+   * afterwards be explained by anybody reading the ledger.
+   *
+   * This one always records. `deposit` credits the wallet and transfers to the
+   * account; `withdraw` transfers off the account and the wallet keeps the
+   * money. Neither is a payout — nothing leaves the platform on either.
    *
    * ## No currency, no userId
    *
@@ -2534,19 +2536,18 @@ export const adminApi = {
    * the wallet currency MUST be the account's, and the owner is implied. Sending
    * either would let the caller disagree with the account.
    *
-   * ## `key` is idempotency, enforced in the DATABASE
+   * ## `key` is idempotency, and it only reaches the DATABASE one way
    *
-   * Stored as the deposit's `provider_ref` under `UNIQUE(provider,
-   * provider_ref)`, so a double-submitted form converges on ONE funding rather
-   * than relying on a replay cache. Pass a value identifying the INTENT.
-   *
-   * `transferError` is non-null when the wallet credit succeeded but the onward
-   * transfer did not — the money is in the wallet and the caller must say so,
-   * because a deposit is NOT unwound to punish a failed second leg.
+   * On a DEPOSIT it is stored as the credit's `provider_ref` under
+   * `UNIQUE(provider, provider_ref)`, so a double-submitted form converges on
+   * one movement in the database. A WITHDRAWAL writes no transaction row, so
+   * there is no such index to converge on: protection there is the executor's
+   * idempotency on the transfer id plus the dialog disabling its button in
+   * flight. Pass a value identifying the INTENT either way.
    */
   async fundTradingAccount(
     id: string,
-    body: { amount: string; reason: string },
+    body: { amount: string; reason: string; direction: 'deposit' | 'withdraw' },
     key: string,
   ): Promise<FundTradingAccountResult> {
     const { data } = await apiClient.post<FundTradingAccountResult>(

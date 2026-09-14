@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CandlestickChart, Plus, Wallet } from 'lucide-react';
+import { Banknote, CandlestickChart, Plus } from 'lucide-react';
 import api from '@/lib/api';
 import type {
   TradingAccountEnvironment,
@@ -34,7 +34,6 @@ import { hasPermission } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
 import { RowActions } from '@/components/row-actions';
 import { OpenAccountModal } from '@/components/trading/open-account-modal';
-import { AdjustBalanceModal } from '@/components/trading/adjust-balance-modal';
 import { FundAccountModal } from '@/components/trading/fund-account-modal';
 import { relativeTime } from '@/lib/relative-time';
 import { formatMoney } from '@/lib/money';
@@ -162,17 +161,24 @@ function TradingAccountsPageContent() {
   const canCreate = hasPermission(admin, 'trading.create');
   const canDeposit = hasPermission(admin, 'trading.deposit');
   const canWithdraw = hasPermission(admin, 'trading.withdraw');
-  const canAdjust = canDeposit || canWithdraw;
   /*
-   * FUNDING needs BOTH keys, because it does both things: it mints balance into
-   * a wallet (`wallets.credit`) and then moves it onto a live account
-   * (`trading.deposit`). The service asserts the same pair — this only decides
-   * whether to offer a control that would otherwise always 403.
+   * ── The money control, and the two keys are NOT symmetric ────────────────
+   *
+   * A DEPOSIT mints balance into a wallet and then moves it onto the account,
+   * so it needs `wallets.credit` (the key that governs minting) as well as
+   * `trading.deposit`. A WITHDRAWAL mints nothing — it moves money the client
+   * already has off their account into their own wallet — so `trading.withdraw`
+   * alone is the right gate, and requiring `wallets.credit` for it would mean
+   * granting the power to create money in order to take some away.
+   *
+   * The service asserts the same pair. This only decides whether to offer a
+   * control that would otherwise always 403.
    */
-  const canFund = hasPermission(admin, 'wallets.credit') && canDeposit;
+  const canFundIn = hasPermission(admin, 'wallets.credit') && canDeposit;
+  const canFundOut = canWithdraw;
+  const canMoveMoney = canFundIn || canFundOut;
 
   const [openFor, setOpenFor] = React.useState<{ userId: string; label: string } | null>(null);
-  const [adjusting, setAdjusting] = React.useState<TradingAccountRow | null>(null);
   const [funding, setFunding] = React.useState<TradingAccountRow | null>(null);
   const [fundError, setFundError] = React.useState<string | undefined>(undefined);
 
@@ -191,7 +197,7 @@ function TradingAccountsPageContent() {
    * ledger, and the account's own cached balance column.
    */
   const fund = useMutation({
-    mutationFn: (values: { amount: string; reason: string }) =>
+    mutationFn: (values: { amount: string; reason: string; direction: 'deposit' | 'withdraw' }) =>
       api.admin.fundTradingAccount(
         funding!.id,
         values,
@@ -205,7 +211,7 @@ function TradingAccountsPageContent() {
          * makes a double-click credit once in the DATABASE rather than only in
          * a cache.
          */
-        `fund:${funding!.id}:${funding!.balance ?? '0'}`,
+        `fund:${funding!.id}:${values.direction}:${funding!.balance ?? '0'}`,
       ),
     onSuccess: (result, values) => {
       const account = funding;
@@ -237,7 +243,7 @@ function TradingAccountsPageContent() {
       }
 
       toastSuccess(
-        t('tradingAccounts.funded', {
+        t(values.direction === 'deposit' ? 'tradingAccounts.funded' : 'tradingAccounts.withdrawn', {
           amount: `${values.amount} ${account?.currency ?? ''}`,
           login: account?.login ?? '',
         }),
@@ -443,7 +449,7 @@ function TradingAccountsPageContent() {
    * only exists for an operator who can act. A row menu that renders empty is
    * a control that looks broken rather than absent.
    */
-  if (canAdjust || canFund) {
+  if (canMoveMoney) {
     columns.push({
       header: '',
       cell: (a) => (
@@ -463,43 +469,31 @@ function TradingAccountsPageContent() {
            * Status columns beside this one already say so.
            */
           /*
-           * TWO actions now, and the labels are what keep them apart.
+           * ONE money action, and it used to be two.
            *
-           * "Add funds (deposit + transfer)" posts both legs and lands on the
-           * client's statement; "Adjust balance on MT5" moves the MT5 figure
-           * alone with no ledger entry. An operator picking the wrong one has
-           * either minted a client-visible deposit for what was meant to be a
-           * bonus, or moved money the ledger cannot explain — so each label
-           * names its mechanism rather than saying "add money" twice.
+           * "Adjust balance on MT5" sat beside this and moved the MT5 figure
+           * with no wallet leg and no ledger entry. Two menu items that both
+           * moved money on the same account, differing only in whether anything
+           * was written down, is not a choice an operator can make correctly —
+           * and the unrecorded one moved money that no statement or ledger
+           * could afterwards explain. It is gone; this one records both ways.
            *
-           * Funding is offered on LIVE accounts only: a demo account is not
-           * linked to a wallet, and the server refuses it. A demo top-up is the
-           * dealer adjustment, which is still listed beside it.
+           * LIVE accounts only, in both directions. A demo account trades
+           * practice money against no wallet, so there is nothing to move or
+           * record — the server refuses it, and a client tops up their own demo
+           * account from the portal.
            */
           items={
-            a.login && a.status === 'active'
+            a.login && a.status === 'active' && a.environment === 'live'
               ? [
-                  ...(canFund && a.environment === 'live'
-                    ? [
-                        {
-                          label: t('tradingAccounts.fundAction'),
-                          icon: Banknote,
-                          onSelect: () => {
-                            setFundError(undefined);
-                            setFunding(a);
-                          },
-                        },
-                      ]
-                    : []),
-                  ...(canAdjust
-                    ? [
-                        {
-                          label: t('tradingAccounts.adjustBalance'),
-                          icon: Wallet,
-                          onSelect: () => setAdjusting(a),
-                        },
-                      ]
-                    : []),
+                  {
+                    label: t('tradingAccounts.fundAction'),
+                    icon: Banknote,
+                    onSelect: () => {
+                      setFundError(undefined);
+                      setFunding(a);
+                    },
+                  },
                 ]
               : []
           }
@@ -688,21 +682,11 @@ function TradingAccountsPageContent() {
           }}
           login={funding.login ?? ''}
           currency={funding.currency}
+          canDeposit={canFundIn}
+          canWithdraw={canFundOut}
           saving={fund.isPending}
           error={fundError}
           onSubmit={(values) => fund.mutate(values)}
-        />
-      )}
-
-      {adjusting && (
-        <AdjustBalanceModal
-          open
-          onClose={() => setAdjusting(null)}
-          accountId={adjusting.id}
-          login={adjusting.login ?? ''}
-          currency={adjusting.currency}
-          canDeposit={canDeposit}
-          canWithdraw={canWithdraw}
         />
       )}
     </div>
