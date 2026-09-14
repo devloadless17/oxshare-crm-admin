@@ -229,3 +229,69 @@ describe('the ledger never offers to change itself', () => {
     expect(within(table).queryByRole('button', { name: /edit|delete|remove/i })).toBeNull();
   });
 });
+
+describe('whose money each row is', () => {
+  /*
+   * This column is headed "Client" and rendered `r.userId` — a raw uuid — on
+   * the screen an operator opens precisely to ask whose money a movement is.
+   * `/wallets` and `/trading-accounts` have shown a named Owner all along.
+   */
+  it('names the client rather than printing a uuid', async () => {
+    getLedger.mockResolvedValue(
+      page({
+        items: [
+          entry({
+            userFirstName: 'Nadia',
+            userLastName: 'Haddad',
+            userEmail: 'nadia@example.com',
+          }),
+        ],
+      }),
+    );
+
+    renderWithProviders(<LedgerPage />);
+
+    expect(await screen.findByText('Nadia Haddad')).toBeInTheDocument();
+    expect(screen.getByText('nadia@example.com')).toBeInTheDocument();
+    // The uuid is no longer the thing identifying the person.
+    expect(screen.queryByText('11111111-1111-1111-1111-111111111111')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the id when the client record is GONE, rather than dropping the row', async () => {
+    /*
+     * NULL, not absent — the LEFT join's answer for an entry whose client row
+     * has been removed. `ledger_entries` is append-only, so the row must still
+     * appear: a reconciliation that silently drops rows is worse than one
+     * naming an id it cannot resolve.
+     */
+    getLedger.mockResolvedValue(
+      page({
+        items: [entry({ userFirstName: null, userLastName: null, userEmail: null })],
+      }),
+    );
+
+    renderWithProviders(<LedgerPage />);
+
+    expect(await screen.findByText('11111111-1111-1111-1111-111111111111')).toBeInTheDocument();
+  });
+
+  it('says ONCE which columns a role hides, instead of a chip in every row', async () => {
+    /*
+     * Masked fields arrive ABSENT — `maskByShape` removes the key rather than
+     * blanking it — so without this notice a masked operator sees a uuid and
+     * cannot tell "your role hides this" from "this client has no name". The
+     * per-row redaction chip is deliberately NOT used on a list; `/clients`
+     * settled that, because fifty identical chips spend space on one fact.
+     */
+    getLedger.mockResolvedValue(
+      page({
+        items: [entry()],
+        maskedFields: ['client.email', 'client.firstName'],
+      }),
+    );
+
+    renderWithProviders(<LedgerPage />);
+
+    expect(await screen.findByRole('note')).toBeInTheDocument();
+  });
+});

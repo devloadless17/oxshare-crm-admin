@@ -54,7 +54,31 @@ export default function ReconciliationPage() {
       {
         key: 'userId',
         header: t('reconciliation.column.client'),
-        cell: (row) => <span className="font-mono text-xs">{row.userId}</span>,
+        /*
+         * WHOSE money does not add up. This rendered `row.userId` — a raw uuid
+         * — on the one screen whose entire job is to report that a SPECIFIC
+         * client's balance disagrees with their ledger. An operator had to
+         * resolve the id elsewhere before they could act on it.
+         *
+         * The uuid remains the fallback, covering two different cases: the
+         * fields are ABSENT when a role masks them (`maskByShape` removes the
+         * key), and NULL when the client row is gone — a discrepancy must not
+         * disappear because the person did.
+         */
+        cell: (row) => {
+          const name = [row.userFirstName, row.userLastName].filter(Boolean).join(' ');
+          if (!name && !row.userEmail) {
+            return <span className="font-mono text-xs">{row.userId}</span>;
+          }
+          return (
+            <div className="min-w-0">
+              <div className="font-medium text-foreground">{name || '—'}</div>
+              {row.userEmail && (
+                <div className="truncate text-xs text-muted-foreground">{row.userEmail}</div>
+              )}
+            </div>
+          );
+        },
       },
       {
         key: 'walletId',

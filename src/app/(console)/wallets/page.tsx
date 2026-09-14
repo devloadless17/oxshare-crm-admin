@@ -123,6 +123,17 @@ function WalletsPageContent() {
    * UUID is thirty-six requests that can only 200 with nothing, and the
    * `AbortSignal` below cancels the superseded ones either way.
    */
+  /*
+   * SEARCH, not an id. This box read `userId` and sent a uuid — while every row
+   * on the page shows a NAME and an EMAIL and no id at all, so an operator
+   * looking straight at a client could not filter to them: they had to leave
+   * for /clients, copy the id, and come back. Its placeholder said "Paste a
+   * client ID" out loud.
+   *
+   * `userId` is still honoured, because the row menu's "see this client's
+   * wallets" writes it and a saved link carrying one must keep working.
+   */
+  const q = useDebounced(url.get('q').trim());
   const userId = useDebounced(url.get('userId').trim());
 
   const sortKey = WALLET_SORT_KEYS.includes(url.sort.key as WalletSortKey)
@@ -133,6 +144,7 @@ function WalletsPageContent() {
     limit: pageSize,
     page,
     userId: userId || undefined,
+    q: q || undefined,
     currency: currency || undefined,
     sort: sortKey,
     // Withheld when nothing is sorted. `order` alone describes an ordering of
@@ -169,10 +181,11 @@ function WalletsPageContent() {
    * absent: the export is defined by which rows it holds, and the order they
    * arrive in is a property of the screen — carrying it would make the same set
    * of rows produce two different files depending on which header was last
-   * clicked. The endpoint accepts `userId` and `currency` and nothing else.
+   * clicked. The endpoint accepts `userId`, `q` and `currency`.
    */
   const exportFilters = new URLSearchParams({
     ...(userId ? { userId } : {}),
+    ...(q ? { q } : {}),
     ...(currency ? { currency } : {}),
   });
 
@@ -453,13 +466,13 @@ function WalletsPageContent() {
           aria-label={t('wallets.filterClient')}
           placeholder={t('wallets.filterClientPlaceholder')}
           title={t('wallets.filterClientHint')}
-          value={url.get('userId')}
+          value={url.get('q')}
           onChange={(e) => {
             // Filter and page written together, so narrowing always lands on
             // page one rather than past the end of the new result set.
-            url.set({ userId: e.target.value, page: undefined });
+            url.set({ q: e.target.value, page: undefined });
           }}
-          className="h-9 w-64 rounded-lg border border-input bg-card px-3 font-mono text-xs focus-outline"
+          className="h-9 w-64 rounded-lg border border-input bg-card px-3 text-xs focus-outline"
         />
 
         <Select
