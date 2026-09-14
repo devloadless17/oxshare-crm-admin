@@ -361,8 +361,32 @@ describe('trading accounts — the write actions are permission-gated', () => {
     expect(screen.queryByRole('button', { name: /actions for account/i })).toBeNull();
   });
 
-  it('offers the balance menu on trading.deposit, and no open-account button', async () => {
+  /*
+   * ⚠️ `trading.deposit` ALONE IS NO LONGER ENOUGH, and this case used to
+   * assert the opposite.
+   *
+   * It passed against the dealer balance dialog, which moved the MT5 figure on
+   * `trading.deposit` with no wallet leg. That dialog is gone: a deposit now
+   * mints into the client's wallet before transferring, so it needs
+   * `wallets.credit` too, and an operator holding neither that nor
+   * `trading.withdraw` can move no money at all.
+   *
+   * The menu is therefore OMITTED rather than rendered empty — `RowActions`
+   * states the rule, and a menu whose only item explains why it cannot be used
+   * is worse than its absence.
+   */
+  it('offers no money action on trading.deposit alone, and no open-account button', async () => {
     identity.permissions = ['trading.view', 'trading.deposit'];
+    searchParams.current = new URLSearchParams('userId=u-1');
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    expect(screen.queryByRole('button', { name: /actions for account/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /open a trading account/i })).toBeNull();
+  });
+
+  it('offers the money action once wallets.credit is held alongside it', async () => {
+    identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
     searchParams.current = new URLSearchParams('userId=u-1');
     renderWithProviders(<TradingAccountsPage />);
     await screen.findByText('client@example.com');
@@ -373,38 +397,32 @@ describe('trading accounts — the write actions are permission-gated', () => {
 });
 
 /**
- * Funding — the DEPOSIT + TRANSFER action, which is not the dealer adjustment.
+ * The ONE money control on this screen, in both directions.
  *
- * The distinction is the whole reason this action exists, so it is what these
- * tests pin: who is offered it, that it is withheld from a demo account the
- * server would refuse anyway, and that the half-done outcome is reported as
- * money sitting in the wallet rather than as a plain failure.
+ * ## What these pin, and why each one exists
+ *
+ * There used to be TWO row actions: this and a dealer "Adjust balance on MT5"
+ * that moved the MT5 figure with no wallet leg and no ledger entry. They were
+ * consolidated because an operator cannot be asked to choose correctly between
+ * two controls that visibly do the same thing, and the unrecorded one moved
+ * money nothing could afterwards explain.
+ *
+ * So the cases below pin the consolidation itself: ONE action in the menu, both
+ * directions inside it, the asymmetric permissions that gate them, and the
+ * half-done deposit reported as money in the wallet rather than as a failure.
  */
-describe('funding a trading account', () => {
+describe('moving money on a trading account', () => {
   beforeEach(() => {
     fundTradingAccount.mockReset();
     searchParams.current = new URLSearchParams('userId=u-1');
   });
 
   /*
-   * BOTH keys, because the action does both things. `trading.deposit` alone
-   * cannot mint the wallet balance the transfer then moves, so offering it
-   * would be a control that always 403s — which is the failure the page's own
-   * permission note says it exists to prevent.
+   * THE CONSOLIDATION, asserted by absence. The dealer dialog is gone, so its
+   * label must not be anywhere in the menu — if somebody reinstates it, this is
+   * what says so rather than a reviewer noticing two similar items.
    */
-  it('is withheld from an operator holding only trading.deposit', async () => {
-    getTradingAccounts.mockResolvedValue(page([account()]));
-    identity.permissions = ['trading.view', 'trading.deposit'];
-    renderWithProviders(<TradingAccountsPage />);
-    await screen.findByText('client@example.com');
-
-    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
-
-    expect(await screen.findByText(/adjust balance on mt5/i)).toBeInTheDocument();
-    expect(screen.queryByText(/add funds/i)).toBeNull();
-  });
-
-  it('is offered when the operator holds wallets.credit and trading.deposit', async () => {
+  it('offers one money action, and no dealer balance item', async () => {
     getTradingAccounts.mockResolvedValue(page([account()]));
     identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
     renderWithProviders(<TradingAccountsPage />);
@@ -412,34 +430,79 @@ describe('funding a trading account', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
 
-    expect(await screen.findByText(/add funds/i)).toBeInTheDocument();
+    expect(await screen.findByText(/add or remove funds/i)).toBeInTheDocument();
+    expect(screen.queryByText(/adjust balance on mt5/i)).toBeNull();
   });
 
   /*
-   * A DEMO account has no wallet leg to fund — the server refuses it, and
-   * offering the control anyway would put a guaranteed error in the menu. The
-   * dealer adjustment stays, because that IS how a demo account is topped up.
+   * A DEPOSIT mints balance before it moves it, so `trading.deposit` alone is
+   * not enough — without `wallets.credit` the deposit button is disabled while
+   * the action itself still opens, because the operator may hold withdraw.
    */
-  it('is withheld on a demo account, which has no wallet to fund from', async () => {
+  it('disables the deposit direction without wallets.credit', async () => {
+    getTradingAccounts.mockResolvedValue(page([account()]));
+    identity.permissions = ['trading.view', 'trading.withdraw'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+    await userEvent.click(await screen.findByText(/add or remove funds/i));
+
+    // Opens on WITHDRAW, the direction this operator can actually use — rather
+    // than on a disabled deposit, which reads as the feature being broken.
+    expect(await screen.findByRole('button', { name: /^deposit$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^withdraw$/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /remove funds/i })).toBeInTheDocument();
+  });
+
+  /*
+   * A WITHDRAWAL mints nothing, so requiring `wallets.credit` for it would mean
+   * granting the power to create money in order to take some away.
+   */
+  it('disables the withdraw direction without trading.withdraw', async () => {
+    getTradingAccounts.mockResolvedValue(page([account()]));
+    identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+    await userEvent.click(await screen.findByText(/add or remove funds/i));
+
+    expect(await screen.findByRole('button', { name: /^withdraw$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^deposit$/i })).toBeEnabled();
+  });
+
+  /*
+   * Neither direction is offered on a DEMO account: practice money has no
+   * wallet and no ledger to record a movement against, the server refuses it,
+   * and there is no longer a dealer control to fall back on. A client tops up
+   * their own demo account from the portal.
+   */
+  it('offers no money action at all on a demo account', async () => {
     getTradingAccounts.mockResolvedValue(page([account({ environment: 'demo' })]));
-    identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
+    identity.permissions = [
+      'trading.view',
+      'trading.deposit',
+      'wallets.credit',
+      'trading.withdraw',
+    ];
     renderWithProviders(<TradingAccountsPage />);
     await screen.findByText('client@example.com');
 
-    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
-
-    expect(await screen.findByText(/adjust balance on mt5/i)).toBeInTheDocument();
-    expect(screen.queryByText(/add funds/i)).toBeNull();
+    // The row menu is omitted rather than rendered empty — a menu with nothing
+    // in it is a control that looks broken rather than absent.
+    expect(screen.queryByRole('button', { name: /actions for account/i })).toBeNull();
   });
 
   /*
-   * The amount travels as the STRING the operator typed and no currency is sent
-   * — the server derives it from the account, because transfers do not convert.
+   * The amount travels as the STRING the operator typed, the direction travels
+   * beside it UNSIGNED, and no currency is sent — the server derives it from
+   * the account, because transfers do not convert.
    */
-  it('sends the typed amount as a string and no currency', async () => {
+  it('sends the typed amount, the direction, and no currency', async () => {
     getTradingAccounts.mockResolvedValue(page([account()]));
     fundTradingAccount.mockResolvedValue({
-      transaction: { id: 'tx-1', amount: '250.00000000', currency: 'USD' },
+      transaction: { id: 'tx-1', amount: '250.50000000', currency: 'USD' },
       replayed: false,
       transfer: { id: 'tr-1', state: 'settled' },
       transferError: null,
@@ -449,7 +512,7 @@ describe('funding a trading account', () => {
     await screen.findByText('client@example.com');
 
     await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
-    await userEvent.click(await screen.findByText(/add funds/i));
+    await userEvent.click(await screen.findByText(/add or remove funds/i));
 
     await userEvent.type(await screen.findByLabelText(/amount/i), '250.5');
     await userEvent.type(screen.getByLabelText(/reason/i), 'Off-rail wire received');
@@ -458,8 +521,44 @@ describe('funding a trading account', () => {
     await waitFor(() => expect(fundTradingAccount).toHaveBeenCalledTimes(1));
     const [id, body] = fundTradingAccount.mock.calls[0]!;
     expect(id).toBe('ta-1');
-    expect(body).toEqual({ amount: '250.5', reason: 'Off-rail wire received' });
+    expect(body).toEqual({
+      amount: '250.5',
+      reason: 'Off-rail wire received',
+      direction: 'deposit',
+    });
     expect(body).not.toHaveProperty('currency');
+  });
+
+  /*
+   * WITHDRAW sends the same unsigned amount with the other direction. The sign
+   * is the server's to apply, once — two sources of truth for a direction is
+   * how a withdrawal becomes a deposit.
+   */
+  it('sends withdraw with an unsigned amount', async () => {
+    getTradingAccounts.mockResolvedValue(page([account()]));
+    fundTradingAccount.mockResolvedValue({
+      transaction: null,
+      replayed: false,
+      transfer: { id: 'tr-2', state: 'settled' },
+      transferError: null,
+      destination: 'wallet',
+    });
+    identity.permissions = ['trading.view', 'trading.withdraw'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+    await userEvent.click(await screen.findByText(/add or remove funds/i));
+
+    await userEvent.type(await screen.findByLabelText(/amount/i), '100');
+    await userEvent.type(screen.getByLabelText(/reason/i), 'Reversing the duplicate credit');
+    await userEvent.click(screen.getByRole('button', { name: /remove funds/i }));
+
+    await waitFor(() => expect(fundTradingAccount).toHaveBeenCalledTimes(1));
+    const [, body] = fundTradingAccount.mock.calls[0]!;
+    expect(body.direction).toBe('withdraw');
+    // UNSIGNED — the server derives the sign from the direction.
+    expect(body.amount).toBe('100');
   });
 
   /*
@@ -482,7 +581,7 @@ describe('funding a trading account', () => {
     await screen.findByText('client@example.com');
 
     await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
-    await userEvent.click(await screen.findByText(/add funds/i));
+    await userEvent.click(await screen.findByText(/add or remove funds/i));
 
     await userEvent.type(await screen.findByLabelText(/amount/i), '250');
     await userEvent.type(screen.getByLabelText(/reason/i), 'Off-rail wire received');

@@ -1948,26 +1948,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/trading-accounts/{id}/balance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Credit or debit a trading account directly on MT5
-         * @description A DEALER operation with no wallet leg — for corrections, bonuses and manual settlement. Funding an account from a client wallet is a transfer (POST /transfers), which holds and posts both sides. Requires trading.deposit or trading.withdraw depending on direction.
-         */
-        post: operations["Mt5AccountsController_balance"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/trading-accounts/{id}/live": {
         parameters: {
             query?: never;
@@ -3573,6 +3553,26 @@ export interface paths {
          * @description Writes a successful DEPOSIT transaction and a ledger entry, so the credit appears in the client's own history, and emails them the amount and the reason. Requires a reason: an unexplained credit cannot be audited.
          */
         post: operations["AdminMoneyController_creditWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trading-accounts/{id}/fund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move money on a client's trading account by hand
+         * @description ALWAYS RECORDED, in both directions. A deposit writes a successful DEPOSIT transaction crediting the wallet, then a TRANSFER of the same amount to the trading account. A withdrawal writes a TRANSFER off the account into the wallet — it is NOT a payout and no money leaves the platform. Both are visible in the client history, the ledger and the financial views. The currency is the account's and is not accepted from the caller. Enforces the same preconditions as a client transfer: KYC level 1, live and active account (DEMO accounts are refused both ways — practice money has no wallet). A deposit requires wallets.credit AND trading.deposit; a withdrawal requires trading.withdraw.
+         */
+        post: operations["AdminMoneyController_fundTradingAccount"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5556,17 +5556,6 @@ export interface components {
             credentialsSentTo?: string;
             maskedFields?: string[];
         };
-        Mt5BalanceDto: {
-            /**
-             * @description Positive decimal. Direction carries the sign.
-             * @example 250.00
-             */
-            amount: string;
-            /** @enum {string} */
-            direction: "deposit" | "withdraw";
-            /** @example Goodwill credit, ticket #4412 */
-            comment: string;
-        };
         KycDocumentPartDto: {
             /**
              * @description Slot identifier, unique within the type.
@@ -6755,6 +6744,17 @@ export interface components {
             currency: string;
             /** @example Goodwill adjustment for the failed 4 August transfer. */
             reason: string;
+        };
+        FundTradingAccountDto: {
+            /** @example 250.00000000 */
+            amount: string;
+            /** @example Funding the 4 August wire that arrived off-rail. */
+            reason: string;
+            /**
+             * @example deposit
+             * @enum {string}
+             */
+            direction: "deposit" | "withdraw";
         };
         OpenWalletDto: {
             /** Format: uuid */
@@ -9820,29 +9820,6 @@ export interface operations {
             };
         };
     };
-    Mt5AccountsController_balance: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Mt5BalanceDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     Mt5AccountsController_live: {
         parameters: {
             query?: never;
@@ -12185,6 +12162,34 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreditWalletDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_fundTradingAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended funding, reused only when retrying that same one. It is also stored as the transaction `provider_ref`, so a replay collides on UNIQUE(provider, provider_ref) and credits once (R-5.2). */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FundTradingAccountDto"];
             };
         };
         responses: {

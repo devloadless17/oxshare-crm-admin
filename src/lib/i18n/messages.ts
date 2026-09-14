@@ -3294,47 +3294,60 @@ export const messages = {
   'tradingAccounts.credentialsNoCopy':
     'We keep no copy of the passwords. If the client does not receive the email, an administrator has to set a new password — they cannot be looked up.',
 
-  'tradingAccounts.balanceTitle': 'Adjust balance',
+  /*
+   * The DEALER ADJUSTMENT copy is gone with its dialog — `balanceTitle`,
+   * `balanceFor`, `fieldComment`, `commentHint`, `balanceConfirm`,
+   * `balanceApplying`, `balanceFailed`, `replayed` and `dealerWarning`, which
+   * existed to tell the operator the ledger would not see what they were about
+   * to do.
+   *
+   * `deposited` and `withdrawn` were REWORDED rather than dropped: both quoted
+   * an MT5 deal id, which no longer exists on this path, and the withdraw one
+   * now has to say the money went to the client's WALLET — an operator reading
+   * "debited" as "paid out" would tell the client something false.
+   *
+   * `deposit` and `withdraw` SURVIVE as the direction labels on the funding
+   * dialog, which is now the only money control on this screen.
+   */
   'tradingAccounts.deposit': 'Deposit',
   'tradingAccounts.withdraw': 'Withdraw',
-  'tradingAccounts.balanceFor': 'On MT5 account {login}. This does not touch the client wallet.',
-  'tradingAccounts.fieldAmount': 'Amount',
-  'tradingAccounts.fieldComment': 'Reason',
-  'tradingAccounts.commentPlaceholder': 'Shown in the MT5 deal comment',
-  'tradingAccounts.commentHint':
-    'Required. This is the only explanation visible in the broker terminal.',
-  'tradingAccounts.balanceConfirm': 'Apply',
-  'tradingAccounts.balanceApplying': 'Applying…',
-  'tradingAccounts.deposited': 'Credited {amount}. Deal {dealId}.',
-  'tradingAccounts.withdrawn': 'Debited {amount}. Deal {dealId}.',
-  'tradingAccounts.balanceFailed': 'That balance change did not go through.',
-  'tradingAccounts.replayed': 'Already applied — the stored result was returned.',
   'tradingAccounts.liveBalance': 'Live balance',
   'tradingAccounts.rowActions': 'Actions for account {login}',
-  'tradingAccounts.adjustBalance': 'Adjust balance on MT5',
-  'tradingAccounts.dealerWarning':
-    'This moves money on MT5 only — the client wallet and the CRM ledger are untouched. To fund an account from a wallet, use a transfer instead.',
   /*
    * FUNDING, which is a different act from the adjustment above and the copy has
    * to say so on both controls. An operator who reads "add money" and picks the
    * dealer adjustment has moved money with no ledger entry behind it; one who
    * picks this for a bonus has minted a deposit onto the client's statement.
    */
-  'tradingAccounts.fundTitle': 'Add funds to trading account',
-  'tradingAccounts.fundAction': 'Add funds (deposit + transfer)',
-  'tradingAccounts.fundFor': 'To MT5 account {login}, in {currency}.',
+  'tradingAccounts.fundTitle': 'Move money on trading account',
+  'tradingAccounts.fundAction': 'Add or remove funds',
+  'tradingAccounts.fundDirection': 'Direction',
+  'tradingAccounts.fundFor': 'MT5 account {login}, in {currency}.',
+  'tradingAccounts.fundWallet': 'wallet',
   'tradingAccounts.fundExplainer':
-    'This records TWO movements: a deposit into the client {currency} wallet, then a transfer of the same amount to this account. Both appear on the client statement, in the ledger and in the financial reports.',
+    'Records TWO movements: a deposit into the client {currency} wallet, then a transfer of the same amount to this account. Both appear on the client statement, in the ledger and in the financial reports.',
+  /*
+   * WHERE THE MONEY GOES is the load-bearing sentence, not the mechanism. An
+   * operator who reads "withdraw" as "paid out to the client's bank" has told
+   * them something false — this moves it to their wallet, where the reviewed
+   * withdrawal desk is what actually pays out.
+   */
+  'tradingAccounts.withdrawExplainer':
+    'Moves money OFF this account and into the client {currency} wallet, recorded as a transfer in the ledger and on their statement. This is NOT a payout — nothing leaves the platform. The client can withdraw it from the wallet through the normal reviewed process.',
   'tradingAccounts.fundAmount': 'Amount',
   'tradingAccounts.fundReason': 'Reason',
-  'tradingAccounts.fundReasonPlaceholder': 'Why this money is being added',
+  'tradingAccounts.fundReasonPlaceholder': 'Why this money is being moved',
   'tradingAccounts.fundReasonHint':
     'Required. It goes on the audit entry and into the email telling the client their wallet was credited.',
+  'tradingAccounts.withdrawReasonHint':
+    'Required. It goes on the audit entry and is the only explanation of this movement anybody reading the ledger will have.',
   'tradingAccounts.fundConfirm': 'Add funds',
-  'tradingAccounts.fundApplying': 'Adding…',
+  'tradingAccounts.withdrawConfirm': 'Remove funds',
+  'tradingAccounts.fundApplying': 'Applying…',
   'tradingAccounts.funded': 'Added {amount} to account {login}.',
-  'tradingAccounts.fundReplayed': 'Already added — the stored result was returned.',
-  'tradingAccounts.fundFailed': 'That funding did not go through.',
+  'tradingAccounts.withdrawn': 'Moved {amount} from account {login} to the client wallet.',
+  'tradingAccounts.fundReplayed': 'Already applied — the stored result was returned.',
+  'tradingAccounts.fundFailed': 'That movement did not go through.',
   /*
    * The HALF-DONE case, and it needs its own sentence rather than an error
    * toast. The deposit is not unwound when the onward transfer fails, so the
