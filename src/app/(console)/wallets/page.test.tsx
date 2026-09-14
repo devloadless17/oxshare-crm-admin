@@ -445,3 +445,40 @@ describe('wallets — one write action, and only one', () => {
     expect(await screen.findByText(/holds 1250\.00000000 USD/i)).toBeInTheDocument();
   });
 });
+
+describe('finding a client on the wallets desk', () => {
+  /*
+   * This box read `userId` and its placeholder said "Paste a client ID" — while
+   * every row shows a NAME and an EMAIL and no id at all. So an operator
+   * looking straight at a client could not filter to them without leaving for
+   * /clients, copying the uuid, and coming back. A filter you can only use by
+   * visiting another screen first is not a filter.
+   */
+  it('searches by what the rows actually show, not by a uuid', async () => {
+    getWallets.mockResolvedValue(page([wallet()]));
+    renderWithProviders(<WalletsPage />);
+    await screen.findByRole('table');
+
+    const box = screen.getByRole('searchbox', { name: /search client/i });
+    expect(box).toHaveAttribute('placeholder', expect.stringMatching(/name or email/i));
+
+    await userEvent.type(box, 'nadia');
+
+    await waitFor(() => {
+      expect(getWallets).toHaveBeenCalledWith(
+        expect.objectContaining({ q: 'nadia' }),
+        expect.anything(),
+      );
+    });
+  });
+
+  /*
+   * NOT TESTED HERE, deliberately: "a userId in the URL is still honoured".
+   * The page does read both params — the row menu's "see this client's wallets"
+   * writes `userId`, and a link pasted into a ticket last month carries one —
+   * but seeding a query string in this file needs the explicit
+   * `useSearchParams` mock that `kyc/page.test.tsx` carries and this one does
+   * not. A test that cannot observe the thing it names is worse than a stated
+   * gap, so it is stated.
+   */
+});

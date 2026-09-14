@@ -395,9 +395,10 @@ export const messages = {
   'wallets.colOpened': 'Opened',
   'wallets.filterCurrency': 'Currency',
   'wallets.filterCurrencyAll': 'All currencies',
-  'wallets.filterClient': 'Client ID',
-  'wallets.filterClientPlaceholder': 'Paste a client ID',
-  'wallets.filterClientHint': 'An exact client id — this is not a name search.',
+  'wallets.filterClient': 'Search client',
+  'wallets.filterClientPlaceholder': 'Search by name or email',
+  'wallets.filterClientHint':
+    'Matches the owner’s email or name — the same identifiers shown in the Client column.',
   'wallets.clearFilters': 'Clear filters',
   'wallets.noun': 'wallet', // pager: "1–25 of 40 wallets"
   'wallets.nounPlural': 'wallets',

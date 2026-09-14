@@ -5129,6 +5129,9 @@ export interface components {
              */
             walletNumber: string;
             userId: string;
+            userFirstName: string | null;
+            userLastName: string | null;
+            userEmail: string | null;
             /** @description Signed monetary value as a string */
             amount: string;
             /** @description Running balance after this entry, as a string */
@@ -5152,6 +5155,7 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+            maskedFields?: string[];
         };
         OpenOwnAccountDto: {
             /**
@@ -6783,6 +6787,9 @@ export interface components {
              */
             walletNumber: string;
             userId: string;
+            userFirstName: string | null;
+            userLastName: string | null;
+            userEmail: string | null;
             currency: string;
             /**
              * @description What the wallet row claims. Monetary value — always a string.
@@ -12210,6 +12217,8 @@ export interface operations {
                 userId?: string;
                 /** @description Exact match on the wallet code. */
                 currency?: string;
+                /** @description Search the OWNER by email or name — the identifiers this screen actually displays. Before this existed the only client filter was `userId`, a uuid shown nowhere on the page, so an operator had to fetch it from /clients first. */
+                q?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;

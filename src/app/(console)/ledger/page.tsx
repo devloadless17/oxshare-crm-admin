@@ -8,6 +8,8 @@ import { useResource } from '@/hooks/use-resource';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
+import { MaskedFieldsNotice } from '@/components/masked-value';
+import { maskedFieldLabels } from '@/lib/masking';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { PageLoader } from '@/components/ui/loader';
@@ -50,6 +52,13 @@ import { keys } from '@/lib/query-keys';
  * edit control that the database itself would refuse would teach an operator
  * that the ledger is editable.
  */
+/** Which client columns a role can hide, in the words this screen uses. */
+const LEDGER_FIELD_LABELS: Record<string, string> = {
+  'client.email': t('ledger.colClient'),
+  'client.firstName': t('ledger.colClient'),
+  'client.lastName': t('ledger.colClient'),
+};
+
 export default function LedgerPage() {
   // `useSearchParams()` needs a Suspense boundary at prerender or `npm run
   // build` fails — and `next dev` does not, so CI is where you would find out.
@@ -128,7 +137,39 @@ function LedgerPageContent() {
     {
       header: t('ledger.colClient'),
       sortable: false,
-      cell: (r) => <span className="font-mono text-xs">{r.userId}</span>,
+      /*
+       * WHOSE MONEY THIS IS, in words. This rendered `r.userId` — a raw uuid —
+       * under a header reading "Client", on the screen an operator opens
+       * precisely to ask that question. `/wallets` and `/trading-accounts` have
+       * shown a named Owner all along, so the ledger was inconsistent with its
+       * siblings rather than deliberately anonymous.
+       *
+       * The uuid stays as the fallback, and the two cases it covers are
+       * different on purpose:
+       *   MASKED  -> the fields are ABSENT, because `maskByShape` removes the
+       *              key rather than blanking it. The notice above the table
+       *              says which columns this role hides, once — the convention
+       *              `/clients` settled on rather than a redaction chip in
+       *              every row.
+       *   DELETED -> the fields are NULL, from the LEFT join. `ledger_entries`
+       *              is append-only, so an entry whose client row has gone must
+       *              still appear; a reconciliation that drops rows silently is
+       *              worse than one naming an id it cannot resolve.
+       */
+      cell: (r) => {
+        const name = [r.userFirstName, r.userLastName].filter(Boolean).join(' ');
+        if (!name && !r.userEmail) {
+          return <span className="font-mono text-xs">{r.userId}</span>;
+        }
+        return (
+          <div className="min-w-0">
+            <div className="font-medium text-foreground">{name || '—'}</div>
+            {r.userEmail && (
+              <div className="truncate text-xs text-muted-foreground">{r.userEmail}</div>
+            )}
+          </div>
+        );
+      },
     },
     {
       /*
@@ -253,6 +294,10 @@ function LedgerPageContent() {
           <span className="text-xs text-muted-foreground">{t('ledger.scopedToWallet')}</span>
         )}
       </div>
+
+      <MaskedFieldsNotice
+        labels={maskedFieldLabels(query.data?.maskedFields ?? [], LEDGER_FIELD_LABELS)}
+      />
 
       <AsyncBoundary
         status={query.status}

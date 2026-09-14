@@ -160,3 +160,51 @@ describe('the reconciliation report', () => {
     expect(screen.queryByText(/The books balance/i)).not.toBeInTheDocument();
   });
 });
+
+describe('whose money does not add up', () => {
+  /*
+   * This column is headed "Client" and rendered `row.userId` — a raw uuid — on
+   * the one screen whose entire job is to report that a SPECIFIC client's
+   * balance disagrees with their ledger. An operator had to resolve the id
+   * somewhere else before they could act on it.
+   */
+  it('names the client instead of printing a uuid', async () => {
+    getReconciliation.mockResolvedValue(
+      report({
+        balanced: false,
+        walletDiscrepancies: [
+          discrepancy({
+            userFirstName: 'Omar',
+            userLastName: 'Khoury',
+            userEmail: 'omar@example.com',
+          }),
+        ],
+      }),
+    );
+
+    renderWithProviders(<ReconciliationPage />);
+
+    expect(await screen.findByText('Omar Khoury')).toBeInTheDocument();
+    expect(screen.getByText('omar@example.com')).toBeInTheDocument();
+  });
+
+  it('keeps the row, falling back to the id, when the client record is gone', async () => {
+    /*
+     * NULL from the LEFT join. A discrepancy must not disappear because the
+     * person did — that would hide the exact condition this screen exists to
+     * surface.
+     */
+    getReconciliation.mockResolvedValue(
+      report({
+        balanced: false,
+        walletDiscrepancies: [
+          discrepancy({ userFirstName: null, userLastName: null, userEmail: null }),
+        ],
+      }),
+    );
+
+    renderWithProviders(<ReconciliationPage />);
+
+    expect(await screen.findByText('c-1')).toBeInTheDocument();
+  });
+});
