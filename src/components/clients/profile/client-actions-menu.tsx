@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Pencil,
   Coins,
+  ScrollText,
   FileText,
   Network,
   Percent,
@@ -107,6 +108,7 @@ export function ClientActionsMenu({
   const canViewCommissions =
     hasPermission(admin, 'ib.view') || hasPermission(admin, 'ib.commissions.view');
   const canViewClients = hasPermission(admin, 'clients.view');
+  const canViewAudit = hasPermission(admin, 'audit.view');
 
   const name =
     [profile.firstName, profile.lastName].filter(Boolean).join(' ') || profile.email || '';
@@ -280,6 +282,33 @@ export function ClientActionsMenu({
             label: t('clientProfile.actionReassignParent'),
             icon: Network,
             onSelect: onReassignParent,
+          },
+        ]
+      : []),
+    /*
+     * EVERYTHING THAT HAS HAPPENED TO THIS CLIENT — the audit trail, scoped to
+     * them.
+     *
+     * Every client, not only partners, and above the partner block for that
+     * reason. `GET /admin/audit-log` accepted `actorId` from the day the store
+     * was written and no route passed it, and nothing anywhere accepted a
+     * SUBJECT — so the way to answer "what was done to this person" was to page
+     * an append-only table that grows forever and read it. The filter is on the
+     * endpoint now; this is the control that reaches it, because a filter you
+     * can only use by hand-editing a URL is not a filter.
+     *
+     * The link is an `href` rather than a handler: it is a place, and an
+     * operator should be able to open it in a tab beside the profile they are
+     * reading. The API re-checks `audit.view` and the reader's client scope
+     * regardless of what this renders.
+     */
+    ...(canViewAudit
+      ? [
+          {
+            label: t('clientProfile.actionViewAuditTrail'),
+            icon: ScrollText,
+            separatorBefore: true,
+            href: `/audit-log?subjectId=${profile.id}`,
           },
         ]
       : []),

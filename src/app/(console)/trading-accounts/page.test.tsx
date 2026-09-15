@@ -253,6 +253,29 @@ describe('trading accounts — filtering and sorting reach the API', () => {
     });
   });
 
+  /*
+   * The Client column on this screen names the owner — email, and a name when
+   * there is one. Its filter used to take `userId` and NOTHING else: a uuid
+   * that appears nowhere on the page, so narrowing to the client whose row you
+   * were reading meant leaving for /clients to copy an id. A filter has to
+   * accept the identifiers its own screen prints.
+   */
+  it('narrows to a client by the identifiers the screen shows, not by a uuid', async () => {
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.type(screen.getByRole('searchbox'), 'alexandra');
+
+    await waitFor(
+      () => {
+        const params = getTradingAccounts.mock.calls.at(-1)?.[0] as { q?: string };
+        expect(params.q).toBe('alexandra');
+      },
+      { timeout: 3000 },
+    );
+    expect(screen.getByRole('searchbox')).toHaveValue('alexandra');
+  });
+
   it('sends the chosen status to the API', async () => {
     const user = userEvent.setup();
     renderWithProviders(<TradingAccountsPage />);

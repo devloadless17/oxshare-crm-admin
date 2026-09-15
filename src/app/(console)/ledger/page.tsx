@@ -5,6 +5,7 @@ import { Receipt } from 'lucide-react';
 import api from '@/lib/api';
 import type { LedgerEntry, LedgerListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
+import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -93,6 +94,14 @@ function LedgerPageContent() {
    */
   const userId = url.get('userId');
   /*
+   * SEARCH BY THE CLIENT THIS SCREEN NOW NAMES. The Client column gained a name
+   * and an email; without this the only way to narrow to a person was `userId`
+   * — a uuid printed nowhere on the page — so half the screen spoke in names
+   * and the other half in ids. `userId` is untouched, because a client profile
+   * links straight here with one.
+   */
+  const q = useDebounced(url.get('q').trim());
+  /*
    * ONE wallet's ledger — the reconciliation read. `GET /admin/ledger` has
    * always taken `walletId`; nothing set it until the wallet column below.
    * Filtering keys on the uuid, which every row carries — the wallet NUMBER is
@@ -104,6 +113,7 @@ function LedgerPageContent() {
     page,
     limit: pageSize,
     entryType: entryType || undefined,
+    q: q || undefined,
     userId: userId || undefined,
     walletId: walletId || undefined,
   };
@@ -241,7 +251,7 @@ function LedgerPageContent() {
     },
   ];
 
-  const filtered = Boolean(entryType || userId || walletId);
+  const filtered = Boolean(entryType || q || userId || walletId);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
@@ -251,6 +261,20 @@ function LedgerPageContent() {
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <input
+          type="search"
+          aria-label={t('ledger.filterClient')}
+          placeholder={t('ledger.filterClientPlaceholder')}
+          title={t('ledger.filterClientHint')}
+          value={url.get('q')}
+          onChange={(e) => {
+            // Filter and page written together, so narrowing always lands on
+            // page one rather than past the end of the new result set.
+            url.set({ q: e.target.value, page: undefined });
+          }}
+          className="h-9 w-64 rounded-lg border border-input bg-card px-3 text-xs focus-outline"
+        />
+
         <Select
           value={entryType || 'all'}
           onValueChange={(value) =>

@@ -8790,6 +8790,8 @@ export interface operations {
                 ibUserId?: string;
                 /** @description Restrict to one client. */
                 clientUserId?: string;
+                /** @description Free text over the PARTNER's email and name — the identifiers the list displays. It deliberately does not search the client on the row: an out-of-scope client's identity is masked, and a filter that matched it would answer "does this person exist in another territory" from the row count. */
+                q?: string;
                 status?: "pending" | "confirmed" | "reversed";
                 /** @description commission (paid to the partner) or rebate (paid back to the trading client). Absent returns both, which is what makes this one screen rather than two. */
                 kind?: "commission" | "rebate";
@@ -9775,6 +9777,8 @@ export interface operations {
             query?: {
                 /** @description Accounts of one client. */
                 userId?: string;
+                /** @description Search the OWNER by email or name — the identifiers the Owner column displays. The only client filter used to be `userId`, a uuid shown nowhere on the page. */
+                q?: string;
                 environment?: "live" | "demo";
                 status?: "active" | "suspended" | "closed";
                 /** @description Legacy offset paging. Prefer cursor. */
@@ -11930,6 +11934,12 @@ export interface operations {
                 format?: "csv";
                 action?: string;
                 subjectType?: string;
+                /** @description WHO did it — one administrator, by id. */
+                actorId?: string;
+                /** @description WHAT it was done to — one client, admin, withdrawal or other subject, by id. This is the "everything that has happened to this person" read a client profile links to. */
+                subjectId?: string;
+                /** @description Free text over the ACTOR's email, which is denormalised onto every row so a deleted administrator's trail still names them. It deliberately does not search `details`: that blob holds client PII, and matching inside it would let a narrow-scoped reader confirm a client exists from a row count. */
+                q?: string;
             };
             header?: never;
             path?: never;
@@ -11957,6 +11967,12 @@ export interface operations {
                 cursor?: string;
                 action?: string;
                 subjectType?: string;
+                /** @description WHO did it — one administrator, by id. */
+                actorId?: string;
+                /** @description WHAT it was done to — one client, admin, withdrawal or other subject, by id. This is the "everything that has happened to this person" read a client profile links to. */
+                subjectId?: string;
+                /** @description Free text over the ACTOR's email, which is denormalised onto every row so a deleted administrator's trail still names them. It deliberately does not search `details`: that blob holds client PII, and matching inside it would let a narrow-scoped reader confirm a client exists from a row count. */
+                q?: string;
                 sort?: "createdAt" | "action" | "actorEmail";
                 order?: "asc" | "desc";
             };
@@ -12443,6 +12459,8 @@ export interface operations {
         parameters: {
             query: {
                 userId: string;
+                /** @description Search the client by email or name — the identifiers the Client column shows. Scope still applies: this cannot reach a client outside the actor’s territory. */
+                q?: string;
                 walletId: string;
                 entryType: string;
                 page: string;

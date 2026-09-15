@@ -11,6 +11,7 @@ import {
   type IbAccrualSortKey,
 } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
+import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -140,6 +141,18 @@ function CommissionsPageContent() {
    * operator can go rather than a query somebody runs by hand.
    */
   const ibUserId = url.get('ibUserId');
+  /*
+   * SEARCH BY THE PARTNER THIS SCREEN NAMES. The Partner column shows a name
+   * and an email; `ibUserId` above is a uuid printed nowhere on the page, so
+   * until this landed the only way to narrow to the partner whose rows you were
+   * reading was to leave for another screen and copy an id back.
+   *
+   * It searches the PARTNER only, and the API is where that is enforced: each
+   * row also names a client, whose identity is masked when they sit outside the
+   * reader's territory, and a filter matching that would return the masked
+   * person as a row count.
+   */
+  const q = useDebounced(url.get('q').trim());
 
   const sortKey = IB_ACCRUAL_SORT_KEYS.includes(url.sort.key as IbAccrualSortKey)
     ? (url.sort.key as IbAccrualSortKey)
@@ -151,6 +164,7 @@ function CommissionsPageContent() {
     status: status || undefined,
     kind: kind || undefined,
     ibUserId: ibUserId || undefined,
+    q: q || undefined,
     sort: sortKey,
     // Withheld when nothing is sorted: `order` alone describes an ordering of no
     // column, and sending it would cache one result set under two query keys.
@@ -314,6 +328,20 @@ function CommissionsPageContent() {
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <input
+          type="search"
+          aria-label={t('commissions.filterPartner')}
+          placeholder={t('commissions.filterPartnerPlaceholder')}
+          title={t('commissions.filterPartnerHint')}
+          value={url.get('q')}
+          onChange={(e) => {
+            // Filter and page written together, so narrowing always lands on
+            // page one rather than past the end of the new result set.
+            url.set({ q: e.target.value, page: undefined });
+          }}
+          className="h-9 w-64 rounded-lg border border-input bg-card px-3 text-xs focus-outline"
+        />
+
         <Select
           value={status || 'all'}
           onValueChange={(value) =>
@@ -347,7 +375,7 @@ function CommissionsPageContent() {
           </SelectContent>
         </Select>
 
-        {(status || kind) && (
+        {(status || kind || q) && (
           <button
             type="button"
             onClick={() => url.clear()}

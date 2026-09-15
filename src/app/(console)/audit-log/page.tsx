@@ -17,6 +17,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { t } from '@/lib/i18n';
@@ -115,6 +116,25 @@ function AuditLogPageContent() {
   const subjectType = url.get('subjectType');
 
   /*
+   * THE TWO QUESTIONS AN INVESTIGATION STARTS FROM, which this screen could not
+   * ask until now: "what did this administrator do" and "what has been done to
+   * this client". Both filters existed on `GET /admin/audit-log` — `actorId`
+   * had been accepted by the store since it was written and passed by no route
+   * — and the only controls here were two CATEGORY pickers, so the way to
+   * answer either was to page an append-only table that grows forever.
+   *
+   * `subjectId` and `actorId` are read from the URL and offered by no control,
+   * the same shape as `subjectType` above: a client profile links here with
+   * `?subjectId=<their id>`, which is what makes "everything that has happened
+   * to this person" a place an operator can go. The typed control is `q`,
+   * because the actor's EMAIL is what the table displays and therefore what an
+   * investigator has in front of them.
+   */
+  const subjectId = url.get('subjectId');
+  const actorId = url.get('actorId');
+  const q = useDebounced(url.get('q').trim());
+
+  /*
    * Checked against the allowlist rather than cast to it. A stale bookmark or a
    * hand-edited URL carrying `?sort=details` would otherwise reach the endpoint
    * and come back a 400 — R-2.5 makes an unrecognised sort an error, never a
@@ -143,6 +163,9 @@ function AuditLogPageContent() {
       page,
       pageSize,
       action,
+      subjectId,
+      actorId,
+      q,
       subjectType,
       sortKey,
       sortKey ? url.sort.order : null,
@@ -154,6 +177,9 @@ function AuditLogPageContent() {
       });
       if (action) params.set('action', action);
       if (subjectType) params.set('subjectType', subjectType);
+      if (subjectId) params.set('subjectId', subjectId);
+      if (actorId) params.set('actorId', actorId);
+      if (q) params.set('q', q);
       // Both halves or neither — `order` alone describes an ordering of no
       // column, and the API is entitled to reject it.
       if (sortKey) {
@@ -190,6 +216,16 @@ function AuditLogPageContent() {
   const exportFilters = new URLSearchParams();
   if (action) exportFilters.set('action', action);
   if (subjectType) exportFilters.set('subjectType', subjectType);
+  /*
+   * The investigation filters go into the EXPORT too, and that is the point of
+   * the paragraph above: an export that quietly widened back to the whole trail
+   * would be handed to a compliance review as evidence of something it does not
+   * show. `GET /admin/audit-log/export` accepts all five, so the file is the
+   * screen.
+   */
+  if (subjectId) exportFilters.set('subjectId', subjectId);
+  if (actorId) exportFilters.set('actorId', actorId);
+  if (q) exportFilters.set('q', q);
 
   /*
    * THREE of these sort, and the other two say explicitly that they do not.
@@ -317,6 +353,20 @@ function AuditLogPageContent() {
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
+        <input
+          type="search"
+          aria-label={t('audit.filterActor')}
+          placeholder={t('audit.filterActorPlaceholder')}
+          title={t('audit.filterActorHint')}
+          value={url.get('q')}
+          onChange={(e) => {
+            // Filter and page written together, so narrowing always lands on
+            // page one rather than past the end of the new result set.
+            url.set({ q: e.target.value, page: undefined });
+          }}
+          className="h-9 w-64 rounded-lg border border-input bg-card px-3 text-xs focus-outline"
+        />
+
         <Select
           value={action || 'all'}
           onValueChange={(val) => {

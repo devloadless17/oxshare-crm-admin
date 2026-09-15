@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import LedgerPage from './page';
@@ -203,6 +203,40 @@ describe('filtering', () => {
     for (const label of ['Deposit', 'Withdrawal', 'Commission', 'Rebate', 'Payout', 'Adjustment']) {
       expect(await screen.findByRole('option', { name: label })).toBeInTheDocument();
     }
+  });
+
+  /*
+   * The Client column names the client — first name, last name, email. Until
+   * this landed, the only way to narrow the ledger to a person was `userId`, a
+   * uuid the screen prints NOWHERE: half the screen spoke in names and the
+   * other half demanded an id, so narrowing to the client you were reading
+   * about meant leaving for /clients to copy a uuid and coming back.
+   */
+  it('narrows to a client by the NAME the screen shows, not by a uuid', async () => {
+    renderWithProviders(<LedgerPage />);
+    await screen.findByText('$250.00');
+
+    await userEvent.type(screen.getByRole('searchbox'), 'alexandra');
+
+    await waitFor(() => expect(getLedger.mock.calls.at(-1)?.[0]?.q).toBe('alexandra'), {
+      timeout: 3000,
+    });
+    expect(screen.getByRole('searchbox')).toHaveValue('alexandra');
+  });
+
+  it('asks the SERVER to search, rather than filtering the page in the browser', async () => {
+    // Same reason as the entry-type filter above: a client-side match over the
+    // twenty-five rows on screen answers "this client has no movements" from a
+    // slice, which on a reconciliation screen is a wrong answer, not a slow one.
+    renderWithProviders(<LedgerPage />);
+    await screen.findByText('$250.00');
+
+    const before = getLedger.mock.calls.length;
+    await userEvent.type(screen.getByRole('searchbox'), 'alexandra');
+
+    await waitFor(() => expect(getLedger.mock.calls.length).toBeGreaterThan(before), {
+      timeout: 3000,
+    });
   });
 
   it('asks for a bounded page rather than the whole table', async () => {

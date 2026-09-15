@@ -473,9 +473,10 @@ export const messages = {
   'tradingAccounts.filterEnvironmentAll': 'Live and demo',
   'tradingAccounts.filterStatus': 'Status',
   'tradingAccounts.filterStatusAll': 'All statuses',
-  'tradingAccounts.filterClient': 'Client ID',
-  'tradingAccounts.filterClientPlaceholder': 'Paste a client ID',
-  'tradingAccounts.filterClientHint': 'An exact client id — this is not a name search.',
+  'tradingAccounts.filterClient': 'Search client',
+  'tradingAccounts.filterClientPlaceholder': 'Search by name or email',
+  'tradingAccounts.filterClientHint':
+    'Matches the owner’s email or name — the same identifiers shown in the Owner column.',
   'tradingAccounts.clearFilters': 'Clear filters',
   'tradingAccounts.noun': 'account', // pager: "1–25 of 40 accounts"
   'tradingAccounts.nounPlural': 'accounts',
@@ -485,6 +486,10 @@ export const messages = {
   // ── Audit log (D-21) ──────────────────────────────────────────────────────
   'audit.title': 'Audit Log',
   'audit.subtitle': 'Append-only record of every admin action — who did what, to what, and when',
+  'audit.filterActor': 'Search administrator',
+  'audit.filterActorPlaceholder': 'Search by administrator email',
+  'audit.filterActorHint':
+    'Matches the email in the Administrator column. It does not search the details column, which holds client data.',
   'audit.allActions': 'All Actions',
   'audit.colWhen': 'When',
   'audit.colActor': 'Actor',
@@ -913,6 +918,7 @@ export const messages = {
   'clientProfile.actionManageTags': 'Manage tags',
   'clientProfile.actionOpenKyc': 'Open KYC review',
   'clientProfile.actionViewDocuments': 'View documents',
+  'clientProfile.actionViewAuditTrail': 'View audit trail',
   'clientProfile.actionViewCommissions': 'View commission ledger',
   'clientProfile.actionViewReferred': 'View clients they introduced',
 
@@ -2247,8 +2253,10 @@ export const messages = {
   'ledger.colReference': 'Reference',
   'ledger.filterType': 'Entry type',
   'ledger.filterTypeAll': 'All entry types',
-  'ledger.filterClient': 'Filter by client id',
-  'ledger.filterClientLabel': 'Client id',
+  'ledger.filterClient': 'Search client',
+  'ledger.filterClientPlaceholder': 'Search by name or email',
+  'ledger.filterClientHint':
+    'Matches the client’s email or name — the same identifiers shown in the Client column.',
   'ledger.clearFilters': 'Clear',
   'ledger.scopedToClient': 'Showing one client. Clear the filter to see the whole ledger.',
   'ledger.scopedToWallet': 'Showing one wallet. Clear the filter to see the whole ledger.',
@@ -2946,6 +2954,10 @@ export const messages = {
   'commissions.kind.rebate': 'Client rebate',
   'commissions.filterKind': 'Filter by type',
   'commissions.filterKindAll': 'Commission and rebates',
+  'commissions.filterPartner': 'Search partner',
+  'commissions.filterPartnerPlaceholder': 'Search by partner name or email',
+  'commissions.filterPartnerHint':
+    'Matches the partner’s email or name — the same identifiers shown in the Partner column. It does not search the client on the row.',
   'commissions.clearFilters': 'Clear',
   'commissions.noun': 'commission',
   'commissions.nounPlural': 'commissions',
