@@ -2441,6 +2441,55 @@ export const messages = {
   // The Finance section's other entries. "Transactions" rather than
   // "Withdrawals" because that is what an operator calls the queue they work
   // down; the domain underneath is still withdrawals.
+  'nav.deposits': 'Deposits',
+
+  // ── The offline deposit desk ──────────────────────────────────────────────
+  'deposits.title': 'Deposit approvals',
+  'deposits.subtitle':
+    'Deposits a client paid outside the platform. Check the receipt, then credit the wallet or refuse it with a reason.',
+  'deposits.loading': 'Loading deposits',
+  'deposits.loadFailed': 'Could not load the deposit queue.',
+  'deposits.empty': 'Nothing waiting here.',
+  'deposits.tabPending': 'Waiting',
+  'deposits.tabApproved': 'Credited',
+  'deposits.tabRejected': 'Refused',
+  'deposits.colClient': 'Client',
+  'deposits.colAmount': 'Amount',
+  'deposits.colMethod': 'Method',
+  'deposits.colReference': 'Reference',
+  'deposits.colReceipt': 'Receipt',
+  'deposits.colRequested': 'Requested',
+  'deposits.colState': 'State',
+  'deposits.noReceipt': 'No receipt',
+  'deposits.openReceipt': 'Open receipt',
+  'deposits.approve': 'Approve & credit',
+  'deposits.reject': 'Refuse',
+  'deposits.viewOnly': 'View only',
+  'deposits.unknownClient': 'this client',
+  'deposits.searchPlaceholder': 'Search by client or reference…',
+  'deposits.searchAria': 'Search deposits',
+  'deposits.confirmApproveTitle': 'Credit {amount}?',
+  'deposits.confirmApprove':
+    '{name} says they sent {amount} by {method}, reference {reference}. Approving credits their wallet now.',
+  'deposits.confirmApproveNoReceipt':
+    'NO RECEIPT is attached to this deposit. Approving credits {name} {amount} with nothing here to check it against.',
+  'deposits.approved': 'Deposit approved — the wallet has been credited.',
+  'deposits.approveFailed': 'Could not approve this deposit.',
+  'deposits.rejected': 'Deposit refused. The client has been told why.',
+  'deposits.rejectFailed': 'Could not refuse this deposit.',
+  'deposits.rejectTitle': 'Refuse this deposit',
+  'deposits.rejectIntro': 'Refusing {name}’s deposit of {amount}. They are told the reason.',
+  'deposits.rejectNoRefund':
+    'Nothing is refunded — this deposit never took money from their wallet. If they did send the transfer, it is a matter for support.',
+  'deposits.rejectReason': 'Reason',
+  'deposits.rejectReasonNone': 'No catalogued reason',
+  'deposits.rejectNote': 'Note to the client',
+  'deposits.rejectNotePlaceholder': 'What they need to do next…',
+  'deposits.rejectNoteHint': 'The client reads the reason and this note together.',
+  'deposits.rejecting': 'Refusing…',
+  'deposits.confirmReject': 'Refuse deposit',
+  'deposits.rowActionsLabel': 'Deposit actions',
+
   'nav.transactions': 'Transactions',
   'nav.paymentMethods': 'Payment methods',
   'nav.wallets': 'Wallets',

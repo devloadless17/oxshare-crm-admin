@@ -1413,6 +1413,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/deposits/offline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Declare a deposit paid outside the platform, with the receipt attached
+         * @description Creates a PENDING deposit carrying the uploaded receipt. No balance changes until an operator approves it. Only methods configured as needing a receipt are accepted here.
+         */
+        post: operations["PaymentsController_requestOfflineDeposit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/withdrawal-methods": {
         parameters: {
             query?: never;
@@ -2110,6 +2130,23 @@ export interface paths {
         };
         /** Serve a payment-method logo (public) */
         get: operations["UploadsController_servePaymentLogo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/uploads/deposit-proofs/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Serve a deposit receipt to its owner or a deposits reviewer */
+        get: operations["UploadsController_serveDepositProof"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3660,6 +3697,46 @@ export interface paths {
         patch: operations["AdminMoneyController_rejectWithdrawal"];
         trace?: never;
     };
+    "/v1/admin/deposits/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Approve an offline deposit and credit the client wallet
+         * @description Moves the deposit from pending to success and posts the ledger credit in one transaction. If the client chose a trading account, the money is chained on to it exactly as a gateway deposit would be. Approving twice credits once.
+         */
+        patch: operations["AdminMoneyController_approveDeposit"];
+        trace?: never;
+    };
+    "/v1/admin/deposits/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Reject an offline deposit, with a reason the client is told
+         * @description Moves the deposit to rejected and emails the client the reason. NOTHING IS REFUNDED, because nothing was ever debited: a deposit posts no ledger entry when it is filed. A client who really did send the money needs support, not a reversal.
+         */
+        patch: operations["AdminMoneyController_rejectDeposit"];
+        trace?: never;
+    };
     "/v1/admin/withdrawals/{id}/settle": {
         parameters: {
             query?: never;
@@ -4926,6 +5003,8 @@ export interface components {
             maxAmount: string;
             enabled: boolean;
             sortOrder: number;
+            /** @description The client must attach a receipt: this method is paid outside the platform and an operator approves it by hand. The portal reads this to decide whether to ask for one, rather than branching on the method key. */
+            requiresProof: boolean;
         };
         RequestDepositDto: {
             /** @example 500.00000000 */
@@ -5031,6 +5110,7 @@ export interface components {
             /** @description The payment platform's OWN id for this movement — what Rival shows as its reference, and the identifier its team can look up directly. Null for anything that never went through a rail (a manual desk credit) and for a row whose create is still in flight. */
             rivalExternalId?: string | null;
             destination?: string | null;
+            proofFilename?: string | null;
             rejectionReason?: string | null;
             reviewedBy?: string | null;
             /** Format: date-time */
@@ -5104,6 +5184,8 @@ export interface components {
             enabled: boolean;
             /** @default 0 */
             sortOrder: number;
+            /** @description OFFLINE: the client pays outside the platform and must attach a receipt. Such a deposit is filed through POST /payments/deposits/offline and settles when an operator approves it — the JSON deposit route refuses the method. Cannot be combined with a gateway key. */
+            requiresProof?: boolean;
         };
         UpdatePaymentMethodDto: {
             name?: string;
@@ -5112,6 +5194,8 @@ export interface components {
             logoUrl?: string;
             enabled?: boolean;
             sortOrder?: number;
+            /** @description OFFLINE: the client pays outside the platform and must attach a receipt. Such a deposit is filed through POST /payments/deposits/offline and settles when an operator approves it — the JSON deposit route refuses the method. Cannot be combined with a gateway key. */
+            requiresProof?: boolean;
         };
         PaymentLogoResponseDto: {
             /**
@@ -6415,14 +6499,14 @@ export interface components {
         RejectionReasonResponseDto: {
             id: string;
             /** @enum {string} */
-            context: "kyc" | "withdrawal" | "partner";
+            context: "kyc" | "withdrawal" | "partner" | "deposit";
             label: string;
             /** Format: date-time */
             createdAt: string;
         };
         RejectionReasonDto: {
             /** @enum {string} */
-            context: "kyc" | "withdrawal";
+            context: "kyc" | "withdrawal" | "deposit";
             /** @example Document expired */
             label: string;
         };
@@ -6775,6 +6859,37 @@ export interface components {
             /** @description Id of a configured rejection reason. */
             reasonId?: string;
         };
+        DepositDecisionDto: {
+            id: string;
+            /** @description The client this deposit belongs to. */
+            userId: string;
+            /**
+             * @description Monetary value — always a string, never a number
+             * @example 250.00000000
+             */
+            amount: string;
+            /** @example USD */
+            currency: string;
+            /** @enum {string} */
+            state: "pending" | "approved" | "success" | "failure" | "rejected";
+            /** @description The deposit method the client chose. */
+            methodKey?: Record<string, never> | null;
+            /** @description The OX- reference quoted on the transfer. */
+            providerRef?: Record<string, never> | null;
+            /** @description The stored receipt, as `uploads/deposit-proofs/<file>`. Null when the deposit carried none. */
+            proofPath?: Record<string, never> | null;
+            rejectionReason?: Record<string, never> | null;
+            /** Format: date-time */
+            reviewedAt?: string | null;
+            /** Format: date-time */
+            settledAt?: string | null;
+        };
+        DepositRejectDto: {
+            /** @description Free-text note, used alone or appended to the configured reason. */
+            reason?: string;
+            /** @description A configured rejection reason from the `deposit` context. */
+            reasonId?: string;
+        };
         SettleWithdrawalDto: {
             /** @example wise-tx-9f3a1c */
             providerRef: string;
@@ -6908,6 +7023,8 @@ export interface components {
             rejectionReason?: string | null;
             /** @description The trading account a TRANSFER moved money to or from. Null on other kinds. */
             tradingAccountId?: string | null;
+            /** @description The RECEIPT on an offline deposit — the stored filename, served from GET /v1/uploads/deposit-proofs/<file>. Null on every other movement. On the list so the deposit desk can show the image beside the row it decides on, rather than fetching one per row. */
+            proofFilename?: string | null;
             walletId: string;
             /** Format: date-time */
             createdAt: string;
@@ -9170,6 +9287,46 @@ export interface operations {
             };
         };
     };
+    PaymentsController_requestOfflineDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended deposit, reused only when retrying that same one. Without it a double-clicked button files two declarations for one transfer. */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description A photo or PDF of the transfer.
+                     */
+                    file: string;
+                    /** @example 250.00 */
+                    amount: string;
+                    /** @example USD */
+                    currency: string;
+                    /** @example offline */
+                    method: string;
+                    /** Format: uuid */
+                    destinationTradingAccountId?: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositRequestDto"];
+                };
+            };
+        };
+    };
     PaymentsController_listWithdrawalMethods: {
         parameters: {
             query?: never;
@@ -10012,6 +10169,25 @@ export interface operations {
         };
     };
     UploadsController_servePaymentLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UploadsController_serveDepositProof: {
         parameters: {
             query?: never;
             header?: never;
@@ -12355,6 +12531,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WithdrawalRowDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_approveDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended action, reused only when retrying that same one. The conditional transition makes a replayed CAUSE a no-op; this makes a replayed REQUEST one too (R-5.2). */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositDecisionDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_rejectDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended action, reused only when retrying that same one. */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepositRejectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositDecisionDto"];
                 };
             };
         };

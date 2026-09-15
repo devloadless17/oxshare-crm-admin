@@ -44,12 +44,13 @@ describe("the registry's rule 1 — a badge shares a root with the list it count
   it('finds the badges, so this cannot pass by matching nothing', () => {
     // The guard against a vacuous suite: if the registry is refactored and the
     // discovery below stops finding anything, every assertion after it becomes
-    // trivially true. Three badges exist today — kyc, withdrawals, ib.
+    // trivially true. Four badges exist today — kyc, withdrawals, ib, and the
+    // offline deposit queue.
     expect(
       domainsWithCounts()
         .map(([n]) => n)
         .sort(),
-    ).toEqual(['ibApplications', 'kyc', 'withdrawals']);
+    ).toEqual(['deposits', 'ibApplications', 'kyc', 'withdrawals']);
   });
 
   for (const [name, all, pendingCount] of domainsWithCounts()) {

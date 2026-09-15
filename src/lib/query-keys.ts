@@ -124,6 +124,18 @@ export const keys = {
     recentKyc: () => ['stats', 'recent-kyc'] as const,
   },
 
+  /*
+   * The offline deposit desk. `pendingCount` shares the root with `list` so one
+   * invalidate covers the queue AND the sidebar badge — rule 1 of this registry,
+   * and the bug it was written for.
+   */
+  deposits: {
+    all: () => ['deposits'] as const,
+    list: (params: Params) => ['deposits', 'list', params] as const,
+    pendingCount: () => ['deposits', 'pending-count'] as const,
+    rejectionReasons: () => ['deposits', 'rejection-reasons'] as const,
+  },
+
   ibApplications: {
     all: () => ['ib-applications'] as const,
     list: (params: Params) => ['ib-applications', 'list', params] as const,

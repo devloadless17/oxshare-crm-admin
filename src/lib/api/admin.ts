@@ -274,6 +274,8 @@ export type ReconciliationReport = components['schemas']['ReconciliationReportDt
  * wallet ⇄ account transfers and commission transfers.
  */
 export type TransactionRow = components['schemas']['AdminTransactionRowDto'];
+/** What a deposit decision answers with — the row as it now stands. */
+export type DepositDecision = components['schemas']['DepositDecisionDto'];
 export type TransferRow = components['schemas']['TransferDto'];
 export type StuckTransfers = components['schemas']['StuckTransfersDto'];
 export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
@@ -1914,6 +1916,44 @@ export const adminApi = {
    */
   async closeWallet(id: string): Promise<void> {
     await apiClient.delete(`/admin/wallets/${id}`);
+  },
+
+  /**
+   * Approve an offline deposit — this CREDITS the client's wallet.
+   *
+   * `key` is derived from the row (`approve:<id>`), never random: a
+   * double-clicked button and a retry after a dropped response must collapse to
+   * one credit. The server refuses a second decision anyway (the state is the
+   * guard), but the idempotency key is what makes the retry return the first
+   * answer instead of an error the operator has to interpret.
+   */
+  async approveDeposit(id: string, key: string): Promise<DepositDecision> {
+    const { data } = await apiClient.patch<DepositDecision>(
+      `/admin/deposits/${id}/approve`,
+      {},
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * Reject an offline deposit, with a reason the client is shown.
+   *
+   * NOTHING IS REFUNDED — a deposit debits nothing when it is filed, so there is
+   * no money to give back. The copy on the screen has to say so, or an operator
+   * assumes a reversal happened and the client waits for one.
+   */
+  async rejectDeposit(
+    id: string,
+    body: { reason?: string; reasonId?: string },
+    key: string,
+  ): Promise<DepositDecision> {
+    const { data } = await apiClient.patch<DepositDecision>(
+      `/admin/deposits/${id}/reject`,
+      body,
+      idempotent(key),
+    );
+    return data;
   },
 
   async approveWithdrawal(id: string, key: string): Promise<WithdrawalRow> {
