@@ -250,25 +250,43 @@ describe('GUARD 2 — a list of people can be narrowed to one of them', () => {
 });
 
 describe('GUARD 3 — no filter asks for an identifier the screen never shows', () => {
-  /** Every `<input type="search">` in the app, with its bound URL parameter. */
+  /**
+   * Every search control in the app, with the URL parameter it filters on.
+   *
+   * TWO shapes, and both must be counted or the floor below stops meaning
+   * anything: a raw `<input type="search">`, and `<UrlSearchInput>` — the
+   * component the five money screens moved to when a raw input bound to the URL
+   * turned out to eat keystrokes. Counting only raw inputs made this floor drop
+   * from 7 to 3 the moment that fix landed, which is the census correctly
+   * refusing to be quietly narrowed.
+   */
   function searchBoxes() {
-    const boxes: { file: string; param: string | null }[] = [];
+    const boxes: { file: string; param: string | null; raw: boolean }[] = [];
     for (const file of sources()) {
       const source = strip(readFileSync(file, 'utf8'));
-      const tag = /<input[\s\S]{0,800}?\/>/g;
+
+      const inputs = /<input[\s\S]{0,800}?\/>/g;
       let match: RegExpExecArray | null;
-      while ((match = tag.exec(source))) {
+      while ((match = inputs.exec(source))) {
         if (!/type="search"/.test(match[0])) continue;
         const bound = /value=\{url\.get\('([^']+)'\)\}/.exec(match[0]);
-        boxes.push({ file, param: bound?.[1] ?? null });
+        boxes.push({ file, param: bound?.[1] ?? null, raw: true });
+      }
+
+      const components = /<UrlSearchInput[\s\S]{0,800}?\/>/g;
+      while ((match = components.exec(source))) {
+        const bound = /value=\{url\.get\('([^']+)'\)\}/.exec(match[0]);
+        boxes.push({ file, param: bound?.[1] ?? null, raw: false });
       }
     }
     return boxes;
   }
 
   it('finds the search boxes rather than assuming there are none', () => {
-    // Measured 15 Sep 2026: 7 (ledger, wallets, trading-accounts, commissions,
-    // audit-log, the client filter bar, and the layout's command search).
+    // Measured 15 Sep 2026: 7 — the five money/audit screens (now
+    // `<UrlSearchInput>`), the client filter bar, and the layout's command
+    // search. The floor is what stops the two cases below passing vacuously
+    // against a derivation that has quietly stopped matching anything.
     expect(searchBoxes().length).toBeGreaterThanOrEqual(6);
   });
 
@@ -286,6 +304,38 @@ describe('GUARD 3 — no filter asks for an identifier the screen never shows', 
         `${box.file} asks an operator to type ${box.param}, which is a uuid the screen ` +
           `does not display. Bind the box to a name/email search instead.`,
       ).toBe(false);
+    }
+  });
+
+  it('no search box is controlled DIRECTLY by the URL', () => {
+    /*
+     * THE BUG THE OWNER REPORTED AS "I cannot type normally in the search
+     * input", twice, on two different sets of screens.
+     *
+     * A raw `<input type="search" value={url.get('q')} onChange={url.set…}>` is
+     * a controlled input whose value arrives through `router.replace`, which is
+     * ASYNCHRONOUS. Between the keypress and the re-render the input still holds
+     * the PREVIOUS value; React re-applies it, and the character is gone. Typing
+     * at any speed loses letters, the caret jumps, and the term that reaches the
+     * API is a subset of what was typed.
+     *
+     * `/clients` hit this, diagnosed it, and fixed it inside its own private
+     * component — and five more boxes were then written from the broken pattern.
+     * A fix that lives in one screen is one the next screen copies around, so
+     * the fix is now `components/url-search-input.tsx` and this refuses the
+     * pattern it replaces.
+     *
+     * Local state is still allowed: what is banned is the URL being in the
+     * keystroke path.
+     */
+    for (const box of searchBoxes().filter((b) => b.raw)) {
+      if (box.file.endsWith('url-search-input.tsx')) continue;
+      expect(
+        box.param,
+        `${box.file} controls a raw <input type="search"> from the URL, so typing in it ` +
+          'drops characters. Use <UrlSearchInput>, which keeps local state and writes the ' +
+          'URL on a debounce.',
+      ).toBeNull();
     }
   });
 

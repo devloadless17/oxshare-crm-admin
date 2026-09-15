@@ -8640,7 +8640,10 @@ export interface operations {
     IbController_transferCommission: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description A unique value per intended transfer, reused only when retrying that same one. Without it a double-clicked button moves the commission twice, and because the ledger is append-only the second movement is undone by a compensating entry rather than deleted (R-5.2). */
+                "idempotency-key": string;
+            };
             path?: never;
             cookie?: never;
         };

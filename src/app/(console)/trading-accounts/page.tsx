@@ -17,6 +17,7 @@ import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { UrlSearchInput } from '@/components/url-search-input';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
@@ -522,18 +523,14 @@ function TradingAccountsPageContent() {
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-3">
-        <input
-          type="search"
-          aria-label={t('tradingAccounts.filterClient')}
+        <UrlSearchInput
+          value={url.get('q')}
+          label={t('tradingAccounts.filterClient')}
           placeholder={t('tradingAccounts.filterClientPlaceholder')}
           title={t('tradingAccounts.filterClientHint')}
-          value={url.get('q')}
-          onChange={(e) => {
-            // Filter and page written together, so narrowing always lands on
-            // page one rather than past the end of the new result set.
-            url.set({ q: e.target.value, page: undefined });
-          }}
-          className="h-9 w-64 rounded-lg border border-input bg-card px-3 font-mono text-xs focus-outline"
+          // Filter and page written together, so narrowing always lands on page
+          // one rather than past the end of the new result set.
+          onChange={(next) => url.set({ q: next || undefined, page: undefined })}
         />
 
         <Select
