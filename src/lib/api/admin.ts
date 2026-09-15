@@ -1813,6 +1813,12 @@ export const adminApi = {
       limit?: number;
       ibUserId?: string;
       clientUserId?: string;
+      /**
+       * Free text over the PARTNER's email and name — never the client's. The
+       * store masks an out-of-scope client's identity, and a filter that
+       * matched it would hand that masking back as a row count.
+       */
+      q?: string;
       status?: string;
       sort?: IbAccrualSortKey;
       order?: 'asc' | 'desc';
@@ -1972,6 +1978,13 @@ export const adminApi = {
    */
   async getLedger(
     params: {
+      /**
+       * Free text over the OWNER's email and name, not over the entries. The
+       * ledger screen names its client in words, so its filter has to accept
+       * the same words — `userId` alone made the filter demand a uuid the page
+       * prints nowhere.
+       */
+      q?: string;
       userId?: string;
       walletId?: string;
       entryType?: string;

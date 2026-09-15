@@ -213,6 +213,53 @@ describe('audit log — filtering happens server-side', () => {
     const url = get.mock.calls[0]?.[0] as string;
     expect(url).toMatch(/action=kyc\.approve/);
   });
+
+  /*
+   * THE TWO QUESTIONS AN INVESTIGATION STARTS FROM.
+   *
+   * This screen offered two CATEGORY pickers — action and subject type — and
+   * neither answers "what did this administrator do" or "what has been done to
+   * this client". The second of those is the more serious gap: the backend has
+   * accepted `actorId` since the store was written, no route passed it, and the
+   * only way to read one client's history was to page an append-only table that
+   * grows forever.
+   */
+  it('sends the typed administrator to the API rather than matching on screen', async () => {
+    renderWithProviders(<AuditLogPage />);
+    await screen.findByText(/kyc\.approve/i);
+    get.mockClear();
+
+    await userEvent.type(screen.getByRole('searchbox'), 'alice');
+
+    await waitFor(
+      () => {
+        const url = get.mock.calls.at(-1)?.[0] as string | undefined;
+        expect(url).toMatch(/q=alice/);
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  it('honours a SUBJECT from the URL, so a client profile can link to one history', async () => {
+    // No control offers this one — a link does, the same shape `subjectType`
+    // already used. Reading it here is what makes "everything that happened to
+    // this client" a place an operator can be sent.
+    searchParams.current = new URLSearchParams('subjectId=11111111-2222-3333-4444-555555555555');
+    renderWithProviders(<AuditLogPage />);
+    await screen.findByText(/kyc\.approve/i);
+
+    const url = get.mock.calls.at(-1)?.[0] as string;
+    expect(url).toMatch(/subjectId=11111111-2222-3333-4444-555555555555/);
+  });
+
+  it('honours an ACTOR id from the URL for the same reason', async () => {
+    searchParams.current = new URLSearchParams('actorId=99999999-8888-7777-6666-555555555555');
+    renderWithProviders(<AuditLogPage />);
+    await screen.findByText(/kyc\.approve/i);
+
+    const url = get.mock.calls.at(-1)?.[0] as string;
+    expect(url).toMatch(/actorId=99999999-8888-7777-6666-555555555555/);
+  });
 });
 
 /**

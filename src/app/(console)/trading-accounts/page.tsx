@@ -130,6 +130,13 @@ function TradingAccountsPageContent() {
   const status = (['active', 'suspended', 'closed'] as const).find((s) => s === url.get('status'));
   // Debounced for the same reason as the wallets screen's: it is a free-text
   // box, and the API matches the id exactly rather than searching.
+  /*
+   * SEARCH, not an id — see the wallets desk, which had the identical defect.
+   * The Owner column shows a name and an email; this filter read `userId`, a
+   * uuid printed nowhere on the page. `userId` is still honoured so the row
+   * menu's "see this client's accounts" and any saved link keep working.
+   */
+  const q = useDebounced(url.get('q').trim());
   const userId = useDebounced(url.get('userId').trim());
 
   const sortKey = TRADING_ACCOUNT_SORT_KEYS.includes(url.sort.key as TradingAccountSortKey)
@@ -140,6 +147,7 @@ function TradingAccountsPageContent() {
     limit: pageSize,
     page,
     userId: userId || undefined,
+    q: q || undefined,
     environment,
     status,
     sort: sortKey,
@@ -292,6 +300,7 @@ function TradingAccountsPageContent() {
    */
   const exportFilters = new URLSearchParams({
     ...(userId ? { userId } : {}),
+    ...(q ? { q } : {}),
     ...(environment ? { environment } : {}),
     ...(status ? { status } : {}),
   });
@@ -518,11 +527,11 @@ function TradingAccountsPageContent() {
           aria-label={t('tradingAccounts.filterClient')}
           placeholder={t('tradingAccounts.filterClientPlaceholder')}
           title={t('tradingAccounts.filterClientHint')}
-          value={url.get('userId')}
+          value={url.get('q')}
           onChange={(e) => {
             // Filter and page written together, so narrowing always lands on
             // page one rather than past the end of the new result set.
-            url.set({ userId: e.target.value, page: undefined });
+            url.set({ q: e.target.value, page: undefined });
           }}
           className="h-9 w-64 rounded-lg border border-input bg-card px-3 font-mono text-xs focus-outline"
         />
