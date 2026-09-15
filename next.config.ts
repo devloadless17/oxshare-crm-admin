@@ -55,6 +55,16 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  /*
+   * Do not announce the framework.
+   *
+   * Next.js sends `x-powered-by: Next.js` on every response by default. It is
+   * not a vulnerability by itself — nothing is protected by hiding it — but it
+   * is free reconnaissance: it tells a scanner which framework, and therefore
+   * which CVE list, to try. The cost of removing it is one line and nothing
+   * else, which is the whole argument for doing it.
+   */
+  poweredByHeader: false,
   // Three sibling repos each have a lockfile; pin the root so Next doesn't guess.
   turbopack: { root: __dirname },
   // NOTE: /roles used to redirect to /settings, because it was then a strict
