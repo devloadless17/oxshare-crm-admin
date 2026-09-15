@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import type { AuditEntry, AuditListResponse, AuditSortKey } from '@/lib/api/admin';
 import { AUDIT_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
+import { UrlSearchInput } from '@/components/url-search-input';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { ExportButton } from '@/components/export-button';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
@@ -353,18 +354,14 @@ function AuditLogPageContent() {
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
-        <input
-          type="search"
-          aria-label={t('audit.filterActor')}
+        <UrlSearchInput
+          value={url.get('q')}
+          label={t('audit.filterActor')}
           placeholder={t('audit.filterActorPlaceholder')}
           title={t('audit.filterActorHint')}
-          value={url.get('q')}
-          onChange={(e) => {
-            // Filter and page written together, so narrowing always lands on
-            // page one rather than past the end of the new result set.
-            url.set({ q: e.target.value, page: undefined });
-          }}
-          className="h-9 w-64 rounded-lg border border-input bg-card px-3 text-xs focus-outline"
+          // Filter and page written together, so narrowing always lands on page
+          // one rather than past the end of the new result set.
+          onChange={(next) => url.set({ q: next || undefined, page: undefined })}
         />
 
         <Select

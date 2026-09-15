@@ -659,6 +659,15 @@ export interface WalletListParams {
   limit: number;
   page?: number;
   userId?: string;
+  /**
+   * Free text over the OWNER's email and name — what the Client column shows.
+   *
+   * ⚠️ Adding a field here is only half of it: `getWallets` builds its query
+   * string from an ALLOWLIST, so a parameter that is not written into that
+   * builder is silently dropped. It was missing there for a day and the search
+   * box did nothing in production — see the note on the builder.
+   */
+  q?: string;
   /** Exact match on the wallet code, e.g. `USD`. Not a substring search. */
   currency?: string;
   sort?: WalletSortKey;
@@ -768,14 +777,74 @@ export const TRADING_ACCOUNT_SORT_KEYS = [
 ] as const satisfies readonly SortKeysOf<'AdminHoldingsController_listTradingAccounts'>[];
 export type TradingAccountSortKey = (typeof TRADING_ACCOUNT_SORT_KEYS)[number];
 
+/**
+ * Query string for the wallet list. Exported for its own unit test, and that is
+ * the whole reason it exists as a function.
+ *
+ * ## ⚠️ IT IS AN ALLOWLIST, AND A MISSING LINE IS SILENT IN THREE PLACES
+ *
+ * `q` was absent from this builder for a day. The page computed the term, put it
+ * in the params object and passed it in; the request went out without it, the
+ * API returned the unfiltered list, and the search box on `/wallets` and
+ * `/trading-accounts` did nothing at all in production. Nothing caught it:
+ *
+ *   the COMPILER  — `params` is a variable at the call site, not an object
+ *                   literal, so excess-property checking never runs and an
+ *                   unknown-to-the-builder field is accepted and discarded.
+ *   the PAGE TEST — it mocks `api.admin.getWallets` and asserts the params
+ *                   OBJECT, which is the page's intent, not the request.
+ *   the BACKEND   — Nest ignores a query parameter no handler declares, so an
+ *                   unfiltered answer is indistinguishable from a working one.
+ *
+ * So the request is built HERE, as a pure function over the params, and
+ * `admin-request-params.test.ts` asserts on the resulting query string — the one
+ * place the defect is visible. `list-params-census.test.ts` additionally refuses
+ * a params field that this function never reads.
+ *
+ * Empty values are OMITTED rather than sent blank, for the reason
+ * `clientListSearchParams` records: `?currency=` reaches the API as an empty
+ * string, and a present-but-empty filter is a different request from an absent
+ * one.
+ */
+export function walletListSearchParams(params: WalletListParams): URLSearchParams {
+  const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
+  if (params.page !== undefined) query.set('page', String(params.page));
+  if (params.userId) query.set('userId', params.userId);
+  if (params.q) query.set('q', params.q);
+  if (params.currency) query.set('currency', params.currency);
+  // Both halves or neither. `order` alone describes an ordering of no column.
+  if (params.sort) {
+    query.set('sort', params.sort);
+    if (params.order) query.set('order', params.order);
+  }
+  return query;
+}
+
 export interface TradingAccountListParams {
   limit: number;
   page?: number;
   userId?: string;
+  /** Free text over the owner's email and name — see `WalletListParams.q`. */
+  q?: string;
   environment?: TradingAccountEnvironment;
   status?: TradingAccountStatus;
   sort?: TradingAccountSortKey;
   order?: 'asc' | 'desc';
+}
+
+/** Query string for the trading-account list — see `walletListSearchParams`. */
+export function tradingAccountListSearchParams(params: TradingAccountListParams): URLSearchParams {
+  const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
+  if (params.page !== undefined) query.set('page', String(params.page));
+  if (params.userId) query.set('userId', params.userId);
+  if (params.q) query.set('q', params.q);
+  if (params.environment) query.set('environment', params.environment);
+  if (params.status) query.set('status', params.status);
+  if (params.sort) {
+    query.set('sort', params.sort);
+    if (params.order) query.set('order', params.order);
+  }
+  return query;
 }
 
 /**
@@ -2124,20 +2193,10 @@ export const adminApi = {
    * both the sort and a cursor is not possible. Same trade as the client list.
    */
   async getWallets(params: WalletListParams, signal?: AbortSignal): Promise<WalletListResponse> {
-    const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
-    if (params.page !== undefined) query.set('page', String(params.page));
-    // Omitted rather than sent blank: `?currency=` is a different request from
-    // no currency at all, and the API reads the empty string as a filter.
-    if (params.userId) query.set('userId', params.userId);
-    if (params.currency) query.set('currency', params.currency);
-    // Both halves or neither. `order` alone describes an ordering of no column.
-    if (params.sort) {
-      query.set('sort', params.sort);
-      if (params.order) query.set('order', params.order);
-    }
-    const { data } = await apiClient.get<WalletListResponse>(`/admin/wallets?${query.toString()}`, {
-      signal,
-    });
+    const { data } = await apiClient.get<WalletListResponse>(
+      `/admin/wallets?${walletListSearchParams(params).toString()}`,
+      { signal },
+    );
     return data;
   },
 
@@ -2153,17 +2212,8 @@ export const adminApi = {
     params: TradingAccountListParams,
     signal?: AbortSignal,
   ): Promise<TradingAccountListResponse> {
-    const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
-    if (params.page !== undefined) query.set('page', String(params.page));
-    if (params.userId) query.set('userId', params.userId);
-    if (params.environment) query.set('environment', params.environment);
-    if (params.status) query.set('status', params.status);
-    if (params.sort) {
-      query.set('sort', params.sort);
-      if (params.order) query.set('order', params.order);
-    }
     const { data } = await apiClient.get<TradingAccountListResponse>(
-      `/admin/trading-accounts?${query.toString()}`,
+      `/admin/trading-accounts?${tradingAccountListSearchParams(params).toString()}`,
       { signal },
     );
     return data;

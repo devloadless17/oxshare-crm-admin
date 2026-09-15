@@ -396,9 +396,9 @@ export const messages = {
   'wallets.filterCurrency': 'Currency',
   'wallets.filterCurrencyAll': 'All currencies',
   'wallets.filterClient': 'Search client',
-  'wallets.filterClientPlaceholder': 'Search by name or email',
+  'wallets.filterClientPlaceholder': 'Search by name, email or wallet number',
   'wallets.filterClientHint':
-    'Matches the owner’s email or name — the same identifiers shown in the Client column.',
+    'Matches the owner’s email or name, or a whole wallet number — the identifiers this table shows. A wallet number is matched exactly.',
   'wallets.clearFilters': 'Clear filters',
   'wallets.noun': 'wallet', // pager: "1–25 of 40 wallets"
   'wallets.nounPlural': 'wallets',
@@ -474,9 +474,9 @@ export const messages = {
   'tradingAccounts.filterStatus': 'Status',
   'tradingAccounts.filterStatusAll': 'All statuses',
   'tradingAccounts.filterClient': 'Search client',
-  'tradingAccounts.filterClientPlaceholder': 'Search by name or email',
+  'tradingAccounts.filterClientPlaceholder': 'Search by name, email or account number',
   'tradingAccounts.filterClientHint':
-    'Matches the owner’s email or name — the same identifiers shown in the Owner column.',
+    'Matches the owner’s email or name, or a whole MT5 login — the identifiers this table shows. Leading zeros matter: 00012345 and 12345 are different accounts.',
   'tradingAccounts.clearFilters': 'Clear filters',
   'tradingAccounts.noun': 'account', // pager: "1–25 of 40 accounts"
   'tradingAccounts.nounPlural': 'accounts',

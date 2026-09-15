@@ -460,7 +460,16 @@ describe('finding a client on the wallets desk', () => {
     await screen.findByRole('table');
 
     const box = screen.getByRole('searchbox', { name: /search client/i });
-    expect(box).toHaveAttribute('placeholder', expect.stringMatching(/name or email/i));
+    /*
+     * The placeholder must name IDENTIFIERS THE TABLE SHOWS, and must not ask
+     * for one it does not. Asserted as two properties rather than as an exact
+     * sentence: the copy has already grown once — it gained "or wallet number"
+     * when the box learned to route a number to its row — and a test pinned to
+     * the old wording fails on an improvement rather than on a regression.
+     */
+    const placeholder = box.getAttribute('placeholder') ?? '';
+    expect(placeholder).toMatch(/name|email/i);
+    expect(placeholder, 'the box is asking for an id again').not.toMatch(/\bid\b|paste/i);
 
     await userEvent.type(box, 'nadia');
 
