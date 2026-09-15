@@ -187,6 +187,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'nav.kyc', href: '/kyc', query: 'status=needs_review', icon: FileCheck },
       { label: 'nav.partnerApprovals', href: '/approvals/ib', icon: Handshake },
+      { label: 'nav.deposits', href: '/approvals/deposits', icon: Banknote },
       { label: 'nav.transactions', href: '/transactions', icon: ArrowLeftRight },
     ],
   },
@@ -366,6 +367,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     retry: false,
   });
 
+  const canSeeDeposits = hasPermission(admin, 'deposits.view');
+  const pendingDeposits = useQuery({
+    queryKey: keys.deposits.pendingCount(),
+    // `limit: 1` — this asks for the COUNT, which rides in the response
+    // envelope; the row itself is thrown away.
+    queryFn: () => api.admin.getTransactions({ direction: 'deposit', state: 'pending', limit: 1 }),
+    enabled: canSeeDeposits,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+
   const canSeeWithdrawals = hasPermission(admin, 'withdrawals.view');
   const pendingWithdrawals = useQuery({
     queryKey: keys.withdrawals.pendingCount(),
@@ -402,6 +414,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
    * made.
    */
   const withdrawalsPending = pendingWithdrawals.data?.counts?.['pending'] || undefined;
+  // From `counts`, never `total` — the envelope's count covers the whole
+  // filtered set, while `total` here is the page.
+  const depositsPending = pendingDeposits.data?.counts?.['pending'] || undefined;
 
   /**
    * The nav, with live values applied.
@@ -426,15 +441,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           const badge =
             item.href === '/approvals/ib'
               ? ibPending
-              : item.href === '/kyc'
-                ? kycPending
-                : item.href === '/transactions'
-                  ? withdrawalsPending
-                  : undefined;
+              : item.href === '/approvals/deposits'
+                ? depositsPending
+                : item.href === '/kyc'
+                  ? kycPending
+                  : item.href === '/transactions'
+                    ? withdrawalsPending
+                    : undefined;
           return badge ? { ...item, badge } : item;
         }),
       })),
-    [ibPending, kycPending, withdrawalsPending],
+    [ibPending, depositsPending, kycPending, withdrawalsPending],
   );
 
   // Sign-out and its failure message moved into `UserMenu` with the rest of the

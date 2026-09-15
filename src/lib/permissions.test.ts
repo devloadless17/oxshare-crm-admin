@@ -368,6 +368,13 @@ describe('assertPermissionKeysExist', () => {
     'wallets.create',
     'wallets.credit',
     'wallets.delete',
+    // The offline deposit desk. `deposits.approve` is separate from
+    // `wallets.credit` on purpose: approving credits an amount the CLIENT
+    // declared, while wallets.credit types any figure into any wallet.
+    'deposits.view',
+    'deposits.proofs.view',
+    'deposits.approve',
+    'deposits.reject',
     'withdrawals.view',
     'withdrawals.approve',
     'withdrawals.settle',

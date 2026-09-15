@@ -98,7 +98,14 @@ export const KIND_CONFIG: Record<string, KindConfig> = {
       amount: formatMoney(str(params.amount), str(params.currency)),
       reference: str(params.reference),
     }),
-    href: '/transactions',
+    /*
+     * The DEPOSIT desk, not `/transactions`.
+     *
+     * That route is the WITHDRAWALS queue, and it was the honest choice while
+     * nothing listed deposits at all. It now sends an operator hunting for a
+     * deposit in a payout queue.
+     */
+    href: '/approvals/deposits',
   },
   /*
    * A new signup. NOT scope-filtered at write time (see the backend note): a
@@ -215,7 +222,11 @@ export function queryKeysFor(kind: string): readonly AdminQueryKey[] {
   // nothing yet — the wallet moves on `deposit.succeeded`, which is a CLIENT
   // kind — so wallets are deliberately absent here.
   if (kind.startsWith('admin.deposit.')) {
-    return [keys.transactions.all(), keys.stats.all()];
+    // `deposits.all()` FIRST, and it is the one that matters: it is a prefix of
+    // `deposits.pendingCount()`, so a newly filed deposit moves the queue and
+    // the sidebar badge together. Wallets are deliberately absent — a
+    // declaration credits nothing until somebody approves it.
+    return [keys.deposits.all(), keys.transactions.all(), keys.stats.all()];
   }
 
   /*
