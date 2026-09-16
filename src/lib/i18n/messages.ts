@@ -2441,6 +2441,9 @@ export const messages = {
   // The Finance section's other entries. "Transactions" rather than
   // "Withdrawals" because that is what an operator calls the queue they work
   // down; the domain underneath is still withdrawals.
+  'paymentMethods.colFlow': 'Flow',
+  'paymentMethods.flowOffline': 'Receipt required',
+  'paymentMethods.flowGateway': 'Payment page',
   'paymentMethods.requiresProof': 'Paid outside the platform (needs a receipt)',
   'paymentMethods.requiresProofHint':
     'The client transfers the money however they like — OMT, a bank transfer, cash — and uploads a photo of the receipt. The deposit waits in Approvals → Deposits until somebody credits it. Leave this off for a method that takes payment through a hosted page.',
