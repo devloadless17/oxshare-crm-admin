@@ -25,6 +25,8 @@ export interface PaymentMethodFormValues {
   logoUrl: string;
   enabled: boolean;
   sortOrder: number;
+  /** OFFLINE: the client pays outside the platform and uploads a receipt. */
+  requiresProof: boolean;
 }
 
 /**
@@ -132,6 +134,7 @@ function PaymentMethodForm({
    * side effect of opening a dialog and pressing Save.
    */
   const sortOrder = method?.sortOrder ?? 0;
+  const [requiresProof, setRequiresProof] = React.useState(method?.requiresProof ?? false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,6 +145,7 @@ function PaymentMethodForm({
       logoUrl: logoUrl.trim(),
       enabled,
       sortOrder,
+      requiresProof,
     });
   };
 
@@ -193,6 +197,36 @@ function PaymentMethodForm({
       <CurrencyField value={currency} onChange={setCurrency} />
 
       <LogoField value={logoUrl} onChange={setLogoUrl} />
+
+      {/*
+        OFFLINE — the switch that makes a method usable at all for money paid
+        outside the platform.
+        
+        Without this control the capability shipped and stayed invisible: the
+        column exists, both apps read it, and no operator could set it. A method
+        nobody can create is a feature nobody has.
+
+        It is editable on an existing method, like currency and for the same
+        reason: it changes how the NEXT deposit is filed, not a single historical
+        one. The API refuses it on a gateway method, which is the contradiction
+        that cannot be resolved by guessing.
+      */}
+      <label className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+        <input
+          type="checkbox"
+          checked={requiresProof}
+          onChange={(e) => setRequiresProof(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-input focus-outline"
+        />
+        <span className="space-y-1">
+          <span className="block text-xs font-semibold text-foreground">
+            {t('paymentMethods.requiresProof')}
+          </span>
+          <span className="block text-[11px] leading-relaxed text-muted-foreground">
+            {t('paymentMethods.requiresProofHint')}
+          </span>
+        </span>
+      </label>
 
       <div className="flex justify-end gap-2 pt-1">
         <button
