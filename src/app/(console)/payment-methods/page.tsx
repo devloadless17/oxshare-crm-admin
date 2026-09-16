@@ -62,6 +62,20 @@ export default function PaymentMethodsPage() {
         logoUrl: values.logoUrl === '' ? undefined : values.logoUrl,
         enabled: values.enabled,
         sortOrder: values.sortOrder,
+        /*
+         * ⚠️ EVERY FIELD ON THE FORM MUST BE LISTED HERE, and nothing checks it.
+         *
+         * This object is built field by field on purpose — a spread would ship
+         * whatever the form happens to hold — but the update DTO's fields are all
+         * OPTIONAL, so a field left out is not a type error. It is a save that
+         * returns 200 and changes nothing.
+         *
+         * That is exactly what happened to `requiresProof`: the checkbox ticked,
+         * the API accepted the shape, the toast said saved, and the flag stayed
+         * false — so the method never asked a client for a receipt. Reported from
+         * production.
+         */
+        requiresProof: values.requiresProof,
       };
 
       if (editing) {
@@ -167,6 +181,27 @@ export default function PaymentMethodsPage() {
     {
       header: t('paymentMethods.colCurrency'),
       cell: (m) => <span className="font-mono">{m.currency}</span>,
+    },
+    {
+      /*
+       * WHICH FLOW a method runs, stated in the list.
+       *
+       * It is one boolean, and it decides everything the client sees: whether
+       * the deposit screen asks for a receipt, which endpoint files it, and
+       * whether it queues in Approvals → Deposits. With it visible only inside
+       * the edit dialog, a method that silently failed to save its flag looked
+       * identical to one that saved — which is how a method sat in production
+       * offering no receipt field and nobody could tell why.
+       */
+      header: t('paymentMethods.colFlow'),
+      cell: (m) =>
+        m.requiresProof ? (
+          <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning-foreground">
+            {t('paymentMethods.flowOffline')}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">{t('paymentMethods.flowGateway')}</span>
+        ),
     },
     {
       header: t('paymentMethods.colStatus'),
