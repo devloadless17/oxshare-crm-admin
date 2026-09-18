@@ -54,10 +54,14 @@ export interface InfoGroup {
 export function personalInfoGroups(
   personalInfo: Record<string, string> | undefined,
   steps: KycStepConfig[] | undefined,
+  /** Answers for configured steps beyond the four canonical ones, keyed by slug. */
+  stepData?: Record<string, Record<string, string>>,
 ): InfoGroup[] {
-  if (!personalInfo) return [];
+  // A submission with no personal info can still carry custom-step answers, so
+  // the early return has to consider both — it used to drop them silently.
+  if (!personalInfo && !stepData) return [];
 
-  const remaining = new Map<string, string>(Object.entries(personalInfo));
+  const remaining = new Map<string, string>(Object.entries(personalInfo ?? {}));
   // Its own card on the screen; a second copy here reads as a duplicate row.
   remaining.delete('docType');
 
@@ -66,13 +70,44 @@ export function personalInfoGroups(
   for (const step of steps ?? []) {
     if (step.enabled === false || step.slug === 'review') continue;
 
+    /*
+     * A CUSTOM step's answers live under its own slug in `stepData`, not in
+     * `personalInfo` — migration 0130 gave them somewhere to go, and without
+     * this they would be stored, submitted and invisible, which is a worse
+     * state than not collecting them at all: the client answers a compliance
+     * question and the reviewer decides without ever seeing it.
+     *
+     * Read from a per-step map rather than the shared `remaining` pool, so the
+     * same key in two custom steps stays two answers.
+     */
+    const custom = stepData?.[step.slug];
+
     const rows: InfoRow[] = [];
     for (const field of step.fields ?? []) {
+      if (custom) {
+        const value = custom[field.name];
+        if (value === undefined) continue;
+        rows.push(toRow(field.name, field.label, value, field.type));
+        continue;
+      }
       if (!remaining.has(field.name)) continue;
       const raw = remaining.get(field.name);
       remaining.delete(field.name);
       rows.push(toRow(field.name, field.label, raw, field.type));
     }
+
+    /*
+     * Answers under a slug whose field the configuration no longer lists —
+     * a field removed after somebody submitted. Same rule the personal block
+     * uses below: nothing submitted is ever dropped.
+     */
+    if (custom) {
+      const named = new Set((step.fields ?? []).map((f) => f.name));
+      for (const [key, value] of Object.entries(custom)) {
+        if (!named.has(key)) rows.push(toRow(key, humanise(key), value));
+      }
+    }
+
     if (rows.length > 0) groups.push({ title: step.title, rows });
   }
 

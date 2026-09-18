@@ -270,6 +270,24 @@ function NameForm({ admin, onSaved }: { admin: AdminProfile; onSaved: () => Prom
   const [name, setName] = React.useState(admin.name);
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
+  /*
+   * A flash timer that OUTLIVES this component throws, rather than warning.
+   *
+   * `setSaved(false)` two seconds later is a state update on a component that
+   * may already be gone. In a jsdom test the environment has been torn down by
+   * then, so `window` is gone and it surfaces as `ReferenceError: window is not
+   * defined` — an unhandled error attributed to whichever test happened to be
+   * running, not to the panel that armed it. Same defect, same fix and same
+   * reasoning as `rival-settings-panel.tsx`, whose comment records what it cost
+   * the first time: a red gate with 965 passing tests and no failure to point at.
+   */
+  const flashTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
 
   const mutation = useMutation({
     mutationFn: () => authApi.updateProfile({ name: name.trim() }),
@@ -280,7 +298,7 @@ function NameForm({ admin, onSaved }: { admin: AdminProfile; onSaved: () => Prom
       // show " Ada " as saved when "Ada" is what every other screen shows.
       setName(result.name);
       setSaved(true);
-      window.setTimeout(() => setSaved(false), 2000);
+      flashTimer.current = window.setTimeout(() => setSaved(false), 2000);
       void onSaved();
       toastSuccess(t('profile.nameSaved'));
     },

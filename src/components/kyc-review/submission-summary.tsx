@@ -48,7 +48,7 @@ export function SubmissionSummary({
   attempts: KycAttempt[];
 }) {
   const steps = useKycStepConfig();
-  const groups = personalInfoGroups(data.personalInfo, steps);
+  const groups = personalInfoGroups(data.personalInfo, steps, data.stepData);
 
   return (
     <div className="detail-left">
