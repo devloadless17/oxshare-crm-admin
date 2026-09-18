@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import DepositApprovalsPage from './page';
@@ -99,9 +99,39 @@ describe('the offline deposit queue', () => {
     // `loading` and assert against an empty list.
     expect(await screen.findByText('Omar Haddad')).toBeInTheDocument();
     expect(screen.getByText('OX-ABC123')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /open receipt/i })).toHaveAttribute(
-      'href',
+    expect(screen.getByRole('button', { name: /open receipt/i })).toBeInTheDocument();
+  });
+
+  it('opens an image receipt in the lightbox rather than a new tab', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<DepositApprovalsPage />);
+
+    /*
+     * A BUTTON, not a link: judging whether the amount and sender on a phone
+     * snapshot match the row used to mean leaving the queue for a browser tab
+     * and tabbing back to compare. The dialog keeps the row on screen.
+     */
+    await user.click(await screen.findByRole('button', { name: /open receipt/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    // Through `assetUrl`, so the path keeps its own bucket — `buildKycDocUrl`
+    // would re-prefix it to `uploads/kyc/uploads/deposit-proofs/…`.
+    expect(within(dialog).getByRole('img')).toHaveAttribute(
+      'src',
       expect.stringContaining('uploads/deposit-proofs/receipt-1.png'),
+    );
+  });
+
+  it('keeps a PDF receipt on a link, because the CSP will not embed one', async () => {
+    getTransactions.mockResolvedValue(page([row({ proofFilename: 'advice-1.pdf' })]));
+    renderWithProviders(<DepositApprovalsPage />);
+
+    // `object-src 'none'` with no `frame-src` is deliberate — an operator
+    // opening a PDF a stranger sent is the threat model.
+    expect(await screen.findByRole('link', { name: /open receipt/i })).toHaveAttribute(
+      'href',
+      expect.stringContaining('uploads/deposit-proofs/advice-1.pdf'),
     );
   });
 
@@ -112,6 +142,7 @@ describe('the offline deposit queue', () => {
     // A blank cell reads as a broken image, which invites an approval on the
     // assumption that there is something there.
     expect(await screen.findByText(/no receipt/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /open receipt/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /open receipt/i })).not.toBeInTheDocument();
   });
 

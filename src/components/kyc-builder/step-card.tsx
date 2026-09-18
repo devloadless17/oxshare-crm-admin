@@ -168,7 +168,17 @@ export function StepCard({
             <Input
               id={`slug-${step.id}`}
               value={step.slug}
-              onChange={(e) => onPatch({ slug: e.target.value })}
+              /*
+               * READ-ONLY for the same reason as a field's key, and with a
+               * sharper failure behind it: the slug decides which column a
+               * step's answers are written to (`step-slugs.ts`), and
+               * `KycService.saveStep` refuses a slug it has no column for. A
+               * renamed slug saved cleanly here and then stopped every client
+               * who pressed Continue — an error nobody configuring it could see.
+               */
+              readOnly
+              aria-readonly
+              title={t('builder.slugLocked')}
             />
           </div>
           <div className="space-y-1.5 md:col-span-2">

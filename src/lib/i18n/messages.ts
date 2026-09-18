@@ -814,6 +814,10 @@ export const messages = {
   'clientProfile.walletCloseFailed': 'Could not close the wallet.',
   'clientProfile.parentIb': 'Introduced by',
   'clientProfile.noParentIb': 'Not introduced by a partner.',
+  // Distinct from `noParentIb` on purpose: "nobody introduced them" and "somebody
+  // did, and they are outside your desk" are different commercial facts, and
+  // collapsing them is what the unscoped referrer card used to do in reverse.
+  'clientProfile.parentIbOutsideTerritory': 'Introduced by a partner outside your territory.',
   'clientProfile.referredClients': 'Clients introduced',
   'clientProfile.noReferrals': 'No clients introduced.',
   'clientProfile.attributionInactive': 'inactive',
@@ -1141,6 +1145,14 @@ export const messages = {
   'kycReview.flaggedFields': 'Flagged Fields for Correction:',
   'kycReview.timeline': 'Timeline',
   'kycReview.reviewed': 'Reviewed',
+  /*
+   * The decided labels carry the OUTCOME, so the name beside them answers "who
+   * approved this client" rather than "who touched this record". "Reviewed" is
+   * true of an approval and a rejection alike, which is what made it useless on
+   * a card whose whole job is to record a decision.
+   */
+  'kycReview.approvedOn': 'Approved by',
+  'kycReview.rejectedOn': 'Rejected by',
   'kycReview.decision': 'Review Decision',
   'kycReview.claim': 'Claim for review',
   'kycReview.openDirectly': 'Open directly',
@@ -1159,7 +1171,16 @@ export const messages = {
   'kycReview.docPassport': 'Passport (photo & signature page)',
   'kycReview.docIdFront': 'ID document (front)',
   'kycReview.docIdBack': 'ID document (back)',
-  'kycReview.docSelfie': 'Selfie verification',
+  /*
+   * "Selfie VERIFICATION" was an overclaim in one word. Nothing verifies it:
+   * the portal opens the front camera and uploads what it captures, and the
+   * same `POST /kyc/upload` accepts any JPEG from any client, so a reviewer is
+   * looking at a photograph and not at a liveness result. Naming it accurately
+   * is free; `kycReview.selfieCaveat` says the rest once, beside the documents.
+   */
+  'kycReview.docSelfie': 'Selfie photo',
+  'kycReview.selfieCaveat':
+    'Selfies are captured from the client’s camera and are not liveness-verified — a photo of a photo would look the same here. Judge it as a photograph, against the ID.',
   'kycReview.docAddress': 'Proof of address',
   /*
    * A proof of address can be TWO pages — a bank statement's second sheet is
@@ -1233,6 +1254,15 @@ export const messages = {
   'builder.addField': 'Add Field',
   'builder.fieldLabel': 'Field Label',
   'builder.keyName': 'Key Name',
+  /*
+   * Both identifiers are shown and not editable. They are storage keys: a
+   * field's key is the column its answers live under, and a step's slug decides
+   * which column the step writes to at all. The API refuses a rename that would
+   * break either (`kyc-config-integrity.ts`); these titles say why before
+   * anyone tries.
+   */
+  'builder.keyNameLocked':
+    'The storage key for this answer. Set automatically and not editable — changing it would detach every submission already filed.',
   'builder.inputType': 'Input Type',
   'builder.typeText': 'Text Input',
   'builder.typeDate': 'Date Picker',
@@ -1841,7 +1871,15 @@ export const messages = {
   'builder.slugLockedFull': '(locked — the client flow submits by this slug)',
   'builder.noFieldsHint': 'No custom fields added yet. Click "Add Field" to configure inputs.',
   'builder.slugIdentifier': 'URL Slug Identifier',
-  'builder.slugLocked': '(locked — the client portal routes on it)',
+  /*
+   * This string existed with NO consumer: somebody wrote the copy for a lock and
+   * the input stayed editable, so the intent survived and the behaviour did not.
+   * It is now the tooltip on a genuinely read-only field, and reworded from a
+   * suffix label into the sentence a tooltip has to be. `builder.slugLockedFull`
+   * beside it is still orphaned.
+   */
+  'builder.slugLocked':
+    'Decides where this step stores its answers. Set by the system and not editable — a slug with no matching column would stop clients mid-form.',
   'builder.fieldsCount': 'Form Fields ({count})',
   'builder.noFields': 'No custom fields added yet.',
 
