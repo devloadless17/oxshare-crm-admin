@@ -6249,9 +6249,14 @@ export interface components {
         };
         ProfileReferrerDto: {
             ibUserId: string;
-            email: string;
-            firstName: string;
-            lastName: string;
+            /** @description Absent when the introducer is outside your territory. */
+            email?: string;
+            /** @description Absent when the introducer is outside your territory. */
+            firstName?: string;
+            /** @description Absent when the introducer is outside your territory. */
+            lastName?: string;
+            /** @description True when this client WAS introduced by a partner the reader may not see. Keeps “introduced, by someone outside your territory” distinct from “not introduced”. */
+            outsideTerritory: boolean;
             /** @description False when the attribution was switched off. */
             active: boolean;
             /** Format: date-time */

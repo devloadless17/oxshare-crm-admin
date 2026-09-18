@@ -648,7 +648,23 @@ export default function ClientProfilePage() {
                     />
 
                     <ProfileCard title={t('clientProfile.parentIb')}>
-                      {profile.referrer ? (
+                      {profile.referrer?.outsideTerritory ? (
+                        /*
+                          The introducer exists and this reader may not see who
+                          they are. Rendering the name fields would print an
+                          empty link, because the API omits them — and falling
+                          through to `noParentIb` would assert the false
+                          sentence the scoped referrer fix exists to avoid.
+                        */
+                        <p className="text-sm text-muted-foreground">
+                          {t('clientProfile.parentIbOutsideTerritory')}
+                          {!profile.referrer.active && (
+                            <Badge variant="warning" className="ms-2">
+                              {t('clientProfile.attributionInactive')}
+                            </Badge>
+                          )}
+                        </p>
+                      ) : profile.referrer ? (
                         <p className="text-sm">
                           <PermittedLink
                             href={`/clients/${profile.referrer.ibUserId}`}

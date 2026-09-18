@@ -814,6 +814,10 @@ export const messages = {
   'clientProfile.walletCloseFailed': 'Could not close the wallet.',
   'clientProfile.parentIb': 'Introduced by',
   'clientProfile.noParentIb': 'Not introduced by a partner.',
+  // Distinct from `noParentIb` on purpose: "nobody introduced them" and "somebody
+  // did, and they are outside your desk" are different commercial facts, and
+  // collapsing them is what the unscoped referrer card used to do in reverse.
+  'clientProfile.parentIbOutsideTerritory': 'Introduced by a partner outside your territory.',
   'clientProfile.referredClients': 'Clients introduced',
   'clientProfile.noReferrals': 'No clients introduced.',
   'clientProfile.attributionInactive': 'inactive',
