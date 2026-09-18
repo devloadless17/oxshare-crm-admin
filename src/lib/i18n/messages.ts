@@ -1171,7 +1171,16 @@ export const messages = {
   'kycReview.docPassport': 'Passport (photo & signature page)',
   'kycReview.docIdFront': 'ID document (front)',
   'kycReview.docIdBack': 'ID document (back)',
-  'kycReview.docSelfie': 'Selfie verification',
+  /*
+   * "Selfie VERIFICATION" was an overclaim in one word. Nothing verifies it:
+   * the portal opens the front camera and uploads what it captures, and the
+   * same `POST /kyc/upload` accepts any JPEG from any client, so a reviewer is
+   * looking at a photograph and not at a liveness result. Naming it accurately
+   * is free; `kycReview.selfieCaveat` says the rest once, beside the documents.
+   */
+  'kycReview.docSelfie': 'Selfie photo',
+  'kycReview.selfieCaveat':
+    'Selfies are captured from the client’s camera and are not liveness-verified — a photo of a photo would look the same here. Judge it as a photograph, against the ID.',
   'kycReview.docAddress': 'Proof of address',
   /*
    * A proof of address can be TWO pages — a bank statement's second sheet is

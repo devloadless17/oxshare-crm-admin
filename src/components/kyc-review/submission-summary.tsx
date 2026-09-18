@@ -90,6 +90,23 @@ export function SubmissionSummary({
         </div>
       )}
 
+      {/*
+        WHAT THE SELFIE PROVES, said once and where the decision is made.
+
+        A reviewer sees a face photograph beside an ID and the natural reading is
+        that something checked it. Nothing did: the portal opens the front camera
+        and uploads what it captures, and `POST /kyc/upload` accepts any JPEG
+        from any client — so a printed photo, or a phone held up to the lens,
+        arrives looking exactly like a live capture.
+
+        That is a fair control at this stage and it is NOT liveness. Saying so is
+        the cheapest honest thing available: a reviewer who knows they are
+        judging a photograph compares it against the ID, and one who believes it
+        was verified does not. It costs nothing and it is the difference between
+        a control and a belief about a control.
+      */}
+      <p className="not-submitted text-[11px] leading-snug">{t('kycReview.selfieCaveat')}</p>
+
       {/* Signals the reviewer needs, which the API was already sending.
           `reviewerView` returns emailVerified, country and createdAt and the
           screen rendered none of them — so an account opened this morning and
