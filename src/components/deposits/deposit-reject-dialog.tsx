@@ -113,7 +113,19 @@ function RejectForm({
         {t('deposits.rejectIntro', { name: clientName, amount })}
       </p>
 
-      <p className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs leading-relaxed text-warning-foreground">
+      {/*
+        `text-warning`, NOT `text-warning-foreground`.
+
+        `--warning-foreground` is the ink for text sitting ON the solid
+        `--warning` fill: white in light mode, near-black in dark. This panel is
+        a 10% TINT of that fill, so the pairing inverted in both themes — white
+        on near-white, then near-black on near-black. The one sentence in this
+        console that says nothing is refunded was the one nobody could read.
+
+        `--warning` itself is the ink drawn FOR that tint, and it is the pairing
+        every other soft-tinted panel here uses.
+      */}
+      <p className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs font-medium leading-relaxed text-warning">
         {t('deposits.rejectNoRefund')}
       </p>
 

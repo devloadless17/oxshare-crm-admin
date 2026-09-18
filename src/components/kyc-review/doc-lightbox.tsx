@@ -51,11 +51,24 @@ export function DocLightbox({
   index,
   onClose,
   onNavigate,
+  buildUrl = buildKycDocUrl,
 }: {
   docs: LightboxDoc[];
   index: number;
   onClose: () => void;
   onNavigate: (nextIndex: number) => void;
+  /**
+   * How a `filePath` becomes a URL the browser can fetch. DEFAULTS to the KYC
+   * builder, so every existing caller is unchanged.
+   *
+   * It is a prop rather than a hardcoded import because `buildKycDocUrl`
+   * prefixes `uploads/kyc/` onto anything not already under `uploads/`, and its
+   * own comment records the `/uploads/kyc/kyc/<file>` incident that broke every
+   * document. A deposit receipt lives in a different bucket, so one function
+   * answering for two is exactly how that comes back — the caller that knows
+   * the bucket supplies the builder for it.
+   */
+  buildUrl?: (filePath: string) => string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -173,7 +186,7 @@ export function DocLightbox({
             // A PDF is not an image: zoom and rotation belong to the viewer, and
             // an <embed> inside a modal is worse than the browser's own.
             <a
-              href={buildKycDocUrl(doc.filePath)}
+              href={buildUrl(doc.filePath)}
               target="_blank"
               rel="noreferrer"
               className="rounded-lg bg-white/10 px-6 py-4 text-sm font-semibold text-white hover:bg-white/20 focus-outline"
@@ -185,7 +198,7 @@ export function DocLightbox({
                the API origin behind auth; next/image would proxy identity
                documents through the optimizer and cache them on disk. */
             <img
-              src={buildKycDocUrl(doc.filePath)}
+              src={buildUrl(doc.filePath)}
               alt={doc.label}
               draggable={false}
               /*
