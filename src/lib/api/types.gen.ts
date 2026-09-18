@@ -5746,6 +5746,12 @@ export interface components {
             document?: components["schemas"]["KycDocumentStateDto"];
             selfie?: components["schemas"]["KycFileStateDto"];
             addressProof?: components["schemas"]["KycFileStateDto"];
+            /** @description Answers for configured steps beyond the four canonical ones, keyed by slug. */
+            stepData?: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             /** @description Set when status is rejected. */
             rejectionReason?: string;
             /** @description Field names the client must re-submit. */
