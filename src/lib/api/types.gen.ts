@@ -6452,6 +6452,12 @@ export interface components {
             document?: components["schemas"]["KycDocumentDto"];
             selfie?: components["schemas"]["KycSelfieDto"];
             addressProof?: components["schemas"]["KycAddressProofDto"];
+            /** @description Answers for configured steps beyond the four canonical ones, keyed by slug. */
+            stepData?: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             user?: components["schemas"]["KycUserDto"] | null;
             maskedFields?: string[];
             /** Format: date-time */
@@ -6488,6 +6494,12 @@ export interface components {
             document?: components["schemas"]["KycDocumentDto"];
             selfie?: components["schemas"]["KycSelfieDto"];
             addressProof?: components["schemas"]["KycAddressProofDto"];
+            /** @description Answers for configured steps beyond the four canonical ones, keyed by slug. */
+            stepData?: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             /** Format: date-time */
             archivedAt: string;
         };

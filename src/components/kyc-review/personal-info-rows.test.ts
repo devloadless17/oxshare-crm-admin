@@ -183,3 +183,74 @@ describe('humanise — the fallback for an unconfigured key', () => {
     expect(humanise('tax-id')).toBe('Tax Id');
   });
 });
+
+describe("a custom step's answers", () => {
+  /*
+   * A custom step stores under its own slug in `stepData` (backend migration
+   * 0130). Before this, those answers were collected, submitted and INVISIBLE —
+   * a worse state than not collecting them, because the client answers a
+   * compliance question and the reviewer decides without ever seeing it.
+   */
+  const COMPLIANCE = step({
+    title: 'Compliance Questions',
+    slug: 'compliance-questions',
+    fields: [
+      { id: 'f1', name: 'sourceOfFunds', label: 'Source of Funds', type: 'text', required: true },
+    ],
+  });
+
+  it('renders under the step that asked for them', () => {
+    const groups = personalInfoGroups({ firstName: 'Hussein' }, [COMPLIANCE], {
+      'compliance-questions': { sourceOfFunds: 'Salary' },
+    });
+
+    const row = groupNamed(groups, 'Compliance Questions').rows[0];
+    expect(row?.label).toBe('Source of Funds');
+    expect(row?.value).toBe('Salary');
+  });
+
+  /** Two custom steps may legitimately use the same key — separate maps. */
+  it('keeps the same key in two steps as two answers', () => {
+    const other = step({
+      title: 'Other',
+      slug: 'other',
+      fields: [{ id: 'f2', name: 'note', label: 'Note', type: 'text', required: false }],
+    });
+    const compliance = step({
+      title: 'Compliance Questions',
+      slug: 'compliance-questions',
+      fields: [{ id: 'f3', name: 'note', label: 'Note', type: 'text', required: false }],
+    });
+
+    const groups = personalInfoGroups({}, [compliance, other], {
+      'compliance-questions': { note: 'from compliance' },
+      other: { note: 'from other' },
+    });
+
+    expect(groupNamed(groups, 'Compliance Questions').rows[0]?.value).toBe('from compliance');
+    expect(groupNamed(groups, 'Other').rows[0]?.value).toBe('from other');
+  });
+
+  /** Nothing submitted is ever dropped — the same rule the personal block has. */
+  it('still shows an answer whose field was removed from the step', () => {
+    const groups = personalInfoGroups({}, [COMPLIANCE], {
+      'compliance-questions': { sourceOfFunds: 'Salary', retiredQuestion: 'kept' },
+    });
+
+    const values = groupNamed(groups, 'Compliance Questions').rows.map((r) => r.value);
+    expect(values).toContain('kept');
+  });
+
+  /** A submission with no personal info can still carry custom answers. */
+  it('renders them even when there is no personal info at all', () => {
+    const groups = personalInfoGroups(undefined, [COMPLIANCE], {
+      'compliance-questions': { sourceOfFunds: 'Salary' },
+    });
+    expect(groupNamed(groups, 'Compliance Questions').rows).toHaveLength(1);
+  });
+
+  it('adds nothing when the step has no answers', () => {
+    const groups = personalInfoGroups({ firstName: 'Hussein' }, [COMPLIANCE], {});
+    expect(groups.find((g) => g.title === 'Compliance Questions')).toBeUndefined();
+  });
+});
