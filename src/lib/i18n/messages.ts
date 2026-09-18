@@ -1145,6 +1145,14 @@ export const messages = {
   'kycReview.flaggedFields': 'Flagged Fields for Correction:',
   'kycReview.timeline': 'Timeline',
   'kycReview.reviewed': 'Reviewed',
+  /*
+   * The decided labels carry the OUTCOME, so the name beside them answers "who
+   * approved this client" rather than "who touched this record". "Reviewed" is
+   * true of an approval and a rejection alike, which is what made it useless on
+   * a card whose whole job is to record a decision.
+   */
+  'kycReview.approvedOn': 'Approved by',
+  'kycReview.rejectedOn': 'Rejected by',
   'kycReview.decision': 'Review Decision',
   'kycReview.claim': 'Claim for review',
   'kycReview.openDirectly': 'Open directly',

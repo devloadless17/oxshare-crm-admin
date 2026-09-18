@@ -4,7 +4,7 @@ import type { components } from '@/lib/api/types.gen';
 import { AttemptHistory } from './attempt-history';
 import { personalInfoGroups } from './personal-info-rows';
 import { useKycStepConfig } from './use-kyc-step-config';
-import { t } from '@/lib/i18n';
+import { t, type MessageKey } from '@/lib/i18n';
 
 type KycDetail = components['schemas']['KycSubmissionDto'];
 
@@ -22,6 +22,20 @@ type KycDetail = components['schemas']['KycSubmissionDto'];
  * The page keeps its styled-jsx, and these class names resolve against it.
  */
 type KycAttempt = components['schemas']['KycAttemptDto'];
+
+/**
+ * The timeline label for a decided submission.
+ *
+ * "Reviewed" is true of an approval and a rejection alike, which is what made
+ * it useless: a reviewer scanning the card learned a decision happened and not
+ * which one. `under_review` and anything earlier keep it, because nothing has
+ * been decided yet and "Approved" would be a lie with a date beside it.
+ */
+function decisionLabelKey(status: string): MessageKey {
+  if (status === 'approved') return 'kycReview.approvedOn';
+  if (status === 'rejected') return 'kycReview.rejectedOn';
+  return 'kycReview.reviewed';
+}
 
 export function SubmissionSummary({
   data,
@@ -147,9 +161,39 @@ export function SubmissionSummary({
           <span>{t('kycReview.colSubmitted')}</span>
           <strong>{data.submittedAt ? new Date(data.submittedAt).toLocaleString() : '—'}</strong>
         </div>
+        {/*
+          WHO decided, not just when.
+
+          The row read "Reviewed · 15 Sep 2026, 18:42" and named nobody, so the
+          one screen that records a client's identity verification could not
+          answer the first question anyone asks about one: who signed it off. The
+          name was already on the wire — `reviewedByName` is resolved for every
+          row with a reviewer, decided or not — and only this screen dropped it.
+
+          On a money system that is not a nicety. "Who verified this client"
+          is what a regulator asks, what a fraud investigation starts from, and
+          what an internal review needs before it can ask anybody anything. The
+          answer lived in the database and in the audit log; it just was not on
+          the record itself.
+
+          The LABEL carries the outcome and the VALUE carries the person, which
+          is the shape the withdrawals desk already uses for exactly this
+          (`transactions/page.tsx`) — two screens that answer the same question
+          should answer it the same way.
+
+          A deleted administrator falls back to the date alone rather than a
+          placeholder name, also matching that screen: an absence stated as an
+          absence, never guessed at.
+        */}
         <div className="info-row">
-          <span>{t('kycReview.reviewed')}</span>
-          <strong>{data.reviewedAt ? new Date(data.reviewedAt).toLocaleString() : '—'}</strong>
+          <span>{t(decisionLabelKey(data.status))}</span>
+          <strong>
+            {data.reviewedAt
+              ? data.reviewedByName
+                ? `${data.reviewedByName} · ${new Date(data.reviewedAt).toLocaleString()}`
+                : new Date(data.reviewedAt).toLocaleString()
+              : '—'}
+          </strong>
         </div>
       </div>
     </div>

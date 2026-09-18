@@ -332,14 +332,37 @@ function KycQueue() {
        * is an answer, and a column that is sometimes empty and sometimes
        * missing reads as a loading state.
        */
-      cell: (row) =>
-        row.status === 'under_review' ? (
+      cell: (row) => {
+        /*
+         * Shows the reviewer for a DECIDED row too, not only a claimed one.
+         *
+         * The column blanked to an em dash the moment a decision landed, so the
+         * queue could say who was holding a submission and not who had approved
+         * one — and "who verified this client" is the question that outlives the
+         * claim by years. The name is already on every row that has a reviewer;
+         * the cell was choosing not to render it.
+         *
+         * An em dash still means "nobody", which is now only true of a row
+         * waiting in the queue. A name with no decision behind it reads as
+         * "being reviewed", which is what the dock says too.
+         */
+        const decided = row.status === 'approved' || row.status === 'rejected';
+        if (row.status !== 'under_review' && !decided) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        /*
+         * A decided row whose reviewer has since been deleted falls back to the
+         * dash rather than to "Being reviewed", which would be false twice over.
+         */
+        if (decided && !row.reviewedByName) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        return (
           <span className="text-xs font-medium">
             {row.reviewedByName ?? t('kycReview.claimedByUnknown')}
           </span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
+        );
+      },
     },
     {
       header: t('kycReview.colSubmitted'),
