@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Banknote } from 'lucide-react';
 import api from '@/lib/api';
 import {
@@ -113,7 +113,26 @@ function FinancialPageContent() {
    * desk's local state) so "everything Jane moved this week" is a link an
    * operator can paste into a ticket.
    */
-  const q = useDebounced(url.get('q').trim());
+  /*
+   * TYPED LOCALLY, written to the URL only once the typing settles.
+   *
+   * The input was bound straight to `url.get('q')`, so every keystroke went
+   * through the router's ASYNC `replace` and came back a render later. Typing
+   * dropped characters and the caret jumped — reported from production as "I
+   * cannot type normally in the financial search". The KYC and withdrawal
+   * queues already hold the term in local state for exactly this reason
+   * (kyc/page.tsx names the same cause); this screen was the last one still
+   * round-tripping the router per character.
+   *
+   * The URL is still the shareable truth — the effect below writes the settled
+   * value back, so "everything Jane moved this week" remains a link an operator
+   * can paste into a ticket. It starts FROM the URL so a refresh keeps the term.
+   */
+  const [search, setSearch] = useState(url.get('q'));
+  const q = useDebounced(search.trim());
+  useEffect(() => {
+    if (q !== url.get('q')) url.set({ q: q || undefined, page: undefined });
+  }, [q, url]);
 
   const sortKey = member<TransactionSortKey>(url.sort.key ?? '', TRANSACTION_SORT_KEYS);
 
@@ -275,8 +294,8 @@ function FinancialPageContent() {
           // empty platform.
           url.set({ direction: value || undefined, page: undefined })
         }
-        search={url.get('q')}
-        onSearchChange={(value) => url.set({ q: value || undefined, page: undefined })}
+        search={search}
+        onSearchChange={setSearch}
         searchPlaceholder={t('financial.searchPlaceholder')}
         searchAriaLabel={t('financial.searchAria')}
       />

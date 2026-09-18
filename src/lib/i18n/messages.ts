@@ -629,6 +629,8 @@ export const messages = {
     'These details would not have been accepted at submission, so this approved verification is not valid. Reject it and ask the client to verify again.',
   'clientProfile.networkCapped': 'Showing {shown} of {total} introduced clients.',
   'clientProfile.networkSeeAll': 'See all of them',
+  'clientProfile.networkOutsideScope':
+    '{count} more client(s) introduced by this partner are outside your territory, so they are not listed here.',
   'clients.referredByNotice': 'Showing only the clients introduced by {who}.',
   'clients.referredByWho': 'this partner',
   'clients.referredByClear': 'Show all clients',
@@ -1092,6 +1094,8 @@ export const messages = {
   'invite.invalidEmail': 'Enter a valid email address.',
   'invite.copyFailed': 'Could not copy automatically — select the link and copy it manually.',
   'invite.sentNote': 'Invitation email sent. You can also share the link directly:',
+  'invite.emailedOnly':
+    'The invitation email has been sent. For security the activation link is not shown here — it mints an administrator account, so it is delivered only to the invitee’s mailbox. If it does not arrive, revoke the invite and send it again.',
   'invite.sendAnother': 'Send another invite',
   'invite.fullName': 'Full Name',
   'invite.email': 'Email Address',

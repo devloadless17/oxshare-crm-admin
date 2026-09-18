@@ -136,3 +136,70 @@ describe('the referral network tree', () => {
     expect(screen.getByText(/showing 3 of 213/i)).toBeInTheDocument();
   });
 });
+
+describe('referrals outside the reader’s territory', () => {
+  /*
+   * Reported from production by an administrator with scoped tags: a partner's
+   * Network tab showed nobody, and read as "this client introduced no one".
+   *
+   * Every count on this tab is scoped to the reader's territory, which is right
+   * for "50 of 213" over a list of 50 — and wrong for zero, because "none" and
+   * "none that are yours" are opposite facts about a partner. An operator acts
+   * on the first: chasing them for inactivity, or approving on the belief they
+   * have no book.
+   */
+  it('says how many are outside the territory when the visible list is EMPTY', () => {
+    renderTree({
+      referredClients: [],
+      referredShown: 0,
+      referredTotal: 0,
+      referredOutsideScope: 7,
+    });
+
+    expect(
+      screen.getByText(/7 more client\(s\).*outside your territory/i),
+      'an empty tab claimed the partner had introduced nobody',
+    ).toBeInTheDocument();
+  });
+
+  it('says it alongside a partial list too', () => {
+    renderTree({
+      referredClients: someClients(3),
+      referredShown: 3,
+      referredTotal: 3,
+      referredOutsideScope: 2,
+    });
+    expect(screen.getByText(/2 more client\(s\).*outside your territory/i)).toBeInTheDocument();
+  });
+
+  it('says NOTHING for an unrestricted reader, who is outside nothing', () => {
+    renderTree({
+      referredClients: someClients(3),
+      referredShown: 3,
+      referredTotal: 3,
+      referredOutsideScope: 0,
+    });
+    expect(screen.queryByText(/outside your territory/i)).not.toBeInTheDocument();
+  });
+
+  it('says nothing when the count is absent, which means "not stated" and not "none"', () => {
+    renderTree({ referredClients: someClients(3), referredShown: 3, referredTotal: 3 });
+    expect(screen.queryByText(/outside your territory/i)).not.toBeInTheDocument();
+  });
+
+  it('never names anyone the reader may not see', () => {
+    /*
+     * The whole disclosure is a NUMBER. If this ever renders a name, an email or
+     * an id from outside the territory, the scope check has been undone by the
+     * screen that was meant to respect it.
+     */
+    renderTree({
+      referredClients: [],
+      referredShown: 0,
+      referredTotal: 0,
+      referredOutsideScope: 7,
+    });
+    const notice = screen.getByText(/outside your territory/i);
+    expect(notice.textContent).not.toMatch(/@/);
+  });
+});

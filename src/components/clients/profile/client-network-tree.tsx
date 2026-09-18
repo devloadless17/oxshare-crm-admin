@@ -54,6 +54,7 @@ export function ClientNetworkTree({
   referredClients,
   referredShown,
   referredTotal,
+  referredOutsideScope,
 }: {
   rootUserId: string;
   rootName: string;
@@ -78,6 +79,19 @@ export function ClientNetworkTree({
    */
   referredShown?: number;
   referredTotal?: number;
+  /**
+   * How many of this partner's referrals are OUTSIDE the reader's territory.
+   *
+   * Both numbers above are scoped, which is correct — an unscoped total over a
+   * scoped list reads as a bug. The cost was that a scoped admin whose subject's
+   * whole downline sits elsewhere saw an empty tab, and an empty tab says "this
+   * client introduced nobody". That is a false statement, not a narrower one,
+   * and an operator acts on it.
+   *
+   * A count, never a name. The reader learns their view is partial and nothing
+   * about who is missing.
+   */
+  referredOutsideScope?: number;
 }) {
   /*
    * Only when there is genuinely more. `referredTotal` is absent for a reader
@@ -87,6 +101,8 @@ export function ClientNetworkTree({
    */
   const capped =
     referredShown !== undefined && referredTotal !== undefined && referredTotal > referredShown;
+  // Absent means "not stated" — only a POSITIVE count is a fact worth rendering.
+  const hiddenByScope = referredOutsideScope !== undefined && referredOutsideScope > 0;
   return (
     <div className="rounded-xl border border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-3">
@@ -134,6 +150,20 @@ export function ClientNetworkTree({
           Rendered only when there IS more. A notice on a complete list would
           teach an operator to ignore it on the one that is not.
         */}
+        {/*
+          THE PEOPLE THIS READER MAY NOT SEE.
+
+          Rendered whether or not the visible list is empty, and that is the
+          case it exists for: a partner whose entire downline sits in another
+          territory rendered a tab saying they had introduced nobody. "None" and
+          "none that are yours" are opposite facts about a partner, and only one
+          of them is true.
+        */}
+        {hiddenByScope && (
+          <p className="mt-2 border-t border-border px-2 pt-2 text-xs text-muted-foreground">
+            {t('clientProfile.networkOutsideScope', { count: String(referredOutsideScope) })}
+          </p>
+        )}
         {capped && (
           <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border px-2 pt-2 text-xs text-muted-foreground">
             <span>

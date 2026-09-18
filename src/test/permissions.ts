@@ -51,6 +51,7 @@ export const ALL_PERMISSIONS: string[] = [
   'kyc.view',
   'kyc.documents.view',
   'kyc.review',
+  'kyc.claim.override',
   'kyc.create',
   'kyc.edit',
   'kyc.delete',
