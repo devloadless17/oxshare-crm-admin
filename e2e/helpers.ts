@@ -98,9 +98,23 @@ export async function csrfOf(context: BrowserContext): Promise<string> {
 
 /** Remove every cookie whose name matches, keeping the rest of the jar. */
 export async function deleteCookie(context: BrowserContext, name: RegExp): Promise<void> {
-  const cookies = await context.cookies();
-  await context.clearCookies();
-  await context.addCookies(cookies.filter((c) => !name.test(c.name)));
+  /*
+   * Playwright's own per-name filter, NOT read-all / clear-all / re-add.
+   *
+   * The round-trip version dropped the whole jar and rebuilt it from what
+   * `cookies()` returned, so every surviving cookie — including the refresh
+   * token and each app's session-hint — had to survive a serialise-and-restore
+   * it does not otherwise go through. `clearCookies({ name })` removes exactly
+   * the match and leaves the rest untouched in the browser.
+   *
+   * ⚠️ This is a tidier primitive, NOT a fix for anything. It was changed while
+   * chasing the ~50% failure rate of `session-matrix.spec.ts`'s reuse-detection
+   * case, on the theory that the rebuild was losing the session-hint. MEASURED
+   * AFTERWARDS: 2 of 4 repeats still failed, exactly as before. The theory was
+   * wrong and the flake is elsewhere — do not read this comment as evidence
+   * that the cookie handling was the cause.
+   */
+  await context.clearCookies({ name });
 }
 
 /**

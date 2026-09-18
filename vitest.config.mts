@@ -214,11 +214,24 @@ export default defineConfig({
        * see the next regression, which is how this file came to be re-based
        * DOWNWARD twice while ten screens landed with no tests at all.
        */
+      /*
+       * RAISED 17 Sep 2026, against a measured run of 99 files / 1055 tests:
+       * lines 68.22, statements 67.15, functions 58.77, branches 63.66.
+       *
+       * The previous floor had drifted six to seven points under that — nobody lowered it,
+       * the suite grew and nothing lifted it. A floor far enough under the
+       * measurement stops catching the regressions it was written for: at the old
+       * number a change could delete most of that gap and still pass.
+       *
+       * Set about a point and a half under rather than flush, the same margin the
+       * backend uses and for the same reason — a threshold that reddens for
+       * environment reasons is one people route around.
+       */
       thresholds: {
-        lines: 61,
-        functions: 51,
-        branches: 58,
-        statements: 60,
+        lines: 66,
+        statements: 65,
+        functions: 57,
+        branches: 62,
       },
     },
   },

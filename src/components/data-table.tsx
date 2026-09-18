@@ -291,9 +291,25 @@ export function DataTable<T>({
    *
    * SCOPE, stated because it is not obvious from the UI: this sorts the rows
    * currently HELD, which for a paginated table is one page. "The largest
-   * withdrawal" is therefore the largest of 25 unless the endpoint sorts. No
-   * list endpoint accepts a sort parameter today (PLATFORM-CONVENTIONS R-2.5),
-   * so callers that need a true ordering must not mark a column sortable.
+   * withdrawal" is therefore the largest of 25 unless the endpoint sorts.
+   *
+   * ⚠️ "No list endpoint accepts a sort parameter today" — this comment said
+   * that, and it stopped being true. Twelve `*_SORT_COLUMNS` allowlists exist on
+   * the API and ten screens in this app already pass `onSortChange`, so the
+   * sentence described the system as it was before server-side sorting landed
+   * and was left vouching for a decision nobody was still making.
+   *
+   * The rule it was reaching for still holds, so here it is in the form that
+   * stays true: A COLUMN MAY ONLY BE `sortable` IF EITHER the caller passes
+   * `onSortChange` — server-side, a true ordering — OR the table holds the whole
+   * dataset (`clientPagination`), where sorting first and slicing second is
+   * honest. Marking a column sortable on a SERVER-PAGINATED table with no
+   * `onSortChange` is the case that lies, and it is the one this comment has to
+   * keep warning about.
+   *
+   * `products` and `agencies` are the two callers on the second branch:
+   * `listProducts()` and `listAgencies()` take no pagination at all, so the
+   * array really is everything.
    *
    * This comment used to point at a `sortScopeNote` that told the operator which
    * of the two they were looking at. No such identifier existed anywhere in the

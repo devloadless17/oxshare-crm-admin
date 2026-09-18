@@ -9,6 +9,7 @@ import { useResource } from '@/hooks/use-resource';
 import { UrlSearchInput } from '@/components/url-search-input';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { ExportButton } from '@/components/export-button';
+import { MaskedChip } from '@/components/masked-value';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { PageLoader } from '@/components/ui/loader';
 import {
@@ -279,7 +280,16 @@ function AuditLogPageContent() {
       ...sortableBy('actorEmail'),
       cell: (e) => (
         <>
-          <div className="text-foreground">{e.actorEmail}</div>
+          {/*
+           * Absent means MASKED, not empty. `actor_email` is NOT NULL, so the
+           * only way it can be missing is `maskAuditRow` removing it — which it
+           * does for a CLIENT actor when this reader may not see client
+           * addresses. Rendering nothing would read as "this actor has no
+           * email", which is the exact misreading MaskedValue exists to stop.
+           */}
+          <div className="text-foreground">
+            {e.actorEmail === undefined ? <MaskedChip /> : e.actorEmail}
+          </div>
           <div className="flex items-center gap-1.5">
             <span className="font-mono text-[11px] text-muted-foreground">
               {e.ipAddress ?? t('audit.noIp')}

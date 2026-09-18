@@ -928,8 +928,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every commission this partner has earned, newest first
+         * This partner’s MOST RECENT commission entries, newest first
          * @description The other half of the dashboard totals. Those read the LEDGER — money actually paid — so a partner whose accruals are still maturing sees zero there with no way to tell "nothing earned" from "earned, not yet released". Each row carries its status, so the two numbers explain each other.
+         *
+         *     ⚠️ **CAPPED, and deliberately so.** This returns the newest 200 entries and takes no paging parameters. A sum over these rows is a sum over WHAT WAS RETURNED, never a lifetime total — for that, read `earnings` on `GET /ib/overview`, which the database sums over the whole ledger. The portal labels the two separately for exactly this reason (`partner-earnings.ts`).
+         *
+         *     This summary read "Every commission this partner has earned" while the cap was in place, which is the same sentence-versus-behaviour gap the client money history carried under its old LIMIT 100.
          *
          *     `source: position` is a closed trade, which is the only thing that pays a revenue share. `transaction` rows are historical — commission is no longer earned on deposits.
          */
@@ -4850,6 +4854,9 @@ export interface components {
             /** @description What the agency lets them sell. Empty means the full catalogue. */
             products: string[];
             parent: components["schemas"]["IbPartnerPersonDto"] | null;
+            /** @description True when this partner has a parent the reader may not see. Distinguishes “deals with the broker directly” from “parent outside your territory”. */
+            parentOutsideTerritory: boolean;
+            /** @description SCOPED to the reader’s territory. No out-of-territory total accompanies it — a count is itself a disclosure, and there is no row cap here for one to describe. */
             directPartners: components["schemas"]["IbSubPartnerRowDto"][];
             /** @description How many clients they introduced. */
             referredClientCount: number;
@@ -6636,7 +6643,8 @@ export interface components {
         AuditEntryDto: {
             id: string;
             actorId: string;
-            actorEmail: string;
+            /** @description Absent when the actor is a client and the reader may not see client addresses. The column is NOT NULL, so absence can only mean the mask removed it. */
+            actorEmail?: string;
             /**
              * @description A background job records as `system`, with a named identity — never anonymously.
              * @enum {string}
@@ -6702,9 +6710,9 @@ export interface components {
              */
             name: string;
             /**
-             * @description Permission keys from config/permissions.json. An admin may only grant permissions they themselves hold; only a master admin may grant "*". At least one is required — a key with none can authenticate but do nothing.
+             * @description Permission keys from config/permissions.json. An admin may only grant permissions they themselves hold. At least one is required — a key with none can authenticate but do nothing. There is no wildcard: migration 0044 removed `*` along with the master tier, and keys are compared exactly.
              * @example [
-             *       "users.view",
+             *       "clients.view",
              *       "withdrawals.view"
              *     ]
              */
