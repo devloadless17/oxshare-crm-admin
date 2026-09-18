@@ -406,6 +406,18 @@ export function hasPermission(admin: AdminProfile | null, key: string): boolean 
  * fails visibly for its author on the first click, instead of quietly showing
  * itself to everyone until the API refuses the data behind it.
  */
+/**
+ * The prefixes `ROUTE_REQUIREMENTS` governs, for the census in
+ * `src/test/route-census.test.ts`.
+ *
+ * Exported rather than retyped there, for the reason the backend's index spec
+ * gives about sort allowlists: a hand-kept copy needs the same discipline it
+ * exists to replace, so a prefix added here would have to be remembered twice.
+ */
+export const ROUTE_REQUIREMENT_PREFIXES: readonly string[] = ROUTE_REQUIREMENTS.map(
+  (entry) => entry.prefix,
+);
+
 export function canAccess(admin: AdminProfile | null, path: string): boolean {
   if (!admin) return false;
   const match = ROUTE_REQUIREMENTS.find(

@@ -51,6 +51,19 @@ export const TOPOLOGY = {
   /** What NODE dials for the API (the same server, by a name Node resolves). */
   apiNodeOrigin: `http://localhost:${PORTS.api}`,
   realtimeOrigin: `http://${HOSTS.api}:${PORTS.realtime}`,
+  /**
+   * What NODE dials for the realtime server — the same listener by a name Node
+   * can resolve, exactly as `apiNodeOrigin` is to `apiOrigin`.
+   *
+   * The header above lists "the setup probe" among the things that must use
+   * plain `localhost`, and the realtime probe in `global-setup.ts` was using
+   * the BROWSER origin instead. Node has no resolver for `*.crm.localhost`
+   * (`ENOTFOUND`), so every crosshost run opened with "the realtime server is
+   * NOT reachable ... Live-update specs will fail" while the server was up and
+   * answering — a false alarm on a warning whose whole job is to explain real
+   * failures, printed directly above a suite that then passed.
+   */
+  realtimeNodeOrigin: `http://localhost:${PORTS.realtime}`,
   ports: PORTS,
 } as const;
 

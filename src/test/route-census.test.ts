@@ -133,3 +133,129 @@ describe('every screen that fetches declares its failure state', () => {
     ).toEqual([]);
   });
 });
+
+describe('a sortable column is backed by a real ordering', () => {
+  /*
+   * `DataTable` sorts CLIENT-SIDE when the caller passes no `onSortChange` —
+   * which sorts the rows it currently holds. On a server-paginated screen that
+   * is one page, so "sort by amount" orders 25 rows and presents the result as
+   * the ordering of the list. R-2.5 names that failure exactly.
+   *
+   * The component's own comment carried the rule and had gone stale with it:
+   * "No list endpoint accepts a sort parameter today, so callers that need a
+   * true ordering must not mark a column sortable." Twelve `*_SORT_COLUMNS`
+   * allowlists exist on the API now and ten screens here already pass
+   * `onSortChange`, so the premise was false and the rule it justified was
+   * left resting on it.
+   *
+   * This is the rule in the form that stays true, and enforced rather than
+   * described: a page marking a column `sortable` must either sort on the
+   * SERVER (`onSortChange`) or hold the WHOLE dataset (`clientPagination`),
+   * where sorting first and slicing second is honest.
+   */
+  it('no page marks a column sortable without a server sort or the whole dataset', () => {
+    const offenders: string[] = [];
+
+    for (const page of pages()) {
+      const source = readFileSync(page, 'utf8');
+      if (!/\bsortKey\b/.test(source)) continue;
+
+      const serverSorted = /\bonSortChange\b/.test(source);
+      const holdsEverything = /\bclientPagination\b/.test(source);
+      if (!serverSorted && !holdsEverything) offenders.push(page);
+    }
+
+    expect(
+      offenders,
+      'These screens mark a column sortable, do not pass onSortChange, and are not holding ' +
+        'the whole dataset — so clicking the header sorts ONE PAGE and shows it as the ' +
+        'ordering of the list:\n' +
+        offenders.map((p) => `  ${p}`).join('\n'),
+    ).toEqual([]);
+  });
+
+  it('finds the sortable screens at all, so this cannot pass vacuously', () => {
+    // A regex that stopped matching would report a clean bill of health for
+    // every screen at once — the failure a census must not have.
+    const sortable = pages().filter((page) => /\bsortKey\b/.test(readFileSync(page, 'utf8')));
+    expect(sortable.length).toBeGreaterThanOrEqual(10);
+  });
+});
+
+describe('every console screen declares who may open it', () => {
+  /*
+   * ⚠️ NOT a hole, and the framing matters.
+   *
+   * `canAccess` ends with `if (!match) return false`, so a page with no entry in
+   * `ROUTE_REQUIREMENTS` is refused for EVERYONE — deliberately: "a new page
+   * fails visibly for its author on the first click, instead of quietly showing
+   * itself to everyone until the API refuses the data behind it". And the client
+   * side is not the enforcement in any case; `PermissionsGuard` answers 403
+   * whatever this file says (ARCHITECTURE §8.8).
+   *
+   * So the failure a missing entry produces is a screen NOBODY can open, which
+   * is visible rather than dangerous. What this adds is finding it in CI instead
+   * of on that first click — and, more usefully, proving the reverse: that the
+   * entries still describe pages which exist.
+   */
+  const ROUTE_OF = (page: string) =>
+    page
+      .replace(/^src\/app/, '')
+      .replace(/\/page\.tsx$/, '')
+      .replace(/\/\([^)]+\)/g, '')
+      .replace(/\/\[[^\]]+\]/g, '/:param') || '/';
+
+  const consoleRoutes = () =>
+    pages()
+      .filter((page) => page.includes('(console)'))
+      .map(ROUTE_OF);
+
+  it('finds the console screens, so this cannot pass vacuously', () => {
+    expect(consoleRoutes().length).toBeGreaterThanOrEqual(25);
+  });
+
+  it('leaves no console screen without a requirement', async () => {
+    const { ROUTE_REQUIREMENT_PREFIXES } = await import('@/lib/permissions');
+
+    const undeclared = consoleRoutes().filter((route) => {
+      const concrete = route.replace(/\/:param/g, '');
+      return !ROUTE_REQUIREMENT_PREFIXES.some(
+        (prefix) => concrete === prefix || concrete.startsWith(prefix + '/'),
+      );
+    });
+
+    expect(
+      undeclared,
+      'These console screens match no entry in ROUTE_REQUIREMENTS, so `canAccess` refuses ' +
+        'them for every administrator including a master:\n' +
+        undeclared.map((r) => `  ${r}`).join('\n'),
+    ).toEqual([]);
+  });
+
+  it('names no prefix that no longer has a screen', async () => {
+    /*
+     * The direction that actually decays. An entry for a deleted page is a line
+     * that looks like a considered decision and governs nothing — the same
+     * staleness the backend's exemption lists are checked for.
+     */
+    const { ROUTE_REQUIREMENT_PREFIXES } = await import('@/lib/permissions');
+    /*
+     * EVERY page, not just the console ones. `ROUTE_REQUIREMENTS` also governs
+     * `/` and `/login`, which live outside `(console)` — comparing against the
+     * console subset alone reported both as orphaned, which is the test being
+     * wrong rather than the map.
+     */
+    const routes = pages()
+      .map(ROUTE_OF)
+      .map((r) => r.replace(/\/:param/g, ''));
+
+    const orphaned = ROUTE_REQUIREMENT_PREFIXES.filter(
+      (prefix) => !routes.some((route) => route === prefix || route.startsWith(prefix + '/')),
+    );
+
+    expect(
+      orphaned,
+      `These prefixes govern no screen that exists:\n${orphaned.map((p) => `  ${p}`).join('\n')}`,
+    ).toEqual([]);
+  });
+});

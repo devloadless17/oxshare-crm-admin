@@ -37,23 +37,41 @@ interface MaskedValueProps {
  * nothing at all, and this is precisely the case where the reason matters more
  * than the value.
  */
+/**
+ * The "you are not allowed to see this" chip on its own.
+ *
+ * Extracted so the ONE case `MaskedValue` cannot serve renders identically to
+ * the cases it can. `MaskedValue` decides from `row.maskedFields`, which is a
+ * property of the VIEWER and therefore the same for every row — correct for a
+ * client field, wrong for `audit_log.actor_email`, which is client-owned only
+ * on the rows a CLIENT generated. There the signal is the field's absence: the
+ * column is NOT NULL in the database, so a missing value can only be the mask.
+ *
+ * Without this export that cell would have hand-rolled its own chip and the two
+ * would have drifted, which is the failure this file's own header argues
+ * against.
+ */
+export function MaskedChip() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-muted-foreground"
+      title={t('masking.hiddenTitle')}
+    >
+      <EyeOff className="h-3 w-3" aria-hidden="true" />
+      <span aria-hidden="true" className="font-mono text-[11px] tracking-tighter">
+        ••••
+      </span>
+      <span className="sr-only">{t('masking.hidden')}</span>
+    </span>
+  );
+}
+
 export function MaskedValue({ field, row, children }: MaskedValueProps) {
   const raw = row[field.split('.').pop() ?? field];
   const state = fieldVisibility(raw, field, row.maskedFields);
 
   if (state === 'masked') {
-    return (
-      <span
-        className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-muted-foreground"
-        title={t('masking.hiddenTitle')}
-      >
-        <EyeOff className="h-3 w-3" aria-hidden="true" />
-        <span aria-hidden="true" className="font-mono text-[11px] tracking-tighter">
-          ••••
-        </span>
-        <span className="sr-only">{t('masking.hidden')}</span>
-      </span>
-    );
+    return <MaskedChip />;
   }
 
   if (state === 'empty') {

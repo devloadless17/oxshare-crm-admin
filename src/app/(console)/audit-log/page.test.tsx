@@ -494,6 +494,31 @@ describe('who acted, and from where', () => {
     expect(await screen.findByText('system')).toBeInTheDocument();
   });
 
+  it('renders the masked chip when a CLIENT actor’s address was withheld', async () => {
+    /*
+     * `actor_email` is NOT NULL in the database, so an absent value can only
+     * mean `maskAuditRow` removed it — which it does for a client actor when
+     * this reader may not see client addresses. The cell must say "hidden from
+     * you" rather than render nothing, because an empty cell reads as "this
+     * actor has no email".
+     */
+    get.mockResolvedValue({
+      data: page([entry({ actorKind: 'client', actorEmail: undefined })]),
+    });
+    renderWithProviders(<AuditLogPage />);
+
+    expect(await screen.findByText(/hidden/i)).toBeInTheDocument();
+  });
+
+  it('still shows an ADMIN actor’s address — the mask is not blanket', async () => {
+    // The control. Masking every actor would empty the column the log exists
+    // for, so this asserts the fix did not go one step too far.
+    get.mockResolvedValue({ data: page([entry({ actorEmail: 'admin@oxshare.com' })]) });
+    renderWithProviders(<AuditLogPage />);
+
+    expect(await screen.findByText('admin@oxshare.com')).toBeInTheDocument();
+  });
+
   it('does not label an ordinary admin row', async () => {
     get.mockResolvedValue({ data: page([entry({ actorKind: 'admin' })]) });
     renderWithProviders(<AuditLogPage />);

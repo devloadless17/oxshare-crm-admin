@@ -64,14 +64,15 @@ async function assertCrossHostBackend(appOrigin: string): Promise<void> {
  * now with this line above them in the log.
  */
 async function warnIfRealtimeIsDown(): Promise<void> {
-  const probe = `${TOPOLOGY.realtimeOrigin}/socket.io/?EIO=4&transport=polling`;
+  // NODE origin: this runs in Node, which cannot resolve `*.crm.localhost`.
+  const probe = `${TOPOLOGY.realtimeNodeOrigin}/socket.io/?EIO=4&transport=polling`;
   try {
     const res = await fetch(probe, { signal: AbortSignal.timeout(5_000) });
     if (res.ok) return;
     console.warn(`[e2e] the realtime server answered ${res.status} at ${probe}.`);
   } catch (error) {
     console.warn(
-      `[e2e] the realtime server is NOT reachable at ${TOPOLOGY.realtimeOrigin} ` +
+      `[e2e] the realtime server is NOT reachable at ${TOPOLOGY.realtimeNodeOrigin} ` +
         `(${error instanceof Error ? error.message : String(error)}).\n` +
         '      Live-update specs will fail. It starts with the API; check REALTIME_PORT.',
     );
