@@ -249,7 +249,12 @@ export function clientColumns({
       // "these three labels" the API could honour. Declaring it would promise
       // an order that produces a 400 (R-2.5).
       sortable: false,
-      cell: (c) => <ClientTagChips tags={c.tags ?? []} />,
+      /*
+       * `c.tags`, NOT `c.tags ?? []`. The fallback turned "hidden from you" into
+       * "this client has none" — the one conflation `masking.ts` exists to
+       * prevent — because a masked key is absent from the row entirely.
+       */
+      cell: (c) => <ClientTagChips tags={c.tags} />,
     });
   }
 

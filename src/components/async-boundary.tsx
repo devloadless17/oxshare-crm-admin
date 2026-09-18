@@ -103,6 +103,22 @@ export function AsyncBoundary({
    * there is nothing for support to look up, only a role to change.
    */
   if (status === 'forbidden') {
+    /*
+     * THE SERVER'S OWN SENTENCE, when it wrote one.
+     *
+     * This rendered `session.deniedBody` — "you do not have permission" —
+     * for every 403, and threw away a message the API had gone to trouble over.
+     * The reconciliation refusal is the clearest example: the endpoint answers
+     * "Reconciliation is a whole-platform integrity control. Your account is
+     * scoped to a client territory, and a reconciliation over part of the ledger
+     * cannot answer whether the ledger balances. Ask an administrator without a
+     * territory to run it." — which says what to DO. A scoped admin instead saw
+     * a blank denial and reported the page as not opening.
+     *
+     * The generic line remains the fallback, because plenty of 403s are a bare
+     * permission check with nothing useful to add.
+     */
+    const detail = apiErrorMessage(error, '');
     return (
       <div className={frame}>
         <div
@@ -110,7 +126,7 @@ export function AsyncBoundary({
           role="alert"
         >
           <p className="text-sm font-semibold text-foreground">{t('session.deniedTitle')}</p>
-          <p className="text-sm text-muted-foreground">{t('session.deniedBody')}</p>
+          <p className="text-sm text-muted-foreground">{detail || t('session.deniedBody')}</p>
         </div>
       </div>
     );

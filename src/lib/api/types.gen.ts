@@ -3069,7 +3069,7 @@ export interface paths {
         head?: never;
         /**
          * Hand a claimed KYC back to the queue (under_review → submitted)
-         * @description The way out of a claim. A reviewer who picked a submission up and cannot finish it — reassigned, off shift, or moved out of that territory — would otherwise leave a row that looks taken to everyone else. Gated exactly like a decision, because approve and reject already accept an under_review row from any reviewer who can see it: a claim is advisory, never a lock. Refuses a submission that has already been DECIDED — reopening one is reject's job, with a reason attached.
+         * @description The way out of a claim. A reviewer who picked a submission up and cannot finish it — reassigned, off shift, or moved out of that territory — would otherwise leave a row that looks taken to everyone else. A reviewer may always hand back their OWN claim. Handing back a colleague's needs `kyc.claim.override`: approve and reject already refuse a submission another reviewer holds, and leaving release open meant that claim could be removed by anybody, which took the lock off its hinges. The override exists so the desk is never stranded by a claim nobody is coming back to. Refuses a submission that has already been DECIDED — reopening one is reject's job, with a reason attached.
          */
         patch: operations["AdminComplianceController_releaseKyc"];
         trace?: never;
@@ -6312,6 +6312,12 @@ export interface components {
              *     ⚠️ It is the reader’s count, not the partner’s: a scoped admin sees how many of this partner’s clients fall inside their own territory, matching what GET /admin/clients?referredBy= returns for them. An unscoped total here would put "50 of 213" above a filtered list of 60.
              */
             referredTotal?: number;
+            /**
+             * @description How many of this partner’s referrals fall OUTSIDE the reader’s territory, and so appear in neither `referredClients` nor `referredTotal`. Zero for an unrestricted reader. Present exactly when `referredClients` is.
+             *
+             *     It exists because every other number here is scoped, which is right for "50 of 213" and wrong for nothing at all: a scoped admin opening a partner whose whole downline sits in another territory saw an empty tab, and an empty tab reads as "introduced nobody". A COUNT is the smallest thing that can be said without misleading them — no name, no email, no id, nothing that identifies a client they may not see.
+             */
+            referredOutsideScope?: number;
             maskedFields: string[];
         };
         UpdateClientProfileDto: {

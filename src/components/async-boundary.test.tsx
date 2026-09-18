@@ -215,3 +215,45 @@ describe('AsyncBoundary shows the domain sentence AND the API message', () => {
     expect(screen.getByText('Rate limit exceeded.')).toBeInTheDocument();
   });
 });
+
+describe('AsyncBoundary on a 403', () => {
+  const SCOPED_REFUSAL =
+    'Reconciliation is a whole-platform integrity control. Your account is scoped to a ' +
+    'client territory, and a reconciliation over part of the ledger cannot answer whether ' +
+    'the ledger balances. Ask an administrator without a territory to run it.';
+
+  it("shows the server's explanation instead of a bare denial", () => {
+    /*
+     * Reported as "the reconciliation page does not open" by an admin with
+     * scoped tags. The endpoint refuses on purpose and says exactly why and what
+     * to do — and this component threw that away for a generic "you do not have
+     * permission", which reads as a broken page rather than a deliberate rule.
+     */
+    renderWithProviders(
+      <AsyncBoundary
+        status="forbidden"
+        label="Loading reconciliation"
+        endpoints={[]}
+        onRetry={vi.fn()}
+        error={{ response: { data: { message: SCOPED_REFUSAL } } }}
+      >
+        <p>{'never rendered'}</p>
+      </AsyncBoundary>,
+    );
+
+    expect(screen.getByText(/Ask an administrator without a territory/i)).toBeInTheDocument();
+    expect(screen.queryByText('never rendered')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the generic sentence when the refusal carries no message', () => {
+    // Most 403s are a bare permission check with nothing useful to add, and an
+    // empty paragraph would be worse than the generic line.
+    renderWithProviders(
+      <AsyncBoundary status="forbidden" label="Loading" endpoints={[]} onRetry={vi.fn()}>
+        <p>{'never rendered'}</p>
+      </AsyncBoundary>,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/permission|denied|not allowed/i);
+  });
+});

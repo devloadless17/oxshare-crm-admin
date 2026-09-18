@@ -299,25 +299,51 @@ export function InviteAdminModal({
       {result ? (
         <div className="space-y-3 text-xs" aria-live="polite">
           <p className="font-semibold text-success">{t('invite.created')}</p>
-          <p className="text-muted-foreground">{t('invite.sentNote')}</p>
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted p-3">
-            {/* Selectable, so it still works when the clipboard API does not. */}
-            <code className="min-w-0 flex-1 break-all text-[11px] text-link select-all">
-              {result.inviteUrl}
-            </code>
-            <button
-              type="button"
-              onClick={() => void copyLink()}
-              className="focus-outline inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-input bg-card px-3 text-[11px] font-semibold hover:bg-muted"
-            >
-              {copied ? (
-                <Check className="h-3.5 w-3.5" aria-hidden="true" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
-              {copied ? t('common.copied') : t('common.copy')}
-            </button>
-          </div>
+          {/*
+            THE LINK IS NOT ALWAYS THERE, and an empty box is not the way to say so.
+
+            `inviteUrl` is echoed by the API in development and test ONLY. The
+            token mints an administrator account, so echoing it in a response
+            body puts a bearer credential into proxy logs, SPA memory and error
+            reporters — a staging deploy was doing exactly that, which is why the
+            API switched to an opt-IN allowlist of environments.
+
+            This block rendered the code element and the Copy button
+            unconditionally, so in production an operator got an empty grey box
+            and a Copy button that copied '' — reported as "the copy link shows
+            nothing". The invite itself had been emailed and was perfectly valid;
+            only this panel was lying about it.
+
+            So the panel now says which of the two happened. The link is shown
+            when the API supplied one, and otherwise the operator is told the
+            email is the delivery route — which is the truth, and is also the
+            behaviour that keeps the credential out of the response.
+          */}
+          {result.inviteUrl ? (
+            <>
+              <p className="text-muted-foreground">{t('invite.sentNote')}</p>
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted p-3">
+                {/* Selectable, so it still works when the clipboard API does not. */}
+                <code className="min-w-0 flex-1 break-all text-[11px] text-link select-all">
+                  {result.inviteUrl}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => void copyLink()}
+                  className="focus-outline inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-input bg-card px-3 text-[11px] font-semibold hover:bg-muted"
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  {copied ? t('common.copied') : t('common.copy')}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground">{t('invite.emailedOnly')}</p>
+          )}
           {error && (
             <p
               className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive"

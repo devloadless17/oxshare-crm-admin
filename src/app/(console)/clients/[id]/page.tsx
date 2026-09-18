@@ -645,6 +645,7 @@ export default function ClientProfilePage() {
                       referredClients={profile.referredClients}
                       referredShown={profile.referredShown}
                       referredTotal={profile.referredTotal}
+                      referredOutsideScope={profile.referredOutsideScope}
                     />
 
                     <ProfileCard title={t('clientProfile.parentIb')}>

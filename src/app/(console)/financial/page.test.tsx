@@ -309,6 +309,30 @@ describe('every filter asks the server', () => {
     });
   });
 
+  it('KEEPS EVERY CHARACTER TYPED, without waiting for the router', async () => {
+    /*
+     * The reported bug: "I cannot type normally in the financial search".
+     *
+     * The input was bound directly to `url.get('q')`, so each keystroke was
+     * written to the URL and read back through the router's ASYNC `replace`.
+     * The value the box displayed therefore lagged a render behind the typing,
+     * which drops characters and moves the caret — the same failure the KYC and
+     * withdrawal queues fixed by holding the term in local state.
+     *
+     * Asserted on the INPUT rather than on the request, because the request was
+     * never the broken half: the debounced `q` arrived correctly (the case
+     * above passes either way), while what the operator saw did not.
+     */
+    const user = userEvent.setup();
+    renderWithProviders(<FinancialPage />);
+    await screen.findByText('jane@client.test');
+
+    const box = screen.getByLabelText(/search movements/i);
+    await user.type(box, 'jane doe');
+
+    expect(box, 'characters were dropped between keystrokes').toHaveValue('jane doe');
+  });
+
   it('asks for a bounded page rather than the whole union', async () => {
     renderWithProviders(<FinancialPage />);
     await screen.findByText('jane@client.test');
