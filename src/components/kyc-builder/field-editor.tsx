@@ -128,11 +128,34 @@ export function FieldEditor({
           <Label className="text-[11px]" htmlFor={`name-${field.id}`}>
             {t('builder.keyName')}
           </Label>
+          {/*
+            READ-ONLY, and shown rather than hidden.
+
+            This was a plain text box beside "Field Label", which made a database
+            identifier look like a sibling of a caption. It is neither cosmetic
+            nor free: answers are stored under this key, so changing it detaches
+            every submission already filed — and for `dateOfBirth`, `phone` and
+            `country` the SERVER reads the literal string, so a rename switches a
+            check off while the form still looks correct. The API now refuses
+            those (`kyc-config-integrity.ts`); this stops the edit being offered
+            in the first place, which is the better place to stop it.
+
+            Nobody has to type one: `addFieldToStep` generates
+            `customField_<timestamp>`, unique and machine-safe, so the box only
+            ever displayed a value the computer had already chosen correctly.
+
+            Still VISIBLE, because it is genuinely useful — it is what appears in
+            an export, in the API, and in a reviewer's card for a field the
+            configuration no longer accounts for. Hiding it would trade one
+            problem for a smaller one.
+          */}
           <Input
             id={`name-${field.id}`}
             value={field.name}
-            onChange={(e) => onChange({ name: e.target.value })}
-            className="h-8 font-mono text-xs"
+            readOnly
+            aria-readonly
+            title={t('builder.keyNameLocked')}
+            className="h-8 cursor-not-allowed bg-muted font-mono text-xs text-muted-foreground"
           />
         </div>
 

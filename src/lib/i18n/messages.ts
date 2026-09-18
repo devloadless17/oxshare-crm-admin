@@ -1245,6 +1245,15 @@ export const messages = {
   'builder.addField': 'Add Field',
   'builder.fieldLabel': 'Field Label',
   'builder.keyName': 'Key Name',
+  /*
+   * Both identifiers are shown and not editable. They are storage keys: a
+   * field's key is the column its answers live under, and a step's slug decides
+   * which column the step writes to at all. The API refuses a rename that would
+   * break either (`kyc-config-integrity.ts`); these titles say why before
+   * anyone tries.
+   */
+  'builder.keyNameLocked':
+    'The storage key for this answer. Set automatically and not editable — changing it would detach every submission already filed.',
   'builder.inputType': 'Input Type',
   'builder.typeText': 'Text Input',
   'builder.typeDate': 'Date Picker',
@@ -1853,7 +1862,15 @@ export const messages = {
   'builder.slugLockedFull': '(locked — the client flow submits by this slug)',
   'builder.noFieldsHint': 'No custom fields added yet. Click "Add Field" to configure inputs.',
   'builder.slugIdentifier': 'URL Slug Identifier',
-  'builder.slugLocked': '(locked — the client portal routes on it)',
+  /*
+   * This string existed with NO consumer: somebody wrote the copy for a lock and
+   * the input stayed editable, so the intent survived and the behaviour did not.
+   * It is now the tooltip on a genuinely read-only field, and reworded from a
+   * suffix label into the sentence a tooltip has to be. `builder.slugLockedFull`
+   * beside it is still orphaned.
+   */
+  'builder.slugLocked':
+    'Decides where this step stores its answers. Set by the system and not editable — a slug with no matching column would stop clients mid-form.',
   'builder.fieldsCount': 'Form Fields ({count})',
   'builder.noFields': 'No custom fields added yet.',
 
