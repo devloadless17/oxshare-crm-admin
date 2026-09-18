@@ -130,6 +130,19 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
    */
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
+  /*
+   * Flash timer held and cleared on unmount — see `rival-settings-panel.tsx`
+   * for what an unguarded one costs (`ReferenceError: window is not defined`,
+   * blamed on an unrelated test). Enforced by `flash-timer-census.test.ts`.
+   */
+  const flashTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
@@ -147,7 +160,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
     onSuccess: () => {
       setError(null);
       setSaved(true);
-      window.setTimeout(() => setSaved(false), 2000);
+      flashTimer.current = window.setTimeout(() => setSaved(false), 2000);
       void queryClient.invalidateQueries({ queryKey: keys.settings.trading() });
       toastSuccess(t('tradingSettings.saved'));
     },

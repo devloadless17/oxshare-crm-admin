@@ -77,6 +77,25 @@ export function SmtpSettingsPanel({ canManage }: { canManage: boolean }) {
 
 function SmtpForm({ settings, canManage }: { settings: SmtpSettings; canManage: boolean }) {
   const [host, setHost] = React.useState(settings.host);
+  /*
+   * A flash timer that OUTLIVES this component throws, rather than warning.
+   *
+   * `setSaved(false)` two seconds later is a state update on a component that
+   * may already be gone. In a jsdom test the environment has been torn down by
+   * then, so `window` is gone and it surfaces as `ReferenceError: window is not
+   * defined` — an unhandled error attributed to whichever test happened to be
+   * running, not to the panel that armed it. Same defect, same fix and same
+   * reasoning as `rival-settings-panel.tsx`, whose comment records what it cost
+   * the first time: a red gate with 965 passing tests and no failure to point at.
+   */
+  const flashTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+
   const [port, setPort] = React.useState(String(settings.port));
   const [username, setUsername] = React.useState(settings.username ?? '');
   const [password, setPassword] = React.useState('');
@@ -109,7 +128,7 @@ function SmtpForm({ settings, canManage }: { settings: SmtpSettings; canManage: 
       setError(null);
       setSaved(true);
       setPassword('');
-      window.setTimeout(() => setSaved(false), 2000);
+      flashTimer.current = window.setTimeout(() => setSaved(false), 2000);
       void queryClient.invalidateQueries({ queryKey: keys.settings.smtp() });
       /*
        * The button's own "Saved ✓" is a two-second state of the CONTROL; this

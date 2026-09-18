@@ -16,6 +16,20 @@ import { t } from '@/lib/i18n';
  */
 export function CopyableId({ value, full = false }: { value: string; full?: boolean }) {
   const [copied, setCopied] = React.useState(false);
+  /*
+   * The copied-flash timer, cleared on unmount. A bare `setTimeout` here fires
+   * `setCopied(false)` after the component may be gone — in jsdom that is a
+   * `ReferenceError: window is not defined` blamed on an unrelated test. Same
+   * fix as `rival-settings-panel.tsx`.
+   */
+  const flashTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+
   const [failed, setFailed] = React.useState(false);
 
   /*
@@ -34,7 +48,7 @@ export function CopyableId({ value, full = false }: { value: string; full?: bool
       await navigator.clipboard.writeText(value);
       setFailed(false);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      flashTimer.current = window.setTimeout(() => setCopied(false), 1500);
     } catch {
       setCopied(false);
       setFailed(true);

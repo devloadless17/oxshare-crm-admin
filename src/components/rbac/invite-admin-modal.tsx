@@ -96,6 +96,19 @@ export function InviteAdminModal({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [copied, setCopied] = React.useState(false);
+  /*
+   * The copied-flash timer, cleared on unmount. A bare `setTimeout` here fires
+   * `setCopied(false)` after the component may be gone — in jsdom that is a
+   * `ReferenceError: window is not defined` blamed on an unrelated test. Same
+   * fix as `rival-settings-panel.tsx`.
+   */
+  const flashTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
 
   /*
    * Every role is invitable, INCLUDING system ones — same reasoning as the edit
@@ -228,7 +241,7 @@ export function InviteAdminModal({
     try {
       await navigator.clipboard.writeText(result?.inviteUrl ?? '');
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      flashTimer.current = window.setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard API unavailable (a non-secure context, typically) — the link
       // is on screen and selectable, so say that rather than failing silently.
