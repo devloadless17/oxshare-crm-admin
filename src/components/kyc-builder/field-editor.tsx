@@ -124,40 +124,24 @@ export function FieldEditor({
           />
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-[11px]" htmlFor={`name-${field.id}`}>
-            {t('builder.keyName')}
-          </Label>
-          {/*
-            READ-ONLY, and shown rather than hidden.
+        {/*
+          THE KEY NAME IS NOT SHOWN AT ALL.
 
-            This was a plain text box beside "Field Label", which made a database
-            identifier look like a sibling of a caption. It is neither cosmetic
-            nor free: answers are stored under this key, so changing it detaches
-            every submission already filed — and for `dateOfBirth`, `phone` and
-            `country` the SERVER reads the literal string, so a rename switches a
-            check off while the form still looks correct. The API now refuses
-            those (`kyc-config-integrity.ts`); this stops the edit being offered
-            in the first place, which is the better place to stop it.
+          It was a plain text box beside "Field Label", then a read-only one. Both
+          were wrong for the same reason: it is a database identifier, and putting
+          it in a form teaches an operator it is theirs to think about. Nobody ever
+          has to choose one — `addFieldToStep` generates `customField_<timestamp>`,
+          unique and machine-safe — so the box only ever displayed a value the
+          computer had already picked correctly.
 
-            Nobody has to type one: `addFieldToStep` generates
-            `customField_<timestamp>`, unique and machine-safe, so the box only
-            ever displayed a value the computer had already chosen correctly.
-
-            Still VISIBLE, because it is genuinely useful — it is what appears in
-            an export, in the API, and in a reviewer's card for a field the
-            configuration no longer accounts for. Hiding it would trade one
-            problem for a smaller one.
-          */}
-          <Input
-            id={`name-${field.id}`}
-            value={field.name}
-            readOnly
-            aria-readonly
-            title={t('builder.keyNameLocked')}
-            className="h-8 cursor-not-allowed bg-muted font-mono text-xs text-muted-foreground"
-          />
-        </div>
+          It is still the key answers are stored under, it still appears in exports
+          and in the API, and the rules protecting it are unchanged and enforced
+          where they belong: `kyc-config-integrity.ts` refuses a renamed reserved
+          key (`dateOfBirth`, `phone`, `country` — the server reads those literal
+          strings, so a rename switches a check off while the form still looks
+          correct) and refuses duplicate keys within a step. Removing the input
+          removes a decision, not a safeguard.
+        */}
 
         <div className="space-y-1">
           <Label className="text-[11px]" htmlFor={`type-${field.id}`}>

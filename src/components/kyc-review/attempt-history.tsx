@@ -61,12 +61,32 @@ export function AttemptHistory({ attempts }: { attempts: KycAttempt[] }) {
                   <span className="text-xs font-bold text-foreground">
                     {t('kycReview.attemptNo', { n: a.attemptNo })}
                   </span>
+                  {/*
+                    WHO decided it, in the header — so it reads without expanding.
+
+                    This showed the outcome and the date and named nobody. It was
+                    reported from production as "I can see who approved, not who
+                    rejected", and that is exactly the asymmetry: the live card names
+                    the reviewer, but a REJECTION is almost always a past attempt by
+                    the time anyone reads it — the client resubmits, which archives
+                    it here. So the decision people most need attributed was the one
+                    shown anonymously.
+
+                    The same words as the live card ("Rejected by" / "Approved by"),
+                    because two screens answering one question should answer it the
+                    same way. A deleted administrator falls back to the outcome alone
+                    rather than to a placeholder name.
+                  */}
                   <span
                     className={`text-xs font-semibold ${
                       rejected ? 'text-destructive' : 'text-success'
                     }`}
                   >
-                    {rejected ? t('kycStatus.rejected') : t('kycStatus.approved')}
+                    {a.reviewedByName
+                      ? `${t(rejected ? 'kycReview.rejectedOn' : 'kycReview.approvedOn')} ${a.reviewedByName}`
+                      : rejected
+                        ? t('kycStatus.rejected')
+                        : t('kycStatus.approved')}
                   </span>
                 </span>
                 <span className="text-xs text-muted-foreground">

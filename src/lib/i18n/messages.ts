@@ -1257,7 +1257,6 @@ export const messages = {
   'builder.fieldsHint': 'Configure field labels, input types, and requirement flags.',
   'builder.addField': 'Add Field',
   'builder.fieldLabel': 'Field Label',
-  'builder.keyName': 'Key Name',
   /*
    * Both identifiers are shown and not editable. They are storage keys: a
    * field's key is the column its answers live under, and a step's slug decides
@@ -1265,8 +1264,6 @@ export const messages = {
    * break either (`kyc-config-integrity.ts`); these titles say why before
    * anyone tries.
    */
-  'builder.keyNameLocked':
-    'The storage key for this answer. Set automatically and not editable — changing it would detach every submission already filed.',
   'builder.inputType': 'Input Type',
   'builder.typeText': 'Text Input',
   'builder.typeDate': 'Date Picker',

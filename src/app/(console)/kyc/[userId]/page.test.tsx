@@ -111,6 +111,11 @@ const HISTORY = [
     rejectionReason: 'Passport expired',
     rejectedFields: ['doc_front'],
     reviewedAt: '2026-07-30T09:00:00.000Z',
+    /*
+     * The reviewer's NAME, which the history route returns and this panel
+     * rendered nowhere — see the case at the end of this file.
+     */
+    reviewedByName: 'Dana Reviewer',
     archivedAt: '2026-07-30T09:00:00.000Z',
     document: { docType: 'passport', frontFilePath: '/uploads/kyc/old-front.png' },
   },
@@ -464,5 +469,48 @@ describe('correcting identity details on an approved submission', () => {
     expect(screen.getByText(/this record cannot hold that value/i)).toBeInTheDocument();
     // ...and the remedy the product actually has, rather than "try again".
     expect(screen.getByText(/reject it and ask the client to verify again/i)).toBeInTheDocument();
+  });
+});
+
+describe('who decided a PAST attempt', () => {
+  /*
+   * Reported from production: "I can see who approved, but not who rejected."
+   *
+   * Both the live submission card and the queue name the reviewer, so the
+   * report looked wrong at first — and the asymmetry is real but lives one
+   * panel over. A REJECTION is almost always a past attempt by the time anyone
+   * reads it: the client corrects and resubmits, which archives the rejection
+   * into the history panel. That panel showed the outcome and the date and
+   * named nobody, so the decision that most needs attributing was the one shown
+   * anonymously.
+   *
+   * The backend had the same gap in the other direction: `KycAttemptDto`
+   * declared `reviewedByName` and the history route returned archived rows raw,
+   * so the contract promised a field no response ever carried.
+   */
+  it('names the administrator who rejected it, in the attempt header', async () => {
+    renderWithProviders(<KycDetailPage />);
+
+    expect(
+      await screen.findByText(/Rejected by\s+Dana Reviewer/i),
+      'the history panel showed a rejection with no reviewer',
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to the outcome alone when the administrator has been deleted', async () => {
+    /*
+     * `reviewedByName` is null when the account is gone — an absence the screen
+     * states rather than filling with an id or a placeholder name.
+     */
+    get.mockImplementation((url: string) =>
+      url.includes('/history')
+        ? Promise.resolve({ data: [{ ...HISTORY[0], reviewedByName: null }] })
+        : getFor(url),
+    );
+
+    renderWithProviders(<KycDetailPage />);
+
+    expect(await screen.findByText('Rejected', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText(/Rejected by/i)).not.toBeInTheDocument();
   });
 });
