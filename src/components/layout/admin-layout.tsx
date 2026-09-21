@@ -43,12 +43,13 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import api from '@/lib/api';
 import type { KycListResponse } from '@/lib/api/admin';
 import { canAccess, hasPermission } from '@/lib/permissions';
+import { CommandPalette } from '@/components/layout/command-palette';
 import { AccessDenied } from '@/components/access-denied';
 import { PageLoader } from '@/components/ui/loader';
 import { t, type MessageKey } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
-interface NavItem {
+export interface NavItem {
   /** A message key, not a string — resolved through t() at render time. */
   label: MessageKey;
   /**
@@ -69,7 +70,7 @@ interface NavItem {
   badge?: string | number;
 }
 
-interface NavSection {
+export interface NavSection {
   title: MessageKey;
   items: NavItem[];
 }
@@ -139,7 +140,15 @@ export function activeNavHref(pathname: string | null, hrefs: string[]): string 
  * and belongs to no category. A one-item "Main" heading above it was a label
  * that said nothing.
  */
-const NAV_SECTIONS: NavSection[] = [
+/**
+ * Exported so the COMMAND PALETTE reads the same list the sidebar renders.
+ *
+ * Two copies of "where can you go in this console" is how a page ends up
+ * reachable from one and not the other — which already happened here once, when
+ * /commissions was commented out of the nav and left reachable only by typing
+ * its URL. One array, one permission filter (`canAccess`), both surfaces.
+ */
+export const NAV_SECTIONS: NavSection[] = [
   {
     title: 'nav.section.overview',
     items: [{ label: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard }],
@@ -319,6 +328,34 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   );
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
+
+  /*
+   * Ctrl/Cmd-K, bound at the WINDOW so it works wherever focus happens to be.
+   *
+   * Guarded against firing while the operator is typing: the console is full of
+   * search fields and note textareas, and a global letter binding that steals K
+   * from them is worse than no binding. `metaKey` as well as `ctrlKey` because
+   * the combination costs one condition and a Mac reaches for Cmd by reflex.
+   *
+   * `preventDefault` because Ctrl-K is the browser's own search-bar focus in
+   * some builds — without it both fire and the address bar wins.
+   */
+  React.useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'k' || !(event.ctrlKey || event.metaKey)) return;
+
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+
+      event.preventDefault();
+      setPaletteOpen(true);
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   /*
    * How many partner applications are waiting, for the badge on that nav item.
@@ -740,25 +777,43 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <Menu className="h-5 w-5" />
             </button>
 
-            {/* Quick Search Bar */}
-            <div className="relative hidden sm:block w-64 md:w-80">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                type="search"
-                /*
-                 * An explicit name, distinct from the client list's own search.
-                 *
-                 * It had none at all — a screen reader announced "search" with
-                 * no indication of what it searched — and the placeholder it
-                 * fell back to ("Search clients, deals, IBs…") is close enough
-                 * to the list's label that they were indistinguishable to
-                 * anything querying by accessible name, tests included.
-                 */
-                aria-label={t('nav.searchAria')}
-                placeholder={t('nav.searchPlaceholder')}
-                className="h-9 w-full rounded-lg border border-input bg-muted/30 pl-9 pr-4 text-xs focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
+            {/*
+              A BUTTON that opens the palette, not an input.
+
+              It was an `input type="search"` with no state, no handler and no
+              results: typing in it did nothing. Shaped like a field, it
+              promised a search the console did not have — the same defect as
+              the hardcoded status pill and the handler-less bell this header
+              has already been cleared of, and worse than either, because an
+              operator who types into it concludes the console cannot find
+              things rather than that this control is decorative.
+
+              Looking like a field is deliberate and is now honest: it is the
+              affordance people reach for, and pressing it reaches a real
+              search. The shortcut is printed on it because a palette nobody
+              knows the keystroke for is one everybody drives with the mouse.
+            */}
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label={t('nav.searchAria')}
+              aria-haspopup="dialog"
+              className="relative hidden w-64 cursor-pointer items-center gap-2 rounded-lg border border-input bg-muted/30 px-3 text-xs text-muted-foreground transition-colors hover:bg-muted sm:flex md:w-80 h-9 focus-outline"
+            >
+              <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate text-start">
+                {t('nav.searchPlaceholder')}
+              </span>
+              {/*
+                `Ctrl`, not the platform-correct `⌘` on a Mac. The console is an
+                internal desk tool on Windows machines, and detecting the
+                platform to render one glyph is machinery for a case this
+                deployment does not have — the handler accepts both regardless.
+              */}
+              <kbd className="hidden shrink-0 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] md:inline">
+                {t('nav.searchShortcut')}
+              </kbd>
+            </button>
           </div>
 
           {/* Right Controls */}
@@ -841,6 +896,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      {/* Outside the content pane, so its backdrop covers the sidebar too —
+          inside, the padding transition above would clip it. */}
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }
