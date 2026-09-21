@@ -119,8 +119,28 @@ export const messages = {
   'theme.system': 'System',
   'nav.collapseSidebar': 'Collapse the sidebar',
   'nav.expandSidebar': 'Expand the sidebar',
-  'nav.searchPlaceholder': 'Search clients, deals, IBs… (⌘K)',
-  'nav.searchAria': 'Global search across the console',
+  /*
+   * "Search pages", because that is what it searches.
+   *
+   * It read "Search clients, deals, IBs… (⌘K)" above a control that searched
+   * NOTHING — the input had no handler at all. Now that it opens a real
+   * palette, the copy has to stop naming things the palette does not find: it
+   * lists the console's own pages, so an operator typing a client's email and
+   * getting nothing would read it as broken rather than as out of scope.
+   *
+   * The shortcut moved out of the placeholder and onto its own `kbd` element,
+   * where it is not competing with the sentence for width.
+   */
+  'nav.searchPlaceholder': 'Search pages…',
+  'nav.searchAria': 'Search the pages of this console',
+  'nav.searchShortcut': 'Ctrl K',
+  'nav.searchResultsAria': 'Matching pages',
+  'nav.searchNoResults': 'No page matches “{query}”.',
+  /* The keys, so the palette is drivable without a mouse by somebody who has
+     not been told how. */
+  'nav.searchHintNavigate': '↑↓ to move',
+  'nav.searchHintOpen': '↵ to open',
+  'nav.searchHintClose': 'Esc to close',
   'nav.notifications': 'Notifications',
 
   // ── Session ───────────────────────────────────────────────────────────────
