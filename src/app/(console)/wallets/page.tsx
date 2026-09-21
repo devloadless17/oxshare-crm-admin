@@ -324,6 +324,22 @@ function WalletsPageContent() {
       cell: (w) => <CopyableId value={w.walletNumber} full />,
     },
     {
+      /*
+       * WHAT THE WALLET IS CALLED, before the bare code.
+       *
+       * The server generates it from the currency and the kind, so this renders
+       * the string rather than composing one — the console, the portal and the
+       * CSV export then cannot disagree about a wallet's name.
+       *
+       * NOT sortable: `name` is absent from the endpoint's sort allowlist, and
+       * R-2.5 makes an unrecognised key a 400. Sorting by currency is the same
+       * ordering for every wallet but the commission ones anyway.
+       */
+      header: t('wallets.colName'),
+      sortable: false,
+      cell: (w) => <span className="text-xs font-semibold">{w.name}</span>,
+    },
+    {
       header: t('wallets.colCurrency'),
       ...sortableBy('currency'),
       cell: (w) => <span className="font-mono text-xs font-semibold">{w.currency}</span>,
