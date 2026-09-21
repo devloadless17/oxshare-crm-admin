@@ -389,6 +389,10 @@ export const messages = {
   // can actually read back. "No." not "Number": the column holds codes, and the
   // long word would out-measure every value under it.
   'wallets.colNumber': 'Wallet no.',
+  /* The column header. The VALUE under it is server-generated ("USD Wallet",
+     "Commission Wallet") and is rendered as sent rather than translated —
+     see WalletDto.name on why the stored string stays English. */
+  'wallets.colName': 'Wallet',
   'wallets.colCurrency': 'Currency',
   'wallets.colBalance': 'Balance',
   'wallets.colOnHold': 'On hold',
@@ -1011,7 +1015,12 @@ export const messages = {
   'clientProfile.txNone': 'No transactions yet.',
 
   // ── Wallets, as a table with a row menu ───────────────────────────────────
+  /* The column now leads with the wallet's NAME and carries the code beneath
+     it, because a partner's main and commission wallets in one currency were
+     otherwise two identical "USD" rows. The key stays for anything still
+     labelling a plain currency cell. */
   'clientProfile.walletCurrency': 'Currency',
+  'clientProfile.walletName': 'Wallet',
   'clientProfile.walletNumber': 'Wallet no.',
   'clientProfile.walletBalance': 'Balance',
   'clientProfile.walletOnHold': 'On hold',

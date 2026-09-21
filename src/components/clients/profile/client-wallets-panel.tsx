@@ -229,11 +229,27 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
 
   const columns: Column<WalletRow>[] = [
     {
-      header: t('clientProfile.walletCurrency'),
+      /*
+       * THE NAME, with the code under it.
+       *
+       * This panel rendered the code alone, so a PARTNER — who holds a main USD
+       * wallet and a commission USD wallet — showed two rows reading "USD" with
+       * different balances and nothing saying which was which. On the screen an
+       * operator opens to decide which wallet to credit, that is the one
+       * ambiguity worth removing.
+       *
+       * The name is server-generated from the currency and the kind, so this
+       * renders it rather than composing one — the console, the portal and the
+       * CSV export then cannot drift apart on what a wallet is called.
+       */
+      header: t('clientProfile.walletName'),
       cell: (w) => (
         <span className="inline-flex items-center gap-2">
           <Wallet className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="font-mono text-xs font-semibold">{w.currency}</span>
+          <span className="min-w-0">
+            <span className="block truncate text-xs font-semibold">{w.name}</span>
+            <span className="block font-mono text-[11px] text-muted-foreground">{w.currency}</span>
+          </span>
         </span>
       ),
     },

@@ -103,6 +103,9 @@ function wallet(over: Partial<WalletRow> = {}): WalletRow {
   return {
     id: 'w-1',
     walletNumber: '4f7kq2nm8xcb',
+    // Server-generated from currency and kind. A fixture that composed its own
+    // would stop matching the day the server's rule changed.
+    name: 'USD Wallet',
     balance: '250.00000000',
     onHold: '0.00000000',
     currency: 'USD',
