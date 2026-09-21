@@ -70,11 +70,14 @@ export function UserMenu({
 }: {
   collapsed: boolean;
   /**
-   * `header` is the top-right placement, at every breakpoint: a pill trigger —
-   * avatar, name, chevron — from `md` up, collapsing to the avatar alone below,
-   * because the mobile header also holds a hamburger and the search box. The
-   * MENU repeats the identity inside either way, which is what makes an
-   * avatar-only trigger safe on a shared back-office machine.
+   * `header` is the top-right placement, at every breakpoint: the AVATAR ALONE
+   * as the trigger, at every width. It was a pill — avatar, name, chevron —
+   * from `md` up; the name and chevron are gone, and the header keeps its width
+   * beside the hamburger and the search control at every size.
+   *
+   * The MENU repeats the identity and the role inside, which is what makes an
+   * avatar-only trigger safe on a shared back-office machine — and what the
+   * `aria-label` on the trigger stands in for, now that no visible text does.
    */
   variant?: 'sidebar' | 'header';
 }) {
@@ -156,7 +159,7 @@ export function UserMenu({
         <DropdownMenuTrigger
           className={`flex items-center text-left transition-colors focus-outline cursor-pointer ${
             variant === 'header'
-              ? 'h-9 shrink-0 gap-2 rounded-full py-1 ps-1 pe-1 hover:bg-muted md:pe-2.5 data-[state=open]:bg-muted'
+              ? 'h-9 w-9 shrink-0 items-center justify-center rounded-full p-1 hover:bg-muted data-[state=open]:bg-muted'
               : `w-full gap-3 rounded-lg bg-muted p-2.5 hover:bg-accent ${collapsed ? 'justify-center p-2' : ''}`
           }`}
           aria-label={t('nav.accountMenu')}
@@ -168,21 +171,20 @@ export function UserMenu({
             </AvatarFallback>
           </Avatar>
 
-          {variant === 'header' && (
-            /*
-             * The name and chevron appear from `md` up — the pill of every
-             * mature dashboard. Below `md` the trigger collapses to the avatar
-             * alone, so the mobile header keeps its width beside the hamburger
-             * and the search box.
-             */
-            <span className="hidden min-w-0 items-center gap-1.5 md:flex">
-              <span className="max-w-40 truncate text-sm font-medium text-foreground">
-                {name || t('nav.accountMenu')}
-              </span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </span>
-          )}
+          {/*
+            THE AVATAR ALONE, at every width.
 
+            The header trigger was a pill — avatar, name, chevron — from `md`
+            up, collapsing to the avatar below it. It is now the avatar
+            everywhere, on the owner's call.
+
+            Nothing is lost by it: the name and the role are the first thing
+            inside the menu, so the identity this was asserting is one click
+            away rather than permanently occupying header width beside the
+            search box. `aria-label` on the trigger carries the accessible name
+            the visible text used to provide, so a screen reader still
+            announces an account menu rather than an unlabelled button.
+          */}
           {!compact && (
             <>
               <span className="flex-1 overflow-hidden">

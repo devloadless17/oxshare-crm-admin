@@ -6,7 +6,9 @@ import { UserMenu } from './user-menu';
 
 /*
  * Mirrors the portal's user-menu test on the admin identity. The rules pinned:
- *  1. The header trigger carries the operator's NAME (the top-right pill).
+ *  1. The header trigger is the AVATAR ALONE, and still announces itself — the
+ *     name moved into the menu, so the accessible name the visible text used
+ *     to supply now rests entirely on the `aria-label`.
  *  2. A FAILED sign-out keeps the menu open with the error visible inside it,
  *     and never pretends the session ended — on the console that approves
  *     withdrawals, a silent failed sign-out is the worst outcome available.
@@ -41,9 +43,24 @@ vi.mock('@/lib/toast', () => ({ toastError: vi.fn() }));
 beforeEach(() => logout.mockReset());
 
 describe('the header account menu', () => {
-  it('shows the operator name in the trigger pill', () => {
+  /*
+   * THE TRIGGER IS THE AVATAR, and nothing else.
+   *
+   * It was a pill carrying the name and a chevron from `md` up. The name moved
+   * out of the header entirely — the case below asserts it repeats inside the
+   * menu with the ROLE — so identity is one click away rather than permanently
+   * occupying header width beside the search control.
+   *
+   * The ACCESSIBLE NAME is what must survive: the visible text supplied it
+   * incidentally, so a trigger stripped to an image announces as an unlabelled
+   * button without the `aria-label`, on the console that approves withdrawals.
+   */
+  it('is the avatar alone, and still announces itself', () => {
     render(<UserMenu collapsed variant="header" />);
-    expect(screen.getByRole('button', { name: /account menu/i })).toHaveTextContent('Ada Admin');
+    const trigger = screen.getByRole('button', { name: /account menu/i });
+
+    expect(trigger).not.toHaveTextContent('Ada Admin');
+    expect(trigger).toBeInTheDocument();
   });
 
   it('opens with Profile, Theme and Log out, repeating the identity and ROLE inside', async () => {
