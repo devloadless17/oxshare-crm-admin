@@ -3021,13 +3021,22 @@ export const messages = {
    * (FR-IB-04), and a screen still naming a deposit teaches an operator to
    * answer a dispute with the wrong number.
    */
-  'nav.commissions': 'Commissions',
-  'commissions.title': 'Commissions',
+  /*
+   * "Commissions and rebates", because the screen has always listed BOTH and
+   * said so only in a column. The two are paid to different people from one
+   * trade — a commission to the partner, a rebate to the trading client — so a
+   * title naming one of them tells an operator the other is somewhere else.
+   */
+  'nav.commissions': 'Commissions & rebates',
+  'commissions.title': 'Commissions & rebates',
   'commissions.subtitle':
-    'Every partner commission, with the closed position it was calculated from. Pending is what the engine has worked out; confirmed is what has been credited.',
-  'commissions.loading': 'Loading commissions',
-  'commissions.loadFailed': 'Could not load the commissions.',
-  'commissions.empty': 'No commissions have been accrued yet.',
+    'Every partner commission and client rebate, with the closed position it was calculated from. A commission is paid to the partner; a rebate is paid back to the client who traded. Pending is what the engine has worked out; confirmed is what has been credited.',
+  'commissions.loading': 'Loading commissions and rebates',
+  'commissions.loadFailed': 'Could not load the commissions and rebates.',
+  'commissions.empty': 'No commissions or rebates have been accrued yet.',
+  /* A person on the row that this reader holds no territory over. Said in
+     words, because a blank name reads as missing data on a money screen. */
+  'commissions.outsideScope': 'Outside your territory',
   'commissions.colDate': 'When',
   'commissions.colPartner': 'Partner (earned)',
   'commissions.colClient': 'Client (generated)',

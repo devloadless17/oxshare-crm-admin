@@ -590,10 +590,30 @@ export interface IbAccrual {
     createdAt: string;
     confirmedAt: string | null;
   };
-  /** The partner being PAID. */
-  partner: { id: string; email: string; firstName: string | null; lastName: string | null };
-  /** The client whose deposit GENERATED it — a different person. */
-  client: { id: string; email: string; firstName: string | null; lastName: string | null };
+  /**
+   * The partner the commission was earned BY — attribution on a rebate row,
+   * where the money is the client's.
+   *
+   * `email` is nullable because the server NULLS it when this person sits
+   * outside the reader's territory. See `partnerMasked`.
+   */
+  partner: { id: string; email: string | null; firstName: string | null; lastName: string | null };
+  /** The client whose trading GENERATED it — and who is PAID on a rebate row. */
+  client: { id: string; email: string | null; firstName: string | null; lastName: string | null };
+  /**
+   * TERRITORY, not permissions — and either person can be the hidden one.
+   *
+   * A row is visible when its BENEFICIARY is in the reader's territory: the
+   * partner on a commission, the client on a rebate. The OTHER party on that
+   * row may be someone the reader holds no territory over, and their identity
+   * is nulled server-side.
+   *
+   * The flag exists so the screen can say "outside your territory" instead of
+   * rendering a blank, which reads as missing data and sends an operator
+   * looking for a bug that is not there.
+   */
+  clientMasked: boolean;
+  partnerMasked: boolean;
 }
 
 export interface IbAccrualPage {

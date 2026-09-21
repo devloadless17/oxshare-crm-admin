@@ -190,26 +190,23 @@ function CommissionsPageContent() {
     {
       header: t('commissions.colPartner'),
       sortable: false,
-      cell: (r) => (
-        <div className="min-w-0">
-          <div className="font-medium text-foreground">
-            {[r.partner.firstName, r.partner.lastName].filter(Boolean).join(' ') || '—'}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">{r.partner.email}</div>
-        </div>
-      ),
+      /*
+       * EITHER person on this row can be outside the reader's territory, and
+       * the server nulls whichever it is. A row is visible because its
+       * BENEFICIARY is in territory — the partner on a commission, the client
+       * on a rebate — so the other party is regularly someone this desk holds
+       * no territory over.
+       *
+       * Said in words rather than left blank: an empty name and an empty email
+       * read as missing data, and an operator goes looking for a bug that is
+       * not there.
+       */
+      cell: (r) => <Person person={r.partner} masked={r.partnerMasked} strong />,
     },
     {
       header: t('commissions.colClient'),
       sortable: false,
-      cell: (r) => (
-        <div className="min-w-0">
-          <div className="text-foreground">
-            {[r.client.firstName, r.client.lastName].filter(Boolean).join(' ') || '—'}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">{r.client.email}</div>
-        </div>
-      ),
+      cell: (r) => <Person person={r.client} masked={r.clientMasked} />,
     },
     {
       /*
@@ -441,6 +438,50 @@ function CommissionsPageContent() {
  * `confirmed` is credited money. Rendering them alike would let an operator
  * quote a partner a figure that has not been settled.
  */
+/**
+ * One of the two people on an accrual row, or an honest statement that this
+ * reader may not see them.
+ *
+ * ## Why a masked person is not just a blank
+ *
+ * Territory decides which ROWS exist to a reader; it does not follow that both
+ * people named on a visible row are in that territory. A commission is visible
+ * through its partner and names a client who may be elsewhere; a rebate is
+ * visible through its client and names the partner whose rung produced it, who
+ * may equally be elsewhere. The server nulls the identity of whichever one is
+ * out of territory and sets the flag.
+ *
+ * Rendering that as an em dash and an empty line makes a deliberate redaction
+ * look like broken data — on a money screen, where the first response to
+ * missing data is to doubt the figures beside it.
+ */
+function Person({
+  person,
+  masked,
+  strong = false,
+}: {
+  person: { firstName: string | null; lastName: string | null; email: string | null };
+  masked: boolean;
+  strong?: boolean;
+}) {
+  if (masked) {
+    return (
+      <span className="text-xs text-muted-foreground italic">{t('commissions.outsideScope')}</span>
+    );
+  }
+
+  const name = [person.firstName, person.lastName].filter(Boolean).join(' ');
+
+  return (
+    <div className="min-w-0">
+      <div className={strong ? 'font-medium text-foreground' : 'text-foreground'}>
+        {name || '—'}
+      </div>
+      <div className="truncate text-xs text-muted-foreground">{person.email}</div>
+    </div>
+  );
+}
+
 function AccrualStatus({ status }: { status: string }) {
   if (status === 'confirmed')
     return <Badge variant="success">{t('commissions.status.confirmed')}</Badge>;
