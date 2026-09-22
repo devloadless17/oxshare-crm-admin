@@ -54,7 +54,9 @@ export const messages = {
 
   // ── Brand and chrome ──────────────────────────────────────────────────────
   'app.name': 'OXShare',
-  'app.adminName': 'Admin Portal',
+  /* `app.adminName` ("Admin Portal") went with the sidebar label it existed
+     for. `adminSuffix` stays — the sign-in and invite screens still set
+     "OXShare Admin" beside the mark, where naming the console is the point. */
   'app.adminSuffix': 'Admin',
 
   // ── Navigation ────────────────────────────────────────────────────────────

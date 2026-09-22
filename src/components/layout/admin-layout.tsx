@@ -611,9 +611,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               files are the brand's own vectors, extracted from the supplied
               PDF rather than redrawn.
 
-              "ADMIN" stays: it is not part of the logo, it is what tells this
-              console apart from the client portal at a glance, and the two
-              apps otherwise open on the same mark.
+              The "Admin Portal" label that sat beside it is gone on the owner's
+              call: the logo is the header now. Nothing was relying on it to
+              tell the two apps apart — the console is reached at its own host,
+              and every screen inside it is one the portal does not have.
             */}
             {collapsed ? (
               <Image
@@ -658,11 +659,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   priority
                 />
               </>
-            )}
-            {!collapsed && (
-              <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                {t('app.adminName')}
-              </span>
             )}
           </Link>
 
