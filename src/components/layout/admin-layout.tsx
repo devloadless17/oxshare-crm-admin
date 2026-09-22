@@ -602,29 +602,67 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             onClick={closeMobile}
             className="flex items-center gap-3 overflow-hidden focus-outline rounded-md"
           >
-            <Image
-              src="/oxshare-mark.svg"
-              // See the note on the sign-in page: Next refuses to optimize SVG
-              // without `dangerouslyAllowSVG`, and a vector needs no optimizing.
-              unoptimized
-              alt={t('app.name')}
-              width={28}
-              height={26}
-              className="h-7 w-7 shrink-0 object-contain"
-              priority
-            />
+            {/*
+              THE REAL WORDMARK expanded, the mark alone collapsed.
+
+              The brand name used to be set in the UI font beside the mark,
+              which put an approximation of the logo next to the logo — the
+              letterforms in the supplied artwork are drawn, not typeset. Both
+              files are the brand's own vectors, extracted from the supplied
+              PDF rather than redrawn.
+
+              "ADMIN" stays: it is not part of the logo, it is what tells this
+              console apart from the client portal at a glance, and the two
+              apps otherwise open on the same mark.
+            */}
+            {collapsed ? (
+              <Image
+                src="/oxshare-mark.svg"
+                // See the note on the sign-in page: Next refuses to optimize SVG
+                // without `dangerouslyAllowSVG`, and a vector needs no optimizing.
+                unoptimized
+                alt={t('app.name')}
+                width={28}
+                height={26}
+                className="h-7 w-7 shrink-0 object-contain"
+                priority
+              />
+            ) : (
+              <>
+                {/*
+                  TWO FILES, SWAPPED IN CSS. The brand ships a dark wordmark for
+                  light grounds and a white one for dark, so this renders the
+                  artwork as drawn rather than filtering one into the other.
+
+                  `dark:hidden` rather than a JS check on the theme: next-themes
+                  sets the class before React hydrates, so a JS-chosen src would
+                  flash the light logo on a dark screen for one frame.
+                */}
+                <Image
+                  src="/oxshare-logo.svg"
+                  unoptimized
+                  alt={t('app.name')}
+                  width={76}
+                  height={26}
+                  className="h-7 w-auto shrink-0 object-contain dark:hidden"
+                  priority
+                />
+                <Image
+                  src="/oxshare-logo-dark.svg"
+                  unoptimized
+                  alt=""
+                  aria-hidden="true"
+                  width={76}
+                  height={26}
+                  className="hidden h-7 w-auto shrink-0 object-contain dark:block"
+                  priority
+                />
+              </>
+            )}
             {!collapsed && (
-              <div className="flex flex-col">
-                <span
-                  suppressHydrationWarning
-                  className="text-sm font-semibold tracking-wider text-foreground"
-                >
-                  {t('app.name')}
-                </span>
-                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                  {t('app.adminName')}
-                </span>
-              </div>
+              <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                {t('app.adminName')}
+              </span>
             )}
           </Link>
 
