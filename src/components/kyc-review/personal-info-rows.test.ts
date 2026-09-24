@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { humanise, personalInfoGroups, type InfoGroup, type InfoRow } from './personal-info-rows';
+import {
+  humanise,
+  personalInfoGroups,
+  rejectedFieldLabels,
+  type InfoGroup,
+  type InfoRow,
+} from './personal-info-rows';
 import type { components } from '@/lib/api/types.gen';
 
 type KycStepConfig = components['schemas']['KycStepConfigDto'];
@@ -252,5 +258,97 @@ describe("a custom step's answers", () => {
   it('adds nothing when the step has no answers', () => {
     const groups = personalInfoGroups({ firstName: 'Hussein' }, [COMPLIANCE], {});
     expect(groups.find((g) => g.title === 'Compliance Questions')).toBeUndefined();
+  });
+});
+
+describe('what the portal once wrote into personalInfo that is not an answer', () => {
+  /*
+   * Reported from production, with a screenshot: "OTHER DETAILS — Doc Choice
+   * Address, Doc Choice Document, Custom Field 1790263641710, Custom Field
+   * 1790263652846: [object Object]". The portal's review screen re-posted the
+   * whole wizard form as the personal step, so UI state, stringified uploads and
+   * copies of custom answers were read as the client's details.
+   */
+  const SOURCE = step({
+    title: 'Source of Funds',
+    slug: 'source-of-funds',
+    fields: [
+      field('customField_1790263641710', 'Employer'),
+      field('customField_1790263652846', 'Payslip', 'file'),
+    ],
+  });
+
+  const polluted = {
+    firstName: 'Hussein',
+    __docChoice__address: 'utilityBill',
+    __docChoice__document: 'passport',
+    customField_1790263641710: 'Acme Ltd',
+    customField_1790263652846: '[object Object]',
+  };
+  const stepData = {
+    'source-of-funds': {
+      customField_1790263641710: 'Acme Ltd',
+      customField_1790263652846: { filePath: 'uploads/kyc/pay.jpg', fileName: 'pay.jpg' },
+    },
+  };
+
+  it('shows each answer ONCE, under its own step, by the label the broker gave it', () => {
+    const groups = personalInfoGroups(polluted, [PERSONAL, SOURCE], stepData);
+
+    expect(groups.map((g) => g.title)).toEqual(['Personal Information', 'Source of Funds']);
+    expect(groupNamed(groups, 'Source of Funds').rows.map((r) => r.label)).toEqual([
+      'Employer',
+      'Payslip',
+    ]);
+    const all = JSON.stringify(groups);
+    expect(all).not.toMatch(/docChoice|Doc Choice|Custom Field|\[object Object\]/i);
+  });
+
+  it('names an uploaded answer and links it, never printing its stored record', () => {
+    const groups = personalInfoGroups(polluted, [PERSONAL, SOURCE], stepData);
+    const payslip = groupNamed(groups, 'Source of Funds').rows[1];
+
+    expect(payslip).toMatchObject({
+      label: 'Payslip',
+      value: 'pay.jpg',
+      file: { filePath: 'uploads/kyc/pay.jpg', fileName: 'pay.jpg' },
+    });
+    expect(payslip?.value).not.toContain('filePath');
+  });
+
+  it('labels a question removed from the form in words, not by its key', () => {
+    const groups = personalInfoGroups({ firstName: 'Hussein', customField_1790263641710: 'Acme' }, [
+      PERSONAL,
+    ]);
+
+    expect(groupNamed(groups, 'Other Details').rows[0]?.label).toBe(
+      'Question no longer on the form',
+    );
+  });
+
+  it('keeps the label of a field whose step was since disabled', () => {
+    const groups = personalInfoGroups({ firstName: 'Hussein', customField_1790263641710: 'Acme' }, [
+      PERSONAL,
+      { ...SOURCE, enabled: false },
+    ]);
+
+    expect(groupNamed(groups, 'Other Details').rows[0]?.label).toBe('Employer');
+  });
+});
+
+describe('rejectedFieldLabels — the flagged-fields chips', () => {
+  it('names each flag the way the client read it', () => {
+    const SOURCE = step({
+      title: 'Source of Funds',
+      slug: 'source-of-funds',
+      fields: [field('customField_1790263652846', 'Payslip', 'file')],
+    });
+
+    expect(
+      rejectedFieldLabels(
+        ['dateOfBirth', 'doc_back', 'customField_1790263652846', 'customField_1'],
+        [PERSONAL, SOURCE],
+      ),
+    ).toEqual(['Date of Birth', 'ID document (back)', 'Payslip', 'Question no longer on the form']);
   });
 });

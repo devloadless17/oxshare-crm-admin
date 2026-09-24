@@ -2,7 +2,8 @@
 
 import type { components } from '@/lib/api/types.gen';
 import { AttemptHistory } from './attempt-history';
-import { personalInfoGroups } from './personal-info-rows';
+import { Paperclip } from 'lucide-react';
+import { personalInfoGroups, rejectedFieldLabels } from './personal-info-rows';
 import { useKycStepConfig } from './use-kyc-step-config';
 import { t, type MessageKey } from '@/lib/i18n';
 
@@ -41,14 +42,18 @@ export function SubmissionSummary({
   data,
   docType,
   attempts,
+  onOpenFile,
 }: {
   data: KycDetail;
   docType: string;
   /** Previously decided attempts, oldest first. Empty for a first submission. */
   attempts: KycAttempt[];
+  /** Opens an uploaded answer in the document viewer, by its stored path. */
+  onOpenFile?: (filePath: string) => void;
 }) {
   const steps = useKycStepConfig();
   const groups = personalInfoGroups(data.personalInfo, steps, data.stepData);
+  const rejectedLabels = rejectedFieldLabels(data.rejectedFields ?? [], steps);
 
   return (
     <div className="detail-left">
@@ -77,7 +82,24 @@ export function SubmissionSummary({
                     .filter(Boolean)
                     .join(' ')}
                 >
-                  {row.value}
+                  {row.file && onOpenFile ? (
+                    /*
+                     * An uploaded answer is OPENED, not printed. It used to
+                     * render as its stored record — `{"fileName":…,"filePath":…}`
+                     * — which is how a reviewer met a custom step's upload.
+                     */
+                    <button
+                      type="button"
+                      onClick={() => onOpenFile(row.file!.filePath)}
+                      className="inline-flex max-w-full items-center gap-1 text-link hover:underline focus-outline"
+                    >
+                      <Paperclip className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{row.value}</span>
+                      <span className="shrink-0 font-normal">· {t('kycReview.viewFile')}</span>
+                    </button>
+                  ) : (
+                    row.value
+                  )}
                 </strong>
               </div>
             ))}
@@ -155,13 +177,15 @@ export function SubmissionSummary({
               <span className="text-xs font-bold text-destructive block mb-1">
                 {t('kycReview.flaggedFields')}
               </span>
+              {/* By the label the client read, never the stored key — a builder
+                  field's key is `customField_<timestamp>`. */}
               <div className="flex flex-wrap gap-1.5">
-                {data.rejectedFields.map((f) => (
+                {rejectedLabels.map((label) => (
                   <span
-                    key={f}
-                    className="text-[11px] font-mono bg-destructive/15 text-destructive px-2 py-0.5 rounded border border-destructive/30"
+                    key={label}
+                    className="text-[11px] bg-destructive/15 text-destructive px-2 py-0.5 rounded border border-destructive/30"
                   >
-                    {f}
+                    {label}
                   </span>
                 ))}
               </div>

@@ -50,3 +50,66 @@ describe('documentsOf', () => {
     expect(docs.map((d) => d.filePath)).not.toContain('b.png');
   });
 });
+
+describe('a custom step’s uploads are documents like any other', () => {
+  /*
+   * Reported from production: a file uploaded on a step the broker added
+   * reached the reviewer as its stored record — `{"fileName":"calculator_icon.jpg",
+   * "filePath":"uploads/kyc/…"}` — and never as the picture. It is a tile in the
+   * grid now, named the way the broker named the field.
+   */
+  const steps = [
+    {
+      id: 's9',
+      stepNumber: 5,
+      slug: 'source-of-funds',
+      title: 'Source of funds',
+      enabled: true,
+      fields: [
+        {
+          id: 'f1',
+          name: 'customField_1790263652846',
+          label: 'Payslip',
+          type: 'file',
+          required: true,
+        },
+      ],
+    },
+  ] as never;
+
+  it('adds the file to the grid, labelled by its configured field', () => {
+    const docs = documentsOf(
+      {
+        ...base,
+        stepData: {
+          'source-of-funds': {
+            customField_1790263652846: { filePath: 'uploads/kyc/pay.jpg', fileName: 'pay.jpg' },
+            customField_1790263641710: 'Acme Ltd',
+          },
+        },
+      } as unknown as KycSubmission,
+      steps,
+    );
+
+    expect(docs.at(-1)).toEqual({
+      filePath: 'uploads/kyc/pay.jpg',
+      fileName: 'pay.jpg',
+      label: 'Payslip',
+    });
+    // A typed answer is not a document.
+    expect(docs).toHaveLength(3);
+  });
+
+  it('says so plainly when the field has since been removed from the form', () => {
+    const docs = documentsOf({
+      ...base,
+      stepData: {
+        'source-of-funds': {
+          customField_1790263652846: { filePath: 'uploads/kyc/pay.jpg', fileName: 'pay.jpg' },
+        },
+      },
+    } as unknown as KycSubmission);
+
+    expect(docs.at(-1)?.label).toBe('Question no longer on the form');
+  });
+});

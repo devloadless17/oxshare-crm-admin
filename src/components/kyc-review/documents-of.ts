@@ -1,8 +1,13 @@
 import type { components } from '@/lib/api/types.gen';
 import type { LightboxDoc } from './doc-lightbox';
+import { isStoredFileAnswer, unconfiguredLabel } from './personal-info-rows';
 import { t } from '@/lib/i18n';
 
 type KycSubmission = components['schemas']['KycSubmissionDto'];
+type KycStepConfig = components['schemas']['KycStepConfigDto'];
+
+/** The four canonical steps, whose files are the columns above rather than `stepData`. */
+const CANONICAL_SLUGS = new Set(['personal', 'document', 'selfie', 'address']);
 
 /**
  * The documents a submission actually carries, in review order.
@@ -20,7 +25,7 @@ type KycSubmission = components['schemas']['KycSubmissionDto'];
  * mid-upload has genuinely not got them, and an empty tile in a lightbox is a
  * dead frame the reviewer has to page past.
  */
-export function documentsOf(data: KycSubmission): LightboxDoc[] {
+export function documentsOf(data: KycSubmission, steps?: KycStepConfig[]): LightboxDoc[] {
   const isPassport = (data.document?.docType ?? 'passport') === 'passport';
 
   const candidates: { filePath?: string; fileName?: string; label: string }[] = [
@@ -66,5 +71,38 @@ export function documentsOf(data: KycSubmission): LightboxDoc[] {
     },
   ];
 
-  return candidates.filter((d): d is LightboxDoc => typeof d.filePath === 'string' && !!d.filePath);
+  return [
+    ...candidates.filter((d): d is LightboxDoc => typeof d.filePath === 'string' && !!d.filePath),
+    ...customStepFiles(data, steps),
+  ];
+}
+
+/**
+ * A CUSTOM step's uploads, as documents like any other.
+ *
+ * A step the broker added stores its files under its own slug in `stepData`,
+ * and this list stopped at the four canonical columns — so the reviewer saw the
+ * file as its stored RECORD in the summary card,
+ * `{"fileName":"calculator_icon.jpg","filePath":"uploads/kyc/…"}`, and never as
+ * the picture the client uploaded. Reported from production. Here it is a tile
+ * in the grid, opened in the same viewer as the passport, labelled with the
+ * field's own name as the broker configured it.
+ */
+function customStepFiles(data: KycSubmission, steps?: KycStepConfig[]): LightboxDoc[] {
+  const stepData = (data.stepData ?? {}) as Record<string, Record<string, unknown>>;
+  const docs: LightboxDoc[] = [];
+  for (const [slug, answers] of Object.entries(stepData)) {
+    if (CANONICAL_SLUGS.has(slug)) continue;
+    const step = steps?.find((s) => s.slug === slug);
+    for (const [name, value] of Object.entries(answers ?? {})) {
+      if (!isStoredFileAnswer(value)) continue;
+      const field = step?.fields?.find((f) => f.name === name);
+      docs.push({
+        filePath: value.filePath,
+        fileName: value.fileName,
+        label: field?.label ?? unconfiguredLabel(name),
+      });
+    }
+  }
+  return docs;
 }
