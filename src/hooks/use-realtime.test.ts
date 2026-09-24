@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useRealtime } from './use-realtime';
+import { useRealtime, disconnectRealtime } from './use-realtime';
 
 /**
  * The socket lifecycle, asserted against a fake `io`.
@@ -82,9 +82,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // Unmount every hook so the module-level refcount returns to zero — the
-  // shared connection would otherwise leak into the next test.
+  // Unmount every hook so the module-level refcount returns to zero, then
+  // close NOW rather than after the grace — the shared connection would
+  // otherwise be handed to the next test.
   cleanup();
+  disconnectRealtime();
   vi.useRealTimers();
 });
 
@@ -143,6 +145,7 @@ describe('useRealtime', () => {
      * manager when the namespace is already in use, so two call sites would
      * otherwise mean two sockets and two handshakes.
      */
+    vi.useFakeTimers();
     const first = renderHook(() => useRealtime({ 'notification.created': vi.fn() }));
     const second = renderHook(() => useRealtime({ 'deposit.settled': vi.fn() }));
 
@@ -158,6 +161,7 @@ describe('useRealtime', () => {
     expect(currentSocket().count('notification.created')).toBe(1);
 
     first.unmount();
+    act(() => void vi.advanceTimersByTime(1_500));
     expect(currentSocket().disconnect).toHaveBeenCalled();
   });
 
@@ -293,14 +297,40 @@ describe('useRealtime', () => {
     expect(currentSocket().disconnect).not.toHaveBeenCalled();
   });
 
-  it('closes the socket when the last component goes away', () => {
+  it('closes the socket when the last component goes away — after a short grace', () => {
+    vi.useFakeTimers();
     const { unmount } = renderHook(() => useRealtime({ 'notification.created': vi.fn() }));
     const socket = currentSocket();
 
     unmount();
+    // Its listeners go at once; the connection waits to see if anyone returns.
+    expect(socket.count('notification.created')).toBe(0);
+    expect(socket.disconnect).not.toHaveBeenCalled();
 
+    act(() => void vi.advanceTimersByTime(1_500));
     // A socket outliving its component is one per navigation, forever.
     expect(socket.disconnect).toHaveBeenCalled();
-    expect(socket.count('notification.created')).toBe(0);
+  });
+
+  it('keeps ONE connection through an immediate remount — StrictMode, or a hop between screens', () => {
+    /*
+     * The warning reported from local testing: "WebSocket is closed before the
+     * connection is established". The socket was closed the instant its last
+     * user unmounted, and React's StrictMode unmounts and remounts every effect
+     * in development — so each page opened a socket, killed it mid-handshake
+     * and opened another. Moving between the portal and the KYC wizard did the
+     * same in production.
+     */
+    vi.useFakeTimers();
+    const first = renderHook(() => useRealtime({ 'notification.created': vi.fn() }));
+    const socket = currentSocket();
+    first.unmount();
+
+    renderHook(() => useRealtime({ 'notification.created': vi.fn() }));
+    act(() => void vi.advanceTimersByTime(5_000));
+
+    expect(io).toHaveBeenCalledTimes(1);
+    expect(socket.disconnect).not.toHaveBeenCalled();
+    expect(socket.count('notification.created')).toBe(1);
   });
 });

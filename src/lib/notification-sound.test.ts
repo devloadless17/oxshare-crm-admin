@@ -279,3 +279,51 @@ describe('a context the browser closed', () => {
     expect(replacement.createOscillator).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('the audio waits for a gesture the browser counts', () => {
+  /*
+   * Reported from local testing: "The AudioContext was not allowed to start".
+   * The sound was primed on the first `keydown` or `touchstart`, and neither
+   * always counts as a gesture — a lone Ctrl (the start of the DevTools
+   * shortcut) does not, and a tap only counts on its END. Built then, the
+   * context is refused with that warning.
+   *
+   * A FRESH module per case: the context is cached at module level.
+   */
+  const activation = { isActive: false, hasBeenActive: false };
+
+  beforeEach(() => {
+    activation.isActive = false;
+    activation.hasBeenActive = false;
+    Object.defineProperty(navigator, 'userActivation', { value: activation, configurable: true });
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'userActivation');
+  });
+
+  it('does not build it on a key press that is not a gesture, and keeps listening', async () => {
+    const { primeNotificationSound } = await import('./notification-sound');
+    const ctor = stubAudioContext(() => ({ state: 'running', resume: vi.fn() }));
+    const stop = primeNotificationSound();
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Control' }));
+    expect(ctor).not.toHaveBeenCalled();
+
+    // The real gesture that follows is still heard.
+    activation.isActive = true;
+    activation.hasBeenActive = true;
+    window.dispatchEvent(new Event('pointerup'));
+    expect(ctor).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  it('stays silent — rather than warning — when a chime arrives before any gesture', async () => {
+    const { playNotificationSound: play } = await import('./notification-sound');
+    const ctor = stubAudioContext(() => ({ state: 'running', resume: vi.fn() }));
+
+    play();
+    expect(ctor).not.toHaveBeenCalled();
+  });
+});
