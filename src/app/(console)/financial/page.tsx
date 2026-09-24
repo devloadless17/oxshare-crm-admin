@@ -258,7 +258,7 @@ function FinancialPageContent() {
       {stuck && stuck.count > 0 && (
         <StatusBanner
           healthy={false}
-          message={t('financial.stuckBanner', {
+          message={t(stuck.count === 1 ? 'financial.stuckBannerOne' : 'financial.stuckBanner', {
             count: stuck.count,
             minutes: stuck.thresholdMinutes,
           })}

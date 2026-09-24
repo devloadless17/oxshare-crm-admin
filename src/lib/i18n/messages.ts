@@ -80,7 +80,7 @@ export const messages = {
   'ipAllowlist.notEnforcing':
     'No rules configured, so this protection is OFF — the console is reachable from any network. Adding the first rule switches it on.',
   'ipAllowlist.enforcing':
-    'Enforcing. Only the {count} network(s) below can reach the administration API.',
+    'Enforcing. Only the {count:network|{count} networks} below can reach the administration API.',
   'ipAllowlist.disabledByConfig':
     'Enforcement is switched OFF by configuration (ADMIN_IP_ALLOWLIST_ENABLED=false). The rules below are saved and none of them is being applied. Remove that setting and restart to enforce them again.',
   // The address the SERVER sees. Behind the console's dev proxy that is ::1, not
@@ -659,7 +659,7 @@ export const messages = {
   'clientProfile.networkCapped': 'Showing {shown} of {total} introduced clients.',
   'clientProfile.networkSeeAll': 'See all of them',
   'clientProfile.networkOutsideScope':
-    '{count} more client(s) introduced by this partner are outside your territory, so they are not listed here.',
+    '{count} more {count:client|clients} introduced by this partner {count:is|are} outside your territory, so {count:it is|they are} not listed here.',
   'clients.referredByNotice': 'Showing only the clients introduced by {who}.',
   'clients.referredByWho': 'this partner',
   'clients.referredByClear': 'Show all clients',
@@ -716,7 +716,7 @@ export const messages = {
   'tags.deleteAria': 'Delete {label}',
   'tags.confirmDeleteTitle': 'Delete the tag "{label}"?',
   'tags.confirmDelete':
-    'It is on {count} client(s) and will be removed from all of them. Any administrator restricted to this tag would lose that restriction, so the server refuses while anyone is scoped to it.',
+    'It is on {count} {count:client|clients} and will be removed from {count:it|all of them}. Any administrator restricted to this tag would lose that restriction, so the server refuses while anyone is scoped to it.',
   'tags.deleteSucceeded': 'Tag "{label}" deleted',
   'tags.saveSucceeded': 'Tag "{label}" saved',
   'tags.deleteFailed': 'Failed to delete the tag.',
@@ -741,7 +741,7 @@ export const messages = {
   'roles.saveSucceeded': 'Role “{name}” saved',
   'roles.deleteSucceeded': 'Role “{name}” deleted',
   'roles.maskSection': 'Client field visibility',
-  'roles.maskSummary': '{count} field(s) hidden',
+  'roles.maskSummary': '{count} {count:field|fields} hidden',
   'roles.maskSummaryNone': 'Nothing hidden',
   'roles.maskHint':
     'Fields holders of this role cannot see. The value is removed from the API response, not just from the screen — and it applies everywhere, including the KYC review.',
@@ -759,7 +759,7 @@ export const messages = {
     'The intake pool: clients with no tags at all. Granted by default — untick to restrict. Only unrestricted admins and holders of this grant see them. Assigning any tag moves a client out of intake by definition; removing their last tag returns them to it — nobody can fall between territories.',
   'adminUsers.seesUntriagedLockedOwn':
     'You do not see the intake pool yourself, so you cannot grant it — the invitee starts without it.',
-  'adminUsers.scopeSummary': '{count} tag(s)',
+  'adminUsers.scopeSummary': '{count} {count:tag|tags}',
   // Said in words, because both readings of an empty scope are plausible and
   // one of them is a data breach.
   'adminUsers.scopeSummaryAll': 'All clients',
@@ -775,7 +775,7 @@ export const messages = {
   'adminUsers.scopeEmptyWarning':
     'No tags selected means UNRESTRICTED — this administrator can see every client in the system.',
   'adminUsers.maskSection': 'Field visibility',
-  'adminUsers.maskSummary': '{count} field(s) hidden',
+  'adminUsers.maskSummary': '{count} {count:field|fields} hidden',
   'adminUsers.maskSummaryNone': 'Nothing hidden',
   'adminUsers.maskSummaryInherited': 'Inherits the role',
   'adminUsers.maskInheriting':
@@ -787,7 +787,7 @@ export const messages = {
     'The master admin sees every client and every field, without exception (FR-RBAC-01).',
   'adminUsers.colScope': 'Client scope',
   'adminUsers.scopeAll': 'All clients',
-  'adminUsers.scopeCount': '{count} tag(s)',
+  'adminUsers.scopeCount': '{count} {count:tag|tags}',
   'adminUsers.maskCount': '{count} hidden',
 
   'clientProfile.back': 'Back to clients',
@@ -1985,7 +1985,7 @@ export const messages = {
   // The `document` field type: one field that is the picker AND its uploads.
   'builder.typeDocument': 'Document Upload',
   'builder.acceptedDocuments': 'Documents this step accepts',
-  'builder.documentParts': '{count} photo(s) required',
+  'builder.documentParts': '{count} {count:photo|photos} required',
   'builder.noDocumentsPicked': 'Pick at least one, or the client has nothing to upload.',
   'builder.tabOverview': 'Overview',
   'builder.openStep': 'Open',
@@ -2264,8 +2264,15 @@ export const messages = {
    * Then what IS wrong, which is a client watching a spinner, and then the
    * cause, because the fix is usually on the MT5 side rather than in here.
    */
+  // Two sentences, not "transfer(s)": the banner is read in the one moment an
+  // operator is deciding whether money went missing, and should read as prose.
+  'financial.stuckBannerOne':
+    'One transfer has been processing for over {minutes} minutes. No money has moved — a ' +
+    'wallet is debited only once MT5 confirms — but the client is watching a spinner. The ' +
+    'usual cause is the MT5 bridge having lost its session. Release the hold from the row’s ⋯ ' +
+    'menu once the broker confirms the money never arrived.',
   'financial.stuckBanner':
-    '{count} transfer(s) have been processing for over {minutes} minutes. No money has moved — a ' +
+    '{count} transfers have been processing for over {minutes} minutes. No money has moved — a ' +
     'wallet is debited only once MT5 confirms — but the clients are watching a spinner. The ' +
     'usual cause is the MT5 bridge having lost its session. Release the hold from a row’s ⋯ menu ' +
     'once the broker confirms the money never arrived.',
@@ -2441,7 +2448,7 @@ export const messages = {
   'bridge.outbox.emptyPending': 'Every deal the bridge has read has reached this system.',
   'bridge.outbox.healthy': 'Every queued deal has been delivered.',
   'bridge.outbox.unhealthy':
-    '{count} deal(s) have been attempted and rejected. They are not lost — the bridge keeps retrying — but they are not here yet.',
+    '{count} {count:deal has|deals have} been attempted and rejected. {count:It is|They are} not lost — the bridge keeps retrying — but {count:it is|they are} not here yet.',
 
   'bridge.operations.total': 'Operations',
   'bridge.operations.completed': 'Completed',
@@ -2453,12 +2460,12 @@ export const messages = {
   // the money may or may not have moved — because "failed" would be a guess in
   // the safe direction and "pending" a guess in the dangerous one.
   'bridge.operations.stuckWarning':
-    '{count} operation(s) were sent to MT5 without a confirmed outcome. The money may or may not have moved. Check each against MT5 deal history before retrying — the key stays claimed so a retry cannot double-credit.',
+    '{count} {count:operation was|operations were} sent to MT5 without a confirmed outcome. The money may or may not have moved. Check {count:it|each} against MT5 deal history before retrying — the key stays claimed so a retry cannot double-credit.',
 
   'bridge.logs.empty': 'No log lines for today yet.',
   'bridge.logs.missing': 'No log file for today at {file}.',
   'bridge.logs.filter': 'Filter lines',
-  'bridge.logs.matched': '{count} line(s) matched',
+  'bridge.logs.matched': '{count} {count:line|lines} matched',
   'bridge.logs.errorsOnly': 'Warnings and errors',
 
   'bridge.col.deal': 'Deal',
@@ -2485,7 +2492,7 @@ export const messages = {
   'reconciliation.running': 'Checking…',
   'reconciliation.ok.title': 'The books balance',
   'reconciliation.ok.body':
-    'All {count} wallet(s) agree with their ledgers to the cent, and every confirmed accrual has been credited.',
+    '{count:The wallet agrees with its ledger|All {count} wallets agree with their ledgers} to the cent. Wallet balances only — unpaid commission accruals are checked separately.',
   /*
    * The mismatch copy names the NEXT ACTION, and deliberately does not offer to
    * fix anything. A repair here would write a compensating entry for a cause
@@ -2495,7 +2502,7 @@ export const messages = {
   'reconciliation.mismatch.title': 'The ledger and the balances disagree',
   'reconciliation.mismatch.body':
     'Investigate before making any correction. Nothing here is repaired automatically: a compensating entry written for an undiagnosed cause hides the problem instead of fixing it.',
-  'reconciliation.checkedAt': 'Checked {count} wallet(s) · last run {at}',
+  'reconciliation.checkedAt': 'Checked {count} {count:wallet|wallets} · last run {at}',
   /*
    * The SCALE of the break, which the screen could not state.
    *
@@ -2506,7 +2513,8 @@ export const messages = {
    * the sample and no figure, so a systemic ledger break read as twenty
    * isolated ones.
    */
-  'reconciliation.mismatch.scale': '{count} wallet(s) affected · {total} out of balance',
+  'reconciliation.mismatch.scale':
+    '{count} {count:wallet|wallets} affected · {total} out of balance',
   'reconciliation.sampleNote':
     'Showing the first {shown} of {count}. Investigate these, then re-run.',
   'reconciliation.caption': 'Wallets whose balance does not match their ledger',
@@ -2816,7 +2824,7 @@ export const messages = {
   'ibLevels.defaultName': 'Level {level}',
   'ibLevels.name': 'Level name',
   'ibLevels.disabled': 'Disabled',
-  'ibLevels.partnerCount': '{count} partner(s) here',
+  'ibLevels.partnerCount': '{count} {count:partner|partners} here',
 
   // WHO stands on this rung, said plainly. "Level 2" alone is a number; "a
   // partner recruited by a level 1 partner" is the thing an operator is
@@ -2847,7 +2855,7 @@ export const messages = {
   // The count is the whole answer, and the API refuses this anyway — asking
   // with the number turns a refusal into an informed cancellation.
   'ibLevels.confirmDeleteOccupied':
-    '{count} partner(s) stand on level {level} and would be left on terms that do not exist. ' +
+    '{count} {count:partner stands|partners stand} on level {level} and would be left on terms that do not exist. ' +
     'Move them first — this will be refused.',
   'ibLevels.deleteSucceeded': 'Level {level} was removed.',
   'ibLevels.deleteFailed': 'Could not remove the level.',
@@ -3015,7 +3023,7 @@ export const messages = {
   'partnerReview.programmeHint':
     'What this partner will be paid on. The first one is used unless you choose otherwise, and ' +
     'it can be changed later from their profile.',
-  'partnerReview.programmeLadder': '{rates} — reaches {count} level(s)',
+  'partnerReview.programmeLadder': '{rates} — reaches {count} {count:level|levels}',
   'partnerReview.programmeRebateOnly': 'Pays no partner commission · {rebate}% client rebate',
   'partnerReview.noProgrammesEnabled':
     'No commission programme is enabled, so an approved partner would have no terms to be paid ' +

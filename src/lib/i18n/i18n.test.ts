@@ -19,6 +19,58 @@ import type { MessageKey } from './messages';
  *    layout sweep is verified by setting the locale and looking.
  */
 
+describe('t() — plurals', () => {
+  /*
+   * `{count:one|other}` replaced the "field(s)" shorthand across both apps. The
+   * rule is small and easy to get subtly wrong: exactly 1 is singular, and 0 is
+   * PLURAL ("0 fields hidden", never "0 field hidden").
+   */
+  it('picks the singular for exactly one', () => {
+    expect(t('roles.maskSummary', { count: 1 })).toBe('1 field hidden');
+  });
+
+  it('picks the plural for zero and for many', () => {
+    expect(t('roles.maskSummary', { count: 0 })).toBe('0 fields hidden');
+    expect(t('roles.maskSummary', { count: 3 })).toBe('3 fields hidden');
+  });
+
+  it('treats a count sent as text the same as a number', () => {
+    expect(t('roles.maskSummary', { count: '1' })).toBe('1 field hidden');
+  });
+
+  it('lets a branch carry the count itself', () => {
+    expect(t('ipAllowlist.enforcing', { count: 1 })).toBe(
+      'Enforcing. Only the network below can reach the administration API.',
+    );
+    expect(t('ipAllowlist.enforcing', { count: 4 })).toBe(
+      'Enforcing. Only the 4 networks below can reach the administration API.',
+    );
+  });
+
+  it('agrees the verb with the noun, not just the noun', () => {
+    expect(t('bridge.outbox.unhealthy', { count: 1 })).toMatch(/^1 deal has been attempted/);
+    expect(t('bridge.outbox.unhealthy', { count: 2 })).toMatch(/^2 deals have been attempted/);
+  });
+
+  it('leaves the selector visible when the count was not supplied', () => {
+    expect(t('roles.maskSummary', {})).toBe('{count} {count:field|fields} hidden');
+  });
+
+  it('no message still says "(s)"', () => {
+    const shorthand = Object.entries(messages).filter(([, text]) => String(text).includes('(s)'));
+    expect(shorthand.map(([key]) => key)).toEqual([]);
+  });
+
+  it('the reconciliation line claims only what the job checks', () => {
+    // It used to add "and every confirmed accrual has been credited" — a check
+    // that left with the commission engine. The one sentence that tells an
+    // operator the money adds up must not promise more than was verified.
+    expect(t('reconciliation.ok.body', { count: 3 })).not.toMatch(/accrual has been credited/);
+    expect(t('reconciliation.ok.body', { count: 3 })).toMatch(/^All 3 wallets agree/);
+    expect(t('reconciliation.ok.body', { count: 1 })).toMatch(/^The wallet agrees with its ledger/);
+  });
+});
+
 describe('t() — lookup and interpolation', () => {
   it('returns the message for a key', () => {
     expect(t('login.submit')).toBe('Sign in to Admin');

@@ -139,7 +139,17 @@ export function clientColumns({
     columns.push({
       header: t('clients.colEmail'),
       ...sortableBy('email'),
-      cell: (c) => c.email ?? '—',
+      // Capped with the full address on hover — see ClientIdentity: uncapped,
+      // one long address set the column's width and pushed the last columns
+      // under the pinned Actions column.
+      cell: (c) =>
+        c.email ? (
+          <span className="block max-w-[16rem] truncate" title={c.email}>
+            {c.email}
+          </span>
+        ) : (
+          '—'
+        ),
       cellClassName: 'text-muted-foreground',
     });
   }
