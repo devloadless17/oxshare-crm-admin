@@ -53,8 +53,11 @@ interface MaskedValueProps {
  */
 export function MaskedChip() {
   return (
+    /* `relative`: the containing block for the `sr-only` label below, so it
+       stays inside a table's scroll frame instead of stretching the page on a
+       phone — the same fix as `PortalIdTag`. */
     <span
-      className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-muted-foreground"
+      className="relative inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-muted-foreground"
       title={t('masking.hiddenTitle')}
     >
       <EyeOff className="h-3 w-3" aria-hidden="true" />

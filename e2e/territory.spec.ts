@@ -34,6 +34,12 @@ import {
 
 let master: Awaited<ReturnType<typeof adminApiSession>>;
 const ids: Record<string, string> = {};
+/*
+ * The same clients by Portal ID — what every export identifies a client by
+ * (0133). The uuid is in no file any more, so a `not.toContain(uuid)` would
+ * pass whatever the export did.
+ */
+const portalIds: Record<string, number> = {};
 const tags: Record<string, string> = {};
 let restrictedAdminId = '';
 
@@ -45,8 +51,11 @@ test.beforeAll(async () => {
 
   const list = await master.get(`/admin/clients?q=${encodeURIComponent(E2E_DOMAIN)}&limit=100`);
   expect(list.ok()).toBe(true);
-  for (const c of ((await list.json()) as { items: { id: string; email: string }[] }).items) {
+  for (const c of (
+    (await list.json()) as { items: { id: string; portalId: number; email: string }[] }
+  ).items) {
     ids[c.email] = c.id;
+    portalIds[c.email] = c.portalId;
   }
   for (const t of (await (await master.get('/admin/tags')).json()) as {
     id: string;
@@ -69,6 +78,12 @@ test.afterAll(async () => {
 });
 
 const id = (key: keyof typeof E2E_CLIENTS) => ids[E2E_CLIENTS[key].email];
+
+/** Does the CSV hold a row for this client — their Portal ID as a whole cell? */
+const hasClientRow = (csv: string, key: keyof typeof E2E_CLIENTS) =>
+  csv
+    .split('\r\n')
+    .some((line) => line.split(',').includes(String(portalIds[E2E_CLIENTS[key].email])));
 
 /** The restricted admin's view of one seeded client, from the API. */
 async function restrictedSees(
@@ -131,8 +146,8 @@ test.describe('what the scoped admin SEES', () => {
       const csv = await api.get('/admin/clients/export?format=csv');
       expect(csv.ok()).toBe(true);
       const text = await csv.text();
-      expect(text, 'the CSV leaked an out-of-scope client').not.toContain(id('bravo'));
-      expect(text, 'the CSV lost an in-scope client').toContain(id('alpha'));
+      expect(hasClientRow(text, 'bravo'), 'the CSV leaked an out-of-scope client').toBe(false);
+      expect(hasClientRow(text, 'alpha'), 'the CSV lost an in-scope client').toBe(true);
 
       // The screen agrees with the wire.
       await page.goto('/clients');

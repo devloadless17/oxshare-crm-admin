@@ -64,7 +64,7 @@ beforeEach(() => {
 async function signIn() {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText(/admin email/i), 'admin@oxshare.com');
-  await user.type(screen.getByLabelText(/password/i), 'admin123');
+  await user.type(screen.getByLabelText(/^password$/i), 'admin123');
   await user.click(screen.getByRole('button', { name: /sign in/i }));
 }
 

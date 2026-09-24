@@ -139,7 +139,9 @@ test.describe('what a MASTER admin can reach', () => {
     await expect(page.getByText(/\b1 field hidden/i)).toBeVisible();
     // Open the section and see the field itself ticked.
     await page.getByText(/client field visibility/i).click();
-    await expect(page.getByRole('button', { name: /email/i }).first()).toHaveAttribute(
+    // Anchored: the locked Portal ID row's reason mentions "email" too, so an
+    // unanchored /email/ lands on that row instead of the Email field.
+    await expect(page.getByRole('button', { name: /^email/i }).first()).toHaveAttribute(
       'aria-pressed',
       'true',
     );

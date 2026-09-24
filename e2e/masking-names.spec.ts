@@ -199,9 +199,10 @@ test.describe('hiding one half of a name', () => {
       const notice = (await maskNotice(page).textContent()) ?? '';
       expect((notice.match(/name/gi) ?? []).length, 'the banner said "Name" twice').toBe(1);
 
-      // The client is still identifiable: `client.id` is declared non-maskable
-      // precisely so a fully masked row can still be quoted to support.
-      await expect(page.getByRole('columnheader', { name: /^id$/i })).toBeVisible();
+      // The client is still identifiable: `client.portalId` is declared
+      // non-maskable precisely so a fully masked row can still be quoted to
+      // support — the Portal ID column, since 0133.
+      await expect(page.getByRole('columnheader', { name: /^portal id$/i })).toBeVisible();
     } finally {
       await op.dispose();
       await master.dispose();

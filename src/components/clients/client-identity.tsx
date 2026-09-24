@@ -24,8 +24,15 @@ import { t } from '@/lib/i18n';
 /** `#1000245`, with "Portal ID" spoken before it and shown on hover. */
 export function PortalIdTag({ id }: { id: number }) {
   return (
+    /*
+     * `relative` makes this span the containing block of the `sr-only` label
+     * inside it. Without it the label — absolutely positioned — is placed
+     * against the PAGE, escapes the table's own scroll frame, and every tag in
+     * a wide table stretched the document sideways on a phone (ux-sweep:
+     * /audit-log was 714px wide on a 400px screen).
+     */
     <span
-      className="whitespace-nowrap font-mono text-[11px] font-normal text-muted-foreground"
+      className="relative whitespace-nowrap font-mono text-[11px] font-normal text-muted-foreground"
       title={t('common.portalId')}
     >
       <span className="sr-only">{t('common.portalId')} </span>#{id}
