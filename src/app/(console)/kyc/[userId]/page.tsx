@@ -145,7 +145,7 @@ export default function KycDetailPage() {
   useFocusTrap(rejectPanelRef, showRejectModal, () => setShowRejectModal(false), !actionLoading);
 
   // Both configurable lists the reject dialog offers, loaded when it opens.
-  const { reasons, fieldGroups } = useRejectOptions(showRejectModal);
+  const { reasons, fieldGroups } = useRejectOptions(showRejectModal, data);
 
   const approve = async () => {
     setActionLoading(true);

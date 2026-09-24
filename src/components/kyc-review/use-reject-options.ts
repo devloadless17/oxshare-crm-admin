@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import type { components } from '@/lib/api/types.gen';
 import type { RejectionReason } from '@/lib/api/admin';
-import { fieldGroupsFrom, type FieldGroup } from './field-options';
+import { fieldGroupsFrom, type FieldGroup, type SubmissionFiles } from './field-options';
 
 type KycStepConfig = components['schemas']['KycStepConfigDto'];
 
@@ -30,7 +30,11 @@ type KycStepConfig = components['schemas']['KycStepConfigDto'];
  * trade — the reason text is what FR-ADM-03 actually requires, and free text
  * covers it.
  */
-export function useRejectOptions(open: boolean): {
+export function useRejectOptions(
+  open: boolean,
+  /** Narrows document fields to what the client sent — see field-options.ts. */
+  submission?: SubmissionFiles | null,
+): {
   reasons: RejectionReason[];
   fieldGroups: FieldGroup[];
 } {
@@ -53,5 +57,5 @@ export function useRejectOptions(open: boolean): {
       .catch(() => setSteps([]));
   }, [open, steps]);
 
-  return { reasons, fieldGroups: fieldGroupsFrom(steps) };
+  return { reasons, fieldGroups: fieldGroupsFrom(steps, submission) };
 }

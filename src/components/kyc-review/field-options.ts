@@ -29,7 +29,10 @@ export interface FieldGroup {
  * renders from, which makes the two agree by construction rather than by
  * somebody remembering to edit both.
  */
-export function fieldGroupsFrom(steps: KycStepConfig[] | undefined): FieldGroup[] {
+export function fieldGroupsFrom(
+  steps: KycStepConfig[] | undefined,
+  submission?: SubmissionFiles | null,
+): FieldGroup[] {
   if (!steps || steps.length === 0) return FALLBACK_FIELD_OPTIONS;
 
   const groups = steps
@@ -40,13 +43,82 @@ export function fieldGroupsFrom(steps: KycStepConfig[] | undefined): FieldGroup[
         // `docType` selects WHICH document to upload; it is not something a
         // client can be asked to correct on its own.
         .filter((f) => f.name !== 'docType')
-        .map((f) => ({ id: f.name, label: f.label })),
+        .flatMap((f) =>
+          f.document ? documentOptions(step.slug, f, submission) : [{ id: f.name, label: f.label }],
+        ),
     }))
     .filter((g) => g.fields.length > 0);
 
   // An empty derivation means the config loaded but described nothing usable.
   // Falling back beats rendering a reject dialog with no fields at all.
   return groups.length > 0 ? groups : FALLBACK_FIELD_OPTIONS;
+}
+
+/** The half of a submission this module reads — where each document's files are. */
+export interface SubmissionFiles {
+  document?: { docType?: string; frontFilePath?: string; backFilePath?: string };
+  addressProof?: { docType?: string; filePath?: string; page2FilePath?: string };
+  stepData?: Record<string, Record<string, unknown>>;
+}
+
+type KycField = KycStepConfig['fields'][number];
+
+/** Where each page of a canonical document is stored, by position. */
+const PAGE_IDS = {
+  identity: ['doc_front', 'doc_back'],
+  address: ['address_proof', 'address_proof_2'],
+} as const;
+
+/**
+ * The options one DOCUMENT field contributes: only the document the client
+ * actually sent, one checkbox per page they uploaded.
+ *
+ * A document step offers alternatives — passport, national ID, driving licence
+ * — of which the client submits ONE. Listing every alternative asked the
+ * reviewer to reject a driving licence nobody sent, and listing the chosen one
+ * as a single box made a two-sided ID all-or-nothing: a sharp front and a
+ * blurred back could only be returned together, so the client re-shot both.
+ *
+ * Each page is identified by its STORAGE id (`doc_front`, `doc_back`, …), the
+ * vocabulary the portal already uses to find the file, so a rejected back side
+ * lights up exactly that row on the client's documents table.
+ *
+ * With no submission to read (it has not loaded) the field falls back to one
+ * option under its own name — the old behaviour, still a valid id.
+ */
+function documentOptions(
+  slug: string,
+  field: KycField,
+  submission?: SubmissionFiles | null,
+): { id: string; label: string }[] {
+  const doc = field.document!;
+  if (!submission) return [{ id: field.name, label: field.label }];
+
+  const category = doc.category === 'address' ? 'address' : 'identity';
+  const isCanonical = slug === 'document' || slug === 'address';
+
+  if (!isCanonical) {
+    // A custom step stores the document under the field's own key.
+    const stored = submission.stepData?.[slug]?.[field.name];
+    return stored ? [{ id: field.name, label: field.label }] : [];
+  }
+
+  const storedType =
+    category === 'address' ? submission.addressProof?.docType : submission.document?.docType;
+  if (storedType !== doc.value) return [];
+
+  const files =
+    category === 'address'
+      ? [submission.addressProof?.filePath, submission.addressProof?.page2FilePath]
+      : [submission.document?.frontFilePath, submission.document?.backFilePath];
+
+  const options = PAGE_IDS[category].flatMap((id, i) => {
+    if (!files[i]) return [];
+    const part = doc.parts[i]?.label;
+    const onePage = !files[1];
+    return [{ id, label: onePage || !part ? field.label : `${field.label} — ${part}` }];
+  });
+  return options;
 }
 
 /**
