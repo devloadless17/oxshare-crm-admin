@@ -597,9 +597,22 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       >
         {/* Sidebar Header */}
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
+          {/*
+            NAMED ON THE LINK, not only by the artwork inside it.
+
+            The wordmark used to sit beside the words "Admin Portal", so the link
+            had text and announced itself. Dropping that label left a link whose
+            only content is an image — and `ux-sweep` flagged it on every page of
+            the console, because a control named solely by a child image is one
+            step from being named by nothing: swap the artwork for a
+            decorative-marked one, or hide it per theme, and the name is gone
+            with no visible change. `aria-label` here does not depend on which
+            image is showing, or on there being an image at all.
+          */}
           <Link
             href="/dashboard"
             onClick={closeMobile}
+            aria-label={t('app.name')}
             className="flex items-center gap-3 overflow-hidden focus-outline rounded-md"
           >
             {/*
@@ -651,8 +664,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 <Image
                   src="/oxshare-logo-dark.svg"
                   unoptimized
-                  alt=""
-                  aria-hidden="true"
+                  alt={t('app.name')}
                   width={76}
                   height={26}
                   className="hidden h-7 w-auto shrink-0 object-contain dark:block"
