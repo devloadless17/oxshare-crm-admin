@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { StepCard } from './step-card';
 import type { components } from '@/lib/api/types.gen';
@@ -74,5 +75,103 @@ describe('StepCard delete control', () => {
 
     const remove = screen.getByRole('button', { name: /delete step personal information/i });
     expect(remove).toBeEnabled();
+  });
+});
+
+describe('StepCard offers each step only what it can store', () => {
+  /*
+   * Reported from local testing: a passport on a step the broker added, with no
+   * home for its pages, and a File field on Proof of Address marked required that
+   * blocked nothing. The server refuses both on save; the builder no longer
+   * offers them, and says what each step is for.
+   */
+  const catalogue = [
+    { value: 'passport', label: 'Passport', category: 'identity' as const, parts: [] },
+    { value: 'utility_bill', label: 'Utility Bill', category: 'address' as const, parts: [] },
+  ];
+  const field = (type: string) => ({
+    id: 'f-1',
+    name: 'customField_1',
+    label: 'Upload',
+    type: type as KycStepConfig['fields'][number]['type'],
+    required: true,
+  });
+  const optionsOf = async (s: KycStepConfig) => {
+    const user = userEvent.setup();
+    renderWithProviders(<StepCard {...props} step={s} total={2} catalogue={catalogue} />);
+    await user.click(screen.getByRole('combobox', { name: /input type/i }));
+    const list = await screen.findByRole('listbox');
+    return within(list)
+      .getAllByRole('option')
+      .map((option) => option.textContent ?? '');
+  };
+
+  it('an added step offers uploads but no document — and says where documents go', async () => {
+    const options = await optionsOf(
+      step({ slug: 'source-of-funds', title: 'Source of funds', fields: [field('file')] }),
+    );
+    expect(options.some((o) => /file uploader/i.test(o))).toBe(true);
+    expect(options.some((o) => /passport|utility bill/i.test(o))).toBe(false);
+    expect(
+      screen.getByText(/belong on the Identity Document and Proof of Address steps/i),
+    ).toBeInTheDocument();
+  });
+
+  it('Proof of Address offers its own documents AND every plain type — questions and uploads too', async () => {
+    const options = await optionsOf(
+      step({ slug: 'address', title: 'Proof of Address', fields: [field('doc:utility_bill')] }),
+    );
+    expect(options.some((o) => /utility bill/i.test(o))).toBe(true);
+    expect(options.some((o) => /file uploader/i.test(o))).toBe(true);
+    expect(options.some((o) => /passport/i.test(o))).toBe(false);
+    expect(screen.getByText(/any question or upload you add is asked too/i)).toBeInTheDocument();
+  });
+
+  it('will not remove the last document on a document step, and says why', () => {
+    renderWithProviders(
+      <StepCard
+        {...props}
+        step={step({
+          slug: 'address',
+          title: 'Proof of Address',
+          fields: [field('doc:utility_bill')],
+        })}
+        total={2}
+        catalogue={catalogue}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /at least one document/i })).toBeDisabled();
+  });
+
+  it('offers CHOICES on a checkbox — none is a single tick box, some make it "tick all that apply"', () => {
+    renderWithProviders(
+      <StepCard {...props} step={step({ slug: 'extra', fields: [field('checkbox')] })} total={2} />,
+    );
+    expect(screen.getByLabelText(/choices \(optional\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/a single tick box/i)).toBeInTheDocument();
+  });
+
+  it('shows no "Required" on a document — the step requires the chosen one, and nothing reads the flag', () => {
+    renderWithProviders(
+      <StepCard
+        {...props}
+        step={step({
+          slug: 'address',
+          title: 'Proof of Address',
+          fields: [field('doc:utility_bill')],
+        })}
+        total={2}
+        catalogue={catalogue}
+      />,
+    );
+    expect(screen.queryByRole('checkbox', { name: /required/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/client picks one document/i)).toBeInTheDocument();
+  });
+
+  it('keeps "Required" on a field whose flag the server enforces', () => {
+    renderWithProviders(
+      <StepCard {...props} step={step({ slug: 'extra', fields: [field('file')] })} total={2} />,
+    );
+    expect(screen.getByRole('checkbox', { name: /required/i })).toBeChecked();
   });
 });

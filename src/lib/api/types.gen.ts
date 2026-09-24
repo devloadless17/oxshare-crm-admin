@@ -5769,6 +5769,33 @@ export interface components {
             /** @description Second page, for multi-page address proof. */
             page2FilePath?: string;
         };
+        KycOwedDto: {
+            /**
+             * @description A field name, a canonical page slot (`doc_back`), or `docType` for the choice.
+             * @example doc_back
+             */
+            id: string;
+            /** @example National ID: Back Side */
+            label: string;
+            /** @enum {string} */
+            kind: "choice" | "page" | "upload" | "answer" | "invalid" | "returned";
+            /** @description For `invalid`: why, ready to print. */
+            message?: string;
+            /** @description For `invalid`: the machine-readable reason. */
+            code?: string;
+            /** @description For `returned`: a document blocks the step; a typed answer only asks. */
+            blocking?: boolean;
+        };
+        KycStepStateDto: {
+            /** @example address */
+            slug: string;
+            /** @description Nothing owed and nothing returned that blocks. */
+            complete: boolean;
+            /** @description What the client still owes, in step order. */
+            missing: components["schemas"]["KycOwedDto"][];
+            /** @description What the reviewer returned here and the client has not answered. */
+            returned: components["schemas"]["KycOwedDto"][];
+        };
         KycStatusDto: {
             userId: string;
             /** @enum {string} */
@@ -5790,6 +5817,8 @@ export interface components {
             rejectionReason?: string;
             /** @description Field names the client must re-submit. */
             rejectedFields?: string[];
+            /** @description Every enabled step, in order: complete or not, what it still owes and what was returned. The same judgement `POST /kyc/submit` applies — render it, do not re-derive it. */
+            steps: components["schemas"]["KycStepStateDto"][];
             /** Format: date-time */
             submittedAt?: string;
             reviewedBy?: string;
@@ -10189,11 +10218,14 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            /** @description The saved submission with every step state — this step judged as presented. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["KycStatusDto"];
+                };
             };
         };
     };
@@ -10211,6 +10243,8 @@ export interface operations {
                     file: string;
                     /** @example doc_front */
                     field: string;
+                    /** @example national_id */
+                    docType?: string;
                 };
             };
         };

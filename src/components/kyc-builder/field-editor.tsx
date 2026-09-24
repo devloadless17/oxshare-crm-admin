@@ -15,28 +15,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+import { fieldTypesForStep, isCanonicalSelfie } from './field-types';
 
 export type KycFieldConfig = components['schemas']['KycFieldConfigDto'];
 export type KycDocumentType = components['schemas']['KycDocumentTypeDto'];
-
-/**
- * EVERY type in the schema, in one place.
- *
- * The union lives in `types.gen.ts` and TypeScript checks this list against it
- * — `satisfies` below means a type added to the API and not added here is a
- * compile error rather than a silently unofferable option. The builder was
- * previously missing `camera` for exactly that reason: the hand-written copy of
- * the union omitted it.
- */
-export const FIELD_TYPES = [
-  { value: 'text', label: 'builder.typeText' },
-  { value: 'date', label: 'builder.typeDate' },
-  { value: 'phone', label: 'builder.typePhone' },
-  { value: 'select', label: 'builder.typeSelect' },
-  { value: 'file', label: 'builder.typeFile' },
-  { value: 'camera', label: 'builder.typeCamera' },
-  { value: 'checkbox', label: 'builder.typeCheckbox' },
-] as const satisfies readonly { value: KycFieldConfig['type']; label: string }[];
 
 /**
  * Every document is an INPUT TYPE, listed beside `text` and `date`.
@@ -47,10 +29,12 @@ export const FIELD_TYPES = [
  *
  * The list comes from the API's catalogue rather than being hard-coded here:
  * how many photos a passport needs is a fact the client portal renders from
- * too, and two copies of it would drift the moment one was edited.
+ * too, and two copies of it would drift the moment one was edited. Which of
+ * them a step may offer is `fieldTypesForStep` — only the two document steps,
+ * each its own kind.
  */
-function documentFieldTypes(catalogue: KycDocumentType[]) {
-  return catalogue.map((doc) => ({
+function documentFieldTypes(documents: KycDocumentType[]) {
+  return documents.map((doc) => ({
     value: `doc:${doc.value}`,
     label: doc.label,
     parts: doc.parts?.length ?? 0,
@@ -71,11 +55,17 @@ function documentFieldTypes(catalogue: KycDocumentType[]) {
  */
 export function FieldEditor({
   field,
+  slug,
   catalogue = [],
+  locked,
   onChange,
   onRemove,
 }: {
   field: KycFieldConfig;
+  /** The step's slug — it decides which types the step can store. */
+  slug: string;
+  /** Why this field cannot be removed — the step would be one nobody can complete. */
+  locked?: 'selfie' | 'lastDocument';
   /** The documents a `document` field may accept. Served by the API. */
   catalogue?: KycDocumentType[];
   onChange: (patch: Partial<KycFieldConfig>) => void;
@@ -98,6 +88,7 @@ export function FieldEditor({
    * text rather than inheriting the previous one's.
    */
   const [optionsText, setOptionsText] = React.useState(() => (field.options ?? []).join(', '));
+  const offered = fieldTypesForStep(slug, catalogue, field);
 
   const setOptions = (raw: string) => {
     setOptionsText(raw);
@@ -155,7 +146,7 @@ export function FieldEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {FIELD_TYPES.map((option) => (
+              {offered.base.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {t(option.label as Parameters<typeof t>[0])}
                 </SelectItem>
@@ -163,7 +154,7 @@ export function FieldEditor({
               {/* The photo count rides on the option because it is what an
                   operator is choosing between: a passport costs the client one
                   upload, an ID card two. */}
-              {documentFieldTypes(catalogue).map((option) => (
+              {documentFieldTypes(offered.documents).map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label} · {t('builder.documentParts', { count: option.parts })}
                 </SelectItem>
@@ -187,10 +178,32 @@ export function FieldEditor({
       </div>
 
       {/*
-       * Only for `select`. See the header: an options box on a `text` field is
-       * a control with no effect, and an operator who fills it in has been
-       * misled rather than helped.
+       * Only for `select` and `checkbox`. See the header: an options box on a
+       * `text` field is a control with no effect, and an operator who fills it
+       * in has been misled rather than helped. On a checkbox the choices are
+       * OPTIONAL — none is a single tick box whose label is what the client
+       * confirms; some make it "tick all that apply" (asked for in local
+       * testing: "where can I put checkbox options?").
        */}
+      {field.type === 'checkbox' && (
+        <div className="mt-3 space-y-1">
+          <Label className="text-[11px]" htmlFor={`options-${field.id}`}>
+            {t('builder.checkboxChoices')}
+          </Label>
+          <Input
+            id={`options-${field.id}`}
+            value={optionsText}
+            onChange={(e) => setOptions(e.target.value)}
+            placeholder={t('builder.checkboxChoicesPlaceholder')}
+            className="h-8 text-xs"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            {(field.options ?? []).length === 0
+              ? t('builder.checkboxSingle')
+              : t('builder.checkboxMany', { count: (field.options ?? []).length })}
+          </p>
+        </div>
+      )}
       {field.type === 'select' && (
         <div className="mt-3 space-y-1">
           <Label className="text-[11px]" htmlFor={`options-${field.id}`}>
@@ -212,19 +225,52 @@ export function FieldEditor({
       )}
 
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
-        <label className="flex cursor-pointer items-center gap-2">
-          <Checkbox
-            checked={field.required}
-            onCheckedChange={(checked) => onChange({ required: checked === true })}
-          />
-          <span className="text-[11px] font-medium">{t('builder.requiredField')}</span>
-        </label>
+        {/*
+         * NO "Required" ON A DOCUMENT. A document step offers its documents as
+         * a CHOICE: the client picks one and must upload every page it needs,
+         * because the step is enabled — `submit` asks for the chosen document
+         * and never reads this flag. A checkbox here was a control that did
+         * nothing, which is what an operator trusting it deserves to be told.
+         */}
+        {field.type.startsWith('doc:') ? (
+          <span className="text-[11px] text-muted-foreground">
+            {t('builder.documentChoiceNote')}
+          </span>
+        ) : isCanonicalSelfie(slug, field) ? (
+          // Likewise the selfie: taken whenever the step is enabled, whatever
+          // this flag says.
+          <span className="text-[11px] text-muted-foreground">{t('builder.selfieAlwaysNote')}</span>
+        ) : (
+          <label className="flex cursor-pointer items-center gap-2">
+            <Checkbox
+              checked={field.required}
+              onCheckedChange={(checked) => onChange({ required: checked === true })}
+            />
+            <span className="text-[11px] font-medium">{t('builder.requiredField')}</span>
+          </label>
+        )}
 
         <Button
           variant="ghost"
           size="sm"
           onClick={onRemove}
-          aria-label={t('builder.removeFieldNamed', { label: field.label })}
+          // The reason is ON the control: a disabled button with no explanation
+          // reads as a broken one.
+          disabled={locked !== undefined}
+          title={
+            locked === 'selfie'
+              ? t('builder.lockedSelfie')
+              : locked === 'lastDocument'
+                ? t('builder.lockedLastDocument')
+                : undefined
+          }
+          aria-label={
+            locked === 'selfie'
+              ? t('builder.lockedSelfie')
+              : locked === 'lastDocument'
+                ? t('builder.lockedLastDocument')
+                : t('builder.removeFieldNamed', { label: field.label })
+          }
           className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10"
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />

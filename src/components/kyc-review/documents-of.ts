@@ -6,9 +6,6 @@ import { t } from '@/lib/i18n';
 type KycSubmission = components['schemas']['KycSubmissionDto'];
 type KycStepConfig = components['schemas']['KycStepConfigDto'];
 
-/** The four canonical steps, whose files are the columns above rather than `stepData`. */
-const CANONICAL_SLUGS = new Set(['personal', 'document', 'selfie', 'address']);
-
 /**
  * The documents a submission actually carries, in review order.
  *
@@ -91,8 +88,14 @@ export function documentsOf(data: KycSubmission, steps?: KycStepConfig[]): Light
 function customStepFiles(data: KycSubmission, steps?: KycStepConfig[]): LightboxDoc[] {
   const stepData = (data.stepData ?? {}) as Record<string, Record<string, unknown>>;
   const docs: LightboxDoc[] = [];
+  /*
+   * EVERY slug, the four built-in ones included. Their DOCUMENTS are the columns
+   * above and never live here — but a broker may add an extra upload to any
+   * step, and its file is kept here under the step's slug. This skipped the
+   * built-in slugs, so a file a client uploaded into an extra field on Proof of
+   * Address would never have reached the reviewer.
+   */
   for (const [slug, answers] of Object.entries(stepData)) {
-    if (CANONICAL_SLUGS.has(slug)) continue;
     const step = steps?.find((s) => s.slug === slug);
     for (const [name, value] of Object.entries(answers ?? {})) {
       if (!isStoredFileAnswer(value)) continue;

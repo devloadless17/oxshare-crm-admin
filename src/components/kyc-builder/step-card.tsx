@@ -6,10 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FieldEditor, type KycDocumentType, type KycFieldConfig } from './field-editor';
+import { lockedReason } from './field-types';
 import { SortableList, SortableRow } from './sortable-row';
 import { t } from '@/lib/i18n';
 
 export type KycStepConfig = components['schemas']['KycStepConfigDto'];
+
+/** What each built-in step collects, in the operator's words; any other step is one they added. */
+const STEP_HOLDS: Partial<Record<string, Parameters<typeof t>[0]>> = {
+  personal: 'builder.holdsPersonal',
+  document: 'builder.holdsDocument',
+  address: 'builder.holdsDocument',
+  selfie: 'builder.holdsSelfie',
+};
 
 /**
  * One step in the onboarding flow, and every field inside it.
@@ -202,6 +211,10 @@ export function StepCard({
               <p className="text-[11px] text-muted-foreground">
                 {step.fields.length > 1 ? t('builder.dragHint') : t('builder.fieldsHint')}
               </p>
+              {/* Why the type list is what it is — see `fieldTypesForStep`. */}
+              <p className="mt-1 max-w-prose text-[11px] text-muted-foreground">
+                {t(STEP_HOLDS[step.slug] ?? 'builder.holdsAdded')}
+              </p>
             </div>
             <Button
               variant="outline"
@@ -229,7 +242,9 @@ export function StepCard({
                   >
                     <FieldEditor
                       field={field}
+                      slug={step.slug}
                       catalogue={catalogue}
+                      locked={lockedReason(step.slug, field, step.fields)}
                       onChange={(patch) => onPatchField(field.id, patch)}
                       onRemove={() => onRemoveField(field.id)}
                     />

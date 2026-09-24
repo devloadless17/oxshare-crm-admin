@@ -1302,6 +1302,26 @@ export const messages = {
   'builder.stepTitle': 'Step Title',
   'builder.stepDescription': 'Description / Instructions',
   'builder.fieldsHint': 'Configure field labels, input types, and requirement flags.',
+  'builder.holdsAdded':
+    'Collects typed answers and files. Passports, ID cards and proofs of address belong on the Identity Document and Proof of Address steps — here, add a File field for each photo you need.',
+  'builder.holdsPersonal':
+    "The client's profile. Add any question or upload — passports and other documents are collected on the Identity Document and Proof of Address steps.",
+  'builder.holdsDocument':
+    'The client picks one of the documents offered here and uploads its pages. Any question or upload you add is asked too.',
+  'builder.holdsSelfie':
+    'Takes one live selfie with its camera. Any question or upload you add is asked too.',
+  'builder.checkboxChoices': 'Choices (optional)',
+  'builder.checkboxChoicesPlaceholder': 'e.g. Salary, Savings, Gift',
+  'builder.checkboxSingle':
+    'No choices: a single tick box — the label is what the client confirms.',
+  'builder.checkboxMany': '{count} {count:choice|choices} — the client ticks any that apply.',
+  'builder.selfieAlwaysNote': 'Always taken while this step is enabled.',
+  'builder.lockedSelfie':
+    'The selfie step takes its photo with this camera — disable the step to stop asking for a selfie.',
+  'builder.lockedLastDocument':
+    'Clients must be offered at least one document here — add another first, or disable the step.',
+  'builder.documentChoiceNote':
+    'Offered as a choice — the client picks one document and uploads every page it needs.',
   'builder.addField': 'Add Field',
   'builder.fieldLabel': 'Field Label',
   /*
