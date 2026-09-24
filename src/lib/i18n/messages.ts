@@ -118,6 +118,8 @@ export const messages = {
   'theme.label': 'Theme',
   'theme.light': 'Light',
   'theme.dark': 'Dark',
+  'theme.switchToDark': 'Switch to dark mode',
+  'theme.switchToLight': 'Switch to light mode',
   'theme.system': 'System',
   'nav.collapseSidebar': 'Collapse the sidebar',
   'nav.expandSidebar': 'Expand the sidebar',

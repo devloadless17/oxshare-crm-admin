@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { PageLoader } from '@/components/ui/loader';
+import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { api } from '@/lib/api';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -110,21 +110,8 @@ function AdminLoginForm() {
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="flex flex-col items-center space-y-2 text-center">
-          <Image
-            src="/oxshare-mark.svg"
-            // An SVG is already a vector: there is nothing for the optimizer to
-            // resize or re-encode. Next also REFUSES to optimize SVG unless
-            // `dangerouslyAllowSVG` is set — correctly, since an SVG can carry
-            // script — so routing this through /_next/image returned 400 and
-            // rendered as a broken image. `unoptimized` serves the file
-            // directly and keeps next/image's layout props.
-            unoptimized
-            alt={t('app.name')}
-            width={44}
-            height={40}
-            className="h-11 w-11 object-contain"
-            priority
-          />
+          {/* Drawn inline (brand-logo.tsx): no file request, official colours. */}
+          <BrandLogo variant="mark" title={t('app.name')} className="h-11 w-auto" />
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {t('app.name')} <span className="text-muted-foreground">{t('app.adminSuffix')}</span>
           </h1>

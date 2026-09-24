@@ -87,23 +87,22 @@ describe('the header account menu', () => {
    * Asserting them as `menuitemradio` also pins that the control is still a
    * radio group rather than three loose buttons.
    */
-  it('expands Light, Dark and System into the same menu', async () => {
+  it('offers NO theme control in the account menu — it moved beside the bell', async () => {
+    /*
+     * Theme used to be a "Theme ▸" row here expanding to Light, Dark and System.
+     * The client asked for two states and for the control to sit in the header
+     * beside the notification bell, so the menu no longer carries it at all —
+     * a second, older copy of the control left behind here would be one more
+     * place for the two to disagree.
+     */
     const user = userEvent.setup();
     render(<UserMenu collapsed variant="header" />);
-    await openMenu(user);
+    await user.click(screen.getByRole('button', { name: /account menu/i }));
+    await screen.findByRole('menuitem', { name: /^log ?out$/i });
 
-    const theme = await screen.findByRole('menuitem', { name: /theme/i });
-    // Collapsed to start with, exactly as the submenu row was.
-    expect(theme).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('menuitem', { name: /theme/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument();
-
-    await user.click(theme);
-
-    for (const name of [/^light$/i, /^dark$/i, /^system$/i]) {
-      expect(await screen.findByRole('menuitemradio', { name })).toBeInTheDocument();
-    }
-    // One panel, not two: the options are rows in the menu that was already open.
-    expect(screen.getAllByRole('menu')).toHaveLength(1);
+    expect(screen.queryByText(/^system$/i)).not.toBeInTheDocument();
   });
 
   it('a failed sign-out keeps the menu open and says so INSIDE it', async () => {

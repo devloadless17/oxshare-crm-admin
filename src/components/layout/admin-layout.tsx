@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -38,6 +37,8 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { UserMenu } from './user-menu';
+import { BrandLogo } from '@/components/brand-logo';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { NotificationsSheet } from './notifications-sheet';
 import { useAdmin } from '@/context/AdminAuthContext';
 import api from '@/lib/api';
@@ -629,48 +630,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               tell the two apps apart — the console is reached at its own host,
               and every screen inside it is one the portal does not have.
             */}
+            {/*
+              The logo is drawn INLINE (see brand-logo.tsx): no file request, no
+              second copy swapped by CSS, and dark mode is the word's colour
+              turning white. The link around it carries the accessible name, so
+              the drawing itself is decorative.
+            */}
             {collapsed ? (
-              <Image
-                src="/oxshare-mark.svg"
-                // See the note on the sign-in page: Next refuses to optimize SVG
-                // without `dangerouslyAllowSVG`, and a vector needs no optimizing.
-                unoptimized
-                alt={t('app.name')}
-                width={28}
-                height={26}
-                className="h-7 w-7 shrink-0 object-contain"
-                priority
-              />
+              <BrandLogo variant="mark" className="h-7 w-auto shrink-0" />
             ) : (
-              <>
-                {/*
-                  TWO FILES, SWAPPED IN CSS. The brand ships a dark wordmark for
-                  light grounds and a white one for dark, so this renders the
-                  artwork as drawn rather than filtering one into the other.
-
-                  `dark:hidden` rather than a JS check on the theme: next-themes
-                  sets the class before React hydrates, so a JS-chosen src would
-                  flash the light logo on a dark screen for one frame.
-                */}
-                <Image
-                  src="/oxshare-logo.svg"
-                  unoptimized
-                  alt={t('app.name')}
-                  width={76}
-                  height={26}
-                  className="h-7 w-auto shrink-0 object-contain dark:hidden"
-                  priority
-                />
-                <Image
-                  src="/oxshare-logo-dark.svg"
-                  unoptimized
-                  alt={t('app.name')}
-                  width={76}
-                  height={26}
-                  className="hidden h-7 w-auto shrink-0 object-contain dark:block"
-                  priority
-                />
-              </>
+              <BrandLogo className="h-7 w-auto shrink-0" />
             )}
           </Link>
 
@@ -879,6 +848,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               always said there was something. Both are gone: it opens a panel
               now, and the panel is honest that notifications are not live.
             */}
+            {/*
+              Light or dark, one click, BESIDE the bell — the client's call. It
+              used to be a Theme ▸ submenu inside the account menu offering
+              System as well; the toggle is the whole control now.
+            */}
+            <ThemeToggle />
             <NotificationsSheet />
 
             {/*
@@ -887,8 +862,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               used to sit at the foot of the sidebar on desktop with this
               header copy gated `lg:hidden`; one menu in one place means one
               selector for the tests and no duplicate trigger for a screen
-              reader to announce twice. The theme control (Light/Dark/System)
-              lives inside it — a personal preference, not system status.
+              reader to announce twice.
             */}
             <UserMenu collapsed variant="header" />
           </div>
