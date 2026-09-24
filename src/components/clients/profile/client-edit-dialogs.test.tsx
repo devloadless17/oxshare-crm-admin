@@ -74,6 +74,49 @@ describe('EditClientProfileDialog', () => {
     expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '' });
   });
 
+  it('a MASKED field cannot block the form, and cannot be overwritten', async () => {
+    /*
+     * REPORTED FROM PRODUCTION.
+     *
+     * A masked field is removed from the payload, so `lastName` arrived
+     * undefined and the box rendered EMPTY — which reads as "this client has no
+     * last name". `required` then refused to submit until the operator typed
+     * something into it, so changing a PHONE NUMBER meant overwriting a last
+     * name they were not allowed to read. The mask coerced exactly the
+     * corruption it exists to prevent.
+     */
+    const user = userEvent.setup();
+    const masked = {
+      ...PROFILE,
+      lastName: undefined,
+      maskedFields: ['client.lastName'],
+    } as unknown as ClientProfile;
+
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={masked} />);
+
+    // It says WHY the box is empty, rather than looking like a client with no
+    // last name.
+    expect(await screen.findByText(/hidden from you/i)).toBeInTheDocument();
+
+    // And it cannot be typed into at all.
+    const lastName = screen.getByLabelText(/last name/i);
+    expect(lastName).toBeDisabled();
+
+    // The whole point: another field is still editable and the form still saves.
+    const phone = await screen.findByDisplayValue('+9613111222');
+    await user.clear(phone);
+    await user.type(phone, '+9613999888');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    /*
+     * `toHaveBeenCalledWith` an EXACT object already proves the negative: a
+     * patch carrying `lastName` would not match this. Asserted that way rather
+     * than by indexing into `mock.calls`, which is possibly-undefined under
+     * the type-checked lint rules and says the same thing less directly.
+     */
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+9613999888' });
+  });
+
   it('cannot be saved when nothing has changed', async () => {
     renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={PROFILE} />);
 

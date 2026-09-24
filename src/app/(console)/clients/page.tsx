@@ -1,5 +1,6 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import { Suspense, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
@@ -233,11 +234,13 @@ function ClientsPageContent() {
           open
           onClose={() => setProgramTarget(null)}
           userId={programTarget.id}
-          name={
-            [programTarget.firstName, programTarget.lastName].filter(Boolean).join(' ') ||
-            programTarget.email ||
-            programTarget.id
-          }
+          /*
+            The last resort was `programTarget.id` — the UUID, which this
+            console does not show at all (0133: a client is named by Portal ID
+            and the uuid is internal). So a fully masked client put 36
+            characters nobody can use into a confirmation dialog.
+          */
+          name={clientLabel(programTarget)}
         />
       )}
 

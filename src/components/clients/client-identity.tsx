@@ -107,6 +107,47 @@ export function ClientIdentity({
   );
 }
 
+/**
+ * A label for a client that is NEVER empty — the text-only sibling of
+ * `ClientIdentity`, for titles, confirmations and aria labels.
+ *
+ * ## The defect this exists for
+ *
+ * Every screen used to write `[firstName, lastName].filter(Boolean).join(' ')`,
+ * some falling back to `email`, some to a dash, some to nothing. All three
+ * collapse under RBAC-03: a masked field is REMOVED from the payload, so a role
+ * that hides name and email leaves every one of those expressions producing an
+ * empty string.
+ *
+ * What an operator then sees is not "hidden" — it is nothing at all. Reported
+ * from production: a client's partner card rendered blank, and the admin read
+ * it as "this client has no IB". The IB was there, in their territory, and only
+ * their NAME was masked. A masking feature that makes records look absent is
+ * worse than one that shows too much, because the reader draws a confident
+ * wrong conclusion instead of asking.
+ *
+ * `email` is not a safe fallback for the same reason — it is maskable too. The
+ * Portal ID is, by catalogue rule (`client-fields.json`, `maskable: false`): it
+ * identifies the RECORD rather than the person, so it survives every mask and
+ * is the thing to print when nothing else may be shown.
+ */
+export function clientLabel(
+  client: {
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    portalId?: number | null;
+  },
+  /** Shown only when even the Portal ID is absent — a row with no client. */
+  fallback = '—',
+): string {
+  const name = clientName(client.firstName, client.lastName);
+  if (name) return name;
+  if (client.email) return client.email;
+  if (client.portalId !== null && client.portalId !== undefined) return `#${client.portalId}`;
+  return fallback;
+}
+
 /** First and last name joined, or `undefined` when neither is readable. */
 export function clientName(
   firstName: string | null | undefined,

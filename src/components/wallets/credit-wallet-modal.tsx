@@ -1,5 +1,6 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import * as React from 'react';
 import type { WalletRow } from '@/lib/api/admin';
 import { Modal } from '@/components/ui/modal';
@@ -84,8 +85,14 @@ function CreditForm({
   const [amount, setAmount] = React.useState('');
   const [reason, setReason] = React.useState('');
 
-  const owner =
-    [wallet.user.firstName, wallet.user.lastName].filter(Boolean).join(' ') || wallet.user.email;
+  /*
+   * Name, else email, else the Portal ID — and the last one is why this uses
+   * the shared helper. Both name fields and the email are maskable (RBAC-03)
+   * and arrive UNDEFINED for a role that hides them, so this chain produced an
+   * EMPTY owner on a dialog that CREDITS A WALLET. An operator was asked to
+   * confirm money into an account belonging to nobody they could identify.
+   */
+  const owner = clientLabel(wallet.user);
 
   return (
     <form

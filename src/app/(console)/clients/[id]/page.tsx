@@ -48,6 +48,7 @@ import {
 import { buildKycDocUrl } from '@/lib/kyc-doc-url';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { clientLabel } from '@/components/clients/client-identity';
 import { PermittedLink } from '@/components/permitted-link';
 import { keys } from '@/lib/query-keys';
 import { isMasked } from '@/lib/masking';
@@ -220,8 +221,7 @@ export default function ClientProfilePage() {
   const profile = query.data;
   const partner = partnerQuery.data ?? null;
   const attachedIds = new Set((profile?.tags ?? []).map((tag) => tag.id));
-  const displayName =
-    [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || t('clients.unnamed');
+  const displayName = profile ? clientLabel(profile, t('clients.unnamed')) : t('clients.unnamed');
 
   /*
    * Is there ANY of this person's name left to show?
@@ -681,9 +681,16 @@ export default function ClientProfilePage() {
                             href={`/clients/${profile.referrer.portalId}`}
                             className="text-link hover:underline focus-outline"
                           >
-                            {[profile.referrer.firstName, profile.referrer.lastName]
-                              .filter(Boolean)
-                              .join(' ')}
+                            {/*
+                              NEVER an empty link. A role that masks the
+                              partner's name leaves both fields undefined, and
+                              this printed nothing at all — reported from
+                              production as "this client has no IB" when the IB
+                              was there, in territory, with only their name
+                              hidden. clientLabel falls through to the Portal
+                              ID, which no role can mask.
+                            */}
+                            {clientLabel(profile.referrer)}
                           </PermittedLink>
                           {!profile.referrer.active && (
                             <Badge variant="warning" className="ms-2">

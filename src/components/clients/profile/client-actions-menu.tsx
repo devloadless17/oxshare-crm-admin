@@ -1,5 +1,6 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   AtSign,
@@ -110,8 +111,14 @@ export function ClientActionsMenu({
   const canViewClients = hasPermission(admin, 'clients.view');
   const canViewAudit = hasPermission(admin, 'audit.view');
 
-  const name =
-    [profile.firstName, profile.lastName].filter(Boolean).join(' ') || profile.email || '';
+  /*
+   * This chain ended in `''`, and the name goes into the SUSPEND and
+   * REACTIVATE confirmations. For a client whose name and email a role masks,
+   * the operator was asked to confirm a destructive action against nobody —
+   * "Suspend ?" — with no way to tell which client they were acting on.
+   * clientLabel falls through to the Portal ID, which no role can mask.
+   */
+  const name = clientLabel(profile);
 
   /*
    * `clients.all()` rather than the detail key alone: suspending from the

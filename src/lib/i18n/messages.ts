@@ -977,6 +977,7 @@ export const messages = {
   // moment both are in the same object.
   'clientProfile.fieldCountry': 'Country',
   'clientProfile.fieldClearHint': 'Leave empty to remove it.',
+  'clientProfile.fieldHiddenFromYou': 'Hidden from you — your role cannot see this field.',
 
   'clientProfile.changeEmailTitle': 'Change sign-in email',
   'clientProfile.changeEmailWarnTitle': 'This changes how the client signs in.',

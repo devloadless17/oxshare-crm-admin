@@ -1,5 +1,6 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { components } from '@/lib/api/types.gen';
@@ -269,7 +270,12 @@ function KycQueue() {
           </div>
           <div>
             <div className="font-semibold text-foreground">
-              {[row.user?.firstName, row.user?.lastName].filter(Boolean).join(' ') || '—'}
+              {/*
+                A masked name used to render as a dash, which says "no client"
+                rather than "you may not see this one". clientLabel falls
+                through to the Portal ID, which no role can mask.
+              */}
+              {clientLabel(row.user ?? {})}
             </div>
             <div className="text-xs text-muted-foreground">{row.user?.email}</div>
           </div>
