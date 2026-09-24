@@ -597,7 +597,22 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Sidebar Header */}
-        <div className="flex h-16 items-center justify-between border-b border-border px-4">
+        {/*
+          COLLAPSED, the header holds the mark ALONE, centred — and the expand
+          control moves onto the sidebar's edge as a small round button.
+
+          It used to keep both in one row: the 31px mark and the 28px toggle in
+          an 80px rail with 16px of padding each side is 59px into 48px, so the
+          logo link shrank, its `overflow-hidden` clipped the mark, and the
+          header read as a broken logo jammed against a chevron (owner's report,
+          24 Sep 2026). A control on the edge is the pattern people already know
+          from every collapsible sidebar, and it costs the header nothing.
+        */}
+        <div
+          className={`relative flex h-16 items-center border-b border-border ${
+            collapsed ? 'justify-center px-2' : 'justify-between px-4'
+          }`}
+        >
           {/*
             NAMED ON THE LINK, not only by the artwork inside it.
 
@@ -652,9 +667,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                navigation — the portal's copy of this had the same gap. */
             aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
             aria-expanded={!collapsed}
-            className="hidden lg:flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline"
+            className={
+              collapsed
+                ? 'absolute -right-3 top-1/2 z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-outline lg:flex'
+                : 'hidden lg:flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline'
+            }
           >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {collapsed ? (
+              <ChevronRight className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </button>
 
           {/* Mobile Close */}

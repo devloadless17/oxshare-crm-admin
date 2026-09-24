@@ -4258,6 +4258,8 @@ export interface components {
         };
         UserProfileDto: {
             id: string;
+            /** @example 1000001 */
+            portalId: number;
             /** @example client@oxshare.com */
             email: string;
             /** @example John */
@@ -4794,12 +4796,22 @@ export interface components {
         };
         IbPartnerPersonDto: {
             userId: string;
+            /**
+             * @description Their Portal ID.
+             * @example 1000245
+             */
+            portalId: number;
             email: string;
             firstName: string | null;
             lastName: string | null;
         };
         IbSubPartnerRowDto: {
             userId: string;
+            /**
+             * @description Their Portal ID.
+             * @example 1000245
+             */
+            portalId: number;
             email: string;
             firstName: string | null;
             lastName: string | null;
@@ -5225,6 +5237,8 @@ export interface components {
              */
             walletNumber: string;
             userId: string;
+            /** @example 1000001 */
+            userPortalId: number | null;
             userFirstName: string | null;
             userLastName: string | null;
             userEmail: string | null;
@@ -6214,6 +6228,8 @@ export interface components {
         };
         ClientRowDto: {
             id: string;
+            /** @example 1000001 */
+            portalId: number;
             email?: string;
             firstName?: string;
             lastName?: string;
@@ -6275,6 +6291,8 @@ export interface components {
         };
         ProfileReferrerDto: {
             ibUserId: string;
+            /** @description The introducer’s Portal ID — what the profile links by. Absent, with the rest of their identity, when the introducer is outside your territory. */
+            portalId?: number;
             /** @description Absent when the introducer is outside your territory. */
             email?: string;
             /** @description Absent when the introducer is outside your territory. */
@@ -6290,6 +6308,11 @@ export interface components {
         };
         ProfileReferredClientDto: {
             clientUserId: string;
+            /**
+             * @description Their Portal ID.
+             * @example 1000245
+             */
+            clientPortalId: number;
             email: string;
             firstName: string;
             lastName: string;
@@ -6299,6 +6322,8 @@ export interface components {
         };
         ClientProfileDto: {
             id: string;
+            /** @example 1000001 */
+            portalId: number;
             email?: string;
             firstName?: string;
             lastName?: string;
@@ -6356,6 +6381,11 @@ export interface components {
         ClientAccountDto: {
             /** Format: uuid */
             id: string;
+            /**
+             * @description The client’s Portal ID.
+             * @example 1000245
+             */
+            portalId: number;
             email: string;
             firstName: string;
             lastName: string;
@@ -6451,6 +6481,8 @@ export interface components {
         };
         KycUserDto: {
             id: string;
+            /** @example 1000001 */
+            portalId: number;
             email: string;
             firstName: string;
             lastName: string;
@@ -6704,6 +6736,22 @@ export interface components {
             action: string;
             subjectType: string;
             subjectId: string;
+            /**
+             * @description The Portal ID of the client this row is about, or null when it is about no client (a role edit, a setting) or the client no longer exists.
+             * @example 1000245
+             */
+            clientPortalId: number | null;
+            /**
+             * @description The actor’s Portal ID when the actor is a CLIENT; null for an administrator, the system or a provider, none of whom has one.
+             * @example 1000245
+             */
+            actorPortalId: number | null;
+            /**
+             * @description The subject’s Portal ID when the subject IS a client — shown in place of `subjectId`. Null for any other subject: a transaction, a wallet or a role keeps its own id.
+             * @example 1000245
+             */
+            subjectPortalId: number | null;
+            /** @description As recorded, except that any client uuid inside it is shown as that client’s Portal ID. */
             details?: {
                 [key: string]: unknown;
             };
@@ -6811,6 +6859,8 @@ export interface components {
         };
         WithdrawalUserDto: {
             id: string;
+            /** @example 1000001 */
+            portalId: number;
             email?: string;
             firstName?: string;
             lastName?: string;
@@ -6959,6 +7009,8 @@ export interface components {
              */
             walletNumber: string;
             userId: string;
+            /** @example 1000001 */
+            userPortalId: number | null;
             userFirstName: string | null;
             userLastName: string | null;
             userEmail: string | null;
@@ -7244,6 +7296,11 @@ export interface components {
         };
         HoldingOwnerDto: {
             id: string;
+            /**
+             * @description The owner’s Portal ID.
+             * @example 1000245
+             */
+            portalId: number;
             email: string;
             firstName: string;
             lastName: string;
@@ -8869,7 +8926,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "pending" | "approved" | "rejected";
-                /** @description Search the applicant’s email and name — the same three columns the KYC queue searches. */
+                /** @description A Portal ID (digits, matched exactly) or free text over the applicant’s email and name — the one client search every queue shares. */
                 q?: string;
                 page?: string;
                 limit?: string;
@@ -8972,7 +9029,7 @@ export interface operations {
                 ibUserId?: string;
                 /** @description Restrict to one client. */
                 clientUserId?: string;
-                /** @description Free text over the PARTNER's email and name — the identifiers the list displays. It deliberately does not search the client on the row: an out-of-scope client's identity is masked, and a filter that matched it would answer "does this person exist in another territory" from the row count. */
+                /** @description The PARTNER's Portal ID (digits, matched exactly) or free text over their email and name — the identifiers the list displays. It deliberately does not search the client on the row: an out-of-scope client's identity is masked, and a filter that matched it would answer "does this person exist in another territory" from the row count. */
                 q?: string;
                 status?: "pending" | "confirmed" | "reversed";
                 /** @description commission (paid to the partner) or rebate (paid back to the trading client). Absent returns both, which is what makes this one screen rather than two. */
@@ -10007,7 +10064,7 @@ export interface operations {
             query?: {
                 /** @description Accounts of one client. */
                 userId?: string;
-                /** @description Search the OWNER by email or name — the identifiers the Owner column displays. The only client filter used to be `userId`, a uuid shown nowhere on the page. */
+                /** @description A number matches the MT5 login OR the owner’s Portal ID — both exact, because an operator holding one cannot tell which it is. Anything else searches the OWNER by email or name — the identifiers the Owner column displays. */
                 q?: string;
                 environment?: "live" | "demo";
                 status?: "active" | "suspended" | "closed";
@@ -11107,7 +11164,7 @@ export interface operations {
                 cursor?: string;
                 /** @description Counting is a full scan. */
                 withTotal?: string;
-                /** @description Search email and name. */
+                /** @description A Portal ID (digits, matched exactly) or free text over email and name. */
                 q?: string;
                 type?: "individual" | "referral" | "partner";
                 status?: "active" | "pending" | "suspended";
@@ -11120,7 +11177,7 @@ export interface operations {
                 kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
-                /** @description Clients introduced by this partner (users.referred_by_ib_user_id). Scoped like every other filter — a reader still only sees their own territory. A value that is not a client id is a 400, never a silently unfiltered list. */
+                /** @description Clients introduced by this partner, by the partner’s Portal ID (users.referred_by_ib_user_id). Scoped like every other filter — a reader still only sees their own territory. A value that is not a Portal ID is a 400, never a silently unfiltered list. */
                 referredBy?: string;
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
@@ -11145,7 +11202,7 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "csv";
-                /** @description Search email and name. */
+                /** @description A Portal ID (digits, matched exactly) or free text over email and name. */
                 q?: string;
                 type?: "individual" | "referral" | "partner";
                 status?: "active" | "pending" | "suspended";
@@ -11474,7 +11531,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
-                /** @description Search applicant email and name. */
+                /** @description A Portal ID (digits, matched exactly) or free text over email and name. */
                 q?: string;
                 page?: string;
                 limit?: string;
@@ -11502,7 +11559,7 @@ export interface operations {
             query?: {
                 format?: "csv";
                 status?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
-                /** @description Search email and name. */
+                /** @description A Portal ID (digits, matched exactly) or free text over email and name. */
                 q?: string;
             };
             header?: never;
@@ -12187,7 +12244,7 @@ export interface operations {
                 actorId?: string;
                 /** @description WHAT it was done to — one client, admin, withdrawal or other subject, by id. This is the "everything that has happened to this person" read a client profile links to. */
                 subjectId?: string;
-                /** @description Free text over the ACTOR's email, which is denormalised onto every row so a deleted administrator's trail still names them. It deliberately does not search `details`: that blob holds client PII, and matching inside it would let a narrow-scoped reader confirm a client exists from a row count. */
+                /** @description A Portal ID (digits) finds every row about that client or performed by them. Anything else is free text over the ACTOR's email, which is denormalised onto every row so a deleted administrator's trail still names them. It deliberately does not search `details`: that blob holds client PII, and matching inside it would let a narrow-scoped reader confirm a client exists from a row count. */
                 q?: string;
             };
             header?: never;
@@ -12220,7 +12277,7 @@ export interface operations {
                 actorId?: string;
                 /** @description WHAT it was done to — one client, admin, withdrawal or other subject, by id. This is the "everything that has happened to this person" read a client profile links to. */
                 subjectId?: string;
-                /** @description Free text over the ACTOR's email, which is denormalised onto every row so a deleted administrator's trail still names them. It deliberately does not search `details`: that blob holds client PII, and matching inside it would let a narrow-scoped reader confirm a client exists from a row count. */
+                /** @description A Portal ID (digits) finds every row about that client or performed by them. Anything else is free text over the ACTOR's email, which is denormalised onto every row so a deleted administrator's trail still names them. It deliberately does not search `details`: that blob holds client PII, and matching inside it would let a narrow-scoped reader confirm a client exists from a row count. */
                 q?: string;
                 sort?: "createdAt" | "action" | "actorEmail";
                 order?: "asc" | "desc";
@@ -12394,7 +12451,7 @@ export interface operations {
         parameters: {
             query?: {
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
-                /** @description Search the client’s email and name — the same columns the KYC and partner queues search. */
+                /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
@@ -12482,7 +12539,7 @@ export interface operations {
                 userId?: string;
                 /** @description Exact match on the wallet code. */
                 currency?: string;
-                /** @description Search the OWNER by email or name — the identifiers this screen actually displays. Before this existed the only client filter was `userId`, a uuid shown nowhere on the page, so an operator had to fetch it from /clients first. */
+                /** @description A wallet number or the OWNER’s Portal ID (both matched exactly), or free text over the owner’s email and name — the identifiers this screen actually displays. Before this existed the only client filter was `userId`, a uuid shown nowhere on the page, so an operator had to fetch it from /clients first. */
                 q?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
@@ -12760,7 +12817,7 @@ export interface operations {
         parameters: {
             query: {
                 userId: string;
-                /** @description Search the client by email or name — the identifiers the Client column shows. Scope still applies: this cannot reach a client outside the actor’s territory. */
+                /** @description A Portal ID (digits, matched exactly) or the client’s email or name — the identifiers the Client column shows. Scope still applies: this cannot reach a client outside the actor’s territory. */
                 q?: string;
                 walletId: string;
                 entryType: string;
@@ -12843,7 +12900,7 @@ export interface operations {
                 userId?: string;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
-                /** @description Search the client’s email and name — the same columns every other queue searches. */
+                /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 from?: string;
@@ -12878,7 +12935,7 @@ export interface operations {
                 userId?: string;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
-                /** @description Search the client’s email and name — the same columns every other queue searches. */
+                /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 from?: string;
@@ -12912,7 +12969,7 @@ export interface operations {
                 userId?: string;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
-                /** @description Search the client’s email and name — the same columns every other queue searches. */
+                /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 from?: string;

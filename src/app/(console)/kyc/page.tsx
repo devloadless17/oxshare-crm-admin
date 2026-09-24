@@ -22,6 +22,7 @@ import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { limitParam, pageParam } from '@/lib/page-param';
 import { PageLoader } from '@/components/ui/loader';
 import { keys } from '@/lib/query-keys';
+import { waitingLabel } from '@/lib/waiting';
 
 /*
  * The local `KycStatus` union that sat here is gone — a fourth hand-written
@@ -280,7 +281,14 @@ function KycQueue() {
       // NOT sortable — same reason as Country below: R-2.5 makes an
       // unrecognised sort key a 400, and the API has no `userId` sort.
       sortable: false,
-      cell: (row) => <CopyableId value={row.userId} />,
+      // The Portal ID, never the uuid: the uuid still keys the row inside the
+      // system and is shown to no one (owner's decision, 24 Sep 2026).
+      cell: (row) =>
+        row.user?.portalId !== undefined ? (
+          <CopyableId value={String(row.user.portalId)} full copyLabel={t('common.copyPortalId')} />
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       header: t('kycReview.colCountry'),
@@ -393,7 +401,7 @@ function KycQueue() {
                   waiting >= STALE_AFTER_DAYS ? 'text-destructive' : 'text-muted-foreground'
                 }`}
               >
-                {t('kycReview.waitingDays', { days: waiting })}
+                {row.submittedAt && waitingLabel(row.submittedAt)}
               </span>
             )}
           </span>
@@ -425,7 +433,7 @@ function KycQueue() {
       sortable: false,
       cell: (row) => (
         <PermittedLink
-          href={`/kyc/${row.userId}`}
+          href={`/kyc/${row.user?.portalId ?? row.userId}`}
           className="inline-flex items-center gap-1 font-semibold text-xs text-link hover:underline focus-outline rounded-sm"
           aria-label={`Review KYC submission of ${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim()}
         >

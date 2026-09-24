@@ -56,9 +56,16 @@ describe('clientColumns — the field mask', () => {
      * hidden half back on screen the day the server stopped stripping it.
      */
     const cell = nameColumn(['client.firstName'])?.cell;
-    const rendered = cell?.({ id: 'c1', lastName: 'Haddad' } as never);
+    const rendered = cell?.({
+      id: '0b7d3c9e-4f21-48a6-9c05-2d8e11aa3f47',
+      portalId: 1000245,
+      lastName: 'Haddad',
+    } as never);
     expect(JSON.stringify(rendered)).toContain('Haddad');
     expect(JSON.stringify(rendered)).not.toContain('undefined');
+    // Linked by Portal ID — never by the uuid the row is keyed on.
+    expect(JSON.stringify(rendered)).toContain('/clients/1000245');
+    expect(JSON.stringify(rendered)).not.toContain('0b7d3c9e');
   });
 
   it('stops offering the name SORT when the first name is hidden', () => {

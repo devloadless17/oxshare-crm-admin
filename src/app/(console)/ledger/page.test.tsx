@@ -291,22 +291,57 @@ describe('whose money each row is', () => {
     expect(screen.queryByText('11111111-1111-1111-1111-111111111111')).not.toBeInTheDocument();
   });
 
-  it('falls back to the id when the client record is GONE, rather than dropping the row', async () => {
+  it('says so in words when the client record is GONE, rather than dropping the row', async () => {
     /*
      * NULL, not absent — the LEFT join's answer for an entry whose client row
-     * has been removed. `ledger_entries` is append-only, so the row must still
-     * appear: a reconciliation that silently drops rows is worse than one
-     * naming an id it cannot resolve.
+     * has been removed, the Portal ID with it. `ledger_entries` is append-only,
+     * so the row must still appear: a reconciliation that silently drops rows
+     * is worse than one saying whose they were cannot be resolved. The uuid
+     * stays on hover for forensics and is not printed.
      */
     getLedger.mockResolvedValue(
       page({
-        items: [entry({ userFirstName: null, userLastName: null, userEmail: null })],
+        items: [
+          entry({ userFirstName: null, userLastName: null, userEmail: null, userPortalId: null }),
+        ],
       }),
     );
 
     renderWithProviders(<LedgerPage />);
 
-    expect(await screen.findByText('11111111-1111-1111-1111-111111111111')).toBeInTheDocument();
+    const gone = await screen.findByText('Client no longer exists');
+    expect(gone).toHaveAttribute('title', '11111111-1111-1111-1111-111111111111');
+    expect(screen.queryByText('11111111-1111-1111-1111-111111111111')).toBeNull();
+  });
+
+  it('names a client by Portal ID beside their name, and by it alone when a role hides both', async () => {
+    getLedger.mockResolvedValue(
+      page({
+        items: [
+          entry({
+            id: 'e-1',
+            userFirstName: 'Ada',
+            userLastName: 'Lovelace',
+            userEmail: 'ada@client.test',
+            userPortalId: 1000245,
+          }),
+          entry({
+            id: 'e-2',
+            userFirstName: undefined,
+            userLastName: undefined,
+            userEmail: undefined,
+            userPortalId: 1000246,
+          }),
+        ],
+      }),
+    );
+
+    renderWithProviders(<LedgerPage />);
+
+    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.getByText('#1000245')).toBeInTheDocument();
+    expect(screen.getByText('#1000246')).toBeInTheDocument();
+    expect(document.body.innerHTML).not.toContain('11111111-1111-1111-1111-111111111111');
   });
 
   it('says ONCE which columns a role hides, instead of a chip in every row', async () => {

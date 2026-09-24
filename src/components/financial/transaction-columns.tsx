@@ -13,6 +13,7 @@ import {
 import { isMasked } from '@/lib/masking';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
+import { ClientIdentity } from '@/components/clients/client-identity';
 
 /**
  * The Financial table's columns, extracted so the page stays a composition.
@@ -68,9 +69,9 @@ export function transactionColumns({
       /*
        * RBAC-03: hidden parts are DROPPED, and the notice above the table
        * says so once (the clients-list pattern) — 25 rows of `••••` would
-       * spend a column communicating one fact about the viewer. When
-       * everything readable is hidden the cell falls back to the client id,
-       * which the catalog keeps unmaskable because rows are addressed by it.
+       * spend a column communicating one fact about the viewer. The Portal ID
+       * is never masked, so when everything readable is hidden it alone still
+       * names the row.
        */
       cell: (row) => {
         const name = nameHidden
@@ -82,15 +83,7 @@ export function transactionColumns({
               .filter(Boolean)
               .join(' ');
         const email = emailHidden ? undefined : row.user.email;
-        if (!name && !email) {
-          return <span className="font-mono text-xs">{row.user.id}</span>;
-        }
-        return (
-          <div className="min-w-0">
-            {name && <div className="font-medium text-foreground">{name}</div>}
-            {email && <div className="truncate text-xs text-muted-foreground">{email}</div>}
-          </div>
-        );
+        return <ClientIdentity name={name} email={email} portalId={row.user.portalId} />;
       },
     },
     {
@@ -141,10 +134,20 @@ export function transactionColumns({
       header: t('financial.colState'),
       ...sortableBy('state'),
       cell: (row) => (
-        <div className="flex flex-col items-start gap-1">
+        /*
+         * References are TRUNCATED, with the whole value on `title`. A provider
+         * reference is whatever the provider issued — a uuid-length one widened
+         * this column until `Created` slid under the pinned Actions column.
+         * The full value is one hover away, and in the export.
+         */
+        <div className="flex max-w-[13rem] flex-col items-start gap-1">
           <TxStateBadge state={row.state} />
           {row.providerRef && (
-            <span className="font-mono text-[11px] text-muted-foreground" title={row.providerRef}>
+            <span
+              className="block max-w-full truncate font-mono text-[11px] text-muted-foreground"
+              title={row.providerRef}
+              data-external-ref=""
+            >
               {row.providerRef}
             </span>
           )}
@@ -160,8 +163,9 @@ export function transactionColumns({
           */}
           {row.rivalExternalId && (
             <span
-              className="font-mono text-[11px] text-muted-foreground/70"
+              className="block max-w-full truncate font-mono text-[11px] text-muted-foreground/70"
               title={`${t('financial.rivalRefTitle')}: ${row.rivalExternalId}`}
+              data-external-ref=""
             >
               {row.rivalExternalId}
             </span>

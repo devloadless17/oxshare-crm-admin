@@ -53,6 +53,7 @@ import { t, type MessageKey } from '@/lib/i18n';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
+import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 
 /**
  * ADM-03 / §8.4 — the withdrawal approval queue.
@@ -474,12 +475,11 @@ function TransactionsPageContent() {
       // which is the reason to sort this column at all.
       ...sortableBy('userEmail'),
       cell: (w) => (
-        <div className="min-w-0">
-          <div className="font-medium text-foreground">
-            {[w.user.firstName, w.user.lastName].filter(Boolean).join(' ') || '—'}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">{w.user.email}</div>
-        </div>
+        <ClientIdentity
+          name={clientName(w.user.firstName, w.user.lastName)}
+          email={w.user.email}
+          portalId={w.user.portalId}
+        />
       ),
     },
     {
@@ -593,7 +593,13 @@ function TransactionsPageContent() {
             </div>
           )}
           {w.providerRef && (
-            <div className="mt-1 font-mono text-[11px] text-muted-foreground">{w.providerRef}</div>
+            <div
+              className="mt-1 max-w-[13rem] truncate font-mono text-[11px] text-muted-foreground"
+              title={w.providerRef}
+              data-external-ref=""
+            >
+              {w.providerRef}
+            </div>
           )}
           {/* Where the payout is INSIDE the awaiting state: submitted to Rival,
               outcome-unknown, or refused-needs-a-human. Renders nothing on any
@@ -976,9 +982,11 @@ function TransactionsPageContent() {
         {detailsTarget && (
           <dl className="space-y-3 text-xs">
             <Detail label={t('withdrawals.colClient')}>
-              {`${detailsTarget.user.firstName ?? ''} ${detailsTarget.user.lastName ?? ''}`.trim() ||
-                detailsTarget.user.email}
-              <span className="block text-muted-foreground">{detailsTarget.user.email}</span>
+              <ClientIdentity
+                name={clientName(detailsTarget.user.firstName, detailsTarget.user.lastName)}
+                email={detailsTarget.user.email}
+                portalId={detailsTarget.user.portalId}
+              />
             </Detail>
             <Detail label={t('withdrawals.colAmount')}>
               {/* A STRING to the DOM — §6.1. Nothing here parses it. */}
@@ -1000,7 +1008,9 @@ function TransactionsPageContent() {
               <span className="break-all font-mono">{detailsTarget.destination ?? '—'}</span>
             </Detail>
             <Detail label={t('withdrawals.detailsProviderRef')}>
-              <span className="break-all font-mono">{detailsTarget.providerRef ?? '—'}</span>
+              <span className="break-all font-mono" data-external-ref="">
+                {detailsTarget.providerRef ?? '—'}
+              </span>
             </Detail>
             {/*
               The payment platform's OWN id, beside ours.

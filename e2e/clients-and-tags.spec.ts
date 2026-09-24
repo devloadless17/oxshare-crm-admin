@@ -116,7 +116,9 @@ test.describe('the client index', () => {
     // client base and opens a full client profile."
     await page.getByRole('link', { name: E2E_CLIENTS.alpha.name }).click();
 
-    await expect(page).toHaveURL(/\/clients\/[0-9a-f-]{36}/);
+    // By Portal ID: the address bar is on screen too, and a client's uuid is
+    // shown nowhere — the owner's rule, 24 Sep 2026.
+    await expect(page).toHaveURL(/\/clients\/\d+$/);
     await expect(page.getByRole('heading', { name: E2E_CLIENTS.alpha.name })).toBeVisible();
   });
 });

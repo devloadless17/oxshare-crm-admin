@@ -41,6 +41,7 @@ import { formatMoney } from '@/lib/money';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastSuccess } from '@/lib/toast';
 import { keys } from '@/lib/query-keys';
+import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 
 /**
  * Client trading accounts — `GET /admin/trading-accounts`.
@@ -314,12 +315,11 @@ function TradingAccountsPageContent() {
       // together, which is the reason to sort this column.
       ...sortableBy('userEmail'),
       cell: (a) => (
-        <div className="min-w-0">
-          <div className="font-medium text-foreground">
-            {[a.user.firstName, a.user.lastName].filter(Boolean).join(' ') || '—'}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">{a.user.email}</div>
-        </div>
+        <ClientIdentity
+          name={clientName(a.user.firstName, a.user.lastName)}
+          email={a.user.email}
+          portalId={a.user.portalId}
+        />
       ),
     },
     {
@@ -528,6 +528,9 @@ function TradingAccountsPageContent() {
           label={t('tradingAccounts.filterClient')}
           placeholder={t('tradingAccounts.filterClientPlaceholder')}
           title={t('tradingAccounts.filterClientHint')}
+          // Wider than the default box: the placeholder names four things the
+          // search takes, and a clipped placeholder reads as a broken one.
+          className="h-9 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline sm:w-80"
           // Filter and page written together, so narrowing always lands on page
           // one rather than past the end of the new result set.
           onChange={(next) => url.set({ q: next || undefined, page: undefined })}

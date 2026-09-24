@@ -47,7 +47,8 @@ vi.mock('@/lib/api', () => {
 });
 
 vi.mock('next/navigation', () => ({
-  useParams: () => ({ id: 'c-1' }),
+  // The route carries the Portal ID, exactly as every console link builds it.
+  useParams: () => ({ id: '1000245' }),
 }));
 
 const permissions = { current: ALL_PERMISSIONS };
@@ -68,7 +69,8 @@ vi.mock('@/context/AdminAuthContext', () => ({
 }));
 
 const profile = (over: Record<string, unknown> = {}) => ({
-  id: 'c-1',
+  id: '0b7d3c9e-4f21-48a6-9c05-2d8e11aa3f47',
+  portalId: 1000245,
   email: 'client@oxshare.com',
   firstName: 'John',
   lastName: 'Doe',
@@ -112,15 +114,22 @@ describe('the profile itself', () => {
     expect(screen.getByText('+961 1 000 000')).toBeInTheDocument();
   });
 
-  it('shows the FULL client ID with a copy affordance', async () => {
-    renderWithProviders(<ClientProfilePage />);
+  it('shows the Portal ID with a copy affordance, and the uuid nowhere', async () => {
+    const { container } = renderWithProviders(<ClientProfilePage />);
     await screen.findByText('John Doe');
 
-    // The detail page is where an operator quotes the ID from, so unlike the
-    // list it shows the uuid whole.
-    expect(screen.getByText('Client ID')).toBeInTheDocument();
-    expect(screen.getByText('c-1')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /copy full id/i })).toBeInTheDocument();
+    // The detail page is where an operator quotes the ID from — the Portal ID,
+    // which is the only identifier a client has on any screen.
+    expect(screen.getByText('Portal ID')).toBeInTheDocument();
+    expect(screen.getByText('1000245')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy portal id/i })).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain('0b7d3c9e');
+  });
+
+  it('asks the API for the client by the Portal ID in its own URL', async () => {
+    renderWithProviders(<ClientProfilePage />);
+    await screen.findByText('John Doe');
+    expect(getClient).toHaveBeenCalledWith('1000245', expect.anything());
   });
 });
 

@@ -25,6 +25,7 @@ import {
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 
 /**
  * ADM-13 — the append-only ledger. `GET /admin/ledger`.
@@ -155,32 +156,26 @@ function LedgerPageContent() {
        * shown a named Owner all along, so the ledger was inconsistent with its
        * siblings rather than deliberately anonymous.
        *
-       * The uuid stays as the fallback, and the two cases it covers are
+       * Two cases leave the name and email unreadable, and they are
        * different on purpose:
        *   MASKED  -> the fields are ABSENT, because `maskByShape` removes the
        *              key rather than blanking it. The notice above the table
        *              says which columns this role hides, once — the convention
        *              `/clients` settled on rather than a redaction chip in
-       *              every row.
-       *   DELETED -> the fields are NULL, from the LEFT join. `ledger_entries`
-       *              is append-only, so an entry whose client row has gone must
-       *              still appear; a reconciliation that drops rows silently is
-       *              worse than one naming an id it cannot resolve.
+       *              every row. The Portal ID is never masked and names the row.
+       *   DELETED -> the fields are NULL, from the LEFT join, the Portal ID
+       *              with them. `ledger_entries` is append-only, so an entry
+       *              whose client row has gone must still appear — and says so,
+       *              rather than dropping silently or printing a bare uuid.
        */
-      cell: (r) => {
-        const name = [r.userFirstName, r.userLastName].filter(Boolean).join(' ');
-        if (!name && !r.userEmail) {
-          return <span className="font-mono text-xs">{r.userId}</span>;
-        }
-        return (
-          <div className="min-w-0">
-            <div className="font-medium text-foreground">{name || '—'}</div>
-            {r.userEmail && (
-              <div className="truncate text-xs text-muted-foreground">{r.userEmail}</div>
-            )}
-          </div>
-        );
-      },
+      cell: (r) => (
+        <ClientIdentity
+          name={clientName(r.userFirstName, r.userLastName)}
+          email={r.userEmail}
+          portalId={r.userPortalId}
+          removedId={r.userId}
+        />
+      ),
     },
     {
       /*

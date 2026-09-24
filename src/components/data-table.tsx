@@ -688,7 +688,13 @@ export function DataTable<T>({
                         <button
                           type="button"
                           onClick={() => handleSort(sortKey)}
-                          className="inline-flex items-center gap-1 hover:text-foreground transition-colors focus-outline rounded-sm"
+                          /*
+                           * `uppercase tracking-wider` restated, not inherited:
+                           * Tailwind's preflight resets `text-transform` on
+                           * `button`, so every SORTABLE header rendered in title
+                           * case beside the uppercase plain ones in the same row.
+                           */
+                          className="inline-flex items-center gap-1 uppercase tracking-wider hover:text-foreground transition-colors focus-outline rounded-sm"
                         >
                           <span>{c.header}</span>
                           {isActiveSort ? (

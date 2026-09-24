@@ -157,7 +157,8 @@ function ClientsPageContent() {
       api.admin.setClientStatus(client.id, next),
     onSuccess: async (_data, { client, next }) => {
       await queryClient.invalidateQueries({ queryKey: keys.clients.all() });
-      const who = client.email ?? client.id;
+      // The Portal ID when a role hides the email — never the uuid.
+      const who = client.email ?? `#${client.portalId}`;
       toastSuccess(
         next === 'suspended'
           ? t('clients.suspendSucceeded', { email: who })
@@ -178,7 +179,7 @@ function ClientsPageContent() {
     // request — so confirm before pulling the trigger. Reactivating is not
     // confirmed: it restores access rather than removing it.
     if (next === 'suspended') {
-      const email = client.email ?? client.id;
+      const email = client.email ?? `#${client.portalId}`;
       const ok = await confirm({
         title: t('clients.confirmSuspendTitle', { email }),
         description: t('clients.confirmSuspend', { email }),

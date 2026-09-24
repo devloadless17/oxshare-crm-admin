@@ -414,7 +414,11 @@ export default function ClientProfilePage() {
                     >
                       {/* The FULL uuid — this is the screen an operator quotes
                           it from, so no truncation here. */}
-                      <CopyableId value={profile.id} full />
+                      <CopyableId
+                        value={String(profile.portalId)}
+                        full
+                        copyLabel={t('common.copyPortalId')}
+                      />
                     </Field>
                     <Field
                       label={t('clients.colCountry')}
@@ -498,7 +502,7 @@ export default function ClientProfilePage() {
                       {hasPermission(admin, 'kyc.review') && (
                         <div className="col-span-2">
                           <PermittedLink
-                            href={`/kyc/${profile.id}`}
+                            href={`/kyc/${profile.portalId}`}
                             className="text-xs font-semibold text-link hover:underline focus-outline"
                           >
                             {t('clientProfile.openKycReview')}
@@ -640,6 +644,7 @@ export default function ClientProfilePage() {
                   <>
                     <ClientNetworkTree
                       rootUserId={profile.id}
+                      rootPortalId={profile.portalId}
                       rootName={displayName}
                       partner={partner}
                       referredClients={profile.referredClients}
@@ -668,7 +673,7 @@ export default function ClientProfilePage() {
                       ) : profile.referrer ? (
                         <p className="text-sm">
                           <PermittedLink
-                            href={`/clients/${profile.referrer.ibUserId}`}
+                            href={`/clients/${profile.referrer.portalId}`}
                             className="text-link hover:underline focus-outline"
                           >
                             {[profile.referrer.firstName, profile.referrer.lastName]

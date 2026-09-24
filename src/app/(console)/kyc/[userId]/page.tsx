@@ -27,6 +27,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { apiErrorCode } from '@/lib/api/errors';
 import { keys } from '@/lib/query-keys';
+import { waitingLabel } from '@/lib/waiting';
 
 /**
  * An ALIAS, not a hand-written copy — R-1.1.
@@ -352,9 +353,17 @@ export default function KycDetailPage() {
                 {data.user?.firstName} {data.user?.lastName}
               </h1>
               <p className="truncate">{data.user?.email}</p>
-              {/* The route param, not `data.user.id` — same identifier, but the
-                  param is present even on a response whose user block is not. */}
-              <CopyableId value={userId} />
+              {/*
+                The PORTAL ID — the number staff and the client use, and what
+                this page's own URL carries. Absent only if the user block is.
+              */}
+              {data.user?.portalId !== undefined && (
+                <CopyableId
+                  value={String(data.user.portalId)}
+                  full
+                  copyLabel={t('common.copyPortalId')}
+                />
+              )}
             </div>
           </div>
           {/*
@@ -370,7 +379,7 @@ export default function KycDetailPage() {
                   waitingDays >= 3 ? 'text-destructive' : 'text-muted-foreground'
                 }`}
               >
-                {t('kycReview.waitingDays', { days: waitingDays })}
+                {data.submittedAt && waitingLabel(data.submittedAt)}
               </span>
             )}
             <span

@@ -60,14 +60,16 @@ vi.mock('@/context/AdminAuthContext', () => ({
 const permissions = { current: ALL_PERMISSIONS };
 
 vi.mock('next/navigation', () => ({
-  useParams: () => ({ userId: 'u-1' }),
+  // The route carries the Portal ID, as every console link builds it — and
+  // the API is called with it as-is (`ClientRefPipe` resolves it server-side).
+  useParams: () => ({ userId: '1000245' }),
 }));
 
 const SUBMISSION = {
-  userId: 'u-1',
+  userId: '0b7d3c9e-4f21-48a6-9c05-2d8e11aa3f47',
   status: 'submitted',
   submittedAt: '2026-08-03T15:00:21.792Z',
-  user: { email: 'client@oxshare.com', firstName: 'John', lastName: 'Doe' },
+  user: { email: 'client@oxshare.com', firstName: 'John', lastName: 'Doe', portalId: 1000245 },
   personalInfo: { firstName: 'John', lastName: 'Doe', country: 'UAE' },
   document: { docType: 'passport', frontFilePath: '/uploads/kyc/front.png' },
   selfie: { filePath: '/uploads/kyc/selfie.png' },
@@ -167,7 +169,7 @@ describe('KYC review — rejection requires a reason', () => {
 
     await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
     const [url, body] = patch.mock.calls[0] as [string, Record<string, unknown>];
-    expect(url).toBe('/admin/kyc/u-1/reject');
+    expect(url).toBe('/admin/kyc/1000245/reject');
     expect(body.reason).toBe('Date of birth does not match the document');
     // No configured reason was picked, so the field is omitted rather than sent empty.
     expect(body.reasonId).toBeUndefined();
@@ -257,7 +259,7 @@ describe('KYC review — approval', () => {
     await user.click(await screen.findByRole('button', { name: /confirm approval/i }));
 
     await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
-    expect(patch.mock.calls[0]?.[0]).toBe('/admin/kyc/u-1/approve');
+    expect(patch.mock.calls[0]?.[0]).toBe('/admin/kyc/1000245/approve');
   });
 
   it('reports a failed approval rather than closing quietly', async () => {
@@ -277,14 +279,13 @@ describe('KYC review — approval', () => {
 });
 
 describe('KYC review — identity card', () => {
-  it('shows the client ID with a copy affordance', async () => {
-    renderWithProviders(<KycDetailPage />);
+  it('shows the Portal ID with a copy affordance, and the uuid nowhere', async () => {
+    const { container } = renderWithProviders(<KycDetailPage />);
     await screen.findByRole('heading', { level: 1 });
 
-    // From the route param, so it renders even when the response carries no
-    // user block — the same identifier either way.
-    expect(screen.getByText('u-1')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /copy full id/i })).toBeInTheDocument();
+    expect(screen.getByText('1000245')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy portal id/i })).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain('0b7d3c9e');
   });
 });
 
@@ -296,7 +297,7 @@ describe('KYC review — claiming', () => {
     await user.click(await screen.findByRole('button', { name: /claim for review/i }));
 
     await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
-    expect(patch.mock.calls[0]?.[0]).toBe('/admin/kyc/u-1/claim');
+    expect(patch.mock.calls[0]?.[0]).toBe('/admin/kyc/1000245/claim');
   });
 });
 

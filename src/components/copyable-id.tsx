@@ -5,16 +5,23 @@ import { Check, Copy } from 'lucide-react';
 import { t } from '@/lib/i18n';
 
 /*
- * A UUID an operator can actually use.
+ * An identifier an operator can copy — a client's Portal ID, a wallet number.
  *
- * There is no short human-friendly client number in the schema — the only
- * identifier is the 36-character `users.id`. Rendered whole it dominates any
- * table cell while carrying no meaning a human can compare, so the default is
- * the first 8 characters (unique in practice at this scale, and enough to
- * eyeball two rows apart) with the FULL value on the copy button and in the
- * title. `full` is for detail screens, where space allows the real thing.
+ * `full` prints the whole value; without it only the first 8 characters show,
+ * with the full value on the copy button and in the title, for the long
+ * identifiers that would otherwise dominate a cell. A client's uuid is no
+ * longer passed here at all: the Portal ID replaced it on every screen.
  */
-export function CopyableId({ value, full = false }: { value: string; full?: boolean }) {
+export function CopyableId({
+  value,
+  full = false,
+  copyLabel = t('common.copyId'),
+}: {
+  value: string;
+  full?: boolean;
+  /** What the copy button is called — "Copy Portal ID" says what lands on the clipboard. */
+  copyLabel?: string;
+}) {
   const [copied, setCopied] = React.useState(false);
   /*
    * The copied-flash timer, cleared on unmount. A bare `setTimeout` here fires
@@ -65,8 +72,8 @@ export function CopyableId({ value, full = false }: { value: string; full?: bool
       </code>
       <button
         type="button"
-        aria-label={t('common.copyId')}
-        title={t('common.copyId')}
+        aria-label={copyLabel}
+        title={copyLabel}
         className="shrink-0 rounded p-1 text-muted-foreground hover:text-foreground focus-outline"
         onClick={(event) => {
           // Never let the copy click reach a row-level affordance beneath it.

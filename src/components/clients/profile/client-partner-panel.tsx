@@ -7,6 +7,7 @@ import { PermittedLink } from '@/components/permitted-link';
 import { EmptySection, ProfileCard } from '@/components/clients/profile/profile-cards';
 import { formatDecimal, formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
+import { PortalIdTag } from '@/components/clients/client-identity';
 
 /**
  * Everything about a client's standing AS A PARTNER.
@@ -116,12 +117,10 @@ export function ClientPartnerPanel({
 
           <Cell label={t('clientProfile.partnerParent')}>
             {detail.parent ? (
-              <PermittedLink
-                href={`/clients/${detail.parent.userId}`}
+              <PersonLink
+                person={detail.parent}
                 className="text-link hover:underline focus-outline"
-              >
-                {personName(detail.parent)}
-              </PermittedLink>
+              />
             ) : (
               /* Not an absence to apologise for: no parent means they deal with
                  the broker directly, which is the top of a chain. */
@@ -200,12 +199,10 @@ export function ClientPartnerPanel({
                 className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 p-2.5"
               >
                 <div className="min-w-0">
-                  <PermittedLink
-                    href={`/clients/${sub.userId}`}
-                    className="text-sm font-medium text-link hover:underline focus-outline"
-                  >
-                    {personName(sub)}
-                  </PermittedLink>
+                  <PersonLink
+                    person={sub}
+                    className="truncate text-sm font-medium text-link hover:underline focus-outline"
+                  />
                   <p className="truncate text-[11px] text-muted-foreground">{sub.email}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -275,6 +272,30 @@ function Stat({
   );
 }
 
-function personName(person: { firstName: string | null; lastName: string | null; email: string }) {
-  return [person.firstName, person.lastName].filter(Boolean).join(' ') || person.email;
+/**
+ * A partner named by name, else email, else — both being maskable (RBAC-03) —
+ * the Portal ID alone. The tag beside it is shown only when it adds something.
+ */
+function PersonLink({
+  person,
+  className,
+}: {
+  person: {
+    userId: string;
+    firstName: string | null;
+    lastName: string | null;
+    email?: string;
+    portalId: number;
+  };
+  className: string;
+}) {
+  const known = [person.firstName, person.lastName].filter(Boolean).join(' ') || person.email;
+  return (
+    <span className="inline-flex min-w-0 items-baseline gap-1.5">
+      <PermittedLink href={`/clients/${person.portalId}`} className={className}>
+        {known || `#${person.portalId}`}
+      </PermittedLink>
+      {known && <PortalIdTag id={person.portalId} />}
+    </span>
+  );
 }

@@ -117,6 +117,7 @@ function wallet(over: Partial<WalletRow> = {}): WalletRow {
     updatedAt: '2026-08-01T10:00:00.000Z',
     user: {
       id: 'u-1',
+      portalId: 1000245,
       email: 'client@example.com',
       firstName: 'Dana',
       lastName: 'Haddad',
@@ -466,13 +467,17 @@ describe('finding a client on the wallets desk', () => {
     /*
      * The placeholder must name IDENTIFIERS THE TABLE SHOWS, and must not ask
      * for one it does not. Asserted as two properties rather than as an exact
-     * sentence: the copy has already grown once — it gained "or wallet number"
-     * when the box learned to route a number to its row — and a test pinned to
-     * the old wording fails on an improvement rather than on a regression.
+     * sentence: the copy has already grown twice — "or wallet number" when the
+     * box learned to route a number to its row, then the Portal ID when every
+     * row began showing one — and a test pinned to the old wording fails on an
+     * improvement rather than on a regression.
+     *
+     * The id it must never ask for is the uuid: no screen shows one.
      */
     const placeholder = box.getAttribute('placeholder') ?? '';
     expect(placeholder).toMatch(/name|email/i);
-    expect(placeholder, 'the box is asking for an id again').not.toMatch(/\bid\b|paste/i);
+    expect(placeholder).toMatch(/portal id/i);
+    expect(placeholder, 'the box is asking for a uuid again').not.toMatch(/uuid|paste/i);
 
     await userEvent.type(box, 'nadia');
 

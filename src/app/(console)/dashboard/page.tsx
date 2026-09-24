@@ -42,6 +42,7 @@ import { WithdrawalVolumeChart } from '@/components/dashboard/withdrawal-volume-
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
 import { keys } from '@/lib/query-keys';
+import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 
 /**
  * The back-office dashboard.
@@ -538,21 +539,16 @@ export default function AdminDashboardPage() {
                   {reviewQueue.map((submission) => (
                     <li key={submission.userId}>
                       <PermittedLink
-                        href={`/kyc/${submission.userId}`}
+                        href={`/kyc/${submission.user?.portalId ?? submission.userId}`}
                         className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-accent/40 focus-outline"
                       >
-                        <span className="min-w-0">
-                          <span className="block text-sm font-medium text-foreground truncate">
-                            {[submission.user?.firstName, submission.user?.lastName]
-                              .filter(Boolean)
-                              .join(' ') ||
-                              submission.user?.email ||
-                              submission.userId}
-                          </span>
-                          <span className="block text-xs text-muted-foreground truncate">
-                            {submission.user?.email}
-                          </span>
-                        </span>
+                        <div className="min-w-0 text-sm">
+                          <ClientIdentity
+                            name={clientName(submission.user?.firstName, submission.user?.lastName)}
+                            email={submission.user?.email}
+                            portalId={submission.user?.portalId}
+                          />
+                        </div>
                         <span className="text-xs text-muted-foreground shrink-0">
                           {submission.submittedAt
                             ? new Date(submission.submittedAt).toLocaleDateString()

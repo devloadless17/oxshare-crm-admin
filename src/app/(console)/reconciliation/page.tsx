@@ -11,6 +11,7 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { t } from '@/lib/i18n';
 import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
+import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 
 /**
  * Does the money add up — the §12.2 reconciliation, on screen.
@@ -60,25 +61,20 @@ export default function ReconciliationPage() {
          * client's balance disagrees with their ledger. An operator had to
          * resolve the id elsewhere before they could act on it.
          *
-         * The uuid remains the fallback, covering two different cases: the
-         * fields are ABSENT when a role masks them (`maskByShape` removes the
-         * key), and NULL when the client row is gone — a discrepancy must not
-         * disappear because the person did.
+         * Two cases leave the name and email unreadable: the fields are ABSENT
+         * when a role masks them (`maskByShape` removes the key) — the Portal
+         * ID, never masked, still names the row — and NULL when the client row
+         * is gone. A discrepancy must not disappear because the person did, so
+         * that case says so in words.
          */
-        cell: (row) => {
-          const name = [row.userFirstName, row.userLastName].filter(Boolean).join(' ');
-          if (!name && !row.userEmail) {
-            return <span className="font-mono text-xs">{row.userId}</span>;
-          }
-          return (
-            <div className="min-w-0">
-              <div className="font-medium text-foreground">{name || '—'}</div>
-              {row.userEmail && (
-                <div className="truncate text-xs text-muted-foreground">{row.userEmail}</div>
-              )}
-            </div>
-          );
-        },
+        cell: (row) => (
+          <ClientIdentity
+            name={clientName(row.userFirstName, row.userLastName)}
+            email={row.userEmail}
+            portalId={row.userPortalId}
+            removedId={row.userId}
+          />
+        ),
       },
       {
         key: 'walletId',

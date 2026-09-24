@@ -193,7 +193,8 @@ export type ClientTransactionRow = components['schemas']['ClientTransactionRowDt
 export interface IbPartnerPage {
   rows: Array<{
     account: IbAccount;
-    user: { id: string; email: string; firstName: string; lastName: string };
+    /** `portalId` is the partner's Portal ID — the identifier the console prints. */
+    user: { id: string; portalId: number; email: string; firstName: string; lastName: string };
     /**
      * The RUNG this partner stands on, and therefore their terms (0112).
      *
@@ -235,6 +236,8 @@ export interface IbApplicationPage {
     application: IbApplication;
     user: {
       id: string;
+      /** The applicant's Portal ID — the identifier the console prints. */
+      portalId: number;
       email: string;
       firstName: string;
       lastName: string;
@@ -597,9 +600,9 @@ export interface IbAccrual {
    * `email` is nullable because the server NULLS it when this person sits
    * outside the reader's territory. See `partnerMasked`.
    */
-  partner: { id: string; email: string | null; firstName: string | null; lastName: string | null };
+  partner: IbAccrualPerson;
   /** The client whose trading GENERATED it — and who is PAID on a rebate row. */
-  client: { id: string; email: string | null; firstName: string | null; lastName: string | null };
+  client: IbAccrualPerson;
   /**
    * TERRITORY, not permissions — and either person can be the hidden one.
    *
@@ -614,6 +617,19 @@ export interface IbAccrual {
    */
   clientMasked: boolean;
   partnerMasked: boolean;
+}
+
+/**
+ * A person on an accrual row. Every identifying field — the Portal ID included
+ * — is NULL when they sit outside the reader's territory: the Portal ID is the
+ * number every other screen's search takes, so it goes with the name.
+ */
+export interface IbAccrualPerson {
+  id: string;
+  portalId: number | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
 }
 
 export interface IbAccrualPage {
