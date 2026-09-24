@@ -368,7 +368,12 @@ export default function ClientProfilePage() {
                     {partner && !partner.active && (
                       <Badge variant="warning">{t('clientProfile.partnerSuspended')}</Badge>
                     )}
-                    <ClientTagChips tags={profile.tags} />
+                    {/* Tags join the chip row only when there are some. "None" and
+                        "hidden from you" are stated by the Tags card below; here
+                        they rendered as a lone dash trailing the badges. */}
+                    {profile.tags && profile.tags.length > 0 && (
+                      <ClientTagChips tags={profile.tags} />
+                    )}
                   </div>
                 </div>
 

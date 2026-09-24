@@ -136,7 +136,7 @@ test.describe('what a MASTER admin can reach', () => {
     await page.getByRole('menuitem', { name: /edit/i }).click();
     await page.waitForURL(/\/roles\/.+\/edit/);
 
-    await expect(page.getByText(/1 field\(s\) hidden/i)).toBeVisible();
+    await expect(page.getByText(/\b1 field hidden/i)).toBeVisible();
     // Open the section and see the field itself ticked.
     await page.getByText(/client field visibility/i).click();
     await expect(page.getByRole('button', { name: /email/i }).first()).toHaveAttribute(

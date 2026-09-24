@@ -160,7 +160,7 @@ describe('referrals outside the reader’s territory', () => {
     });
 
     expect(
-      screen.getByText(/7 more client\(s\).*outside your territory/i),
+      screen.getByText(/7 more clients introduced by this partner are outside your territory/i),
       'an empty tab claimed the partner had introduced nobody',
     ).toBeInTheDocument();
   });
@@ -172,7 +172,9 @@ describe('referrals outside the reader’s territory', () => {
       referredTotal: 3,
       referredOutsideScope: 2,
     });
-    expect(screen.getByText(/2 more client\(s\).*outside your territory/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 more clients introduced by this partner are outside your territory/i),
+    ).toBeInTheDocument();
   });
 
   it('says NOTHING for an unrestricted reader, who is outside nothing', () => {

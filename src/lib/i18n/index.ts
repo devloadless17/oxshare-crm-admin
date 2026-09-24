@@ -78,10 +78,30 @@ export function t(key: MessageKey, vars?: MessageVars): string {
   const template: string = messages[key];
   if (!vars) return template;
 
-  return template.replace(/\{(\w+)\}/g, (whole, name: string) => {
+  const filled = template.replace(/\{(\w+)\}/g, (whole, name: string) => {
     const value = vars[name];
     return value === undefined ? whole : String(value);
   });
+
+  /*
+   * PLURALS — `{count:network|networks}` picks by the var: the singular for
+   * exactly 1, the plural otherwise (0 networks, 2 networks). It replaced the
+   * "network(s)" shorthand, which reads as a form letter in the one place an
+   * operator is being told something is wrong.
+   *
+   * Applied AFTER the plain fill, so a branch may itself say `{count}`
+   * (`{count:The wallet|All {count} wallets}`). A var the caller did not supply
+   * leaves the selector visible, for the same reason as a plain placeholder.
+   * Compared as text, not `Number()`: a count arrives as either type.
+   */
+  return filled.replace(
+    /\{(\w+):([^|{}]*)\|([^{}]*)\}/g,
+    (whole, name: string, one: string, other: string) => {
+      const value = vars[name];
+      if (value === undefined) return whole;
+      return String(value) === '1' ? one : other;
+    },
+  );
 }
 
 /**

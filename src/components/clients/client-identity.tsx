@@ -73,16 +73,26 @@ export function ClientIdentity({
   }
 
   return (
-    <div className="min-w-0">
+    /*
+     * CAPPED, with the full text on hover. An email is the widest thing in most
+     * rows, and uncapped it set the column's width — one long address pushed a
+     * money table's last columns under the pinned Actions column at desktop
+     * widths. Truncation keeps the row readable; `title` keeps the value.
+     */
+    <div className="min-w-0 max-w-[16rem]">
       {name && (
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <span className={`truncate text-foreground ${strong ? 'font-medium' : ''}`}>{name}</span>
+          <span className={`truncate text-foreground ${strong ? 'font-medium' : ''}`} title={name}>
+            {name}
+          </span>
           {tag}
         </div>
       )}
       {email && (
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate text-xs text-muted-foreground">{email}</span>
+          <span className="truncate text-xs text-muted-foreground" title={email}>
+            {email}
+          </span>
           {!name && tag}
         </div>
       )}
