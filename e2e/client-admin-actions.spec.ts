@@ -214,7 +214,9 @@ test.describe('CORE-10 — suspension reaches a live portal session', () => {
       client.waitForResponse(
         (r) => r.url().includes('/auth/login') && r.request().method() === 'POST',
       ),
-      client.getByRole('button', { name: /sign in/i }).click(),
+      // "Log In" — the portal's wording since it adopted the client's own
+      // (4d037ab); the portal's e2e helper already matches it this way.
+      client.getByRole('button', { name: /^log in$/i }).click(),
     ]);
     /*
      * A 429 is INCONCLUSIVE, not a reason to pass.

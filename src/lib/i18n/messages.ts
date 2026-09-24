@@ -977,6 +977,7 @@ export const messages = {
   // moment both are in the same object.
   'clientProfile.fieldCountry': 'Country',
   'clientProfile.fieldClearHint': 'Leave empty to remove it.',
+  'clientProfile.fieldHiddenFromYou': 'Hidden from you — your role cannot see this field.',
 
   'clientProfile.changeEmailTitle': 'Change sign-in email',
   'clientProfile.changeEmailWarnTitle': 'This changes how the client signs in.',
@@ -1176,6 +1177,16 @@ export const messages = {
   // renamed or removed in the builder after this client submitted. Shown rather
   // than hidden: it is still identity data somebody is deciding on.
   'kycReview.otherFields': 'Other Details',
+  /*
+   * A value under `customField_<timestamp>` that no step names any more — the
+   * builder hides that key and generates it, so its shape means a question was
+   * removed from the form after this client answered it. "Custom Field
+   * 1790263652846" said the same thing in a way nobody could read.
+   */
+  'kycReview.retiredQuestion': 'Question no longer on the form',
+  // A file answer whose original name was not kept.
+  'kycReview.uploadedFile': 'Uploaded file',
+  'kycReview.viewFile': 'View',
   'kycReview.valueYes': 'Yes',
   'kycReview.valueNo': 'No',
   'kycReview.notSubmitted': 'Not submitted',

@@ -52,7 +52,16 @@ test.describe('a dead session always has a way out', () => {
       'the CSRF cookie was not actually removed — this would pass for the wrong reason',
     ).toBe(false);
 
-    await page.goto('/clients');
+    /*
+     * ERR_ABORTED is tolerated here and ONLY here: the dashboard is still
+     * loaded, notices the dead session on its own, and redirects to sign-in —
+     * which can land in the same instant as this navigation and abort it. That
+     * redirect is the behaviour under test, so an abort from it is not a
+     * failure; the URL assertion below is what decides.
+     */
+    await page.goto('/clients').catch((error: unknown) => {
+      if (!String(error).includes('net::ERR_ABORTED')) throw error;
+    });
 
     await expect(page, 'a dead session was left on a spinner with no way out').toHaveURL(
       /\/login/,

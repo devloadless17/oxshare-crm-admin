@@ -160,6 +160,10 @@ function AdminLoginForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  /* Icon-only, so it is named — the portal's toggle always was, and
+                     this one was announced as a bare "button" (ux-sweep). */
+                  aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                  aria-pressed={showPassword}
                   className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground focus-outline rounded-sm"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

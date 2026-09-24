@@ -1,5 +1,6 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import * as React from 'react';
 import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -577,10 +578,10 @@ function TradingAccountsPageContent() {
             onClick={() =>
               setOpenFor({
                 userId,
-                label:
-                  [rows[0]?.user.firstName, rows[0]?.user.lastName].filter(Boolean).join(' ') ||
-                  rows[0]?.user.email ||
-                  userId,
+                // Was falling through to `userId` — the uuid, which is never
+                // shown in this console. Portal ID is the identifier that
+                // survives every mask.
+                label: rows[0] ? clientLabel(rows[0].user) : userId,
               })
             }
           >

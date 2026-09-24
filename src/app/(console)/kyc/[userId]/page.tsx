@@ -19,6 +19,7 @@ import { DocLightbox } from '@/components/kyc-review/doc-lightbox';
 import { documentsOf } from '@/components/kyc-review/documents-of';
 import { useRejectOptions } from '@/components/kyc-review/use-reject-options';
 import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
+import { useKycStepConfig } from '@/components/kyc-review/use-kyc-step-config';
 import { CorrectIdentityDialog } from '@/components/kyc-review/correct-identity-dialog';
 import { ReviewDock } from '@/components/kyc-review/review-dock';
 import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
@@ -146,6 +147,9 @@ export default function KycDetailPage() {
 
   // Both configurable lists the reject dialog offers, loaded when it opens.
   const { reasons, fieldGroups } = useRejectOptions(showRejectModal, data);
+  // The broker's labels, for the files a custom step collected — one cache
+  // entry shared with the summary card, so the two name a file the same way.
+  const stepConfig = useKycStepConfig();
 
   const approve = async () => {
     setActionLoading(true);
@@ -325,7 +329,7 @@ export default function KycDetailPage() {
   const waitingDays = daysWaiting(data.status, data.submittedAt);
   // One derived list, shared by the grid and the lightbox, so the two cannot
   // disagree about which documents exist.
-  const documents = documentsOf(data);
+  const documents = documentsOf(data, stepConfig);
   const docType = data.document?.docType ?? 'passport';
 
   return (
@@ -398,7 +402,15 @@ export default function KycDetailPage() {
 
       <div className="detail-grid">
         {/* Left: who this is, what they sent, and when — see SubmissionSummary. */}
-        <SubmissionSummary data={data} docType={docType} attempts={history.data ?? []} />
+        <SubmissionSummary
+          data={data}
+          docType={docType}
+          attempts={history.data ?? []}
+          onOpenFile={(filePath) => {
+            const at = documents.findIndex((d) => d.filePath === filePath);
+            if (at >= 0) setLightboxAt(at);
+          }}
+        />
 
         {/* Right: Documents */}
         <div className="detail-right">
