@@ -118,6 +118,8 @@ export const messages = {
   'theme.label': 'Theme',
   'theme.light': 'Light',
   'theme.dark': 'Dark',
+  'theme.switchToDark': 'Switch to dark mode',
+  'theme.switchToLight': 'Switch to light mode',
   'theme.system': 'System',
   'nav.collapseSidebar': 'Collapse the sidebar',
   'nav.expandSidebar': 'Expand the sidebar',
@@ -422,7 +424,7 @@ export const messages = {
   'wallets.filterCurrency': 'Currency',
   'wallets.filterCurrencyAll': 'All currencies',
   'wallets.filterClient': 'Search client',
-  'wallets.filterClientPlaceholder': 'Search by name, email or wallet number',
+  'wallets.filterClientPlaceholder': 'Search by name, email, Portal ID or wallet no.',
   'wallets.filterClientHint':
     'Matches the owner’s email or name, or a whole wallet number — the identifiers this table shows. A wallet number is matched exactly.',
   'wallets.clearFilters': 'Clear filters',
@@ -500,7 +502,7 @@ export const messages = {
   'tradingAccounts.filterStatus': 'Status',
   'tradingAccounts.filterStatusAll': 'All statuses',
   'tradingAccounts.filterClient': 'Search client',
-  'tradingAccounts.filterClientPlaceholder': 'Search by name, email or account number',
+  'tradingAccounts.filterClientPlaceholder': 'Search by name, email, Portal ID or MT5 login',
   'tradingAccounts.filterClientHint':
     'Matches the owner’s email or name, or a whole MT5 login — the identifiers this table shows. Leading zeros matter: 00012345 and 12345 are different accounts.',
   'tradingAccounts.clearFilters': 'Clear filters',
@@ -512,10 +514,11 @@ export const messages = {
   // ── Audit log (D-21) ──────────────────────────────────────────────────────
   'audit.title': 'Audit Log',
   'audit.subtitle': 'Append-only record of every admin action — who did what, to what, and when',
-  'audit.filterActor': 'Search administrator',
-  'audit.filterActorPlaceholder': 'Search by administrator email',
+  'audit.subjectClient': 'Client',
+  'audit.filterActor': 'Search administrator or client',
+  'audit.filterActorPlaceholder': 'Administrator email or client Portal ID',
   'audit.filterActorHint':
-    'Matches the email in the Administrator column. It does not search the details column, which holds client data.',
+    'An email matches the Administrator column; a Portal ID finds every entry about that client. It does not search the details column, which holds client data.',
   'audit.allActions': 'All Actions',
   'audit.colWhen': 'When',
   'audit.colActor': 'Actor',
@@ -576,10 +579,10 @@ export const messages = {
   'clients.allLevels': 'All KYC Levels',
   'clients.level0': 'Level 0 — Unverified',
   'clients.level1': 'Level 1 — Verified',
-  'clients.searchPlaceholder': 'Search by name, email or ID…',
+  'clients.searchPlaceholder': 'Search by name, email or Portal ID…',
   'clients.colName': 'Name',
   'clients.colEmail': 'Email',
-  'clients.colId': 'ID',
+  'clients.colId': 'Portal ID',
   'clients.colType': 'Type',
   /*
    * "Account status" rather than plain "Status", on the column AND the filter.
@@ -661,7 +664,7 @@ export const messages = {
   'clients.referredByWho': 'this partner',
   'clients.referredByClear': 'Show all clients',
   'clients.referredByProfile': 'Open their profile',
-  'clients.searchLabel': 'Search clients by name, email or client ID',
+  'clients.searchLabel': 'Search clients by name, email or Portal ID',
   /*
    * "Verified" / "Not verified", with no level prefix.
    *
@@ -803,7 +806,7 @@ export const messages = {
   'clientProfile.sectionTrading': 'Trading accounts',
   'clientProfile.sectionReferrals': 'Referrals',
   'clientProfile.fieldPhone': 'Phone',
-  'clientProfile.fieldClientId': 'Client ID',
+  'clientProfile.fieldClientId': 'Portal ID',
   'clientProfile.kycStatus': 'Status',
   'clientProfile.kycSubmitted': 'Submitted',
   'clientProfile.openKycReview': 'Open the KYC review →',
@@ -1137,10 +1140,10 @@ export const messages = {
 
   // ── KYC review ────────────────────────────────────────────────────────────
   'kycReview.title': 'KYC Submissions',
-  'kycReview.searchPlaceholder': 'Search by name or email…',
+  'kycReview.searchPlaceholder': 'Search by name, email or Portal ID…',
   'kycReview.review': 'Review',
   'kycReview.colUser': 'User',
-  'kycReview.colId': 'ID',
+  'kycReview.colId': 'Portal ID',
   'kycReview.colCountry': 'Country',
   'kycReview.colStatus': 'Status',
   'kycReview.colSubmitted': 'Submitted',
@@ -1202,6 +1205,8 @@ export const messages = {
   // Plural-naive on purpose: the catalogue has no plural machinery yet, and
   // inventing one for a single string would be the wrong place to start.
   'kycReview.waitingDays': 'waiting {days}d',
+  'kycReview.waitingHours': 'waiting {hours}h',
+  'kycReview.waitingUnderHour': 'waiting <1h',
   'kycReview.openFullSize': 'Open full size in a new tab',
   'kycReview.docPassport': 'Passport (photo & signature page)',
   'kycReview.docIdFront': 'ID document (front)',
@@ -2123,14 +2128,14 @@ export const messages = {
   'common.retryShort': 'Retry',
   'common.loading': 'Loading',
   'auditLog.filterAllActions': 'All Actions',
-  'clients.searchAria': 'Search clients by name, email or client ID',
+  'clients.searchAria': 'Search clients by name, email or Portal ID',
   'kycBuilder.requiredStepTitle': 'Required by FR-CORE-15 — cannot be disabled or deleted',
   'kycBuilder.moveStepUp': 'Move Step Up',
   'kycBuilder.moveStepDown': 'Move Step Down',
   'kycBuilder.removeField': 'Remove Field',
   'kycBuilder.expandStep': 'Show step details — {name}',
   'kycBuilder.collapseStep': 'Hide step details — {name}',
-  'kyc.searchAria': 'Search submissions by name or email',
+  'kyc.searchAria': 'Search submissions by name, email or Portal ID',
   'kyc.loadingQueue': 'Loading KYC submissions',
   'kyc.queueLoadFailed':
     'Failed to load the review queue. This is NOT an empty queue — submissions may be waiting.',
@@ -2151,9 +2156,13 @@ export const messages = {
   'pagination.lastAria': 'Go to Last Page',
   'common.close': 'Close',
   'common.copy': 'Copy',
-  /* The CopyableId button. Says what lands on the clipboard — the FULL uuid,
-     not the 8 truncated characters the cell shows. */
+  /* The CopyableId button's default label. Says what lands on the clipboard —
+     the FULL value, not the characters a truncated cell shows. A Portal ID
+     passes its own label (`common.copyPortalId`). */
   'common.copyId': 'Copy full ID',
+  'common.portalId': 'Portal ID',
+  'common.copyPortalId': 'Copy Portal ID',
+  'common.clientRemoved': 'Client no longer exists',
   /*
    * Copying can FAIL, and silently: `navigator.clipboard` is undefined on
    * plain HTTP and the promise rejects when permission is denied. Without a
@@ -2207,7 +2216,7 @@ export const messages = {
   'financial.caption': 'Money movements',
   'financial.noun': 'movement',
   'financial.nounPlural': 'movements',
-  'financial.searchPlaceholder': 'Search by client email or name…',
+  'financial.searchPlaceholder': 'Search by name, email or Portal ID…',
   'financial.searchAria': 'Search movements by client',
   'financial.clearFilters': 'Clear',
   'financial.colClient': 'Client',
@@ -2324,7 +2333,7 @@ export const messages = {
   'ledger.filterType': 'Entry type',
   'ledger.filterTypeAll': 'All entry types',
   'ledger.filterClient': 'Search client',
-  'ledger.filterClientPlaceholder': 'Search by name or email',
+  'ledger.filterClientPlaceholder': 'Search by name, email or Portal ID',
   'ledger.filterClientHint':
     'Matches the client’s email or name — the same identifiers shown in the Client column.',
   'ledger.clearFilters': 'Clear',
@@ -2542,7 +2551,7 @@ export const messages = {
   'deposits.reject': 'Refuse',
   'deposits.viewOnly': 'View only',
   'deposits.unknownClient': 'this client',
-  'deposits.searchPlaceholder': 'Search by client or reference…',
+  'deposits.searchPlaceholder': 'Search by name, email or Portal ID…',
   'deposits.searchAria': 'Search deposits',
   'deposits.confirmApproveTitle': 'Credit {amount}?',
   'deposits.confirmApprove':
@@ -2964,7 +2973,7 @@ export const messages = {
   'partnerReview.confirmApprove':
     'This creates their partner account and issues a referral code, which is never reissued. The application cannot be decided again.',
   'partnerReview.approving': 'Approving…',
-  'withdrawals.searchPlaceholder': 'Search by client name or email',
+  'withdrawals.searchPlaceholder': 'Search by name, email or Portal ID',
   'withdrawals.actionsFor': 'Actions for {name}’s withdrawal',
   'withdrawals.detailsAction': 'View details',
   // The AMOUNT is in the title and the client in the body: this is a queue of
@@ -2988,7 +2997,7 @@ export const messages = {
   'withdrawals.detailsFailureReason': 'Why this failed',
   'withdrawals.detailsNoReason': 'No reason was recorded.',
   'withdrawals.searchAria': 'Search withdrawals',
-  'partnerReview.searchPlaceholder': 'Search by applicant name or email',
+  'partnerReview.searchPlaceholder': 'Search by name, email or Portal ID',
   // Named for the QUEUE. Several screens carry a search box and "Search" alone
   // announces the same thing on all of them.
   'partnerReview.searchAria': 'Search partner applications',
@@ -3089,9 +3098,9 @@ export const messages = {
   'commissions.filterKind': 'Filter by type',
   'commissions.filterKindAll': 'Commission and rebates',
   'commissions.filterPartner': 'Search partner',
-  'commissions.filterPartnerPlaceholder': 'Search by partner name or email',
+  'commissions.filterPartnerPlaceholder': 'Search by partner name, email or Portal ID',
   'commissions.filterPartnerHint':
-    'Matches the partner’s email or name — the same identifiers shown in the Partner column. It does not search the client on the row.',
+    'Matches the partner’s Portal ID, email or name — the identifiers shown in the Partner column. It does not search the client on the row.',
   'commissions.clearFilters': 'Clear',
   'commissions.noun': 'commission',
   'commissions.nounPlural': 'commissions',

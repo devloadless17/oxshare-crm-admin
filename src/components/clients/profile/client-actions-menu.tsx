@@ -308,7 +308,10 @@ export function ClientActionsMenu({
             label: t('clientProfile.actionViewAuditTrail'),
             icon: ScrollText,
             separatorBefore: true,
-            href: `/audit-log?subjectId=${profile.id}`,
+            // By Portal ID: the audit search finds every row about the client —
+            // as the subject and inside a money row's details — not only the
+            // rows keyed on them.
+            href: `/audit-log?q=${profile.portalId}`,
           },
         ]
       : []),
@@ -317,7 +320,7 @@ export function ClientActionsMenu({
           {
             label: t('clientProfile.actionViewCommissions'),
             icon: Coins,
-            href: `/commissions?ibUserId=${profile.id}`,
+            href: `/commissions?ibUserId=${profile.portalId}`,
           },
         ]
       : []),

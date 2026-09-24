@@ -22,6 +22,7 @@ import { formatMoney } from '@/lib/money';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 
 /**
  * THE OFFLINE DEPOSIT DESK — money a client paid outside the platform.
@@ -132,10 +133,12 @@ export default function DepositApprovalsPage() {
     onError: (error) => toastError(error, t('deposits.rejectFailed')),
   });
 
+  // The Portal ID before "this client": a role that hides name and email still
+  // lets the confirm dialog say WHICH client it is about to credit.
   const nameOf = (row: TransactionRow) =>
     [row.user?.firstName, row.user?.lastName].filter(Boolean).join(' ') ||
     row.user?.email ||
-    t('deposits.unknownClient');
+    (row.user?.portalId === undefined ? t('deposits.unknownClient') : `#${row.user.portalId}`);
 
   const askApprove = async (row: TransactionRow) => {
     const ok = await confirm({
@@ -169,10 +172,11 @@ export default function DepositApprovalsPage() {
       header: t('deposits.colClient'),
       sortable: false,
       cell: (row) => (
-        <div className="min-w-0">
-          <div className="font-medium text-foreground">{nameOf(row)}</div>
-          <div className="truncate text-xs text-muted-foreground">{row.user?.email}</div>
-        </div>
+        <ClientIdentity
+          name={clientName(row.user?.firstName, row.user?.lastName)}
+          email={row.user?.email}
+          portalId={row.user?.portalId}
+        />
       ),
     },
     {
@@ -193,7 +197,7 @@ export default function DepositApprovalsPage() {
     {
       header: t('deposits.colReference'),
       sortable: false,
-      cell: (row) => row.providerRef ?? '—',
+      cell: (row) => <span data-external-ref="">{row.providerRef ?? '—'}</span>,
       cellClassName: 'font-mono text-xs whitespace-nowrap',
     },
     {

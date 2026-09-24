@@ -8,6 +8,7 @@ import {
   IB_ACCRUAL_SORT_KEYS,
   type IbAccrual,
   type IbAccrualPage,
+  type IbAccrualPerson,
   type IbAccrualSortKey,
 } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
@@ -29,6 +30,7 @@ import {
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 
 /**
  * The commission ledger — `GET /admin/ib/accruals`.
@@ -143,10 +145,11 @@ function CommissionsPageContent() {
    */
   const ibUserId = url.get('ibUserId');
   /*
-   * SEARCH BY THE PARTNER THIS SCREEN NAMES. The Partner column shows a name
-   * and an email; `ibUserId` above is a uuid printed nowhere on the page, so
-   * until this landed the only way to narrow to the partner whose rows you were
-   * reading was to leave for another screen and copy an id back.
+   * SEARCH BY THE PARTNER THIS SCREEN NAMES. The Partner column shows a name,
+   * an email and a Portal ID; `ibUserId` above arrives from a partner's profile
+   * (as their Portal ID, which the API resolves) — and until this landed the
+   * only way to narrow to the partner whose rows you were reading was to leave
+   * for another screen and copy an id back.
    *
    * It searches the PARTNER only, and the API is where that is enforced: each
    * row also names a client, whose identity is masked when they sit outside the
@@ -460,25 +463,24 @@ function Person({
   masked,
   strong = false,
 }: {
-  person: { firstName: string | null; lastName: string | null; email: string | null };
+  person: IbAccrualPerson;
   masked: boolean;
   strong?: boolean;
 }) {
+  // Outside the reader's territory the server nulls every identifier, the
+  // Portal ID included — say so rather than rendering a blank.
   if (masked) {
     return (
       <span className="text-xs text-muted-foreground italic">{t('commissions.outsideScope')}</span>
     );
   }
-
-  const name = [person.firstName, person.lastName].filter(Boolean).join(' ');
-
   return (
-    <div className="min-w-0">
-      <div className={strong ? 'font-medium text-foreground' : 'text-foreground'}>
-        {name || '—'}
-      </div>
-      <div className="truncate text-xs text-muted-foreground">{person.email}</div>
-    </div>
+    <ClientIdentity
+      name={clientName(person.firstName, person.lastName)}
+      email={person.email}
+      portalId={person.portalId}
+      strong={strong}
+    />
   );
 }
 

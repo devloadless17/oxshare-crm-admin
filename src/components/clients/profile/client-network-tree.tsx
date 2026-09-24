@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { PermittedLink } from '@/components/permitted-link';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { PortalIdTag } from '@/components/clients/client-identity';
 
 /**
  * The downline, drawn as the tree it actually is.
@@ -49,6 +50,7 @@ const MAX_DEPTH = 6;
 
 export function ClientNetworkTree({
   rootUserId,
+  rootPortalId,
   rootName,
   partner,
   referredClients,
@@ -57,6 +59,8 @@ export function ClientNetworkTree({
   referredOutsideScope,
 }: {
   rootUserId: string;
+  /** The root's Portal ID — what every link out of this tree carries. */
+  rootPortalId: number;
   rootName: string;
   /** Null when the subject is not a partner — then only their referrals show. */
   partner: IbPartnerDetail | null;
@@ -173,7 +177,7 @@ export function ClientNetworkTree({
               })}
             </span>
             <PermittedLink
-              href={`/clients?referredBy=${rootUserId}`}
+              href={`/clients?referredBy=${rootPortalId}`}
               className="font-semibold text-link hover:underline focus-outline"
             >
               {t('clientProfile.networkSeeAll')}
@@ -247,12 +251,7 @@ function Branch({
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <User className="h-3 w-3" aria-hidden="true" />
           </span>
-          <PermittedLink
-            href={`/clients/${client.clientUserId}`}
-            className="truncate text-xs text-link hover:underline focus-outline"
-          >
-            {[client.firstName, client.lastName].filter(Boolean).join(' ') || client.clientUserId}
-          </PermittedLink>
+          <ReferredClientLink client={client} />
         </div>
       ))}
 
@@ -275,7 +274,11 @@ function PartnerNode({
   // The cycle backstop — see MAX_DEPTH. A self-referencing parent key can hold
   // a loop, and a tree that recursed on one would hang the browser.
   const canExpand = depth + 1 < MAX_DEPTH;
-  const name = [sub.firstName, sub.lastName].filter(Boolean).join(' ') || sub.email;
+  // Name, else email, else the Portal ID — the first two are maskable (RBAC-03),
+  // and this string also names the disclosure button for a screen reader. The
+  // tag beside the link is shown only when it adds something.
+  const known = [sub.firstName, sub.lastName].filter(Boolean).join(' ') || sub.email;
+  const name = known || `#${sub.portalId}`;
 
   return (
     <div>
@@ -300,11 +303,12 @@ function PartnerNode({
         </span>
 
         <PermittedLink
-          href={`/clients/${sub.userId}`}
+          href={`/clients/${sub.portalId}`}
           className="truncate text-xs font-medium text-link hover:underline focus-outline"
         >
           {name}
         </PermittedLink>
+        {known && <PortalIdTag id={sub.portalId} />}
 
         <Badge variant="tag">{t('clientProfile.levelBadge', { level: String(sub.level) })}</Badge>
         {!sub.active && <Badge variant="warning">{t('clientProfile.partnerSuspended')}</Badge>}
@@ -321,5 +325,25 @@ function PartnerNode({
         </div>
       )}
     </div>
+  );
+}
+
+/** A referred client: a leaf, named the way `PartnerNode` names a partner. */
+function ReferredClientLink({
+  client,
+}: {
+  client: NonNullable<ClientProfile['referredClients']>[number];
+}) {
+  const known = [client.firstName, client.lastName].filter(Boolean).join(' ') || client.email;
+  return (
+    <>
+      <PermittedLink
+        href={`/clients/${client.clientPortalId}`}
+        className="truncate text-xs text-link hover:underline focus-outline"
+      >
+        {known || `#${client.clientPortalId}`}
+      </PermittedLink>
+      {known && <PortalIdTag id={client.clientPortalId} />}
+    </>
   );
 }

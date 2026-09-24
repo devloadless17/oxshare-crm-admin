@@ -231,7 +231,7 @@ test.describe('a payout the platform refuses is visible on the desk', () => {
       'true',
     );
 
-    const search = page.getByPlaceholder(/search by client name or email/i);
+    const search = page.getByPlaceholder(/search by name, email or portal id/i);
     await Promise.all([
       page.waitForResponse((r) => r.url().includes('q=') && r.ok()),
       search.fill(client.email),

@@ -3,11 +3,11 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { AlertCircle, Eye, EyeOff, Lock } from 'lucide-react';
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useAdmin } from '@/context/AdminAuthContext';
+import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -184,17 +184,8 @@ function AcceptInviteContent() {
 
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center space-y-2 text-center">
-          <Image
-            src="/oxshare-mark.svg"
-            // An SVG is already a vector, and Next refuses to optimize SVG
-            // without `dangerouslyAllowSVG` — see the same note on /login.
-            unoptimized
-            alt={t('app.name')}
-            width={44}
-            height={40}
-            className="h-11 w-11 object-contain"
-            priority
-          />
+          {/* Drawn inline (brand-logo.tsx): no file request, official colours. */}
+          <BrandLogo variant="mark" title={t('app.name')} className="h-11 w-auto" />
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {t('app.name')} <span className="text-muted-foreground">{t('app.adminSuffix')}</span>
           </h1>

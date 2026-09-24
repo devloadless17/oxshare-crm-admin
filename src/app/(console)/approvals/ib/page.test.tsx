@@ -89,6 +89,7 @@ function row(
     },
     user: {
       id: 'u-1',
+      portalId: 1000245,
       email: 'applicant@example.com',
       firstName: 'Rami',
       lastName: 'Khoury',

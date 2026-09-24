@@ -102,6 +102,10 @@ function entry(over: Partial<AuditEntry> = {}): AuditEntry {
     subjectType: 'kyc',
     subjectId: 'u-1',
     createdAt: '2026-08-03T15:25:08.798Z',
+    // Null on an admin-subject row: a role edit names no client.
+    clientPortalId: null,
+    actorPortalId: null,
+    subjectPortalId: null,
     ...over,
   };
 }
@@ -190,6 +194,61 @@ describe('audit log — listing', () => {
     renderWithProviders(<AuditLogPage />);
 
     expect(await screen.findByText(/\/admin\/audit-log/)).toBeInTheDocument();
+  });
+});
+
+describe('audit log — a client is named by Portal ID, never by uuid', () => {
+  const CLIENT_UUID = '0b7d3c9e-4f21-48a6-9c05-2d8e11aa3f47';
+
+  it('shows a client SUBJECT as their Portal ID in place of the uuid', async () => {
+    get.mockResolvedValue({
+      data: page([
+        entry({
+          subjectType: 'user',
+          subjectId: CLIENT_UUID,
+          subjectPortalId: 1000245,
+          clientPortalId: 1000245,
+        }),
+      ]),
+    });
+    const { container } = renderWithProviders(<AuditLogPage />);
+
+    expect(await screen.findByText('#1000245')).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain('0b7d3c9e');
+  });
+
+  it('keeps a RECORD subject’s own id, and names the client it concerns beneath it', async () => {
+    get.mockResolvedValue({
+      data: page([
+        entry({
+          subjectType: 'transaction',
+          subjectId: 'tx-7',
+          subjectPortalId: null,
+          clientPortalId: 1000246,
+        }),
+      ]),
+    });
+    renderWithProviders(<AuditLogPage />);
+
+    expect(await screen.findByText('tx-7')).toBeInTheDocument();
+    expect(screen.getByText('#1000246')).toBeInTheDocument();
+  });
+
+  it('names a CLIENT actor by Portal ID too — so a masked email still leaves a name', async () => {
+    get.mockResolvedValue({
+      data: page([
+        entry({
+          actorId: CLIENT_UUID,
+          actorKind: 'client',
+          actorEmail: undefined,
+          actorPortalId: 1000247,
+        }),
+      ]),
+    });
+    const { container } = renderWithProviders(<AuditLogPage />);
+
+    expect(await screen.findByText('#1000247')).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain('0b7d3c9e');
   });
 });
 

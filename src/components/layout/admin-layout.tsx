@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -38,6 +37,8 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { UserMenu } from './user-menu';
+import { BrandLogo } from '@/components/brand-logo';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { NotificationsSheet } from './notifications-sheet';
 import { useAdmin } from '@/context/AdminAuthContext';
 import api from '@/lib/api';
@@ -596,10 +597,38 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Sidebar Header */}
-        <div className="flex h-16 items-center justify-between border-b border-border px-4">
+        {/*
+          COLLAPSED, the header holds the mark ALONE, centred — and the expand
+          control moves onto the sidebar's edge as a small round button.
+
+          It used to keep both in one row: the 31px mark and the 28px toggle in
+          an 80px rail with 16px of padding each side is 59px into 48px, so the
+          logo link shrank, its `overflow-hidden` clipped the mark, and the
+          header read as a broken logo jammed against a chevron (owner's report,
+          24 Sep 2026). A control on the edge is the pattern people already know
+          from every collapsible sidebar, and it costs the header nothing.
+        */}
+        <div
+          className={`relative flex h-16 items-center border-b border-border ${
+            collapsed ? 'justify-center px-2' : 'justify-between px-4'
+          }`}
+        >
+          {/*
+            NAMED ON THE LINK, not only by the artwork inside it.
+
+            The wordmark used to sit beside the words "Admin Portal", so the link
+            had text and announced itself. Dropping that label left a link whose
+            only content is an image — and `ux-sweep` flagged it on every page of
+            the console, because a control named solely by a child image is one
+            step from being named by nothing: swap the artwork for a
+            decorative-marked one, or hide it per theme, and the name is gone
+            with no visible change. `aria-label` here does not depend on which
+            image is showing, or on there being an image at all.
+          */}
           <Link
             href="/dashboard"
             onClick={closeMobile}
+            aria-label={t('app.name')}
             className="flex items-center gap-3 overflow-hidden focus-outline rounded-md"
           >
             {/*
@@ -616,49 +645,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               tell the two apps apart — the console is reached at its own host,
               and every screen inside it is one the portal does not have.
             */}
+            {/*
+              The logo is drawn INLINE (see brand-logo.tsx): no file request, no
+              second copy swapped by CSS, and dark mode is the word's colour
+              turning white. The link around it carries the accessible name, so
+              the drawing itself is decorative.
+            */}
             {collapsed ? (
-              <Image
-                src="/oxshare-mark.svg"
-                // See the note on the sign-in page: Next refuses to optimize SVG
-                // without `dangerouslyAllowSVG`, and a vector needs no optimizing.
-                unoptimized
-                alt={t('app.name')}
-                width={28}
-                height={26}
-                className="h-7 w-7 shrink-0 object-contain"
-                priority
-              />
+              <BrandLogo variant="mark" className="h-7 w-auto shrink-0" />
             ) : (
-              <>
-                {/*
-                  TWO FILES, SWAPPED IN CSS. The brand ships a dark wordmark for
-                  light grounds and a white one for dark, so this renders the
-                  artwork as drawn rather than filtering one into the other.
-
-                  `dark:hidden` rather than a JS check on the theme: next-themes
-                  sets the class before React hydrates, so a JS-chosen src would
-                  flash the light logo on a dark screen for one frame.
-                */}
-                <Image
-                  src="/oxshare-logo.svg"
-                  unoptimized
-                  alt={t('app.name')}
-                  width={76}
-                  height={26}
-                  className="h-7 w-auto shrink-0 object-contain dark:hidden"
-                  priority
-                />
-                <Image
-                  src="/oxshare-logo-dark.svg"
-                  unoptimized
-                  alt=""
-                  aria-hidden="true"
-                  width={76}
-                  height={26}
-                  className="hidden h-7 w-auto shrink-0 object-contain dark:block"
-                  priority
-                />
-              </>
+              <BrandLogo className="h-7 w-auto shrink-0" />
             )}
           </Link>
 
@@ -671,9 +667,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                navigation — the portal's copy of this had the same gap. */
             aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
             aria-expanded={!collapsed}
-            className="hidden lg:flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline"
+            className={
+              collapsed
+                ? 'absolute -right-3 top-1/2 z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-outline lg:flex'
+                : 'hidden lg:flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline'
+            }
           >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {collapsed ? (
+              <ChevronRight className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </button>
 
           {/* Mobile Close */}
@@ -867,6 +871,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               always said there was something. Both are gone: it opens a panel
               now, and the panel is honest that notifications are not live.
             */}
+            {/*
+              Light or dark, one click, BESIDE the bell — the client's call. It
+              used to be a Theme ▸ submenu inside the account menu offering
+              System as well; the toggle is the whole control now.
+            */}
+            <ThemeToggle />
             <NotificationsSheet />
 
             {/*
@@ -875,8 +885,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               used to sit at the foot of the sidebar on desktop with this
               header copy gated `lg:hidden`; one menu in one place means one
               selector for the tests and no duplicate trigger for a screen
-              reader to announce twice. The theme control (Light/Dark/System)
-              lives inside it — a personal preference, not system status.
+              reader to announce twice.
             */}
             <UserMenu collapsed variant="header" />
           </div>

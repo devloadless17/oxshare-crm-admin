@@ -125,7 +125,7 @@ export function clientColumns({
         // something is the one affordance a directory needs, and putting it on
         // the name means no extra column.
         <PermittedLink
-          href={`/clients/${c.id}`}
+          href={`/clients/${c.portalId}`}
           className="text-link hover:underline focus-outline"
         >
           {[c.firstName, c.lastName].filter(Boolean).join(' ') || t('clients.unnamed')}
@@ -146,17 +146,21 @@ export function clientColumns({
 
   columns.push({
     /*
-     * The client's uuid, truncated with copy-the-full-value — see CopyableId
-     * for why it is not rendered whole. NO mask gate: `client.id` is declared
-     * non-maskable in the backend catalog ("every row and every link is
-     * addressed by it"), so on a fully masked row this is the one identifier
-     * an operator can still quote to support.
+     * The Portal ID — the number staff and clients know an account by — with a
+     * copy button. Never the uuid: it still keys the row inside the system and
+     * is shown to no one — URLs carry the Portal ID too (owner's decision, 24
+     * Sep 2026).
+     * NO mask gate: the Portal ID identifies the record rather than describing
+     * the person, so on a fully masked row it is the one identifier an operator
+     * can still quote to support.
      */
     header: t('clients.colId'),
-    // NOT sortable: `id` is not in the backend's `CLIENT_SORT_COLUMNS`, and
-    // R-2.5 makes an unrecognised sort a 400 rather than a silent fallback.
+    // NOT sortable: `portalId` is not in the backend's `CLIENT_SORT_COLUMNS`,
+    // and R-2.5 makes an unrecognised sort a 400 rather than a silent fallback.
     sortable: false,
-    cell: (c) => <CopyableId value={c.id} />,
+    cell: (c) => (
+      <CopyableId value={String(c.portalId)} full copyLabel={t('common.copyPortalId')} />
+    ),
   });
 
   columns.push(
@@ -289,11 +293,12 @@ export function clientColumns({
       actionsColumn<ClientRow>(
         (c) => (
           <RowActions
-            /* Falls through to the id: name AND email are both maskable
+            /* Falls through to the Portal ID: name AND email are both maskable
                (RBAC-03), so on a masked row neither is available to name the
                trigger — and an unnamed one announces as a bare "button". */
             label={t('table.rowActions', {
-              name: [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || c.id,
+              name:
+                [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || `#${c.portalId}`,
             })}
             busy={actingId === c.id}
             items={[

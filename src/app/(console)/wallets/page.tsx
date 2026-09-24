@@ -43,6 +43,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
+import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 
 /**
  * Client wallets — `GET /admin/wallets`.
@@ -302,12 +303,11 @@ function WalletsPageContent() {
       // column at all.
       ...sortableBy('userEmail'),
       cell: (w) => (
-        <div className="min-w-0">
-          <div className="font-medium text-foreground">
-            {[w.user.firstName, w.user.lastName].filter(Boolean).join(' ') || '—'}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">{w.user.email}</div>
-        </div>
+        <ClientIdentity
+          name={clientName(w.user.firstName, w.user.lastName)}
+          email={w.user.email}
+          portalId={w.user.portalId}
+        />
       ),
     },
     {
@@ -483,6 +483,9 @@ function WalletsPageContent() {
           label={t('wallets.filterClient')}
           placeholder={t('wallets.filterClientPlaceholder')}
           title={t('wallets.filterClientHint')}
+          // Wider than the default box: the placeholder names four things the
+          // search takes, and a clipped placeholder reads as a broken one.
+          className="h-9 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline sm:w-80"
           // Filter and page written together, so narrowing always lands on page
           // one rather than past the end of the new result set.
           onChange={(next) => url.set({ q: next || undefined, page: undefined })}

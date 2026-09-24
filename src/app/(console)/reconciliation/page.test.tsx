@@ -188,23 +188,44 @@ describe('whose money does not add up', () => {
     expect(screen.getByText('omar@example.com')).toBeInTheDocument();
   });
 
-  it('keeps the row, falling back to the id, when the client record is gone', async () => {
+  it('keeps the row, saying the client is gone, when the client record is gone', async () => {
     /*
-     * NULL from the LEFT join. A discrepancy must not disappear because the
-     * person did — that would hide the exact condition this screen exists to
-     * surface.
+     * NULL from the LEFT join, the Portal ID with it. A discrepancy must not
+     * disappear because the person did — that would hide the exact condition
+     * this screen exists to surface — and it says so in words rather than
+     * printing the uuid, which stays on hover for forensics.
      */
     getReconciliation.mockResolvedValue(
       report({
         balanced: false,
         walletDiscrepancies: [
-          discrepancy({ userFirstName: null, userLastName: null, userEmail: null }),
+          discrepancy({
+            userFirstName: null,
+            userLastName: null,
+            userEmail: null,
+            userPortalId: null,
+          }),
         ],
       }),
     );
 
     renderWithProviders(<ReconciliationPage />);
 
-    expect(await screen.findByText('c-1')).toBeInTheDocument();
+    const gone = await screen.findByText('Client no longer exists');
+    expect(gone).toHaveAttribute('title', 'c-1');
+  });
+
+  it('names the client by Portal ID, never by the uuid the row is keyed on', async () => {
+    getReconciliation.mockResolvedValue(
+      report({
+        balanced: false,
+        walletDiscrepancies: [discrepancy({ userPortalId: 1000245 })],
+      }),
+    );
+
+    renderWithProviders(<ReconciliationPage />);
+
+    expect(await screen.findByText('#1000245')).toBeInTheDocument();
+    expect(screen.queryByText('c-1')).toBeNull();
   });
 });

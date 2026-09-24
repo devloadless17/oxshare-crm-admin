@@ -24,6 +24,7 @@ import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { PortalIdTag } from '@/components/clients/client-identity';
 
 // D-21: append-only admin action log. Read-only view — there is deliberately
 // no edit or delete anywhere in this flow.
@@ -287,8 +288,11 @@ function AuditLogPageContent() {
            * addresses. Rendering nothing would read as "this actor has no
            * email", which is the exact misreading MaskedValue exists to stop.
            */}
-          <div className="text-foreground">
+          <div className="flex min-w-0 items-baseline gap-1.5 text-foreground">
             {e.actorEmail === undefined ? <MaskedChip /> : e.actorEmail}
+            {/* A client actor is named by Portal ID too — the one identifier a
+                role never hides, so a masked email still leaves a name. */}
+            {e.actorPortalId !== null && <PortalIdTag id={e.actorPortalId} />}
           </div>
           <div className="flex items-center gap-1.5">
             <span className="font-mono text-[11px] text-muted-foreground">
@@ -330,12 +334,29 @@ function AuditLogPageContent() {
       cell: (e) => (
         <>
           <div className="text-xs">{e.subjectType}</div>
-          <div
-            className="font-mono text-[11px] text-muted-foreground max-w-[160px] truncate"
-            title={e.subjectId}
-          >
-            {e.subjectId}
-          </div>
+          {/*
+            A subject that IS a client is named by Portal ID — the server says
+            which (`subjectPortalId`), from the clients table rather than from
+            a list of types. Any other record keeps its own id, with the client
+            it concerns (if any) named beneath it.
+          */}
+          {e.subjectPortalId !== null ? (
+            <PortalIdTag id={e.subjectPortalId} />
+          ) : (
+            <>
+              <div
+                className="font-mono text-[11px] text-muted-foreground max-w-[160px] truncate"
+                title={e.subjectId}
+              >
+                {e.subjectId}
+              </div>
+              {e.clientPortalId !== null && (
+                <div className="text-[11px] text-muted-foreground">
+                  {t('audit.subjectClient')} <PortalIdTag id={e.clientPortalId} />
+                </div>
+              )}
+            </>
+          )}
         </>
       ),
       cellClassName: 'text-muted-foreground',

@@ -77,6 +77,7 @@ type Referred = NonNullable<ClientProfile['referredClients']>;
 const someClients = (n: number): Referred =>
   Array.from({ length: n }, (_, i) => ({
     clientUserId: `client-${i}`,
+    clientPortalId: 1000100 + i,
     firstName: 'Ada',
     lastName: `Number${i}`,
   })) as Referred;
@@ -85,6 +86,7 @@ function renderTree(props: Partial<React.ComponentProps<typeof ClientNetworkTree
   return renderWithProviders(
     <ClientNetworkTree
       rootUserId="partner-1"
+      rootPortalId={1000001}
       rootName="Grace Hopper"
       partner={null}
       referredClients={someClients(3)}
@@ -101,7 +103,8 @@ describe('the referral network tree', () => {
     const link = screen.getByRole('link', { name: /see all of them/i });
     // The link is what makes the cap honest rather than merely stated: before
     // this filter existed there was nowhere for it to point.
-    expect(link).toHaveAttribute('href', '/clients?referredBy=partner-1');
+    // By Portal ID — an address bar is on screen too, and the uuid is on none.
+    expect(link).toHaveAttribute('href', '/clients?referredBy=1000001');
   });
 
   it('says NOTHING when the list is complete', () => {

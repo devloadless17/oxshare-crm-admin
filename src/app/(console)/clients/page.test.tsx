@@ -135,6 +135,7 @@ vi.mock('@/context/AdminAuthContext', () => ({
 function client(over: Record<string, unknown> = {}) {
   return {
     id: 'c-1',
+    portalId: 1000245,
     email: 'client@oxshare.com',
     firstName: 'John',
     lastName: 'Doe',
@@ -189,23 +190,25 @@ describe('client directory — listing', () => {
     expect(await screen.findByText('client@oxshare.com')).toBeInTheDocument();
   });
 
-  it('shows the client ID truncated, with the full uuid on the element title', async () => {
+  it('shows the Portal ID — whole — and never the uuid, not even a fragment of it', async () => {
+    // The owner's rule (24 Sep 2026): a client is identified by Portal ID
+    // alone, as if the uuid had never existed. It still addresses the row, so
+    // it must be in the payload and nowhere on the screen.
     const uuid = '0b7d3c9e-4f21-48a6-9c05-2d8e11aa3f47';
-    getClients.mockResolvedValue(page([client({ id: uuid })]));
-    renderWithProviders(<ClientsPage />);
+    getClients.mockResolvedValue(page([client({ id: uuid, portalId: 26184 })]));
+    const { container } = renderWithProviders(<ClientsPage />);
 
-    // The cell shows 8 characters; the whole uuid travels on the title (and on
-    // the copy button, pinned by copyable-id.test.tsx).
-    expect(await screen.findByText('0b7d3c9e')).toBeInTheDocument();
-    expect(screen.getByTitle(uuid)).toBeInTheDocument();
-    expect(screen.queryByText(uuid)).not.toBeInTheDocument();
+    expect(await screen.findByText('26184')).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain('0b7d3c9e');
+    // The row still LINKS by Portal ID — the address bar is on screen too.
+    expect(container.querySelector('a[href="/clients/26184"]')).not.toBeNull();
   });
 
-  it('does NOT offer a sort on the ID column — the API has no such key', async () => {
+  it('does NOT offer a sort on the Portal ID column — the API has no such key', async () => {
     renderWithProviders(<ClientsPage />);
     await screen.findByText('client@oxshare.com');
 
-    const header = screen.getByRole('columnheader', { name: /^id$/i });
+    const header = screen.getByRole('columnheader', { name: /^portal id$/i });
     expect(within(header).queryByRole('button')).toBeNull();
   });
 

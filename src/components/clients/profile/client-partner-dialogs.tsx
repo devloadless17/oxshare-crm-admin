@@ -10,6 +10,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { formatDecimal } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
+import { PortalIdTag } from '@/components/clients/client-identity';
 
 /**
  * The two partner edits that need a CHOICE, so neither fits in a confirm.
@@ -273,9 +274,15 @@ export function ReassignParentDialog({
                   className="h-3.5 w-3.5 shrink-0"
                 />
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium">
-                    {[row.user.firstName, row.user.lastName].filter(Boolean).join(' ') ||
-                      row.user.email}
+                  <span className="flex min-w-0 items-baseline gap-1.5">
+                    <span className="truncate text-sm font-medium">
+                      {[row.user.firstName, row.user.lastName].filter(Boolean).join(' ') ||
+                        row.user.email ||
+                        `#${row.user.portalId}`}
+                    </span>
+                    {(row.user.firstName || row.user.lastName || row.user.email) && (
+                      <PortalIdTag id={row.user.portalId} />
+                    )}
                   </span>
                   <span className="block truncate text-[11px] text-muted-foreground">
                     {row.user.email}

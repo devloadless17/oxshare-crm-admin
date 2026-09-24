@@ -415,10 +415,10 @@ describe('RBAC-03: masked client fields are dropped and announced', () => {
     expect(screen.getByText(/email address/i)).toBeInTheDocument();
   });
 
-  it('falls back to the client id when everything readable is hidden', async () => {
+  it('falls back to the Portal ID — never the uuid — when everything readable is hidden', async () => {
     getTransactions.mockResolvedValue(
       page({
-        items: [row({ user: { id: 'u-1' } })],
+        items: [row({ user: { id: '0b7d3c9e-4f21-48a6-9c05-2d8e11aa3f47', portalId: 1000245 } })],
         maskedFields: [
           'financial.user.email',
           'financial.user.firstName',
@@ -428,8 +428,10 @@ describe('RBAC-03: masked client fields are dropped and announced', () => {
     );
     renderWithProviders(<FinancialPage />);
 
-    // The id is unmaskable (rows are addressed by it) and is what remains.
-    expect(await screen.findByText('u-1')).toBeInTheDocument();
+    // The Portal ID is unmaskable and is what remains; the uuid the row is
+    // keyed on is not shown even here.
+    expect(await screen.findByText('#1000245')).toBeInTheDocument();
+    expect(document.body.innerHTML).not.toContain('0b7d3c9e');
     expect(screen.queryByText('Jane Client')).toBeNull();
   });
 });

@@ -109,6 +109,7 @@ function account(over: Partial<TradingAccountRow> = {}): TradingAccountRow {
     updatedAt: '2026-08-01T10:00:00.000Z',
     user: {
       id: 'u-1',
+      portalId: 1000245,
       email: 'client@example.com',
       firstName: 'Dana',
       lastName: 'Haddad',
