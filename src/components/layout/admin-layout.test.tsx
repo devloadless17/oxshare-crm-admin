@@ -48,6 +48,13 @@ vi.mock('./use-nav-badges', () => ({ useNavBadges: () => badges.current }));
  * mocking this module partially — `usePathname` only — makes every other export
  * `undefined` rather than falling through to the real one.
  */
+/*
+ * `next/link` by its click contract (see the stand-in): the sidebar records
+ * where a click is going from `onNavigate`, which the real component calls only
+ * through a mounted app router — so without this, a click on a menu link here
+ * would do nothing the menu can see.
+ */
+vi.mock('next/link', () => import('@/test/next-link'));
 vi.mock('next/navigation', () => ({
   usePathname: () => route.pathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -328,6 +335,53 @@ describe('the sidebar is main items with sub-items', () => {
     await user.click(group('System'));
     expect(selected()).toHaveLength(1);
     expect(selected()[0]).toBe(dashboard);
+  });
+
+  it('forgets an opened item once you move on — coming back does not revive it', async () => {
+    /*
+     * The reported sequence: open Trading on the dashboard, visit Products,
+     * return to the dashboard. The choice was remembered against the PATH, so
+     * the dashboard came back with Trading open and selected.
+     */
+    const user = userEvent.setup();
+    route.pathname = '/dashboard';
+    const { rerender } = renderWithProviders(layout());
+    await user.click(group('Trading'));
+    expect(group('Trading')).toHaveAttribute('data-selected', 'true');
+
+    route.pathname = '/products';
+    rerender(layout());
+    expect(group('Trading')).toHaveAttribute('aria-expanded', 'true');
+
+    route.pathname = '/dashboard';
+    rerender(layout());
+
+    const nav = screen.getByRole('navigation');
+    expect(group('Trading')).toHaveAttribute('aria-expanded', 'false');
+    expect(group('Trading')).not.toHaveAttribute('data-selected');
+    expect(nav.querySelectorAll('[data-selected]')).toHaveLength(1);
+    expect(within(nav).getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'data-selected',
+      'true',
+    );
+  });
+
+  it('hands the selection back to the page when you click the page you are on', async () => {
+    const user = userEvent.setup();
+    route.pathname = '/dashboard';
+    renderWithProviders(layout());
+    await user.click(group('System'));
+    expect(group('System')).toHaveAttribute('data-selected', 'true');
+
+    await user.click(
+      within(screen.getByRole('navigation')).getByRole('link', { name: 'Dashboard' }),
+    );
+
+    expect(group('System')).toHaveAttribute('aria-expanded', 'false');
+    expect(group('System')).not.toHaveAttribute('data-selected');
+    expect(
+      within(screen.getByRole('navigation')).getByRole('link', { name: 'Dashboard' }),
+    ).toHaveAttribute('data-selected', 'true');
   });
 
   it('selects the main item holding the page, and only MARKS the page inside it', () => {

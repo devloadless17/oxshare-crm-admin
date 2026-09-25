@@ -14,6 +14,7 @@ import {
 import { t } from '@/lib/i18n';
 import {
   groupBadgeTotal,
+  groupOf,
   isNavGroup,
   leafHref,
   type NavBadges,
@@ -21,6 +22,54 @@ import {
   type NavGroup,
   type NavLeaf,
 } from './navigation';
+
+/**
+ * Where the menu stands: the page it shows as current, and the main item the
+ * operator opened, if they opened one.
+ *
+ * ## It shows where the operator is GOING, from the click
+ *
+ * A navigation is not instant. The router keeps the old page on screen until
+ * the new one is ready — a round trip in production, seconds while dev compiles
+ * a route — and `pathname` changes only when it lands. The menu used to forget
+ * the operator's choice on the click and wait for `pathname`, so for that whole
+ * window it fell back to the page being LEFT: the main item you had just
+ * clicked in folded shut and opened again, or the previous main item lit up
+ * before the right one (reported: "it closes the expanded menu then expands it
+ * again… makes another main item active for milliseconds"). A click now records
+ * where it is going and the menu shows that page at once, so when the page
+ * lands, nothing on the menu moves.
+ *
+ * Recorded from `next/link`'s `onNavigate`, never `onClick`: it runs only when
+ * the router really navigates THIS tab, so a Ctrl/⌘-click or a middle click —
+ * the page opening in a new tab — leaves this menu describing this tab.
+ *
+ * A second click before the first page lands OVERTAKES it, and the router can
+ * still show the overtaken page on the way (seen live: Deposits, then
+ * Withdrawals a moment later, and the Deposits page landed first). That page is
+ * an echo of a click the operator already replaced, so the menu keeps showing
+ * the latest one instead of flicking back to it.
+ *
+ * ## A choice lasts until the operator goes somewhere
+ *
+ * Opening a main item is a choice about the page on screen. Any navigation
+ * clears it — a click in this menu, or the page changing under it (the
+ * palette, a link in the page, the back button) — so a choice made two pages
+ * ago never comes back (reported: "I'm on the dashboard but the old active
+ * item keeps showing as active"). One exception: a main item opened while a
+ * click's page was on its way is a choice about the page that arrives, and is
+ * kept.
+ */
+interface MenuPosition {
+  /** The `pathname` this position was last reconciled with. */
+  path: string | null;
+  /** The page a click in this menu is taking the operator to, until it lands. */
+  heading?: string;
+  /** Pages of earlier clicks that `heading` overtook, oldest first — they may still land. */
+  overtaken?: readonly string[];
+  /** The main item the operator opened; `null` closed them all; absent follows the page. */
+  open?: string | null;
+}
 
 /**
  * The console's sidebar: main items that open onto their pages.
@@ -36,14 +85,12 @@ import {
  * keeps the menu short enough to show every main item without scrolling, which
  * is most of what "I know where things are" means.
  *
- * The open group is DERIVED, not synced in an effect:
- *
- *     open = choice made on this path ? that choice : the group holding the page
- *
- * so arriving anywhere — a link, the command palette, a notification, the back
- * button — renders the right group open on the first paint, and a click only
- * overrides it until the next navigation. An effect keyed on `pathname` would
- * paint the stale group for one frame and then move it under the pointer.
+ * The open group is DERIVED, not synced in an effect — the group holding the
+ * page the menu shows, unless the operator opened another (`MenuPosition`) —
+ * so arriving anywhere (a link, the command palette, a notification, the back
+ * button) renders the right group open on the first paint. An effect keyed on
+ * `pathname` would paint the stale group for one frame and then move it under
+ * the pointer.
  */
 export function SidebarNav({
   entries,
@@ -62,17 +109,42 @@ export function SidebarNav({
   badges: NavBadges;
   onNavigate: () => void;
 }) {
-  const activeGroupId =
-    entries.find(
-      (entry): entry is NavGroup =>
-        isNavGroup(entry) && entry.items.some((item) => item.href === activeHref),
-    )?.id ?? null;
+  const [position, setPosition] = React.useState<MenuPosition>({ path: pathname });
+  let here = position;
+  if (position.path !== pathname) {
+    /*
+     * The page changed. Adjusted while rendering — React's pattern for state
+     * that resets when a prop changes — so a stale position is never painted,
+     * and no effect paints it for a frame first.
+     */
+    const echo = pathname === null ? -1 : (position.overtaken?.indexOf(pathname) ?? -1);
+    here =
+      position.heading !== undefined && position.heading === pathname
+        ? { path: pathname, open: position.open }
+        : echo >= 0
+          ? { ...position, path: pathname, overtaken: position.overtaken?.slice(echo + 1) }
+          : { path: pathname };
+    setPosition(here);
+  }
 
-  const [choice, setChoice] = React.useState<{ path: string | null; open: string | null } | null>(
-    null,
-  );
-  const choiceHere = choice && choice.path === pathname ? choice : null;
-  const openId = choiceHere ? choiceHere.open : activeGroupId;
+  /* The page the menu shows: where a click in it is going, else the page on screen. */
+  const shownHref = here.heading ?? activeHref;
+  const activeGroupId = groupOf(shownHref, entries)?.id ?? null;
+  const openId = here.open === undefined ? activeGroupId : here.open;
+  const toggle = (id: string) => setPosition({ ...here, open: openId === id ? null : id });
+  /*
+   * A click on any page in the menu — even the page already on screen — hands
+   * the selection to that page. Clicking Dashboard on the dashboard after
+   * peeking into Trading has to put the highlight back on Dashboard.
+   */
+  const go = (href: string) => {
+    const overtaken =
+      here.heading !== undefined && here.heading !== href
+        ? [...(here.overtaken ?? []), here.heading]
+        : here.overtaken;
+    setPosition({ path: here.path, heading: href, overtaken });
+    onNavigate();
+  };
 
   /*
    * THE ONE SELECTED ROW — the sidebar highlights exactly one main item.
@@ -88,13 +160,13 @@ export function SidebarNav({
    *
    * The rail has no accordion to open, so it selects by the page alone.
    */
-  const selectedId = collapsed ? activeGroupId : (choiceHere?.open ?? activeGroupId);
+  const selectedId = collapsed ? activeGroupId : (here.open ?? activeGroupId);
 
   return (
     <>
       {entries.map((entry) => {
         if (!isNavGroup(entry)) {
-          const current = entry.href === activeHref;
+          const current = entry.href === shownHref;
           return (
             <NavLink
               key={entry.href}
@@ -102,7 +174,7 @@ export function SidebarNav({
               current={current}
               selected={current && selectedId === null}
               collapsed={collapsed}
-              onNavigate={onNavigate}
+              onNavigate={() => go(entry.href)}
               badge={badges[entry.href]}
             />
           );
@@ -114,24 +186,23 @@ export function SidebarNav({
               key={entry.id}
               group={entry}
               selected={selectedId === entry.id}
-              activeHref={activeHref}
+              activeHref={shownHref}
               badges={badges}
-              onNavigate={onNavigate}
+              onNavigate={go}
             />
           );
         }
 
-        const open = openId === entry.id;
         return (
           <NavGroupPanel
             key={entry.id}
             group={entry}
-            open={open}
+            open={openId === entry.id}
             selected={selectedId === entry.id}
-            onToggle={() => setChoice({ path: pathname, open: open ? null : entry.id })}
-            activeHref={activeHref}
+            onToggle={() => toggle(entry.id)}
+            activeHref={shownHref}
             badges={badges}
-            onNavigate={onNavigate}
+            onNavigate={go}
           />
         );
       })}
@@ -187,7 +258,10 @@ function NavLink({
   nested = false,
 }: {
   item: NavLeaf;
-  /** This link IS the page on screen — `aria-current`, whatever is selected. */
+  /**
+   * This link IS the page — the one on screen, or the one a click in the menu
+   * is taking the operator to — so `aria-current`, whatever is selected.
+   */
   current: boolean;
   /** This top-level row is the sidebar's one selected row. */
   selected?: boolean;
@@ -210,7 +284,8 @@ function NavLink({
   return (
     <Link
       href={leafHref(item)}
-      onClick={onNavigate}
+      /* Not `onClick` — see `MenuPosition`: a click that opens a new tab is not a navigation here. */
+      onNavigate={onNavigate}
       title={collapsed ? t(item.label) : undefined}
       /*
        * Which page you are on, said rather than only shown — the one thing a
@@ -259,7 +334,7 @@ function NavGroupPanel({
   onToggle: () => void;
   activeHref: string | null;
   badges: NavBadges;
-  onNavigate: () => void;
+  onNavigate: (href: string) => void;
 }) {
   const Icon = group.icon;
   const panelId = `nav-group-${group.id}`;
@@ -347,7 +422,7 @@ function NavGroupPanel({
                   item={item}
                   current={item.href === activeHref}
                   collapsed={false}
-                  onNavigate={onNavigate}
+                  onNavigate={() => onNavigate(item.href)}
                   badge={badges[item.href]}
                   nested
                 />
@@ -386,7 +461,7 @@ function RailGroupMenu({
   selected: boolean;
   activeHref: string | null;
   badges: NavBadges;
-  onNavigate: () => void;
+  onNavigate: (href: string) => void;
 }) {
   const Icon = group.icon;
   const label = t(group.label);
@@ -446,7 +521,7 @@ function RailGroupMenu({
             <DropdownMenuItem key={item.href} asChild>
               <Link
                 href={leafHref(item)}
-                onClick={onNavigate}
+                onNavigate={() => onNavigate(item.href)}
                 aria-current={active ? 'page' : undefined}
                 className={active ? 'bg-primary/10 font-semibold text-foreground' : undefined}
               >
