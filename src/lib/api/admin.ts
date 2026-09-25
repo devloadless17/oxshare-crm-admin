@@ -280,6 +280,14 @@ export type IssuedApiKey = components['schemas']['IssuedApiKeyDto'];
 export type PaymentMethod = components['schemas']['PaymentMethodDto'];
 export type CreatePaymentMethod = components['schemas']['CreatePaymentMethodDto'];
 export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'];
+/**
+ * A payout rail clients may withdraw through — `withdrawal_payment_methods`,
+ * disabled ones included. The deposit list's twin, managed separately because a
+ * rail can take money in and not pay out, or the reverse.
+ */
+export type WithdrawalMethod = components['schemas']['AdminWithdrawalMethodDto'];
+export type CreateWithdrawalMethod = components['schemas']['CreateWithdrawalMethodDto'];
+export type UpdateWithdrawalMethod = components['schemas']['UpdateWithdrawalMethodDto'];
 /*
  * `PaymentMethodKind` is GONE, with the column behind it (migration 0043).
  *
@@ -2367,6 +2375,31 @@ export const adminApi = {
       '/admin/payment-methods/logo',
       form,
       { headers: { 'Content-Type': undefined } },
+    );
+    return data;
+  },
+
+  /* ── Withdrawal methods ──────────────────────────────────────────────── */
+
+  async getWithdrawalMethods(signal?: AbortSignal): Promise<WithdrawalMethod[]> {
+    const { data } = await apiClient.get<WithdrawalMethod[]>('/admin/withdrawal-methods', {
+      signal,
+    });
+    return data;
+  },
+
+  async createWithdrawalMethod(body: CreateWithdrawalMethod): Promise<WithdrawalMethod> {
+    const { data } = await apiClient.post<WithdrawalMethod>('/admin/withdrawal-methods', body);
+    return data;
+  },
+
+  async updateWithdrawalMethod(
+    key: string,
+    body: UpdateWithdrawalMethod,
+  ): Promise<WithdrawalMethod> {
+    const { data } = await apiClient.patch<WithdrawalMethod>(
+      `/admin/withdrawal-methods/${encodeURIComponent(key)}`,
+      body,
     );
     return data;
   },

@@ -355,7 +355,11 @@ function CurrencyField({ value, onChange }: { value: string; onChange: (code: st
  * client can see, which is the right way round: the alternative would edit the
  * live deposit screen before the form was submitted.
  */
-function LogoField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+/*
+ * Exported for the withdrawal method form: both lists take logos through the
+ * same upload endpoint, and one field means one set of upload rules.
+ */
+export function LogoField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);

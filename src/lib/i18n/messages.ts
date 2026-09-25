@@ -311,7 +311,7 @@ export const messages = {
   'withdrawals.nounPlural': 'requests',
 
   // ── Payment methods ───────────────────────────────────────────────────────
-  'paymentMethods.title': 'Payment methods',
+  'paymentMethods.title': 'Deposit methods',
   /*
    * The pay-to sentence is gone with the field.
    *
@@ -324,6 +324,46 @@ export const messages = {
   'paymentMethods.subtitle':
     'How clients can send money in. Enabling a method offers it in the client portal; disabling it stops new deposits and keeps existing history readable.',
   'paymentMethods.create': 'Add method',
+  // ── Withdrawal methods ────────────────────────────────────────────────────
+  // The payout rails the portal's withdraw form offers. The deposit list's
+  // twin: its own rows, switched on and off independently.
+  'withdrawalMethods.title': 'Withdrawal methods',
+  'withdrawalMethods.subtitle':
+    'How clients can take money out. Enabling a method offers it on the client’s withdraw form; disabling it stops new requests and leaves existing ones for the desk to settle.',
+  'withdrawalMethods.create': 'Add method',
+  'withdrawalMethods.loading': 'Loading withdrawal methods',
+  'withdrawalMethods.loadFailed': 'Could not load the withdrawal methods.',
+  'withdrawalMethods.caption': 'Configured withdrawal methods',
+  'withdrawalMethods.empty':
+    'No withdrawal methods configured. Clients cannot request a withdrawal until one is.',
+  'withdrawalMethods.readOnly': 'You do not have permission to change these.',
+  'withdrawalMethods.colKey': 'Key',
+  'withdrawalMethods.colName': 'Name',
+  'withdrawalMethods.colOrder': 'Order',
+  'withdrawalMethods.colStatus': 'Status',
+  'withdrawalMethods.colActions': 'Actions',
+  'withdrawalMethods.statusEnabled': 'Enabled',
+  'withdrawalMethods.statusDisabled': 'Disabled',
+  'withdrawalMethods.edit': 'Edit',
+  'withdrawalMethods.enable': 'Enable',
+  'withdrawalMethods.disable': 'Disable',
+  'withdrawalMethods.createTitle': 'Add withdrawal method',
+  'withdrawalMethods.editTitle': 'Edit withdrawal method',
+  'withdrawalMethods.key': 'Key',
+  'withdrawalMethods.keyHint':
+    'A permanent identifier — letters, digits and underscores. It cannot be changed later.',
+  'withdrawalMethods.name': 'Name',
+  'withdrawalMethods.namePlaceholder': 'Bank transfer',
+  'withdrawalMethods.order': 'Order',
+  'withdrawalMethods.orderHint': 'Lower numbers are listed first on the withdraw form.',
+  'withdrawalMethods.enabled': 'Offer it to clients',
+  'withdrawalMethods.save': 'Save',
+  'withdrawalMethods.saving': 'Saving...',
+  'withdrawalMethods.cancel': 'Cancel',
+  'withdrawalMethods.saveSucceeded': '{name} saved',
+  'withdrawalMethods.saveFailed': 'Could not save that withdrawal method.',
+  'withdrawalMethods.enabledSucceeded': '{name} is now offered to clients',
+  'withdrawalMethods.disabledSucceeded': '{name} is no longer offered to clients',
   'paymentMethods.loading': 'Loading payment methods',
   'paymentMethods.loadFailed': 'Could not load the payment methods.',
   'paymentMethods.caption': 'Configured deposit methods',
@@ -2673,7 +2713,10 @@ export const messages = {
   'deposits.confirmReject': 'Refuse deposit',
   'deposits.rowActionsLabel': 'Deposit actions',
 
-  'nav.paymentMethods': 'Payment methods',
+  // "Deposit methods", not "Payment methods": the withdrawal list sits beside
+  // it now, and "payment" alone does not say which direction.
+  'nav.paymentMethods': 'Deposit methods',
+  'nav.withdrawalMethods': 'Withdrawal methods',
   'nav.wallets': 'Wallets',
   'nav.tradingAccounts': 'Trading accounts',
   // ── The leverage ladder ───────────────────────────────────────────────────

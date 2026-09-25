@@ -5,6 +5,7 @@ import {
   ArrowLeftRight,
   ArrowUpFromLine,
   BadgePercent,
+  Banknote,
   Boxes,
   Building2,
   CandlestickChart,
@@ -234,6 +235,12 @@ export const NAV: readonly NavEntry[] = [
       { label: 'nav.roles', href: '/roles', icon: ShieldCheck },
       /* The deposit methods the portal offers — configuration, not a desk. */
       { label: 'nav.paymentMethods', href: '/payment-methods', icon: CreditCard },
+      /*
+       * The payout rails the withdraw form offers — the deposit list's twin.
+       * Beside it, and the deposit entry is labelled "Deposit methods" so the
+       * pair reads as two halves rather than one list and an exception.
+       */
+      { label: 'nav.withdrawalMethods', href: '/withdrawal-methods', icon: Banknote },
       { label: 'nav.kycBuilder', href: '/kyc/builder', icon: ClipboardList },
       /*
        * ADM-14. The tag CATALOGUE — creating, renaming, recolouring. Tagging a
