@@ -643,6 +643,13 @@
 @utility slide-out-to-right-full {
   --tw-exit-translate-x: 100%;
 }
+/* A bottom sheet (phone filters and actions) rises its own height. */
+@utility slide-in-from-bottom-full {
+  --tw-enter-translate-y: 100%;
+}
+@utility slide-out-to-bottom-full {
+  --tw-exit-translate-y: 100%;
+}
 
 /*
  * ── The loader ──────────────────────────────────────────────────────────────
