@@ -3,11 +3,11 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { LineChart, Mail, MonitorDown, ShieldCheck, Wallet } from 'lucide-react';
+import { LineChart, Mail, MonitorDown, Wallet } from 'lucide-react';
 import { PageLoader } from '@/components/ui/loader';
 import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
-import { IpAllowlistPanel } from '@/components/rbac/ip-allowlist-panel';
+
 import { TradingSettingsPanel } from '@/components/rbac/trading-settings-panel';
 import { RivalSettingsPanel } from '@/components/rbac/rival-settings-panel';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
@@ -34,15 +34,18 @@ import { t } from '@/lib/i18n';
  * they were already stacked on one page. Tabs give them room to be filled in
  * without turning the page into a scroll.
  *
- * A Security tab (IP allowlist + master-admin control switches) also lived here
- * and was removed as unwanted scope. The API endpoints behind it still exist and
- * `adminApi` still wraps them — nothing renders them.
+ * A Security tab (the RBAC-08 network allowlist) also lived here. It is its own
+ * page now, `/network-access`, under Security in the sidebar (25 Sep 2026): it
+ * decides who can reach the console at all, which is a security control and
+ * not configuration. A `?tab=security` bookmark is sent there — see below.
  *
  * ── The active tab lives in the URL ────────────────────────────────────────
  *
  * `?tab=email` is linkable, survives a refresh, and gives Back somewhere to go.
- * A bookmark to the removed `?tab=security` or `?tab=general` now lands on
- * Trading — see the fallback below, which is the reason it exists.
+ * A bookmark to the removed `?tab=general` now lands on Trading — see the
+ * fallback below, which is the reason it exists. `?tab=security` is the one
+ * exception: that panel still exists, on its own page, so it is redirected
+ * there rather than silently swapped for Trading.
  * The alternative — `useState` — makes "the SMTP settings are under Settings →
  * Email" un-sendable, which on a screen whose whole audience is two or three
  * administrators talking to each other is most of its value.
@@ -84,18 +87,6 @@ function AdminSettingsContent() {
   const canViewRival = hasPermission(admin, 'settings.rival.view');
   const canEditRival = hasPermission(admin, 'settings.rival.edit');
   const canEditSmtp = hasPermission(admin, 'settings.smtp.edit');
-  // RBAC-08. Read and change are separate keys for the same reason every other
-  // module splits them: seeing which networks are trusted is an audit question,
-  // adding one can lock every administrator out of the building.
-  const canViewSecurity = hasPermission(admin, 'settings.security.view');
-  const canEditSecurity = hasPermission(admin, 'settings.security.edit');
-  /*
-   * `settings.security.view` / `.edit` exist in the catalog and are read
-   * NOWHERE on this page, because the security tab they were minted for was
-   * removed with the RBAC-08 network allowlist. They are not referenced here
-   * rather than being read into unused constants: a flag nothing gates is the
-   * shape a permission bug takes.
-   */
 
   const tabs = React.useMemo<TabDefinition[]>(() => {
     const all: (TabDefinition | null)[] = [
@@ -151,22 +142,9 @@ function AdminSettingsContent() {
         label: t('settings.tabPlatforms'),
         icon: <MonitorDown className="h-4 w-4" aria-hidden="true" />,
       },
-      /*
-       * RBAC-08, hidden rather than disabled without `settings.security.view` —
-       * like Email and Payments. Which networks are trusted is exactly the sort
-       * of thing not to show an operator who cannot act on it: it is a map of
-       * where the company works from.
-       */
-      canViewSecurity
-        ? {
-            value: 'security',
-            label: t('settings.tabSecurity'),
-            icon: <ShieldCheck className="h-4 w-4" aria-hidden="true" />,
-          }
-        : null,
     ];
     return all.filter((tab): tab is TabDefinition => tab !== null);
-  }, [canViewSmtp, canViewRival, canViewSecurity]);
+  }, [canViewSmtp, canViewRival]);
 
   /*
    * An unknown or forbidden `?tab=` falls back to the first tab rather than
@@ -175,6 +153,17 @@ function AdminSettingsContent() {
    * thing that happens, and landing on Trading beats a blank panel.
    */
   const requested = searchParams.get('tab') ?? '';
+
+  /*
+   * The Security tab moved to its own page. A link to it is REDIRECTED rather
+   * than left to the Trading fallback: the operator asked for the allowlist,
+   * which still exists, and landing on trading limits instead would read as
+   * the allowlist having been removed. The page's own route gate decides
+   * whether they may see it.
+   */
+  React.useEffect(() => {
+    if (requested === 'security') router.replace('/network-access');
+  }, [requested, router]);
   // `tabs` always has at least Trading and Platforms, so the fallback is never
   // reached — it exists because the compiler cannot know that from the filter.
   const active = tabs.some((tab) => tab.value === requested)
@@ -218,10 +207,6 @@ function AdminSettingsContent() {
 
         <TabPanel value="payments" activeValue={active} idPrefix="settings">
           <RivalSettingsPanel canManage={canEditRival} />
-        </TabPanel>
-
-        <TabPanel value="security" activeValue={active} idPrefix="settings">
-          <IpAllowlistPanel canManage={canEditSecurity} />
         </TabPanel>
 
         <TabPanel value="platforms" activeValue={active} idPrefix="settings">

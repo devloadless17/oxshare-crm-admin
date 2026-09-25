@@ -39,7 +39,17 @@ import { keys } from '@/lib/query-keys';
  * warns before the first rule rather than letting the API's refusal be the first
  * explanation anybody reads.
  */
-export function IpAllowlistPanel({ canManage }: { canManage: boolean }) {
+export function IpAllowlistPanel({
+  canManage,
+  showHeading = true,
+}: {
+  canManage: boolean;
+  /**
+   * Off when the panel IS the page (`/network-access`), whose own `<h1>` already
+   * carries the title — rendering it twice reads as two sections.
+   */
+  showHeading?: boolean;
+}) {
   const queryClient = useQueryClient();
   const query = useResource<IpAllowlistStatus>(keys.settings.ipAllowlist(), (signal) =>
     api.admin.getIpAllowlist(signal),
@@ -97,10 +107,12 @@ export function IpAllowlistPanel({ canManage }: { canManage: boolean }) {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-base font-semibold">{t('ipAllowlist.title')}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{t('ipAllowlist.subtitle')}</p>
-      </div>
+      {showHeading && (
+        <div>
+          <h3 className="text-base font-semibold">{t('ipAllowlist.title')}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{t('ipAllowlist.subtitle')}</p>
+        </div>
+      )}
 
       <AsyncBoundary
         status={query.status}
