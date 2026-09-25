@@ -2,6 +2,7 @@ import type * as React from 'react';
 import {
   AlertTriangle,
   ArrowDownToLine,
+  Bell,
   ArrowLeftRight,
   ArrowUpFromLine,
   Handshake,
@@ -61,7 +62,7 @@ export interface TaskFacts {
   client: { portalId: number | null };
 }
 
-interface KindDisplay {
+export interface KindDisplay {
   titleKey: MessageKey;
   /** The detail line — interpolated from `params`, money through `formatMoney`. */
   body: (n: TaskFacts) => { key: MessageKey; vars?: MessageVars };
@@ -190,11 +191,35 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
 };
 
 /** The icon and chip for one row: the alert look for exceptions, else its category's. */
+/*
+ * ── A kind or category this build does not know ─────────────────────────────
+ *
+ * The backend deploys FIRST, so the day it gains a kind, a console built the
+ * day before receives rows it has no words for. The enum-keyed map makes that a
+ * compile error in THIS build — it cannot make yesterday's build learn it. So
+ * every lookup goes through these two, and an unknown row is drawn as a plain
+ * "Notification" that says to refresh (which is exactly what fixes it), never
+ * a crash that takes the whole panel down.
+ */
+const UNKNOWN_KIND: KindDisplay = {
+  titleKey: 'notifications.fallbackTitle',
+  body: () => ({ key: 'notifications.fallbackBody' }),
+  // No link: nothing here knows where it is handled.
+  href: () => '',
+};
+const UNKNOWN_CATEGORY: CategoryMeta = { icon: Bell, tone: 'bg-muted text-muted-foreground' };
+
+/** The display for a kind — the generic one when this build does not know it. */
+export function displayOf(kind: string): KindDisplay {
+  return Object.hasOwn(KIND_DISPLAY, kind)
+    ? KIND_DISPLAY[kind as AdminNotificationKind]
+    : UNKNOWN_KIND;
+}
+
 export function lookOf(n: AdminNotification): { icon: React.ElementType; tone: string } {
-  const display = KIND_DISPLAY[n.kind];
-  return display.alert
-    ? { icon: AlertTriangle, tone: ALERT_TONE }
-    : { icon: CATEGORIES[n.category].icon, tone: CATEGORIES[n.category].tone };
+  if (displayOf(n.kind).alert) return { icon: AlertTriangle, tone: ALERT_TONE };
+  const look = Object.hasOwn(CATEGORIES, n.category) ? CATEGORIES[n.category] : UNKNOWN_CATEGORY;
+  return { icon: look.icon, tone: look.tone };
 }
 
 export interface Outcome {

@@ -2,7 +2,7 @@ import { toast } from 'sonner';
 import { t } from '@/lib/i18n';
 import type { RealtimePayload } from '@/hooks/use-realtime';
 import type { AdminNotification } from '@/lib/api/admin-notifications';
-import { KIND_DISPLAY, pathOf, type TaskFacts } from './catalogue';
+import { displayOf, KIND_DISPLAY, pathOf, type TaskFacts } from './catalogue';
 
 /**
  * Announce a task the moment it lands — "Approve withdrawal · #1000245 ·
@@ -26,10 +26,11 @@ export function toastNotification(
   const kind = typeof payload['kind'] === 'string' ? payload['kind'] : undefined;
   if (!kind) return;
   if (!Object.hasOwn(KIND_DISPLAY, kind)) {
-    toast(t('notifications.fallbackTitle'));
+    // A kind this build does not know — the title alone, and the refresh hint.
+    toast(t('notifications.fallbackTitle'), { description: t('notifications.fallbackBody') });
     return;
   }
-  const display = KIND_DISPLAY[kind as AdminNotification['kind']];
+  const display = displayOf(kind);
 
   const raw = payload['params'];
   const portalId =

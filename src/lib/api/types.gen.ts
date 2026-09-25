@@ -1882,6 +1882,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trading/accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of the signed-in client's trading accounts
+         * @description 404 when the account does not exist OR belongs to somebody else — the two are the same answer on purpose, because distinguishing them tells a caller which ids are real.
+         *
+         *     `balance` here is the CRM-held figure, as on the list. For what MT5 holds right now, including equity and floating P/L, call `/trading/accounts/:id/live`.
+         */
+        get: operations["TradingController_myAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename a trading account
+         * @description Changes the account holder's name as MT5 records it, so it updates what the client sees in their terminal and on statements. Nothing is stored CRM-side.
+         */
+        patch: operations["TradingController_renameAccount"];
+        trace?: never;
+    };
     "/v1/trading/accounts/{id}/fund": {
         parameters: {
             query?: never;
@@ -1958,28 +1984,6 @@ export interface paths {
          *     Prices and volumes are decimal STRINGS (§6.1). `profit` is the REALISED result and is null while a position is open — floating P/L is deliberately absent, because it changes on every tick and a stored copy is stale the moment it is written.
          */
         get: operations["TradingController_myPositions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trading/accounts/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * One of the signed-in client's trading accounts
-         * @description 404 when the account does not exist OR belongs to somebody else — the two are the same answer on purpose, because distinguishing them tells a caller which ids are real.
-         *
-         *     `balance` here is the CRM-held figure, as on the list. For what MT5 holds right now, including equity and floating P/L, call `/trading/accounts/:id/live`.
-         */
-        get: operations["TradingController_myAccount"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5867,6 +5871,13 @@ export interface components {
              */
             startingBalance?: string;
         };
+        RenameOwnAccountDto: {
+            /**
+             * @description The account holder's name as MT5 will show it.
+             * @example Swing trading
+             */
+            name: string;
+        };
         FundDemoAccountDto: {
             /**
              * @description How much practice money to add. Positive decimal string, capped by the operator ceiling reported as `maxDemoDeposit` on /trading/accounts/self-service.
@@ -6262,6 +6273,56 @@ export interface components {
             credentialsSentTo?: string;
             maskedFields?: string[];
         };
+        Mt5GroupCommissionTierDto: {
+            /**
+             * @description The unit of `value`: the group deposit currency, the currency in `currency`, a symbol currency, points, or a percentage of turnover.
+             * @enum {string}
+             */
+            mode: "deposit_currency" | "specified_currency" | "base_currency" | "profit_currency" | "margin_currency" | "points" | "percent" | "unknown";
+            /** @enum {string} */
+            type: "per_lot" | "per_deal" | "unknown";
+            /** @example 3.00000000 */
+            value: string;
+            /** @description Only set for "specified_currency". */
+            currency: string | null;
+            /** @description The smallest charge. MT5 uses zero for "no minimum". */
+            minimal: string | null;
+            /** @description The largest charge. MT5 uses zero for "no maximum". */
+            maximal: string | null;
+            /** @description Where the tier band starts. */
+            rangeFrom: string | null;
+            /** @description Where the tier band ends; null when it is open-ended. */
+            rangeTo: string | null;
+        };
+        Mt5GroupCommissionDto: {
+            /** @example Standard commission */
+            name: string;
+            /** @example  */
+            description: string;
+            /**
+             * @description The symbols it applies to, as an MT5 path mask.
+             * @example Forex\*
+             */
+            symbolPath: string;
+            /**
+             * @description "standard" is charged to the client; "agent" is paid to an agent account.
+             * @enum {string}
+             */
+            mode: "standard" | "agent" | "unknown";
+            /** @enum {string} */
+            rangeMode: "volume" | "turnover_money" | "turnover_volume" | "unknown";
+            /**
+             * @description When MT5 takes it: with the deal, or at the end of the day or month.
+             * @enum {string}
+             */
+            chargeMode: "instant" | "daily" | "monthly" | "unknown";
+            /**
+             * @description Which deals pay it: every deal, opening deals or closing deals.
+             * @enum {string}
+             */
+            entryMode: "all" | "in" | "out" | "unknown";
+            tiers: components["schemas"]["Mt5GroupCommissionTierDto"][];
+        };
         Mt5GroupProductDto: {
             /** Format: uuid */
             id: string;
@@ -6289,6 +6350,23 @@ export interface components {
              * @example 100
              */
             leverageDefault: number | null;
+            /** @description MT5's own commission rules on this group — what the trading server takes from a client's deals, set by the broker in MT5 and separate from the partner commission types. Empty when the group charges none; null when the bridge has not reported them. */
+            commissions: components["schemas"]["Mt5GroupCommissionDto"][] | null;
+            /**
+             * @description The margin-call level, in the unit marginStopOutMode names.
+             * @example 100.00000000
+             */
+            marginCall: string | null;
+            /**
+             * @description The stop-out level, in the unit marginStopOutMode names.
+             * @example 50.00000000
+             */
+            marginStopOut: string | null;
+            /**
+             * @description "percent" is a margin level; "money" is an equity in the group currency.
+             * @enum {string|null}
+             */
+            marginStopOutMode: "percent" | "money" | null;
             /** @description Every product that sells this group, by name — several since 0142. Empty when no product does, in which case no client can open an account in it from the portal. */
             products: components["schemas"]["Mt5GroupProductDto"][];
             /**
@@ -10817,6 +10895,50 @@ export interface operations {
             };
         };
     };
+    TradingController_myAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountDto"];
+                };
+            };
+        };
+    };
+    TradingController_renameAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameOwnAccountDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     TradingController_fundDemoAccount: {
         parameters: {
             query?: never;
@@ -10894,27 +11016,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PositionDto"][];
-                };
-            };
-        };
-    };
-    TradingController_myAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TradingAccountDto"];
                 };
             };
         };

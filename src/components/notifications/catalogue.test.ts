@@ -3,7 +3,7 @@ import { canAccess } from '@/lib/permissions';
 import { ALL_PERMISSIONS } from '@/test/permissions';
 import { t } from '@/lib/i18n';
 import type { AdminNotification } from '@/lib/api/admin-notifications';
-import { CATEGORIES, KIND_DISPLAY, lookOf, outcomeOf, pathOf } from './catalogue';
+import { CATEGORIES, displayOf, KIND_DISPLAY, lookOf, outcomeOf, pathOf } from './catalogue';
 
 /**
  * The admin bell's catalogue — the one place a task becomes words and a link.
@@ -81,6 +81,16 @@ describe('categories and looks', () => {
       expect(look.icon, `${category} has no icon`).toBeTruthy();
       expect(look.tone, `${category} has no tone`).toMatch(/^bg-/);
     }
+  });
+
+  it('draws a kind or category this build does not know as a plain row, never a crash', () => {
+    // The backend deploys first: yesterday's console meets today's kinds.
+    const future = row({ kind: 'admin.future.kind' as never, category: 'future' as never });
+    expect(() => lookOf(future)).not.toThrow();
+    expect(lookOf(future).tone).toContain('muted');
+    const display = displayOf('admin.future.kind');
+    expect(t(display.titleKey)).toBe('Notification');
+    expect(display.href({ params: {}, client: { portalId: 1000245 } })).toBe('');
   });
 
   it('draws a money exception with the alert look, not its category’s', () => {
