@@ -18,11 +18,15 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
  * gate implies the permission model is wider than it is.
  */
 
-const { getClients, setClientStatus, getTags } = vi.hoisted(() => ({
+const { getClients, setClientStatus, getTags, downloadExport } = vi.hoisted(() => ({
   getClients: vi.fn(),
   setClientStatus: vi.fn(),
   getTags: vi.fn(),
+  downloadExport: vi.fn(),
 }));
+
+/* The export button's download — asserted on, never performed. */
+vi.mock('@/lib/api/export', () => ({ downloadExport }));
 
 // Both exports, per the convention in CLAUDE.md — lib/api/index.ts publishes `api`
 // as a named export and as the default, and which one a page uses varies.
@@ -789,5 +793,68 @@ describe('a masked field', () => {
     await screen.findByText('John Doe');
 
     expect(await screen.findByLabelText(/all tags/i)).toBeInTheDocument();
+  });
+});
+
+describe('exporting the client list', () => {
+  /*
+   * "Export what I am looking at": the file must be narrowed by the same
+   * filters and ordered by the same sort as the screen, or a filtered list
+   * downloads as every client in the scope — the defect the backend's own
+   * filter-parity tests exist to stop, one layer up.
+   */
+  it('sends the filters and sort the list is showing', async () => {
+    searchParams.current = new URLSearchParams(
+      'status=active&kycStatus=approved&tag=vip&sort=createdAt&order=desc&page=3',
+    );
+    downloadExport.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderWithProviders(<ClientsPage />);
+
+    await screen.findByText('client@oxshare.com');
+    await user.click(screen.getByRole('button', { name: /export/i }));
+
+    await waitFor(() => expect(downloadExport).toHaveBeenCalledTimes(1));
+    const [resource, format, filters] = downloadExport.mock.calls[0] as [
+      string,
+      string,
+      URLSearchParams,
+    ];
+    expect(resource).toBe('clients');
+    expect(format).toBe('csv');
+    expect(filters.get('status')).toBe('active');
+    expect(filters.get('kycStatus')).toBe('approved');
+    expect(filters.get('tag')).toBe('vip');
+    expect(filters.get('sort')).toBe('createdAt');
+    expect(filters.get('order')).toBe('desc');
+    // The file is the whole filtered set, not the page on screen.
+    expect(filters.has('page')).toBe(false);
+    expect(filters.has('limit')).toBe(false);
+  });
+
+  it('sends nothing it was not filtered by — an empty filter is a 400 on the export', async () => {
+    downloadExport.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderWithProviders(<ClientsPage />);
+
+    await screen.findByText('client@oxshare.com');
+    await user.click(screen.getByRole('button', { name: /export/i }));
+
+    await waitFor(() => expect(downloadExport).toHaveBeenCalledTimes(1));
+    const filters = downloadExport.mock.calls[0]?.[2] as URLSearchParams;
+    expect([...filters.keys()]).toEqual([]);
+  });
+
+  it('carries the partner filter, so one partner’s book exports as that book', async () => {
+    searchParams.current = new URLSearchParams('referredBy=26184');
+    downloadExport.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderWithProviders(<ClientsPage />);
+
+    await screen.findByText('client@oxshare.com');
+    await user.click(screen.getByRole('button', { name: /export/i }));
+
+    await waitFor(() => expect(downloadExport).toHaveBeenCalledTimes(1));
+    expect((downloadExport.mock.calls[0]?.[2] as URLSearchParams).get('referredBy')).toBe('26184');
   });
 });

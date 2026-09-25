@@ -1,7 +1,7 @@
 'use client';
 
 import { clientLabel } from '@/components/clients/client-identity';
-import { Suspense, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import api from '@/lib/api';
@@ -24,6 +24,7 @@ import { ClientFilters } from '@/components/clients/client-filters';
 import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { ExportButton } from '@/components/export-button';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -194,6 +195,39 @@ function ClientsPageContent() {
 
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
+
+  const exportFilters = useMemo(() => {
+    const filters = new URLSearchParams();
+    for (const [key, value] of Object.entries({
+      q: params.q,
+      type: params.type,
+      status: params.status,
+      level: params.level,
+      country: params.country,
+      kycStatus: params.kycStatus,
+      emailVerified: params.emailVerified,
+      tag: params.tag,
+      referredBy: params.referredBy,
+      sort: params.sort,
+      order: params.order,
+    })) {
+      // Only what is SET: an empty `?status=` is a 400 on the export, not "any".
+      if (value) filters.set(key, value);
+    }
+    return filters;
+  }, [
+    params.q,
+    params.type,
+    params.status,
+    params.level,
+    params.country,
+    params.kycStatus,
+    params.emailVerified,
+    params.tag,
+    params.referredBy,
+    params.sort,
+    params.order,
+  ]);
   const maskedFields = query.data?.maskedFields ?? [];
   const actingId = setStatusMutation.isPending ? setStatusMutation.variables?.client.id : null;
 
@@ -244,9 +278,19 @@ function ClientsPageContent() {
         />
       )}
 
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('clients.title')}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t('clients.subtitle')}</p>
+      <div className="shrink-0 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('clients.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t('clients.subtitle')}</p>
+        </div>
+        {/*
+          EXPORT WHAT IS ON SCREEN: every filter the list is narrowed by, and its
+          sort, go to `GET /admin/clients/export` — which applies the same client
+          scope and field mask as the list, so the file holds nothing this reader
+          could not already see. Paging is not sent: the file is the whole
+          filtered set, not the page.
+        */}
+        <ExportButton resource="clients" filters={exportFilters} disabled={total === 0} />
       </div>
 
       {/*
