@@ -283,10 +283,11 @@ Rules the code relies on:
 - `navigation.test.ts` derives every console page from the file system and fails on a leaf
   with no `page.tsx`, a leaf a full-permission admin cannot open, or a page with no way in
   from the sidebar (`OFF_NAV` holds the one deliberate exception, `/profile`).
-- **The brand row is the logo's.** Wordmark `h-12` in the 64px header (its rule aligned with
-  the page header's); the collapse control is the round button on the sidebar's EDGE in both
-  states. The portal's sidebar has the same brand area — keep the two identical. (A 200px
-  full-width logo was tried and rejected by the owner as too big.)
+- **The brand row is the logo's.** Wordmark `h-10` (40px — the owner's pick, matching the
+  portal's KYC header) in the 64px header, its rule aligned with the page header's; the
+  collapse control is the round button on the sidebar's EDGE in both states. The portal's
+  sidebar has the same brand area — keep the two identical. (Tried and rejected by the owner:
+  a 200px full-width logo, too big; 48px, bigger than he wanted.)
 - **The phone drawer is a modal**: named open/close buttons (`nav.openMenu`/`nav.closeMenu`),
   `role="dialog"` while open, `useFocusTrap` (focus in, Tab cycles, Escape closes, focus
   returns). Shut, it is `max-lg:invisible` — translated away its links were still tabbable.
