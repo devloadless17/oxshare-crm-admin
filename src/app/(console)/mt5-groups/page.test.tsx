@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import type { Mt5GroupRow } from '@/lib/api/admin';
 import Mt5GroupsPage from './page';
 
 /**
- * MT5 groups — the sync job's mirror of the server's group list.
+ * MT5 groups — the groups the server currently reports, from the sync job's
+ * mirror.
  *
  * What can silently go wrong here: a group PATH losing its backslashes on the
- * way to the DOM (the bridge matches on it exactly), a removed group read as a
- * live one, and a group no product sells looking like one that is sold.
+ * way to the DOM (the bridge matches on it exactly), and a group no product
+ * sells looking like one that is sold.
  */
 const { getMt5GroupMirror } = vi.hoisted(() => ({ getMt5GroupMirror: vi.fn() }));
 
@@ -25,9 +25,6 @@ function group(over: Partial<Mt5GroupRow> = {}): Mt5GroupRow {
     name: 'real\\Standard-USD',
     currency: 'USD',
     leverageDefault: 100,
-    firstSeenAt: '2026-09-01T00:00:00.000Z',
-    lastSeenAt: new Date().toISOString(),
-    removedAt: null,
     product: { id: 'p-1', name: 'Standard', environment: 'live' },
     accountCount: 12,
     ...over,
@@ -44,12 +41,6 @@ beforeEach(() => {
       leverageDefault: null,
       product: null,
       accountCount: 0,
-    }),
-    group({
-      name: 'real\\Legacy',
-      removedAt: '2026-09-20T00:00:00.000Z',
-      product: null,
-      accountCount: 3,
     }),
   ]);
 });
@@ -71,27 +62,14 @@ describe('the MT5 groups page', () => {
     expect(screen.getByText('Not assigned')).toBeInTheDocument();
   });
 
-  /*
-   * The default view is what the server holds TODAY. A removed group is one
-   * click away rather than gone — its accounts still exist.
-   */
-  it('hides removed groups until asked, then marks them removed', async () => {
-    const user = userEvent.setup();
+  /* The owner's call (25 Sep 2026): no last-seen column, no removed-groups toggle. */
+  it('shows no last-seen column and no removed-groups toggle', async () => {
     renderWithProviders(<Mt5GroupsPage />);
 
     await screen.findByText('real\\Standard-USD');
-    expect(screen.queryByText('real\\Legacy')).toBeNull();
-
-    await user.click(screen.getByRole('checkbox', { name: /show removed groups/i }));
-
-    expect(await screen.findByText('real\\Legacy')).toBeInTheDocument();
-    expect(screen.getByText('Removed from the server')).toBeInTheDocument();
-  });
-
-  it('says how recently the server confirmed the list', async () => {
-    renderWithProviders(<Mt5GroupsPage />);
-
-    expect(await screen.findByText(/last confirmed by the server/i)).toBeInTheDocument();
+    expect(screen.queryByText(/last seen/i)).toBeNull();
+    expect(screen.queryByText(/last confirmed/i)).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: /removed/i })).toBeNull();
   });
 
   it('explains an empty mirror rather than showing a blank table', async () => {
