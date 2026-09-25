@@ -147,10 +147,16 @@ export function personalInfoGroups(
 
     const rows: InfoRow[] = [];
     for (const field of step.fields ?? []) {
-      if (custom) {
-        const value = custom[field.name];
-        if (value === undefined) continue;
-        rows.push(toRow(field.name, field.label, value, field.type));
+      /*
+       * Where an answer lives: `step_data` under the step's slug — an added
+       * step's answers, and the extra questions and uploads a broker puts on a
+       * built-in step — else `personal_info`: the personal step's typed answers
+       * always, and any other step's from before 24 Sep 2026, when the portal
+       * merged every step's answers into it.
+       */
+      const stored = custom?.[field.name];
+      if (stored !== undefined) {
+        rows.push(toRow(field.name, field.label, stored, field.type));
         continue;
       }
       if (!remaining.has(field.name)) continue;
@@ -239,8 +245,12 @@ function format(value: string, type?: string): string {
     return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
   }
   if (type === 'checkbox') {
-    const yes = value === 'true' || value === '1' || value.toLowerCase() === 'yes';
-    return yes ? t('kycReview.valueYes') : t('kycReview.valueNo');
+    // A single tick box is yes or no; one with choices ("tick all that apply")
+    // stores the ticked choices themselves, which read as they are.
+    const lower = value.toLowerCase();
+    if (lower === 'true' || lower === '1' || lower === 'yes') return t('kycReview.valueYes');
+    if (lower === 'false' || lower === '0' || lower === 'no') return t('kycReview.valueNo');
+    return value;
   }
   return value;
 }

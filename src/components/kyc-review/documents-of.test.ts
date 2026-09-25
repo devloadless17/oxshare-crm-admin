@@ -113,3 +113,30 @@ describe('a custom step’s uploads are documents like any other', () => {
     expect(docs.at(-1)?.label).toBe('Question no longer on the form');
   });
 });
+
+describe('an extra upload a broker added to a BUILT-IN step', () => {
+  // Asked for in local testing: questions and uploads on Proof of Address.
+  it('reaches the reviewer as a tile, named by its field', () => {
+    const docs = documentsOf(
+      {
+        ...base,
+        stepData: {
+          address: { prooof3: { filePath: 'uploads/kyc/lease.png', fileName: 'lease.png' } },
+        },
+      } as unknown as KycSubmission,
+      [
+        {
+          id: 'step-4',
+          stepNumber: 4,
+          slug: 'address',
+          title: 'Proof of Address',
+          enabled: true,
+          fields: [{ id: 'f', name: 'prooof3', label: 'Lease', type: 'file', required: true }],
+        },
+      ],
+    );
+    expect(docs).toContainEqual(
+      expect.objectContaining({ filePath: 'uploads/kyc/lease.png', label: 'Lease' }),
+    );
+  });
+});

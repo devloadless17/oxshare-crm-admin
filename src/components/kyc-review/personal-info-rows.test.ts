@@ -352,3 +352,41 @@ describe('rejectedFieldLabels — the flagged-fields chips', () => {
     ).toEqual(['Date of Birth', 'ID document (back)', 'Payslip', 'Question no longer on the form']);
   });
 });
+
+describe('the extra fields a broker puts on a built-in step', () => {
+  it('keeps the personal card whole when the step also holds an upload', () => {
+    const personal = step({
+      title: 'Personal Information',
+      slug: 'personal',
+      fields: [field('firstName', 'First Name'), field('scan', 'Payslip', 'file')],
+    });
+    const groups = personalInfoGroups({ firstName: 'Hussein' }, [personal], {
+      personal: { scan: { filePath: 'uploads/kyc/p.png', fileName: 'payslip.png' } },
+    });
+    expect(groups.map((g) => [g.title, g.rows.map((r) => r.label)])).toEqual([
+      ['Personal Information', ['First Name', 'Payslip']],
+    ]);
+  });
+
+  it('reads an extra answer on Proof of Address from where it is stored', () => {
+    const address = step({
+      title: 'Proof of Address',
+      slug: 'address',
+      fields: [field('landlord', 'Landlord')],
+    });
+    const groups = personalInfoGroups({}, [address], { address: { landlord: 'Mr Haddad' } });
+    expect(onlyRow(groups)).toMatchObject({ label: 'Landlord', value: 'Mr Haddad' });
+  });
+
+  it('reads a "tick all that apply" answer as the choices ticked — never as "No"', () => {
+    const funds = step({
+      title: 'Source of Funds',
+      slug: 'source-of-funds',
+      fields: [field('funds', 'Source of funds', 'checkbox')],
+    });
+    const groups = personalInfoGroups({}, [funds], {
+      'source-of-funds': { funds: 'Salary, Gift' },
+    });
+    expect(onlyRow(groups)).toMatchObject({ value: 'Salary, Gift' });
+  });
+});

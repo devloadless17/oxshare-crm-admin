@@ -60,9 +60,33 @@ let shared: Socket | null = null;
 let refCount = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
+/**
+ * How long the connection outlives its last user.
+ *
+ * It was closed the INSTANT the last component unmounted, and two ordinary
+ * things unmount and remount at once: React's development StrictMode (every
+ * effect runs, is cleaned up and runs again) and a hop between screens that
+ * both listen — the portal shell and the KYC wizard. Each killed a socket in
+ * the middle of its handshake, which the browser reports as "WebSocket is
+ * closed before the connection is established", and then opened a fresh one:
+ * a warning in every console and a second handshake for nothing.
+ *
+ * Now the last release SCHEDULES the close, and the next `acquire` within the
+ * grace cancels it and keeps the connection it already has. A page that really
+ * has nobody listening still closes it — a moment later.
+ */
+const RELEASE_GRACE_MS = 1_500;
+let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
 function acquire(): Socket | null {
   // Realtime is OFF rather than pointed somewhere wrong — see `lib/env.ts`.
   if (!REALTIME_ORIGIN) return null;
+
+  // A close scheduled by the previous last user — this one wants the socket.
+  if (closeTimer) {
+    clearTimeout(closeTimer);
+    closeTimer = null;
+  }
 
   /*
    * A socket that already exists but is DOWN is reconnected here.
@@ -103,6 +127,21 @@ function release(): void {
   if (refCount > 0) return;
 
   refCount = 0;
+  if (closeTimer) clearTimeout(closeTimer);
+  closeTimer = setTimeout(disconnectRealtime, RELEASE_GRACE_MS);
+}
+
+/**
+ * Close the shared connection NOW, skipping the grace — when nobody is left
+ * listening (the scheduled close lands here), and for tests, which must not
+ * hand one test's socket to the next.
+ */
+export function disconnectRealtime(): void {
+  if (closeTimer) {
+    clearTimeout(closeTimer);
+    closeTimer = null;
+  }
+  if (refCount > 0) return;
   if (retryTimer) {
     clearTimeout(retryTimer);
     retryTimer = null;

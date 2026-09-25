@@ -165,13 +165,40 @@ let primed = false;
  * Safe to call from several components; the listeners attach once. Returns a
  * cleanup for the caller's effect.
  */
+/**
+ * Whether the browser counts the reader as having interacted — `now` (inside a
+ * gesture) or `ever` (at any point on this page). A browser without
+ * `navigator.userActivation` cannot say, and is assumed to, which is how this
+ * behaved before it asked.
+ */
+function hasUserActivation(when: 'now' | 'ever'): boolean {
+  const activation = (
+    navigator as { userActivation?: { isActive: boolean; hasBeenActive: boolean } }
+  ).userActivation;
+  if (!activation) return true;
+  return when === 'now' ? activation.isActive : activation.hasBeenActive;
+}
+
 export function primeNotificationSound(): () => void {
   if (typeof window === 'undefined' || primed) return () => undefined;
   primed = true;
 
-  const events = ['pointerdown', 'keydown', 'touchstart'] as const;
+  /*
+   * Events that CAN carry a user gesture. `touchstart` never does — a tap
+   * activates the page on its END, which is why `pointerup` and `touchend` are
+   * here — and a key press may not: a lone Ctrl or Shift (the start of the
+   * shortcut that opens DevTools) is no gesture at all.
+   */
+  const events = ['pointerdown', 'pointerup', 'keydown', 'touchend'] as const;
 
   const unlock = () => {
+    /*
+     * Only once the browser COUNTS this as a gesture. Built before that, an
+     * AudioContext is refused and Chrome logs "The AudioContext was not allowed
+     * to start" (reported from local testing) — and the listeners were already
+     * gone, so the first chime stayed silent anyway. Not yet? Keep listening.
+     */
+    if (!hasUserActivation('now')) return;
     for (const event of events) window.removeEventListener(event, unlock);
     try {
       const Ctor =
@@ -221,6 +248,10 @@ export function playNotificationSound(): void {
      * reason.
      */
     if (context?.state === 'closed') context = null;
+    // Nothing the reader has done yet counts as a gesture, so the browser would
+    // refuse the context and say so in the console. Silence is the honest
+    // outcome: the chime could not have played.
+    if (!context && !hasUserActivation('ever')) return;
     context ??= new Ctor();
     // Created before any interaction, a context starts suspended. Resuming is
     // a no-op once it is running, and is refused (harmlessly) before.
