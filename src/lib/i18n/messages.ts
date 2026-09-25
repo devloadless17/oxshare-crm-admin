@@ -1752,7 +1752,7 @@ export const messages = {
   'products.chooseGroup': 'Choose a group from the server',
   // Not "unavailable": the group exists, it simply belongs somewhere else, and
   // the operator needs to know which of those two it is.
-  'products.claimed': 'already on another product',
+  'products.claimed': 'also on another product',
   /*
    * A picker that cannot say how stale it is reads exactly like a current one.
    *
@@ -2506,9 +2506,9 @@ export const messages = {
   'mt5Groups.colName': 'Group',
   'mt5Groups.colCurrency': 'Currency',
   'mt5Groups.colLeverage': 'Default leverage',
-  'mt5Groups.colProduct': 'Product',
   'mt5Groups.colAccounts': 'Accounts',
   'mt5Groups.notSold': 'Not assigned',
+  'mt5Groups.colProducts': 'Products',
   'mt5Groups.productEnv': '{product} · {environment}',
   'mt5Groups.envLive': 'live',
   'mt5Groups.envDemo': 'demo',
@@ -3666,6 +3666,12 @@ export const messages = {
   'tradingAccounts.openFailed': 'That account could not be opened.',
   'tradingAccounts.fieldGroup': 'MT5 group',
   'tradingAccounts.chooseGroup': 'Choose a group',
+  // Asked only when the chosen group is sold by more than one product (0142):
+  // the product decides the account's commission type.
+  'tradingAccounts.fieldProduct': 'Product',
+  'tradingAccounts.chooseProduct': 'Choose a product',
+  'tradingAccounts.productHint':
+    'This group is sold by more than one product. The product decides the commission the account’s trades pay.',
   'tradingAccounts.groupsLoading': 'Loading groups from MT5',
   'tradingAccounts.groupsFailed': 'Could not read the group list from MT5.',
   'tradingAccounts.noGroups':

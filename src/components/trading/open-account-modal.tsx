@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MailCheck } from 'lucide-react';
-import { adminApi, type CreatedMt5Account, type Mt5Group } from '@/lib/api/admin';
+import { adminApi, type CreatedMt5Account, type Mt5Group, type Mt5GroupRow } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -62,6 +62,8 @@ export function OpenAccountModal({
 }) {
   const queryClient = useQueryClient();
   const [group, setGroup] = React.useState('');
+  /** The product to open under — asked only when the group is sold by several. */
+  const [productId, setProductId] = React.useState('');
   const [environment, setEnvironment] = React.useState<'live' | 'demo'>('live');
   const [leverage, setLeverage] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
@@ -75,11 +77,30 @@ export function OpenAccountModal({
     { enabled: open && created === null },
   );
 
+  /*
+   * Which products sell each group, from the synced mirror (`trading.view`,
+   * like this dialog's own screen — the product catalogue would need
+   * `settings.view`, which an operator opening accounts may not hold).
+   *
+   * A group may back SEVERAL products since backend 0142, and the product
+   * decides the account's commission type — so when the chosen group has more
+   * than one, the operator picks; the API refuses to guess.
+   */
+  const mirror = useResource<Mt5GroupRow[]>(
+    keys.mt5Groups.all(),
+    (signal) => adminApi.getMt5GroupMirror(signal),
+    { enabled: open && created === null },
+  );
+  const sellers =
+    mirror.data?.find((row) => row.name.toLowerCase() === group.toLowerCase())?.products ?? [];
+  const mustChooseProduct = sellers.length > 1;
+
   const create = useMutation({
     mutationFn: () =>
       adminApi.createTradingAccount({
         userId,
         group,
+        ...(mustChooseProduct && productId ? { productId } : {}),
         environment,
         // Omitted means "the group's default", which is a real and common
         // choice — not the same as 0, which MT5 would reject.
@@ -99,6 +120,7 @@ export function OpenAccountModal({
 
   const reset = () => {
     setGroup('');
+    setProductId('');
     setEnvironment('live');
     setLeverage('');
     setError(null);
@@ -125,6 +147,7 @@ export function OpenAccountModal({
         onSubmit={(e) => {
           e.preventDefault();
           if (!group) return;
+          if (mustChooseProduct && !productId) return;
           create.mutate();
         }}
       >
@@ -148,6 +171,8 @@ export function OpenAccountModal({
               value={group}
               onValueChange={(value) => {
                 setGroup(value);
+                // A product chosen for the previous group may not sell this one.
+                setProductId('');
                 setError(null);
               }}
             >
@@ -173,6 +198,38 @@ export function OpenAccountModal({
             )}
           </div>
         </AsyncBoundary>
+
+        {/*
+          Only when the chosen group is sold by more than one product. The
+          product decides the account's commission type, so the operator states
+          it; with one product (or none) there is nothing to choose.
+        */}
+        {mustChooseProduct && (
+          <div className="space-y-1.5">
+            <Label htmlFor="mt5-product" className="text-xs">
+              {t('tradingAccounts.fieldProduct')}
+            </Label>
+            <Select
+              value={productId}
+              onValueChange={(value) => {
+                setProductId(value);
+                setError(null);
+              }}
+            >
+              <SelectTrigger id="mt5-product" className="h-9 w-full text-xs">
+                <SelectValue placeholder={t('tradingAccounts.chooseProduct')} />
+              </SelectTrigger>
+              <SelectContent>
+                {sellers.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    {product.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">{t('tradingAccounts.productHint')}</p>
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
@@ -221,7 +278,12 @@ export function OpenAccountModal({
           <Button type="button" variant="outline" size="sm" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" size="sm" loading={create.isPending} disabled={!group}>
+          <Button
+            type="submit"
+            size="sm"
+            loading={create.isPending}
+            disabled={!group || (mustChooseProduct && !productId)}
+          >
             {create.isPending ? t('tradingAccounts.opening') : t('tradingAccounts.open')}
           </Button>
         </div>

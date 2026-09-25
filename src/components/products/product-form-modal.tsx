@@ -207,13 +207,13 @@ function ProductForm({
   );
 
   /*
-   * Claimed by ANOTHER product, or already staged in this one.
+   * Already staged in THIS product — the one thing that blocks a group.
    *
-   * The API's own list flags the first; the second it cannot know, because the
-   * staged rows do not exist yet. Both are shown disabled with a reason rather
-   * than filtered out — "the broker does not offer that" and "you have already
-   * added it" are different problems, and hiding either sends an operator
-   * hunting for a group they can see in their terminal.
+   * The API's `claimed` flag says some product sells it; since backend 0142 a
+   * group may back several products, so that is a NOTE, not a refusal. What the
+   * API cannot know is what is staged here and not yet saved, which is this set.
+   * Shown disabled with a reason rather than filtered out, so an operator can
+   * tell "you have already added it" from "the broker does not offer that".
    */
   const staged = new Set(groups.map((group) => group.mt5Group.toLowerCase()));
   /*
@@ -458,7 +458,13 @@ function ProductForm({
                   <SelectItem
                     key={group.name}
                     value={group.name}
-                    disabled={group.claimed || alreadyHere}
+                    /*
+                     * Only a group ALREADY ON THIS product is blocked. One sold
+                     * by another product is offered, with a note: a group may
+                     * back several products since backend 0142, and the account
+                     * records whichever product it was opened under.
+                     */
+                    disabled={alreadyHere}
                   >
                     {group.name}
                     {group.currency ? ` · ${group.currency}` : ''}
