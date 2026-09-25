@@ -2204,8 +2204,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every MT5 group the sync job has mirrored, removed ones included
-         * @description From the local mirror (`mt5_groups`), not the bridge — it renders when the server is unreachable. Each row names the product that sells the group, if any, and how many trading accounts the CRM holds in it.
+         * The MT5 groups the server currently reports, as the sync job mirrored them
+         * @description From the local mirror (`mt5_groups`), not the bridge — it renders when the server is unreachable. Groups the server stopped reporting are left out. Each row names the product that sells the group, if any, and how many trading accounts the CRM holds in it.
          */
         get: operations["AdminMt5GroupsController_list"];
         put?: never;
@@ -6279,21 +6279,6 @@ export interface components {
              * @example 100
              */
             leverageDefault: number | null;
-            /**
-             * Format: date-time
-             * @description When the sync job first saw this group on the server.
-             */
-            firstSeenAt: string;
-            /**
-             * Format: date-time
-             * @description The last sync that saw it on the server.
-             */
-            lastSeenAt: string;
-            /**
-             * Format: date-time
-             * @description Set when the server stopped reporting the group. Kept, not deleted: accounts opened in it still exist, and a group that comes back is restored rather than duplicated.
-             */
-            removedAt: string | null;
             /** @description The product that sells this group, or null when no product claims it — in which case no client can open an account in it from the portal. */
             product: components["schemas"]["Mt5GroupProductDto"] | null;
             /**
