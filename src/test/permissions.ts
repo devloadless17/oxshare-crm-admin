@@ -84,6 +84,12 @@ export const ALL_PERMISSIONS: string[] = [
    * control on the one screen that decides what partners are paid, and a test
    * saying so failed pointing at the button rather than at this list.
    */
+  // The rate cards the ladder takes its shares of (0139). Three keys like the
+  // levels', and for the same reason: reading them is `ib.view`, changing what
+  // every product pays is its own grant.
+  'ib.commission_types.create',
+  'ib.commission_types.edit',
+  'ib.commission_types.delete',
   'ib.levels.create',
   'ib.levels.edit',
   'ib.levels.delete',

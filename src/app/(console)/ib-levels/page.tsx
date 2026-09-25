@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Decimal from 'decimal.js';
 import { PauseCircle, Pencil, PlayCircle, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
-import type { IbLevel, IbLevelLimits, IbPayoutMode, RevenueBasis } from '@/lib/api/admin';
+import type { IbCommissionType, IbLevel, IbLevelLimits } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
@@ -20,26 +20,32 @@ import { keys } from '@/lib/query-keys';
 /**
  * The commission ladder, drawn as a TREE of read-only cards.
  *
+ * ## What a rung holds now (0139)
+ *
+ * Two PERCENTAGES: the partner's share of the traded product's commission per
+ * lot, and the client's share of its rebate per lot. The money itself lives on
+ * the product's commission type — see Commission Types — so one ladder prices
+ * the whole catalogue, and a card here never shows an amount as if it were the
+ * whole answer. What it shows instead is the share, and beneath it what that
+ * share comes to on each type, because a percentage of a number on another
+ * screen is not a figure anybody can hold in their head.
+ *
+ * ## The shares are independent
+ *
+ * On a sub-partner's client's trade, the sub takes their share AND the main
+ * partner takes their own in full — recruiting must not reduce what the main
+ * partner earns (0114). So "100% / 30%" on a $10 type is $10 to the main
+ * partner and $3 to the sub, and the ladder does not have to add up to 100.
+ *
  * ## Why the cards do not contain the form
  *
- * They did, and it made every rung a page-height block of inputs — so a
- * two-rung ladder did not fit on a screen and the SHAPE of the ladder, which is
- * the thing this page exists to show, was the one thing you could not see.
- *
- * A card is now a summary: who stands here, what they earn, what their clients
- * get back. Editing opens the same dialog that creates a rung, reached from the
- * three-dot menu. One form, one set of validation, one place a mistake can be
- * made — rather than an inline form and a modal drifting apart.
- *
- * ## Why a tree rather than a list
- *
- * A list is a set of peers and these are not peers: level 2 sits BENEATH level
- * 1, and since 0114 it can be paid a share OF level 1's rate. A connecting line
- * says that; whitespace does not.
+ * A card is a summary: who stands here, what they earn, what their clients get
+ * back. Editing opens the same dialog that creates a rung, from the three-dot
+ * menu. One form, one set of validation, one place a mistake can be made.
  *
  * ## Nothing here restates money already earned
  *
- * A rate change applies to the NEXT trade. Accruals record the rate AND the
+ * A share change applies to the NEXT trade. Accruals record the share AND the
  * rung that priced them, so re-reading a level can never change what a partner
  * was already paid.
  */
@@ -66,6 +72,19 @@ export default function IbLevelsPage() {
    */
   const limits = useResource<IbLevelLimits>(keys.ibLevels.limits(), (signal) =>
     api.admin.getIbLevelLimits(signal),
+  );
+
+  /*
+   * The rate cards the shares are taken of, so each card can say what its
+   * percentage comes to in money. Enabled ones only: a disabled type pays
+   * nobody, and a preview on it would be a number that never arrives.
+   */
+  const types = useResource<IbCommissionType[]>(keys.ibCommissionTypes.all(), (signal) =>
+    api.admin.getIbCommissionTypes(signal),
+  );
+  const activeTypes = React.useMemo(
+    () => (types.data ?? []).filter((type) => type.enabled),
+    [types.data],
   );
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.ibLevels.all() });
@@ -163,7 +182,8 @@ export default function IbLevelsPage() {
                 {index > 0 && <span className="h-5 w-px bg-border" aria-hidden="true" />}
                 <LevelCard
                   level={level}
-                  parent={levels.find((candidate) => candidate.level === level.level - 1)}
+                  types={activeTypes}
+                  typesLoaded={types.status === 'ready'}
                   canEdit={canEdit}
                   canDelete={canDelete}
                   busy={toggleEnabled.isPending}
@@ -207,9 +227,9 @@ export default function IbLevelsPage() {
         <LevelDialog
           /*
            * REMOUNTED per opening, which is what seeds the form. An effect
-           * resetting six pieces of state on open is the obvious alternative
-           * and is worse: it renders the stale draft for a frame before
-           * replacing it, and `react-hooks/set-state-in-effect` refuses it.
+           * resetting the state on open is the obvious alternative and is
+           * worse: it renders the stale draft for a frame before replacing it,
+           * and `react-hooks/set-state-in-effect` refuses it.
            */
           key={editing === 'new' ? `new-${deepest + 1}` : editing.id}
           existing={editing === 'new' ? undefined : editing}
@@ -226,12 +246,13 @@ export default function IbLevelsPage() {
  * One rung, as a COMPACT read-only summary.
  *
  * What a person needs at a glance is who stands here and what they are paid.
- * The numbers are rendered rather than editable, so the whole ladder fits on a
+ * The shares are rendered rather than editable, so the whole ladder fits on a
  * screen and its shape is legible — which is the thing a tree is for.
  */
 function LevelCard({
   level,
-  parent,
+  types,
+  typesLoaded,
   canEdit,
   canDelete,
   busy,
@@ -240,8 +261,9 @@ function LevelCard({
   onDelete,
 }: {
   level: IbLevel;
-  /** The rung directly above — what a `share_of_parent` rate resolves against. */
-  parent: IbLevel | undefined;
+  /** The enabled rate cards, for the per-type preview. */
+  types: IbCommissionType[];
+  typesLoaded: boolean;
   canEdit: boolean;
   canDelete: boolean;
   busy: boolean;
@@ -285,7 +307,7 @@ function LevelCard({
           )}
           {/*
             Edit, enable/disable and delete behind a THREE-DOT menu. A delete
-            sitting in the open beside a rate is one mis-click from removing
+            sitting in the open beside a share is one mis-click from removing
             terms partners are paid by.
           */}
           {(canEdit || canDelete) && (
@@ -328,18 +350,13 @@ function LevelCard({
         <div className="flex items-baseline justify-between gap-2">
           <dt className="shrink-0 text-muted-foreground">{t('ibLevels.commission')}</dt>
           <dd className="truncate text-right font-semibold tabular">
-            {describeTerm(
-              level.commissionMode,
-              level.commissionRate,
-              level.commissionAmountPerLot,
-              parent,
-            )}
+            {t('ibLevels.termCommission', { share: trim(level.commissionShare) })}
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="shrink-0 text-muted-foreground">{t('ibLevels.rebate')}</dt>
           <dd className="truncate text-right font-semibold tabular">
-            {describeTerm(level.rebateMode, level.rebateRate, level.rebateAmountPerLot, parent)}
+            {t('ibLevels.termRebate', { share: trim(level.rebateShare) })}
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
@@ -347,6 +364,31 @@ function LevelCard({
           <dd className="text-right font-semibold tabular">{level.partnerCount}</dd>
         </div>
       </dl>
+
+      {/*
+        What the shares come to in MONEY, per rate card. "70%" is only readable
+        beside "$7.00 on Standard", and the type is on a different screen.
+      */}
+      {typesLoaded && (
+        <div className="mt-3 border-t border-dashed border-input pt-3 text-[11px] text-muted-foreground">
+          <p className="font-semibold">{t('ibLevels.perTypeHeading')}</p>
+          {types.length === 0 ? (
+            <p className="mt-1">{t('ibLevels.noTypes')}</p>
+          ) : (
+            <ul className="mt-1 space-y-0.5">
+              {types.map((type) => (
+                <li key={type.id} className="tabular">
+                  {t('ibLevels.perType', {
+                    name: type.name,
+                    commission: shareOf(type.commissionPerLot, level.commissionShare),
+                    rebate: shareOf(type.rebatePerLot, level.rebateShare),
+                  })}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -356,8 +398,8 @@ function LevelCard({
  *
  * Shared deliberately rather than written twice. The two differ only in which
  * endpoint they call and whether the level number is fixed; everything worth
- * getting right — the mode-dependent unit, the share hint, the validation — is
- * identical, and two copies of it drift.
+ * getting right — the bound, the hints, the validation — is identical, and two
+ * copies of it drift.
  */
 function LevelDialog({
   existing,
@@ -376,52 +418,32 @@ function LevelDialog({
   );
   const [description, setDescription] = React.useState(existing?.description ?? '');
   /*
-   * Amounts only — every rung is priced per lot since 0117, so there is no mode
-   * to hold and no percentage rate beside it.
-   *
-   * A rung configured before that migration has no stored per-lot amount (its
-   * money lived in the rate column), so the field opens EMPTY rather than at a
-   * default: the API refuses the save until a person states the amount, and
-   * defaulting to "10" here would put a number nobody agreed into a rate card.
+   * Seeded from the stored STRINGS. A new rung opens at 0 — a level paying
+   * nothing looks the same as one nobody configured, which is why the dialog
+   * exists at all, but defaulting to some percentage would put a number nobody
+   * agreed into a rate card.
    */
-  /* A rung configured before 0117, whose money lived in the rate column. The
-     form cannot show that rate as a per-lot amount, so it says so and the
-     operator states the figure the broker actually agreed. */
-  const legacy = existing !== undefined && existing.commissionMode !== 'per_lot';
-  const [amount, setAmount] = React.useState(
-    existing ? (existing.commissionAmountPerLot ?? '') : '10',
+  const [commissionShare, setCommissionShare] = React.useState(
+    existing ? trim(existing.commissionShare) : '0',
   );
-  const [rebateAmount, setRebateAmount] = React.useState(
-    existing ? (existing.rebateAmountPerLot ?? '') : '0',
-  );
+  const [rebateShare, setRebateShare] = React.useState(existing ? trim(existing.rebateShare) : '0');
+
   /*
-   * Still SENT, never shown. It qualifies a percentage — of which there are
-   * none since 0117 — but the column is NOT NULL, so a save that omitted it
-   * would be refused. Held at whatever the rung already carries.
+   * A share is a fraction of ONE figure on the product, so it cannot exceed
+   * the whole of it. Checked with decimal.js, never `Number()` — the value
+   * multiplies money one request later — and checked here so the refusal is a
+   * sentence beside the field rather than a toast after the save.
    */
-  const [revenueBasis] = React.useState<RevenueBasis>(existing?.revenueBasis ?? 'commission_swap');
+  const tooLarge =
+    decimalOrZero(commissionShare).greaterThan(100) || decimalOrZero(rebateShare).greaterThan(100);
 
   const save = useMutation({
     mutationFn: () => {
-      /*
-       * `per_lot` is stated rather than left to a default: the DTO still names
-       * the field, and a save that omitted it on a rung configured before 0117
-       * would leave it on a retired mode the database now refuses.
-       *
-       * The rates are sent as hard zeroes for the same reason they are written
-       * as zero server-side — a live-looking percentage beside the amount that
-       * actually pays is how somebody reads the wrong number off the row later.
-       */
       const body = {
         name: name.trim(),
         description: description.trim() || null,
-        commissionMode: 'per_lot' as const,
-        commissionRate: '0',
-        commissionAmountPerLot: amount,
-        rebateMode: 'per_lot' as const,
-        rebateRate: '0',
-        rebateAmountPerLot: rebateAmount,
-        revenueBasis,
+        commissionShare: commissionShare.trim() === '' ? '0' : commissionShare.trim(),
+        rebateShare: rebateShare.trim() === '' ? '0' : rebateShare.trim(),
       };
       return existing
         ? api.admin.updateIbLevel(existing.level, body)
@@ -440,23 +462,6 @@ function LevelDialog({
       toastError(error, existing ? t('ibLevels.saveFailed') : t('ibLevels.addFailed')),
   });
 
-  /*
-   * ── THE 100% GUARD IS GONE (0117) ─────────────────────────────────────────
-   *
-   * It summed the two legs and refused a rung paying out more than the revenue
-   * behind it. Both legs had to be PERCENTAGES of one revenue figure for that
-   * sum to mean anything, and neither can be a percentage any more — so the
-   * check could only ever compare zero against 100.
-   *
-   * The bound that still applies to a per-lot rung is `ib_max_payout_per_lot`,
-   * enforced by `checkPlausible` when a trade is priced. It has to be enforced
-   * there rather than here because it compares against the trade's VOLUME,
-   * which no form can see.
-   *
-   * The revenue-basis picker went with it. It named WHICH revenue a percentage
-   * was a share of, and there are no percentages left for it to qualify.
-   */
-
   return (
     <Modal
       open
@@ -472,6 +477,7 @@ function LevelDialog({
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
+          if (tooLarge) return;
           save.mutate();
         }}
       >
@@ -500,30 +506,31 @@ function LevelDialog({
           />
         </label>
 
-        {legacy && (
-          <p
-            role="alert"
-            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-400"
-          >
-            {t('ibLevels.legacyMode')}
-          </p>
-        )}
-
-        <TermField
+        <ShareField
           id="level-commission"
           label={t('ibLevels.commission')}
           hint={t('ibLevels.commissionHint')}
-          amount={amount}
-          onAmountChange={setAmount}
+          value={commissionShare}
+          onChange={setCommissionShare}
         />
 
-        <TermField
+        <ShareField
           id="level-rebate"
           label={t('ibLevels.rebate')}
           hint={t('ibLevels.rebateHint')}
-          amount={rebateAmount}
-          onAmountChange={setRebateAmount}
+          value={rebateShare}
+          onChange={setRebateShare}
         />
+
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t('ibLevels.independentNote')}
+        </p>
+
+        {tooLarge && (
+          <p role="alert" className="text-[11px] leading-relaxed text-destructive">
+            {t('ibLevels.shareTooLarge')}
+          </p>
+        )}
 
         <div className="flex justify-end gap-2 pt-1">
           <button
@@ -535,7 +542,7 @@ function LevelDialog({
           </button>
           <button
             type="submit"
-            disabled={save.isPending}
+            disabled={save.isPending || tooLarge}
             className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
           >
             {save.isPending
@@ -551,48 +558,23 @@ function LevelDialog({
 }
 
 /**
- * One TERM — a mode selector and the number that mode reads.
+ * One share — a percentage of the product's figure.
  *
- * Both inputs stay mounted and only one is shown, so switching modes does not
- * discard what was typed in the other: an operator comparing "$10 a lot" with
- * "30%" flips between them, and losing the figure each time would make the
- * comparison impossible.
+ * `type="text"` with `inputMode="decimal"`: a number input hands back a NUMBER,
+ * and this value multiplies money. Four decimal places, matching NUMERIC(12,4).
  */
-/**
- * One term — a flat amount per standard lot.
- *
- * ## Why there is no mode picker any more (0117)
- *
- * It offered three: a percentage of broker revenue, a flat per-lot amount, and
- * a percentage of the rung above.
- *
- * `percent` was removed because its base is MT5's charged commission plus swap,
- * which is ZERO on a raw-spread group — so a rate card reading "30%" paid
- * nothing at all on a whole class of accounts, silently, because 30% of nothing
- * looks like a legitimate zero. That is the live bug this deployment already
- * hit, where every closed trade was marked processed having paid nobody.
- *
- * `share_of_parent` worked correctly — 30% of the rung above's $10 resolved to
- * $3 a lot, and it kept a ladder proportional when the top rate was
- * renegotiated. It was removed on an explicit instruction, and the reason is a
- * good one: with several sub-partner rungs, a rate nobody can read off the card
- * without resolving a chain upward is a rate somebody eventually gets wrong.
- *
- * The trade, stated plainly: raising level 1 from $10 to $12 no longer moves
- * level 2. Every rung is now edited on its own, deliberately.
- */
-function TermField({
+function ShareField({
   id,
   label,
   hint,
-  amount,
-  onAmountChange,
+  value,
+  onChange,
 }: {
   id: string;
   label: string;
   hint: string;
-  amount: string;
-  onAmountChange: (value: string) => void;
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
@@ -600,22 +582,17 @@ function TermField({
       <div className="relative">
         <input
           id={id}
-          value={amount}
-          onChange={(e) => onAmountChange(e.target.value)}
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           required
           inputMode="decimal"
           aria-label={label}
-          /*
-           * EIGHT decimal places, because this is money: the column is
-           * NUMERIC(28,8) and a figure rounded to four here would disagree with
-           * the ledger it lands in (§6.1). The percentage pattern that used to
-           * sit beside this one is gone with the mode it belonged to.
-           */
-          pattern="\d{1,8}(\.\d{1,8})?"
-          className="flex h-10 w-full rounded-lg border border-input bg-card pl-3 pr-12 text-xs tabular focus-outline"
+          pattern="\d{1,3}(\.\d{1,4})?"
+          className="flex h-10 w-full rounded-lg border border-input bg-card pl-3 pr-10 text-xs tabular focus-outline"
         />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
-          {t('ibLevels.unitPerLot')}
+          {t('ibLevels.unitPercent')}
         </span>
       </div>
       <span className="block text-[11px] leading-relaxed text-muted-foreground">{hint}</span>
@@ -623,54 +600,27 @@ function TermField({
   );
 }
 
-/**
- * One term in words, for the card — "$10 per lot", "30%", "30% of the level
- * above ($3 per lot)".
- *
- * The UNIT is never dropped: "10" means two entirely different payouts under
- * the two modes, and this is read while deciding somebody's pay. A share also
- * shows what it RESOLVES to, because a percentage of a number on another card
- * is not a figure anybody can hold in their head.
- */
-function describeTerm(
-  mode: IbPayoutMode,
-  rate: string,
-  amountPerLot: string | null,
-  parent: IbLevel | undefined,
-): string {
-  if (mode === 'per_lot') {
-    return t('ibLevels.termPerLot', { amount: trim(amountPerLot ?? '0') });
-  }
-  if (mode === 'share_of_parent') {
-    const parentRate = parentPerLotRate(parent);
-    return parentRate === undefined
-      ? t('ibLevels.termShareUnresolved', { rate: trim(rate) })
-      : t('ibLevels.termShare', {
-          rate: trim(rate),
-          result: parentRate.times(decimalOrZero(rate)).dividedBy(100).toFixed(2),
-        });
-  }
-  return t('ibLevels.termPercent', { rate: trim(rate) });
-}
-
-/** `'10.00000000'` → `'10'`, for reading. String surgery, never arithmetic. */
+/** `'70.0000'` → `'70'`, for reading. String surgery, never arithmetic. */
 function trim(value: string): string {
   return value.includes('.') ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
 }
 
-/** The rung above's per-lot rate, when it has one to take a share of. */
-function parentPerLotRate(parent: IbLevel | undefined): Decimal | undefined {
-  if (!parent || parent.commissionMode !== 'per_lot') return undefined;
-  return decimalOrZero(parent.commissionAmountPerLot ?? '0');
+/**
+ * What a share of an amount comes to, to the cent — the preview on the card.
+ *
+ * A DISPLAY figure only: the engine rounds at eight places and this at two,
+ * so the two can differ in the last fraction of a cent. Nothing here is sent
+ * anywhere.
+ */
+function shareOf(amountPerLot: string, share: string): string {
+  return decimalOrZero(amountPerLot).times(decimalOrZero(share)).dividedBy(100).toFixed(2);
 }
 
 /**
- * A rate as a `Decimal`, or zero while it is being typed.
+ * A value as a `Decimal`, or zero while it is being typed.
  *
  * `new Decimal('')` THROWS, and this runs on every keystroke — including the
  * moment a field is empty because somebody selected all and started retyping.
- * Zero is the right reading for the running total: an unfinished number
- * contributes nothing until it is one.
  */
 function decimalOrZero(value: string): Decimal {
   try {

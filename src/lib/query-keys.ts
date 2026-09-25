@@ -147,6 +147,10 @@ export const keys = {
     limits: () => ['ib-levels', 'limits'] as const,
   },
 
+  ibCommissionTypes: {
+    all: () => ['ib-commission-types'] as const,
+  },
+
   ibPartners: {
     all: () => ['ib-partners'] as const,
     forReassign: () => ['ib-partners', 'for-reassign'] as const,

@@ -3,7 +3,13 @@
 import * as React from 'react';
 import { Plus, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/loader';
-import { adminApi, type AvailableGroup, type Product, type ProductGroup } from '@/lib/api/admin';
+import {
+  adminApi,
+  type AvailableGroup,
+  type IbCommissionType,
+  type Product,
+  type ProductGroup,
+} from '@/lib/api/admin';
 import { Modal } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,14 +40,10 @@ export interface ProductFormValues {
   /** Chosen at creation, immutable after — the API refuses a change. */
   type: 'real' | 'demo';
   /**
-   * A decimal STRING, and it stays one all the way to the column.
-   *
-   * `NUMERIC(28,8)` on the backend. A JSON number would round-trip through a
-   * float somewhere between this input and the database, and a markup of `1.5`
-   * that arrives as `1.4999999999` is the kind of wrong that survives review
-   * because it looks almost right. Same rule as the commission rates.
+   * The rate card this product pays partners on (0139), or null for a product
+   * that pays no partner commission. The demo product never carries one.
    */
-  spreadMarkupPerLot: string;
+  commissionTypeId: string | null;
   /**
    * Where in the list this product sits, or `undefined` for "wherever".
    *
@@ -82,6 +84,7 @@ export function ProductFormModal({
   open,
   product,
   demoTaken,
+  commissionTypes,
   saving,
   error,
   onSubmit,
@@ -92,6 +95,8 @@ export function ProductFormModal({
   product?: Product;
   /** Another product is already the demo one — at most one may exist. */
   demoTaken: boolean;
+  /** The rate cards on offer, for the picker. */
+  commissionTypes: IbCommissionType[];
   saving: boolean;
   error: unknown;
   onSubmit: (values: ProductFormValues) => void;
@@ -117,6 +122,7 @@ export function ProductFormModal({
         key={product?.id ?? 'new'}
         product={product}
         demoTaken={demoTaken}
+        commissionTypes={commissionTypes}
         saving={saving}
         error={error}
         onSubmit={onSubmit}
@@ -129,6 +135,7 @@ export function ProductFormModal({
 function ProductForm({
   product,
   demoTaken,
+  commissionTypes,
   saving,
   error,
   onSubmit,
@@ -136,6 +143,7 @@ function ProductForm({
 }: {
   product?: Product;
   demoTaken: boolean;
+  commissionTypes: IbCommissionType[];
   saving: boolean;
   error: unknown;
   onSubmit: (values: ProductFormValues) => void;
@@ -164,12 +172,13 @@ function ProductForm({
     product === undefined ? '' : String(product.sortOrder),
   );
   /*
-   * Seeded from the stored STRING, never from a number. `String(x)` on a parsed
-   * value would already have lost the trailing zeros the column keeps, so an
-   * operator opening the form would see a different number from the one they
-   * saved.
+   * `'none'` in the control, `null` on the wire. The select needs a value for
+   * "no type" and an empty string is not a value Radix will show — so the
+   * sentinel lives here and is translated back at submit.
    */
-  const [markup, setMarkup] = React.useState(product?.spreadMarkupPerLot ?? '0');
+  const [commissionTypeId, setCommissionTypeId] = React.useState<string>(
+    product?.commissionTypeId ?? NO_TYPE,
+  );
   const [groups, setGroups] = React.useState<StagedGroup[]>(product?.groups ?? []);
 
   /*
@@ -245,15 +254,15 @@ function ProductForm({
       enabled,
       type,
       /*
-       * Trimmed, and an empty box means ZERO rather than "leave it alone".
-       *
-       * The API treats an omitted markup as unchanged — which is what protects
-       * it from the enable/disable toggle, which sends a PUT without this field
-       * at all. A form that always SHOWS the current value is a different
-       * promise: somebody who clears the box means nought, and sending nothing
-       * would quietly ignore them.
+       * Always SENT, null included. The API treats an OMITTED type as
+       * unchanged — which is what protects it from the enable/disable toggle,
+       * which sends a PUT without this field — but a form that shows the
+       * current choice makes a different promise: somebody who picked "none"
+       * means none, and sending nothing would quietly ignore them. The demo
+       * product never carries one, and the API refuses it anyway.
        */
-      spreadMarkupPerLot: markup.trim() === '' ? '0' : markup.trim(),
+      commissionTypeId:
+        type === 'demo' ? null : commissionTypeId === NO_TYPE ? null : commissionTypeId,
       sortOrder: parseOrder(sortOrder),
       groups,
     });
@@ -290,25 +299,37 @@ function ProductForm({
       </label>
 
       <label className="space-y-1.5 sm:col-span-2">
-        <span className="block text-xs font-semibold">{t('products.markup')}</span>
-        {/*
-          `type="text"`, deliberately, with `inputMode="decimal"` for the phone
-          keypad. A number input hands back a NUMBER, which is the one thing
-          this value must never become between the form and a NUMERIC(28,8)
-          column — and it also lets a browser's spinner round a value nobody
-          touched. The API validates the shape and refuses anything else.
-        */}
-        <input
-          type="text"
-          inputMode="decimal"
-          value={markup}
-          onChange={(event) => setMarkup(event.target.value)}
-          placeholder="0"
-          className={INPUT_CLASS}
-        />
-        <span className="block text-[11px] leading-relaxed text-muted-foreground">
-          {t('products.markupHint')}
-        </span>
+        <span className="block text-xs font-semibold">{t('products.commissionType')}</span>
+        {type === 'demo' ? (
+          <span className="block text-[11px] leading-relaxed text-muted-foreground">
+            {t('products.commissionTypeDemo')}
+          </span>
+        ) : (
+          <>
+            <Select value={commissionTypeId} onValueChange={setCommissionTypeId}>
+              <SelectTrigger className="h-9 w-full" aria-label={t('products.commissionType')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_TYPE}>{t('products.commissionTypeNone')}</SelectItem>
+                {/*
+                  Inactive types are OFFERED, marked — a product may legitimately
+                  sit on a card that is switched off while the desk decides,
+                  and hiding it would make the stored choice unexplainable.
+                */}
+                {commissionTypes.map((candidate) => (
+                  <SelectItem key={candidate.id} value={candidate.id}>
+                    {candidate.name}
+                    {!candidate.enabled && ` · ${t('products.commissionTypeInactive')}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="block text-[11px] leading-relaxed text-muted-foreground">
+              {t('products.commissionTypeHint')}
+            </span>
+          </>
+        )}
       </label>
 
       <label className="space-y-1.5 sm:col-span-2">
@@ -508,6 +529,9 @@ function ProductForm({
     </form>
   );
 }
+
+/** The select's value for "no commission type" — `null` on the wire. */
+const NO_TYPE = 'none';
 
 const INPUT_CLASS =
   'h-9 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60';

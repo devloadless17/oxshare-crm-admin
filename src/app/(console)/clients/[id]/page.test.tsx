@@ -297,12 +297,8 @@ const partnerDetail = (over: Record<string, unknown> = {}) => ({
   level: 1,
   levelName: 'Main Partner',
   levelEnabled: true,
-  levelCommissionMode: 'per_lot' as const,
-  levelCommissionRate: '0.0000',
-  levelCommissionAmountPerLot: '10.00000000',
-  levelRebateMode: 'per_lot' as const,
-  levelRebateRate: '0.0000',
-  levelRebateAmountPerLot: '2.00000000',
+  levelCommissionShare: '70.0000',
+  levelRebateShare: '50.0000',
   referralCode: 'JFSA8BQB',
   active: true,
   approvedAt: '2026-08-13T00:00:00.000Z',
@@ -364,7 +360,9 @@ describe('the partner tab', () => {
      * reads as the whole one. The unit matters just as much: "10" alone is two
      * different payouts, and only the glyph says which.
      */
-    expect(screen.getByText(/\$10 per lot · client rebate \$2 per lot/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/70% of the product’s commission · client rebate 50% of its rebate/i),
+    ).toBeInTheDocument();
   });
 
   it('names the parent, and says so plainly when there is none', async () => {

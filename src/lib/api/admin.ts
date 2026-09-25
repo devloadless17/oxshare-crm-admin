@@ -136,22 +136,16 @@ export type IbLevel = components['schemas']['IbLevelDto'];
 export type IbLevelLimits = components['schemas']['IbLevelLimitsDto'];
 
 /**
- * Which revenue a level's percentages are a share of — FR-IB-16.
+ * A COMMISSION TYPE — the rate card a product is sold on (0139).
  *
- * Derived from the response type rather than written out, so adding a basis on
- * the server reaches every form that offers one without a second edit here.
+ * Money per standard lot for the partners' commission and for the client's
+ * rebate. A product points at one; each level of the ladder takes a percentage
+ * of it. `productNames` is on the row so a delete or a disable can be refused
+ * on the screen before the API refuses it.
  */
-export type RevenueBasis = IbLevel['revenueBasis'];
-
-/**
- * How a payout leg is priced — a share of the broker's revenue, or a flat amount
- * for every standard lot traded.
- *
- * A level carries this TWICE, once for the partner's commission and once for
- * the client's rebate, and they are independent: "$10 a lot to the partner, 2%
- * back to the client" is an ordinary arrangement.
- */
-export type IbPayoutMode = IbLevel['commissionMode'];
+export type IbCommissionType = components['schemas']['IbCommissionTypeDto'];
+export type CreateIbCommissionType = components['schemas']['CreateIbCommissionTypeDto'];
+export type UpdateIbCommissionType = components['schemas']['UpdateIbCommissionTypeDto'];
 export type CreateIbLevel = components['schemas']['CreateIbLevelDto'];
 export type UpdateIbLevel = components['schemas']['UpdateIbLevelDto'];
 export type IbApplication = components['schemas']['IbApplicationDto'];
@@ -1481,6 +1475,41 @@ export const adminApi = {
    */
   async deleteIbLevel(level: number): Promise<void> {
     await apiClient.delete(`/admin/ib-levels/${level}`);
+  },
+
+  /* ── Commission types (0139) ─────────────────────────────────────────── */
+
+  /** Every rate card, disabled ones included, each naming the products sold on it. */
+  async getIbCommissionTypes(signal?: AbortSignal): Promise<IbCommissionType[]> {
+    const { data } = await apiClient.get<IbCommissionType[]>('/admin/ib-commission-types', {
+      signal,
+    });
+    return data;
+  },
+
+  async createIbCommissionType(body: CreateIbCommissionType): Promise<IbCommissionType> {
+    const { data } = await apiClient.post<IbCommissionType>('/admin/ib-commission-types', body);
+    return data;
+  },
+
+  /**
+   * The API refuses to disable a type products are sold on, naming them.
+   * Surfaced verbatim — the names are the only part an operator can act on.
+   */
+  async updateIbCommissionType(
+    id: string,
+    body: UpdateIbCommissionType,
+  ): Promise<IbCommissionType> {
+    const { data } = await apiClient.patch<IbCommissionType>(
+      `/admin/ib-commission-types/${id}`,
+      body,
+    );
+    return data;
+  },
+
+  /** Refused while products are sold on it, and once it has priced a payout. */
+  async deleteIbCommissionType(id: string): Promise<void> {
+    await apiClient.delete(`/admin/ib-commission-types/${id}`);
   },
 
   /* ── The catalogue ──────────────────────────────────────────────────── */

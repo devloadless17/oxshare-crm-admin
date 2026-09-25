@@ -21,6 +21,7 @@ import {
   CreditCard,
   Handshake,
   Layers,
+  BadgePercent,
   ClipboardList,
   ShieldCheck,
   Lock,
@@ -225,6 +226,14 @@ export const NAV_SECTIONS: NavSection[] = [
          screen reachable only by typing its URL — the navigation lists places
          an operator can go, and /commissions is one.) */
       { label: 'nav.commissions', href: '/commissions', icon: Coins },
+      /*
+       * The rate cards products are sold on (0139): money per lot for the
+       * partners and for the client. Beside the ladder because the two decide a
+       * payout together — the type says what a lot is worth, the level says what
+       * share of it a partner takes — and above it because a type is set once
+       * per product while the ladder is the thing read against it.
+       */
+      { label: 'nav.commissionTypes', href: '/commission-types', icon: BadgePercent },
       /* One entry, because there is one catalogue. `nav.ibLevels` pointed at a
          second screen owning "where a partner stands"; 0102 folded that into the
          programme's own tier ladder, so the terms and their reach are configured

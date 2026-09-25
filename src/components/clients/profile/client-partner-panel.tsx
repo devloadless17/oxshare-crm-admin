@@ -71,27 +71,22 @@ export function ClientPartnerPanel({
           </Cell>
 
           <Cell label={t('clientProfile.partnerTerms')}>
-            {detail.levelCommissionMode === null ? (
+            {detail.levelCommissionShare === null ? (
               <span className="text-muted-foreground">—</span>
             ) : (
+              /*
+               * Shares of the traded product's commission type (0139). What
+               * they come to in money depends on which product the client
+               * trades, so the line names the fraction rather than a figure.
+               */
               <span className="tabular font-semibold">
                 {t('clientProfile.levelTerms', {
-                  commission:
-                    detail.levelCommissionMode === 'per_lot'
-                      ? t('clientProfile.termPerLot', {
-                          amount: formatDecimal(detail.levelCommissionAmountPerLot ?? '0'),
-                        })
-                      : t('clientProfile.termPercent', {
-                          rate: formatDecimal(detail.levelCommissionRate ?? '0'),
-                        }),
-                  rebate:
-                    detail.levelRebateMode === 'per_lot'
-                      ? t('clientProfile.termPerLot', {
-                          amount: formatDecimal(detail.levelRebateAmountPerLot ?? '0'),
-                        })
-                      : t('clientProfile.termPercent', {
-                          rate: formatDecimal(detail.levelRebateRate ?? '0'),
-                        }),
+                  commission: t('clientProfile.termCommissionShare', {
+                    share: formatDecimal(detail.levelCommissionShare),
+                  }),
+                  rebate: t('clientProfile.termRebateShare', {
+                    share: formatDecimal(detail.levelRebateShare ?? '0'),
+                  }),
                 })}
               </span>
             )}

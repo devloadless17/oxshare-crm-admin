@@ -946,9 +946,11 @@ export const messages = {
   // The rates, because a rung number alone does not tell an operator what they
   // are about to change somebody's pay TO.
   'clientProfile.levelTerms': 'Partner {commission} · client rebate {rebate}',
-  'clientProfile.termPercent': '{rate}% of revenue',
-  'clientProfile.termPerLot': '${amount} per lot',
-  'clientProfile.termShareOfParent': '{rate}% of the level above',
+  // Shares of the traded product's commission type (0139). What a share comes
+  // to in money depends on which product the client trades, so the line names
+  // the fraction rather than inventing a figure.
+  'clientProfile.termCommissionShare': '{share}% of the product’s commission',
+  'clientProfile.termRebateShare': '{share}% of its rebate',
   'clientProfile.levelNoneEnabled':
     'No commission level is enabled, so there is nothing to move this partner to.',
   'clientProfile.actionReassignParent': 'Reassign parent',
@@ -1632,15 +1634,16 @@ export const messages = {
   'products.orderHint':
     'Where it sits in the client’s list. Taking a position pushes the products below it down.',
   'products.orderPlaceholder': 'Last',
-  'products.markup': 'Spread markup per lot',
-  /*
-   * Says what it does AND what it does not, because the second is the part
-   * somebody will otherwise assume. Nothing computes from this figure — it is
-   * what the desk says the product is sold on — and an operator who believed it
-   * changed partner payouts would set it very differently.
-   */
-  'products.markupHint':
-    'What the desk sells this product on, in the account currency. Recorded for reference only — it does not change what any partner is paid.',
+  // The rate card this product pays partners on (0139). The spread markup
+  // that stood here drove nothing and is gone.
+  'products.commissionType': 'Commission type',
+  'products.commissionTypeHint':
+    'What this product pays per lot — the partners’ commission and the client’s rebate. Each ' +
+    'commission level takes its share of it. Leave it unset for a product that pays no partner ' +
+    'commission.',
+  'products.commissionTypeNone': 'None — pays no partner commission',
+  'products.commissionTypeDemo': 'The demo product never pays commission.',
+  'products.commissionTypeInactive': 'inactive',
   'products.saveSucceeded': '{name} saved',
   'products.deleteSucceeded': '{name} deleted',
   'products.enabledSucceeded': '{name} is now active',
@@ -1657,7 +1660,7 @@ export const messages = {
   'products.colGroups': 'Groups',
   'products.colCurrencies': 'Currencies',
   'products.colOrder': 'Order',
-  'products.colMarkup': 'Markup / lot',
+  'products.colCommissionType': 'Commission type',
   'products.colStatus': 'Status',
   'products.statusActive': 'Active',
   'products.statusInactive': 'Inactive',
@@ -2839,6 +2842,7 @@ export const messages = {
   'nav.section.approvals': 'Approvals',
   'nav.partnerApprovals': 'Partner Applications',
   'nav.partners': 'Partners',
+  'nav.commissionTypes': 'Commission Types',
   'nav.ibLevels': 'Commission Levels',
   // ── Commission levels (0112) ──────────────────────────────────────────────
   // The ladder that replaced the programme catalogue. Every string here talks
@@ -2911,41 +2915,24 @@ export const messages = {
   'ibLevels.deleteSucceeded': 'Level {level} was removed.',
   'ibLevels.deleteFailed': 'Could not remove the level.',
 
+  // ── The two shares (0139) ─────────────────────────────────────────────────
+  // A rung is a PERCENTAGE of the traded product's commission type. The money
+  // per lot lives on the type (Commission Types); a rung never holds an amount.
   'ibLevels.commission': 'The partner earns',
   'ibLevels.commissionHint':
-    'What a partner standing on this level takes from every closing trade that reaches them.',
+    'The share of the product’s commission per lot a partner on this level takes, on every ' +
+    'trade that reaches them — their own clients’ and their sub-partners’ alike.',
   'ibLevels.rebate': 'Their client gets back',
   'ibLevels.rebateHint':
-    'Paid to the trading client, out of the same revenue. Set it to zero if this level pays no ' +
-    'rebate.',
-
-  'ibLevels.modeFor': 'How “{term}” is priced',
-  /* `payoutMode_percent` and `payoutMode_share_of_parent` are KEPT: a rung
-     configured before 0117 still renders its old terms on the card, and a
-     missing label there would print a raw enum value on a money screen. Neither
-     is offered by the form any more. */
-  'ibLevels.payoutMode_percent': 'of revenue',
-  'ibLevels.payoutMode_per_lot': 'per lot',
-  /* Shown when EDITING a rung configured before per-lot pricing. Its money was
-     a percentage of broker revenue, which has no per-lot equivalent — so the
-     form asks rather than inventing one. */
-  'ibLevels.legacyMode':
-    'This level was priced on a model that has been retired. Enter the amount per lot it should ' +
-    'pay from now on — the old percentage cannot be converted automatically.',
-  'ibLevels.payoutMode_share_of_parent': 'of the level above',
-  // The share is a percentage of a number on ANOTHER card, so both the card and
-  // the dialog show what it comes to in money. "30%" alone is unreadable here.
-  'ibLevels.shareResolves': '{rate}% of ${parent} per lot = ${result} per lot',
-  // A share of a rung that pays a PERCENTAGE has nothing to take a share of,
-  // and the engine skips it. Better learned here than from a trade that paid
-  // nobody.
-  'ibLevels.shareUnresolvable':
-    'The level above is not paid a flat amount per lot, so there is nothing to take a share of. ' +
-    'This level would earn nothing.',
+    'The share of the product’s rebate per lot returned to a client introduced by a partner on ' +
+    'this level. Set it to zero if this level pays no rebate.',
+  'ibLevels.independentNote':
+    'Shares are paid independently: on a sub-partner’s client’s trade, this level and every ' +
+    'level above it each take their own share of the product’s figure.',
+  'ibLevels.shareTooLarge': 'A share cannot exceed 100% of the product’s figure.',
   'ibLevels.rowActions': 'Actions for level {level}',
   'ibLevels.description': 'Description',
   'ibLevels.descriptionPlaceholder': 'What this tier is for — who qualifies, what was agreed.',
-  'ibLevels.commissionMode': 'How the partner is paid',
   'ibLevels.addTitle': 'Add level {level}',
   'ibLevels.addDescription':
     'Partners recruited by a level {parent} partner sit here. Set what they earn before anybody ' +
@@ -2953,41 +2940,77 @@ export const messages = {
   'ibLevels.addSave': 'Add level',
   'ibLevels.editTitle': 'Edit level {level}',
   'ibLevels.partners': 'Partners',
-  // The card shows terms READ-ONLY, so each needs its unit in the string. "10"
-  // means two entirely different payouts under the two modes, and this is read
-  // while deciding somebody's pay.
-  'ibLevels.termPerLot': '${amount} / lot',
-  'ibLevels.termPercent': '{rate}% of revenue',
-  // A share resolves to money, and the card shows BOTH: the percentage that was
-  // configured and what it comes to, because a percentage of a number on
-  // another card is not a figure anybody can hold in their head.
-  'ibLevels.termShare': '{rate}% above = ${result} / lot',
-  // The rung above pays a percentage, so there is nothing per-lot to take a
-  // share of and this level earns nothing. Said on the card rather than left to
-  // be discovered from a trade that paid nobody.
-  'ibLevels.termShareUnresolved': '{rate}% above — unresolved',
-  'ibLevels.unitPerLot': '/lot',
-
-  'ibLevels.basis': 'Percentages are a share of',
-  'ibLevels.basis_commission_swap': 'Commission and swap charged',
-  'ibLevels.basis_spread': 'The spread markup',
-  'ibLevels.basis_commission_swap_spread': 'Commission, swap and the spread markup',
-  'ibLevels.basisHint':
-    'Which revenue figure a percentage on this level is taken from. A per-lot amount ignores ' +
-    'it entirely — that is priced from volume, never from revenue.',
-  // ⚠️ IRREVERSIBLE, and warned about where the choice is made. A deal that
-  // earns zero is marked DONE rather than retried, so switching before the
-  // product markups are populated pays nothing on the whole queue and switching
-  // back recovers none of it.
-  'ibLevels.basisSpreadWarning':
-    'Set every product’s spread markup BEFORE switching to this. A trade priced on a markup of ' +
-    'zero pays nothing and is marked settled — switching back does not recover it.',
-
-  'ibLevels.shareTotal': 'This level hands out {total}% of the revenue on a trade.',
-  'ibLevels.overAllocated': 'over 100%. Both legs are a share of the same revenue, so they add up.',
+  // The card shows shares READ-ONLY, so each names what it is a share OF. "70"
+  // alone is unreadable on a money screen.
+  'ibLevels.termCommission': '{share}% of the product’s commission',
+  'ibLevels.termRebate': '{share}% of the product’s rebate',
+  'ibLevels.unitPercent': '%',
+  // What the share comes to in money, per commission type — because a
+  // percentage of a number on another screen is not a figure anybody can hold
+  // in their head.
+  'ibLevels.perTypeHeading': 'Per lot, by commission type',
+  'ibLevels.perType': '{name}: partner ${commission} · client ${rebate}',
+  'ibLevels.noTypes': 'No commission types yet — nothing to take a share of.',
   'ibLevels.saveSucceeded': 'Level {level} was saved. It applies to the next trade.',
   'ibLevels.saveFailed': 'Could not save the level.',
 
+  // ── Commission types (0139) ───────────────────────────────────────────────
+  // The rate cards products are sold on: money per lot for the partners and
+  // for the client. The ladder takes its shares of these.
+  'commissionTypes.pageTitle': 'Commission Types',
+  'commissionTypes.subtitle':
+    'What a product pays per lot: the partners’ commission and the client’s rebate. Assign a ' +
+    'type to each product; the commission levels then take their share of it.',
+  'commissionTypes.loading': 'Loading commission types',
+  'commissionTypes.loadFailed': 'Could not load the commission types.',
+  'commissionTypes.empty':
+    'No commission types yet. Add one, then assign it to the products it applies to.',
+  'commissionTypes.add': 'Add commission type',
+  'commissionTypes.createTitle': 'Add commission type',
+  'commissionTypes.editTitle': 'Edit commission type',
+  'commissionTypes.name': 'Name',
+  'commissionTypes.namePlaceholder': 'Standard terms',
+  'commissionTypes.description': 'Description',
+  'commissionTypes.descriptionPlaceholder': 'What was agreed, and which products it is for.',
+  'commissionTypes.commission': 'Partners’ commission per lot',
+  'commissionTypes.commissionHint':
+    'The pool one standard lot puts on the table for the partners above the client. Each ' +
+    'commission level takes its percentage of this.',
+  'commissionTypes.rebate': 'Client rebate per lot',
+  'commissionTypes.rebateHint':
+    'What one standard lot returns to the trading client, before the introducer’s level ' +
+    'applies its share. Zero for a type that pays no rebate.',
+  'commissionTypes.unitPerLot': '/lot',
+  'commissionTypes.colName': 'Type',
+  'commissionTypes.colStatus': 'Status',
+  'commissionTypes.colCommission': 'Commission / lot',
+  'commissionTypes.colRebate': 'Rebate / lot',
+  'commissionTypes.colProducts': 'Products',
+  'commissionTypes.colDescription': 'Description',
+  'commissionTypes.statusActive': 'Active',
+  'commissionTypes.statusInactive': 'Inactive',
+  'commissionTypes.noProducts': 'Not assigned',
+  'commissionTypes.edit': 'Edit',
+  'commissionTypes.enable': 'Activate',
+  'commissionTypes.disable': 'Deactivate',
+  'commissionTypes.delete': 'Delete commission type',
+  'commissionTypes.save': 'Save',
+  'commissionTypes.saving': 'Saving...',
+  'commissionTypes.cancel': 'Cancel',
+  'commissionTypes.saveSucceeded': '{name} saved',
+  'commissionTypes.saveFailed': 'Could not save that commission type.',
+  'commissionTypes.enabledSucceeded': '{name} is now active',
+  'commissionTypes.disabledSucceeded': '{name} is now inactive',
+  'commissionTypes.toggleFailed': 'Could not change whether this commission type is active.',
+  'commissionTypes.deleteSucceeded': '{name} deleted',
+  'commissionTypes.deleteFailed': 'Could not delete that commission type.',
+  'commissionTypes.confirmDeleteTitle': 'Delete {name}?',
+  'commissionTypes.confirmDelete':
+    'This cannot be undone, and it is refused while any product is sold on it or once it has ' +
+    'priced a payout. Making it inactive is usually what is wanted.',
+  'commissionTypes.confirmDeleteAssigned':
+    '{products} {count:is|are} sold on it, so this will be refused. Move those products to ' +
+    'another type first.',
   // ── Partner application review ────────────────────────────────────────────
   'partnerReview.title': 'Partner Applications',
   'partnerReview.subtitle':

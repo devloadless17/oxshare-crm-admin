@@ -1391,6 +1391,54 @@ export interface paths {
         patch: operations["AdminIbLevelsController_update"];
         trace?: never;
     };
+    "/v1/admin/ib-commission-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every commission type, disabled ones included
+         * @description Each row names the products sold on it, so a delete or a disable can be refused on the screen before the API refuses it.
+         */
+        get: operations["AdminIbCommissionTypesController_list"];
+        put?: never;
+        /**
+         * Add a commission type
+         * @description Money per standard lot for the partners’ commission and for the client’s rebate. Each level of the ladder takes a percentage of these. Assign it to products on the product form.
+         */
+        post: operations["AdminIbCommissionTypesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ib-commission-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a commission type
+         * @description Refuses one that products are sold on, naming them, and one that has ever priced a payout — the record of what was paid has to stay explicable. Disable it instead.
+         */
+        delete: operations["AdminIbCommissionTypesController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a commission type
+         * @description Applies to the NEXT trade on every product sold on it. Accruals record the type AND the pool it produced, so nothing already earned is restated. Disabling one that products are sold on is refused: a disabled type stops paying, and those products would keep trading while every partner on them earned nothing.
+         */
+        patch: operations["AdminIbCommissionTypesController_update"];
+        trace?: never;
+    };
     "/v1/payments/methods": {
         parameters: {
             query?: never;
@@ -4999,20 +5047,10 @@ export interface components {
             levelName: string | null;
             /** @description False when the level is disabled OR not configured at all. A disabled level pays nothing. */
             levelEnabled: boolean;
-            /**
-             * @description How their own commission is priced.
-             * @enum {string|null}
-             */
-            levelCommissionMode: "percent" | "per_lot" | null;
-            /** @description Their share of broker revenue, as a percentage. Read in `percent` mode. */
-            levelCommissionRate: string | null;
-            /** @description Money per standard lot. Read in `per_lot` mode. */
-            levelCommissionAmountPerLot: string | null;
-            /** @enum {string|null} */
-            levelRebateMode: "percent" | "per_lot" | null;
-            /** @description What their clients get back, as a percentage of the same revenue. */
-            levelRebateRate: string | null;
-            levelRebateAmountPerLot: string | null;
+            /** @description Their rung’s percentage of the traded product’s commission per lot (0139). Null when the rung is not configured. */
+            levelCommissionShare: string | null;
+            /** @description What their clients get back, as a percentage of the product’s rebate per lot. */
+            levelRebateShare: string | null;
             referralCode: string;
             /** @description A suspended partner keeps their code and tree, and stops earning. */
             active: boolean;
@@ -5062,34 +5100,15 @@ export interface components {
             /** @description A disabled rung pays nobody standing on it. Disabling is refused while partners are there — see the service. */
             enabled: boolean;
             /**
-             * @description How the PARTNER’s leg is priced. Always `per_lot` on anything saved since 0117; the other two appear only on rungs configured before it.
-             * @enum {string}
+             * @description The partner’s percentage of the product’s commission per lot. Paid on every trade that reaches this rung, independently of the shares on the rungs beneath it.
+             * @example 70.0000
              */
-            commissionMode: "per_lot" | "percent" | "share_of_parent";
+            commissionShare: string;
             /**
-             * @description The partner’s share of broker revenue, as a percentage. Read in `percent` mode.
-             * @example 30.0000
+             * @description The client’s percentage of the product’s rebate per lot, read from the introducer’s rung.
+             * @example 50.0000
              */
-            commissionRate: string;
-            /**
-             * @description Money per standard lot. Set in `per_lot` mode, NULL in the other.
-             * @example 10.00000000
-             */
-            commissionAmountPerLot: string | null;
-            /**
-             * @description How the CLIENT’s rebate is priced. Always `per_lot` on anything saved since 0117.
-             * @enum {string}
-             */
-            rebateMode: "per_lot" | "percent" | "share_of_parent";
-            /** @example 0.0000 */
-            rebateRate: string;
-            /** @example 2.00000000 */
-            rebateAmountPerLot: string | null;
-            /**
-             * @description WHICH revenue a percentage at this rung is a share of — FR-IB-16. Ignored entirely by a per-lot term, which is priced from volume and never from revenue.
-             * @enum {string}
-             */
-            revenueBasis: "commission_swap" | "spread" | "commission_swap_spread";
+            rebateShare: string;
             /**
              * @description How many partners stand on this rung. Part of the row rather than a second call: it is what makes a delete refusable in the UI before the database refuses it, and what tells an operator how many people a rate change is about to affect.
              * @example 4
@@ -5102,8 +5121,8 @@ export interface components {
         };
         IbLevelLimitsDto: {
             /**
-             * @description How deep the ladder may run, from `IB_MAX_LEVELS`. Read by the form so it stops offering "add a level" at the right point — a hardcoded copy would drift the day a broker negotiates a deeper structure.
-             * @example 2
+             * @description How deep the ladder may run. Read by the form so it stops offering "add a level" at the right point — a hardcoded copy would drift the day the engine changes.
+             * @example 10
              */
             maxLevels: number;
             /**
@@ -5119,42 +5138,72 @@ export interface components {
             name: string;
             description?: string | null;
             /**
-             * @default per_lot
-             * @enum {string}
+             * @default 0
+             * @example 30.0000
              */
-            commissionMode: "per_lot";
-            /** @example 30.0000 */
-            commissionRate?: string;
-            /** @example 10.00000000 */
-            commissionAmountPerLot?: string;
+            commissionShare: string;
             /**
-             * @default per_lot
-             * @enum {string}
+             * @default 0
+             * @example 50.0000
              */
-            rebateMode: "per_lot";
-            /** @example 0.0000 */
-            rebateRate?: string;
-            /** @example 2.00000000 */
-            rebateAmountPerLot?: string;
-            /** @enum {string} */
-            revenueBasis?: "commission_swap" | "spread" | "commission_swap_spread";
+            rebateShare: string;
             /** @default true */
             enabled: boolean;
         };
         UpdateIbLevelDto: {
             name?: string;
             description?: string | null;
-            /** @enum {string} */
-            commissionMode?: "per_lot";
-            commissionRate?: string;
-            commissionAmountPerLot?: string;
-            /** @enum {string} */
-            rebateMode?: "per_lot";
-            rebateRate?: string;
-            rebateAmountPerLot?: string;
-            /** @enum {string} */
-            revenueBasis?: "commission_swap" | "spread" | "commission_swap_spread";
+            commissionShare?: string;
+            rebateShare?: string;
             enabled?: boolean;
+        };
+        IbCommissionTypeDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Standard terms */
+            name: string;
+            description: string | null;
+            /** @description A disabled type pays nobody on the products sold on it. Disabling is refused while products are assigned — move them first. */
+            enabled: boolean;
+            /**
+             * @description Money per standard lot for the PARTNERS, before each level’s share. A decimal string.
+             * @example 10.00000000
+             */
+            commissionPerLot: string;
+            /**
+             * @description Money per standard lot returned to the trading CLIENT, before the introducer level’s share. A decimal string.
+             * @example 3.00000000
+             */
+            rebatePerLot: string;
+            /** @example 0 */
+            sortOrder: number;
+            /** @description The products sold on this type, by name. Part of the row so a delete or a disable can be refused on the screen before the API refuses it. */
+            productNames: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateIbCommissionTypeDto: {
+            /** @example Standard terms */
+            name: string;
+            description?: string | null;
+            /** @example 10 */
+            commissionPerLot: string;
+            /** @example 3 */
+            rebatePerLot: string;
+            /** @default true */
+            enabled: boolean;
+            /** @example 0 */
+            sortOrder?: number;
+        };
+        UpdateIbCommissionTypeDto: {
+            name?: string;
+            description?: string | null;
+            commissionPerLot?: string;
+            rebatePerLot?: string;
+            enabled?: boolean;
+            sortOrder?: number;
         };
         PaymentMethodDto: {
             /**
@@ -6239,10 +6288,10 @@ export interface components {
              */
             type: "real" | "demo";
             /**
-             * @description The broker's spread markup per standard lot, in the account currency. A COMMERCIAL RECORD ONLY — nothing computes from it, and it is deliberately not part of the revenue partners are paid a share of. A decimal string, never a number: it is money.
-             * @example 1.50000000
+             * Format: uuid
+             * @description The commission type this product pays partners on (0139) — the rate card whose per-lot amounts each level takes a share of. NULL means the product pays no partner commission at all; the demo product never carries one.
              */
-            spreadMarkupPerLot: string;
+            commissionTypeId: string | null;
             /** @example 0 */
             sortOrder: number;
             groups: components["schemas"]["ProductGroupDto"][];
@@ -6271,8 +6320,8 @@ export interface components {
             enabled: boolean;
             /** @enum {string} */
             type?: "real" | "demo";
-            /** @example 1.50000000 */
-            spreadMarkupPerLot?: string;
+            /** Format: uuid */
+            commissionTypeId?: string | null;
             /** @example 0 */
             sortOrder?: number;
         };
@@ -9659,6 +9708,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbLevelDto"];
+                };
+            };
+        };
+    };
+    AdminIbCommissionTypesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbCommissionTypeDto"][];
+                };
+            };
+        };
+    };
+    AdminIbCommissionTypesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIbCommissionTypeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbCommissionTypeDto"];
+                };
+            };
+        };
+    };
+    AdminIbCommissionTypesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminIbCommissionTypesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIbCommissionTypeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbCommissionTypeDto"];
                 };
             };
         };
