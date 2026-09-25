@@ -23,6 +23,63 @@ const nav = (page: import('@playwright/test').Page) => page.getByRole('navigatio
 const header = (page: import('@playwright/test').Page, name: RegExp) =>
   nav(page).getByRole('button', { name });
 
+interface MenuRecorder {
+  __menuStates: { path: string; state: string }[];
+}
+
+/**
+ * Holds every client-side page load (Next's RSC requests) for `ms`, so a state
+ * the menu passes through for a frame on a fast machine is held long enough to
+ * be recorded.
+ */
+async function slowPageLoads(page: import('@playwright/test').Page, ms: number): Promise<void> {
+  await page.route('**/*', async (route) => {
+    const headers = route.request().headers();
+    if (headers['rsc'] === '1' && !headers['next-router-prefetch']) {
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    await route.fallback();
+  });
+}
+
+/**
+ * From now on, records every DISTINCT state the menu shows: which main items
+ * are open, which row is selected, which page is current.
+ */
+async function recordMenu(page: import('@playwright/test').Page): Promise<void> {
+  await page.evaluate(() => {
+    const name = (el: Element) =>
+      (el.getAttribute('aria-label') ?? el.getAttribute('title') ?? el.textContent ?? '')
+        .split(',')[0]!
+        .replace(/\d+/g, '')
+        .trim()
+        .replace(/\s+pages$/, '');
+    const snap = () => {
+      const menu = document.querySelector('aside nav');
+      if (!menu) return 'no menu';
+      return JSON.stringify({
+        open: [...menu.querySelectorAll('button[aria-expanded="true"]')].map(name),
+        selected: [...menu.querySelectorAll('[data-selected]')].map(name),
+        current: [...menu.querySelectorAll('[aria-current="page"]')].map(name),
+      });
+    };
+    const w = window as unknown as MenuRecorder;
+    w.__menuStates = [];
+    let last = snap();
+    new MutationObserver(() => {
+      const state = snap();
+      if (state === last) return;
+      last = state;
+      w.__menuStates.push({ path: location.pathname, state });
+    }).observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['aria-expanded', 'data-selected', 'aria-current', 'class'],
+    });
+  });
+}
+
 test.describe('the sidebar — main items with sub-items', () => {
   test('opens one main item at a time, and it follows the page', async ({ page }) => {
     await page.goto('/kyc/builder');
@@ -44,6 +101,41 @@ test.describe('the sidebar — main items with sub-items', () => {
     await expect(header(page, /^finance/i)).toHaveAttribute('aria-expanded', 'true');
     await expect(nav(page).locator('[aria-current="page"]')).toHaveCount(1);
     await expect(nav(page).locator('[aria-current="page"]')).toContainText(/ledger/i);
+  });
+
+  test('shows where a click is going at once, and nothing moves when the page lands', async ({
+    page,
+  }) => {
+    /*
+     * Reported: "when I press on an item it closes the expanded menu then
+     * expands it again, and sometimes makes another main item active for
+     * milliseconds". The menu forgot the operator's choice on the click and
+     * waited for `pathname`, which changes only when the next page lands — so
+     * for the whole load it showed the page being LEFT. Page loads are held
+     * here so that window is long enough to see.
+     */
+    await page.goto('/products');
+    await slowPageLoads(page, 1500);
+    await header(page, /^clients/i).click();
+    await recordMenu(page);
+
+    await nav(page)
+      .getByRole('link', { name: /^all clients/i })
+      .click();
+    await page.waitForURL(/\/clients$/);
+    await page.waitForLoadState('networkidle');
+
+    const states = await page.evaluate(() => (window as unknown as MenuRecorder).__menuStates);
+    // ONE change, straight to the destination — Trading never lights up again
+    // and Clients never folds on the way…
+    expect(states).toHaveLength(1);
+    expect(JSON.parse(states[0]?.state ?? '{}')).toEqual({
+      open: ['Clients'],
+      selected: ['Clients'],
+      current: ['All clients'],
+    });
+    // …made while Products was still on screen: the menu answered the click.
+    expect(states[0]?.path).toBe('/products');
   });
 
   test('highlights ONE row, and it moves to the main item opened', async ({ page }) => {
