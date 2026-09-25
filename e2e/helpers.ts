@@ -959,13 +959,21 @@ export async function registerClientWithPendingKyc(
    * inside it removes the protection from production to make CI green, which
    * is the wrong trade on a system that accepts identity documents.
    */
-  const upload = async (field: string): Promise<void> => {
+  /*
+   * The DOCUMENT TYPE rides on the upload. Since the 24 Sep KYC overhaul a step
+   * stores only its configured string fields, so a `docType` sent with the step
+   * is dropped — the choice was never made, and submission answered 400 "Proof
+   * of address is required." The portal's own helper (`uploadKycFile`) already
+   * sends it this way; this one had been left behind.
+   */
+  const upload = async (field: string, docType?: string): Promise<void> => {
     const send = () =>
       portal.post(`${API_NODE_BASE}/kyc/upload`, {
         headers: write,
         multipart: {
           file: { name: `${field}.png`, mimeType: 'image/png', buffer: TINY_PNG },
           field,
+          ...(docType ? { docType } : {}),
         },
       });
     let res = await send();
@@ -986,10 +994,11 @@ export async function registerClientWithPendingKyc(
       })
     ).ok(),
   ).toBe(true);
-  expect((await step('document', { docType: 'passport' })).ok()).toBe(true);
-  for (const field of ['doc_front', 'selfie']) await upload(field);
-  expect((await step('address', { docType: 'utility_bill' })).ok()).toBe(true);
-  await upload('address_proof');
+  expect((await step('document', {})).ok()).toBe(true);
+  await upload('doc_front', 'passport');
+  await upload('selfie');
+  expect((await step('address', {})).ok()).toBe(true);
+  await upload('address_proof', 'utility_bill');
   expect((await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write })).ok()).toBe(true);
 
   const id = await clientIdByEmail(admin, email);
