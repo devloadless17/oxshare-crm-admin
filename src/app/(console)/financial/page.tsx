@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Banknote } from 'lucide-react';
 import api from '@/lib/api';
 import {
@@ -20,7 +20,7 @@ import {
   type TransactionsSummary,
 } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
-import { useDebounced } from '@/hooks/use-debounced';
+import { useUrlSearch } from '@/hooks/use-url-search';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -34,6 +34,7 @@ import { TransactionFilters } from '@/components/financial/transaction-filters';
 import { TransactionSummary } from '@/components/financial/transaction-summary';
 import { transactionColumns } from '@/components/financial/transaction-columns';
 import { AbandonTransferDialog } from '@/components/financial/abandon-transfer-dialog';
+import { ResolveAttentionDialog } from '@/components/financial/resolve-attention-dialog';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { StatusBanner } from '@/app/(console)/bridge/page';
@@ -108,6 +109,8 @@ function FinancialPageContent() {
   const to = url.get('to');
   // Deep-linking from a client profile — the same shape /ledger?userId= uses.
   const userId = url.get('userId');
+  // Only payments flagged for a person — where a deposit-anomaly task lands.
+  const attention = url.get('attention') === 'true' ? ('true' as const) : undefined;
   /*
    * Debounced, server-side, and IN the URL (the wallets pattern, not the
    * desk's local state) so "everything Jane moved this week" is a link an
@@ -128,11 +131,7 @@ function FinancialPageContent() {
    * value back, so "everything Jane moved this week" remains a link an operator
    * can paste into a ticket. It starts FROM the URL so a refresh keeps the term.
    */
-  const [search, setSearch] = useState(url.get('q'));
-  const q = useDebounced(search.trim());
-  useEffect(() => {
-    if (q !== url.get('q')) url.set({ q: q || undefined, page: undefined });
-  }, [q, url]);
+  const { search, setSearch, term: q } = useUrlSearch(url);
 
   const sortKey = member<TransactionSortKey>(url.sort.key ?? '', TRANSACTION_SORT_KEYS);
 
@@ -150,6 +149,7 @@ function FinancialPageContent() {
     q: q || undefined,
     from: from || undefined,
     to: to || undefined,
+    attention,
   };
 
   const params: TransactionListParams = {
@@ -202,6 +202,15 @@ function FinancialPageContent() {
   const [abandonTarget, setAbandonTarget] = useState<TransactionRow | null>(null);
 
   /*
+   * "Mark resolved" on a flagged payment — the key follows the DIRECTION, as
+   * the API asks: `deposits.approve` for a deposit, `withdrawals.settle` for a
+   * payout ("did this money move" is that key's judgement).
+   */
+  const canResolveDeposit = hasPermission(admin, 'deposits.approve');
+  const canResolveWithdrawal = hasPermission(admin, 'withdrawals.settle');
+  const [resolveTarget, setResolveTarget] = useState<TransactionRow | null>(null);
+
+  /*
    * ── The stuck-transfer banner ────────────────────────────────────────────
    *
    * `TransferResumeScheduler` raises `money.transfer_stuck` at PAGE severity
@@ -224,7 +233,7 @@ function FinancialPageContent() {
   const stuck = stuckQuery.data;
 
   const isFiltered = Boolean(
-    direction || kind || state || currency || from || to || userId || url.get('q'),
+    direction || kind || state || currency || from || to || userId || attention || url.get('q'),
   );
 
   const exportFilters = new URLSearchParams();
@@ -306,6 +315,7 @@ function FinancialPageContent() {
         currency={currency}
         from={from}
         to={to}
+        attention={attention === 'true'}
         currencies={currenciesQuery.data ?? []}
         isFiltered={isFiltered}
         onChange={(patch) => url.set({ ...patch, page: undefined })}
@@ -316,7 +326,7 @@ function FinancialPageContent() {
         status={query.status}
         label={t('financial.loading')}
         endpoints={[
-          'GET /admin/transactions?direction&kind&state&q&userId&currency&from&to&page&limit&sort&order',
+          'GET /admin/transactions?direction&kind&state&q&userId&currency&from&to&attention&page&limit&sort&order',
         ]}
         onRetry={query.refetch}
         errorMessage={t('financial.loadFailed')}
@@ -334,6 +344,9 @@ function FinancialPageContent() {
              * `PermissionsGuard` is the enforcement (R-4.1).
              */
             onAbandon: canAbandon ? setAbandonTarget : undefined,
+            onResolve: canResolveDeposit || canResolveWithdrawal ? setResolveTarget : undefined,
+            canResolve: (row) =>
+              row.direction === 'deposit' ? canResolveDeposit : canResolveWithdrawal,
           })}
           rows={rows}
           rowKey={(row) => row.id}
@@ -375,6 +388,25 @@ function FinancialPageContent() {
         row: the release also frees the wallet hold, and the tiles above the
         table are computed server-side from the same movements.
       */}
+      {/* Refetches on success like the release: the row's badge and the
+          attention filter are both computed by the server. */}
+      <ResolveAttentionDialog
+        target={
+          resolveTarget && {
+            id: resolveTarget.id,
+            direction: resolveTarget.direction,
+            amount: resolveTarget.amount,
+            currency: resolveTarget.currency,
+            reason: resolveTarget.attentionReason,
+            portalId: resolveTarget.user.portalId,
+          }
+        }
+        onClose={() => setResolveTarget(null)}
+        onDone={async () => {
+          await Promise.all([query.refetch(), summaryQuery.refetch()]);
+        }}
+      />
+
       <AbandonTransferDialog
         target={abandonTarget}
         onClose={() => setAbandonTarget(null)}

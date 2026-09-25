@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import TransactionsPage from './page';
 import { ALL_PERMISSIONS } from '@/test/permissions';
@@ -204,5 +205,51 @@ describe('the withdrawals desk', () => {
 
     await screen.findByText(/Ada Client/);
     expect(screen.queryByText('client@oxshare.com')).not.toBeInTheDocument();
+  });
+});
+
+describe('a payout only a person can settle', () => {
+  const menuFor = () => screen.findByRole('button', { name: /actions for ada client/i });
+
+  it('offers "Mark resolved" when the two platforms disagree about the outcome', async () => {
+    const user = userEvent.setup();
+    getWithdrawals.mockResolvedValue(
+      page({
+        items: [
+          row({
+            state: 'success',
+            rivalWithdrawalId: 'rw-1',
+            rivalNeedsAttention: true,
+            rivalAttentionReason: 'The platform reports this payout rejected; it settled here.',
+          }),
+        ],
+      }),
+    );
+    renderWithProviders(<TransactionsPage />);
+
+    await user.click(await menuFor());
+    expect(await screen.findByRole('menuitem', { name: 'Mark resolved' })).toBeInTheDocument();
+  });
+
+  it('never offers it on a refused submission — a RETRY answers that one', async () => {
+    // Clearing this flag would hide an approved payout that was never sent.
+    const user = userEvent.setup();
+    getWithdrawals.mockResolvedValue(
+      page({
+        items: [
+          row({
+            state: 'approved',
+            rivalNeedsAttention: true,
+            rivalAttentionReason: 'Refused: insufficient balance on the payout account.',
+          }),
+        ],
+      }),
+    );
+    renderWithProviders(<TransactionsPage />);
+
+    expect(await screen.findByRole('button', { name: /retry submission/i })).toBeInTheDocument();
+    await user.click(await menuFor());
+    await screen.findByRole('menuitem', { name: 'View details' });
+    expect(screen.queryByRole('menuitem', { name: 'Mark resolved' })).toBeNull();
   });
 });

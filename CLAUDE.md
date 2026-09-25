@@ -112,23 +112,62 @@ rule's options: a standalone block silently disarmed the §6.1 `Number()` ban on
 files it overlapped. After touching `eslint.config.mjs`, re-verify by putting a `Number()`
 back into `money.ts` and confirming lint complains.
 
-## Realtime: two events, and what must NOT be live
+## Realtime: three events, and what must NOT be live
 
-The socket (`hooks/use-realtime.ts`, a twin) carries two events into
-`components/layout/notifications-sheet.tsx`:
+The socket (`hooks/use-realtime.ts`, a twin) carries three events into
+`components/notifications/notification-bell.tsx`:
 
-| event                  | means                              | maps through                |
-| ---------------------- | ---------------------------------- | --------------------------- |
-| `notification.created` | a CLIENT did something             | `queryKeysFor(kind)`        |
-| `resource.changed`     | another OPERATOR decided something | `resourceKeysFor(resource)` |
+| event                  | means                                              | maps through                |
+| ---------------------- | -------------------------------------------------- | --------------------------- |
+| `notification.created` | a client did something that needs handling (a TASK) | `queryKeysFor(kind)`        |
+| `notification.changed` | one of YOUR tasks was read elsewhere or HANDLED     | `keys.notifications.all()`  |
+| `resource.changed`     | another OPERATOR decided something                  | `resourceKeysFor(resource)` |
 
-The second has no bell, no chime and no toast, deliberately: a notification row per reviewer
-per decision fills every bell with "somebody else approved a document for a client you cannot
-see", which is how a bell stops being read. It carries a resource NAME and nothing else, which
-is why fan-out is not permission-scoped — see the backend's `common/realtime/resource-changed.ts`.
+`notification.changed` is what makes a handled task leave every inbox: the backend resolves it
+by trigger the moment anybody approves or rejects the item (backend 0140, D-78) and tells the
+rooms of exactly the admins who held it. It carries no data; the bell re-reads through the
+scoped endpoint.
+
+`resource.changed` has no bell, no chime and no toast, deliberately: a notification row per
+reviewer per decision fills every bell with "somebody else approved a document for a client you
+cannot see", which is how a bell stops being read. It carries a resource NAME and nothing else,
+which is why fan-out is not permission-scoped — see the backend's `common/realtime/resource-changed.ts`.
 
 A missed `resource.changed` leaves NO trace (no row, no badge), so the reconnect effect
 re-syncs every `BROADCAST_RESOURCES` entry. Do not narrow that back to the bell.
+
+### The notification centre (`components/notifications/`)
+
+An admin notification is a TASK — "you must handle something" — and the files are cut by that:
+`catalogue.ts` (task-phrased copy, the deep link filtered to the client by Portal ID, outcome
+labels; keyed by the backend's enum, so a new kind is a compile error), `notification-bell.tsx`
+(badge = inbox count, the socket), `notification-center.tsx` (Inbox / History and nothing else —
+**no category chips or status filters, on the owner's call**: a handful of tasks is read, not sorted
+through, and what a task IS is on the row already; the full page keeps one search, in History),
+`notification-feed.tsx` (shared by the sheet and `/notifications`: day groups, load more, clear
+with Undo, mark-all bounded by `upTo`), `notification-item.tsx`, `realtime-keys.ts`.
+Opening the panel marks nothing; a task leaves the inbox when the reader opens or clears it, or
+when anybody handles it. **Many arrivals are ONE announcement**: the transfer scheduler announces
+every transfer that stuck while the bridge was down in one pass, so the bell gathers arrivals within
+400 ms — one refetch, one chime (never closer than 3 s), one toast (the task when alone, "N new tasks
+need your action" under one toast id when not), and no toast while the panel is open.
+
+Three things outside the folder make that true, and each is easy to break without noticing:
+
+- **A task's link lands FILTERED**, by Portal ID. The deposit and IB desks keep their search box in
+  local state (typing through the router drops characters), so they SEED it from `?q=` through
+  `hooks/use-url-seeded-state.ts` — and RE-seed it on the next link: following a second task while
+  already on the desk is the same route, nothing remounts, and a once-only seed keeps the first
+  client's filter while the address bar names the second. A new desk a task links to needs the same.
+- **Looking at the item reads its task.** The KYC review calls `useMarkSubjectRead('kyc', uuid)`
+  once the submission has LOADED — never on a 403/404 — with the response's uuid, since the URL may
+  carry the Portal ID.
+- **An attention task has a finish line**: `components/financial/resolve-attention-dialog.tsx`
+  ("Mark resolved", a note of 10–500 characters, the DTO's bounds), opened from the Financial row
+  menu (key by direction: `deposits.approve` / `withdrawals.settle`) and the withdrawal desk.
+  Never on the desk's retryable case (`isRetryableSubmission`): clearing that flag would hide an
+  approved payout that was never sent. The Financial `attention=true` filter is where the deposit
+  task's link lands.
 
 **Deliberately not live**, and covered by tests that assert it stays that way:
 

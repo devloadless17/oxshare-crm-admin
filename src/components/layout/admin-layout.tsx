@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Search, Menu, X, Shield } from 'lucide-react
 import { UserMenu } from './user-menu';
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { NotificationsSheet } from './notifications-sheet';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { canAccess } from '@/lib/permissions';
 import { CommandPalette } from '@/components/layout/command-palette';
@@ -540,7 +540,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               System as well; the toggle is the whole control now.
             */}
             <ThemeToggle />
-            <NotificationsSheet />
+            <NotificationBell />
 
             {/*
               The account menu lives HERE, at every breakpoint — the top-right

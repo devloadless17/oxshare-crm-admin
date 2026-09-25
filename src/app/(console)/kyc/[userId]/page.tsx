@@ -32,6 +32,7 @@ import { hasPermission } from '@/lib/permissions';
 import { apiErrorCode } from '@/lib/api/errors';
 import { keys } from '@/lib/query-keys';
 import { waitingLabel } from '@/lib/waiting';
+import { useMarkSubjectRead } from '@/components/notifications/use-mark-subject-read';
 
 /**
  * An ALIAS, not a hand-written copy — R-1.1.
@@ -92,6 +93,9 @@ export default function KycDetailPage() {
     keys.kyc.detail(userId),
     async (signal) => (await api.get<KycDetail>(`/admin/kyc/${userId}`, { signal })).data,
   );
+  // Reading the submission reads its "Review KYC" task. The response's uuid,
+  // not the URL's: the URL may carry the Portal ID.
+  useMarkSubjectRead('kyc', query.status === 'ready' ? query.data?.userId : undefined);
 
   /*
    * Previously decided attempts.

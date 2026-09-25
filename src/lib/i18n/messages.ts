@@ -2408,6 +2408,32 @@ export const messages = {
   'financial.abandonSucceeded': 'Hold released on {amount} — the money is spendable again',
   'financial.abandonFailed': 'Could not release the hold.',
 
+  // ── A payment only a PERSON can settle (the attention flag, backend 0140) ──
+  // An amount the platform reported differently, a reversal, money paid
+  // against a failed row, or two platforms disagreeing about a payout.
+  // "Mark resolved" is what ends the admin task about it, for everyone.
+  'attention.badge': 'Needs attention',
+  'attention.filter': 'Needs attention',
+  'attention.filterTitle': 'Only payments flagged for a person to reconcile',
+  'attention.resolve': 'Mark resolved',
+  'attention.resolveTitle': 'Mark as resolved',
+  'attention.resolveIntroDeposit':
+    'A deposit of {amount} for client #{portalId} was flagged for a person to check.',
+  'attention.resolveIntroWithdrawal':
+    'A withdrawal of {amount} for client #{portalId} was flagged for a person to check.',
+  'attention.reasonLabel': 'Why it was flagged',
+  'attention.noReason': 'No reason was recorded with the flag.',
+  'attention.noteLabel': 'What did you find?',
+  'attention.notePlaceholder':
+    'Checked the payment platform: the reversal was a duplicate and the client is credited correctly.',
+  'attention.noteHint':
+    'Saved to the audit log with your name. This moves no money — make any correction first.',
+  'attention.noteTooShort': '{count} more {count:character|characters}',
+  'attention.confirm': 'Mark resolved',
+  'attention.resolving': 'Resolving…',
+  'attention.resolved': 'Marked as resolved — the task is cleared for every admin',
+  'attention.resolveFailed': 'Could not mark it as resolved.',
+
   'financial.filterKind': 'Kind',
   'financial.filterState': 'State',
   'financial.filterCurrency': 'Currency',
@@ -3339,60 +3365,109 @@ export const messages = {
   'partners.rowActions': 'Actions for {name}',
 
   // ── Notifications ─────────────────────────────────────────────────────────
-  // The LIVE bell — `GET /admin/notifications` and its three siblings. The
-  // per-kind pairs (`kind<PascalKind>Title/Body`) mirror the backend's event
-  // catalogue via `components/layout/notification-kinds.ts`; an event this
-  // file has no pair for renders as `fallbackTitle`, never a raw slug.
+  // The admin bell — `GET /admin/notifications` and its siblings. Task copy is
+  // keyed by the backend catalogue's enum in `components/notifications/
+  // catalogue.ts`, so a kind this file has no words for fails the build.
   'notifications.open': 'Open notifications',
+  // ── The admin bell: TASKS (backend 0140) ────────────────────────────────
+  // Every title is phrased as the thing to DO — the owner's rule is that an
+  // admin notification means "you must handle something".
+  'notifications.needActionLabel':
+    '{count:1 task needs your action|{count} tasks need your action}',
+  'notifications.tabInbox': 'Inbox',
+  'notifications.tabInboxCount': 'Inbox ({count})',
+  'notifications.tabHistory': 'History',
+  'notifications.viewHistory': 'View history',
+  'notifications.openPage': 'Open all notifications',
+  'notifications.groupToday': 'Today',
+  'notifications.groupYesterday': 'Yesterday',
+  'notifications.inboxEmptyTitle': "You're all caught up",
+  'notifications.inboxEmptyBody':
+    'Deposits, withdrawals, KYC and IB requests for your clients will appear here when they need you.',
+  'notifications.historyEmptyTitle': 'No notifications yet',
+  'notifications.historyEmptyBody': 'Every task you receive stays here, with how it ended.',
+  'notifications.filteredEmptyTitle': 'Nothing matches',
+  'notifications.filteredEmptyBody': 'Try another category, or clear the search.',
+  'notifications.markRead': 'Mark "{title}" as read',
+  'notifications.markReadShort': 'Mark as read',
+  'notifications.markUnread': 'Mark "{title}" as unread',
+  'notifications.markUnreadShort': 'Mark as unread',
+  'notifications.markedRead': 'Marked as read',
+  'notifications.undo': 'Undo',
+  'notifications.markReadFailed': 'Could not mark it as read.',
+  'notifications.markUnreadFailed': 'Could not mark it as unread.',
+  'notifications.refreshFailed': "Couldn't refresh — showing the last list.",
+  'notifications.loadMore': 'Load more',
+  'notifications.loadingMore': 'Loading…',
+  'notifications.review': 'Review',
+  // Several tasks landing together are one toast, not a stack of them.
+  'notifications.burstTitle':
+    '{count:1 new task needs your action|{count} new tasks need your action}',
+  'notifications.openInbox': 'Open inbox',
+  'notifications.taskApproveDeposit': 'Approve deposit',
+  'notifications.taskApproveDepositBody': '{amount} · Ref {reference}',
+  'notifications.taskDepositAnomaly': 'Resolve deposit anomaly',
+  'notifications.taskDepositAnomalyMismatch':
+    'The payment platform reported a different amount for this {amount} deposit. Nothing was credited.',
+  'notifications.taskDepositAnomalyReversed':
+    'The payment platform reversed a settled deposit of {amount}. The wallet was not debited.',
+  'notifications.taskDepositAnomalyPaidAfterFailure':
+    'The payment platform reports {amount} paid on a deposit already marked failed. No wallet was credited.',
+  'notifications.taskDepositAnomalyGeneric': 'A deposit of {amount} needs reconciling.',
+  'notifications.taskApproveWithdrawal': 'Approve withdrawal',
+  'notifications.taskApproveWithdrawalBody': '{amount} requested',
+  'notifications.taskPayoutRefused': 'Payout refused — retry or cancel',
+  'notifications.taskPayoutRefusedBody': '{amount} · {reason}',
+  'notifications.taskPayoutReconcile': 'Reconcile payout',
+  'notifications.taskPayoutReconcileBody':
+    'The payment platform and the CRM disagree about whether this payout moved.',
+  'notifications.taskReviewKyc': 'Review KYC',
+  'notifications.taskReviewKycBody': 'A new identity submission is waiting for review.',
+  'notifications.taskReviewKycAgain': 'Review KYC resubmission',
+  'notifications.taskReviewKycAgainBody': 'Corrected after a rejection — the client is waiting.',
+  'notifications.taskReviewIb': 'Review IB application',
+  'notifications.taskReviewIbBody': 'Wants to become an introducing broker.',
+  'notifications.taskClawback': 'Reverse IB commission',
+  'notifications.taskClawbackCredited':
+    '{amount} was already credited for a trade the dealer cancelled.',
+  'notifications.taskClawbackPending': '{amount} is pending for a trade the dealer cancelled.',
+  'notifications.taskStuckTransfer': 'Release stuck transfer',
+  'notifications.taskStuckTransferToAccount':
+    '{amount} to a trading account has been pending for over 15 minutes.',
+  'notifications.taskStuckTransferToWallet':
+    '{amount} back to the wallet has been pending for over 15 minutes.',
+  'notifications.outcomeNeedsAction': 'Needs action',
+  'notifications.outcomeApproved': 'Approved',
+  'notifications.outcomeRejected': 'Rejected',
+  'notifications.outcomePaid': 'Paid',
+  'notifications.outcomeCancelled': 'Cancelled',
+  'notifications.outcomeFailed': 'Failed',
+  'notifications.outcomeReleased': 'Released',
+  'notifications.outcomeCompleted': 'Completed',
+  'notifications.outcomeReversed': 'Reversed',
+  'notifications.outcomeResolved': 'Resolved',
+  'notifications.outcomeReset': 'Reset by the client',
+  'notifications.outcomeHandled': 'Handled',
+  'notifications.outcomeBy': '{outcome} · {name}',
+  'notifications.pageTitle': 'Notifications',
+  'notifications.pageSubtitle':
+    'Every deposit, withdrawal, KYC and IB task for the clients in your territory — what still needs you, and how the rest ended.',
+  'notifications.searchLabel': 'Search by client',
+  'notifications.searchPlaceholder': 'Portal ID or client name',
+  'notifications.searchTitle': 'Matches a Portal ID exactly, or part of a name or email.',
   'notifications.title': 'Notifications',
   'notifications.loading': 'Loading notifications',
   'notifications.loadFailed': 'Could not load notifications.',
-  'notifications.emptyTitle': 'Nothing yet',
-  'notifications.emptyBody': 'Alerts about work waiting on you will appear here.',
   // The PANEL's description, read by a screen reader when it opens. Distinct
   // from the trigger's label, which is an action rather than a description.
-  'notifications.panelDescription': 'Recent alerts about work waiting on you.',
-  'notifications.unreadCountLabel': '{count} unread',
+  'notifications.panelDescription':
+    'Deposits, withdrawals, KYC and IB tasks for the clients in your territory.',
   'notifications.markAllRead': 'Mark all as read',
   'notifications.markAllReadFailed': 'Could not mark notifications as read.',
   'notifications.itemUnread': 'Unread',
-  'notifications.recentNotice': 'Showing your {count} most recent notifications.',
   'notifications.fallbackTitle': 'Notification',
   'notifications.soundOn': 'Notification sound is on',
   'notifications.soundOff': 'Notification sound is off',
-  'notifications.kindWithdrawalRequestedTitle': 'Withdrawal requested',
-  'notifications.kindWithdrawalRequestedBody': 'A client requested a withdrawal of {amount}.',
-  'notifications.kindRivalSubmitFailedTitle': 'Payout submission refused',
-  'notifications.kindRivalSubmitFailedBody':
-    'The payment platform refused the {amount} payout submission: {reason} Retry from the desk or handle it manually.',
-  'notifications.kindRivalRejectedTitle': 'Payout rejected by the platform',
-  'notifications.kindRivalRejectedBody':
-    'The payment platform rejected the approved {amount} withdrawal — the client has been refunded and told why: {reason}',
-  'notifications.kindRivalPaidTitle': 'Payout confirmed',
-  'notifications.kindRivalPaidBody': 'The payment platform paid the {amount} withdrawal.',
-  'notifications.kindRivalAttentionTitle': 'Payout needs reconciliation',
-  'notifications.kindRivalAttentionBody':
-    'The platform and the CRM disagree about a withdrawal’s outcome. Reconcile it by hand before touching the row.',
-  'notifications.kindKycSubmittedTitle': 'KYC submitted',
-  'notifications.kindKycSubmittedBody': 'A client submitted documents for review.',
-  'notifications.kindPartnerAppliedTitle': 'Partner application',
-  'notifications.kindPartnerAppliedBody': 'A client applied to the partner programme.',
-  // "again" is the whole point of this being a separate line from the KYC one
-  // above: it tells the reviewer this is a second look, not a first.
-  'notifications.kindKycResubmittedTitle': 'KYC resubmitted',
-  'notifications.kindKycResubmittedBody': 'A client corrected their documents and submitted again.',
-  // The reference is what an operator matches against the bank statement, so
-  // it belongs in the line rather than one click away.
-  'notifications.kindDepositSubmittedTitle': 'Deposit declared',
-  'notifications.kindDepositSubmittedBody':
-    'A client declared a deposit of {amount}, reference {reference}.',
-  'notifications.kindClientRegisteredTitle': 'New client',
-  'notifications.kindClientRegisteredBody': 'A new client registered and is waiting to be triaged.',
-  'notifications.kindTradingAccountOpenedTitle': 'Trading account opened',
-  'notifications.kindTradingAccountOpenedBody': 'A client opened {environment} account {login}.',
-  // The toast's action button. Short because it sits inside a toast, and a
-  // verb because it does something rather than describing where it goes.
-  'notifications.view': 'View',
 
   // ── Dashboard (GET /admin/stats/*) ────────────────────────────────────────
   //

@@ -7824,6 +7824,10 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             settledAt?: string | null;
+            /** @description A person must reconcile this payment. False on transfers. */
+            needsAttention: boolean;
+            /** @description WHY it needs attention, in words the operator can act on. Null when not flagged. */
+            attentionReason?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
         };
         AdminTransactionListResponseDto: {
@@ -13960,6 +13964,8 @@ export interface operations {
                 from?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 to?: string;
+                /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
+                attention?: "true";
             };
             header?: never;
             path?: never;
@@ -13995,6 +14001,8 @@ export interface operations {
                 from?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 to?: string;
+                /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
+                attention?: "true";
             };
             header?: never;
             path?: never;
@@ -14029,6 +14037,8 @@ export interface operations {
                 from?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 to?: string;
+                /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
+                attention?: "true";
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;

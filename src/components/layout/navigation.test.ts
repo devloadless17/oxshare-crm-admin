@@ -67,9 +67,11 @@ function consoleRoutes(root = 'src/app'): string[] {
  * Pages that are reached from somewhere OTHER than the sidebar, each for a
  * reason. `/profile` is the operator's own account, opened from the account
  * menu in the header — a sidebar entry for it would be a second door to the
- * same room, placed among pages about the business.
+ * same room, placed among pages about the business. `/notifications` is the
+ * bell's full page, opened from "Open all notifications" in the header's bell
+ * panel — the bell is its door on every screen.
  */
-const OFF_NAV = ['/profile'];
+const OFF_NAV = ['/profile', '/notifications'];
 
 describe('the navigation tree names only real, reachable pages', () => {
   it('finds the console screens, so the checks below cannot pass vacuously', () => {

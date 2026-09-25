@@ -250,6 +250,8 @@ export type TransactionRow = components['schemas']['AdminTransactionRowDto'];
 /** What a deposit decision answers with — the row as it now stands. */
 export type DepositDecision = components['schemas']['DepositDecisionDto'];
 export type TransferRow = components['schemas']['TransferDto'];
+/** "Mark resolved" on a payment only a person could settle — the flag, cleared. */
+export type AttentionResolved = components['schemas']['AttentionResolvedDto'];
 export type StuckTransfers = components['schemas']['StuckTransfersDto'];
 export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
 export type TransactionsSummary = components['schemas']['AdminTransactionsSummaryDto'];
@@ -496,6 +498,8 @@ export interface TransactionListParams {
   /** Inclusive date bounds, `YYYY-MM-DD`. */
   from?: string;
   to?: string;
+  /** Only payments flagged for a person to reconcile — the API's one value. */
+  attention?: 'true';
   limit: number;
   page?: number;
   sort?: TransactionSortKey;
@@ -1844,6 +1848,7 @@ export const adminApi = {
     if (params.q) query.set('q', params.q);
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
+    if (params.attention) query.set('attention', params.attention);
     if (params.page !== undefined) query.set('page', String(params.page));
     // Both halves or neither — `order` alone orders no column.
     if (params.sort) {
@@ -1876,6 +1881,7 @@ export const adminApi = {
     if (params.q) query.set('q', params.q);
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
+    if (params.attention) query.set('attention', params.attention);
     const qs = query.toString();
     const { data } = await apiClient.get<TransactionsSummary>(
       `/admin/transactions/summary${qs ? `?${qs}` : ''}`,
@@ -2100,6 +2106,24 @@ export const adminApi = {
       `/admin/transfers/${id}/abandon`,
       { reason },
       idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * "Mark resolved" — a person reconciled a deposit or payout only a person
+   * could: an amount the platform reported differently, a reversal, money paid
+   * against a failed row, the two platforms disagreeing.
+   *
+   * Moves NO money; whatever the reconciliation required is its own action.
+   * The note (10–500 characters, the DTO's bounds) is the audit record of what
+   * they found, and clearing the flag ends the admin task about it for every
+   * admin (backend 0140). Refused once the payment is no longer flagged.
+   */
+  async resolveAttention(id: string, note: string): Promise<AttentionResolved> {
+    const { data } = await apiClient.patch<AttentionResolved>(
+      `/admin/transactions/${id}/attention/resolve`,
+      { note },
     );
     return data;
   },

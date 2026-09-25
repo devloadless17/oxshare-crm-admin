@@ -299,6 +299,9 @@ export const CONSOLE_PAGES = [
   '/ledger',
   '/api-keys',
   '/profile',
+  // The bell's full page (backend 0140): every task names its client by
+  // Portal ID, and must never print or link a uuid.
+  '/notifications',
 ] as const;
 
 /** Where each signed-in session is cached between specs. See `auth.setup.ts`. */

@@ -93,6 +93,18 @@ export function RivalStatusBadge({ w }: { w: WithdrawalRow }) {
 }
 
 /**
+ * The one flagged state a RETRY answers: an approved payout whose first
+ * submission definitively failed (no claim held, no Rival id). Every other
+ * flagged row is a reconciliation — "Mark resolved" — and offering that here
+ * would clear the flag on a payout that was never sent.
+ */
+export function isRetryableSubmission(w: WithdrawalRow): boolean {
+  return (
+    w.state === 'approved' && w.rivalNeedsAttention && !w.rivalSubmittedAt && !w.rivalWithdrawalId
+  );
+}
+
+/**
  * Retry a submission whose first attempt DEFINITIVELY failed.
  *
  * Only offered when the claim is clear (`rivalSubmittedAt` null) and the row
@@ -119,7 +131,7 @@ export function RetryRivalButton({
     onError: (error) => toastError(error, t('withdrawals.retryFailed')),
   });
 
-  if (!(w.rivalNeedsAttention && !w.rivalSubmittedAt && !w.rivalWithdrawalId)) return null;
+  if (!isRetryableSubmission(w)) return null;
   // `POST /admin/withdrawals/:id/rival-submit` requires `withdrawals.approve`.
   // Every other control on the row is gated; this one rendered outside the
   // menu and was not.

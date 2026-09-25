@@ -26,6 +26,17 @@ const { getTransactions, getTransactionsSummary, getCurrencies } = vi.hoisted(()
   getCurrencies: vi.fn(),
 }));
 
+/*
+ * "Mark resolved" goes through `adminApi` directly. A PARTIAL mock: the page
+ * also reads the real vocabulary lists (directions, kinds, states) from this
+ * module, and replacing them would test a page that cannot exist.
+ */
+const { resolveAttention } = vi.hoisted(() => ({ resolveAttention: vi.fn() }));
+vi.mock('@/lib/api/admin', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/admin')>();
+  return { ...actual, adminApi: { ...actual.adminApi, resolveAttention } };
+});
+
 // Both exports — see the note in leverages/page.test.tsx.
 vi.mock('@/lib/api', () => {
   const api = { admin: { getTransactions, getTransactionsSummary, getCurrencies } };
@@ -478,5 +489,117 @@ describe('the page never offers to move money', () => {
     await screen.findByText('jane@client.test');
 
     expect(screen.queryByRole('link', { name: /review on the desk/i })).toBeNull();
+  });
+});
+
+describe('a payment only a person can settle — the attention flag', () => {
+  const REASON = 'The platform REVERSED this deposit after it settled.';
+  const flagged = (over: Record<string, unknown> = {}) =>
+    row({
+      id: 'tx-flag',
+      needsAttention: true,
+      attentionReason: REASON,
+      user: {
+        id: 'u-1',
+        portalId: 1000245,
+        email: 'jane@client.test',
+        firstName: 'Jane',
+        lastName: 'Client',
+      },
+      ...over,
+    });
+
+  it('badges the row with WHY, and marks it resolved with a note', async () => {
+    getTransactions.mockResolvedValue(page({ items: [flagged()] }));
+    resolveAttention.mockResolvedValue({ id: 'tx-flag', needsAttention: false });
+    const user = userEvent.setup();
+    renderWithProviders(<FinancialPage />);
+
+    const table = await screen.findByRole('table');
+    expect(await within(table).findByText(REASON)).toBeInTheDocument();
+    expect(within(table).getByText('Needs attention')).toBeInTheDocument();
+
+    await user.click(within(table).getByRole('button', { name: 'Actions for this movement' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Mark resolved' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Mark as resolved' });
+    // What is being resolved, in the operator's terms: the money and the Portal ID.
+    expect(
+      within(dialog).getByText(/deposit of \$100\.12 for client #1000245/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(REASON)).toBeInTheDocument();
+    const confirm = within(dialog).getByRole('button', { name: 'Mark resolved' });
+    // The API's own minimum — ten characters — stated before the click.
+    expect(confirm).toBeDisabled();
+
+    await user.type(
+      within(dialog).getByLabelText('What did you find?'),
+      '  Checked: a duplicate.  ',
+    );
+    await user.click(confirm);
+
+    await waitFor(() =>
+      expect(resolveAttention).toHaveBeenCalledWith('tx-flag', 'Checked: a duplicate.'),
+    );
+    // The badge and the filter are the SERVER's — the list is asked again.
+    await waitFor(() => expect(getTransactions.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it('keeps the refusal on screen — "somebody resolved it while you were looking"', async () => {
+    getTransactions.mockResolvedValue(page({ items: [flagged()] }));
+    resolveAttention.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: { message: 'This payment no longer needs attention — somebody resolved it.' },
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<FinancialPage />);
+
+    const table = await screen.findByRole('table');
+    await user.click(
+      await within(table).findByRole('button', { name: 'Actions for this movement' }),
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Mark resolved' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Mark as resolved' });
+    await user.type(within(dialog).getByLabelText('What did you find?'), 'Checked the dashboard.');
+    await user.click(within(dialog).getByRole('button', { name: 'Mark resolved' }));
+
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Mark as resolved' })).toBeInTheDocument();
+  });
+
+  it('offers it only to an operator holding the key the DIRECTION needs', async () => {
+    // A deposit needs deposits.approve; this operator can settle payouts only.
+    permissions.current = ALL_PERMISSIONS.filter((key) => key !== 'deposits.approve');
+    getTransactions.mockResolvedValue(page({ items: [flagged()] }));
+    renderWithProviders(<FinancialPage />);
+
+    const table = await screen.findByRole('table');
+    await within(table).findByText(REASON);
+    // The badge still says so; the action is withheld — a button that 403s is
+    // worse than no button, and this row has no other action to offer.
+    expect(within(table).queryByRole('button', { name: 'Actions for this movement' })).toBeNull();
+  });
+
+  it('narrows to flagged payments from the URL — where a task link lands — and toggles off', async () => {
+    const user = userEvent.setup();
+    searchParams.current = new URLSearchParams('userId=1000245&attention=true');
+    renderWithProviders(<FinancialPage />);
+
+    await waitFor(() =>
+      expect(getTransactions).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '1000245', attention: 'true' }),
+        expect.anything(),
+      ),
+    );
+    const toggle = screen.getByRole('button', { name: 'Needs attention' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(toggle);
+    expect(replace).toHaveBeenLastCalledWith(expect.not.stringContaining('attention'), {
+      scroll: false,
+    });
   });
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, Handshake, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -19,6 +20,8 @@ import { PartnerRejectDialog } from '@/components/ib/partner-reject-dialog';
 import { PartnerApproveDialog } from '@/components/ib/partner-approve-dialog';
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { useDebounced } from '@/hooks/use-debounced';
+import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
+import { PageLoader } from '@/components/ui/loader';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
@@ -64,6 +67,15 @@ const TABS: Array<{ value: IbApplicationStatus | ''; labelKey: Parameters<typeof
 ];
 
 export default function PartnerApprovalsPage() {
+  // `useSearchParams()` needs a Suspense boundary at prerender, or the build fails.
+  return (
+    <Suspense fallback={<PageLoader label={t('partnerReview.loading')} />}>
+      <PartnerApprovalsContent />
+    </Suspense>
+  );
+}
+
+function PartnerApprovalsContent() {
   const { admin } = useAdmin();
   const canApprove = hasPermission(admin, 'ib.approve');
   const canReject = hasPermission(admin, 'ib.reject');
@@ -77,9 +89,10 @@ export default function PartnerApprovalsPage() {
    * other searchable list here uses, and an undebounced key fires a request per
    * keystroke and races their responses.
    */
-  const [search, setSearch] = React.useState('');
-  const debouncedSearch = useDebounced(search, 300);
   const [page, setPage] = React.useState(1);
+  // Seeded from `?q=` — a notification's link lands on this client's application.
+  const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
+  const debouncedSearch = useDebounced(search, 300);
   const [pageSize, setPageSize] = React.useState(25);
   const [rejecting, setRejecting] = React.useState<Row | null>(null);
   /**

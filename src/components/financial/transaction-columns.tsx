@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink, Unlock } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ExternalLink, Unlock } from 'lucide-react';
 import type { Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { PermittedLink } from '@/components/permitted-link';
@@ -36,6 +36,14 @@ import { ClientIdentity } from '@/components/clients/client-identity';
  * that does not exist is why the only previous repair was hand-written SQL. The
  * action is offered here, gated on `transfers.abandon`, and everything dangerous
  * about it lives in the dialog rather than in this cell.
+ *
+ * ## And marking a flagged payment RESOLVED
+ *
+ * A deposit the payment platform reported differently, reversed, or paid after
+ * it failed has no desk either — it is not waiting in any queue, it is a
+ * settled row a person must reconcile. The badge says so on the row, and "Mark
+ * resolved" (per direction: `deposits.approve` / `withdrawals.settle`, the
+ * keys the API asks for) is how the admin task about it ends (backend 0140).
  */
 
 const sortableBy = (key: TransactionSortKey) => ({ sortable: true as const, sortKey: key });
@@ -43,6 +51,8 @@ const sortableBy = (key: TransactionSortKey) => ({ sortable: true as const, sort
 export function transactionColumns({
   maskedFields,
   onAbandon,
+  onResolve,
+  canResolve,
 }: {
   /** RBAC-03 — the `financial.*` keys the response removed for this viewer. */
   maskedFields: readonly string[];
@@ -54,6 +64,10 @@ export function transactionColumns({
    * UX only: `PermissionsGuard` is the enforcement (R-4.1).
    */
   onAbandon?: (row: TransactionRow) => void;
+  /** Opens "Mark resolved" on a flagged payment; `undefined` hides it for everyone. */
+  onResolve?: (row: TransactionRow) => void;
+  /** Whether THIS viewer may resolve THIS row — the permission follows the direction. */
+  canResolve?: (row: TransactionRow) => boolean;
 }): Column<TransactionRow>[] {
   const hidden = (field: string) => isMasked(field, maskedFields);
   const nameHidden = hidden('financial.user.firstName') && hidden('financial.user.lastName');
@@ -142,6 +156,27 @@ export function transactionColumns({
          */
         <div className="flex max-w-[13rem] flex-col items-start gap-1">
           <TxStateBadge state={row.state} />
+          {/*
+            A payment only a PERSON can settle — with WHY on the row, because
+            the flag alone reads as "the system is broken" and sends the
+            operator to the logs. The full reason is on `title`.
+          */}
+          {row.needsAttention && (
+            <>
+              <span className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                {t('attention.badge')}
+              </span>
+              {row.attentionReason && (
+                <span
+                  className="block max-w-full truncate text-[11px] text-warning/90"
+                  title={row.attentionReason}
+                >
+                  {row.attentionReason}
+                </span>
+              )}
+            </>
+          )}
           {row.providerRef && (
             <span
               className="block max-w-full truncate font-mono text-[11px] text-muted-foreground"
@@ -239,6 +274,16 @@ export function transactionColumns({
           icon: Unlock,
           onSelect: () => onAbandon(row),
           destructive: true,
+        });
+      }
+
+      // Mark resolved — on a flagged PAYMENT, for a viewer holding the key its
+      // direction needs. Transfers carry no flag, so they never qualify.
+      if (onResolve && row.kind === 'payment' && row.needsAttention && canResolve?.(row)) {
+        items.push({
+          label: t('attention.resolve'),
+          icon: CheckCircle2,
+          onSelect: () => onResolve(row),
         });
       }
 
