@@ -52,6 +52,7 @@ import { clientLabel } from '@/components/clients/client-identity';
 import { PermittedLink } from '@/components/permitted-link';
 import { keys } from '@/lib/query-keys';
 import { isMasked } from '@/lib/masking';
+import { formatDateOfBirth } from '@/lib/profile';
 
 /**
  * FR-ADM-01's full client profile.
@@ -433,6 +434,36 @@ export default function ClientProfilePage() {
                     <Field
                       label={t('clientProfile.fieldPhone')}
                       field="client.phone"
+                      profile={profile}
+                    />
+                    {/* The rest of the ONE profile (0139) — the same record the
+                        client's KYC form shows them. One row per field, so each
+                        is masked on its own key. */}
+                    <Field
+                      label={t('clientProfile.fieldDateOfBirth')}
+                      field="client.dateOfBirth"
+                      profile={profile}
+                    >
+                      {formatDateOfBirth(profile.dateOfBirth)}
+                    </Field>
+                    <Field
+                      label={t('clientProfile.fieldNationality')}
+                      field="client.nationality"
+                      profile={profile}
+                    />
+                    <Field
+                      label={t('clientProfile.fieldAddress')}
+                      field="client.address"
+                      profile={profile}
+                    />
+                    <Field
+                      label={t('clientProfile.fieldCity')}
+                      field="client.city"
+                      profile={profile}
+                    />
+                    <Field
+                      label={t('clientProfile.fieldPostalCode')}
+                      field="client.postalCode"
                       profile={profile}
                     />
                     <Field

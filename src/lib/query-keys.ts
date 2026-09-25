@@ -167,6 +167,11 @@ export const keys = {
     availableGroups: () => ['products', 'available-groups'] as const,
   },
 
+  /** The server's country and nationality lists — static per deployment. */
+  profileOptions: {
+    all: () => ['profile-options'] as const,
+  },
+
   currencies: {
     all: () => ['currencies'] as const,
   },

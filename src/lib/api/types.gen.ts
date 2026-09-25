@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/v1/profile/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The countries and nationalities a client profile accepts */
+        get: operations["ProfileOptionsController_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/notifications": {
         parameters: {
             query?: never;
@@ -1528,6 +1545,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/transactions/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Totals of the signed-in client's filtered transactions, per currency and state */
+        get: operations["PaymentsController_myTransactionSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/transfers": {
         parameters: {
             query?: never;
@@ -1636,6 +1670,23 @@ export interface paths {
         };
         /** The signed-in client's wallets — balance, on_hold and available, all as strings */
         get: operations["WalletController_myWallets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/wallet/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An account statement for one of the signed-in client's wallets */
+        get: operations["WalletController_statement"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4188,6 +4239,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ProfileOptionsDto: {
+            /**
+             * @description Countries of residence, sorted by name. Exactly the values the profile accepts.
+             * @example [
+             *       "Lebanon",
+             *       "United Arab Emirates"
+             *     ]
+             */
+            countries: string[];
+            /**
+             * @description Nationalities, as demonyms. Exactly the values the profile accepts.
+             * @example [
+             *       "Emirati",
+             *       "Lebanese"
+             *     ]
+             */
+            nationalities: string[];
+        };
         NotificationDto: {
             id: string;
             /**
@@ -4224,18 +4293,49 @@ export interface components {
             updated: number;
         };
         RegisterDto: {
-            /** @example John */
+            /**
+             * @description As on the ID document.
+             * @example John
+             */
             firstName: string;
-            /** @example Doe */
+            /**
+             * @description As on the ID document.
+             * @example Doe
+             */
             lastName: string;
             /** @example john@example.com */
             email: string;
             /** @example StrongPass123! */
             password: string;
-            /** @example US */
-            country?: string;
-            /** @example +1234567890 */
+            /**
+             * @description YYYY-MM-DD. At least 18 years ago.
+             * @example 1990-04-12
+             */
+            dateOfBirth?: string;
+            /**
+             * @description From the KYC nationality list.
+             * @example Lebanese
+             */
+            nationality?: string;
+            /**
+             * @description International format with the country code. Stored as E.164.
+             * @example +96170123456
+             */
             phone?: string;
+            /**
+             * @description Country of residence, from the KYC country list.
+             * @example Lebanon
+             */
+            country?: string;
+            /** @example Hamra Street, Building 12, 3rd floor */
+            address?: string;
+            /** @example Beirut */
+            city?: string;
+            /**
+             * @description Optional — many addresses have none.
+             * @example 1103 2080
+             */
+            postalCode?: string;
             /** @example K7M2PQR9 */
             referralCode?: string;
         };
@@ -4293,6 +4393,19 @@ export interface components {
             country?: string;
             /** @example +971501234567 */
             phone?: string;
+            /**
+             * @description YYYY-MM-DD.
+             * @example 1990-04-12
+             */
+            dateOfBirth?: string;
+            /** @example Emirati */
+            nationality?: string;
+            /** @example Sheikh Zayed Road, Tower 2, Apt 1204 */
+            address?: string;
+            /** @example Dubai */
+            city?: string;
+            /** @example 00000 */
+            postalCode?: string;
             /** Format: date-time */
             createdAt: string;
             /**
@@ -5186,7 +5299,7 @@ export interface components {
              * @description Branch on this, never on the absence of a payment field.
              * @enum {string}
              */
-            kind: "payment" | "transfer" | "commission_transfer";
+            kind: "payment" | "transfer" | "commission_transfer" | "rebate";
             tradingAccountId?: string | null;
         };
         TransactionPageDto: {
@@ -5195,6 +5308,23 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+        };
+        TransactionSummaryRowDto: {
+            /** @example USD */
+            currency: string;
+            /**
+             * @description Wallet-side, as on the list's rows.
+             * @enum {string}
+             */
+            direction: "deposit" | "withdrawal";
+            /** @enum {string} */
+            state: "pending" | "approved" | "success" | "failure" | "rejected";
+            count: number;
+            /**
+             * @description Decimal string (§6.1).
+             * @example 1250.00000000
+             */
+            total: string;
         };
         RequestTransferDto: {
             /** @description A live trading account belonging to the caller. */
@@ -5266,6 +5396,52 @@ export interface components {
              * @example /v1/uploads/payment-logos/8f2c….png
              */
             logoUrl: string;
+        };
+        StatementLineDto: {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @enum {string} */
+            entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment" | "transfer";
+            /** @example transaction */
+            referenceType: string;
+            referenceId: string;
+            /** @description Signed decimal string: positive credits, negative debits. */
+            amount: string;
+            /** @description Wallet balance after this line, as stored by the ledger. */
+            balanceAfter: string;
+            /** @description Payment rail name, if any. */
+            methodName: string | null;
+            /** @description Payment provider; `manual_admin` for money the team placed by hand. */
+            provider: string | null;
+            /** @description MT5 login, for a transfer line. */
+            tradingAccountLogin: string | null;
+            /** @description Trading account name, for a transfer line. */
+            tradingAccountName: string | null;
+            /** @enum {string|null} */
+            transferDirection: "wallet_to_account" | "account_to_wallet" | null;
+        };
+        StatementDto: {
+            walletId: string;
+            walletNumber: string;
+            /** @example USD */
+            currency: string;
+            /** @example 2026-09-01 */
+            from: string;
+            /** @example 2026-09-30 */
+            to: string;
+            /** @description Balance at the start of `from`. */
+            openingBalance: string;
+            /** @description Balance at the end of `to`. */
+            closingBalance: string;
+            totalCredits: string;
+            /** @description Positive: the sum of money that left. */
+            totalDebits: string;
+            lines: components["schemas"]["StatementLineDto"][];
+            /** @description True when the period held more lines than one statement returns. */
+            truncated: boolean;
+            /** Format: date-time */
+            generatedAt: string;
         };
         LedgerEntryDto: {
             id: string;
@@ -6397,9 +6573,19 @@ export interface components {
             emailVerified: boolean;
             country?: string;
             phone?: string;
+            /** @example 1990-04-12 */
+            dateOfBirth?: string;
+            nationality?: string;
+            address?: string;
+            city?: string;
+            postalCode?: string;
             /** Format: date-time */
             createdAt?: string;
             tags: components["schemas"]["ClientTagDto"][];
+            /** @description The profile fields the desk may not change right now, each with where it can be changed instead — the verification's lock (`deskLocks`). Present only for a reader holding clients.edit; empty when nothing is locked. */
+            lockedFields?: {
+                [key: string]: string;
+            };
             /** @description Absent without kyc.view. */
             kyc?: components["schemas"]["ProfileKycDto"];
             /** @description Document filenames. Absent without kyc.documents.view. */
@@ -6432,12 +6618,31 @@ export interface components {
             /** @example Haddad */
             lastName?: string;
             /**
-             * @description Send an empty string to clear it.
+             * @description International format with the country code; stored as E.164. Empty clears it.
              * @example +9613111222
              */
-            phone?: string | null;
-            /** @example Lebanon */
-            country?: string | null;
+            phone?: string;
+            /**
+             * @description Country of residence, from the KYC country list. Empty clears it.
+             * @example Lebanon
+             */
+            country?: string;
+            /**
+             * @description YYYY-MM-DD, 18 or older.
+             * @example 1990-04-12
+             */
+            dateOfBirth?: string;
+            /**
+             * @description From the KYC nationality list.
+             * @example Lebanese
+             */
+            nationality?: string;
+            /** @example Hamra Street, Building 12 */
+            address?: string;
+            /** @example Beirut */
+            city?: string;
+            /** @example 1103 2080 */
+            postalCode?: string;
         };
         ClientAccountDto: {
             /** Format: uuid */
@@ -6460,6 +6665,12 @@ export interface components {
             emailVerified: boolean;
             country: string | null;
             phone: string | null;
+            /** @example 1990-04-12 */
+            dateOfBirth: string | null;
+            nationality: string | null;
+            address: string | null;
+            city: string | null;
+            postalCode: string | null;
             /** Format: date-time */
             createdAt: string;
             /** @description Fields withheld from THIS response by the reader’s role (RBAC-03). A masked field is absent from the payload entirely, so this list is the only way to tell "hidden from you" apart from "this client has none" — an empty box otherwise reads as the second. */
@@ -6634,8 +6845,15 @@ export interface components {
              * @example 1985-04-12
              */
             dateOfBirth?: string;
-            /** @example 12 Rue Verdun, Beirut */
+            /** @example 12 Rue Verdun */
             address?: string;
+            /** @example Beirut */
+            city?: string;
+            /**
+             * @description Send an empty string to clear it — many addresses have none.
+             * @example 1103 2080
+             */
+            postalCode?: string;
         };
         RejectDto: {
             /** @description Free-text reason, when not using a configured reasonId. */
@@ -7650,6 +7868,25 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    ProfileOptionsController_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOptionsDto"];
+                };
+            };
+        };
+    };
     NotificationsController_list: {
         parameters: {
             query?: {
@@ -9601,6 +9838,8 @@ export interface operations {
     PaymentsController_myTransactions: {
         parameters: {
             query?: {
+                /** @description Comma-separated. Any of: payment, transfer, commission_transfer, rebate. */
+                kind?: string;
                 /** @description Deposits or withdrawals only. */
                 direction?: "deposit" | "withdrawal";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
@@ -9626,6 +9865,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionPageDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_myTransactionSummary: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated. Any of: payment, transfer, commission_transfer, rebate. */
+                kind?: string;
+                /** @description Deposits or withdrawals only. */
+                direction?: "deposit" | "withdrawal";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                currency?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                from?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                to?: string;
+                sort?: "createdAt" | "amount" | "direction" | "currency" | "state";
+                order?: "asc" | "desc";
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionSummaryRowDto"][];
                 };
             };
         };
@@ -9798,6 +10071,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WalletDto"][];
+                };
+            };
+        };
+    };
+    WalletController_statement: {
+        parameters: {
+            query: {
+                walletId: string;
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatementDto"];
                 };
             };
         };

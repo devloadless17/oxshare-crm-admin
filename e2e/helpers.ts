@@ -944,7 +944,7 @@ export async function registerClientWithPendingKyc(
         lastName: label,
         dateOfBirth: '1988-08-08',
         phone: '+96170000010',
-        nationality: 'Lebanon',
+        nationality: 'Lebanese',
         country: 'Lebanon',
       })
     ).ok(),

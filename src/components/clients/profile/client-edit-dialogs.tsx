@@ -1,7 +1,5 @@
 'use client';
 
-import { isMasked } from '@/lib/masking';
-import { EyeOff } from 'lucide-react';
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
@@ -11,6 +9,7 @@ import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { ClientProfileForm } from './client-profile-form';
 
 /**
  * CORE-18's two client edits, and they are deliberately two dialogs.
@@ -53,12 +52,8 @@ async function refreshProfile(
 /* ── Profile ──────────────────────────────────────────────────────────────── */
 
 /**
- * Name, phone and country — the clerical set.
- *
- * Sends only the fields that actually CHANGED. A PATCH that echoed every value
- * back would make this form's stale copy of a phone number overwrite whatever
- * another screen wrote a second ago, and the API would record four changes
- * every time somebody fixed one.
+ * The client's one profile — see `ClientProfileForm` for what can be edited,
+ * when, and why each field that cannot says so.
  */
 export function EditClientProfileDialog({
   open,
@@ -78,211 +73,8 @@ export function EditClientProfileDialog({
         Remounting lets `useState` initialisers be the single source of the
         starting values, with no effect resetting them afterwards.
       */}
-      {open ? <ProfileForm profile={profile} onClose={onClose} /> : null}
+      {open ? <ClientProfileForm profile={profile} onClose={onClose} /> : null}
     </Modal>
-  );
-}
-
-/**
- * Said under a field the operator may not read, instead of leaving an empty box.
- *
- * An empty box is the wrong message twice over: it reads as "this client has no
- * last name", and it invites a correction that would overwrite a value the
- * operator cannot see. The input is disabled for the same reason.
- */
-function MaskedFieldNote() {
-  return (
-    <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-      <EyeOff className="h-3 w-3" aria-hidden="true" />
-      {t('clientProfile.fieldHiddenFromYou')}
-    </span>
-  );
-}
-
-function ProfileForm({ profile, onClose }: { profile: ClientProfile; onClose: () => void }) {
-  const queryClient = useQueryClient();
-
-  /*
-   * WHICH FIELDS THIS OPERATOR MAY NOT SEE (RBAC-03).
-   *
-   * A masked field is REMOVED from the payload, so `profile.lastName` is
-   * `undefined` and the box rendered EMPTY — indistinguishable from a client
-   * who genuinely has no last name. Two things went wrong from there:
-   *
-   *   1. `required` on an empty box the operator cannot see the value of meant
-   *      the form REFUSED TO SUBMIT until they typed something into it. To
-   *      change a phone number they had to overwrite a last name they were not
-   *      allowed to read. The mask coerced the exact corruption it exists to
-   *      prevent.
-   *
-   *   2. Even without `required`, an empty box invites a correction to a field
-   *      that already has a value.
-   *
-   * The patch builder below only ever sent CHANGED fields, so an untouched
-   * masked field was never transmitted — the stored value survived. That is the
-   * one thing this was already getting right, and it is why this is a usability
-   * and integrity defect rather than a data-loss one.
-   */
-  const maskedFirstName = isMasked('client.firstName', profile.maskedFields);
-  const maskedLastName = isMasked('client.lastName', profile.maskedFields);
-  const maskedPhone = isMasked('client.phone', profile.maskedFields);
-  const maskedCountry = isMasked('client.country', profile.maskedFields);
-
-  const [firstName, setFirstName] = React.useState(profile.firstName ?? '');
-  const [lastName, setLastName] = React.useState(profile.lastName ?? '');
-  const [phone, setPhone] = React.useState(profile.phone ?? '');
-  const [country, setCountry] = React.useState(profile.country ?? '');
-
-  /*
-   * Only what CHANGED, and never a masked field. The masked guards are belt and
-   * braces — a masked input is disabled, so it cannot change — but they state
-   * the rule at the point the request is built, where a future edit to the
-   * rendering cannot quietly break it.
-   */
-  const changed = {
-    ...(!maskedFirstName && firstName !== (profile.firstName ?? '') ? { firstName } : {}),
-    ...(!maskedLastName && lastName !== (profile.lastName ?? '') ? { lastName } : {}),
-    ...(!maskedPhone && phone !== (profile.phone ?? '') ? { phone } : {}),
-    ...(!maskedCountry && country !== (profile.country ?? '') ? { country } : {}),
-  };
-  const hasChanges = Object.keys(changed).length > 0;
-
-  const save = useMutation({
-    mutationFn: () => api.admin.updateClientProfile(profile.id, changed),
-    onSuccess: async () => {
-      await refreshProfile(queryClient, profile.id);
-      toastSuccess(t('clientProfile.editProfileSaved'));
-      onClose();
-    },
-    onError: (error) => toastError(error, t('clientProfile.editProfileFailed')),
-  });
-
-  return (
-    <form
-      className="space-y-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (hasChanges) save.mutate();
-      }}
-    >
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        {t('clientProfile.editProfileBody')}
-      </p>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">
-            {t('clientProfile.fieldFirstName')}
-          </span>
-          <input
-            value={maskedFirstName ? '' : firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            required={!maskedFirstName}
-            maxLength={100}
-            /* Disabled when masked: the operator cannot see what is there, so
-               they must not be able to replace it. */
-            disabled={save.isPending || maskedFirstName}
-            aria-describedby={maskedFirstName ? 'firstName-hidden' : undefined}
-            className={FIELD}
-          />
-          {maskedFirstName && (
-            <span id="firstName-hidden">
-              <MaskedFieldNote />
-            </span>
-          )}
-        </label>
-
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">
-            {t('clientProfile.fieldLastName')}
-          </span>
-          <input
-            value={maskedLastName ? '' : lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            required={!maskedLastName}
-            maxLength={100}
-            /* Disabled when masked: the operator cannot see what is there, so
-               they must not be able to replace it. */
-            disabled={save.isPending || maskedLastName}
-            aria-describedby={maskedLastName ? 'lastName-hidden' : undefined}
-            className={FIELD}
-          />
-          {maskedLastName && (
-            <span id="lastName-hidden">
-              <MaskedFieldNote />
-            </span>
-          )}
-        </label>
-
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">
-            {t('clientProfile.fieldPhone')}
-          </span>
-          <input
-            value={maskedPhone ? '' : phone}
-            onChange={(e) => setPhone(e.target.value)}
-            maxLength={32}
-            /* Disabled when masked: the operator cannot see what is there, so
-               they must not be able to replace it. */
-            disabled={save.isPending || maskedPhone}
-            aria-describedby={maskedPhone ? 'phone-hidden' : undefined}
-            className={FIELD}
-          />
-          {maskedPhone && (
-            <span id="phone-hidden">
-              <MaskedFieldNote />
-            </span>
-          )}
-          {/* Empty clears it — stated, because a blank box otherwise reads as
-                "unchanged" rather than "remove what is there". */}
-          <span className="block text-[11px] text-muted-foreground">
-            {t('clientProfile.fieldClearHint')}
-          </span>
-        </label>
-
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">
-            {t('clientProfile.fieldCountry')}
-          </span>
-          <input
-            value={maskedCountry ? '' : country}
-            onChange={(e) => setCountry(e.target.value)}
-            maxLength={100}
-            /* Disabled when masked: the operator cannot see what is there, so
-               they must not be able to replace it. */
-            disabled={save.isPending || maskedCountry}
-            aria-describedby={maskedCountry ? 'country-hidden' : undefined}
-            className={FIELD}
-          />
-          {maskedCountry && (
-            <span id="country-hidden">
-              <MaskedFieldNote />
-            </span>
-          )}
-        </label>
-      </div>
-
-      <div className="flex justify-end gap-2 pt-2">
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={save.isPending}
-          className="h-9 rounded-lg border border-input px-3 text-xs font-semibold focus-outline"
-        >
-          {t('common.cancel')}
-        </button>
-        <button
-          type="submit"
-          /* Disabled with nothing changed: the API answers 400 to an empty
-               patch, and a button that produces an error is worse than one that
-               says there is nothing to save. */
-          disabled={!hasChanges || save.isPending}
-          className="h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground focus-outline disabled:opacity-50"
-        >
-          {save.isPending ? t('common.saving') : t('common.save')}
-        </button>
-      </div>
-    </form>
   );
 }
 

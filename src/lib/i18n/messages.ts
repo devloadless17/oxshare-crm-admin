@@ -650,6 +650,8 @@ export const messages = {
     "Corrects the date of birth or address on {client}'s APPROVED verification. Everything else — a wrong name, a wrong document — needs the verification redone.",
   'kycReview.correctDob': 'Date of birth',
   'kycReview.correctAddress': 'Address',
+  'kycReview.correctCity': 'City',
+  'kycReview.correctPostalCode': 'Postal / ZIP code',
   'kycReview.correctConfirm': 'Save correction',
   'kycReview.correctAction': 'Correct identity details',
   'kycReview.correctFailed': 'Could not save the correction.',
@@ -967,7 +969,7 @@ export const messages = {
 
   'clientProfile.editProfileTitle': 'Edit profile',
   'clientProfile.editProfileBody':
-    'Name, phone and country. The sign-in email is changed separately — it logs the client out and needs its own permission.',
+    'The client’s one profile — the same record their identity verification shows them. The sign-in email is changed separately: it logs the client out and needs its own permission.',
   'clientProfile.editProfileSaved': 'Profile updated',
   'clientProfile.editProfileFailed': 'This profile could not be updated.',
   'clientProfile.fieldFirstName': 'First name',
@@ -975,9 +977,25 @@ export const messages = {
   // `clientProfile.fieldPhone` is NOT redeclared here — the profile section
   // above already owns it, and two entries for one label is a TS1117 the
   // moment both are in the same object.
-  'clientProfile.fieldCountry': 'Country',
+  'clientProfile.fieldCountry': 'Country of residence',
   'clientProfile.fieldClearHint': 'Leave empty to remove it.',
   'clientProfile.fieldHiddenFromYou': 'Hidden from you — your role cannot see this field.',
+  // The rest of the profile (0139) — asked for at sign-up and in KYC.
+  'clientProfile.fieldDateOfBirth': 'Date of birth',
+  'clientProfile.fieldNationality': 'Nationality',
+  'clientProfile.fieldAddress': 'Street address',
+  'clientProfile.fieldCity': 'City',
+  'clientProfile.fieldPostalCode': 'Postal / ZIP code',
+  'clientProfile.fieldAddressLine': 'Address',
+  'clientProfile.fieldPhoneHint':
+    'International format, with the country code — e.g. +961 70 123 456.',
+  'clientProfile.choose': 'Choose…',
+  'clientProfile.listLoading': 'Loading the list…',
+  // The server's per-field refusals are shown under their box; this is the line above.
+  'clientProfile.fixHighlighted': 'Some fields need attention — see the messages below them.',
+  // The lock, in the server's words (`lockedFields`), shown under each field.
+  'clientProfile.lockedNotice':
+    'Some fields are locked by the client’s identity verification. Each says where it can be changed.',
 
   'clientProfile.changeEmailTitle': 'Change sign-in email',
   'clientProfile.changeEmailWarnTitle': 'This changes how the client signs in.',

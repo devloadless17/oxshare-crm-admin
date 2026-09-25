@@ -2445,18 +2445,34 @@ export const adminApi = {
   },
 
   /**
-   * Correct a client's profile — name, phone, country. CORE-18.
+   * Correct a client's profile — the whole of it since 0139: name, date of
+   * birth, nationality, phone, residence and address. CORE-18.
    *
    * PARTIAL by design: only the fields present are written, so two screens
    * editing different things cannot overwrite one another with their own stale
-   * copies. Send an empty string to clear phone or country; the API turns that
-   * into NULL rather than storing a blank.
+   * copies. Send an empty string to clear an optional field; the API turns that
+   * into NULL rather than storing a blank. The API answers 400 with `fields`
+   * for a value its rules refuse, and 409 `PROFILE_LOCKED` with `fields` for
+   * one the client's verification has locked.
    */
   async updateClientProfile(
     id: string,
-    dto: { firstName?: string; lastName?: string; phone?: string; country?: string },
+    dto: components['schemas']['UpdateClientProfileDto'],
   ): Promise<ClientAccount> {
     const { data } = await apiClient.patch<ClientAccount>(`/admin/clients/${id}`, dto);
+    return data;
+  },
+
+  /**
+   * The countries and nationalities a client profile accepts — the SERVER's
+   * lists, so the edit form cannot offer a value the profile then refuses.
+   * Public on the API, the same for every reader.
+   */
+  async profileOptions(signal?: AbortSignal): Promise<components['schemas']['ProfileOptionsDto']> {
+    const { data } = await apiClient.get<components['schemas']['ProfileOptionsDto']>(
+      '/profile/options',
+      { signal },
+    );
     return data;
   },
 

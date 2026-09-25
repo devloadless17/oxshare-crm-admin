@@ -76,6 +76,25 @@ export function apiErrorCode(error: unknown): string | undefined {
   return typeof code === 'string' && code.length > 0 ? code : undefined;
 }
 
+/**
+ * The API's per-field messages — `{ dateOfBirth: 'You must be at least 18…' }`.
+ *
+ * One shape whichever layer found the problem: the request validator
+ * (`common/validation.config.ts`) and a service rule (`FieldValidationError`,
+ * `ProfileLockedError`) both answer with a `fields` map keyed by the field's
+ * name, so a form marks the right box instead of printing one sentence above
+ * all of them. Anything that is not a string-to-string map reads as none.
+ */
+export function apiFieldErrors(error: unknown): Record<string, string> {
+  const fields = (error as { response?: { data?: { fields?: unknown } } })?.response?.data?.fields;
+  if (fields === null || typeof fields !== 'object' || Array.isArray(fields)) return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(fields as Record<string, unknown>)) {
+    if (typeof value === 'string' && value.trim() !== '') out[key] = value;
+  }
+  return out;
+}
+
 /** True when the API refused because the caller's email is unverified. */
 export function isEmailUnverified(error: unknown): boolean {
   return apiErrorCode(error) === 'EMAIL_NOT_VERIFIED';
