@@ -17,6 +17,7 @@ import { t } from '@/lib/i18n';
 import { activeNavHref, navLeaves, visibleNav } from './navigation';
 import { SidebarNav } from './sidebar-nav';
 import { useNavBadges } from './use-nav-badges';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 /*
  * The navigation itself lives in three files beside this one, and this layout
@@ -36,6 +37,38 @@ import { useNavBadges } from './use-nav-badges';
 /** Every href the tree names — for `activeNavHref`, which must see them ALL. */
 const NAV_HREFS = navLeaves().map((leaf) => leaf.href);
 
+/** The sidebar's DOM id — the phone menu button names it in `aria-controls`. */
+const SIDEBAR_ID = 'console-sidebar';
+
+/**
+ * The collapsed rail is a PREFERENCE, and a preference that resets on every
+ * reload is one the operator has to keep re-stating. Per browser, in
+ * localStorage: it is a convenience, not state anybody else needs.
+ *
+ * Every read and write is guarded — storage can be absent, full or refused (a
+ * private window, blocked site data), and the sidebar must work regardless.
+ */
+const RAIL_KEY = 'oxshare-admin-sidebar';
+
+function readRailPreference(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.localStorage.getItem(RAIL_KEY) === 'collapsed';
+  } catch {
+    return false;
+  }
+}
+
+function writeRailPreference(collapsed: boolean): void {
+  try {
+    window.localStorage.setItem(RAIL_KEY, collapsed ? 'collapsed' : 'expanded');
+  } catch {
+    // Unwritable storage costs the preference, never the sidebar.
+  }
+}
+
+/** The breakpoint at which the sidebar stops being a drawer (Tailwind's `lg`). */
+const DESKTOP_QUERY = '(min-width: 1024px)';
+
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { admin, isLoading, isUnreachable, retry } = useAdmin();
@@ -50,9 +83,31 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   /* Filtered once per admin — the permission check is the expensive half. */
   const entries = React.useMemo(() => visibleNav(admin), [admin]);
   const badges = useNavBadges(admin);
-  const [collapsed, setCollapsed] = React.useState(false);
+  /*
+   * Read once, lazily. Nothing it decides is on screen at hydration — every
+   * state before `admin` arrives renders a full-screen loader instead of the
+   * shell — so a server/client difference here cannot become a mismatch.
+   */
+  const [collapsed, setCollapsed] = React.useState(readRailPreference);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const asideRef = React.useRef<HTMLElement>(null);
+  const navRef = React.useRef<HTMLElement>(null);
+
+  /*
+   * The RAIL is a desktop state. The phone drawer is always the full tree: an
+   * operator who collapsed the sidebar at a desk and later opens the menu on a
+   * narrow window used to get an 80px column of icons inside a drawer built
+   * to hold names.
+   */
+  const rail = collapsed && !mobileOpen;
+
+  const toggleRail = () => {
+    setCollapsed((was) => {
+      writeRailPreference(!was);
+      return !was;
+    });
+  };
 
   /*
    * Ctrl/Cmd-K, bound at the WINDOW so it works wherever focus happens to be.
@@ -87,7 +142,54 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   // The mobile drawer closes where it is opened from — on the click that
   // navigates. Doing it in an effect keyed on `pathname` meant React ran a
   // second render pass after every navigation just to flip a boolean.
-  const closeMobile = () => setMobileOpen(false);
+  const closeMobile = React.useCallback(() => setMobileOpen(false), []);
+
+  /*
+   * The open drawer is a MODAL, so it behaves like one: focus moves into it,
+   * Tab cycles inside it, Escape closes it, and focus returns to the menu
+   * button that opened it. It did none of that — Escape did nothing, and a
+   * keyboard user tabbed straight out of the drawer into the page behind the
+   * overlay.
+   */
+  useFocusTrap(asideRef, mobileOpen, closeMobile);
+
+  /*
+   * A window widened past the breakpoint with the drawer open would keep the
+   * trap above on a sidebar that is no longer a drawer — Tab would cycle the
+   * navigation forever. Crossing to desktop closes it.
+   */
+  React.useEffect(() => {
+    if (!mobileOpen || typeof window.matchMedia !== 'function') return;
+    // Only a CHANGE can get here: the drawer opens from a button that exists
+    // below the breakpoint alone, so it is never already open on a desktop.
+    const desktop = window.matchMedia(DESKTOP_QUERY);
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileOpen(false);
+    };
+    desktop.addEventListener('change', onChange);
+    return () => desktop.removeEventListener('change', onChange);
+  }, [mobileOpen]);
+
+  /*
+   * The current page is kept IN VIEW in the navigation. On a short window —
+   * a phone held sideways, a laptop with the browser's toolbars out — the group
+   * holding the page can open below the fold, which leaves the one question
+   * the sidebar answers ("where am I?") answered off-screen.
+   *
+   * After the group's open animation (300ms), and `nearest`, so nothing moves
+   * when the page is already visible. Instant rather than smooth: this runs on
+   * every navigation, and a sidebar that glides on its own reads as the page
+   * doing something.
+   */
+  React.useEffect(() => {
+    if (!activeHref) return;
+    const timer = window.setTimeout(() => {
+      navRef.current
+        ?.querySelector<HTMLElement>('[aria-current="page"]')
+        ?.scrollIntoView?.({ block: 'nearest' });
+    }, 320);
+    return () => window.clearTimeout(timer);
+  }, [activeHref, rail]);
 
   /*
    * ── The three states that render INSTEAD of the console ──────────────────
@@ -157,9 +259,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
      * sticky table header visibly jitters through it.
      */
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      {/* Mobile Overlay */}
+      {/* Mobile Overlay — presentational: Escape and the Close button are the
+          named ways out; this is the pointer's. */}
       {mobileOpen && (
         <div
+          aria-hidden="true"
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs lg:hidden"
           onClick={closeMobile}
         />
@@ -167,39 +271,85 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       {/*
-        `transition-[width,transform]`, not `transition-all`.
+        `transition-[width,translate(,visibility)]`, not `transition-all`.
 
-        Two properties actually move here: the WIDTH on desktop collapse, and
-        the TRANSFORM on the mobile drawer. `transition-all` animated those and
-        also every colour on the panel — so switching theme with the sidebar on
-        screen faded the background over 300ms while the rest of the page
-        changed instantly, and every hover inside it was competing with a
-        300ms transition it did not ask for.
+        Three properties move here: the WIDTH on desktop collapse, and the
+        TRANSLATE and VISIBILITY of the phone drawer. `transition-all` animated
+        those and also every colour on the panel — so switching theme with the
+        sidebar on screen faded the background over 300ms while the rest of the
+        page changed instantly.
+
+        ⚠️ `translate`, NOT `transform`. Tailwind v4's `translate-x-*` writes
+        the standalone `translate` property, so this list used to name a
+        property that never changed: the drawer snapped open and shut with no
+        slide at all (measured: the panel was at x=0 on the first frame after
+        the tap).
+
+        A CLOSED drawer is `invisible` below the desktop breakpoint, not only
+        off-screen. Translated away, its links were still in the tab order —
+        a keyboard user tabbed through a whole navigation they could not see.
+        `visibility` flips at the END of the closing slide and the START of the
+        opening one, so the motion is untouched.
+
+        LOGICAL sides throughout (`start-0`, `border-e`, `ps-*`): under
+        `dir="rtl"` the whole shell mirrors, sidebar on the right, as FSD §10's
+        right-to-left requirement expects of an Arabic console.
 
         `motion-slide` keeps the slide alive under `prefers-reduced-motion` —
         see the note in globals.css. Snapping between 16rem and 5rem does not
         read as the same panel getting narrower; it reads as a replacement.
       */}
       <aside
-        className={`motion-slide fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-border bg-card text-card-foreground transition-[width,transform] duration-300 ease-in-out ${
-          collapsed ? 'w-20' : 'w-64'
-        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        ref={asideRef}
+        id={SIDEBAR_ID}
+        /* A dialog while it is the phone drawer — a modal over the page, which
+           is what the overlay and the focus trap make it — and the page's
+           sidebar the rest of the time. */
+        role={mobileOpen ? 'dialog' : undefined}
+        aria-modal={mobileOpen ? true : undefined}
+        aria-label={mobileOpen ? t('nav.menu') : undefined}
+        className={`motion-slide fixed top-0 bottom-0 start-0 z-50 flex flex-col border-e border-border bg-card text-card-foreground duration-300 ease-in-out ${
+          rail ? 'w-20' : 'w-64'
+        } ${
+          /*
+           * `visibility` is transitioned on the way OUT only. The transition
+           * that runs is the one named by the state being entered: closing
+           * names it, so the drawer stays visible for its slide and hides at
+           * the end; opening does not, so it is visible at once. Were it
+           * transitioned both ways, the drawer would still be `hidden` on the
+           * frame it opens — and the focus trap's first focus() lands on an
+           * element the browser refuses to focus, leaving the keyboard behind
+           * the overlay (caught by e2e/sidebar-navigation.spec.ts).
+           */
+          mobileOpen
+            ? 'translate-x-0 transition-[width,translate]'
+            : 'transition-[width,translate,visibility] max-lg:invisible max-lg:-translate-x-full max-lg:rtl:translate-x-full'
+        }`}
       >
-        {/* Sidebar Header */}
         {/*
-          COLLAPSED, the header holds the mark ALONE, centred — and the expand
-          control moves onto the sidebar's edge as a small round button.
+          THE BRAND AREA — the logo fills the sidebar's width (the owner's
+          request, 25 Sep 2026: bigger, "filling the whole width").
 
-          It used to keep both in one row: the 31px mark and the 28px toggle in
-          an 80px rail with 16px of padding each side is 59px into 48px, so the
-          logo link shrank, its `overflow-hidden` clipped the mark, and the
-          header read as a broken logo jammed against a chevron (owner's report,
-          24 Sep 2026). A control on the edge is the pattern people already know
-          from every collapsible sidebar, and it costs the header nothing.
+          At `h-7` the wordmark was 76px wide in a 256px column: it shared its
+          row with the collapse chevron, and the 64px header capped its height.
+          So the row is the logo's alone now —
+
+          - the COLLAPSE control lives on the sidebar's edge in both states, the
+            round button the collapsed rail already used, which is the pattern
+            people know from every collapsible sidebar;
+          - the wordmark is sized by WIDTH (`w-full`, capped at 200px), so it
+            fills the column, and its left edge lines up with the menu's icons,
+            24px in;
+          - the area is taller than the page header and carries no rule under
+            it. A border at 96px beside the header's at 64px reads as two lines
+            that missed each other; no border reads as the sidebar's own top.
+
+          The PORTAL's sidebar has the same brand area, so both apps open on the
+          same logo at the same size.
         */}
         <div
-          className={`relative flex h-16 items-center border-b border-border ${
-            collapsed ? 'justify-center px-2' : 'justify-between px-4'
+          className={`relative flex h-16 shrink-0 items-center border-b border-border ${
+            rail ? 'justify-center px-2' : 'justify-between gap-3 px-6'
           }`}
         >
           {/*
@@ -209,73 +359,55 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             had text and announced itself. Dropping that label left a link whose
             only content is an image — and `ux-sweep` flagged it on every page of
             the console, because a control named solely by a child image is one
-            step from being named by nothing: swap the artwork for a
-            decorative-marked one, or hide it per theme, and the name is gone
-            with no visible change. `aria-label` here does not depend on which
-            image is showing, or on there being an image at all.
+            step from being named by nothing. `aria-label` here does not depend
+            on which image is showing, or on there being an image at all.
+
+            The logo is drawn INLINE (see brand-logo.tsx): no file request, and
+            dark mode is the word's colour turning white. The link carries the
+            accessible name, so the drawing itself is decorative.
           */}
           <Link
             href="/dashboard"
             onClick={closeMobile}
             aria-label={t('app.name')}
-            className="flex items-center gap-3 overflow-hidden focus-outline rounded-md"
+            className={`flex items-center rounded-md focus-outline ${rail ? '' : 'min-w-0 flex-1'}`}
           >
-            {/*
-              THE REAL WORDMARK expanded, the mark alone collapsed.
-
-              The brand name used to be set in the UI font beside the mark,
-              which put an approximation of the logo next to the logo — the
-              letterforms in the supplied artwork are drawn, not typeset. Both
-              files are the brand's own vectors, extracted from the supplied
-              PDF rather than redrawn.
-
-              The "Admin Portal" label that sat beside it is gone on the owner's
-              call: the logo is the header now. Nothing was relying on it to
-              tell the two apps apart — the console is reached at its own host,
-              and every screen inside it is one the portal does not have.
-            */}
-            {/*
-              The logo is drawn INLINE (see brand-logo.tsx): no file request, no
-              second copy swapped by CSS, and dark mode is the word's colour
-              turning white. The link around it carries the accessible name, so
-              the drawing itself is decorative.
-            */}
-            {collapsed ? (
-              <BrandLogo variant="mark" className="h-7 w-auto shrink-0" />
+            {rail ? (
+              <BrandLogo variant="mark" className="h-9 w-auto shrink-0" />
             ) : (
-              <BrandLogo className="h-7 w-auto shrink-0" />
+              <BrandLogo className="h-12 w-auto shrink-0" />
             )}
           </Link>
 
-          {/* Desktop Collapse Toggle */}
+          {/* Desktop collapse toggle — on the sidebar's EDGE, in both states, so
+              the brand row belongs to the logo. */}
           <button
             type="button"
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={toggleRail}
             /* Icon-only, so it needs a name. Without one a screen reader
                announces "button" for the control that widens the entire
                navigation — the portal's copy of this had the same gap. */
-            aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
-            aria-expanded={!collapsed}
-            className={
-              collapsed
-                ? 'absolute -right-3 top-1/2 z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-outline lg:flex'
-                : 'hidden lg:flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline'
-            }
+            aria-label={rail ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+            aria-expanded={!rail}
+            className="absolute -end-3 top-1/2 z-10 hidden h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground focus-outline lg:flex"
           >
-            {collapsed ? (
-              <ChevronRight className="h-3.5 w-3.5" />
+            {/* The arrows point the way the panel moves, so they mirror too. */}
+            {rail ? (
+              <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
             ) : (
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
             )}
           </button>
 
-          {/* Mobile Close */}
+          {/* Mobile Close — named: an unlabelled icon button announces only
+              "button", and this is the drawer's one visible way out. */}
           <button
             type="button"
             onClick={closeMobile}
-            className="flex lg:hidden h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline"
+            aria-label={t('nav.closeMenu')}
+            className="flex lg:hidden h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-outline"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -288,12 +420,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           second one — a breadcrumb, say — would make "the navigation" ambiguous
           to a screen reader as well as to them.
         */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        <nav ref={navRef} className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           <SidebarNav
             entries={entries}
             pathname={pathname}
             activeHref={activeHref}
-            collapsed={collapsed}
+            collapsed={rail}
             badges={badges}
             onNavigate={closeMobile}
           />
@@ -324,19 +456,25 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
          * background on a theme switch.
          */
         className={`motion-slide flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ease-in-out ${
-          collapsed ? 'lg:pl-20' : 'lg:pl-64'
+          collapsed ? 'lg:ps-20' : 'lg:ps-64'
         }`}
       >
         {/* Top Header */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur-md px-4 lg:px-8">
           {/* Left: Mobile Toggle & Title */}
           <div className="flex items-center gap-3">
+            {/* The phone menu button — named, and saying whether the drawer it
+                controls is open. It was an unlabelled icon: a screen reader
+                announced "button" for the only way into the navigation. */}
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
+              aria-label={t('nav.openMenu')}
+              aria-expanded={mobileOpen}
+              aria-controls={SIDEBAR_ID}
               className="flex lg:hidden h-9 w-9 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted focus-outline"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
 
             {/*

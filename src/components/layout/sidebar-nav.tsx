@@ -347,14 +347,29 @@ function RailGroupMenu({
   const label = t(group.label);
   const containsActive = group.items.some((item) => item.href === activeHref);
   const waiting = groupBadgeTotal(group, badges);
+  /*
+   * The dot is `aria-hidden`, so the count it stands for is SAID in the name —
+   * otherwise a screen reader hears "Finance, button" over a queue of fourteen.
+   */
+  const name = waiting ? t('nav.groupWaiting', { group: label, count: String(waiting) }) : label;
+  /*
+   * The menu opens TOWARDS the page, and reads in the page's direction. The
+   * rail sits on the inline START edge — the right-hand side under
+   * `dir="rtl"` — and Radix places `side` physically. Radix also stamps its
+   * own `dir` on the menu, defaulting to "ltr" with no provider, so without
+   * the prop an Arabic console got a mirrored rail opening a left-to-right
+   * menu. Both are read from the document rather than assumed.
+   */
+  const rtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
+  const side = rtl ? 'left' : 'right';
 
   return (
-    <DropdownMenu>
+    <DropdownMenu dir={rtl ? 'rtl' : 'ltr'}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={label}
-          title={label}
+          aria-label={name}
+          title={name}
           className={`group relative flex w-full cursor-pointer items-center justify-center rounded-lg py-2.5 transition-colors duration-150 focus-outline ${
             containsActive
               ? 'bg-accent text-foreground'
@@ -377,7 +392,7 @@ function RailGroupMenu({
           ) : null}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="start" sideOffset={12} className="min-w-56">
+      <DropdownMenuContent side={side} align="start" sideOffset={12} className="min-w-56">
         <DropdownMenuLabel>{label}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {group.items.map((item) => {

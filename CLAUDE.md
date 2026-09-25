@@ -276,6 +276,23 @@ Rules the code relies on:
 - `navigation.test.ts` derives every console page from the file system and fails on a leaf
   with no `page.tsx`, a leaf a full-permission admin cannot open, or a page with no way in
   from the sidebar (`OFF_NAV` holds the one deliberate exception, `/profile`).
+- **The brand row is the logo's.** Wordmark `h-12` in the 64px header (its rule aligned with
+  the page header's); the collapse control is the round button on the sidebar's EDGE in both
+  states. The portal's sidebar has the same brand area — keep the two identical. (A 200px
+  full-width logo was tried and rejected by the owner as too big.)
+- **The phone drawer is a modal**: named open/close buttons (`nav.openMenu`/`nav.closeMenu`),
+  `role="dialog"` while open, `useFocusTrap` (focus in, Tab cycles, Escape closes, focus
+  returns). Shut, it is `max-lg:invisible` — translated away its links were still tabbable.
+- ⚠️ **Tailwind v4 moves elements with the `translate` PROPERTY**, not `transform`: a
+  transition list naming `transform` animates nothing (the drawer used to snap). And
+  `visibility` is transitioned on the way OUT only — transitioned both ways, the drawer is
+  still hidden on the frame it opens and the trap's first `focus()` is refused.
+- **The rail is a per-browser preference** (localStorage `oxshare-admin-sidebar`, every access
+  guarded) and never applies inside the drawer (`rail = collapsed && !mobileOpen`).
+- **RTL mirrors the shell**: logical sides (`start-0`, `border-e`, `ps-*`, `-end-3`), and the
+  rail's Radix menus take `dir` + `side` from the document — Radix defaults to `ltr`.
+- `e2e/sidebar-navigation.spec.ts` drives all of the above in a real browser; jsdom applies no
+  CSS, so the unit tests cannot see visibility, the tab order or the mirrored layout.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -74,6 +74,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   route.pathname = '/currencies';
   badges.current = {};
+  // The rail preference is REMEMBERED (localStorage), so each test starts from
+  // a clean browser rather than from whatever the last one collapsed.
+  window.localStorage.clear();
+  document.documentElement.dir = '';
 });
 
 describe('AdminLayout — a dead session renders nothing, not the page', () => {
@@ -352,7 +356,8 @@ describe('the sidebar is main items with sub-items', () => {
     await user.click(screen.getByRole('button', { name: /collapse the sidebar/i }));
 
     // No accordion on the rail: a named trigger per group, and no sub-page rows.
-    const trigger = screen.getByRole('button', { name: 'Finance' });
+    // The dot on the icon is decorative, so the waiting count is in the NAME.
+    const trigger = screen.getByRole('button', { name: 'Finance, 2 waiting' });
     expect(trigger).not.toHaveAttribute('aria-controls', 'nav-group-finance');
     expect(screen.queryByRole('link', { name: /deposits/i })).not.toBeInTheDocument();
 
@@ -366,6 +371,117 @@ describe('the sidebar is main items with sub-items', () => {
       'aria-current',
       'page',
     );
+  });
+
+  it('remembers the collapsed rail across a reload', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(layout());
+    await user.click(screen.getByRole('button', { name: /collapse the sidebar/i }));
+    unmount();
+
+    renderWithProviders(layout());
+    expect(screen.getByRole('button', { name: /expand the sidebar/i })).toBeInTheDocument();
+    // A rail group is a MENU trigger, not a panel toggle.
+    expect(screen.getByRole('button', { name: 'Finance' })).toHaveAttribute(
+      'aria-haspopup',
+      'menu',
+    );
+  });
+
+  it('opens the rail’s menus towards the page when the console is right-to-left', async () => {
+    const user = userEvent.setup();
+    document.documentElement.dir = 'rtl';
+    renderWithProviders(layout());
+    await user.click(screen.getByRole('button', { name: /collapse the sidebar/i }));
+
+    const trigger = screen.getByRole('button', { name: 'Finance' });
+    trigger.focus();
+    await user.keyboard('{Enter}');
+
+    const menu = await screen.findByRole('menu');
+    expect(menu).toHaveAttribute('data-side', 'left');
+    // …and reads right-to-left: Radix stamps its own `dir`, "ltr" by default.
+    expect(menu).toHaveAttribute('dir', 'rtl');
+  });
+});
+
+/**
+ * The PHONE drawer — the same navigation, behaving as the modal it is.
+ *
+ * Every assertion here was false before: both of its buttons were unlabelled
+ * icons, Escape did nothing, focus never entered it, and an operator who had
+ * collapsed the rail at a desk got an 80px column of icons inside it.
+ */
+describe('the phone drawer', () => {
+  const layout = () => (
+    <AdminLayout>
+      <p>page body</p>
+    </AdminLayout>
+  );
+
+  beforeEach(() => {
+    useAdmin.mockReturnValue({ admin: MASTER, isLoading: false, logout: vi.fn() });
+  });
+
+  it('opens from a named button that says what it controls', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+
+    const open = screen.getByRole('button', { name: 'Open the menu' });
+    expect(open).toHaveAttribute('aria-expanded', 'false');
+    expect(open).toHaveAttribute('aria-controls', 'console-sidebar');
+
+    await user.click(open);
+
+    expect(open).toHaveAttribute('aria-expanded', 'true');
+    const drawer = screen.getByRole('dialog', { name: 'Menu' });
+    expect(drawer).toHaveAttribute('aria-modal', 'true');
+    expect(drawer).toHaveAttribute('id', 'console-sidebar');
+    // Focus moved INTO the drawer rather than staying behind the overlay.
+    expect(drawer).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it('closes on Escape and hands focus back to the button that opened it', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+    const open = screen.getByRole('button', { name: 'Open the menu' });
+    await user.click(open);
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
+    expect(open).toHaveAttribute('aria-expanded', 'false');
+    expect(open).toHaveFocus();
+  });
+
+  it('closes from its own named Close button', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+    await user.click(screen.getByRole('button', { name: 'Open the menu' }));
+
+    await user.click(screen.getByRole('button', { name: 'Close the menu' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
+  });
+
+  it('shows the full tree even when the desktop rail is collapsed', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+    await user.click(screen.getByRole('button', { name: /collapse the sidebar/i }));
+    // On the rail a group is a menu trigger…
+    expect(screen.getByRole('button', { name: 'Finance' })).toHaveAttribute(
+      'aria-haspopup',
+      'menu',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open the menu' }));
+
+    // …and in the drawer it is the full accordion: a toggle for its own panel.
+    const drawer = screen.getByRole('dialog', { name: 'Menu' });
+    const finance = within(drawer).getByRole('button', { name: /^finance/i });
+    expect(finance).toHaveAttribute('aria-controls', 'nav-group-finance');
+    expect(finance).toHaveAttribute('aria-expanded', 'true');
+    expect(within(drawer).getByRole('link', { name: 'Currencies' })).toBeInTheDocument();
   });
 });
 

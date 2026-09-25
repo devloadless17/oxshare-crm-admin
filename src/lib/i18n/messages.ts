@@ -130,6 +130,14 @@ export const messages = {
   'theme.system': 'System',
   'nav.collapseSidebar': 'Collapse the sidebar',
   'nav.expandSidebar': 'Expand the sidebar',
+  // The phone drawer: the button that opens it, its name while open, and the
+  // button that closes it. All three were unlabelled icons.
+  'nav.openMenu': 'Open the menu',
+  'nav.menu': 'Menu',
+  'nav.closeMenu': 'Close the menu',
+  // A main item on the collapsed rail, with the work waiting inside it — the
+  // rail shows a dot, so the count has to be in the name.
+  'nav.groupWaiting': '{group}, {count} waiting',
   /*
    * "Search pages", because that is what it searches.
    *

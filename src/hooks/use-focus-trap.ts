@@ -65,8 +65,20 @@ export function useFocusTrap(
       }
       if (event.key !== 'Tab') return;
 
+      /*
+       * What the browser will ACTUALLY stop on. `offsetParent` rules out
+       * `display: none`, but not an element inside an `inert` subtree or one
+       * with `visibility: hidden` — both skipped by Tab, both still matched by
+       * the selector. The phone drawer holds exactly those: every closed menu
+       * group's links. Counted as the "last" element, one of them made the
+       * wrap-around below never fire, and Tab walked out of the drawer into the
+       * page behind its overlay.
+       */
       const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-        (el) => el.offsetParent !== null,
+        (el) =>
+          el.offsetParent !== null &&
+          !el.closest('[inert]') &&
+          getComputedStyle(el).visibility !== 'hidden',
       );
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
