@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
+/*
+ * POSIX `join`, deliberately. Every path this file derives is compared with
+ * forward-slash literals (route prefixes, frozen lists, `src/app/...` keys),
+ * and the platform `join` hands back BACKSLASHES on Windows — which turned this
+ * census into a wall of false failures on every developer machine while CI, on
+ * Linux, stayed green. `readdirSync` accepts forward slashes on every platform.
+ */
+import { join } from 'node:path/posix';
 import type { AdminProfile } from '@/context/AdminAuthContext';
 import { canAccess } from '@/lib/permissions';
 import { ALL_PERMISSIONS } from '@/test/permissions';
