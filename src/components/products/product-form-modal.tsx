@@ -40,7 +40,7 @@ export interface ProductFormValues {
   /** Chosen at creation, immutable after — the API refuses a change. */
   type: 'real' | 'demo';
   /**
-   * The rate card this product pays partners on (0139), or null for a product
+   * The rate card this product pays partners on (0140), or null for a product
    * that pays no partner commission. The demo product never carries one.
    */
   commissionTypeId: string | null;

@@ -20,7 +20,7 @@ import { keys } from '@/lib/query-keys';
 /**
  * The commission ladder, drawn as a TREE of read-only cards.
  *
- * ## What a rung holds now (0139)
+ * ## What a rung holds now (0140)
  *
  * Two PERCENTAGES: the partner's share of the traded product's commission per
  * lot, and the client's share of its rebate per lot. The money itself lives on

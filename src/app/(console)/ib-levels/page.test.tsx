@@ -10,7 +10,7 @@ import IbLevelsPage from './page';
  * The commission ladder — the screen where a typo changes what every partner on
  * a rung is paid.
  *
- * ## What a rung is since 0139
+ * ## What a rung is since 0140
  *
  * A PERCENTAGE of the traded product's commission type, not an amount. So the
  * ways a correct configuration can be DISPLAYED wrongly are: a share shown

@@ -136,7 +136,7 @@ export type IbLevel = components['schemas']['IbLevelDto'];
 export type IbLevelLimits = components['schemas']['IbLevelLimitsDto'];
 
 /**
- * A COMMISSION TYPE — the rate card a product is sold on (0139).
+ * A COMMISSION TYPE — the rate card a product is sold on (0140).
  *
  * Money per standard lot for the partners' commission and for the client's
  * rebate. A product points at one; each level of the ladder takes a percentage
@@ -1477,7 +1477,7 @@ export const adminApi = {
     await apiClient.delete(`/admin/ib-levels/${level}`);
   },
 
-  /* ── Commission types (0139) ─────────────────────────────────────────── */
+  /* ── Commission types (0140) ─────────────────────────────────────────── */
 
   /** Every rate card, disabled ones included, each naming the products sold on it. */
   async getIbCommissionTypes(signal?: AbortSignal): Promise<IbCommissionType[]> {
@@ -2474,7 +2474,7 @@ export const adminApi = {
   },
 
   /**
-   * Correct a client's profile — the whole of it since 0139: name, date of
+   * Correct a client's profile — the whole of it since 0140: name, date of
    * birth, nationality, phone, residence and address. CORE-18.
    *
    * PARTIAL by design: only the fields present are written, so two screens

@@ -158,7 +158,7 @@ export function ChangeLevelDialog({
  */
 /**
  * A rung's terms in words — shares of the traded product's commission type
- * (0139). What a share comes to in money depends on which product the client
+ * (0140). What a share comes to in money depends on which product the client
  * trades, and this dialog does not hold the catalogue, so it names the
  * fraction rather than inventing a figure.
  */

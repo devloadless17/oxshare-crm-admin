@@ -75,7 +75,7 @@ export function ClientPartnerPanel({
               <span className="text-muted-foreground">—</span>
             ) : (
               /*
-               * Shares of the traded product's commission type (0139). What
+               * Shares of the traded product's commission type (0140). What
                * they come to in money depends on which product the client
                * trades, so the line names the fraction rather than a figure.
                */

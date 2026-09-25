@@ -81,7 +81,7 @@ function product(over: Partial<Product> = {}): Product {
     description: 'The default account.',
     enabled: true,
     type: 'real',
-    // The rate card it pays partners on (0139) — the table shows its NAME,
+    // The rate card it pays partners on (0140) — the table shows its NAME,
     // looked up from the types the page also loads.
     commissionTypeId: 'ct-1',
     sortOrder: 0,
@@ -242,7 +242,7 @@ describe('the product catalogue — real and demo', () => {
 });
 
 /**
- * ── A product is sold on a COMMISSION TYPE (0139) ──────────────────────────
+ * ── A product is sold on a COMMISSION TYPE (0140) ──────────────────────────
  *
  * The rate card lives on Commission Types; this screen only points a product
  * at one. What these pin is the pointer's round trip — shown by NAME in the

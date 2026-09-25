@@ -33,7 +33,7 @@ function level(over: Partial<IbLevel> = {}): IbLevel {
     name: 'Main Partner',
     description: null,
     enabled: true,
-    /* Shares of the traded product's commission type (0139). */
+    /* Shares of the traded product's commission type (0140). */
     commissionShare: '70.0000',
     rebateShare: '50.0000',
     partnerCount: 3,

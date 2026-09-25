@@ -68,7 +68,7 @@ export default function ProductsPage() {
   const query = useResource<Product[]>(keys.products.all(), () => adminApi.getProducts());
   /*
    * The rate cards, for the names in the table and the picker in the modal
-   * (0139). Fetched alongside rather than inside the modal: the table renders a
+   * (0140). Fetched alongside rather than inside the modal: the table renders a
    * type name on every real row, so it is needed either way.
    */
   const commissionTypes = useResource<IbCommissionType[]>(keys.ibCommissionTypes.all(), (signal) =>
@@ -291,7 +291,7 @@ export default function ProductsPage() {
     },
     {
       /*
-       * The rate card this product pays partners on (0139) — by NAME, because
+       * The rate card this product pays partners on (0140) — by NAME, because
        * "what does Standard pay" is the question the table is scanned for, and
        * an id answers nobody. A real product with no type is called out: it
        * pays no partner commission, which is legal and worth seeing.

@@ -21,7 +21,7 @@ import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
 /**
- * Commission types — the rate cards products are sold on (0139).
+ * Commission types — the rate cards products are sold on (0140).
  *
  * A type is two amounts per standard lot: the partners' commission and the
  * client's rebate. A product points at one, and each rung of the commission

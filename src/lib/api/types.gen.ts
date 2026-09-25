@@ -5047,7 +5047,7 @@ export interface components {
             levelName: string | null;
             /** @description False when the level is disabled OR not configured at all. A disabled level pays nothing. */
             levelEnabled: boolean;
-            /** @description Their rung’s percentage of the traded product’s commission per lot (0139). Null when the rung is not configured. */
+            /** @description Their rung’s percentage of the traded product’s commission per lot (0140). Null when the rung is not configured. */
             levelCommissionShare: string | null;
             /** @description What their clients get back, as a percentage of the product’s rebate per lot. */
             levelRebateShare: string | null;
@@ -6289,7 +6289,7 @@ export interface components {
             type: "real" | "demo";
             /**
              * Format: uuid
-             * @description The commission type this product pays partners on (0139) — the rate card whose per-lot amounts each level takes a share of. NULL means the product pays no partner commission at all; the demo product never carries one.
+             * @description The commission type this product pays partners on (0140) — the rate card whose per-lot amounts each level takes a share of. NULL means the product pays no partner commission at all; the demo product never carries one.
              */
             commissionTypeId: string | null;
             /** @example 0 */

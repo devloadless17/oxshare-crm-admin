@@ -7,7 +7,7 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
 import type { IbCommissionType } from '@/lib/api/admin';
 
 /**
- * Commission types — the rate cards products are sold on (0139), and the screen
+ * Commission types — the rate cards products are sold on (0140), and the screen
  * where a typo re-prices every product on a type.
  *
  * What these pin is the part that can silently go wrong: the amounts making

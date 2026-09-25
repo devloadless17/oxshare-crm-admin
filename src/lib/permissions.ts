@@ -190,7 +190,7 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * for `partners.view` and `payouts.review`.
    */
   { prefix: '/ib-levels', requirement: { permission: 'ib.view' } },
-  /* The rate cards the ladder takes its shares of (0139). Same read key as the
+  /* The rate cards the ladder takes its shares of (0140). Same read key as the
      ladder, for the same reason; the write keys are checked by the controls. */
   { prefix: '/commission-types', requirement: { permission: 'ib.view' } },
   /*

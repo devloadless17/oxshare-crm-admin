@@ -946,7 +946,7 @@ export const messages = {
   // The rates, because a rung number alone does not tell an operator what they
   // are about to change somebody's pay TO.
   'clientProfile.levelTerms': 'Partner {commission} · client rebate {rebate}',
-  // Shares of the traded product's commission type (0139). What a share comes
+  // Shares of the traded product's commission type (0140). What a share comes
   // to in money depends on which product the client trades, so the line names
   // the fraction rather than inventing a figure.
   'clientProfile.termCommissionShare': '{share}% of the product’s commission',
@@ -1634,7 +1634,7 @@ export const messages = {
   'products.orderHint':
     'Where it sits in the client’s list. Taking a position pushes the products below it down.',
   'products.orderPlaceholder': 'Last',
-  // The rate card this product pays partners on (0139). The spread markup
+  // The rate card this product pays partners on (0140). The spread markup
   // that stood here drove nothing and is gone.
   'products.commissionType': 'Commission type',
   'products.commissionTypeHint':
@@ -2915,7 +2915,7 @@ export const messages = {
   'ibLevels.deleteSucceeded': 'Level {level} was removed.',
   'ibLevels.deleteFailed': 'Could not remove the level.',
 
-  // ── The two shares (0139) ─────────────────────────────────────────────────
+  // ── The two shares (0140) ─────────────────────────────────────────────────
   // A rung is a PERCENTAGE of the traded product's commission type. The money
   // per lot lives on the type (Commission Types); a rung never holds an amount.
   'ibLevels.commission': 'The partner earns',
@@ -2954,7 +2954,7 @@ export const messages = {
   'ibLevels.saveSucceeded': 'Level {level} was saved. It applies to the next trade.',
   'ibLevels.saveFailed': 'Could not save the level.',
 
-  // ── Commission types (0139) ───────────────────────────────────────────────
+  // ── Commission types (0140) ───────────────────────────────────────────────
   // The rate cards products are sold on: money per lot for the partners and
   // for the client. The ladder takes its shares of these.
   'commissionTypes.pageTitle': 'Commission Types',

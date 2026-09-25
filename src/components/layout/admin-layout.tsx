@@ -227,7 +227,7 @@ export const NAV_SECTIONS: NavSection[] = [
          an operator can go, and /commissions is one.) */
       { label: 'nav.commissions', href: '/commissions', icon: Coins },
       /*
-       * The rate cards products are sold on (0139): money per lot for the
+       * The rate cards products are sold on (0140): money per lot for the
        * partners and for the client. Beside the ladder because the two decide a
        * payout together — the type says what a lot is worth, the level says what
        * share of it a partner takes — and above it because a type is set once
