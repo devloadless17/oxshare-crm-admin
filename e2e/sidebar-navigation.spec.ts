@@ -16,6 +16,10 @@ import { RESTRICTED_STATE } from './helpers';
  */
 
 const nav = (page: import('@playwright/test').Page) => page.getByRole('navigation').first();
+/*
+ * A main item's ARROW — the button that opens its list, named "<Group> pages".
+ * Its NAME beside it is a link to the section's main page.
+ */
 const header = (page: import('@playwright/test').Page, name: RegExp) =>
   nav(page).getByRole('button', { name });
 
@@ -67,10 +71,11 @@ test.describe('the sidebar — main items with sub-items', () => {
     // Folded to zero height AND hidden: no role query finds them…
     await expect(nav(page).getByRole('link', { name: /^ledger/i })).toHaveCount(0);
 
-    // …and Tab goes from one main item to the next, never into a closed panel.
+    // …and Tab goes from one main item to the next — Clients' arrow to the
+    // next main item's name — never into a closed panel.
     await header(page, /^clients/i).focus();
     await page.keyboard.press('Tab');
-    await expect(header(page, /^introducing brokers/i)).toBeFocused();
+    await expect(nav(page).getByRole('link', { name: /^introducing brokers/i })).toBeFocused();
   });
 
   test('collapses to a rail whose menus work from the keyboard, and remembers it', async ({
@@ -179,7 +184,15 @@ test.describe('the sidebar for a restricted administrator', () => {
     // `clients.view`, `kyc.review` and `tags.view` — see E2E_RESTRICTED.
     await page.goto('/dashboard');
     const headers = nav(page).getByRole('button');
-    await expect(headers).toHaveText([/^clients/i, /^system/i]);
+    await expect(headers).toHaveCount(2);
+    await expect(headers.nth(0)).toHaveAccessibleName(/^clients/i);
+    await expect(headers.nth(1)).toHaveAccessibleName(/^system/i);
     await expect(nav(page).getByRole('link', { name: /^dashboard$/i })).toBeVisible();
+    // A main item's name opens the first page in it THIS admin may open —
+    // Client tags, not Settings, for someone holding `tags.view` alone there.
+    await expect(nav(page).getByRole('link', { name: /^system/i })).toHaveAttribute(
+      'href',
+      '/tags',
+    );
   });
 });

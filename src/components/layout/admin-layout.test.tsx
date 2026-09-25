@@ -233,7 +233,13 @@ describe('the sidebar is main items with sub-items', () => {
       <p>page body</p>
     </AdminLayout>
   );
+  /*
+   * A main item is a ROW of two controls: the name, a link to the section's
+   * main page, and the arrow — `group` — which opens the list ("Finance
+   * pages"). The row is what is selected.
+   */
   const group = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) });
+  const row = (name: string) => group(name).parentElement as HTMLElement;
 
   beforeEach(() => {
     useAdmin.mockReturnValue({ admin: MASTER, isLoading: false, logout: vi.fn() });
@@ -245,15 +251,31 @@ describe('the sidebar is main items with sub-items', () => {
     const nav = screen.getByRole('navigation');
     const headers = within(nav)
       .getAllByRole('button')
-      .map((button) => button.textContent);
+      .map((button) => button.getAttribute('aria-label'));
     expect(headers).toEqual([
-      'Clients',
-      'Introducing brokers',
-      'Finance',
-      'Trading',
-      'System',
-      'Security',
+      'Clients pages',
+      'Introducing brokers pages',
+      'Finance pages',
+      'Trading pages',
+      'System pages',
+      'Security pages',
     ]);
+    // Each NAME opens its section's main page — the owner's picks for
+    // Finance and Security (25 Sep 2026) are why those two start their lists.
+    const homes = Object.fromEntries(
+      ['Clients', 'Introducing brokers', 'Finance', 'Trading', 'System', 'Security'].map((name) => [
+        name,
+        within(row(name)).getByRole('link').getAttribute('href'),
+      ]),
+    );
+    expect(homes).toEqual({
+      Clients: '/clients',
+      'Introducing brokers': '/partners',
+      Finance: '/financial',
+      Trading: '/products',
+      System: '/settings',
+      Security: '/audit-log',
+    });
     expect(within(nav).getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
       'href',
       '/dashboard',
@@ -327,7 +349,7 @@ describe('the sidebar is main items with sub-items', () => {
     // The owner's report: opening System left Dashboard showing as active.
     await user.click(group('System'));
     expect(selected()).toHaveLength(1);
-    expect(selected()[0]).toBe(group('System'));
+    expect(selected()[0]).toBe(row('System'));
     // …while the PAGE is still the page, for a screen reader.
     expect(dashboard).toHaveAttribute('aria-current', 'page');
 
@@ -347,7 +369,7 @@ describe('the sidebar is main items with sub-items', () => {
     route.pathname = '/dashboard';
     const { rerender } = renderWithProviders(layout());
     await user.click(group('Trading'));
-    expect(group('Trading')).toHaveAttribute('data-selected', 'true');
+    expect(row('Trading')).toHaveAttribute('data-selected', 'true');
 
     route.pathname = '/products';
     rerender(layout());
@@ -358,7 +380,7 @@ describe('the sidebar is main items with sub-items', () => {
 
     const nav = screen.getByRole('navigation');
     expect(group('Trading')).toHaveAttribute('aria-expanded', 'false');
-    expect(group('Trading')).not.toHaveAttribute('data-selected');
+    expect(row('Trading')).not.toHaveAttribute('data-selected');
     expect(nav.querySelectorAll('[data-selected]')).toHaveLength(1);
     expect(within(nav).getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
       'data-selected',
@@ -371,14 +393,14 @@ describe('the sidebar is main items with sub-items', () => {
     route.pathname = '/dashboard';
     renderWithProviders(layout());
     await user.click(group('System'));
-    expect(group('System')).toHaveAttribute('data-selected', 'true');
+    expect(row('System')).toHaveAttribute('data-selected', 'true');
 
     await user.click(
       within(screen.getByRole('navigation')).getByRole('link', { name: 'Dashboard' }),
     );
 
     expect(group('System')).toHaveAttribute('aria-expanded', 'false');
-    expect(group('System')).not.toHaveAttribute('data-selected');
+    expect(row('System')).not.toHaveAttribute('data-selected');
     expect(
       within(screen.getByRole('navigation')).getByRole('link', { name: 'Dashboard' }),
     ).toHaveAttribute('data-selected', 'true');
@@ -389,7 +411,7 @@ describe('the sidebar is main items with sub-items', () => {
     const nav = screen.getByRole('navigation');
 
     expect(nav.querySelectorAll('[data-selected]')).toHaveLength(1);
-    expect(group('Finance')).toHaveAttribute('data-selected', 'true');
+    expect(row('Finance')).toHaveAttribute('data-selected', 'true');
     const currencies = within(nav).getByRole('link', { name: 'Currencies' });
     expect(currencies).toHaveAttribute('aria-current', 'page');
     expect(currencies).not.toHaveAttribute('data-selected');
@@ -401,8 +423,8 @@ describe('the sidebar is main items with sub-items', () => {
 
     await user.click(group('Security'));
 
-    expect(group('Security')).toHaveAttribute('data-selected', 'true');
-    expect(group('Finance')).not.toHaveAttribute('data-selected');
+    expect(row('Security')).toHaveAttribute('data-selected', 'true');
+    expect(row('Finance')).not.toHaveAttribute('data-selected');
   });
 
   it('gives Dashboard the same selected look as every other main item', () => {
@@ -416,7 +438,7 @@ describe('the sidebar is main items with sub-items', () => {
 
     route.pathname = '/currencies';
     renderWithProviders(layout());
-    const financeLook = group('Finance').className;
+    const financeLook = row('Finance').className;
 
     for (const token of ['bg-primary/10', 'font-semibold', 'text-foreground']) {
       expect(dashboardLook.split(/\s+/)).toContain(token);
@@ -439,10 +461,11 @@ describe('the sidebar is main items with sub-items', () => {
     badges.current = { '/kyc': 4, '/approvals/deposits': 2, '/transactions': 3 };
     renderWithProviders(layout());
 
-    // Clients is closed: its header carries the KYC count.
+    // Clients is closed: its arrow carries the KYC count, and says it.
     expect(within(group('Clients')).getByText('4')).toBeInTheDocument();
+    expect(group('Clients')).toHaveAccessibleName('Clients pages, 4 waiting');
     // Finance is open: the desks carry their own counts, and the header none.
-    expect(within(group('Finance')).queryByText('5')).not.toBeInTheDocument();
+    expect(within(row('Finance')).queryByText('5')).not.toBeInTheDocument();
     expect(
       within(screen.getByRole('link', { name: /deposits/i })).getByText('2'),
     ).toBeInTheDocument();
@@ -463,8 +486,10 @@ describe('the sidebar is main items with sub-items', () => {
     badges.current = { '/approvals/deposits': 2, '/transactions': 3 };
     renderWithProviders(layout());
 
-    expect(within(group('Finance')).getByText('2')).toBeInTheDocument();
-    expect(within(group('Finance')).queryByText('5')).not.toBeInTheDocument();
+    expect(within(row('Finance')).getByText('2')).toBeInTheDocument();
+    expect(within(row('Finance')).queryByText('5')).not.toBeInTheDocument();
+    // …and its name opens the first Finance page this admin CAN open.
+    expect(within(row('Finance')).getByRole('link')).toHaveAttribute('href', '/approvals/deposits');
   });
 
   it('turns each group into a menu on the collapsed rail', async () => {

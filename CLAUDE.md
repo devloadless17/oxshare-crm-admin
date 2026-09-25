@@ -299,11 +299,29 @@ System · Security**. Three files in `components/layout/`, and the layout only p
 
 Rules the code relies on:
 
-- **One group open at a time, and it follows the page.** The open group is DERIVED —
-  `choice made on this path ?? group holding the page` — never synced in an effect, so any
-  arrival (link, Ctrl-K, notification, back button) paints the right group open first time.
-- **A group header is a button, never a link**, and only the page's link carries
-  `aria-current` (`console-pages.spec.ts` counts exactly one inside the nav).
+- **One group open at a time, and it follows the page.** The open group is DERIVED — the group
+  holding the page the menu shows, unless the operator opened another — never synced in an
+  effect, so any arrival (link, Ctrl-K, notification, back button) paints it right first time.
+  Opening another is a choice about THIS page: any navigation clears it (a choice remembered
+  against a path came back two pages later — reported).
+- **The menu shows where a click is GOING** (`MenuPosition` in `sidebar-nav.tsx`). `pathname`
+  changes only when the page lands; waiting for it, the menu fell back to the page being LEFT
+  for the whole load — the group you clicked in folded and reopened, the old item flashed
+  (reported: "not solid"). Recorded from `next/link`'s `onNavigate`, never `onClick`, so a
+  new-tab click changes nothing; a page from a click the next one overtook doesn't flick it
+  back. Unit tests mock `next/link` with `src/test/next-link.tsx` — the real one only calls
+  `onNavigate` inside a mounted router. jsdom cannot see a flicker at all: it was proven gone
+  live, with a MutationObserver logging every state of `aside nav` while `rsc: 1` requests
+  were held 1.5 s (one state per navigation, reached before the old page left).
+- **A main item is two controls** (the owner's call, 25 Sep 2026): its NAME links to the
+  section's main page — its first page this admin can open, so `NAV` order matters (Finance
+  starts with All transactions, Security with the Audit log, both on his pick) — and the
+  ARROW (a button, `aria-expanded`, named "<Group> pages") only opens or closes the list —
+  and a closed group's waiting count rides on the arrow, the control that shows WHERE the
+  work is ("Finance pages, 5 waiting"), never on the name.
+  One click to each section's front door, without the detour a navigate-only header would
+  force on the daily queues that sit second (KYC review, Withdrawals). Only the page's link
+  carries `aria-current` (`console-pages.spec.ts` counts exactly one inside the nav).
 - **ONE selected row** (`data-selected`), in ONE look (`bg-primary/10`, semibold, brand icon):
   the main item opened on this page, else the one holding the page, else Dashboard. It used
   to follow the page alone — opening System left Dashboard filled ("the old item keeps
