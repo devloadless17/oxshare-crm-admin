@@ -167,6 +167,10 @@ const CLIENT_SIDE_SORTED = new Set([
   // dataset.
   'products',
   'agencies',
+  // `GET /admin/ib-commission-types` returns every rate card as an array (0140)
+  // — a handful of rows, no page, limit or cursor — so DataTable ordering the
+  // screen IS ordering the dataset.
+  'commission-types',
 ]);
 
 describe('every screen that offers a sort is visible to this census', () => {
