@@ -369,7 +369,6 @@ export const messages = {
   'withdrawalMethods.orderHint': 'Lower numbers are listed first on the withdraw form.',
   'withdrawalMethods.enabled': 'Offer it to clients',
   'withdrawalMethods.save': 'Save',
-  'withdrawalMethods.saving': 'Saving...',
   'withdrawalMethods.cancel': 'Cancel',
   'withdrawalMethods.saveSucceeded': '{name} saved',
   'withdrawalMethods.saveFailed': 'Could not save that withdrawal method.',
@@ -432,7 +431,6 @@ export const messages = {
   'paymentMethods.currencyLoadFailed':
     'Could not load the platform currencies. Reopen this dialog to try again.',
   'paymentMethods.save': 'Save',
-  'paymentMethods.saving': 'Saving…',
   'paymentMethods.saveFailed': 'Could not save the payment method.',
   'paymentMethods.saveSucceeded': '{name} saved',
   'paymentMethods.enabledSucceeded': '{name} enabled',

@@ -81,7 +81,7 @@ describe('marking a payment method as paid outside the platform', () => {
     await user.click(screen.getByRole('button', { name: /external/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    const box = await screen.findByRole('checkbox');
+    const box = await screen.findByRole('checkbox', { name: /paid outside the platform/i });
     await user.click(box);
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
