@@ -2917,10 +2917,25 @@ export const messages = {
   // allow 2 partners", when it means the payout chain is two hops deep — so the
   // depth hint spells the consequence out rather than restating the number.
   // Short, because the main item above them already says whose they are.
-  'nav.partnerApprovals': 'Applications',
+  /*
+   * ── The Introducing brokers group, named for what each page HOLDS (25 Sep
+   * 2026) ─────────────────────────────────────────────────────────────────────
+   *
+   *   Partners              the approved partners
+   *   Partner applications  requests to become one, waiting on a decision
+   *   Commission payouts    every commission paid to a partner and every
+   *                         rebate paid back to a client, per trade
+   *   Commission types      what a product pays per lot (the rate card)
+   *   Partner levels        what share of that a partner at each level takes
+   *   Agencies              the packages a partner sells under
+   *
+   * The page title matches the sidebar label on every one, so what an operator
+   * clicked is what the heading says.
+   */
+  'nav.partnerApprovals': 'Partner applications',
   'nav.partners': 'Partners',
-  'nav.commissionTypes': 'Commission Types',
-  'nav.ibLevels': 'Commission levels',
+  'nav.commissionTypes': 'Commission types',
+  'nav.ibLevels': 'Partner levels',
   // ── Commission levels (0112) ──────────────────────────────────────────────
   // The ladder that replaced the programme catalogue. Every string here talks
   // about where a partner STANDS rather than about a card they hold: a level is
@@ -2931,7 +2946,7 @@ export const messages = {
   // a bare heading — but the reason has INVERTED. Under programmes the short
   // form wrongly read as the rung; here the rung is exactly what it means, and
   // the misreading to avoid is depth ("the trade was two hops below me").
-  'ibLevels.title': 'Commission Levels',
+  'ibLevels.title': 'Partner levels',
   /*
    * ONE sentence, and it says what the page IS.
    *
@@ -3034,7 +3049,7 @@ export const messages = {
   // ── Commission types (0140) ───────────────────────────────────────────────
   // The rate cards products are sold on: money per lot for the partners and
   // for the client. The ladder takes its shares of these.
-  'commissionTypes.pageTitle': 'Commission Types',
+  'commissionTypes.pageTitle': 'Commission types',
   'commissionTypes.subtitle':
     'What a product pays per lot: the partners’ commission and the client’s rebate. Assign a ' +
     'type to each product; the commission levels then take their share of it.',
@@ -3089,7 +3104,7 @@ export const messages = {
     '{products} {count:is|are} sold on it, so this will be refused. Move those products to ' +
     'another type first.',
   // ── Partner application review ────────────────────────────────────────────
-  'partnerReview.title': 'Partner Applications',
+  'partnerReview.title': 'Partner applications',
   'partnerReview.subtitle':
     'Clients asking to introduce business. Approving one creates a partner who will be paid.',
   'partnerReview.caption': 'Partner applications',
@@ -3217,10 +3232,10 @@ export const messages = {
    * trade — a commission to the partner, a rebate to the trading client — so a
    * title naming one of them tells an operator the other is somewhere else.
    */
-  'nav.commissions': 'Commissions & rebates',
-  'commissions.title': 'Commissions & rebates',
+  'nav.commissions': 'Commission payouts',
+  'commissions.title': 'Commission payouts',
   'commissions.subtitle':
-    'Every partner commission and client rebate, with the closed position it was calculated from. A commission is paid to the partner; a rebate is paid back to the client who traded. Pending is what the engine has worked out; confirmed is what has been credited.',
+    'Every payout the partner programme makes, one line per trade: commissions paid to partners and rebates paid back to the clients who traded. Pending has been worked out and is waiting to be credited; confirmed has reached the wallet.',
   'commissions.loading': 'Loading commissions and rebates',
   'commissions.loadFailed': 'Could not load the commissions and rebates.',
   'commissions.empty': 'No commissions or rebates have been accrued yet.',
