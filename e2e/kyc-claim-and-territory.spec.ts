@@ -52,9 +52,15 @@ async function dataRowCount(page: Page): Promise<number> {
   return page.locator('tbody tr').count();
 }
 
-/** The tab chips above the queue, as { label: count }. */
+/**
+ * The tab chips above the queue, as { label: count }.
+ *
+ * Inside `main` only: the sidebar's closed main items carry counts too
+ * ("Finance 3"), and a chip collector that reads the whole page would file
+ * them as tabs.
+ */
 async function tabCounts(page: Page): Promise<Record<string, number>> {
-  const chips = await page.locator('nav,div').getByRole('button').all();
+  const chips = await page.getByRole('main').getByRole('button').all();
   const out: Record<string, number> = {};
   for (const chip of chips) {
     const text = ((await chip.textContent()) ?? '').trim();

@@ -241,13 +241,41 @@ it — Next matches the whole pathname, and an unanchored check reports `/api/..
 the runtime excludes it.
 
 **Every sidebar entry is a page that exists.** There is no "Soon" state any more — the
-`comingSoon` flag, its disabled-item branch and the `nav.comingSoon*` strings are gone, and
-`/trading-accounts` and `/payouts` were removed from both the nav and `ROUTE_REQUIREMENTS`
-because neither had a `page.tsx`. This reverses the earlier rule that those links were
-committed scope and must not be deleted: the navigation lists places an operator can go, not
-a roadmap. When one of those pages is built, add the route back to `permissions.ts` and the
-entry back to `NAV_SECTIONS` together — `canAccess` denies an unlisted path, so a page with
-no route requirement renders the "no access" panel rather than itself.
+`comingSoon` flag, its disabled-item branch and the `nav.comingSoon*` strings are gone. The
+navigation lists places an operator can go, not a roadmap. A new page gets its route in
+`permissions.ts` and its leaf in `NAV` **together** — `canAccess` denies an unlisted path, so a
+page with no route requirement renders the "no access" panel rather than itself.
+
+## The sidebar: main items with sub-items (25 Sep 2026)
+
+The owner asked for his old CRM's shape: a short list of MAIN items that each open onto their
+pages. Dashboard sits alone on top; then **Clients · Introducing brokers · Finance · Trading ·
+System · Security**. Three files in `components/layout/`, and the layout only places them:
+
+| file | owns |
+|---|---|
+| `navigation.ts` | the tree (`NAV`) and the pure rules over it: `activeNavHref` (longest match, over the WHOLE tree), `visibleNav(admin)` (the one permission filter — the command palette reads it too), `groupBadgeTotal` |
+| `sidebar-nav.tsx` | drawing it: groups that open, the collapsed rail's per-group menus |
+| `use-nav-badges.ts` | the four queue counts, keyed by the href that opens each queue |
+
+Rules the code relies on:
+
+- **One group open at a time, and it follows the page.** The open group is DERIVED —
+  `choice made on this path ?? group holding the page` — never synced in an effect, so any
+  arrival (link, Ctrl-K, notification, back button) paints the right group open first time.
+- **A group header is a button, never a link**, and only the page's link carries
+  `aria-current` (`console-pages.spec.ts` counts exactly one inside the nav).
+- **Closed panels are `inert` AND `invisible`.** Playwright's role engine ignores `inert`, so
+  without `visibility: hidden` a folded link still answers `getByRole` and wins `.first()`.
+  E2E that clicks a sidebar page goes through `openNavItem(page, group, link)` in
+  `e2e/helpers.ts`.
+- **"Approvals" is gone as a section**: each queue lives with its subject (KYC under Clients,
+  applications under Introducing brokers, both desks under Finance), and a CLOSED group shows
+  the sum of its visible children's counts so waiting work is still visible at a glance.
+- **Exactly one `<nav>` on the page** — specs count it; no breadcrumb `<nav>`.
+- `navigation.test.ts` derives every console page from the file system and fails on a leaf
+  with no `page.tsx`, a leaf a full-permission admin cannot open, or a page with no way in
+  from the sidebar (`OFF_NAV` holds the one deliberate exception, `/profile`).
 
 <!-- BEGIN:nextjs-agent-rules -->
 

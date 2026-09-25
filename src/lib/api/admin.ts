@@ -167,6 +167,8 @@ export type IbAccount = components['schemas']['IbAccountDto'];
  * the type to make that unavoidable rather than merely advisable.
  */
 export type IbPartnerDetail = components['schemas']['IbPartnerDetailDto'];
+/** One currency's commission — a partner's earnings are a LIST of these. */
+export type IbPartnerEarnings = components['schemas']['IbPartnerEarningsDto'];
 export type IbSubPartnerRow = components['schemas']['IbSubPartnerRowDto'];
 
 export type ClientPositionsPage = components['schemas']['ClientPositionsPageDto'];
@@ -183,53 +185,20 @@ export type ClientTransactionRow = components['schemas']['ClientTransactionRowDt
  * `@ApiOkResponse` DTO — this is the gap, named so it gets closed.
  */
 /**
- * The partner list. Hand-declared for the same reason as `IbApplicationPage`:
- * the handler returns a store result rather than a DTO class, so Nest describes
- * it as a bare object.
+ * The partner DIRECTORY — `GET /admin/ib/partners`. An alias since the route
+ * declared `IbPartnerListResponseDto` (25 Sep 2026).
  *
- * REPLACE with an alias once `AdminIbController.listPartners` declares an
- * `@ApiOkResponse` DTO.
+ * It was hand-declared, and the hand-written copy was wrong in three places at
+ * once: it claimed a top-level `level` the response never carried, typed
+ * `account` as the portal's `IbAccountDto` (with `agencyName` and `products`,
+ * which this route does not send), and had no `parentPortalId` at all. That is
+ * the failure the generated types exist to remove — a hand copy compiles
+ * against what somebody believed, not against what arrives.
+ *
+ * `earnings` is one entry PER CURRENCY, never a total.
  */
-export interface IbPartnerPage {
-  rows: Array<{
-    account: IbAccount;
-    /** `portalId` is the partner's Portal ID — the identifier the console prints. */
-    user: { id: string; portalId: number; email: string; firstName: string; lastName: string };
-    /**
-     * The RUNG this partner stands on, and therefore their terms (0112).
-     *
-     * A NUMBER rather than a name, unlike the `programName` this replaced. A
-     * level IS its number — the unique key every accrual is priced from — and
-     * the ladder is short enough that "Level 2" is the whole answer. The name
-     * on the level row is a label for the screen that edits it, not an
-     * identifier a partner list has to carry.
-     */
-    level: number;
-    /**
-     * What this partner has earned, summed by the SERVER across all their
-     * accruals — decimal strings (§6.1), never numbers.
-     *
-     * Two figures rather than one total, and deliberately so: `confirmed` is
-     * money the platform has credited, `pending` is what the engine has
-     * calculated and not yet paid. Collapsing them would let an operator quote
-     * a partner a figure that has not settled.
-     *
-     * A partner with no accruals reports '0' for both rather than being absent,
-     * so a caller never has to distinguish "nothing earned" from "no data".
-     */
-    earnings: { confirmed: string; pending: string };
-    /**
-     * The agency (وكالة) this partner is appointed under, by name.
-     *
-     * NULL means they are on none — appointed before agencies existed — and
-     * their clients are offered the FULL catalogue rather than nothing. The
-     * screen says that rather than printing a dash, because the two read as
-     * opposites.
-     */
-    agencyName: string | null;
-  }>;
-  total: number;
-}
+export type IbPartnerPage = components['schemas']['IbPartnerListResponseDto'];
+export type IbPartnerRow = components['schemas']['IbPartnerRowDto'];
 
 export interface IbApplicationPage {
   rows: Array<{
@@ -1019,9 +988,9 @@ export type IbApplicationSortKey = (typeof IB_APPLICATION_SORT_KEYS)[number];
  * "Level 2" as text, which is the kind of ordering that looks plausible enough
  * to ship.
  *
- * There is no `parentIbUserId` key: the partner column renders "Direct" or
- * "Has parent" rather than the id, so a sort on it would order by opaque UUID
- * and answer a question nobody asked.
+ * There is no `parentIbUserId` key: the directory names a parent by Portal ID
+ * (or says there is none), and a sort on it would order by opaque UUID and
+ * answer a question nobody asked.
  */
 export const IB_PARTNER_SORT_KEYS = [
   'approvedAt',
@@ -1358,12 +1327,17 @@ export const adminApi = {
       limit?: number;
       sort?: IbPartnerSortKey;
       order?: 'asc' | 'desc';
+      /** A Portal ID, a name or email, or a referral code. */
+      q?: string;
+      status?: 'active' | 'suspended';
     },
     signal?: AbortSignal,
   ): Promise<IbPartnerPage> {
     const query = new URLSearchParams();
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
+    if (params.q) query.set('q', params.q);
+    if (params.status) query.set('status', params.status);
     // Both halves or neither — see `getIbApplications` above.
     if (params.sort) query.set('sort', params.sort);
     if (params.sort && params.order) query.set('order', params.order);

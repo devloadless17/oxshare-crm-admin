@@ -28,6 +28,8 @@ const SCREENS = [
   '/transactions',
   '/approvals/deposits',
   '/approvals/ib',
+  // Every row names a partner, and most name a second one — their parent.
+  '/partners',
   '/financial',
   '/ledger',
   '/wallets',

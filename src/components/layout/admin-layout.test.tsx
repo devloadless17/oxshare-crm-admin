@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
-import { activeNavHref, AdminLayout } from './admin-layout';
+import { AdminLayout } from './admin-layout';
 import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
@@ -23,9 +24,19 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
  * not to trust what it shows them.
  */
 
-const { useAdmin } = vi.hoisted(() => ({ useAdmin: vi.fn() }));
+const { useAdmin, route, badges } = vi.hoisted(() => {
+  const badges: { current: Record<string, number> } = { current: {} };
+  /* Mutable, so a test can navigate by re-rendering. */
+  const route = { pathname: '/currencies' };
+  return { useAdmin: vi.fn(), route, badges };
+});
 
 vi.mock('@/context/AdminAuthContext', () => ({ useAdmin }));
+/*
+ * The counts are the hook's business and are pinned where they are computed;
+ * here they are an input, so a test states the queue it is asserting about.
+ */
+vi.mock('./use-nav-badges', () => ({ useNavBadges: () => badges.current }));
 // `/currencies` requires `settings.view`, so a master admin reaches it and a
 // sub-admin holding only kyc/users keys does not — which is what the
 // deny-the-body assertion below needs. It was `/withdrawals` until that
@@ -38,7 +49,7 @@ vi.mock('@/context/AdminAuthContext', () => ({ useAdmin }));
  * `undefined` rather than falling through to the real one.
  */
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/currencies',
+  usePathname: () => route.pathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
 }));
 
@@ -61,6 +72,8 @@ const KYC_ONLY = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  route.pathname = '/currencies';
+  badges.current = {};
 });
 
 describe('AdminLayout — a dead session renders nothing, not the page', () => {
@@ -116,7 +129,7 @@ describe('AdminLayout — nothing is shown until we know who is asking', () => {
     // The regression: this used to show the whole master-admin nav to everyone
     // for the duration of the identity request.
     expect(screen.queryByText('Currencies')).not.toBeInTheDocument();
-    expect(screen.queryByText('Audit Log')).not.toBeInTheDocument();
+    expect(screen.queryByText('Audit log')).not.toBeInTheDocument();
     expect(screen.queryByText('Clients')).not.toBeInTheDocument();
   });
 
@@ -144,7 +157,7 @@ describe('AdminLayout — nothing is shown until we know who is asking', () => {
     );
 
     expect(screen.getByText('Currencies')).toBeInTheDocument();
-    expect(screen.getByText('Audit Log')).toBeInTheDocument();
+    expect(screen.getByText('Audit log')).toBeInTheDocument();
     expect(screen.getByText('page body')).toBeInTheDocument();
   });
 
@@ -157,10 +170,13 @@ describe('AdminLayout — nothing is shown until we know who is asking', () => {
       </AdminLayout>,
     );
 
-    expect(screen.getByText('KYC Review')).toBeInTheDocument();
-    // /audit-log is master-only; /withdrawals needs withdrawals.view.
-    expect(screen.queryByText('Audit Log')).not.toBeInTheDocument();
+    expect(screen.getByText('KYC review')).toBeInTheDocument();
+    // /audit-log needs audit.view; /currencies needs currencies.view.
+    expect(screen.queryByText('Audit log')).not.toBeInTheDocument();
     expect(screen.queryByText('Currencies')).not.toBeInTheDocument();
+    // A group with nothing this admin may open is not drawn at all.
+    expect(screen.queryByRole('button', { name: /security/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /finance/i })).not.toBeInTheDocument();
 
     // usePathname is /currencies, which this admin cannot access.
     expect(screen.queryByText('page body')).not.toBeInTheDocument();
@@ -193,21 +209,163 @@ describe('the sidebar lists only pages that exist', () => {
     expect(screen.queryByText('Trading Accounts')).not.toBeInTheDocument();
     expect(screen.queryByText('Payouts')).not.toBeInTheDocument();
   });
+});
 
-  it('groups the rest under Overview, Clients, Finance and Administration', () => {
-    renderWithProviders(
-      <AdminLayout>
-        <p>page body</p>
-      </AdminLayout>,
+/**
+ * MAIN ITEMS that open onto their pages — the owner's request (25 Sep 2026),
+ * modelled on his old CRM: one group open at a time, and it is the one holding
+ * the page you are on.
+ */
+describe('the sidebar is main items with sub-items', () => {
+  const layout = () => (
+    <AdminLayout>
+      <p>page body</p>
+    </AdminLayout>
+  );
+  const group = (name: string) => screen.getByRole('button', { name: new RegExp(`^${name}`) });
+
+  beforeEach(() => {
+    useAdmin.mockReturnValue({ admin: MASTER, isLoading: false, logout: vi.fn() });
+  });
+
+  it('offers the main items in order, with Dashboard alone above them', () => {
+    renderWithProviders(layout());
+
+    const nav = screen.getByRole('navigation');
+    const headers = within(nav)
+      .getAllByRole('button')
+      .map((button) => button.textContent);
+    expect(headers).toEqual([
+      'Clients',
+      'Introducing brokers',
+      'Finance',
+      'Trading',
+      'System',
+      'Security',
+    ]);
+    expect(within(nav).getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'href',
+      '/dashboard',
     );
+    // The flat headings this replaced, so a half-applied change is caught.
+    expect(screen.queryByText('OVERVIEW')).not.toBeInTheDocument();
+    expect(screen.queryByText('Approvals')).not.toBeInTheDocument();
+  });
 
-    expect(screen.getByText('OVERVIEW')).toBeInTheDocument();
-    expect(screen.getByText('CLIENTS')).toBeInTheDocument();
-    expect(screen.getByText('FINANCE')).toBeInTheDocument();
-    expect(screen.getByText('ADMINISTRATION')).toBeInTheDocument();
-    // The headings this replaced, so a half-applied rename is caught.
-    expect(screen.queryByText('MAIN')).not.toBeInTheDocument();
-    expect(screen.queryByText('MANAGEMENT')).not.toBeInTheDocument();
+  it('opens the group holding the current page, and only that one', () => {
+    renderWithProviders(layout());
+
+    // /currencies is under Finance.
+    expect(group('Finance')).toHaveAttribute('aria-expanded', 'true');
+    for (const other of ['Clients', 'Introducing brokers', 'Trading', 'System', 'Security']) {
+      expect(group(other)).toHaveAttribute('aria-expanded', 'false');
+    }
+  });
+
+  it('puts the KYC builder under System and the review queue under Clients', () => {
+    renderWithProviders(layout());
+
+    const system = document.getElementById(group('System').getAttribute('aria-controls') ?? '');
+    const clients = document.getElementById(group('Clients').getAttribute('aria-controls') ?? '');
+    expect(
+      within(system as HTMLElement).getByRole('link', { name: 'KYC builder' }),
+    ).toHaveAttribute('href', '/kyc/builder');
+    expect(
+      within(clients as HTMLElement).getByRole('link', { name: 'KYC review' }),
+    ).toHaveAttribute('href', '/kyc?status=needs_review');
+  });
+
+  it('keeps one group open at a time', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+
+    await user.click(group('Security'));
+
+    expect(group('Security')).toHaveAttribute('aria-expanded', 'true');
+    expect(group('Finance')).toHaveAttribute('aria-expanded', 'false');
+
+    // And a second click closes it, leaving none open.
+    await user.click(group('Security'));
+    expect(group('Security')).toHaveAttribute('aria-expanded', 'false');
+    expect(group('Finance')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('follows the page: navigating opens the new page’s group', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderWithProviders(layout());
+    await user.click(group('Security'));
+
+    route.pathname = '/kyc/builder';
+    rerender(layout());
+
+    expect(group('System')).toHaveAttribute('aria-expanded', 'true');
+    expect(group('Security')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('marks the page as current, and never the group around it', () => {
+    renderWithProviders(layout());
+
+    const nav = screen.getByRole('navigation');
+    const current = nav.querySelectorAll('[aria-current]');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent('Currencies');
+    expect(group('Finance')).not.toHaveAttribute('aria-current');
+  });
+
+  it('shows a closed group the work waiting inside it, and an open one none', () => {
+    badges.current = { '/kyc': 4, '/approvals/deposits': 2, '/transactions': 3 };
+    renderWithProviders(layout());
+
+    // Clients is closed: its header carries the KYC count.
+    expect(within(group('Clients')).getByText('4')).toBeInTheDocument();
+    // Finance is open: the desks carry their own counts, and the header none.
+    expect(within(group('Finance')).queryByText('5')).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('link', { name: /deposits/i })).getByText('2'),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('link', { name: /withdrawals/i })).getByText('3'),
+    ).toBeInTheDocument();
+  });
+
+  it('lets the closed-group total count only what this admin can see', () => {
+    // A deposits desk alone, with a withdrawal count that must not leak into
+    // Finance's total through the group.
+    useAdmin.mockReturnValue({
+      admin: { ...MASTER, permissions: ['deposits.view', 'kyc.view'] },
+      isLoading: false,
+      logout: vi.fn(),
+    });
+    route.pathname = '/kyc';
+    badges.current = { '/approvals/deposits': 2, '/transactions': 3 };
+    renderWithProviders(layout());
+
+    expect(within(group('Finance')).getByText('2')).toBeInTheDocument();
+    expect(within(group('Finance')).queryByText('5')).not.toBeInTheDocument();
+  });
+
+  it('turns each group into a menu on the collapsed rail', async () => {
+    const user = userEvent.setup();
+    badges.current = { '/approvals/deposits': 2 };
+    renderWithProviders(layout());
+
+    await user.click(screen.getByRole('button', { name: /collapse the sidebar/i }));
+
+    // No accordion on the rail: a named trigger per group, and no sub-page rows.
+    const trigger = screen.getByRole('button', { name: 'Finance' });
+    expect(trigger).not.toHaveAttribute('aria-controls', 'nav-group-finance');
+    expect(screen.queryByRole('link', { name: /deposits/i })).not.toBeInTheDocument();
+
+    trigger.focus();
+    await user.keyboard('{Enter}');
+
+    const deposits = await screen.findByRole('menuitem', { name: /deposits/i });
+    expect(deposits).toHaveAttribute('href', '/approvals/deposits');
+    expect(within(deposits).getByText('2')).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Currencies' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 });
 
@@ -246,56 +404,5 @@ describe('the account menu replaces the header theme toggle', () => {
 
     expect(screen.queryByTitle('Light Mode')).not.toBeInTheDocument();
     expect(screen.queryByTitle('Dark Mode')).not.toBeInTheDocument();
-  });
-});
-
-/**
- * Exactly one sidebar entry is the current page.
- *
- * `/kyc/builder` lit up BOTH "KYC Review" and "KYC Workflow Builder", because
- * each item tested itself in isolation with
- * `pathname === href || pathname.startsWith(href + '/')` — true for the prefix
- * `/kyc` and for the exact `/kyc/builder` at the same time.
- *
- * Nested routes are normal here, not an edge case: `/kyc` and `/kyc/builder` are
- * different screens behind different permissions. So the rule has to compare
- * candidates against each other, and these assert that it does.
- */
-describe('activeNavHref', () => {
-  const HREFS = ['/dashboard', '/clients', '/kyc', '/kyc/builder', '/roles', '/audit-log'];
-
-  it('picks the NESTED route, not its parent', () => {
-    // The reported bug, stated directly.
-    expect(activeNavHref('/kyc/builder', HREFS)).toBe('/kyc/builder');
-  });
-
-  it('picks the parent when the nested route is not the page', () => {
-    // A submission detail lives under /kyc and has no nav entry of its own, so
-    // the parent is correctly the active one.
-    expect(activeNavHref('/kyc', HREFS)).toBe('/kyc');
-    expect(activeNavHref('/kyc/some-user-id', HREFS)).toBe('/kyc');
-  });
-
-  it('returns exactly ONE href for every route in the nav', () => {
-    // The property that was violated. Asserted over the whole set rather than
-    // one path, so a future nested route cannot quietly reintroduce it.
-    for (const path of [...HREFS, '/kyc/abc', '/clients/123']) {
-      const active = activeNavHref(path, HREFS);
-      const lit = HREFS.filter((h) => h === active);
-      expect(lit).toHaveLength(1);
-    }
-  });
-
-  it('does not match a sibling that merely shares a prefix', () => {
-    // '/kyc-archive' is not inside '/kyc'. String prefixes alone would say it is.
-    expect(activeNavHref('/kyc-archive', HREFS)).toBeNull();
-  });
-
-  it('highlights nothing on a route that is not in the nav', () => {
-    expect(activeNavHref('/login', HREFS)).toBeNull();
-  });
-
-  it('survives a null pathname', () => {
-    expect(activeNavHref(null, HREFS)).toBeNull();
   });
 });

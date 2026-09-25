@@ -60,12 +60,19 @@ export const messages = {
   'app.adminSuffix': 'Admin',
 
   // ── Navigation ────────────────────────────────────────────────────────────
-  'nav.section.overview': 'OVERVIEW',
-  'nav.section.clients': 'CLIENTS',
-  'nav.section.finance': 'FINANCE',
-  'nav.section.administration': 'ADMINISTRATION',
+  //
+  // The MAIN items (see `components/layout/navigation.ts`). Sentence case, like
+  // every label under them: the flat sidebar mixed "Admin Users" with "API keys"
+  // in one column, which is the first thing an eye scanning a list notices.
+  'nav.group.clients': 'Clients',
+  'nav.group.introducingBrokers': 'Introducing brokers',
+  'nav.group.finance': 'Finance',
+  'nav.group.trading': 'Trading',
+  'nav.group.system': 'System',
+  'nav.group.security': 'Security',
   'nav.dashboard': 'Dashboard',
-  'nav.clients': 'Clients',
+  // "All clients", not "Clients": it sits under a main item already named that.
+  'nav.clients': 'All clients',
   'nav.withdrawals': 'Withdrawals',
   'nav.ledger': 'Ledger',
 
@@ -104,11 +111,11 @@ export const messages = {
   'ipAllowlist.confirmRemove':
     'Remove {cidr}? If it is the last rule covering your own address the API will refuse, because it would lock you out.',
   'nav.commissionPlans': 'Commission Plans',
-  'nav.kyc': 'KYC Review',
-  'nav.kycBuilder': 'KYC Workflow Builder',
-  'nav.adminUsers': 'Admin Users',
-  'nav.roles': 'Roles',
-  'nav.auditLog': 'Audit Log',
+  'nav.kyc': 'KYC review',
+  'nav.kycBuilder': 'KYC builder',
+  'nav.adminUsers': 'Admin users',
+  'nav.roles': 'Roles & permissions',
+  'nav.auditLog': 'Audit log',
   'nav.settings': 'Settings',
   'nav.logout': 'Logout',
   // Same strings as the portal's, because the account menu at the foot of the
@@ -697,7 +704,7 @@ export const messages = {
   'tags.overflow': '+{count} more',
 
   // ── ADM-14 tag management ───────────────────────────────────────────────
-  'nav.tags': 'Client Tags',
+  'nav.tags': 'Client tags',
   'tags.title': 'Client Tags',
   'tags.subtitle':
     'Labels for segmenting the client base. A tag can also define which clients an administrator is allowed to see.',
@@ -2256,7 +2263,7 @@ export const messages = {
   'nav.reconciliation': 'Reconciliation',
 
   // ── Financial (GET /admin/transactions — every money movement) ────────────
-  'nav.financial': 'Financial',
+  'nav.financial': 'All transactions',
   'financial.title': 'Financial',
   'financial.subtitle':
     'Every money movement on the platform — deposits, withdrawals and internal transfers, across every client. Read-only: withdrawals are actioned on the Transactions desk.',
@@ -2634,7 +2641,6 @@ export const messages = {
   'deposits.confirmReject': 'Refuse deposit',
   'deposits.rowActionsLabel': 'Deposit actions',
 
-  'nav.transactions': 'Transactions',
   'nav.paymentMethods': 'Payment methods',
   'nav.wallets': 'Wallets',
   'nav.tradingAccounts': 'Trading accounts',
@@ -2835,11 +2841,10 @@ export const messages = {
   // The wording is doing real work here. "2 levels" is naturally read as "we
   // allow 2 partners", when it means the payout chain is two hops deep — so the
   // depth hint spells the consequence out rather than restating the number.
-  'nav.section.partners': 'Partners',
-  'nav.section.approvals': 'Approvals',
-  'nav.partnerApprovals': 'Partner Applications',
+  // Short, because the main item above them already says whose they are.
+  'nav.partnerApprovals': 'Applications',
   'nav.partners': 'Partners',
-  'nav.ibLevels': 'Commission Levels',
+  'nav.ibLevels': 'Commission levels',
   // ── Commission levels (0112) ──────────────────────────────────────────────
   // The ladder that replaced the programme catalogue. Every string here talks
   // about where a partner STANDS rather than about a card they hold: a level is
@@ -3170,68 +3175,56 @@ export const messages = {
   'commissions.status.confirmed': 'Confirmed',
   'commissions.status.reversed': 'Reversed',
 
-  // Confirmed and pending kept apart: quoting a partner a pending figure as
-  // though it were paid is the mistake this wording exists to prevent.
-  'partners.colEarnings': 'Earned',
-  'partners.pendingSuffix': 'pending',
-  'partners.pendingHint': 'Calculated by the engine but not yet credited.',
+  // ── The partner directory (/partners) ───────────────────────────────────
+  // Back on the owner's request (25 Sep 2026), under Introducing brokers. The
+  // strings of the page deleted on 13 Aug went with it except where they still
+  // said the right thing; the row actions reuse the profile's own wording, so a
+  // partner is suspended in the same words from either screen.
   'partners.title': 'Partners',
-  'partners.subtitle': 'Approved introducing brokers, their placement, and their referral code.',
+  'partners.subtitle':
+    'Every approved introducing broker — where they stand, who placed them, their referral code, and what they have earned.',
   'partners.loading': 'Loading partners…',
-  'partners.loadFailed': 'Could not load partners.',
-  'partners.empty': 'No partners yet. Approved applications appear here.',
-  'partners.actionFailed': 'That change could not be made.',
-  'partners.levelChanged': 'Partner moved to level {level}',
-  'partners.parentChangedSucceeded': 'Partner reassigned',
-  'partners.parentClearedSucceeded': 'Partner moved to the top of the chain',
-  'partners.suspendedSucceeded': 'Partner suspended',
-  'partners.reinstatedSucceeded': 'Partner reinstated',
-  'partners.linkCopied': 'Referral link copied',
+  'partners.loadFailed': 'Could not load the partner list.',
+  'partners.empty': 'No partner matches these filters.',
+  'partners.caption': 'Partners',
+  'partners.nounOne': 'partner',
+  'partners.nounMany': 'partners',
+  'partners.searchLabel': 'Search partners',
+  'partners.searchPlaceholder': 'Portal ID, name, email or referral code',
+  'partners.searchHint':
+    'A Portal ID or a referral code matches exactly; a name or an email matches in part.',
+  'partners.filterStatus': 'Filter by state',
+  'partners.statusAll': 'Every state',
+  // "Earning", the profile's word for an active partner — what the state means.
+  'partners.statusActive': 'Earning',
+  'partners.statusSuspended': 'Suspended',
+  'partners.clearFilters': 'Clear filters',
 
-  // Column headers, added when the row stack became a DataTable. The stacked row
-  // ran level, referral code and placement together on one line separated by
-  // dots; as columns each needs a label of its own.
-  'partners.caption': 'Introducing brokers',
   'partners.colName': 'Partner',
-  'partners.colEmail': 'Email',
   'partners.colLevel': 'Level',
+  'partners.levelLine': 'Level {level}',
   'partners.colAgency': 'Agency',
   // Their clients are offered every product, so this is "unrestricted" and
   // deliberately not "none" — the two read as opposites.
   'partners.noAgency': 'All products',
   'partners.colReferralCode': 'Referral code',
-  'partners.colParent': 'Parent',
-  'partners.colActions': 'Actions',
-
-  'partners.levelLine': 'Level {level} — {name}',
-  'partners.direct': 'Direct partner',
-  'partners.hasParent': 'Has a parent partner',
+  'partners.copyCode': 'Copy referral code',
+  // Confirmed and pending kept apart: quoting a partner a pending figure as
+  // though it were paid is the mistake this wording exists to prevent. One line
+  // PER CURRENCY — there is no FX source to add them with.
+  'partners.colEarnings': 'Commission earned',
+  'partners.pendingAmount': '+{amount} pending',
+  'partners.pendingHint': 'Calculated by the engine but not yet credited.',
+  'partners.nothingEarned': 'Nothing yet',
+  'partners.colParent': 'Placed under',
+  'partners.direct': 'Direct',
+  'partners.directHint': 'Deals with the broker directly — the top of their chain.',
+  // A parent EXISTS and sits in another desk's territory. Not "Direct": the two
+  // read as the same and decide different terms.
+  'partners.parentHidden': 'Outside your territory',
+  'partners.colApproved': 'Partner since',
   'partners.suspended': 'Suspended',
-
   'partners.rowActions': 'Actions for {name}',
-  'partners.viewClient': 'View client',
-  'partners.copyLink': 'Copy referral link',
-  'partners.copyFailed': 'Could not copy the link. Open the client and copy it from there.',
-  'partners.changeLevel': 'Change level',
-  'partners.reassignParent': 'Reassign parent',
-  'partners.suspend': 'Suspend',
-  'partners.reactivate': 'Reactivate',
-
-  'partners.changeLevelIntro': 'Move {name} to a different rung of the payout ladder.',
-  'partners.level': 'Level',
-  'partners.reassignIntro': 'Choose who introduced {name}, or make them a direct partner.',
-  'partners.parent': 'Parent partner',
-  'partners.noParent': 'No parent — deals with the broker directly',
-  'partners.parentHint':
-    'A partner cannot be placed beneath somebody who already sits beneath them.',
-  'partners.save': 'Save',
-  'partners.saving': 'Saving…',
-
-  'partners.confirmSuspendTitle': 'Suspend this partner?',
-  'partners.confirmSuspendBody':
-    'They keep their referral code and everybody beneath them, and stop earning. You can reactivate them at any time.',
-  'partners.confirmReactivateTitle': 'Reactivate this partner?',
-  'partners.confirmReactivateBody': 'They will start earning again from their current level.',
 
   // ── Notifications ─────────────────────────────────────────────────────────
   // The LIVE bell — `GET /admin/notifications` and its three siblings. The

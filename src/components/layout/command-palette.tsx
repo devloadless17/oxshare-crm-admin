@@ -3,10 +3,9 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { CornerDownLeft, Search } from 'lucide-react';
-import { NAV_SECTIONS, type NavItem } from '@/components/layout/admin-layout';
+import { isNavGroup, leafHref, visibleNav, type NavLeaf } from '@/components/layout/navigation';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
-import { canAccess } from '@/lib/permissions';
 import { t } from '@/lib/i18n';
 
 /**
@@ -22,11 +21,11 @@ import { t } from '@/lib/i18n';
  * because an operator who tries it concludes the CONSOLE cannot find things
  * rather than that this one control is decorative.
  *
- * ## It reads the SIDEBAR's own list, and its permission filter
+ * ## It reads the SIDEBAR's own tree, and its permission filter
  *
- * `NAV_SECTIONS` is the single record of where you can go and `canAccess` the
- * single answer to whether you may. A palette with its own list would drift,
- * and the drift has a precedent in this very file: `/commissions` was once
+ * `NAV` (`navigation.ts`) is the single record of where you can go and
+ * `visibleNav` the single answer to whether you may. A palette with its own
+ * list would drift, and the drift has a precedent: `/commissions` was once
  * commented out of the nav and stayed reachable only by typing its URL.
  *
  * So an entry an admin cannot open is not listed. That is not tidiness: the
@@ -36,12 +35,12 @@ import { t } from '@/lib/i18n';
  *
  * ## Matching is on the WORDS an operator would type
  *
- * The label, the section and the path, case-insensitively, with EVERY typed
- * term required to match something. Requiring all of them is what makes a
- * second word narrow the list rather than widen it, which is how anyone who has
- * used a palette expects typing more to behave.
+ * The label, the main item it sits under and the path, case-insensitively,
+ * with EVERY typed term required to match something. Requiring all of them is
+ * what makes a second word narrow the list rather than widen it, which is how
+ * anyone who has used a palette expects typing more to behave.
  *
- * The section is searched because "approvals" is how somebody looks for a queue
+ * The main item is searched because "finance" is how somebody looks for a page
  * whose own name they have forgotten; the path because an operator who knows
  * the URL is usually the one in a hurry.
  */
@@ -58,14 +57,16 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
    * Flattened once per ADMIN rather than per keystroke: the permission filter
    * is the expensive half and it cannot change while the palette is open.
    */
-  const entries = React.useMemo(() => {
-    if (!admin) return [];
-    return NAV_SECTIONS.flatMap((section) =>
-      section.items
-        .filter((item) => canAccess(admin, item.href))
-        .map((item) => ({ item, section: t(section.title), label: t(item.label) })),
-    );
-  }, [admin]);
+  const entries = React.useMemo(
+    () =>
+      visibleNav(admin).flatMap((entry) =>
+        isNavGroup(entry)
+          ? entry.items.map((item) => ({ item, section: t(entry.label), label: t(item.label) }))
+          : // A page on its own (Dashboard) sits under no main item.
+            [{ item: entry, section: '', label: t(entry.label) }],
+      ),
+    [admin],
+  );
 
   const results = React.useMemo(() => {
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -85,9 +86,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const selected = results.length === 0 ? -1 : Math.min(active, results.length - 1);
 
   const go = React.useCallback(
-    (entry: { item: NavItem }) => {
+    (entry: { item: NavLeaf }) => {
       onClose();
-      router.push(entry.item.query ? `${entry.item.href}?${entry.item.query}` : entry.item.href);
+      router.push(leafHref(entry.item));
     },
     [onClose, router],
   );
@@ -187,9 +188,11 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                         <span className="block truncate text-xs font-semibold text-foreground">
                           {entry.label}
                         </span>
-                        {/* The SECTION, so two similarly named entries are told
+                        {/* The MAIN ITEM, so two similarly named entries are told
                             apart by where they live. */}
-                        <span className="block truncate text-[11px]">{entry.section}</span>
+                        {entry.section && (
+                          <span className="block truncate text-[11px]">{entry.section}</span>
+                        )}
                       </span>
                       {isActive && (
                         <CornerDownLeft className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

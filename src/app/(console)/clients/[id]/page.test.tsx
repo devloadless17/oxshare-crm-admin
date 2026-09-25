@@ -317,7 +317,8 @@ const partnerDetail = (over: Record<string, unknown> = {}) => ({
   },
   directPartners: [] as unknown[],
   referredClientCount: 4,
-  earnings: { confirmed: '31.50000000', pending: '0.00000000' },
+  // One line per currency (the API stopped summing across currencies).
+  earnings: [{ currency: 'USD', confirmed: '31.50000000', pending: '0.00000000' }],
   ...over,
 });
 
@@ -398,7 +399,9 @@ describe('the partner tab', () => {
     getPartnerDetail.mockResolvedValue(
       // Seventeen significant digits: `Number()` is already wrong before
       // formatting, which is the whole reason money crosses the wire as text.
-      partnerDetail({ earnings: { confirmed: '12345678901.23456789', pending: '0' } }),
+      partnerDetail({
+        earnings: [{ currency: 'USD', confirmed: '12345678901.23456789', pending: '0' }],
+      }),
     );
     renderWithProviders(<ClientProfilePage />);
 
@@ -412,5 +415,29 @@ describe('the partner tab', () => {
      * through a double does not survive.
      */
     expect(screen.getByText(/12,345,678,901\.23/)).toBeInTheDocument();
+  });
+
+  it('shows each currency on its own line, never one total', async () => {
+    /*
+     * The panel took a hard-coded "USD" and printed one figure the API had
+     * summed across currencies — 100 USD and 90 EUR read as $190.00. Two
+     * currencies must stay two lines, each in its own currency.
+     */
+    getPartnerDetail.mockResolvedValue(
+      partnerDetail({
+        earnings: [
+          { currency: 'EUR', confirmed: '90.00000000', pending: '0' },
+          { currency: 'USD', confirmed: '100.00000000', pending: '0' },
+        ],
+      }),
+    );
+    renderWithProviders(<ClientProfilePage />);
+
+    await screen.findByText('John Doe');
+    await openTab(/partner/i);
+
+    expect(screen.getByText(/90\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/100\.00/)).toBeInTheDocument();
+    expect(screen.queryByText(/190\.00/)).not.toBeInTheDocument();
   });
 });

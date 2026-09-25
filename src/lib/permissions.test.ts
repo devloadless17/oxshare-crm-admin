@@ -111,17 +111,20 @@ describe('canAccess', () => {
     expect(canAccess(subAdmin, '/clients')).toBe(true);
     expect(canAccess(subAdmin, '/kyc')).toBe(true);
     expect(canAccess(subAdmin, '/kyc/abc-123')).toBe(true); // detail page under /kyc
-    expect(canAccess(subAdmin, '/withdrawals')).toBe(false);
     /*
-     * `/partners` is asserted as UNLISTED rather than as permission-denied.
-     *
-     * The page was removed and its requirement with it, so this no longer proves
-     * anything about `ib.view` — it proves the deny-by-default rule, which is
-     * the more valuable half: a path with no entry in the table is refused
-     * whatever the admin holds, so a page shipped without a requirement is
-     * caught on the author's first click rather than in production.
+     * `/withdrawals` is UNLISTED — the desk lives at `/transactions` — so this
+     * proves the deny-by-default rule: a path with no entry in the table is
+     * refused whatever the admin holds, and a page shipped without a
+     * requirement is caught on its author's first click.
      */
-    expect(canAccess(subAdmin, '/partners')).toBe(false);
+    expect(canAccess(subAdmin, '/withdrawals')).toBe(false);
+  });
+
+  it('opens the partner directory on exactly the key its API enforces', () => {
+    // Back since 25 Sep 2026 — see the table entry for why it went and returned.
+    expect(canAccess(withPerms(['ib.view']), '/partners')).toBe(true);
+    expect(canAccess(withPerms(['clients.view']), '/partners')).toBe(false);
+    expect(canAccess(withPerms(['ib.commissions.view']), '/partners')).toBe(false);
   });
 
   it('lets any signed-in administrator reach their OWN profile', () => {

@@ -161,12 +161,12 @@ describe('driving it from the keyboard', () => {
      * the sidebar does — otherwise one link lands on a list of 12 and the other
      * on a list of 17.
      *
-     * "kyc" alone matches the review queue AND the builder, and the builder
-     * comes first in the nav, so this narrows by SECTION — the disambiguation
-     * an operator would reach for too, and the reason the section is part of
-     * the haystack at all.
+     * "kyc" alone matches the review queue AND the builder, so this narrows by
+     * the MAIN ITEM the queue lives under — the disambiguation an operator
+     * would reach for too, and the reason the group is part of the haystack at
+     * all. (The builder is under System.)
      */
-    await user.type(screen.getByRole('textbox'), 'kyc approvals');
+    await user.type(screen.getByRole('textbox'), 'kyc clients');
     await user.keyboard('{Enter}');
 
     expect(push).toHaveBeenCalledWith(expect.stringContaining('status=needs_review'));

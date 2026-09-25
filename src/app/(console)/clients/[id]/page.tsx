@@ -617,10 +617,9 @@ export default function ClientProfilePage() {
                   errorMessage={t('clientProfile.partnerLoadFailed')}
                   error={partnerQuery.error}
                 >
-                  {/* USD: the accrual rows carry their own currency and the
-                      totals are summed across them, so this is the platform
-                      default rather than a per-row value. */}
-                  <ClientPartnerPanel detail={partner} currency="USD" />
+                  {/* No currency passed: earnings arrive one line per
+                      currency, each carrying its own. */}
+                  <ClientPartnerPanel detail={partner} />
                 </AsyncBoundary>
               </TabPanel>
             )}

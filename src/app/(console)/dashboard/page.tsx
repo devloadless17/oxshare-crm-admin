@@ -352,14 +352,14 @@ export default function AdminDashboardPage() {
               })}
               icon={Handshake}
               /*
-               * The clients list, filtered — /partners is gone. It listed the
-               * same people this tile counts, from the same `ib_accounts` rows,
-               * on a screen that could not also show a partner's KYC, tags or
-               * wallets. The clients list can, and its type filter now DERIVES
-               * "partner" from `ib_accounts` rather than from the label that
-               * nothing maintained, so the two agree on who is one.
+               * The partner directory — back since 25 Sep 2026. It counts from
+               * the same `ib_accounts` rows as this tile, and so does the client
+               * list's derived "partner" type, so all three agree on who is one
+               * (pinned by the backend's `ib-partner-directory.spec.ts`). The
+               * tile only renders for `ib.view`, which is exactly the key the
+               * page requires, so the link can never land on "no access".
                */
-              href="/clients?type=partner"
+              href="/partners"
             />
           )}
         </div>
