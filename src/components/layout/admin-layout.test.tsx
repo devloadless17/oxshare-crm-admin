@@ -306,6 +306,71 @@ describe('the sidebar is main items with sub-items', () => {
     expect(group('Security')).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('highlights exactly one row, and it moves to the main item you open', async () => {
+    const user = userEvent.setup();
+    route.pathname = '/dashboard';
+    renderWithProviders(layout());
+    const nav = screen.getByRole('navigation');
+    const selected = () => nav.querySelectorAll('[data-selected]');
+    const dashboard = within(nav).getByRole('link', { name: 'Dashboard' });
+
+    expect(selected()).toHaveLength(1);
+    expect(selected()[0]).toBe(dashboard);
+
+    // The owner's report: opening System left Dashboard showing as active.
+    await user.click(group('System'));
+    expect(selected()).toHaveLength(1);
+    expect(selected()[0]).toBe(group('System'));
+    // …while the PAGE is still the page, for a screen reader.
+    expect(dashboard).toHaveAttribute('aria-current', 'page');
+
+    // Closing it hands the selection back to where you are.
+    await user.click(group('System'));
+    expect(selected()).toHaveLength(1);
+    expect(selected()[0]).toBe(dashboard);
+  });
+
+  it('selects the main item holding the page, and only MARKS the page inside it', () => {
+    renderWithProviders(layout());
+    const nav = screen.getByRole('navigation');
+
+    expect(nav.querySelectorAll('[data-selected]')).toHaveLength(1);
+    expect(group('Finance')).toHaveAttribute('data-selected', 'true');
+    const currencies = within(nav).getByRole('link', { name: 'Currencies' });
+    expect(currencies).toHaveAttribute('aria-current', 'page');
+    expect(currencies).not.toHaveAttribute('data-selected');
+  });
+
+  it('moves the selection off the page’s own main item when another is opened', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+
+    await user.click(group('Security'));
+
+    expect(group('Security')).toHaveAttribute('data-selected', 'true');
+    expect(group('Finance')).not.toHaveAttribute('data-selected');
+  });
+
+  it('gives Dashboard the same selected look as every other main item', () => {
+    // It was a SOLID fill while every other selection was a tint (reported).
+    route.pathname = '/dashboard';
+    const { unmount } = renderWithProviders(layout());
+    const dashboardLook = within(screen.getByRole('navigation')).getByRole('link', {
+      name: 'Dashboard',
+    }).className;
+    unmount();
+
+    route.pathname = '/currencies';
+    renderWithProviders(layout());
+    const financeLook = group('Finance').className;
+
+    for (const token of ['bg-primary/10', 'font-semibold', 'text-foreground']) {
+      expect(dashboardLook.split(/\s+/)).toContain(token);
+      expect(financeLook.split(/\s+/)).toContain(token);
+    }
+    expect(dashboardLook.split(/\s+/)).not.toContain('bg-primary');
+  });
+
   it('marks the page as current, and never the group around it', () => {
     renderWithProviders(layout());
 

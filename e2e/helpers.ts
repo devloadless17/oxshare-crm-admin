@@ -902,20 +902,21 @@ export async function registerClientWithPendingKyc(
   const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
 
   /*
-   * LETTERS ONLY in both names. Since the single client profile (backend 0139,
-   * 25 Sep 2026) a name is validated as it appears on an ID — letters, marks,
-   * spaces, hyphens, apostrophes — and "E2e" carries a digit, so every
-   * registration here answered 400 and the realtime spec failed before its
-   * first frame. The label keeps its letters and hyphens and loses the rest.
+   * LETTERS ONLY in both names, and ONE copy of them. Since the single client
+   * profile (backend 0139, 25 Sep 2026) a name is validated as it appears on an
+   * ID — letters, marks, spaces, hyphens, apostrophes — and "E2e" carries a
+   * digit: registration answered 400 and, once that was fixed, the KYC personal
+   * step (which writes the same profile) answered 400 in its place. Both calls
+   * read this object now, so they cannot disagree again. The label keeps its
+   * letters and hyphens and loses the rest.
    */
+  const name = {
+    firstName: 'Endtoend',
+    lastName: label.replace(/[^\p{L} '-]/gu, '') || 'Client',
+  };
   const registered = await portal.post(`${API_NODE_BASE}/auth/register`, {
     headers: origin,
-    data: {
-      email,
-      password,
-      firstName: 'Endtoend',
-      lastName: label.replace(/[^\p{L} '-]/gu, '') || 'Client',
-    },
+    data: { email, password, ...name },
   });
   requirePrecondition(registered.status() === 429, 'registration is rate limited right now (10/h)');
   expect(registered.ok(), `register answered ${registered.status()}`).toBe(true);
@@ -977,8 +978,7 @@ export async function registerClientWithPendingKyc(
   expect(
     (
       await step('personal', {
-        firstName: 'E2e',
-        lastName: label,
+        ...name,
         dateOfBirth: '1988-08-08',
         phone: '+96170000010',
         nationality: 'Lebanese',

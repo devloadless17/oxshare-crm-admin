@@ -103,10 +103,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const rail = collapsed && !mobileOpen;
 
   const toggleRail = () => {
-    setCollapsed((was) => {
-      writeRailPreference(!was);
-      return !was;
-    });
+    // Written here, never inside a state updater — React may call an updater
+    // twice, and an updater is meant to compute, not to reach storage.
+    const next = !collapsed;
+    setCollapsed(next);
+    writeRailPreference(next);
   };
 
   /*

@@ -42,6 +42,23 @@ test.describe('the sidebar — main items with sub-items', () => {
     await expect(nav(page).locator('[aria-current="page"]')).toContainText(/ledger/i);
   });
 
+  test('highlights ONE row, and it moves to the main item opened', async ({ page }) => {
+    // The owner's report: opening a main item left the old one looking active.
+    await page.goto('/dashboard');
+    const selected = nav(page).locator('[data-selected]');
+    await expect(selected).toHaveCount(1);
+    await expect(selected).toContainText(/dashboard/i);
+
+    await header(page, /^system/i).click();
+    await expect(selected).toHaveCount(1);
+    await expect(selected).toContainText(/system/i);
+    // The page is still the page, for a screen reader.
+    await expect(nav(page).getByRole('link', { name: /^dashboard$/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   test('keeps a closed group’s pages away from the keyboard and assistive tech', async ({
     page,
   }) => {

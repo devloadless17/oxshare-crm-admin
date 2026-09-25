@@ -265,6 +265,13 @@ Rules the code relies on:
   arrival (link, Ctrl-K, notification, back button) paints the right group open first time.
 - **A group header is a button, never a link**, and only the page's link carries
   `aria-current` (`console-pages.spec.ts` counts exactly one inside the nav).
+- **ONE selected row** (`data-selected`), in ONE look (`bg-primary/10`, semibold, brand icon):
+  the main item opened on this page, else the one holding the page, else Dashboard. It used
+  to follow the page alone — opening System left Dashboard filled ("the old item keeps
+  showing as active") — and Dashboard was a SOLID fill unlike every other selection (both
+  reported). The current sub-page is MARKED (brand text), not filled; hover is neutral
+  (`bg-muted`), because a brand-tinted hover read as a second selection. The page keeps
+  `aria-current` whatever is selected. The portal shares the rule (`useNavSelection`).
 - **Closed panels are `inert` AND `invisible`.** Playwright's role engine ignores `inert`, so
   without `visibility: hidden` a folded link still answers `getByRole` and wins `.first()`.
   E2E that clicks a sidebar page goes through `openNavItem(page, group, link)` in

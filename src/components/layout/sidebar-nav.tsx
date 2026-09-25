@@ -71,17 +71,36 @@ export function SidebarNav({
   const [choice, setChoice] = React.useState<{ path: string | null; open: string | null } | null>(
     null,
   );
-  const openId = choice && choice.path === pathname ? choice.open : activeGroupId;
+  const choiceHere = choice && choice.path === pathname ? choice : null;
+  const openId = choiceHere ? choiceHere.open : activeGroupId;
+
+  /*
+   * THE ONE SELECTED ROW — the sidebar highlights exactly one main item.
+   *
+   * It is the main item the operator OPENED on this page, else the one holding
+   * the page, else the page itself when it sits at the top level (Dashboard).
+   *
+   * It used to follow the PAGE alone, so on the dashboard, opening System left
+   * Dashboard filled and System merely hovered — the owner's report: "the old
+   * item keeps showing as active". His old CRM moves the highlight to what you
+   * pick, and so does this. The page stays `aria-current` throughout: that is
+   * the truth a screen reader needs, whatever the operator is looking at.
+   *
+   * The rail has no accordion to open, so it selects by the page alone.
+   */
+  const selectedId = collapsed ? activeGroupId : (choiceHere?.open ?? activeGroupId);
 
   return (
     <>
       {entries.map((entry) => {
         if (!isNavGroup(entry)) {
+          const current = entry.href === activeHref;
           return (
             <NavLink
               key={entry.href}
               item={entry}
-              active={entry.href === activeHref}
+              current={current}
+              selected={current && selectedId === null}
               collapsed={collapsed}
               onNavigate={onNavigate}
               badge={badges[entry.href]}
@@ -94,6 +113,7 @@ export function SidebarNav({
             <RailGroupMenu
               key={entry.id}
               group={entry}
+              selected={selectedId === entry.id}
               activeHref={activeHref}
               badges={badges}
               onNavigate={onNavigate}
@@ -107,6 +127,7 @@ export function SidebarNav({
             key={entry.id}
             group={entry}
             open={open}
+            selected={selectedId === entry.id}
             onToggle={() => setChoice({ path: pathname, open: open ? null : entry.id })}
             activeHref={activeHref}
             badges={badges}
@@ -117,6 +138,20 @@ export function SidebarNav({
     </>
   );
 }
+
+/*
+ * ONE look for "selected", wherever it appears — the Dashboard row, a main item,
+ * a main item on the rail. The Dashboard used to be a SOLID fill while every
+ * other selection was a tint, so the two read as different states (reported).
+ *
+ * Hover is NEUTRAL (`bg-muted`), never the brand tint: a hovered row painted in
+ * the selection's colour was the second "active" item in the report's
+ * screenshot — the pointer resting on the System row it had just clicked.
+ */
+const SELECTED_ROW = 'bg-primary/10 font-semibold text-foreground';
+const IDLE_ROW = 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground';
+const SELECTED_ICON = 'text-link';
+const IDLE_ICON = 'text-muted-foreground group-hover:text-foreground';
 
 /**
  * A red count, because it is WORK WAITING rather than a label — the only thing
@@ -135,21 +170,27 @@ function CountBadge({ count }: { count: number }) {
 }
 
 /**
- * One page. At the top level (Dashboard) the current one is a solid fill; as a
- * SUB-page it is a tint with its icon in the accent colour, so a group's header
- * and the page under it never read as two competing selections — "in Finance,
- * on Deposits".
+ * One page.
+ *
+ * At the top level (Dashboard) it is a row that can be THE selected row. As a
+ * SUB-page, the current one is marked in the brand colour with no fill of its
+ * own: the main item above it carries the fill, so the eye reads "in Finance, on
+ * Deposits" — one selection and a place within it, not two selections.
  */
 function NavLink({
   item,
-  active,
+  current,
+  selected = false,
   collapsed,
   onNavigate,
   badge,
   nested = false,
 }: {
   item: NavLeaf;
-  active: boolean;
+  /** This link IS the page on screen — `aria-current`, whatever is selected. */
+  current: boolean;
+  /** This top-level row is the sidebar's one selected row. */
+  selected?: boolean;
   collapsed: boolean;
   onNavigate: () => void;
   badge?: number;
@@ -157,11 +198,14 @@ function NavLink({
 }) {
   const Icon = item.icon;
   const sub = nested && !collapsed;
-  const tone = active
-    ? sub
-      ? 'bg-primary/10 font-semibold text-foreground'
-      : 'bg-primary font-semibold text-primary-foreground'
-    : 'text-muted-foreground hover:bg-accent hover:text-foreground';
+  const marked = sub ? current : selected;
+  const tone = sub
+    ? current
+      ? 'font-semibold text-link hover:bg-muted'
+      : IDLE_ROW
+    : selected
+      ? SELECTED_ROW
+      : IDLE_ROW;
 
   return (
     <Link
@@ -174,18 +218,15 @@ function NavLink({
        * the group is where you are, the leaf is what you are on, and two
        * `aria-current`s in one nav is the sidebar contradicting itself.
        */
-      aria-current={active ? 'page' : undefined}
-      className={`group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 focus-outline ${
+      aria-current={current ? 'page' : undefined}
+      data-selected={!sub && selected ? 'true' : undefined}
+      className={`group relative flex items-center gap-3 rounded-lg text-sm transition-colors duration-150 focus-outline ${
         sub ? 'py-2 ps-4 pe-3' : 'px-3 py-2.5'
       } ${tone} ${collapsed ? 'justify-center px-0' : ''}`}
     >
       <Icon
         className={`shrink-0 transition-colors duration-150 ${sub ? 'h-4 w-4' : 'h-5 w-5'} ${
-          active
-            ? sub
-              ? 'text-link'
-              : 'text-primary-foreground'
-            : 'text-muted-foreground group-hover:text-link'
+          marked ? SELECTED_ICON : IDLE_ICON
         }`}
         aria-hidden="true"
       />
@@ -205,6 +246,7 @@ function NavLink({
 function NavGroupPanel({
   group,
   open,
+  selected,
   onToggle,
   activeHref,
   badges,
@@ -212,13 +254,14 @@ function NavGroupPanel({
 }: {
   group: NavGroup;
   open: boolean;
+  /** This main item is the sidebar's one selected row. */
+  selected: boolean;
   onToggle: () => void;
   activeHref: string | null;
   badges: NavBadges;
   onNavigate: () => void;
 }) {
   const Icon = group.icon;
-  const containsActive = group.items.some((item) => item.href === activeHref);
   const panelId = `nav-group-${group.id}`;
   /*
    * Only while CLOSED: open, the pages below carry their own counts, and the
@@ -233,15 +276,14 @@ function NavGroupPanel({
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={panelId}
+        data-selected={selected ? 'true' : undefined}
         className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 focus-outline ${
-          containsActive
-            ? 'bg-accent font-semibold text-foreground hover:bg-accent/80'
-            : 'font-medium text-muted-foreground hover:bg-accent hover:text-foreground'
+          selected ? SELECTED_ROW : IDLE_ROW
         }`}
       >
         <Icon
           className={`h-5 w-5 shrink-0 transition-colors duration-150 ${
-            containsActive ? 'text-link' : 'text-muted-foreground group-hover:text-link'
+            selected ? SELECTED_ICON : IDLE_ICON
           }`}
           aria-hidden="true"
         />
@@ -303,7 +345,7 @@ function NavGroupPanel({
               >
                 <NavLink
                   item={item}
-                  active={item.href === activeHref}
+                  current={item.href === activeHref}
                   collapsed={false}
                   onNavigate={onNavigate}
                   badge={badges[item.href]}
@@ -334,18 +376,20 @@ function NavGroupPanel({
  */
 function RailGroupMenu({
   group,
+  selected,
   activeHref,
   badges,
   onNavigate,
 }: {
   group: NavGroup;
+  /** Holds the page — the rail's one selected row. */
+  selected: boolean;
   activeHref: string | null;
   badges: NavBadges;
   onNavigate: () => void;
 }) {
   const Icon = group.icon;
   const label = t(group.label);
-  const containsActive = group.items.some((item) => item.href === activeHref);
   const waiting = groupBadgeTotal(group, badges);
   /*
    * The dot is `aria-hidden`, so the count it stands for is SAID in the name —
@@ -370,15 +414,14 @@ function RailGroupMenu({
           type="button"
           aria-label={name}
           title={name}
+          data-selected={selected ? 'true' : undefined}
           className={`group relative flex w-full cursor-pointer items-center justify-center rounded-lg py-2.5 transition-colors duration-150 focus-outline ${
-            containsActive
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            selected ? SELECTED_ROW : IDLE_ROW
           }`}
         >
           <Icon
             className={`h-5 w-5 shrink-0 transition-colors duration-150 ${
-              containsActive ? 'text-link' : 'text-muted-foreground group-hover:text-link'
+              selected ? SELECTED_ICON : IDLE_ICON
             }`}
             aria-hidden="true"
           />
