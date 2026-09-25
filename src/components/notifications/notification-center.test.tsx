@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { ALL_PERMISSIONS } from '@/test/permissions';
@@ -196,6 +196,18 @@ describe('a task', () => {
 
     await screen.findByText('Approve withdrawal');
     expect(screen.queryByRole('link', { name: /approve withdrawal/i })).not.toBeInTheDocument();
+  });
+
+  it('draws a kind this build does not know as a plain row, with no link and no crash', async () => {
+    list.mockResolvedValue(page([task({ kind: 'admin.future.kind', category: 'future' })]));
+    renderWithProviders(<NotificationBell />);
+    await openBell();
+
+    expect(await screen.findByText('Notification')).toBeInTheDocument();
+    expect(screen.getByText(/refresh the page to update/i)).toBeInTheDocument();
+    // The ROW links nowhere — nothing in this build knows where it is handled.
+    // (The panel's own "Open all notifications" footer link is not the row's.)
+    expect(within(screen.getByRole('listitem')).queryByRole('link')).not.toBeInTheDocument();
   });
 });
 

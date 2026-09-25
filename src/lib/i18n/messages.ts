@@ -3467,6 +3467,9 @@ export const messages = {
   'notifications.markAllReadFailed': 'Could not mark notifications as read.',
   'notifications.itemUnread': 'Unread',
   'notifications.fallbackTitle': 'Notification',
+  // A kind the backend knows and this build of the console does not — yet.
+  'notifications.fallbackBody':
+    'This version of the console cannot show it yet. Refresh the page to update.',
   'notifications.soundOn': 'Notification sound is on',
   'notifications.soundOff': 'Notification sound is off',
 

@@ -9,7 +9,7 @@ import { currentLocale, t } from '@/lib/i18n';
 import { canAccess } from '@/lib/permissions';
 import { relativeTime } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
-import { KIND_DISPLAY, lookOf, outcomeOf, pathOf } from './catalogue';
+import { displayOf, lookOf, outcomeOf, pathOf } from './catalogue';
 
 /**
  * One task, as the bell and the notifications page list it.
@@ -44,13 +44,14 @@ export function NotificationItem({
   comfortable?: boolean;
 }) {
   const { admin } = useAdmin();
-  const display = KIND_DISPLAY[item.kind];
+  const display = displayOf(item.kind);
   const { icon: Icon, tone } = lookOf(item);
   const unread = !item.readAt;
   const outcome = outcomeOf(item);
   const body = display.body(item);
   const href = display.href(item);
-  const canOpen = canAccess(admin, pathOf(href));
+  // An empty link is "nowhere to go" — a kind this build does not know.
+  const canOpen = href !== '' && canAccess(admin, pathOf(href));
   const title = t(display.titleKey);
   const byName = item.resolution?.byName;
 
