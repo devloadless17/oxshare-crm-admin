@@ -15,6 +15,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ExportButton } from '@/components/export-button';
+import { Badge } from '@/components/ui/badge';
 import {
   PaymentMethodFormModal,
   type PaymentMethodFormValues,
@@ -194,13 +195,19 @@ export default function PaymentMethodsPage() {
        * offering no receipt field and nobody could tell why.
        */
       header: t('paymentMethods.colFlow'),
+      /*
+       * BOTH flows are badges, through the shared `Badge` so the tint and the
+       * text come from one place. The offline one hand-built its pill with
+       * `text-warning-foreground` — the colour for text ON a SOLID warning
+       * fill, which is white in the light theme — over a 10% warning tint, so
+       * the label all but vanished. The gateway flow was bare grey text beside
+       * it, so the column read as one badge and one stray word.
+       */
       cell: (m) =>
         m.requiresProof ? (
-          <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning-foreground">
-            {t('paymentMethods.flowOffline')}
-          </span>
+          <Badge variant="warning">{t('paymentMethods.flowOffline')}</Badge>
         ) : (
-          <span className="text-xs text-muted-foreground">{t('paymentMethods.flowGateway')}</span>
+          <Badge variant="default">{t('paymentMethods.flowGateway')}</Badge>
         ),
     },
     {

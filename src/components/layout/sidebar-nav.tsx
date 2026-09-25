@@ -75,9 +75,9 @@ interface MenuPosition {
  * The console's sidebar: main items that open onto their pages.
  *
  * Modelled on the portal's `sidebar-nav.tsx` — the same classes, the same
- * motion, the same rule that a group is a BUTTON and never a link — so the two
- * apps read as one product. It is not a twin file: this one carries counts,
- * permissions and six groups where the portal has one.
+ * motion, and main items whose name opens a page while the arrow opens the
+ * list — so the two apps read as one product. It is not a twin file: this one
+ * carries counts, permissions and six groups where the portal has one.
  *
  * ## One group open at a time, and it follows the page
  *
@@ -314,9 +314,21 @@ function NavLink({
 /**
  * A main item and its pages, in the expanded sidebar and the phone drawer.
  *
- * The header is a BUTTON with `aria-expanded`: the group is not a place, and a
- * header that navigated on the same click that opens it would take the operator
- * somewhere they did not choose.
+ * ## Two controls in one row — the owner's call (25 Sep 2026)
+ *
+ * The NAME is a link to the section's main page — its first page this admin
+ * can open: Clients to All clients, Finance to All transactions, Security to
+ * the Audit log — and arriving there opens the list, because the list follows
+ * the page. The ARROW is a button that only opens or closes the list, so a
+ * section can still be looked into without leaving the page on screen.
+ *
+ * One click to each section's front door, where the header used to be a
+ * button only (two clicks to anywhere) — and none of the daily queues that sit
+ * second in a group (KYC review, Withdrawals, Applications) costs a detour
+ * through the first page, which a header that ONLY navigated would impose.
+ *
+ * The row is one selectable surface (`data-selected` on the row), so the
+ * highlight reads as one main item, not as two controls.
  */
 function NavGroupPanel({
   group,
@@ -338,6 +350,13 @@ function NavGroupPanel({
 }) {
   const Icon = group.icon;
   const panelId = `nav-group-${group.id}`;
+  const label = t(group.label);
+  /*
+   * The section's main page: its first page this admin can open (NAV's
+   * order). `visibleNav` drops a group with no page left, so there is one.
+   */
+  const home = group.items[0];
+  if (!home) return null;
   /*
    * Only while CLOSED: open, the pages below carry their own counts, and the
    * sum beside them would say the same thing twice.
@@ -346,37 +365,61 @@ function NavGroupPanel({
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-controls={panelId}
+      <div
         data-selected={selected ? 'true' : undefined}
-        className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 focus-outline ${
+        className={`group flex items-center rounded-lg text-sm transition-colors duration-150 ${
           selected ? SELECTED_ROW : IDLE_ROW
         }`}
       >
-        <Icon
-          className={`h-5 w-5 shrink-0 transition-colors duration-150 ${
-            selected ? SELECTED_ICON : IDLE_ICON
-          }`}
-          aria-hidden="true"
-        />
-        <span className="flex-1 truncate text-start">{t(group.label)}</span>
-        {waiting ? <CountBadge count={waiting} /> : null}
+        <Link
+          href={leafHref(home)}
+          onNavigate={() => onNavigate(home.href)}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-2.5 ps-3 pe-1 focus-outline"
+        >
+          <Icon
+            className={`h-5 w-5 shrink-0 transition-colors duration-150 ${
+              selected ? SELECTED_ICON : IDLE_ICON
+            }`}
+            aria-hidden="true"
+          />
+          <span className="flex-1 truncate text-start">{label}</span>
+        </Link>
         {/*
-          `motion-slide`: the menu opening is STRUCTURAL motion, so it keeps its
-          300ms under "reduce motion", like the sidebar's own collapse (see
-          globals.css). Without it the blanket reduced-motion rule makes the
-          arrow and the list snap.
+          Named for what it opens, starting with the section's name — "Finance
+          pages, 5 waiting, collapsed" to a screen reader. The closed group's
+          count rides HERE, not on the name: it says there is work inside, and
+          this is the control that shows where (Deposits 2, Withdrawals 3); on
+          the name it would have taken the operator to the main page instead,
+          and read as "Finance 5, link". Its own hover is a shade stronger than
+          the row's, so the pointer can see it is a second, separate target.
         */}
-        <ChevronDown
-          className={`motion-slide h-4 w-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            open ? 'rotate-180 text-foreground' : 'rotate-0'
-          }`}
-          aria-hidden="true"
-        />
-      </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-label={
+            waiting
+              ? t('nav.groupPagesWaiting', { group: label, count: String(waiting) })
+              : t('nav.groupPages', { group: label })
+          }
+          className="me-1 flex h-8 min-w-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 transition-colors duration-150 hover:bg-foreground/10 focus-outline"
+        >
+          {waiting ? <CountBadge count={waiting} /> : null}
+          {/*
+            `motion-slide`: the menu opening is STRUCTURAL motion, so it keeps
+            its 300ms under "reduce motion", like the sidebar's own collapse
+            (see globals.css). Without it the blanket reduced-motion rule makes
+            the arrow and the list snap.
+          */}
+          <ChevronDown
+            className={`motion-slide h-4 w-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              open ? 'rotate-180 text-foreground' : 'rotate-0'
+            }`}
+            aria-hidden="true"
+          />
+        </button>
+      </div>
       {/*
         ALWAYS MOUNTED, animated by its row height — mounting on open snaps,
         because there is nothing to transition FROM. A grid whose one row goes

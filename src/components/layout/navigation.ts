@@ -184,14 +184,19 @@ export const NAV: readonly NavEntry[] = [
     icon: Landmark,
     items: [
       /*
-       * The two desks first, because they are cleared daily — then the reads,
+       * The overview FIRST: a group's first page is where its name goes (see
+       * `sidebar-nav.tsx`), and Finance opens on every money movement,
+       * platform-wide — the owner's call, 25 Sep 2026. Read-only; the desks
+       * below act.
+       */
+      { label: 'nav.financial', href: '/financial', icon: ArrowLeftRight },
+      /*
+       * Then the two desks, because they are cleared daily — then the reads,
        * then the configuration. The arrows are the portal's own Deposit and
        * Withdraw icons, so the same money movement looks the same in both apps.
        */
       { label: 'nav.deposits', href: '/approvals/deposits', icon: ArrowDownToLine },
       { label: 'nav.withdrawals', href: '/transactions', icon: ArrowUpFromLine },
-      /* Every money movement, platform-wide — read-only; the desks above act. */
-      { label: 'nav.financial', href: '/financial', icon: ArrowLeftRight },
       { label: 'nav.wallets', href: '/wallets', icon: Wallet },
       /*
        * ADM-13, beside reconciliation because that is the order the questions
@@ -261,6 +266,12 @@ export const NAV: readonly NavEntry[] = [
     label: 'nav.group.security',
     icon: Shield,
     items: [
+      /*
+       * Who did what — FIRST, because Security's name opens its first page
+       * and the audit log is what the section is opened for (the owner's
+       * call, 25 Sep 2026).
+       */
+      { label: 'nav.auditLog', href: '/audit-log', icon: Activity },
       /* Machine credentials for the admin API: who may reach this console. */
       { label: 'nav.apiKeys', href: '/api-keys', icon: KeyRound },
       /*
@@ -270,7 +281,6 @@ export const NAV: readonly NavEntry[] = [
        * looks under Security, not beside the SMTP form.
        */
       { label: 'nav.networkAccess', href: '/network-access', icon: Globe },
-      { label: 'nav.auditLog', href: '/audit-log', icon: Activity },
     ],
   },
 ];

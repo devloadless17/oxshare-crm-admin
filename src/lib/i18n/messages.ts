@@ -138,6 +138,9 @@ export const messages = {
   // A main item on the collapsed rail, with the work waiting inside it — the
   // rail shows a dot, so the count has to be in the name.
   'nav.groupWaiting': '{group}, {count} waiting',
+  /** The arrow beside a main item: it opens that section's list of pages. */
+  'nav.groupPages': '{group} pages',
+  'nav.groupPagesWaiting': '{group} pages, {count} waiting',
   /*
    * "Search pages", because that is what it searches.
    *
