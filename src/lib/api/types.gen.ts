@@ -12257,6 +12257,8 @@ export interface operations {
                 kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
+                /** @description Clients introduced by this partner, by Portal ID — the same filter as the list, so the file matches the screen it was exported from. */
+                referredBy?: string;
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
             };
