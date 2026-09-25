@@ -25,7 +25,7 @@ function group(over: Partial<Mt5GroupRow> = {}): Mt5GroupRow {
     name: 'real\\Standard-USD',
     currency: 'USD',
     leverageDefault: 100,
-    product: { id: 'p-1', name: 'Standard', environment: 'live' },
+    products: [{ id: 'p-1', name: 'Standard', environment: 'live' }],
     accountCount: 12,
     ...over,
   };
@@ -39,7 +39,7 @@ beforeEach(() => {
       name: 'real\\ECN-EUR',
       currency: 'EUR',
       leverageDefault: null,
-      product: null,
+      products: [],
       accountCount: 0,
     }),
   ]);
@@ -53,6 +53,21 @@ describe('the MT5 groups page', () => {
     expect(screen.getByText('Standard · live')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('1:100')).toBeInTheDocument();
+  });
+
+  /* A group may back several products since backend 0142; all are named. */
+  it('names every product that sells a group', async () => {
+    getMt5GroupMirror.mockResolvedValue([
+      group({
+        products: [
+          { id: 'p-1', name: 'Standard', environment: 'live' },
+          { id: 'p-2', name: 'Premium', environment: 'live' },
+        ],
+      }),
+    ]);
+    renderWithProviders(<Mt5GroupsPage />);
+
+    expect(await screen.findByText('Standard · live, Premium · live')).toBeInTheDocument();
   });
 
   it('says so when no product sells a group', async () => {

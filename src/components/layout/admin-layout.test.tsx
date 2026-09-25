@@ -48,6 +48,13 @@ vi.mock('./use-nav-badges', () => ({ useNavBadges: () => badges.current }));
  * mocking this module partially — `usePathname` only — makes every other export
  * `undefined` rather than falling through to the real one.
  */
+/*
+ * `next/link` by its click contract (see the stand-in): the sidebar records
+ * where a click is going from `onNavigate`, which the real component calls only
+ * through a mounted app router — so without this, a click on a menu link here
+ * would do nothing the menu can see.
+ */
+vi.mock('next/link', () => import('@/test/next-link'));
 vi.mock('next/navigation', () => ({
   usePathname: () => route.pathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -74,6 +81,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   route.pathname = '/currencies';
   badges.current = {};
+  // The rail preference is REMEMBERED (localStorage), so each test starts from
+  // a clean browser rather than from whatever the last one collapsed.
+  window.localStorage.clear();
+  document.documentElement.dir = '';
 });
 
 describe('AdminLayout — a dead session renders nothing, not the page', () => {
@@ -302,6 +313,118 @@ describe('the sidebar is main items with sub-items', () => {
     expect(group('Security')).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('highlights exactly one row, and it moves to the main item you open', async () => {
+    const user = userEvent.setup();
+    route.pathname = '/dashboard';
+    renderWithProviders(layout());
+    const nav = screen.getByRole('navigation');
+    const selected = () => nav.querySelectorAll('[data-selected]');
+    const dashboard = within(nav).getByRole('link', { name: 'Dashboard' });
+
+    expect(selected()).toHaveLength(1);
+    expect(selected()[0]).toBe(dashboard);
+
+    // The owner's report: opening System left Dashboard showing as active.
+    await user.click(group('System'));
+    expect(selected()).toHaveLength(1);
+    expect(selected()[0]).toBe(group('System'));
+    // …while the PAGE is still the page, for a screen reader.
+    expect(dashboard).toHaveAttribute('aria-current', 'page');
+
+    // Closing it hands the selection back to where you are.
+    await user.click(group('System'));
+    expect(selected()).toHaveLength(1);
+    expect(selected()[0]).toBe(dashboard);
+  });
+
+  it('forgets an opened item once you move on — coming back does not revive it', async () => {
+    /*
+     * The reported sequence: open Trading on the dashboard, visit Products,
+     * return to the dashboard. The choice was remembered against the PATH, so
+     * the dashboard came back with Trading open and selected.
+     */
+    const user = userEvent.setup();
+    route.pathname = '/dashboard';
+    const { rerender } = renderWithProviders(layout());
+    await user.click(group('Trading'));
+    expect(group('Trading')).toHaveAttribute('data-selected', 'true');
+
+    route.pathname = '/products';
+    rerender(layout());
+    expect(group('Trading')).toHaveAttribute('aria-expanded', 'true');
+
+    route.pathname = '/dashboard';
+    rerender(layout());
+
+    const nav = screen.getByRole('navigation');
+    expect(group('Trading')).toHaveAttribute('aria-expanded', 'false');
+    expect(group('Trading')).not.toHaveAttribute('data-selected');
+    expect(nav.querySelectorAll('[data-selected]')).toHaveLength(1);
+    expect(within(nav).getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'data-selected',
+      'true',
+    );
+  });
+
+  it('hands the selection back to the page when you click the page you are on', async () => {
+    const user = userEvent.setup();
+    route.pathname = '/dashboard';
+    renderWithProviders(layout());
+    await user.click(group('System'));
+    expect(group('System')).toHaveAttribute('data-selected', 'true');
+
+    await user.click(
+      within(screen.getByRole('navigation')).getByRole('link', { name: 'Dashboard' }),
+    );
+
+    expect(group('System')).toHaveAttribute('aria-expanded', 'false');
+    expect(group('System')).not.toHaveAttribute('data-selected');
+    expect(
+      within(screen.getByRole('navigation')).getByRole('link', { name: 'Dashboard' }),
+    ).toHaveAttribute('data-selected', 'true');
+  });
+
+  it('selects the main item holding the page, and only MARKS the page inside it', () => {
+    renderWithProviders(layout());
+    const nav = screen.getByRole('navigation');
+
+    expect(nav.querySelectorAll('[data-selected]')).toHaveLength(1);
+    expect(group('Finance')).toHaveAttribute('data-selected', 'true');
+    const currencies = within(nav).getByRole('link', { name: 'Currencies' });
+    expect(currencies).toHaveAttribute('aria-current', 'page');
+    expect(currencies).not.toHaveAttribute('data-selected');
+  });
+
+  it('moves the selection off the page’s own main item when another is opened', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+
+    await user.click(group('Security'));
+
+    expect(group('Security')).toHaveAttribute('data-selected', 'true');
+    expect(group('Finance')).not.toHaveAttribute('data-selected');
+  });
+
+  it('gives Dashboard the same selected look as every other main item', () => {
+    // It was a SOLID fill while every other selection was a tint (reported).
+    route.pathname = '/dashboard';
+    const { unmount } = renderWithProviders(layout());
+    const dashboardLook = within(screen.getByRole('navigation')).getByRole('link', {
+      name: 'Dashboard',
+    }).className;
+    unmount();
+
+    route.pathname = '/currencies';
+    renderWithProviders(layout());
+    const financeLook = group('Finance').className;
+
+    for (const token of ['bg-primary/10', 'font-semibold', 'text-foreground']) {
+      expect(dashboardLook.split(/\s+/)).toContain(token);
+      expect(financeLook.split(/\s+/)).toContain(token);
+    }
+    expect(dashboardLook.split(/\s+/)).not.toContain('bg-primary');
+  });
+
   it('marks the page as current, and never the group around it', () => {
     renderWithProviders(layout());
 
@@ -352,7 +475,8 @@ describe('the sidebar is main items with sub-items', () => {
     await user.click(screen.getByRole('button', { name: /collapse the sidebar/i }));
 
     // No accordion on the rail: a named trigger per group, and no sub-page rows.
-    const trigger = screen.getByRole('button', { name: 'Finance' });
+    // The dot on the icon is decorative, so the waiting count is in the NAME.
+    const trigger = screen.getByRole('button', { name: 'Finance, 2 waiting' });
     expect(trigger).not.toHaveAttribute('aria-controls', 'nav-group-finance');
     expect(screen.queryByRole('link', { name: /deposits/i })).not.toBeInTheDocument();
 
@@ -366,6 +490,117 @@ describe('the sidebar is main items with sub-items', () => {
       'aria-current',
       'page',
     );
+  });
+
+  it('remembers the collapsed rail across a reload', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(layout());
+    await user.click(screen.getByRole('button', { name: /collapse the sidebar/i }));
+    unmount();
+
+    renderWithProviders(layout());
+    expect(screen.getByRole('button', { name: /expand the sidebar/i })).toBeInTheDocument();
+    // A rail group is a MENU trigger, not a panel toggle.
+    expect(screen.getByRole('button', { name: 'Finance' })).toHaveAttribute(
+      'aria-haspopup',
+      'menu',
+    );
+  });
+
+  it('opens the rail’s menus towards the page when the console is right-to-left', async () => {
+    const user = userEvent.setup();
+    document.documentElement.dir = 'rtl';
+    renderWithProviders(layout());
+    await user.click(screen.getByRole('button', { name: /collapse the sidebar/i }));
+
+    const trigger = screen.getByRole('button', { name: 'Finance' });
+    trigger.focus();
+    await user.keyboard('{Enter}');
+
+    const menu = await screen.findByRole('menu');
+    expect(menu).toHaveAttribute('data-side', 'left');
+    // …and reads right-to-left: Radix stamps its own `dir`, "ltr" by default.
+    expect(menu).toHaveAttribute('dir', 'rtl');
+  });
+});
+
+/**
+ * The PHONE drawer — the same navigation, behaving as the modal it is.
+ *
+ * Every assertion here was false before: both of its buttons were unlabelled
+ * icons, Escape did nothing, focus never entered it, and an operator who had
+ * collapsed the rail at a desk got an 80px column of icons inside it.
+ */
+describe('the phone drawer', () => {
+  const layout = () => (
+    <AdminLayout>
+      <p>page body</p>
+    </AdminLayout>
+  );
+
+  beforeEach(() => {
+    useAdmin.mockReturnValue({ admin: MASTER, isLoading: false, logout: vi.fn() });
+  });
+
+  it('opens from a named button that says what it controls', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+
+    const open = screen.getByRole('button', { name: 'Open the menu' });
+    expect(open).toHaveAttribute('aria-expanded', 'false');
+    expect(open).toHaveAttribute('aria-controls', 'console-sidebar');
+
+    await user.click(open);
+
+    expect(open).toHaveAttribute('aria-expanded', 'true');
+    const drawer = screen.getByRole('dialog', { name: 'Menu' });
+    expect(drawer).toHaveAttribute('aria-modal', 'true');
+    expect(drawer).toHaveAttribute('id', 'console-sidebar');
+    // Focus moved INTO the drawer rather than staying behind the overlay.
+    expect(drawer).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it('closes on Escape and hands focus back to the button that opened it', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+    const open = screen.getByRole('button', { name: 'Open the menu' });
+    await user.click(open);
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
+    expect(open).toHaveAttribute('aria-expanded', 'false');
+    expect(open).toHaveFocus();
+  });
+
+  it('closes from its own named Close button', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+    await user.click(screen.getByRole('button', { name: 'Open the menu' }));
+
+    await user.click(screen.getByRole('button', { name: 'Close the menu' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
+  });
+
+  it('shows the full tree even when the desktop rail is collapsed', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(layout());
+    await user.click(screen.getByRole('button', { name: /collapse the sidebar/i }));
+    // On the rail a group is a menu trigger…
+    expect(screen.getByRole('button', { name: 'Finance' })).toHaveAttribute(
+      'aria-haspopup',
+      'menu',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open the menu' }));
+
+    // …and in the drawer it is the full accordion: a toggle for its own panel.
+    const drawer = screen.getByRole('dialog', { name: 'Menu' });
+    const finance = within(drawer).getByRole('button', { name: /^finance/i });
+    expect(finance).toHaveAttribute('aria-controls', 'nav-group-finance');
+    expect(finance).toHaveAttribute('aria-expanded', 'true');
+    expect(within(drawer).getByRole('link', { name: 'Currencies' })).toBeInTheDocument();
   });
 });
 

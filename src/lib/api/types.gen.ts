@@ -5852,6 +5852,11 @@ export interface components {
              * @example Swing trading
              */
             name?: string;
+            /**
+             * Format: uuid
+             * @description The product the client chose, from GET /trading/accounts/self-service. A group may back several products (0142), so this identifies the offer — and the product decides the account’s commission type. Omitted, the first offered product carrying the group is used.
+             */
+            productId?: string;
             /** @example real\Standard */
             group?: string;
             /** @example 100 */
@@ -6236,6 +6241,11 @@ export interface components {
             userId: string;
             /** @example real\Standard */
             group: string;
+            /**
+             * Format: uuid
+             * @description The product to open the account under. Needed when the group is sold by more than one product; must sell the group.
+             */
+            productId?: string;
             /** @enum {string} */
             environment: "live" | "demo";
             /** @description Omit for the group default. MT5 clamps to what the group allows. */
@@ -6279,8 +6289,8 @@ export interface components {
              * @example 100
              */
             leverageDefault: number | null;
-            /** @description The product that sells this group, or null when no product claims it — in which case no client can open an account in it from the portal. */
-            product: components["schemas"]["Mt5GroupProductDto"] | null;
+            /** @description Every product that sells this group, by name — several since 0142. Empty when no product does, in which case no client can open an account in it from the portal. */
+            products: components["schemas"]["Mt5GroupProductDto"][];
             /**
              * @description How many trading accounts the CRM holds in this group.
              * @example 12
@@ -6649,7 +6659,7 @@ export interface components {
              * @example USD
              */
             currency: string;
-            /** @description True when another product already claims it. Shown disabled with the reason rather than hidden, so an operator can tell "not offered" from "already taken". */
+            /** @description True when some product already sells it. Informational since 0142 — a group may back several products — so the form notes it rather than refusing it. */
             claimed: boolean;
             /**
              * Format: date-time
@@ -7824,6 +7834,10 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             settledAt?: string | null;
+            /** @description A person must reconcile this payment. False on transfers. */
+            needsAttention: boolean;
+            /** @description WHY it needs attention, in words the operator can act on. Null when not flagged. */
+            attentionReason?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
         };
         AdminTransactionListResponseDto: {
@@ -13960,6 +13974,8 @@ export interface operations {
                 from?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 to?: string;
+                /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
+                attention?: "true";
             };
             header?: never;
             path?: never;
@@ -13995,6 +14011,8 @@ export interface operations {
                 from?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 to?: string;
+                /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
+                attention?: "true";
             };
             header?: never;
             path?: never;
@@ -14029,6 +14047,8 @@ export interface operations {
                 from?: string;
                 /** @description Inclusive, YYYY-MM-DD. */
                 to?: string;
+                /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
+                attention?: "true";
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;

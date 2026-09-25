@@ -360,6 +360,13 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    */
   { prefix: '/profile', requirement: null },
   { prefix: '/dashboard', requirement: null },
+  /*
+   * Every admin's own task list. Any authenticated admin may OPEN it; what it
+   * shows is decided per row by the server — the kinds this reader can act on
+   * now, about clients in their territory now (backend 0140) — so an admin
+   * with no task permission sees an empty inbox, not a closed door.
+   */
+  { prefix: '/notifications', requirement: null },
   // `requirement: null` is "any authenticated admin", stated rather than
   // assumed — the frontend counterpart of the backend's @AnyAdmin(reason).
   // These two are matched EXACTLY, not as prefixes: `path.startsWith('/' + '/')`

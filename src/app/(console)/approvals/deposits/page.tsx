@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, Inbox, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -18,6 +19,8 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { DepositReceiptCell } from '@/components/deposits/deposit-receipt-cell';
 import { DepositRejectDialog } from '@/components/deposits/deposit-reject-dialog';
 import { useDebounced } from '@/hooks/use-debounced';
+import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
+import { PageLoader } from '@/components/ui/loader';
 import { formatMoney } from '@/lib/money';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
@@ -53,6 +56,15 @@ const TABS = [
 const PAGE_SIZE = 25;
 
 export default function DepositApprovalsPage() {
+  // `useSearchParams()` needs a Suspense boundary at prerender, or the build fails.
+  return (
+    <Suspense fallback={<PageLoader label={t('deposits.loading')} />}>
+      <DepositApprovalsContent />
+    </Suspense>
+  );
+}
+
+function DepositApprovalsContent() {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -65,8 +77,9 @@ export default function DepositApprovalsPage() {
    * state would be a compile error here instead of a 400 at runtime.
    */
   const [state, setState] = React.useState<'pending' | 'success' | 'rejected'>('pending');
-  const [search, setSearch] = React.useState('');
   const [page, setPage] = React.useState(1);
+  // Seeded from `?q=` — a notification's link lands on this client's deposits.
+  const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
   const [rejectTarget, setRejectTarget] = React.useState<TransactionRow | null>(null);
   const debouncedSearch = useDebounced(search, 300);
 

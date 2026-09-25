@@ -68,23 +68,26 @@ export default function Mt5GroupsPage() {
       sortType: 'number',
     },
     {
-      header: t('mt5Groups.colProduct'),
+      header: t('mt5Groups.colProducts'),
       /*
+       * EVERY product that sells the group — several since backend 0142.
        * "Not assigned" is called out: a group no product sells is one no client
        * can open an account in from the portal, which is either intended or the
        * reason somebody is on this page.
        */
       cell: (group) =>
-        group.product === null ? (
+        group.products.length === 0 ? (
           <span className="text-muted-foreground">{t('mt5Groups.notSold')}</span>
         ) : (
-          t('mt5Groups.productEnv', {
-            product: group.product.name,
-            environment:
-              group.product.environment === 'live'
-                ? t('mt5Groups.envLive')
-                : t('mt5Groups.envDemo'),
-          })
+          group.products
+            .map((product) =>
+              t('mt5Groups.productEnv', {
+                product: product.name,
+                environment:
+                  product.environment === 'live' ? t('mt5Groups.envLive') : t('mt5Groups.envDemo'),
+              }),
+            )
+            .join(', ')
         ),
     },
     {

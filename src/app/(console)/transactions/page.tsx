@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, Check, Info, X } from 'lucide-react';
+import { ArrowUpRight, Check, CheckCircle2, Info, X } from 'lucide-react';
 import api from '@/lib/api';
 import type {
   RejectionReason,
@@ -22,7 +22,7 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
 import { PageLoader } from '@/components/ui/loader';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { useDebounced } from '@/hooks/use-debounced';
+import { useUrlSearch } from '@/hooks/use-url-search';
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import {
@@ -46,6 +46,7 @@ import { RowActions, type RowAction } from '@/components/row-actions';
  */
 import {
   CancelWithdrawalDialog,
+  isRetryableSubmission,
   RetryRivalButton,
   RivalStatusBadge,
 } from '@/components/transactions/withdrawal-rival';
@@ -54,6 +55,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
 import { ClientIdentity, clientName } from '@/components/clients/client-identity';
+import { ResolveAttentionDialog } from '@/components/financial/resolve-attention-dialog';
 
 /**
  * ADM-03 / §8.4 — the withdrawal approval queue.
@@ -245,13 +247,8 @@ function TransactionsPageContent() {
    * did not, and it is the one where "these are the payouts matching X" being
    * wrong costs the most.
    */
-  const [search, setSearch] = React.useState(url.get('q'));
-  const debouncedSearch = useDebounced(search, 300);
-  React.useEffect(() => {
-    if (debouncedSearch.trim() !== url.get('q')) {
-      url.set({ q: debouncedSearch.trim() || undefined, page: undefined });
-    }
-  }, [debouncedSearch, url]);
+  // Both directions, and a link followed while on the desk wins — see the hook.
+  const { search, setSearch, term: debouncedSearch } = useUrlSearch(url);
 
   const [rejectTarget, setRejectTarget] = React.useState<WithdrawalRow | null>(null);
   /* The row whose details are open — always reachable. */
@@ -259,6 +256,7 @@ function TransactionsPageContent() {
   /* The `approved` row being cancelled — the rail lifecycle's "thought better
      of it" path (D-66). The dialog owns its own reason state. */
   const [cancelTarget, setCancelTarget] = React.useState<WithdrawalRow | null>(null);
+  const [resolveTarget, setResolveTarget] = React.useState<WithdrawalRow | null>(null);
 
   const confirm = useConfirm();
 
@@ -696,6 +694,20 @@ function TransactionsPageContent() {
           }
         }
 
+        /*
+         * Mark resolved — a payout the two platforms disagree about, which
+         * only a person reading both can settle. Never on the retryable case:
+         * clearing that flag would hide a payout that was never sent.
+         */
+        if (w.rivalNeedsAttention && canSettle && !isRetryableSubmission(w)) {
+          items.push({
+            label: t('attention.resolve'),
+            icon: CheckCircle2,
+            disabled: busy,
+            onSelect: () => setResolveTarget(w),
+          });
+        }
+
         items.push({
           label: t('withdrawals.detailsAction'),
           icon: Info,
@@ -870,6 +882,21 @@ function TransactionsPageContent() {
       <CancelWithdrawalDialog
         target={cancelTarget}
         onClose={() => setCancelTarget(null)}
+        onDone={invalidate}
+      />
+
+      <ResolveAttentionDialog
+        target={
+          resolveTarget && {
+            id: resolveTarget.id,
+            direction: 'withdrawal',
+            amount: resolveTarget.amount,
+            currency: resolveTarget.currency,
+            reason: resolveTarget.rivalAttentionReason,
+            portalId: resolveTarget.user.portalId,
+          }
+        }
+        onClose={() => setResolveTarget(null)}
         onDone={invalidate}
       />
 

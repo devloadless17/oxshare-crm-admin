@@ -110,10 +110,18 @@ function AdminLoginForm() {
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="flex flex-col items-center space-y-2 text-center">
-          {/* Drawn inline (brand-logo.tsx): no file request, official colours. */}
-          <BrandLogo variant="mark" title={t('app.name')} className="h-11 w-auto" />
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {t('app.name')} <span className="text-muted-foreground">{t('app.adminSuffix')}</span>
+          {/*
+            The brand's own WORDMARK, with the console named beneath it. This
+            was the mark with "OXShare" TYPED beside it in the UI font — an
+            approximation of the logo next to the logo, the same defect the
+            portal's KYC header was reported for (25 Sep 2026). Drawn inline
+            (brand-logo.tsx); its title makes the heading read "OXShare Admin".
+          */}
+          <h1 className="flex flex-col items-center gap-2">
+            <BrandLogo title={t('app.name')} className="h-12 w-auto" />
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              {t('app.adminSuffix')}
+            </span>
           </h1>
           <p className="text-xs text-muted-foreground">{t('login.subtitle')}</p>
         </div>

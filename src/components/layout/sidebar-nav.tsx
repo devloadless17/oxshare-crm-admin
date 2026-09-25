@@ -14,6 +14,7 @@ import {
 import { t } from '@/lib/i18n';
 import {
   groupBadgeTotal,
+  groupOf,
   isNavGroup,
   leafHref,
   type NavBadges,
@@ -21,6 +22,54 @@ import {
   type NavGroup,
   type NavLeaf,
 } from './navigation';
+
+/**
+ * Where the menu stands: the page it shows as current, and the main item the
+ * operator opened, if they opened one.
+ *
+ * ## It shows where the operator is GOING, from the click
+ *
+ * A navigation is not instant. The router keeps the old page on screen until
+ * the new one is ready — a round trip in production, seconds while dev compiles
+ * a route — and `pathname` changes only when it lands. The menu used to forget
+ * the operator's choice on the click and wait for `pathname`, so for that whole
+ * window it fell back to the page being LEFT: the main item you had just
+ * clicked in folded shut and opened again, or the previous main item lit up
+ * before the right one (reported: "it closes the expanded menu then expands it
+ * again… makes another main item active for milliseconds"). A click now records
+ * where it is going and the menu shows that page at once, so when the page
+ * lands, nothing on the menu moves.
+ *
+ * Recorded from `next/link`'s `onNavigate`, never `onClick`: it runs only when
+ * the router really navigates THIS tab, so a Ctrl/⌘-click or a middle click —
+ * the page opening in a new tab — leaves this menu describing this tab.
+ *
+ * A second click before the first page lands OVERTAKES it, and the router can
+ * still show the overtaken page on the way (seen live: Deposits, then
+ * Withdrawals a moment later, and the Deposits page landed first). That page is
+ * an echo of a click the operator already replaced, so the menu keeps showing
+ * the latest one instead of flicking back to it.
+ *
+ * ## A choice lasts until the operator goes somewhere
+ *
+ * Opening a main item is a choice about the page on screen. Any navigation
+ * clears it — a click in this menu, or the page changing under it (the
+ * palette, a link in the page, the back button) — so a choice made two pages
+ * ago never comes back (reported: "I'm on the dashboard but the old active
+ * item keeps showing as active"). One exception: a main item opened while a
+ * click's page was on its way is a choice about the page that arrives, and is
+ * kept.
+ */
+interface MenuPosition {
+  /** The `pathname` this position was last reconciled with. */
+  path: string | null;
+  /** The page a click in this menu is taking the operator to, until it lands. */
+  heading?: string;
+  /** Pages of earlier clicks that `heading` overtook, oldest first — they may still land. */
+  overtaken?: readonly string[];
+  /** The main item the operator opened; `null` closed them all; absent follows the page. */
+  open?: string | null;
+}
 
 /**
  * The console's sidebar: main items that open onto their pages.
@@ -36,14 +85,12 @@ import {
  * keeps the menu short enough to show every main item without scrolling, which
  * is most of what "I know where things are" means.
  *
- * The open group is DERIVED, not synced in an effect:
- *
- *     open = choice made on this path ? that choice : the group holding the page
- *
- * so arriving anywhere — a link, the command palette, a notification, the back
- * button — renders the right group open on the first paint, and a click only
- * overrides it until the next navigation. An effect keyed on `pathname` would
- * paint the stale group for one frame and then move it under the pointer.
+ * The open group is DERIVED, not synced in an effect — the group holding the
+ * page the menu shows, unless the operator opened another (`MenuPosition`) —
+ * so arriving anywhere (a link, the command palette, a notification, the back
+ * button) renders the right group open on the first paint. An effect keyed on
+ * `pathname` would paint the stale group for one frame and then move it under
+ * the pointer.
  */
 export function SidebarNav({
   entries,
@@ -62,28 +109,72 @@ export function SidebarNav({
   badges: NavBadges;
   onNavigate: () => void;
 }) {
-  const activeGroupId =
-    entries.find(
-      (entry): entry is NavGroup =>
-        isNavGroup(entry) && entry.items.some((item) => item.href === activeHref),
-    )?.id ?? null;
+  const [position, setPosition] = React.useState<MenuPosition>({ path: pathname });
+  let here = position;
+  if (position.path !== pathname) {
+    /*
+     * The page changed. Adjusted while rendering — React's pattern for state
+     * that resets when a prop changes — so a stale position is never painted,
+     * and no effect paints it for a frame first.
+     */
+    const echo = pathname === null ? -1 : (position.overtaken?.indexOf(pathname) ?? -1);
+    here =
+      position.heading !== undefined && position.heading === pathname
+        ? { path: pathname, open: position.open }
+        : echo >= 0
+          ? { ...position, path: pathname, overtaken: position.overtaken?.slice(echo + 1) }
+          : { path: pathname };
+    setPosition(here);
+  }
 
-  const [choice, setChoice] = React.useState<{ path: string | null; open: string | null } | null>(
-    null,
-  );
-  const openId = choice && choice.path === pathname ? choice.open : activeGroupId;
+  /* The page the menu shows: where a click in it is going, else the page on screen. */
+  const shownHref = here.heading ?? activeHref;
+  const activeGroupId = groupOf(shownHref, entries)?.id ?? null;
+  const openId = here.open === undefined ? activeGroupId : here.open;
+  const toggle = (id: string) => setPosition({ ...here, open: openId === id ? null : id });
+  /*
+   * A click on any page in the menu — even the page already on screen — hands
+   * the selection to that page. Clicking Dashboard on the dashboard after
+   * peeking into Trading has to put the highlight back on Dashboard.
+   */
+  const go = (href: string) => {
+    const overtaken =
+      here.heading !== undefined && here.heading !== href
+        ? [...(here.overtaken ?? []), here.heading]
+        : here.overtaken;
+    setPosition({ path: here.path, heading: href, overtaken });
+    onNavigate();
+  };
+
+  /*
+   * THE ONE SELECTED ROW — the sidebar highlights exactly one main item.
+   *
+   * It is the main item the operator OPENED on this page, else the one holding
+   * the page, else the page itself when it sits at the top level (Dashboard).
+   *
+   * It used to follow the PAGE alone, so on the dashboard, opening System left
+   * Dashboard filled and System merely hovered — the owner's report: "the old
+   * item keeps showing as active". His old CRM moves the highlight to what you
+   * pick, and so does this. The page stays `aria-current` throughout: that is
+   * the truth a screen reader needs, whatever the operator is looking at.
+   *
+   * The rail has no accordion to open, so it selects by the page alone.
+   */
+  const selectedId = collapsed ? activeGroupId : (here.open ?? activeGroupId);
 
   return (
     <>
       {entries.map((entry) => {
         if (!isNavGroup(entry)) {
+          const current = entry.href === shownHref;
           return (
             <NavLink
               key={entry.href}
               item={entry}
-              active={entry.href === activeHref}
+              current={current}
+              selected={current && selectedId === null}
               collapsed={collapsed}
-              onNavigate={onNavigate}
+              onNavigate={() => go(entry.href)}
               badge={badges[entry.href]}
             />
           );
@@ -94,29 +185,44 @@ export function SidebarNav({
             <RailGroupMenu
               key={entry.id}
               group={entry}
-              activeHref={activeHref}
+              selected={selectedId === entry.id}
+              activeHref={shownHref}
               badges={badges}
-              onNavigate={onNavigate}
+              onNavigate={go}
             />
           );
         }
 
-        const open = openId === entry.id;
         return (
           <NavGroupPanel
             key={entry.id}
             group={entry}
-            open={open}
-            onToggle={() => setChoice({ path: pathname, open: open ? null : entry.id })}
-            activeHref={activeHref}
+            open={openId === entry.id}
+            selected={selectedId === entry.id}
+            onToggle={() => toggle(entry.id)}
+            activeHref={shownHref}
             badges={badges}
-            onNavigate={onNavigate}
+            onNavigate={go}
           />
         );
       })}
     </>
   );
 }
+
+/*
+ * ONE look for "selected", wherever it appears — the Dashboard row, a main item,
+ * a main item on the rail. The Dashboard used to be a SOLID fill while every
+ * other selection was a tint, so the two read as different states (reported).
+ *
+ * Hover is NEUTRAL (`bg-muted`), never the brand tint: a hovered row painted in
+ * the selection's colour was the second "active" item in the report's
+ * screenshot — the pointer resting on the System row it had just clicked.
+ */
+const SELECTED_ROW = 'bg-primary/10 font-semibold text-foreground';
+const IDLE_ROW = 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground';
+const SELECTED_ICON = 'text-link';
+const IDLE_ICON = 'text-muted-foreground group-hover:text-foreground';
 
 /**
  * A red count, because it is WORK WAITING rather than a label — the only thing
@@ -135,21 +241,30 @@ function CountBadge({ count }: { count: number }) {
 }
 
 /**
- * One page. At the top level (Dashboard) the current one is a solid fill; as a
- * SUB-page it is a tint with its icon in the accent colour, so a group's header
- * and the page under it never read as two competing selections — "in Finance,
- * on Deposits".
+ * One page.
+ *
+ * At the top level (Dashboard) it is a row that can be THE selected row. As a
+ * SUB-page, the current one is marked in the brand colour with no fill of its
+ * own: the main item above it carries the fill, so the eye reads "in Finance, on
+ * Deposits" — one selection and a place within it, not two selections.
  */
 function NavLink({
   item,
-  active,
+  current,
+  selected = false,
   collapsed,
   onNavigate,
   badge,
   nested = false,
 }: {
   item: NavLeaf;
-  active: boolean;
+  /**
+   * This link IS the page — the one on screen, or the one a click in the menu
+   * is taking the operator to — so `aria-current`, whatever is selected.
+   */
+  current: boolean;
+  /** This top-level row is the sidebar's one selected row. */
+  selected?: boolean;
   collapsed: boolean;
   onNavigate: () => void;
   badge?: number;
@@ -157,16 +272,20 @@ function NavLink({
 }) {
   const Icon = item.icon;
   const sub = nested && !collapsed;
-  const tone = active
-    ? sub
-      ? 'bg-primary/10 font-semibold text-foreground'
-      : 'bg-primary font-semibold text-primary-foreground'
-    : 'text-muted-foreground hover:bg-accent hover:text-foreground';
+  const marked = sub ? current : selected;
+  const tone = sub
+    ? current
+      ? 'font-semibold text-link hover:bg-muted'
+      : IDLE_ROW
+    : selected
+      ? SELECTED_ROW
+      : IDLE_ROW;
 
   return (
     <Link
       href={leafHref(item)}
-      onClick={onNavigate}
+      /* Not `onClick` — see `MenuPosition`: a click that opens a new tab is not a navigation here. */
+      onNavigate={onNavigate}
       title={collapsed ? t(item.label) : undefined}
       /*
        * Which page you are on, said rather than only shown — the one thing a
@@ -174,18 +293,15 @@ function NavLink({
        * the group is where you are, the leaf is what you are on, and two
        * `aria-current`s in one nav is the sidebar contradicting itself.
        */
-      aria-current={active ? 'page' : undefined}
-      className={`group relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 focus-outline ${
+      aria-current={current ? 'page' : undefined}
+      data-selected={!sub && selected ? 'true' : undefined}
+      className={`group relative flex items-center gap-3 rounded-lg text-sm transition-colors duration-150 focus-outline ${
         sub ? 'py-2 ps-4 pe-3' : 'px-3 py-2.5'
       } ${tone} ${collapsed ? 'justify-center px-0' : ''}`}
     >
       <Icon
         className={`shrink-0 transition-colors duration-150 ${sub ? 'h-4 w-4' : 'h-5 w-5'} ${
-          active
-            ? sub
-              ? 'text-link'
-              : 'text-primary-foreground'
-            : 'text-muted-foreground group-hover:text-link'
+          marked ? SELECTED_ICON : IDLE_ICON
         }`}
         aria-hidden="true"
       />
@@ -205,6 +321,7 @@ function NavLink({
 function NavGroupPanel({
   group,
   open,
+  selected,
   onToggle,
   activeHref,
   badges,
@@ -212,13 +329,14 @@ function NavGroupPanel({
 }: {
   group: NavGroup;
   open: boolean;
+  /** This main item is the sidebar's one selected row. */
+  selected: boolean;
   onToggle: () => void;
   activeHref: string | null;
   badges: NavBadges;
-  onNavigate: () => void;
+  onNavigate: (href: string) => void;
 }) {
   const Icon = group.icon;
-  const containsActive = group.items.some((item) => item.href === activeHref);
   const panelId = `nav-group-${group.id}`;
   /*
    * Only while CLOSED: open, the pages below carry their own counts, and the
@@ -233,15 +351,14 @@ function NavGroupPanel({
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={panelId}
+        data-selected={selected ? 'true' : undefined}
         className={`group flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 focus-outline ${
-          containsActive
-            ? 'bg-accent font-semibold text-foreground hover:bg-accent/80'
-            : 'font-medium text-muted-foreground hover:bg-accent hover:text-foreground'
+          selected ? SELECTED_ROW : IDLE_ROW
         }`}
       >
         <Icon
           className={`h-5 w-5 shrink-0 transition-colors duration-150 ${
-            containsActive ? 'text-link' : 'text-muted-foreground group-hover:text-link'
+            selected ? SELECTED_ICON : IDLE_ICON
           }`}
           aria-hidden="true"
         />
@@ -303,9 +420,9 @@ function NavGroupPanel({
               >
                 <NavLink
                   item={item}
-                  active={item.href === activeHref}
+                  current={item.href === activeHref}
                   collapsed={false}
-                  onNavigate={onNavigate}
+                  onNavigate={() => onNavigate(item.href)}
                   badge={badges[item.href]}
                   nested
                 />
@@ -334,36 +451,52 @@ function NavGroupPanel({
  */
 function RailGroupMenu({
   group,
+  selected,
   activeHref,
   badges,
   onNavigate,
 }: {
   group: NavGroup;
+  /** Holds the page — the rail's one selected row. */
+  selected: boolean;
   activeHref: string | null;
   badges: NavBadges;
-  onNavigate: () => void;
+  onNavigate: (href: string) => void;
 }) {
   const Icon = group.icon;
   const label = t(group.label);
-  const containsActive = group.items.some((item) => item.href === activeHref);
   const waiting = groupBadgeTotal(group, badges);
+  /*
+   * The dot is `aria-hidden`, so the count it stands for is SAID in the name —
+   * otherwise a screen reader hears "Finance, button" over a queue of fourteen.
+   */
+  const name = waiting ? t('nav.groupWaiting', { group: label, count: String(waiting) }) : label;
+  /*
+   * The menu opens TOWARDS the page, and reads in the page's direction. The
+   * rail sits on the inline START edge — the right-hand side under
+   * `dir="rtl"` — and Radix places `side` physically. Radix also stamps its
+   * own `dir` on the menu, defaulting to "ltr" with no provider, so without
+   * the prop an Arabic console got a mirrored rail opening a left-to-right
+   * menu. Both are read from the document rather than assumed.
+   */
+  const rtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
+  const side = rtl ? 'left' : 'right';
 
   return (
-    <DropdownMenu>
+    <DropdownMenu dir={rtl ? 'rtl' : 'ltr'}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={label}
-          title={label}
+          aria-label={name}
+          title={name}
+          data-selected={selected ? 'true' : undefined}
           className={`group relative flex w-full cursor-pointer items-center justify-center rounded-lg py-2.5 transition-colors duration-150 focus-outline ${
-            containsActive
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            selected ? SELECTED_ROW : IDLE_ROW
           }`}
         >
           <Icon
             className={`h-5 w-5 shrink-0 transition-colors duration-150 ${
-              containsActive ? 'text-link' : 'text-muted-foreground group-hover:text-link'
+              selected ? SELECTED_ICON : IDLE_ICON
             }`}
             aria-hidden="true"
           />
@@ -377,7 +510,7 @@ function RailGroupMenu({
           ) : null}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="start" sideOffset={12} className="min-w-56">
+      <DropdownMenuContent side={side} align="start" sideOffset={12} className="min-w-56">
         <DropdownMenuLabel>{label}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {group.items.map((item) => {
@@ -388,7 +521,7 @@ function RailGroupMenu({
             <DropdownMenuItem key={item.href} asChild>
               <Link
                 href={leafHref(item)}
-                onClick={onNavigate}
+                onNavigate={() => onNavigate(item.href)}
                 aria-current={active ? 'page' : undefined}
                 className={active ? 'bg-primary/10 font-semibold text-foreground' : undefined}
               >

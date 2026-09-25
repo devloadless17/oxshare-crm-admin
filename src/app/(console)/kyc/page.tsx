@@ -1,7 +1,7 @@
 'use client';
 
 import { clientLabel } from '@/components/clients/client-identity';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import type { components } from '@/lib/api/types.gen';
 import { ChevronRight, FileCheck } from 'lucide-react';
@@ -11,7 +11,7 @@ import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { CopyableId } from '@/components/copyable-id';
 import { ExportButton } from '@/components/export-button';
-import { useDebounced } from '@/hooks/use-debounced';
+import { useUrlSearch } from '@/hooks/use-url-search';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { KYC_SORT_KEYS, type KycSortKey } from '@/lib/api/admin';
 import { t } from '@/lib/i18n';
@@ -187,13 +187,8 @@ function KycQueue() {
    * It starts from the URL so a refresh keeps the term, and the effect below
    * writes the debounced value back so the URL stays the shareable truth.
    */
-  const [search, setSearch] = useState(url.get('q'));
-  const debouncedSearch = useDebounced(search.trim());
-  useEffect(() => {
-    if (debouncedSearch !== url.get('q')) {
-      url.set({ q: debouncedSearch || undefined, page: undefined });
-    }
-  }, [debouncedSearch, url]);
+  // Both directions, and a link followed while on the queue wins — see the hook.
+  const { search, setSearch, term: debouncedSearch } = useUrlSearch(url);
   /**
    * The sort, as the API's own two parameters.
    *

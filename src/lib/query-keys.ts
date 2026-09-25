@@ -235,10 +235,14 @@ export const keys = {
     actions: () => ['audit-log', 'actions'] as const,
   },
 
+  /** The admin bell: a list of TASKS. The badge (`summary`) shares the root
+   *  with every feed, so one invalidate of `all()` moves both — the rule above. */
   notifications: {
     all: () => ['notifications'] as const,
     list: () => ['notifications', 'list'] as const,
     unreadCount: () => ['notifications', 'unread-count'] as const,
+    feed: (params: Params) => ['notifications', 'feed', params] as const,
+    summary: () => ['notifications', 'summary'] as const,
   },
 
   /** Settings forms. Invalidated by their own save and by nothing else: a
@@ -269,7 +273,7 @@ type KeyFactory = (...args: never[]) => readonly unknown[];
  * Every key this app can address, as a union of tuple types.
  *
  * This is what turns a dead key into a COMPILE error rather than a silent
- * no-op: `queryKeysFor` (notification-kinds.ts) is typed to return these, so
+ * no-op: `queryKeysFor` (notifications/realtime-keys.ts) is typed to return these, so
  * an invented `['admin','partner-applications']` no longer type-checks.
  */
 export type AdminQueryKey<T = typeof keys> = T extends KeyFactory

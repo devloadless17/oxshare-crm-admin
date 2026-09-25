@@ -299,6 +299,9 @@ export const CONSOLE_PAGES = [
   '/ledger',
   '/api-keys',
   '/profile',
+  // The bell's full page (backend 0140): every task names its client by
+  // Portal ID, and must never print or link a uuid.
+  '/notifications',
 ] as const;
 
 /** Where each signed-in session is cached between specs. See `auth.setup.ts`. */
@@ -902,20 +905,21 @@ export async function registerClientWithPendingKyc(
   const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
 
   /*
-   * LETTERS ONLY in both names. Since the single client profile (backend 0139,
-   * 25 Sep 2026) a name is validated as it appears on an ID — letters, marks,
-   * spaces, hyphens, apostrophes — and "E2e" carries a digit, so every
-   * registration here answered 400 and the realtime spec failed before its
-   * first frame. The label keeps its letters and hyphens and loses the rest.
+   * LETTERS ONLY in both names, and ONE copy of them. Since the single client
+   * profile (backend 0139, 25 Sep 2026) a name is validated as it appears on an
+   * ID — letters, marks, spaces, hyphens, apostrophes — and "E2e" carries a
+   * digit: registration answered 400 and, once that was fixed, the KYC personal
+   * step (which writes the same profile) answered 400 in its place. Both calls
+   * read this object now, so they cannot disagree again. The label keeps its
+   * letters and hyphens and loses the rest.
    */
+  const name = {
+    firstName: 'Endtoend',
+    lastName: label.replace(/[^\p{L} '-]/gu, '') || 'Client',
+  };
   const registered = await portal.post(`${API_NODE_BASE}/auth/register`, {
     headers: origin,
-    data: {
-      email,
-      password,
-      firstName: 'Endtoend',
-      lastName: label.replace(/[^\p{L} '-]/gu, '') || 'Client',
-    },
+    data: { email, password, ...name },
   });
   requirePrecondition(registered.status() === 429, 'registration is rate limited right now (10/h)');
   expect(registered.ok(), `register answered ${registered.status()}`).toBe(true);
@@ -958,13 +962,21 @@ export async function registerClientWithPendingKyc(
    * inside it removes the protection from production to make CI green, which
    * is the wrong trade on a system that accepts identity documents.
    */
-  const upload = async (field: string): Promise<void> => {
+  /*
+   * The DOCUMENT TYPE rides on the upload. Since the 24 Sep KYC overhaul a step
+   * stores only its configured string fields, so a `docType` sent with the step
+   * is dropped — the choice was never made, and submission answered 400 "Proof
+   * of address is required." The portal's own helper (`uploadKycFile`) already
+   * sends it this way; this one had been left behind.
+   */
+  const upload = async (field: string, docType?: string): Promise<void> => {
     const send = () =>
       portal.post(`${API_NODE_BASE}/kyc/upload`, {
         headers: write,
         multipart: {
           file: { name: `${field}.png`, mimeType: 'image/png', buffer: TINY_PNG },
           field,
+          ...(docType ? { docType } : {}),
         },
       });
     let res = await send();
@@ -977,8 +989,7 @@ export async function registerClientWithPendingKyc(
   expect(
     (
       await step('personal', {
-        firstName: 'E2e',
-        lastName: label,
+        ...name,
         dateOfBirth: '1988-08-08',
         phone: '+96170000010',
         nationality: 'Lebanese',
@@ -986,11 +997,50 @@ export async function registerClientWithPendingKyc(
       })
     ).ok(),
   ).toBe(true);
-  expect((await step('document', { docType: 'passport' })).ok()).toBe(true);
-  for (const field of ['doc_front', 'selfie']) await upload(field);
-  expect((await step('address', { docType: 'utility_bill' })).ok()).toBe(true);
-  await upload('address_proof');
-  expect((await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write })).ok()).toBe(true);
+  expect((await step('document', {})).ok()).toBe(true);
+  await upload('doc_front', 'passport');
+  await upload('selfie');
+  expect((await step('address', {})).ok()).toBe(true);
+  await upload('address_proof', 'utility_bill');
+
+  /*
+   * WHATEVER ELSE THE BROKER CONFIGURED. The builder lets an operator add a
+   * required upload or question to any step — a development database's Proof
+   * of Address step carries one — and a helper that knew only the shipped
+   * defaults had every submission refused, which reads as a broken feature in
+   * whichever spec happened to mint the client. So the LIVE configuration is
+   * read, and every required field on an enabled step that the defaults above
+   * did not already answer is answered: a file gets the tiny PNG, a question a
+   * plausible value. The personal step is the profile, answered above.
+   */
+  const answeredByDefault = new Set(['doc_front', 'doc_back', 'selfie', 'address_proof']);
+  const configured = (await (
+    await portal.get(`${API_NODE_BASE}/kyc/config`, { headers: origin })
+  ).json()) as {
+    slug: string;
+    fields?: { name: string; type: string; required?: boolean; options?: string[] }[];
+  }[];
+  for (const configuredStep of configured) {
+    if (configuredStep.slug === 'personal') continue;
+    const answers: Record<string, string> = {};
+    for (const field of configuredStep.fields ?? []) {
+      if (!field.required || answeredByDefault.has(field.name)) continue;
+      // A document CHOICE is made by the uploads above, never typed.
+      if (field.type === 'doc') continue;
+      if (field.type === 'file' || field.type === 'camera') await upload(field.name);
+      else if (field.type === 'select') answers[field.name] = field.options?.[0] ?? 'E2E';
+      else if (field.type === 'date') answers[field.name] = '1990-01-01';
+      else answers[field.name] = 'Endtoend answer';
+    }
+    if (Object.keys(answers).length > 0) {
+      const answered = await step(configuredStep.slug, answers);
+      expect(answered.ok(), `answering ${configuredStep.slug}: ${answered.status()}`).toBe(true);
+    }
+  }
+
+  const submitted = await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write });
+  // The refusal's own sentence on failure — "…is required" names the field.
+  expect(submitted.ok(), `KYC submission answered ${await submitted.text()}`).toBe(true);
 
   const id = await clientIdByEmail(admin, email);
   return { portal, csrf, email, id, dispose: () => portal.dispose() };
