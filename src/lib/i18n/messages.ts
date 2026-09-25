@@ -1085,7 +1085,6 @@ export const messages = {
   // ── Positions ─────────────────────────────────────────────────────────────
   'clientProfile.tabPositions': 'Positions',
   'clientProfile.tabHistory': 'History',
-  'clientProfile.posOpenTitle': 'Open positions',
   'clientProfile.posClosedTitle': 'Closed positions',
   'clientProfile.posSymbol': 'Symbol',
   'clientProfile.posSide': 'Side',
@@ -1093,16 +1092,15 @@ export const messages = {
   'clientProfile.posAccount': 'Account',
   'clientProfile.posOpenPrice': 'Open',
   'clientProfile.posClosePrice': 'Close',
-  // Two headings for ONE column: `positions.profit` is the floating result while
-  // a trade is open and the realised one once it closes. Splitting the tables by
-  // status is what lets each say which it is showing.
-  'clientProfile.posFloating': 'Floating P/L',
   'clientProfile.posRealised': 'Realised P/L',
+  // MT5's own charges on the trade, taken on top of its result.
+  'clientProfile.posCommission': 'Commission',
+  'clientProfile.posSwap': 'Swap',
+  'clientProfile.posDemo': 'Demo',
   'clientProfile.posOpened': 'Opened',
   'clientProfile.posClosed': 'Closed',
   'clientProfile.posLoading': 'Loading positions',
   'clientProfile.posLoadFailed': 'Their positions could not be loaded.',
-  'clientProfile.posNoneOpen': 'No open positions.',
   'clientProfile.posNoneClosed': 'No closed positions yet.',
 
   // ── Transactions ──────────────────────────────────────────────────────────
