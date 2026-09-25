@@ -26,7 +26,7 @@ import {
 } from '@/components/clients/profile/client-edit-dialogs';
 import { ClientPartnerPanel } from '@/components/clients/profile/client-partner-panel';
 import {
-  ClientPositionsPanel,
+  ClientClosedPositionsPanel,
   ClientTransactionsPanel,
 } from '@/components/clients/profile/client-activity-panels';
 import { ClientNetworkTree } from '@/components/clients/profile/client-network-tree';
@@ -632,26 +632,15 @@ export default function ClientProfilePage() {
                 className="flex min-h-0 flex-1 flex-col"
               >
                 {/*
-                  TWO tables sharing the height, each filling its half.
-                  `basis-0` with `flex-1` is what splits it evenly regardless of
-                  how many rows either holds — otherwise a client with forty
-                  closed trades and none open gives the open table one row of
-                  height and the closed one everything else.
+                  CLOSED positions only, for every client type (owner, 26 Sep
+                  2026). The table fills the tab's height on its own.
                 */}
-                <div className="flex min-h-0 flex-1 flex-col gap-6">
-                  <section className="flex min-h-0 flex-1 basis-0 flex-col gap-2">
-                    <h2 className="shrink-0 text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                      {t('clientProfile.posOpenTitle')}
-                    </h2>
-                    <ClientPositionsPanel userId={profile.id} status="open" />
-                  </section>
-                  <section className="flex min-h-0 flex-1 basis-0 flex-col gap-2">
-                    <h2 className="shrink-0 text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                      {t('clientProfile.posClosedTitle')}
-                    </h2>
-                    <ClientPositionsPanel userId={profile.id} status="closed" />
-                  </section>
-                </div>
+                <section className="flex min-h-0 flex-1 flex-col gap-2">
+                  <h2 className="shrink-0 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    {t('clientProfile.posClosedTitle')}
+                  </h2>
+                  <ClientClosedPositionsPanel userId={profile.id} />
+                </section>
               </TabPanel>
             )}
 

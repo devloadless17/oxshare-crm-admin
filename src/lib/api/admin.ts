@@ -172,8 +172,8 @@ export type IbPartnerDetail = components['schemas']['IbPartnerDetailDto'];
 export type IbPartnerEarnings = components['schemas']['IbPartnerEarningsDto'];
 export type IbSubPartnerRow = components['schemas']['IbSubPartnerRowDto'];
 
-export type ClientPositionsPage = components['schemas']['ClientPositionsPageDto'];
-export type ClientPositionRow = components['schemas']['ClientPositionRowDto'];
+export type ClientClosedPositionsPage = components['schemas']['ClientClosedPositionsPageDto'];
+export type ClientClosedPositionRow = components['schemas']['ClientClosedPositionRowDto'];
 export type ClientTransactionsPage = components['schemas']['ClientTransactionsPageDto'];
 export type ClientTransactionRow = components['schemas']['ClientTransactionRowDto'];
 
@@ -2470,24 +2470,22 @@ export const adminApi = {
   },
 
   /**
-   * One client's positions, open or closed.
+   * One client's CLOSED positions, on every account they hold.
    *
-   * Served from the `positions` TABLE, not the MT5 bridge — see the route's own
-   * note. Every other screen in this console reads the same table, so a profile
-   * that asked elsewhere would be the one place showing a figure nothing else
-   * could reconcile against.
+   * Built by the API from the ingested MT5 deals — the rows the portal's account
+   * history and the commission engine read — so all three agree. Open positions
+   * are not listed on the profile (owner, 26 Sep 2026).
    */
-  async getClientPositions(
+  async getClientClosedPositions(
     id: string,
-    params: { status?: 'open' | 'closed'; page?: number; limit?: number } = {},
+    params: { page?: number; limit?: number } = {},
     signal?: AbortSignal,
-  ): Promise<ClientPositionsPage> {
+  ): Promise<ClientClosedPositionsPage> {
     const query = new URLSearchParams();
-    if (params.status) query.set('status', params.status);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
-    const { data } = await apiClient.get<ClientPositionsPage>(
-      `/admin/clients/${id}/positions?${query.toString()}`,
+    const { data } = await apiClient.get<ClientClosedPositionsPage>(
+      `/admin/clients/${id}/closed-positions?${query.toString()}`,
       { signal },
     );
     return data;

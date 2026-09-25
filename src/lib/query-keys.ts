@@ -71,8 +71,8 @@ export const keys = {
     partner: (userId: string) => ['clients', 'detail', userId, 'partner'] as const,
     transactions: (userId: string, page: number) =>
       ['clients', 'detail', userId, 'transactions', page] as const,
-    positions: (userId: string, status: string, page: number) =>
-      ['clients', 'detail', userId, 'positions', status, page] as const,
+    closedPositions: (userId: string, page: number) =>
+      ['clients', 'detail', userId, 'closed-positions', page] as const,
   },
 
   /** ONE key. It was `['tags']` on two screens and `['client-tags']` on a

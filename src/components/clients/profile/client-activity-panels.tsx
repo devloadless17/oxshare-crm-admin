@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { Activity, History, Receipt } from 'lucide-react';
+import { History, Receipt } from 'lucide-react';
 import api from '@/lib/api';
-import type { ClientPositionRow, ClientTransactionRow } from '@/lib/api/admin';
+import type { ClientClosedPositionRow, ClientTransactionRow } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
@@ -22,12 +22,8 @@ import { keys } from '@/lib/query-keys';
  * them. An operator investigating a complaint had to leave the profile, filter
  * a global list by a uuid they had to copy, and come back.
  *
- * ## `profit` means two different things
- *
- * One column on `positions` carries the FLOATING result while a trade is open
- * and the REALISED one once it closes. The tables are therefore split by status
- * rather than merged with a status column: the header can then say which number
- * it is showing, instead of a single "P/L" heading that silently means both.
+ * Positions are CLOSED ones only (owner, 26 Sep 2026), so the P/L column is
+ * always the realised result — see `ClientClosedPositionsPanel`.
  */
 
 const PAGE_SIZE = 10;
@@ -50,29 +46,37 @@ function Signed({ value, currency }: { value: string | null; currency: string })
   );
 }
 
-export function ClientPositionsPanel({
-  userId,
-  status,
-}: {
-  userId: string;
-  /** Open and closed are separate tables — see the note on `profit`. */
-  status: 'open' | 'closed';
-}) {
+/**
+ * The client's CLOSED positions, on every account they hold, live and demo.
+ *
+ * Open positions are not listed on the profile (owner, 26 Sep 2026). What is
+ * here comes from the ingested MT5 deals — the same rows the portal's account
+ * history and the commission engine read — one row per closing deal, with its
+ * opening deal's price and time when those were ingested too.
+ *
+ * Commission and swap get their own columns. MT5 takes both from the client
+ * on top of the trade's result, and "why is my balance $3 short" is answered
+ * by the commission column, not by the P/L.
+ */
+export function ClientClosedPositionsPanel({ userId }: { userId: string }) {
   const [page, setPage] = React.useState(1);
 
   const query = useResource(
-    keys.clients.positions(userId, status, page),
-    (signal) => api.admin.getClientPositions(userId, { status, page, limit: PAGE_SIZE }, signal),
+    keys.clients.closedPositions(userId, page),
+    (signal) => api.admin.getClientClosedPositions(userId, { page, limit: PAGE_SIZE }, signal),
     { enabled: Boolean(userId) },
   );
 
-  const columns: Column<ClientPositionRow>[] = [
+  const columns: Column<ClientClosedPositionRow>[] = [
     {
       header: t('clientProfile.posSymbol'),
       cell: (row) => (
         <div className="min-w-0">
           <span className="font-semibold">{row.symbol}</span>
-          <span className="ms-2 font-mono text-[10px] text-muted-foreground">{row.ticket}</span>
+          {/* The MT5 position id is what a dealer searches the terminal by. */}
+          <span className="ms-2 font-mono text-[10px] text-muted-foreground">
+            {row.positionId ?? row.ticket}
+          </span>
         </div>
       ),
     },
@@ -92,40 +96,57 @@ export function ClientPositionsPanel({
     },
     {
       header: t('clientProfile.posAccount'),
-      cell: (row) => <span className="font-mono text-xs">{row.login ?? '—'}</span>,
+      cell: (row) => (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="font-mono text-xs">{row.login}</span>
+          {row.environment === 'demo' && (
+            <Badge variant="outline">{t('clientProfile.posDemo')}</Badge>
+          )}
+        </span>
+      ),
     },
     {
       header: t('clientProfile.posOpenPrice'),
       align: 'right',
-      cell: (row) => <span className="tabular text-xs">{formatDecimal(row.openPrice)}</span>,
+      cell: (row) => (
+        <span className="tabular text-xs">
+          {row.openPrice ? formatDecimal(row.openPrice) : '—'}
+        </span>
+      ),
     },
-    ...(status === 'closed'
-      ? [
-          {
-            header: t('clientProfile.posClosePrice'),
-            align: 'right' as const,
-            cell: (row: ClientPositionRow) => (
-              <span className="tabular text-xs">
-                {row.closePrice ? formatDecimal(row.closePrice) : '—'}
-              </span>
-            ),
-          },
-        ]
-      : []),
     {
-      // The whole reason the two tables are separate: this heading is honest
-      // only because the status is fixed for the table it sits on.
-      header: status === 'open' ? t('clientProfile.posFloating') : t('clientProfile.posRealised'),
+      header: t('clientProfile.posClosePrice'),
+      align: 'right',
+      cell: (row) => <span className="tabular text-xs">{formatDecimal(row.closePrice)}</span>,
+    },
+    {
+      header: t('clientProfile.posCommission'),
+      align: 'right',
+      cell: (row) => <Signed value={row.commission} currency={row.currency} />,
+    },
+    {
+      header: t('clientProfile.posSwap'),
+      align: 'right',
+      cell: (row) => <Signed value={row.swap} currency={row.currency} />,
+    },
+    {
+      header: t('clientProfile.posRealised'),
       align: 'right',
       cell: (row) => <Signed value={row.profit} currency={row.currency} />,
     },
     {
-      header: status === 'open' ? t('clientProfile.posOpened') : t('clientProfile.posClosed'),
+      header: t('clientProfile.posOpened'),
       cell: (row) => (
         <span className="text-xs text-muted-foreground">
-          {new Date(
-            status === 'open' ? row.openedAt : (row.closedAt ?? row.openedAt),
-          ).toLocaleString()}
+          {row.openedAt ? new Date(row.openedAt).toLocaleString() : '—'}
+        </span>
+      ),
+    },
+    {
+      header: t('clientProfile.posClosed'),
+      cell: (row) => (
+        <span className="text-xs text-muted-foreground">
+          {new Date(row.closedAt).toLocaleString()}
         </span>
       ),
     },
@@ -135,37 +156,23 @@ export function ClientPositionsPanel({
     <AsyncBoundary
       status={query.status}
       label={t('clientProfile.posLoading')}
-      endpoints={['GET /admin/clients/:id/positions']}
+      endpoints={['GET /admin/clients/:id/closed-positions']}
       onRetry={query.refetch}
       errorMessage={t('clientProfile.posLoadFailed')}
       error={query.error}
       fill
     >
       <DataTable
+        caption={t('clientProfile.posClosedTitle')}
         rows={query.data?.rows ?? []}
         columns={columns}
         rowKey={(row) => row.id}
         fill
         loading={query.status === 'loading'}
+        empty={<EmptyState icon={History} message={t('clientProfile.posNoneClosed')} />}
         /*
-         * `EmptyState`, not a bare string — every other table in the console
-         * passes this. A string lands in the empty cell as raw text, aligned
-         * left with the first column; `EmptyState` centres itself and carries
-         * an icon saying which table is empty.
-         */
-        empty={
-          <EmptyState
-            icon={status === 'open' ? Activity : History}
-            message={
-              status === 'open' ? t('clientProfile.posNoneOpen') : t('clientProfile.posNoneClosed')
-            }
-          />
-        }
-        /*
-         * The table's OWN footer, rather than a `<Pagination>` beneath it. Two
-         * pagers rendered before: the built-in strip inside the frame reading
-         * "Showing all 0", and a second outside it with its own row-size
-         * picker — the same list with two sets of controls.
+         * The table's OWN footer, rather than a `<Pagination>` beneath it — one
+         * set of controls for one list.
          */
         pagination={{
           page,
