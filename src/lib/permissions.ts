@@ -202,11 +202,18 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/approvals/ib', requirement: { permission: 'ib.view' } },
   { prefix: '/approvals/deposits', requirement: { permission: 'deposits.view' } },
   /*
-   * `/partners` is gone — its page, its nav entry and this requirement were
-   * removed together, which is the rule this table's own note records: a page
-   * without a requirement renders "no access", and a requirement without a page
-   * is a route nothing can reach. Partners are `/clients?type=partner` now.
+   * The partner DIRECTORY — back, on the owner's request (25 Sep 2026).
+   *
+   * It was removed on 13 Aug with its page and nav entry, together, because it
+   * and the client list disagreed about who was a partner. Both now read
+   * `ib_accounts` (the client type is derived from it), and the backend pins
+   * that their totals agree — so the page, its leaf under Introducing brokers
+   * and this requirement come back together, by the same rule.
+   *
+   * `ib.view`, exactly what `GET /admin/ib/partners` enforces. The row actions
+   * inside check their own keys (`ib.partners.edit`, `ib.partners.suspend`).
    */
+  { prefix: '/partners', requirement: { permission: 'ib.view' } },
   /*
    * The commission ledger. It was NOT LISTED, and an unlisted path is denied —
    * so the screen shipped unreachable for everybody, which is the failure mode

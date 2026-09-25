@@ -81,7 +81,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mark every unread notification read. Idempotent. */
+        /** Mark unread notifications read — every one, or up to the newest one shown. Idempotent. */
         post: operations["NotificationsController_markAllRead"];
         delete?: never;
         options?: never;
@@ -96,7 +96,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The signed-in admin's notification feed, newest first */
+        /** The signed-in admin's tasks, newest first — inbox or history */
         get: operations["AdminNotificationsController_list"];
         put?: never;
         post?: never;
@@ -113,27 +113,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Unread notifications for the signed-in admin — the badge number */
-        get: operations["AdminNotificationsController_unreadCount"];
+        /** Tasks waiting on the signed-in admin — the bell badge, in total and per category */
+        get: operations["AdminNotificationsController_summary"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/notifications/{id}/read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Mark one notification read. Idempotent. */
-        post: operations["AdminNotificationsController_markRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -149,8 +132,59 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mark every unread notification read. Idempotent. */
+        /** Mark tasks read — all, or one category — up to what was shown */
         post: operations["AdminNotificationsController_markAllRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/read-subject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The reader opened an item (e.g. a KYC review) — mark their tasks about it read */
+        post: operations["AdminNotificationsController_markSubjectRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark one task read. Idempotent. */
+        post: operations["AdminNotificationsController_markRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/{id}/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark one task unread again (undo). Idempotent. */
+        post: operations["AdminNotificationsController_markUnread"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1211,8 +1245,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The partner list
-         * @description Joined to the person and the programme they are paid on, newest approval first.
+         * The partner directory
+         * @description Every partner the acting admin may see, joined to the person, their agency and what they have earned (one entry per currency). Searchable by Portal ID, name, email or referral code; newest approval first.
          */
         get: operations["AdminIbController_listPartners"];
         put?: never;
@@ -1232,7 +1266,7 @@ export interface paths {
         };
         /**
          * Export the partner list as CSV
-         * @description Every partner the acting admin may see, joined to the person and their programme. The list takes no filters, so neither does its export.
+         * @description Every partner the acting admin may see, joined to the person and their level — narrowed by the same `q` and `status` the directory takes, so the file is the list on screen.
          */
         get: operations["AdminIbController_exportPartners"];
         put?: never;
@@ -4009,6 +4043,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/transactions/{id}/attention/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark a payment that needed attention as resolved — clears the flag and its tasks
+         * @description For a deposit or withdrawal flagged as needing a person: reconcile it first (the platform dashboard, the ledger), then record what you found. Refuses a payment that is no longer flagged. Deposits need deposits.approve; withdrawals need withdrawals.settle.
+         */
+        patch: operations["AdminMoneyController_resolveAttention"];
+        trace?: never;
+    };
     "/v1/admin/transactions/export": {
         parameters: {
             query?: never;
@@ -4336,9 +4390,108 @@ export interface components {
             /** @description Unread rows for the caller. The bell badge number. */
             count: number;
         };
+        NotificationsReadAllDto: {
+            /**
+             * @description The `createdAt` of the newest notification the reader was shown.
+             * @example 2026-09-25T10:15:00.000Z
+             */
+            upTo?: string;
+        };
         NotificationsMarkAllReadResponseDto: {
             /** @description Rows marked read by this call. 0 when everything already was. */
             updated: number;
+        };
+        AdminNotificationSubjectDto: {
+            /** @enum {string} */
+            kind: "transaction" | "kyc" | "ib_application" | "transfer" | "ib_accrual";
+            /** @description The item's id. For a KYC task, the client's id. */
+            id: string;
+        };
+        AdminNotificationClientDto: {
+            /** @description The Portal ID — never masked, so it still names the client under any role. */
+            portalId: number | null;
+            firstName?: string | null;
+            lastName?: string | null;
+        };
+        AdminNotificationResolutionDto: {
+            /**
+             * Format: date-time
+             * @description When somebody handled the item.
+             */
+            at: string;
+            /**
+             * @description The item state that ended the task — 'approved', 'rejected', 'success', 'failure', 'reversed', 'settled', 'resolved', 'reset'. Render per category; unknown → 'Handled'.
+             * @example approved
+             */
+            outcome: string;
+            /** @description The administrator who handled it — only when the decision itself recorded one. A cancel, a system settle or a release carries none. */
+            byName?: string | null;
+        };
+        AdminNotificationDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "admin.deposit.submitted" | "admin.deposit.attention" | "admin.withdrawal.requested" | "withdrawal.rival_submit_failed" | "withdrawal.rival_attention" | "admin.kyc.submitted" | "admin.kyc.resubmitted" | "admin.partner.applied" | "admin.commission.clawback" | "admin.transfer.stuck";
+            /** @enum {string} */
+            category: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
+            /**
+             * @example {
+             *       "transactionId": "a6e1…",
+             *       "amount": "250.00000000",
+             *       "currency": "USD"
+             *     }
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /** @description Null while unread. */
+            readAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            subject: components["schemas"]["AdminNotificationSubjectDto"];
+            client: components["schemas"]["AdminNotificationClientDto"];
+            /** @description Null while the item still waits on somebody. */
+            resolution: components["schemas"]["AdminNotificationResolutionDto"] | null;
+        };
+        AdminNotificationListResponseDto: {
+            items: components["schemas"]["AdminNotificationDto"][];
+            /** @description `null` on the last page (R-2.4). */
+            nextCursor: string | null;
+            /** @description Client fields hidden from this reader on every row, e.g. `client.firstName`. */
+            maskedFields: string[];
+        };
+        AdminNotificationCategoryCountsDto: {
+            deposits: number;
+            withdrawals: number;
+            kyc: number;
+            ib: number;
+            transfers: number;
+        };
+        AdminNotificationSummaryDto: {
+            /** @description Tasks waiting on the reader — unread and not yet handled by anyone. The bell badge. */
+            count: number;
+            byCategory: components["schemas"]["AdminNotificationCategoryCountsDto"];
+        };
+        AdminNotificationsReadAllDto: {
+            /**
+             * @description Only this category. Omitted: every category the reader can see.
+             * @enum {string}
+             */
+            category?: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
+            /**
+             * @description The `createdAt` of the newest row the reader was shown. Nothing newer is marked — a task that arrived after the list rendered stays unread.
+             * @example 2026-09-25T10:15:00.000Z
+             */
+            upTo?: string;
+        };
+        AdminNotificationsReadSubjectDto: {
+            /** @enum {string} */
+            subjectKind: "transaction" | "kyc" | "ib_application" | "transfer" | "ib_accrual";
+            /** @description The item's id — for a KYC task, the client's id. */
+            subjectId: string;
+        };
+        AdminNotificationMarkResponseDto: {
+            id: string;
+            readAt: string | null;
         };
         RegisterDto: {
             /**
@@ -4994,6 +5147,61 @@ export interface components {
              */
             reason: string;
         };
+        IbPartnerListAccountDto: {
+            userId: string;
+            /**
+             * @description The rung, which decides their terms (0112).
+             * @example 1
+             */
+            level: number;
+            /** @description What a client types at registration to be attributed here. */
+            referralCode: string;
+            /** @description A suspended partner keeps their code and tree, and stops earning. */
+            active: boolean;
+            agencyId: string | null;
+            /** Format: date-time */
+            approvedAt: string;
+        };
+        IbPartnerListPersonDto: {
+            id: string;
+            /**
+             * @description Their Portal ID.
+             * @example 1000245
+             */
+            portalId: number;
+            email?: string;
+            firstName?: string | null;
+            lastName?: string | null;
+        };
+        IbPartnerEarningsDto: {
+            /**
+             * @description The currency both figures are in.
+             * @example USD
+             */
+            currency: string;
+            /** @example 73.50000000 */
+            confirmed: string;
+            /** @example 0.00000000 */
+            pending: string;
+        };
+        IbPartnerRowDto: {
+            account: components["schemas"]["IbPartnerListAccountDto"];
+            user: components["schemas"]["IbPartnerListPersonDto"];
+            /** @example 1000210 */
+            parentPortalId: number | null;
+            /** @description True when this partner has a parent the reader may not see. With `parentPortalId` null and this false, they deal with the broker directly. */
+            parentOutsideTerritory: boolean;
+            /** @description Null when they are on no agency, which means the full catalogue. */
+            agencyName: string | null;
+            /** @description Commission only (a rebate is the client’s money), one entry per currency. */
+            earnings: components["schemas"]["IbPartnerEarningsDto"][];
+        };
+        IbPartnerListResponseDto: {
+            rows: components["schemas"]["IbPartnerRowDto"][];
+            /** @description Every partner matching the filters that this reader may see. */
+            total: number;
+            maskedFields: string[];
+        };
         IbPartnerPersonDto: {
             userId: string;
             /**
@@ -5030,12 +5238,6 @@ export interface components {
             /** Format: date-time */
             approvedAt: string;
         };
-        IbPartnerEarningsDto: {
-            /** @example 73.50000000 */
-            confirmed: string;
-            /** @example 0.00000000 */
-            pending: string;
-        };
         IbPartnerDetailDto: {
             userId: string;
             /**
@@ -5067,7 +5269,8 @@ export interface components {
             directPartners: components["schemas"]["IbSubPartnerRowDto"][];
             /** @description How many clients they introduced. */
             referredClientCount: number;
-            earnings: components["schemas"]["IbPartnerEarningsDto"];
+            /** @description One entry per currency they have earned in, sorted by currency. Empty when nothing has accrued yet — never a zero in a currency nobody chose. */
+            earnings: components["schemas"]["IbPartnerEarningsDto"][];
             maskedFields?: string[];
         };
         ChangeIbLevelDto: {
@@ -7400,6 +7603,18 @@ export interface components {
              */
             reason: string;
         };
+        ResolveAttentionDto: {
+            /**
+             * @description What the reconciliation found. The audit record of a decision the system could not make on its own — the same weight as releasing a stuck transfer.
+             * @example Checked the platform dashboard — the reversal was a duplicate; client credited correctly.
+             */
+            note: string;
+        };
+        AttentionResolvedDto: {
+            id: string;
+            /** @description Always false after a successful resolve. */
+            needsAttention: boolean;
+        };
         AdminTransactionSummaryRowDto: {
             /** @enum {string} */
             direction: "deposit" | "withdrawal";
@@ -8008,7 +8223,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationsReadAllDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -8023,11 +8242,16 @@ export interface operations {
     AdminNotificationsController_list: {
         parameters: {
             query?: {
-                limit?: string;
+                /** @description 'inbox': still waiting on you — unread AND not yet handled by anyone. 'history' (default): everything, handled or not. */
+                view?: "inbox" | "history";
+                /** @description History only. 'open': nobody has handled it yet. 'handled': resolved. */
+                status?: "open" | "handled";
+                category?: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
+                /** @description A client: Portal ID (exact, `#` optional) or part of a name or email. */
+                q?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
-                /** @description Pass 'true' to see only unread. */
-                unread?: string;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -8040,12 +8264,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NotificationListResponseDto"];
+                    "application/json": components["schemas"]["AdminNotificationListResponseDto"];
                 };
             };
         };
     };
-    AdminNotificationsController_unreadCount: {
+    AdminNotificationsController_summary: {
         parameters: {
             query?: never;
             header?: never;
@@ -8059,7 +8283,53 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NotificationUnreadCountDto"];
+                    "application/json": components["schemas"]["AdminNotificationSummaryDto"];
+                };
+            };
+        };
+    };
+    AdminNotificationsController_markAllRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNotificationsReadAllDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsMarkAllReadResponseDto"];
+                };
+            };
+        };
+    };
+    AdminNotificationsController_markSubjectRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNotificationsReadSubjectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsMarkAllReadResponseDto"];
                 };
             };
         };
@@ -8080,16 +8350,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NotificationDto"];
+                    "application/json": components["schemas"]["AdminNotificationMarkResponseDto"];
                 };
             };
         };
     };
-    AdminNotificationsController_markAllRead: {
+    AdminNotificationsController_markUnread: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -8099,7 +8371,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NotificationsMarkAllReadResponseDto"];
+                    "application/json": components["schemas"]["AdminNotificationMarkResponseDto"];
                 };
             };
         };
@@ -9474,6 +9746,9 @@ export interface operations {
                 limit?: string;
                 sort?: "approvedAt" | "level" | "referralCode" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
+                /** @description A Portal ID (exact), a name or email, or a referral code (exact). */
+                q?: string;
+                status?: "active" | "suspended";
             };
             header?: never;
             path?: never;
@@ -9485,7 +9760,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["IbPartnerListResponseDto"];
+                };
             };
         };
     };
@@ -9493,6 +9770,8 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "csv";
+                q?: string;
+                status?: "active" | "suspended";
             };
             header?: never;
             path?: never;
@@ -13404,6 +13683,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_resolveAttention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveAttentionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionResolvedDto"];
                 };
             };
         };

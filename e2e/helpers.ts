@@ -289,9 +289,8 @@ export const CONSOLE_PAGES = [
   '/payment-methods',
   '/products',
   '/agencies',
-  // '/partners' removed: the page and its route requirement were deleted
-  // together (partners are reached at /clients?type=partner). A table entry
-  // for a route that does not exist tests Next's 404, not this app.
+  // The partner directory — back since 25 Sep 2026, with its route requirement.
+  '/partners',
   '/approvals/ib',
   '/commissions',
   '/reconciliation',
@@ -449,6 +448,32 @@ export async function signOut(page: Page): Promise<void> {
     .first()
     .click();
   await page.getByRole('menuitem', { name: /logout/i }).click();
+}
+
+/**
+ * Reach a page THROUGH the sidebar: open its main item, then click the page.
+ *
+ * The sidebar is main items with sub-items (25 Sep 2026), one open at a time,
+ * and a closed item's pages are hidden (`inert` + `visibility: hidden`) — so a
+ * spec that clicks a page's link directly finds nothing unless that page's
+ * group happens to hold the current page. `group` is null for a page that sits
+ * on its own at the top (Dashboard).
+ *
+ * A group already open is left alone: its header is a toggle, and clicking it
+ * would CLOSE the list the link is in. The header is matched by prefix because
+ * a closed group's name carries its waiting-work count ("Finance 3").
+ */
+export async function openNavItem(
+  page: Page,
+  group: string | null,
+  link: string | RegExp,
+): Promise<void> {
+  const nav = page.getByRole('navigation').first();
+  if (group) {
+    const header = nav.getByRole('button', { name: new RegExp(`^${group}`, 'i') });
+    if ((await header.getAttribute('aria-expanded')) !== 'true') await header.click();
+  }
+  await nav.getByRole('link', { name: link }).first().click();
 }
 
 /**
@@ -876,9 +901,21 @@ export async function registerClientWithPendingKyc(
   const portal = await apiRequest.newContext({ storageState: { cookies: [], origins: [] } });
   const origin = { Origin: TOPOLOGY_PORTAL_ORIGIN };
 
+  /*
+   * LETTERS ONLY in both names. Since the single client profile (backend 0139,
+   * 25 Sep 2026) a name is validated as it appears on an ID — letters, marks,
+   * spaces, hyphens, apostrophes — and "E2e" carries a digit, so every
+   * registration here answered 400 and the realtime spec failed before its
+   * first frame. The label keeps its letters and hyphens and loses the rest.
+   */
   const registered = await portal.post(`${API_NODE_BASE}/auth/register`, {
     headers: origin,
-    data: { email, password, firstName: 'E2e', lastName: label },
+    data: {
+      email,
+      password,
+      firstName: 'Endtoend',
+      lastName: label.replace(/[^\p{L} '-]/gu, '') || 'Client',
+    },
   });
   requirePrecondition(registered.status() === 429, 'registration is rate limited right now (10/h)');
   expect(registered.ok(), `register answered ${registered.status()}`).toBe(true);

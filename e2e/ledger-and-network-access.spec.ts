@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { collectRejections } from './helpers';
+import { collectRejections, openNavItem } from './helpers';
 
 /**
  * ADM-13 and RBAC-08, in a real browser against the real API.
@@ -56,7 +56,9 @@ test.describe('ADM-13 — the ledger', () => {
 
   test('is reachable from the sidebar, not only by typing the URL', async ({ page }) => {
     await page.goto('/dashboard');
-    await page.getByRole('navigation').first().getByRole('link', { name: 'Ledger' }).click();
+    // Under Finance, beside Reconciliation: the report says whether the books
+    // balance, and the ledger is the evidence read when they do not.
+    await openNavItem(page, 'Finance', 'Ledger');
     await expect(page).toHaveURL(/\/ledger$/);
   });
 });

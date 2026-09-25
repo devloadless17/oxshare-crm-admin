@@ -279,9 +279,12 @@ export function ReassignParentDialog({
               </span>
               {/* The candidate parent's RUNG (0112). Worth showing because it
                   is what decides whether this parent earns anything from the
-                  sub-tree they are about to be given. */}
+                  sub-tree they are about to be given. It read `row.level`, a
+                  field the hand-written type promised and the API never sent,
+                  so every option said "Level undefined" — caught the moment the
+                  type became the generated one. */}
               <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
-                {t('clientProfile.levelBadge', { level: String(row.level) })}
+                {t('clientProfile.levelBadge', { level: String(row.account.level) })}
               </span>
             </label>
           ))}

@@ -3,339 +3,53 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutDashboard,
-  Users,
-  UserCog,
-  FileCheck,
-  Coins,
-  Boxes,
-  Radio,
-  Scale,
-  Receipt,
-  KeyRound,
-  ArrowLeftRight,
-  Wallet,
-  CandlestickChart,
-  Gauge,
-  CreditCard,
-  Handshake,
-  Layers,
-  BadgePercent,
-  ClipboardList,
-  ShieldCheck,
-  Lock,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  Menu,
-  X,
-  Shield,
-  Tags,
-  Activity,
-  Banknote,
-  Link2,
-} from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight, Search, Menu, X, Shield } from 'lucide-react';
 import { UserMenu } from './user-menu';
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { NotificationsSheet } from './notifications-sheet';
 import { useAdmin } from '@/context/AdminAuthContext';
-import api from '@/lib/api';
-import type { KycListResponse } from '@/lib/api/admin';
-import { canAccess, hasPermission } from '@/lib/permissions';
+import { canAccess } from '@/lib/permissions';
 import { CommandPalette } from '@/components/layout/command-palette';
 import { AccessDenied } from '@/components/access-denied';
 import { PageLoader } from '@/components/ui/loader';
-import { t, type MessageKey } from '@/lib/i18n';
-import { keys } from '@/lib/query-keys';
+import { t } from '@/lib/i18n';
+import { activeNavHref, navLeaves, visibleNav } from './navigation';
+import { SidebarNav } from './sidebar-nav';
+import { useNavBadges } from './use-nav-badges';
 
-export interface NavItem {
-  /** A message key, not a string — resolved through t() at render time. */
-  label: MessageKey;
-  /**
-   * The ROUTE, and only the route. Active-state matching and the badge lookup
-   * both key on this, and `usePathname()` carries no query string — so a
-   * filter belongs in `query` below, never appended here.
-   */
-  href: string;
-  /**
-   * A default filter the LINK carries, when the item's badge counts something
-   * narrower than the page's own default view. `/kyc` opens on `submitted`
-   * while the badge counts `submitted + under_review`, so clicking a badge
-   * reading 17 used to open a list of 12 — the five a reviewer had already
-   * picked up simply fell off the daily sweep.
-   */
-  query?: string;
-  icon: React.ElementType;
-  badge?: string | number;
-}
-
-export interface NavSection {
-  title: MessageKey;
-  items: NavItem[];
-}
-
-/**
- * Which nav entry is the current page — the MOST SPECIFIC match, not every match.
+/*
+ * The navigation itself lives in three files beside this one, and this layout
+ * only places it:
  *
- * This was `pathname === href || pathname.startsWith(href + '/')`, evaluated per
- * item in isolation. On `/kyc/builder` that is true for BOTH `/kyc` (a prefix)
- * and `/kyc/builder` (exact), so two sidebar entries lit up at once and the
- * sidebar stopped answering the only question it exists to answer: where am I.
+ *   navigation.ts      the tree — main items and their pages — and the pure
+ *                      rules over it (active page, permission filter, counts)
+ *   sidebar-nav.tsx    how it draws: groups that open, the collapsed rail
+ *   use-nav-badges.ts  the live queue counts
  *
- * Nested routes are the normal case here, not an edge one — `/kyc` and
- * `/kyc/builder` are separate screens behind separate permissions — so the rule
- * has to compare the candidates against each other rather than test each alone.
- * Longest match wins, which is what a router does.
- *
- * Exported and pure so the nesting is asserted directly. The bug was invisible
- * until somebody opened the nested page and looked at the sidebar.
+ * It was one 300-line constant and a render loop in here, as flat titled
+ * sections. The owner asked for his old CRM's shape instead — main items that
+ * open onto their pages (25 Sep 2026) — and `navigation.ts` records why the
+ * groups are what they are, including why "Approvals" is gone.
  */
-export function activeNavHref(pathname: string | null, hrefs: string[]): string | null {
-  if (!pathname) return null;
-  const matches = hrefs.filter((h) => pathname === h || pathname.startsWith(h + '/'));
-  return matches.reduce<string | null>(
-    (best, h) => (!best || h.length > best.length ? h : best),
-    null,
-  );
-}
 
-/**
- * Every entry here is a page that EXISTS and is implemented.
- *
- * ── The "Soon" entries are gone ────────────────────────────────────────────
- *
- * `/trading-accounts` and `/payouts` had no `page.tsx` at all, so they were
- * rendered as disabled placeholders carrying a "Soon" badge. That was a
- * deliberate earlier decision — they were committed scope, and the badge was
- * how the sidebar admitted the gap rather than 404ing. This pass reverses it on
- * instruction: an operator reading the navigation should be reading a list of
- * places they can go, not a roadmap. Both entries, the `comingSoon` flag, the
- * branch that rendered it, and `nav.comingSoon*` are removed together.
- *
- * If either page gets built, it comes back as a plain entry.
- *
- * ⚠️ `admin/CLAUDE.md` still says these links are committed scope and must not
- * be deleted. That instruction is now stale and is updated in the same change.
- *
- * ── The grouping ──────────────────────────────────────────────────────────
- *
- * Three sections, split by WHAT THE OBJECT IS rather than by which team owns
- * it, because the sidebar's job is to answer "where does this thing live":
- *
- *   Clients      — the people, and everything that describes them. KYC and Tags
- *                  belong here rather than in an admin bucket: both are read as
- *                  properties OF a client, and an operator looking for either
- *                  starts from the client list.
- *   Finance      — what the platform can hold. Withdrawals, the ledger and
- *                  commission plans left with the money teardown, so this is
- *                  currencies alone until deposits and withdrawals return. A
- *                  currency is not presentation config; disabling one stops
- *                  wallets opening in it across the whole product.
- *   Administration — the console configuring ITSELF. Who may sign in, what they
- *                  may do, what they did, and the settings behind it. Nothing
- *                  here is about a client.
- *
- * Dashboard sits alone at the top, outside any group: it is the landing page
- * and belongs to no category. A one-item "Main" heading above it was a label
- * that said nothing.
- */
-/**
- * Exported so the COMMAND PALETTE reads the same list the sidebar renders.
- *
- * Two copies of "where can you go in this console" is how a page ends up
- * reachable from one and not the other — which already happened here once, when
- * /commissions was commented out of the nav and left reachable only by typing
- * its URL. One array, one permission filter (`canAccess`), both surfaces.
- */
-export const NAV_SECTIONS: NavSection[] = [
-  {
-    title: 'nav.section.overview',
-    items: [{ label: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard }],
-  },
-  {
-    title: 'nav.section.clients',
-    items: [
-      { label: 'nav.clients', href: '/clients', icon: Users },
-      /*
-       * The KYC REVIEW QUEUE moved to Approvals; this is the BUILDER, which is
-       * configuration rather than a decision waiting on somebody.
-       */
-      { label: 'nav.kycBuilder', href: '/kyc/builder', icon: ClipboardList },
-      // ADM-14. A tag decides which admins can SEE a client, so it is a
-      // property of the client rather than a console-level object.
-      { label: 'nav.tags', href: '/tags', icon: Tags },
-    ],
-  },
-  /*
-   * Decisions waiting on somebody, grouped by the fact that they are WAITING
-   * rather than by what they are about.
-   *
-   * A section rather than a sub-menu under Partners. The plan called for a
-   * collapsible group, and every section here already is one — heading plus
-   * permission-filtered items, hidden entirely when nothing is visible, with a
-   * collapsed-rail answer already solved. Adding a third nesting level and a
-   * DropdownMenuSub for a single link would be machinery serving one entry.
-   *
-   * It sits above Partners because a queue is checked daily and a payout ladder
-   * is edited rarely.
-   *
-   * ALL THREE QUEUES LIVE HERE NOW — KYC review came from Clients and the
-   * withdrawal desk from Finance. What they have in common is not their subject
-   * but their shape: each is a list of things a person must decide, each one
-   * counted in the badge beside it, and an operator starting their day wants
-   * the total of that in one place rather than assembled from three sections.
-   *
-   * `activeNavHref` matches on longest prefix across every section, so moving a
-   * route between groups needs no other change — `/kyc/builder` stays under
-   * Clients and still highlights correctly, because `/kyc` here is an exact
-   * entry and the builder's own path is longer.
-   */
-  {
-    title: 'nav.section.approvals',
-    items: [
-      { label: 'nav.kyc', href: '/kyc', query: 'status=needs_review', icon: FileCheck },
-      { label: 'nav.partnerApprovals', href: '/approvals/ib', icon: Handshake },
-      { label: 'nav.deposits', href: '/approvals/deposits', icon: Banknote },
-      { label: 'nav.transactions', href: '/transactions', icon: ArrowLeftRight },
-    ],
-  },
-  {
-    title: 'nav.section.partners',
-    items: [
-      /*
-       * `/partners` is GONE, and its route requirement went with it — the two
-       * are removed together, because `canAccess` denies an unlisted path and a
-       * page left in the nav without one renders the "no access" panel.
-       *
-       * It listed the same people the clients screen does, from the same
-       * `ib_accounts` rows, on a screen that could not also show a partner's
-       * KYC, tags or wallets. The clients list can, and its type filter now
-       * DERIVES "partner" rather than reading a column nothing maintained — the
-       * disagreement that made two screens necessary in the first place (one
-       * said 7 partners, the other said 1).
-       *
-       * Partners are reached at `/clients?type=partner`, which the dashboard
-       * tile links to.
-       */
-      /* The ledger sits between the partners who earn and the ladder that sets
-         the rates — the order the questions are actually asked in. (This entry
-         was briefly commented out, which left a working, permission-gated
-         screen reachable only by typing its URL — the navigation lists places
-         an operator can go, and /commissions is one.) */
-      { label: 'nav.commissions', href: '/commissions', icon: Coins },
-      /*
-       * The rate cards products are sold on (0140): money per lot for the
-       * partners and for the client. Beside the ladder because the two decide a
-       * payout together — the type says what a lot is worth, the level says what
-       * share of it a partner takes — and above it because a type is set once
-       * per product while the ladder is the thing read against it.
-       */
-      { label: 'nav.commissionTypes', href: '/commission-types', icon: BadgePercent },
-      /* One entry, because there is one catalogue. `nav.ibLevels` pointed at a
-         second screen owning "where a partner stands"; 0102 folded that into the
-         programme's own tier ladder, so the terms and their reach are configured
-         in one place and cannot disagree. */
-      { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
-      /*
-       * Agencies sit with the partners rather than with Products, because that
-       * is who they are about: a وكالة is the programme a partner is appointed
-       * under. Products are the catalogue and live under Finance with the
-       * currencies — the same kind of thing, configured by the same people.
-       */
-      { label: 'nav.agencies', href: '/agencies', icon: Handshake },
-    ],
-  },
-  /*
-   * Finance, in the order the work happens: the queue an operator clears daily
-   * first, then the things that configure it.
-   *
-   * Wallets and Trading accounts have no endpoint behind them and render
-   * BackendPending. They are listed because they are pages that EXIST and say
-   * what they are waiting for — which is the opposite of the `comingSoon`
-   * badges removed above, where the link led nowhere at all.
-   */
-  {
-    title: 'nav.section.finance',
-    items: [
-      /*
-       * The withdrawal desk is NOT here any more — it moved to Approvals, with
-       * the other two queues. What remains under Finance is the things an
-       * operator reads or configures rather than decides: balances, accounts,
-       * the methods and currencies the desk operates in.
-       */
-      /*
-         First in the section because it is the section's broadest read: every
-         money movement, platform-wide, before the per-object lists below
-         narrow to wallets or accounts. Read-only — the desk under Approvals
-         still owns the withdrawal actions.
-      */
-      { label: 'nav.financial', href: '/financial', icon: Banknote },
-      { label: 'nav.wallets', href: '/wallets', icon: Wallet },
-      { label: 'nav.tradingAccounts', href: '/trading-accounts', icon: CandlestickChart },
-      { label: 'nav.paymentMethods', href: '/payment-methods', icon: CreditCard },
-      { label: 'nav.products', href: '/products', icon: Boxes },
-      { label: 'nav.currencies', href: '/currencies', icon: Coins },
-      { label: 'nav.leverages', href: '/leverages', icon: Gauge },
-      // Master-admin only (see permissions.ts), so it simply does not render
-      // for a sub-admin — `canAccess` filters this list.
-      /*
-         ADM-13. Beside reconciliation because that is the order the questions
-         are asked in: the report says whether the books balance, and the ledger
-         is the evidence you read when the answer is no. `Receipt`, not `Scale` —
-         one weighs, the other records.
-      */
-      { label: 'nav.ledger', href: '/ledger', icon: Receipt },
-      { label: 'nav.reconciliation', href: '/reconciliation', icon: Scale },
-      // Beside reconciliation rather than under trading: both answer "is the
-      // machinery working", where the trading entries above answer "what does
-      // this client hold".
-      { label: 'nav.bridge', href: '/bridge', icon: Radio },
-    ],
-  },
-  {
-    title: 'nav.section.administration',
-    items: [
-      { label: 'nav.adminUsers', href: '/admin-users', icon: UserCog },
-      { label: 'nav.roles', href: '/roles', icon: ShieldCheck },
-      { label: 'nav.auditLog', href: '/audit-log', icon: Activity },
-      // Lock, not Settings: that icon reads as "configuration of a thing", and
-      // this is the console's own configuration.
-      // Machine credentials for the admin API. In Administration rather than
-      // Finance: it configures who may reach this console, not what it holds.
-      { label: 'nav.apiKeys', href: '/api-keys', icon: KeyRound },
-      /*
-       * The links the portal shows clients in its own sidebar. Administration
-       * rather than Finance, beside Settings: it configures what the CONSOLE
-       * puts in front of clients, not anything the broker holds or owes.
-       *
-       * `Link2`, not `ExternalLink` — that icon is the little arrow this app
-       * already uses to mean "this opens off-site", and reusing it for a
-       * navigation entry that goes to an ordinary internal page would say the
-       * wrong thing at a glance.
-       */
-      { label: 'nav.externalLinks', href: '/external-links', icon: Link2 },
-      { label: 'nav.settings', href: '/settings', icon: Lock },
-    ],
-  },
-];
+/** Every href the tree names — for `activeNavHref`, which must see them ALL. */
+const NAV_HREFS = navLeaves().map((leaf) => leaf.href);
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { admin, isLoading, isUnreachable, retry } = useAdmin();
   /*
-   * Resolved across EVERY section, not per section.
+   * Resolved across the WHOLE tree, never per group.
    *
-   * Specificity is a property of the whole nav: `/kyc` and `/kyc/builder` happen
-   * to share a section today, but a nested route whose parent lived in another
-   * group would light up both again if each section decided on its own.
+   * Specificity is a property of the whole nav, and the regrouping made that
+   * concrete: `/kyc` is under Clients and `/kyc/builder` under System, so a
+   * group deciding on its own would light up both again.
    */
-  const activeHref = activeNavHref(
-    pathname,
-    NAV_SECTIONS.flatMap((s) => s.items.map((i) => i.href)),
-  );
+  const activeHref = activeNavHref(pathname, NAV_HREFS);
+  /* Filtered once per admin — the permission check is the expensive half. */
+  const entries = React.useMemo(() => visibleNav(admin), [admin]);
+  const badges = useNavBadges(admin);
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -366,140 +80,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-
-  /*
-   * How many partner applications are waiting, for the badge on that nav item.
-   *
-   * `useQuery` directly rather than `useResource`: this is a NUMBER on a nav
-   * item, and the 4-state Resource exists so a screen can distinguish loading
-   * from unavailable from error. None of those have a rendering here — a badge
-   * that cannot be counted is a badge that is not drawn, which is what
-   * `undefined` already means to `NavItem.badge`.
-   *
-   * Gated on `ib.view` so a restricted admin does not fire a request that will
-   * 403 on every page load. Refetched on an interval rather than on focus: a
-   * queue count going stale by a minute costs nothing, and this runs behind
-   * every screen in the console.
-   */
-  const canSeeApprovals = hasPermission(admin, 'ib.view');
-  const pendingApplications = useQuery({
-    queryKey: keys.ibApplications.pendingCount(),
-    queryFn: () => api.admin.getIbApplications({ status: 'pending', limit: 1 }),
-    enabled: canSeeApprovals,
-    refetchInterval: 60_000,
-    // A failed count must not surface as an error anywhere — the nav simply
-    // shows no badge, which is the same as none pending.
-    retry: false,
-  });
-
-  /*
-   * The other two queues, counted the same way and for the same reason.
-   *
-   * `limit: 1` on all three: the count comes from the response envelope, so a
-   * page of rows nobody will render is pure waste on every screen in the
-   * console. Each is gated on the permission its endpoint requires, so a
-   * restricted admin fires no request that would 403 on every page load.
-   *
-   * KYC counts `submitted` AND `under_review` together — both mean a reviewer
-   * has to look, and counting only the first understates the queue by
-   * everything already picked up.
-   */
-  const canReviewKyc = hasPermission(admin, 'kyc.review') || hasPermission(admin, 'kyc.view');
-  const pendingKyc = useQuery({
-    queryKey: keys.kyc.pendingCount(),
-    queryFn: async () =>
-      (await api.get<KycListResponse>('/admin/kyc?status=needs_review&limit=1')).data,
-    enabled: canReviewKyc,
-    refetchInterval: 60_000,
-    retry: false,
-  });
-
-  const canSeeDeposits = hasPermission(admin, 'deposits.view');
-  const pendingDeposits = useQuery({
-    queryKey: keys.deposits.pendingCount(),
-    // `limit: 1` — this asks for the COUNT, which rides in the response
-    // envelope; the row itself is thrown away.
-    queryFn: () => api.admin.getTransactions({ direction: 'deposit', state: 'pending', limit: 1 }),
-    enabled: canSeeDeposits,
-    refetchInterval: 60_000,
-    retry: false,
-  });
-
-  const canSeeWithdrawals = hasPermission(admin, 'withdrawals.view');
-  const pendingWithdrawals = useQuery({
-    queryKey: keys.withdrawals.pendingCount(),
-    queryFn: () => api.admin.getWithdrawals({ state: 'pending', limit: 1 }),
-    enabled: canSeeWithdrawals,
-    refetchInterval: 60_000,
-    retry: false,
-  });
-
-  /*
-   * One href → count map, so the nav does not grow a conditional per queue.
-   * A zero is left out entirely: `NavItem.badge` treats `undefined` as "draw
-   * nothing", and a red `0` beside a cleared queue is an alarm about nothing.
-   */
-  const ibPending = pendingApplications.data?.counts.pending || undefined;
-
-  /*
-   * `needs_review`, served by the API — not summed here.
-   *
-   * This added `submitted + under_review` itself, which was right, and was the
-   * THIRD place that definition lived: the backend filter resolves the same
-   * pair, and the queue's own "Needs review" tab read a `counts.needs_review`
-   * key that did not exist and so displayed 0 for ever. Three authors, two
-   * agreeing by luck and one silently wrong. The API computes it once now, so
-   * the badge, the tab and the filter cannot disagree.
-   */
-  const kycPending = pendingKyc.data?.counts?.['needs_review'] || undefined;
-
-  /*
-   * `counts.pending`, not `total`. Both read the same today because the query
-   * filters to `state=pending` — but `counts` is the per-state map the endpoint
-   * computes over the WHOLE set, so it stays correct if that filter is ever
-   * relaxed, while `total` would silently start counting every withdrawal ever
-   * made.
-   */
-  const withdrawalsPending = pendingWithdrawals.data?.counts?.['pending'] || undefined;
-  // From `counts`, never `total` — the envelope's count covers the whole
-  // filtered set, while `total` here is the page.
-  const depositsPending = pendingDeposits.data?.counts?.['pending'] || undefined;
-
-  /**
-   * The nav, with live values applied.
-   *
-   * `NAV_SECTIONS` is a module constant so it can be flattened for
-   * `activeNavHref` without re-deriving it per render — and a badge is not a
-   * property of the route, it is a property of right now. This is where the two
-   * meet. The KYC nav badge in the portal records what happens otherwise: it
-   * was baked into the constant, evaluated once at import, and told an approved
-   * client their verification was "Required" forever.
-   */
-  const sections = React.useMemo(
-    () =>
-      NAV_SECTIONS.map((section) => ({
-        ...section,
-        items: section.items.map((item) => {
-          /*
-           * A zero is left out entirely: `NavItem.badge` treats `undefined` as
-           * "draw nothing", and a red `0` beside a cleared queue is an alarm
-           * about the absence of work.
-           */
-          const badge =
-            item.href === '/approvals/ib'
-              ? ibPending
-              : item.href === '/approvals/deposits'
-                ? depositsPending
-                : item.href === '/kyc'
-                  ? kycPending
-                  : item.href === '/transactions'
-                    ? withdrawalsPending
-                    : undefined;
-          return badge ? { ...item, badge } : item;
-        }),
-      })),
-    [ibPending, depositsPending, kycPending, withdrawalsPending],
-  );
 
   // Sign-out and its failure message moved into `UserMenu` with the rest of the
   // account controls, which is why none of that state lives here any more.
@@ -699,89 +279,24 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        {/* Sidebar Navigation — items filtered by the admin's permissions (RBAC-03 nav half) */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-          {sections.map((section) => {
-            /*
-             * Nothing is shown until we know who is asking.
-             *
-             * This used to fall back to `section.items` — the UNFILTERED list —
-             * while `admin` was null, which is the whole of the GET
-             * /admin/auth/me round trip. So every sub-admin saw the complete
-             * master-admin navigation on each page load, then watched it shrink.
-             * Not a privilege leak (the API returns 403 and `canAccess` blocks
-             * the page body), but it advertises the existence and paths of every
-             * section a restricted admin is not meant to reach, and it looks like
-             * a bug to the person it happens to.
-             */
-            const visibleItems = admin
-              ? section.items.filter((item) => canAccess(admin, item.href))
-              : [];
-            if (visibleItems.length === 0) return null;
-            return (
-              <div key={t(section.title)} className="space-y-1">
-                {!collapsed && (
-                  <h3 className="px-3 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
-                    {t(section.title)}
-                  </h3>
-                )}
-                {visibleItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = item.href === activeHref;
+        {/*
+          Sidebar navigation — filtered by the admin's permissions (RBAC-03 nav
+          half), and drawn only once we know who is asking: the states above
+          return before this, so no unfiltered menu is ever painted.
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.query ? `${item.href}?${item.query}` : item.href}
-                      onClick={closeMobile}
-                      title={collapsed ? t(item.label) : undefined}
-                      /*
-                       * Which page you are on, said rather than only shown.
-                       *
-                       * Active state was carried entirely by colour and font
-                       * weight, so a screen reader announced eleven identical
-                       * links and anyone who cannot separate those two colours
-                       * got nothing either. `aria-current="page"` is the one
-                       * thing assistive technology actually reads here, and it
-                       * costs an attribute.
-                       */
-                      aria-current={isActive ? 'page' : undefined}
-                      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium focus-outline ${
-                        isActive
-                          ? 'bg-primary/10 font-semibold text-link'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      } ${collapsed ? 'justify-center px-0' : ''}`}
-                    >
-                      <Icon
-                        className={`h-5 w-5 shrink-0 ${
-                          isActive
-                            ? 'text-link'
-                            : 'text-muted-foreground group-hover:text-foreground'
-                        }`}
-                      />
-                      {!collapsed && <span className="flex-1 truncate">{t(item.label)}</span>}
-                      {/*
-                       * A red circle, because it counts WORK WAITING rather
-                       * than labelling the item — the queue badges are the only
-                       * thing in this nav that should pull the eye.
-                       *
-                       * `min-w-5` with `px-1.5` keeps a single digit perfectly
-                       * round and lets three digits grow into a pill instead of
-                       * being clipped. `tabular-nums` stops the badge changing
-                       * width as a count ticks between digits of different
-                       * widths, which reads as the nav twitching.
-                       */}
-                      {!collapsed && item.badge && (
-                        <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-destructive-foreground">
-                          {item.badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            );
-          })}
+          The ONE `<nav>` on the page. Specs count it (auth-correctness), and a
+          second one — a breadcrumb, say — would make "the navigation" ambiguous
+          to a screen reader as well as to them.
+        */}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          <SidebarNav
+            entries={entries}
+            pathname={pathname}
+            activeHref={activeHref}
+            collapsed={collapsed}
+            badges={badges}
+            onNavigate={closeMobile}
+          />
         </nav>
       </aside>
 

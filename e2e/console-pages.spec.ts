@@ -1,6 +1,6 @@
 import { type Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { CONSOLE_PAGES, collectRejections } from './helpers';
+import { CONSOLE_PAGES, collectRejections, openNavItem } from './helpers';
 
 /**
  * Every page of the admin console, as an operator actually meets them.
@@ -91,12 +91,16 @@ test.describe('the console navigation', () => {
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
 
-    const nav = page.getByRole('navigation').first();
-    for (const route of ['/clients', '/kyc', '/roles', '/dashboard']) {
-      await nav
-        .getByRole('link', { name: new RegExp(route.slice(1).replace('-', ' '), 'i') })
-        .first()
-        .click();
+    // [route, the main item it sits under, its link]. Two pages share a group
+    // on purpose: moving within an open group must not close it.
+    const trail: [string, string | null, RegExp][] = [
+      ['/clients', 'Clients', /^all clients/i],
+      ['/kyc', 'Clients', /^kyc review/i],
+      ['/roles', 'System', /^roles/i],
+      ['/dashboard', null, /^dashboard$/i],
+    ];
+    for (const [route, group, link] of trail) {
+      await openNavItem(page, group, link);
       await page.waitForURL(new RegExp(route));
       await expectConsoleChrome(page, `${route} via the sidebar`);
     }
