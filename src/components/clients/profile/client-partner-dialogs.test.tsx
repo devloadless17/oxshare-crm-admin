@@ -33,14 +33,9 @@ function level(over: Partial<IbLevel> = {}): IbLevel {
     name: 'Main Partner',
     description: null,
     enabled: true,
-    commissionMode: 'per_lot',
-    commissionRate: '0.0000',
-    commissionAmountPerLot: '10.00000000',
-    rebateMode: 'per_lot',
-    rebateRate: '0.0000',
-    rebateAmountPerLot: '2.00000000',
-    /* What the platform actually computes on, and the shipped default. */
-    revenueBasis: 'commission_swap',
+    /* Shares of the traded product's commission type (0140). */
+    commissionShare: '70.0000',
+    rebateShare: '50.0000',
     partnerCount: 3,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
@@ -52,12 +47,8 @@ const SUB_PARTNER = level({
   id: 'l-2',
   level: 2,
   name: 'Sub Partner',
-  commissionMode: 'percent',
-  commissionRate: '30.0000',
-  commissionAmountPerLot: null,
-  rebateMode: 'percent',
-  rebateRate: '5.0000',
-  rebateAmountPerLot: null,
+  commissionShare: '30.0000',
+  rebateShare: '5.0000',
 });
 
 const PARTNER = {
@@ -105,40 +96,39 @@ describe('moving a partner to another level', () => {
    * two entirely different payouts under the two modes, so a renderer that
    * dropped the glyph would show a plausible wrong number.
    */
-  it('shows the terms beside each level, with their units', async () => {
+  it('shows the terms beside each level, as shares of the product’s type', async () => {
     renderDialog();
 
     expect(
-      await screen.findByText(/\$10 per lot · client rebate \$2 per lot/i),
+      await screen.findByText(/70% of the product’s commission · client rebate 50% of its rebate/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/30% of revenue · client rebate 5% of revenue/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/30% of the product’s commission · client rebate 5% of its rebate/i),
+    ).toBeInTheDocument();
   });
 
   /*
-   * The two terms are priced INDEPENDENTLY — "$10 a lot to the partner, 5% back
-   * to the client" is an ordinary arrangement — so a renderer that read one
-   * mode for both legs would be wrong on exactly this row and right on every
-   * other one in this file.
+   * The two shares are INDEPENDENT — "70% of the commission, nothing back to
+   * the client" is an ordinary arrangement — so a renderer that read one
+   * figure for both legs would be wrong on exactly this row.
    */
-  it('reads each leg’s own mode rather than assuming one for the row', async () => {
+  it('reads each leg’s own share rather than assuming one for the row', async () => {
     getIbLevels.mockResolvedValue([
       level(),
       level({
         id: 'l-mixed',
         level: 2,
-        name: 'Mixed Terms',
-        commissionMode: 'per_lot',
-        commissionRate: '0.0000',
-        commissionAmountPerLot: '7.00000000',
-        rebateMode: 'percent',
-        rebateRate: '5.0000',
-        rebateAmountPerLot: null,
+        name: 'No Rebate',
+        commissionShare: '7.5000',
+        rebateShare: '0.0000',
       }),
     ]);
     renderDialog();
 
     expect(
-      await screen.findByText(/\$7 per lot · client rebate 5% of revenue/i),
+      await screen.findByText(
+        /7\.5% of the product’s commission · client rebate 0% of its rebate/i,
+      ),
     ).toBeInTheDocument();
   });
 

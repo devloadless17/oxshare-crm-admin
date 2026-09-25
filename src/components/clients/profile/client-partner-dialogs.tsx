@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import type { IbPartnerDetail, IbPayoutMode } from '@/lib/api/admin';
+import type { IbLevel, IbPartnerDetail } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -116,18 +116,7 @@ export function ChangeLevelDialog({
                     })}
                   </span>
                   <span className="block text-[11px] text-muted-foreground">
-                    {t('clientProfile.levelTerms', {
-                      commission: describeTerm(
-                        entry.commissionMode,
-                        entry.commissionRate,
-                        entry.commissionAmountPerLot,
-                      ),
-                      rebate: describeTerm(
-                        entry.rebateMode,
-                        entry.rebateRate,
-                        entry.rebateAmountPerLot,
-                      ),
-                    })}
+                    {describeShares(entry)}
                   </span>
                 </span>
               </span>
@@ -167,20 +156,19 @@ export function ChangeLevelDialog({
  * The UNIT is never dropped, because "10" means two entirely different payouts
  * under the two modes and this string is read while deciding somebody's pay.
  */
-function describeTerm(mode: IbPayoutMode, rate: string, amountPerLot: string | null): string {
-  if (mode === 'per_lot') {
-    return t('clientProfile.termPerLot', { amount: formatDecimal(amountPerLot ?? '0') });
-  }
-  /*
-   * A `share_of_parent` rate is a percentage of the LEVEL ABOVE's per-lot rate,
-   * not of revenue, and this dialog does not hold that rung. Saying "of the
-   * level above" is the honest short form — rendering it as a plain "30%" would
-   * read as 30% of the trade, which is a different and much larger number.
-   */
-  if (mode === 'share_of_parent') {
-    return t('clientProfile.termShareOfParent', { rate: formatDecimal(rate) });
-  }
-  return t('clientProfile.termPercent', { rate: formatDecimal(rate) });
+/**
+ * A rung's terms in words — shares of the traded product's commission type
+ * (0140). What a share comes to in money depends on which product the client
+ * trades, and this dialog does not hold the catalogue, so it names the
+ * fraction rather than inventing a figure.
+ */
+function describeShares(entry: IbLevel): string {
+  return t('clientProfile.levelTerms', {
+    commission: t('clientProfile.termCommissionShare', {
+      share: formatDecimal(entry.commissionShare),
+    }),
+    rebate: t('clientProfile.termRebateShare', { share: formatDecimal(entry.rebateShare) }),
+  });
 }
 
 /** Put a partner under a different parent, or none at all. */
@@ -291,9 +279,12 @@ export function ReassignParentDialog({
               </span>
               {/* The candidate parent's RUNG (0112). Worth showing because it
                   is what decides whether this parent earns anything from the
-                  sub-tree they are about to be given. */}
+                  sub-tree they are about to be given. It read `row.level`, a
+                  field the hand-written type promised and the API never sent,
+                  so every option said "Level undefined" — caught the moment the
+                  type became the generated one. */}
               <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
-                {t('clientProfile.levelBadge', { level: String(row.level) })}
+                {t('clientProfile.levelBadge', { level: String(row.account.level) })}
               </span>
             </label>
           ))}

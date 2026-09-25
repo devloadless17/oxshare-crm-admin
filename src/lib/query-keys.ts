@@ -147,8 +147,13 @@ export const keys = {
     limits: () => ['ib-levels', 'limits'] as const,
   },
 
+  ibCommissionTypes: {
+    all: () => ['ib-commission-types'] as const,
+  },
+
   ibPartners: {
     all: () => ['ib-partners'] as const,
+    list: (params: Params) => ['ib-partners', 'list', params] as const,
     forReassign: () => ['ib-partners', 'for-reassign'] as const,
     detail: (userId: string) => ['ib-partners', 'detail', userId] as const,
   },
@@ -165,6 +170,11 @@ export const keys = {
   products: {
     all: () => ['products'] as const,
     availableGroups: () => ['products', 'available-groups'] as const,
+  },
+
+  /** The server's country and nationality lists — static per deployment. */
+  profileOptions: {
+    all: () => ['profile-options'] as const,
   },
 
   currencies: {

@@ -297,12 +297,8 @@ const partnerDetail = (over: Record<string, unknown> = {}) => ({
   level: 1,
   levelName: 'Main Partner',
   levelEnabled: true,
-  levelCommissionMode: 'per_lot' as const,
-  levelCommissionRate: '0.0000',
-  levelCommissionAmountPerLot: '10.00000000',
-  levelRebateMode: 'per_lot' as const,
-  levelRebateRate: '0.0000',
-  levelRebateAmountPerLot: '2.00000000',
+  levelCommissionShare: '70.0000',
+  levelRebateShare: '50.0000',
   referralCode: 'JFSA8BQB',
   active: true,
   approvedAt: '2026-08-13T00:00:00.000Z',
@@ -317,7 +313,8 @@ const partnerDetail = (over: Record<string, unknown> = {}) => ({
   },
   directPartners: [] as unknown[],
   referredClientCount: 4,
-  earnings: { confirmed: '31.50000000', pending: '0.00000000' },
+  // One line per currency (the API stopped summing across currencies).
+  earnings: [{ currency: 'USD', confirmed: '31.50000000', pending: '0.00000000' }],
   ...over,
 });
 
@@ -364,7 +361,9 @@ describe('the partner tab', () => {
      * reads as the whole one. The unit matters just as much: "10" alone is two
      * different payouts, and only the glyph says which.
      */
-    expect(screen.getByText(/\$10 per lot · client rebate \$2 per lot/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/70% of the product’s commission · client rebate 50% of its rebate/i),
+    ).toBeInTheDocument();
   });
 
   it('names the parent, and says so plainly when there is none', async () => {
@@ -398,7 +397,9 @@ describe('the partner tab', () => {
     getPartnerDetail.mockResolvedValue(
       // Seventeen significant digits: `Number()` is already wrong before
       // formatting, which is the whole reason money crosses the wire as text.
-      partnerDetail({ earnings: { confirmed: '12345678901.23456789', pending: '0' } }),
+      partnerDetail({
+        earnings: [{ currency: 'USD', confirmed: '12345678901.23456789', pending: '0' }],
+      }),
     );
     renderWithProviders(<ClientProfilePage />);
 
@@ -412,5 +413,29 @@ describe('the partner tab', () => {
      * through a double does not survive.
      */
     expect(screen.getByText(/12,345,678,901\.23/)).toBeInTheDocument();
+  });
+
+  it('shows each currency on its own line, never one total', async () => {
+    /*
+     * The panel took a hard-coded "USD" and printed one figure the API had
+     * summed across currencies — 100 USD and 90 EUR read as $190.00. Two
+     * currencies must stay two lines, each in its own currency.
+     */
+    getPartnerDetail.mockResolvedValue(
+      partnerDetail({
+        earnings: [
+          { currency: 'EUR', confirmed: '90.00000000', pending: '0' },
+          { currency: 'USD', confirmed: '100.00000000', pending: '0' },
+        ],
+      }),
+    );
+    renderWithProviders(<ClientProfilePage />);
+
+    await screen.findByText('John Doe');
+    await openTab(/partner/i);
+
+    expect(screen.getByText(/90\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/100\.00/)).toBeInTheDocument();
+    expect(screen.queryByText(/190\.00/)).not.toBeInTheDocument();
   });
 });

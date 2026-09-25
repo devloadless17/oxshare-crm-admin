@@ -136,22 +136,16 @@ export type IbLevel = components['schemas']['IbLevelDto'];
 export type IbLevelLimits = components['schemas']['IbLevelLimitsDto'];
 
 /**
- * Which revenue a level's percentages are a share of — FR-IB-16.
+ * A COMMISSION TYPE — the rate card a product is sold on (0140).
  *
- * Derived from the response type rather than written out, so adding a basis on
- * the server reaches every form that offers one without a second edit here.
+ * Money per standard lot for the partners' commission and for the client's
+ * rebate. A product points at one; each level of the ladder takes a percentage
+ * of it. `productNames` is on the row so a delete or a disable can be refused
+ * on the screen before the API refuses it.
  */
-export type RevenueBasis = IbLevel['revenueBasis'];
-
-/**
- * How a payout leg is priced — a share of the broker's revenue, or a flat amount
- * for every standard lot traded.
- *
- * A level carries this TWICE, once for the partner's commission and once for
- * the client's rebate, and they are independent: "$10 a lot to the partner, 2%
- * back to the client" is an ordinary arrangement.
- */
-export type IbPayoutMode = IbLevel['commissionMode'];
+export type IbCommissionType = components['schemas']['IbCommissionTypeDto'];
+export type CreateIbCommissionType = components['schemas']['CreateIbCommissionTypeDto'];
+export type UpdateIbCommissionType = components['schemas']['UpdateIbCommissionTypeDto'];
 export type CreateIbLevel = components['schemas']['CreateIbLevelDto'];
 export type UpdateIbLevel = components['schemas']['UpdateIbLevelDto'];
 export type IbApplication = components['schemas']['IbApplicationDto'];
@@ -167,6 +161,8 @@ export type IbAccount = components['schemas']['IbAccountDto'];
  * the type to make that unavoidable rather than merely advisable.
  */
 export type IbPartnerDetail = components['schemas']['IbPartnerDetailDto'];
+/** One currency's commission — a partner's earnings are a LIST of these. */
+export type IbPartnerEarnings = components['schemas']['IbPartnerEarningsDto'];
 export type IbSubPartnerRow = components['schemas']['IbSubPartnerRowDto'];
 
 export type ClientPositionsPage = components['schemas']['ClientPositionsPageDto'];
@@ -183,53 +179,20 @@ export type ClientTransactionRow = components['schemas']['ClientTransactionRowDt
  * `@ApiOkResponse` DTO — this is the gap, named so it gets closed.
  */
 /**
- * The partner list. Hand-declared for the same reason as `IbApplicationPage`:
- * the handler returns a store result rather than a DTO class, so Nest describes
- * it as a bare object.
+ * The partner DIRECTORY — `GET /admin/ib/partners`. An alias since the route
+ * declared `IbPartnerListResponseDto` (25 Sep 2026).
  *
- * REPLACE with an alias once `AdminIbController.listPartners` declares an
- * `@ApiOkResponse` DTO.
+ * It was hand-declared, and the hand-written copy was wrong in three places at
+ * once: it claimed a top-level `level` the response never carried, typed
+ * `account` as the portal's `IbAccountDto` (with `agencyName` and `products`,
+ * which this route does not send), and had no `parentPortalId` at all. That is
+ * the failure the generated types exist to remove — a hand copy compiles
+ * against what somebody believed, not against what arrives.
+ *
+ * `earnings` is one entry PER CURRENCY, never a total.
  */
-export interface IbPartnerPage {
-  rows: Array<{
-    account: IbAccount;
-    /** `portalId` is the partner's Portal ID — the identifier the console prints. */
-    user: { id: string; portalId: number; email: string; firstName: string; lastName: string };
-    /**
-     * The RUNG this partner stands on, and therefore their terms (0112).
-     *
-     * A NUMBER rather than a name, unlike the `programName` this replaced. A
-     * level IS its number — the unique key every accrual is priced from — and
-     * the ladder is short enough that "Level 2" is the whole answer. The name
-     * on the level row is a label for the screen that edits it, not an
-     * identifier a partner list has to carry.
-     */
-    level: number;
-    /**
-     * What this partner has earned, summed by the SERVER across all their
-     * accruals — decimal strings (§6.1), never numbers.
-     *
-     * Two figures rather than one total, and deliberately so: `confirmed` is
-     * money the platform has credited, `pending` is what the engine has
-     * calculated and not yet paid. Collapsing them would let an operator quote
-     * a partner a figure that has not settled.
-     *
-     * A partner with no accruals reports '0' for both rather than being absent,
-     * so a caller never has to distinguish "nothing earned" from "no data".
-     */
-    earnings: { confirmed: string; pending: string };
-    /**
-     * The agency (وكالة) this partner is appointed under, by name.
-     *
-     * NULL means they are on none — appointed before agencies existed — and
-     * their clients are offered the FULL catalogue rather than nothing. The
-     * screen says that rather than printing a dash, because the two read as
-     * opposites.
-     */
-    agencyName: string | null;
-  }>;
-  total: number;
-}
+export type IbPartnerPage = components['schemas']['IbPartnerListResponseDto'];
+export type IbPartnerRow = components['schemas']['IbPartnerRowDto'];
 
 export interface IbApplicationPage {
   rows: Array<{
@@ -1019,9 +982,9 @@ export type IbApplicationSortKey = (typeof IB_APPLICATION_SORT_KEYS)[number];
  * "Level 2" as text, which is the kind of ordering that looks plausible enough
  * to ship.
  *
- * There is no `parentIbUserId` key: the partner column renders "Direct" or
- * "Has parent" rather than the id, so a sort on it would order by opaque UUID
- * and answer a question nobody asked.
+ * There is no `parentIbUserId` key: the directory names a parent by Portal ID
+ * (or says there is none), and a sort on it would order by opaque UUID and
+ * answer a question nobody asked.
  */
 export const IB_PARTNER_SORT_KEYS = [
   'approvedAt',
@@ -1358,12 +1321,17 @@ export const adminApi = {
       limit?: number;
       sort?: IbPartnerSortKey;
       order?: 'asc' | 'desc';
+      /** A Portal ID, a name or email, or a referral code. */
+      q?: string;
+      status?: 'active' | 'suspended';
     },
     signal?: AbortSignal,
   ): Promise<IbPartnerPage> {
     const query = new URLSearchParams();
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
+    if (params.q) query.set('q', params.q);
+    if (params.status) query.set('status', params.status);
     // Both halves or neither — see `getIbApplications` above.
     if (params.sort) query.set('sort', params.sort);
     if (params.sort && params.order) query.set('order', params.order);
@@ -1481,6 +1449,41 @@ export const adminApi = {
    */
   async deleteIbLevel(level: number): Promise<void> {
     await apiClient.delete(`/admin/ib-levels/${level}`);
+  },
+
+  /* ── Commission types (0140) ─────────────────────────────────────────── */
+
+  /** Every rate card, disabled ones included, each naming the products sold on it. */
+  async getIbCommissionTypes(signal?: AbortSignal): Promise<IbCommissionType[]> {
+    const { data } = await apiClient.get<IbCommissionType[]>('/admin/ib-commission-types', {
+      signal,
+    });
+    return data;
+  },
+
+  async createIbCommissionType(body: CreateIbCommissionType): Promise<IbCommissionType> {
+    const { data } = await apiClient.post<IbCommissionType>('/admin/ib-commission-types', body);
+    return data;
+  },
+
+  /**
+   * The API refuses to disable a type products are sold on, naming them.
+   * Surfaced verbatim — the names are the only part an operator can act on.
+   */
+  async updateIbCommissionType(
+    id: string,
+    body: UpdateIbCommissionType,
+  ): Promise<IbCommissionType> {
+    const { data } = await apiClient.patch<IbCommissionType>(
+      `/admin/ib-commission-types/${id}`,
+      body,
+    );
+    return data;
+  },
+
+  /** Refused while products are sold on it, and once it has priced a payout. */
+  async deleteIbCommissionType(id: string): Promise<void> {
+    await apiClient.delete(`/admin/ib-commission-types/${id}`);
   },
 
   /* ── The catalogue ──────────────────────────────────────────────────── */
@@ -2445,18 +2448,34 @@ export const adminApi = {
   },
 
   /**
-   * Correct a client's profile — name, phone, country. CORE-18.
+   * Correct a client's profile — the whole of it since 0140: name, date of
+   * birth, nationality, phone, residence and address. CORE-18.
    *
    * PARTIAL by design: only the fields present are written, so two screens
    * editing different things cannot overwrite one another with their own stale
-   * copies. Send an empty string to clear phone or country; the API turns that
-   * into NULL rather than storing a blank.
+   * copies. Send an empty string to clear an optional field; the API turns that
+   * into NULL rather than storing a blank. The API answers 400 with `fields`
+   * for a value its rules refuse, and 409 `PROFILE_LOCKED` with `fields` for
+   * one the client's verification has locked.
    */
   async updateClientProfile(
     id: string,
-    dto: { firstName?: string; lastName?: string; phone?: string; country?: string },
+    dto: components['schemas']['UpdateClientProfileDto'],
   ): Promise<ClientAccount> {
     const { data } = await apiClient.patch<ClientAccount>(`/admin/clients/${id}`, dto);
+    return data;
+  },
+
+  /**
+   * The countries and nationalities a client profile accepts — the SERVER's
+   * lists, so the edit form cannot offer a value the profile then refuses.
+   * Public on the API, the same for every reader.
+   */
+  async profileOptions(signal?: AbortSignal): Promise<components['schemas']['ProfileOptionsDto']> {
+    const { data } = await apiClient.get<components['schemas']['ProfileOptionsDto']>(
+      '/profile/options',
+      { signal },
+    );
     return data;
   },
 

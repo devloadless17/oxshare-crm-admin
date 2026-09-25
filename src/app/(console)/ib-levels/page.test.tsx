@@ -3,38 +3,36 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { ALL_PERMISSIONS } from '@/test/permissions';
-import type { IbLevel } from '@/lib/api/admin';
+import type { IbCommissionType, IbLevel } from '@/lib/api/admin';
 import IbLevelsPage from './page';
 
 /**
  * The commission ladder — the screen where a typo changes what every partner on
  * a rung is paid.
  *
- * ## What these carry over from the programme catalogue they replaced
+ * ## What a rung is since 0140
  *
- * That screen's tests found a live defect: three rates totalling 100 in decimal
- * totalled 100.00000000000001 as floats and were flagged red as
- * over-allocated. This screen carries the same class of value — decimal strings
- * that must never round-trip through a number — so the running-total case comes
- * with it.
- *
- * The rest are about the ways a correct configuration can be DISPLAYED wrongly,
- * and every one of them renders perfectly without an assertion:
- *
- *  1. a rate that loses its scale on the way to the DOM;
- *  2. a per-lot amount shown with a `%` beside it, which is a different payout
- *     at the same digits; and
- *  3. a PATCH that sends only the active shape, which the database refuses.
+ * A PERCENTAGE of the traded product's commission type, not an amount. So the
+ * ways a correct configuration can be DISPLAYED wrongly are: a share shown
+ * without saying what it is a share of; a share shown without what it comes to
+ * in money on any real type; and a save that round-trips the percentage
+ * through a number. Each renders perfectly without an assertion.
  */
-const { getIbLevels, getIbLevelLimits, createIbLevel, updateIbLevel, deleteIbLevel } = vi.hoisted(
-  () => ({
-    getIbLevels: vi.fn(),
-    getIbLevelLimits: vi.fn(),
-    createIbLevel: vi.fn(),
-    updateIbLevel: vi.fn(),
-    deleteIbLevel: vi.fn(),
-  }),
-);
+const {
+  getIbLevels,
+  getIbLevelLimits,
+  getIbCommissionTypes,
+  createIbLevel,
+  updateIbLevel,
+  deleteIbLevel,
+} = vi.hoisted(() => ({
+  getIbLevels: vi.fn(),
+  getIbLevelLimits: vi.fn(),
+  getIbCommissionTypes: vi.fn(),
+  createIbLevel: vi.fn(),
+  updateIbLevel: vi.fn(),
+  deleteIbLevel: vi.fn(),
+}));
 
 /*
  * BOTH the named export and the default, per this repo's mocking note: the page
@@ -43,7 +41,14 @@ const { getIbLevels, getIbLevelLimits, createIbLevel, updateIbLevel, deleteIbLev
  */
 vi.mock('@/lib/api', () => {
   const api = {
-    admin: { getIbLevels, getIbLevelLimits, createIbLevel, updateIbLevel, deleteIbLevel },
+    admin: {
+      getIbLevels,
+      getIbLevelLimits,
+      getIbCommissionTypes,
+      createIbLevel,
+      updateIbLevel,
+      deleteIbLevel,
+    },
   };
   return { api, default: api };
 });
@@ -65,7 +70,7 @@ vi.mock('@/context/AdminAuthContext', () => ({
   }),
 }));
 
-/** Level 1 as the business asked for it: a flat amount per lot, both legs. */
+/** Level 1: 70% of the product's commission, 50% of its rebate. */
 function mainPartner(over: Partial<IbLevel> = {}): IbLevel {
   return {
     id: 'l-1',
@@ -73,14 +78,8 @@ function mainPartner(over: Partial<IbLevel> = {}): IbLevel {
     name: 'Main Partner',
     description: null,
     enabled: true,
-    commissionMode: 'per_lot',
-    commissionRate: '0.0000',
-    commissionAmountPerLot: '10.00000000',
-    rebateMode: 'per_lot',
-    rebateRate: '0.0000',
-    rebateAmountPerLot: '2.00000000',
-    /* What the platform actually computes on, and the shipped default. */
-    revenueBasis: 'commission_swap',
+    commissionShare: '70.0000',
+    rebateShare: '50.0000',
     partnerCount: 0,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
@@ -88,27 +87,33 @@ function mainPartner(over: Partial<IbLevel> = {}): IbLevel {
   };
 }
 
-/**
- * Level 2 as the business asked for it: "the sub-partner takes thirty percent
- * of the ten dollars the main partner gets, and he gets three dollars".
- *
- * That is `share_of_parent` — a percentage of the RUNG ABOVE's per-lot rate,
- * not of broker revenue. The two are both "30%" and are wildly different
- * amounts, which is why the fixture uses the real one.
- */
+/** Level 2: 30% of the product's commission, nothing back to the client. */
 function subPartner(over: Partial<IbLevel> = {}): IbLevel {
   return mainPartner({
     id: 'l-2',
     level: 2,
     name: 'Sub Partner',
-    commissionMode: 'share_of_parent',
-    commissionRate: '30.0000',
-    commissionAmountPerLot: null,
-    rebateMode: 'per_lot',
-    rebateRate: '0.0000',
-    rebateAmountPerLot: '3.00000000',
+    commissionShare: '30.0000',
+    rebateShare: '0.0000',
     ...over,
   });
+}
+
+/** The one rate card on the platform: $10 a lot commission, $3 rebate. */
+function standardType(over: Partial<IbCommissionType> = {}): IbCommissionType {
+  return {
+    id: 'ct-1',
+    name: 'Standard',
+    description: null,
+    enabled: true,
+    commissionPerLot: '10.00000000',
+    rebatePerLot: '3.00000000',
+    sortOrder: 0,
+    productNames: ['Standard'],
+    createdAt: '2026-09-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+    ...over,
+  };
 }
 
 beforeEach(() => {
@@ -116,6 +121,7 @@ beforeEach(() => {
   permissions.current = ALL_PERMISSIONS;
   getIbLevels.mockResolvedValue([mainPartner(), subPartner()]);
   getIbLevelLimits.mockResolvedValue({ maxLevels: 2, absoluteMaxLevels: 10 });
+  getIbCommissionTypes.mockResolvedValue([standardType()]);
   updateIbLevel.mockResolvedValue(mainPartner());
   createIbLevel.mockResolvedValue(mainPartner({ id: 'l-3', level: 3 }));
   deleteIbLevel.mockResolvedValue(undefined);
@@ -138,54 +144,40 @@ describe('the commission ladder', () => {
   });
 
   /*
-   * The UNIT is the whole point. "10" is ten dollars a lot or ten percent of
-   * the broker's revenue, and those are not close to the same amount of money.
-   * A card that dropped the glyph would misstate every per-lot rung while
-   * looking entirely correct.
+   * The card says what the share is a share OF. "70" alone on a money screen
+   * is unreadable; "70% of the product's commission" is the whole claim.
    */
-  it('shows a per-lot rung in money and a percentage rung in percent', async () => {
-    getIbLevels.mockResolvedValue([
-      mainPartner(),
-      subPartner({ commissionMode: 'percent', commissionRate: '30.0000' }),
-    ]);
+  it('shows each share as a percentage of the product’s figure', async () => {
     renderWithProviders(<IbLevelsPage />);
 
-    /* Level 1's commission is $10 a lot; level 2's is 30% of revenue. */
-    expect(await screen.findByText('$10 / lot')).toBeInTheDocument();
-    expect(screen.getByText('30% of revenue')).toBeInTheDocument();
+    expect(await screen.findByText('70% of the product’s commission')).toBeInTheDocument();
+    expect(screen.getByText('50% of the product’s rebate')).toBeInTheDocument();
+    expect(screen.getByText('30% of the product’s commission')).toBeInTheDocument();
   });
 
   /*
-   * ── THE SHARE RESOLVES ON THE CARD, AND THAT IS THE POINT OF IT ──────────
+   * ── THE SHARE RESOLVES ON THE CARD, PER TYPE, AND THAT IS THE POINT ──────
    *
-   * "30%" on a card is unreadable — 30% of what? The business asked for "thirty
-   * percent of the ten dollars the main partner gets, and he gets three
-   * dollars", so the card has to show the three dollars.
+   * A percentage of a number on another screen is not a figure anybody can
+   * hold in their head. 70% of a $10 type is $7.00 to the partner and 50% of
+   * its $3 rebate is $1.50 to the client — said on the card.
    */
-  it('resolves a share of the rung above into money', async () => {
+  it('says what each share comes to in money on every active type', async () => {
     renderWithProviders(<IbLevelsPage />);
 
-    /* Level 2 is 30% of level 1's $10 a lot. */
-    expect(await screen.findByText('30% above = $3.00 / lot')).toBeInTheDocument();
+    expect(await screen.findByText('Standard: partner $7.00 · client $1.50')).toBeInTheDocument();
+    expect(screen.getByText('Standard: partner $3.00 · client $0.00')).toBeInTheDocument();
   });
 
-  /*
-   * A share of a rung that pays a PERCENTAGE has nothing per-lot to take a
-   * share of, and the engine skips it. Said on the card rather than left to be
-   * discovered from a trade that paid nobody.
-   */
-  it('says so when a share cannot resolve', async () => {
-    getIbLevels.mockResolvedValue([
-      mainPartner({
-        commissionMode: 'percent',
-        commissionRate: '25.0000',
-        commissionAmountPerLot: null,
-      }),
-      subPartner(),
+  it('leaves a disabled type out of the preview, because it pays nobody', async () => {
+    getIbCommissionTypes.mockResolvedValue([
+      standardType(),
+      standardType({ id: 'ct-2', name: 'Retired', enabled: false }),
     ]);
     renderWithProviders(<IbLevelsPage />);
 
-    expect(await screen.findByText(/unresolved/i)).toBeInTheDocument();
+    await screen.findByText('Standard: partner $7.00 · client $1.50');
+    expect(screen.queryByText(/Retired: partner/)).toBeNull();
   });
 
   /*
@@ -198,11 +190,6 @@ describe('the commission ladder', () => {
     renderWithProviders(<IbLevelsPage />);
 
     await screen.findByText('Main Partner');
-
-    /*
-     * Checked INSIDE the open menu. Asserting on the closed page would pass
-     * whether or not the item exists.
-     */
     await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
     expect(screen.queryByRole('menuitem', { name: /remove level 1/i })).toBeNull();
   });
@@ -221,10 +208,10 @@ describe('the commission ladder', () => {
    *
    * The card is a read-only summary so the whole ladder fits on a screen. That
    * only works if the edit path actually opens the form, seeded with what the
-   * rung currently holds — an empty dialog would silently blank the terms it
+   * rung currently holds — an empty dialog would silently blank the shares it
    * saved.
    */
-  it('opens the edit dialog seeded with the rung’s current terms', async () => {
+  it('opens the edit dialog seeded with the rung’s current shares', async () => {
     const user = userEvent.setup();
     renderWithProviders(<IbLevelsPage />);
 
@@ -233,23 +220,16 @@ describe('the commission ladder', () => {
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
     expect(await screen.findByLabelText(/^level name$/i)).toHaveValue('Main Partner');
-    /*
-     * $10 a lot, as stored — the form must not round-trip it into something
-     * else. Matched by ROLE because the term's label names both the number and
-     * its mode selector, and `getByLabelText` cannot tell them apart.
-     */
-    expect(screen.getByRole('textbox', { name: /the partner earns/i })).toHaveValue('10.00000000');
+    expect(screen.getByRole('textbox', { name: /the partner earns/i })).toHaveValue('70');
+    expect(screen.getByRole('textbox', { name: /their client gets back/i })).toHaveValue('50');
   });
 
   /*
-   * ── THE PATCH SENDS BOTH SHAPES, AND THAT IS LOAD-BEARING ────────────────
-   *
-   * `ib_levels_commission_shape` requires exactly the column the mode reads and
-   * FORBIDS the other. A save that sent only the mode and the newly-relevant
-   * field would switch a rung to per-lot with no amount — which the database
-   * refuses, correctly, as a term that pays on nothing.
+   * A STRING on the wire, and BOTH shares — a PATCH that sent only the one the
+   * operator touched would be fine, but one that sent a number would let a
+   * 33.3333 become 33.333299999999994 before any arithmetic happened.
    */
-  it('sends both the rate and the per-lot amount when saving', async () => {
+  it('sends both shares as strings when saving', async () => {
     const user = userEvent.setup();
     renderWithProviders(<IbLevelsPage />);
 
@@ -257,37 +237,26 @@ describe('the commission ladder', () => {
     await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    await screen.findByLabelText(/^level name$/i);
+    const commission = await screen.findByRole('textbox', { name: /the partner earns/i });
+    await user.clear(commission);
+    await user.type(commission, '33.3333');
     await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     await waitFor(() =>
       expect(updateIbLevel).toHaveBeenCalledWith(
         1,
-        expect.objectContaining({
-          commissionMode: 'per_lot',
-          commissionAmountPerLot: '10.00000000',
-          commissionRate: expect.any(String),
-        }),
+        expect.objectContaining({ commissionShare: '33.3333', rebateShare: '50' }),
       ),
     );
+    const sent = updateIbLevel.mock.calls[0]?.[1] as { commissionShare: unknown } | undefined;
+    expect(typeof sent?.commissionShare).toBe('string');
   });
 
   /*
-   * The FLOAT trap, carried over from the catalogue this screen replaced —
-   * where three rates totalling 100 summed to 100.00000000000001 and were
-   * flagged red. decimal.js is what keeps the total exact.
+   * A share is a fraction of ONE figure, so it cannot exceed the whole of it.
+   * Refused beside the field, before the API has to.
    */
-  it('does not flag an exactly-100 rung as over-allocated', async () => {
-    getIbLevels.mockResolvedValue([
-      mainPartner({
-        commissionMode: 'percent',
-        commissionRate: '33.3333',
-        commissionAmountPerLot: null,
-        rebateMode: 'percent',
-        rebateRate: '66.6667',
-        rebateAmountPerLot: null,
-      }),
-    ]);
+  it('refuses a share over 100% before saving', async () => {
     const user = userEvent.setup();
     renderWithProviders(<IbLevelsPage />);
 
@@ -295,70 +264,17 @@ describe('the commission ladder', () => {
     await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    expect(await screen.findByRole('button', { name: /save changes/i })).toBeEnabled();
+    const commission = await screen.findByRole('textbox', { name: /the partner earns/i });
+    await user.clear(commission);
+    await user.type(commission, '150');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/cannot exceed 100%/i);
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled();
+    expect(updateIbLevel).not.toHaveBeenCalled();
   });
 
   /*
-   * ── THE 100% GUARD IS GONE (0117), and this replaces the case that pinned it.
-   *
-   * That test opened a rung paying 80% commission and a 30% rebate and asserted
-   * the save button was disabled. Neither leg can be a percentage any more, so
-   * the state it described is unreachable — the ceiling that still applies is
-   * `ib_max_payout_per_lot`, enforced when a trade is priced, because it has to
-   * compare against the trade's VOLUME.
-   *
-   * What matters on this form now is the rung the migration could NOT convert:
-   * one priced as a percentage of broker revenue, which has no per-lot
-   * equivalent. The form must say so rather than invent a figure.
-   */
-  it('warns when editing a rung priced on a retired model', async () => {
-    getIbLevels.mockResolvedValue([
-      mainPartner({
-        commissionMode: 'percent',
-        commissionRate: '80.0000',
-        commissionAmountPerLot: null,
-        rebateMode: 'percent',
-        rebateRate: '30.0000',
-        rebateAmountPerLot: null,
-      }),
-    ]);
-    const user = userEvent.setup();
-    renderWithProviders(<IbLevelsPage />);
-
-    await screen.findByText('Main Partner');
-    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
-    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/retired/i);
-  });
-
-  /*
-   * A per-lot amount is NOT a share of anything, so it must not be summed with
-   * a percentage. Without the split, "$80 a lot plus 30%" reads as 110% and an
-   * honest mixed rung becomes unsaveable.
-   */
-  it('does not add a per-lot amount into the percentage total', async () => {
-    getIbLevels.mockResolvedValue([
-      mainPartner({
-        commissionMode: 'per_lot',
-        commissionAmountPerLot: '80.00000000',
-        rebateMode: 'percent',
-        rebateRate: '30.0000',
-        rebateAmountPerLot: null,
-      }),
-    ]);
-    const user = userEvent.setup();
-    renderWithProviders(<IbLevelsPage />);
-
-    await screen.findByText('Main Partner');
-    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
-    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
-
-    expect(await screen.findByRole('button', { name: /save changes/i })).toBeEnabled();
-  });
-
-  /*
-   * The bound is READ, not hardcoded — and since 0113 it is the depth the
+   * The bound is READ, not hardcoded — since 0113 it is the depth the
    * commission ENGINE walks rather than a ceiling an operator could raise on
    * another screen. With the stub reporting 2 and two rungs configured there is
    * nothing to add, and the page explains that rather than pointing somewhere.
@@ -386,24 +302,18 @@ describe('the commission ladder', () => {
     const name = await screen.findByLabelText(/^level name$/i);
     await user.clear(name);
     await user.type(name, 'Deep Tier');
+    const commission = screen.getByRole('textbox', { name: /the partner earns/i });
+    await user.clear(commission);
+    await user.type(commission, '10');
     await user.click(screen.getByRole('button', { name: /^add level$/i }));
 
-    /*
-     * EVERY rung is per lot since 0117 — including a deep one, which used to
-     * default to `share_of_parent` at 30%. That mode was removed because with
-     * several sub-partner rungs a rate nobody can read off the card without
-     * resolving a chain upward is a rate somebody eventually gets wrong.
-     *
-     * The rate is asserted as a literal amount rather than a percentage, which
-     * is the whole point: the card now says what it pays.
-     */
     await waitFor(() =>
       expect(createIbLevel).toHaveBeenCalledWith(
         expect.objectContaining({
           level: 3,
           name: 'Deep Tier',
-          commissionMode: 'per_lot',
-          commissionAmountPerLot: '10',
+          commissionShare: '10',
+          rebateShare: '0',
         }),
       ),
     );

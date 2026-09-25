@@ -26,21 +26,34 @@ import type { Product } from '@/lib/api/admin';
  *    to survive to the DOM exactly, backslash included, because the bridge
  *    matches on it.
  */
-const { getProducts, createProduct, updateProduct, deleteProduct, getAvailableGroups } = vi.hoisted(
-  () => ({
-    getProducts: vi.fn(),
-    createProduct: vi.fn(),
-    updateProduct: vi.fn(),
-    deleteProduct: vi.fn(),
-    getAvailableGroups: vi.fn(),
-  }),
-);
+const {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getAvailableGroups,
+  getIbCommissionTypes,
+} = vi.hoisted(() => ({
+  getProducts: vi.fn(),
+  createProduct: vi.fn(),
+  updateProduct: vi.fn(),
+  deleteProduct: vi.fn(),
+  getAvailableGroups: vi.fn(),
+  getIbCommissionTypes: vi.fn(),
+}));
 
 vi.mock('@/lib/api/admin', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api/admin')>('@/lib/api/admin');
   return {
     ...actual,
-    adminApi: { getProducts, createProduct, updateProduct, deleteProduct, getAvailableGroups },
+    adminApi: {
+      getProducts,
+      createProduct,
+      updateProduct,
+      deleteProduct,
+      getAvailableGroups,
+      getIbCommissionTypes,
+    },
   };
 });
 
@@ -68,10 +81,9 @@ function product(over: Partial<Product> = {}): Product {
     description: 'The default account.',
     enabled: true,
     type: 'real',
-    // Required on ProductDto, so a fixture without it stops compiling — which
-    // is the contract guard doing its job rather than a chore. A commercial
-    // record only: nothing on this screen computes from it.
-    spreadMarkupPerLot: '0.00000000',
+    // The rate card it pays partners on (0140) — the table shows its NAME,
+    // looked up from the types the page also loads.
+    commissionTypeId: 'ct-1',
     sortOrder: 0,
     groups: [{ id: 'g-1', environment: 'live', mt5Group: 'real\\Standard-USD', currency: 'USD' }],
     ...over,
@@ -83,6 +95,20 @@ beforeEach(() => {
   permissions.current = ALL_PERMISSIONS;
   getProducts.mockResolvedValue([product()]);
   getAvailableGroups.mockResolvedValue([]);
+  getIbCommissionTypes.mockResolvedValue([
+    {
+      id: 'ct-1',
+      name: 'Standard terms',
+      description: null,
+      enabled: true,
+      commissionPerLot: '10.00000000',
+      rebatePerLot: '3.00000000',
+      sortOrder: 0,
+      productNames: ['Standard'],
+      createdAt: '2026-09-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z',
+    },
+  ]);
 });
 
 describe('the product catalogue', () => {
@@ -190,7 +216,7 @@ describe('the product catalogue — real and demo', () => {
      * live behind the trigger and only exist once it is opened. `option` rather
      * than `radio` is the role Radix gives them.
      */
-    await user.click(await screen.findByRole('combobox', { name: /type/i }));
+    await user.click(await screen.findByRole('combobox', { name: /^type$/i }));
 
     expect(await screen.findByRole('option', { name: /demo/i })).toHaveAttribute(
       'aria-disabled',
@@ -207,7 +233,7 @@ describe('the product catalogue — real and demo', () => {
     await screen.findByText('Standard');
     await user.click(screen.getByRole('button', { name: /add product/i }));
 
-    await user.click(await screen.findByRole('combobox', { name: /type/i }));
+    await user.click(await screen.findByRole('combobox', { name: /^type$/i }));
 
     expect(await screen.findByRole('option', { name: /demo/i })).not.toHaveAttribute(
       'aria-disabled',
@@ -216,94 +242,85 @@ describe('the product catalogue — real and demo', () => {
 });
 
 /**
- * ── ADM-07: the spread markup is editable, and stays a decimal string ─────
+ * ── A product is sold on a COMMISSION TYPE (0140) ──────────────────────────
  *
- * The backend records what the desk sells a product on. Nothing computes from
- * it — it is deliberately NOT part of the revenue partners are paid a share of
- * — so what these pin is the part that can silently go wrong: the value making
- * the round trip through a form without a number type touching it.
+ * The rate card lives on Commission Types; this screen only points a product
+ * at one. What these pin is the pointer's round trip — shown by NAME in the
+ * table, chosen in the form, sent as an id or as an explicit null — and the
+ * one state worth seeing at a glance: a real product that pays nobody.
  */
-describe('the spread markup', () => {
-  it('shows the stored value exactly, trailing zeros and all', async () => {
-    /*
-     * NUMERIC(28,8) keeps its scale, and the string carries it. A number
-     * formatter here would render 1.50000000 as "1.5" — which reads fine until
-     * somebody compares the screen against the database and finds two answers.
-     */
-    getProducts.mockResolvedValue([product({ spreadMarkupPerLot: '1.50000000' })]);
-
+describe('the commission type', () => {
+  it('shows the type a product is sold on, by name', async () => {
     renderWithProviders(<ProductsPage />);
 
-    expect(await screen.findByText('1.50000000')).toBeInTheDocument();
+    expect(await screen.findByText('Standard terms')).toBeInTheDocument();
   });
 
-  it('sends what the operator typed, without rounding it', async () => {
+  it('calls out a real product with no type, because it pays no partner commission', async () => {
+    getProducts.mockResolvedValue([product({ commissionTypeId: null })]);
+    renderWithProviders(<ProductsPage />);
+
+    expect(await screen.findByText(/pays no partner commission/i)).toBeInTheDocument();
+  });
+
+  it('sends the chosen type by id', async () => {
     const user = userEvent.setup();
-    getProducts.mockResolvedValue([product({ spreadMarkupPerLot: '1.00000000' })]);
-    updateProduct.mockResolvedValue(product({ spreadMarkupPerLot: '2.12345678' }));
+    getProducts.mockResolvedValue([product({ commissionTypeId: null })]);
+    updateProduct.mockResolvedValue(product());
 
     renderWithProviders(<ProductsPage />);
     await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    const field = await screen.findByLabelText(/spread markup per lot/i);
-    await user.clear(field);
-    await user.type(field, '2.12345678');
+    await user.click(await screen.findByRole('combobox', { name: /commission type/i }));
+    await user.click(await screen.findByRole('option', { name: /standard terms/i }));
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() =>
       expect(updateProduct).toHaveBeenCalledWith(
         'p-1',
-        expect.objectContaining({ spreadMarkupPerLot: '2.12345678' }),
+        expect.objectContaining({ commissionTypeId: 'ct-1' }),
       ),
     );
-
-    // A STRING on the wire. The moment this becomes a number the eight decimals
-    // above stop being guaranteed.
-    const sent = updateProduct.mock.calls[0]?.[1] as { spreadMarkupPerLot: unknown } | undefined;
-    expect(typeof sent?.spreadMarkupPerLot).toBe('string');
   });
 
-  it('reads an emptied box as zero rather than as "leave it alone"', async () => {
-    /*
-     * The API treats an ABSENT markup as unchanged, which is what stops the
-     * enable/disable toggle wiping it — that sends a PUT carrying no markup at
-     * all. A form that always shows the current value makes a different
-     * promise, so clearing the box has to mean nought or the operator is
-     * silently ignored.
-     */
+  /*
+   * An explicit NULL, never an omission. The API treats an absent type as
+   * unchanged — which is what protects it from the enable/disable toggle —
+   * so a form that shows the current choice has to say "none" out loud, or
+   * the operator who picked it is silently ignored.
+   */
+  it('sends an explicit null when the operator picks none', async () => {
     const user = userEvent.setup();
-    getProducts.mockResolvedValue([product({ spreadMarkupPerLot: '3.00000000' })]);
-    updateProduct.mockResolvedValue(product({ spreadMarkupPerLot: '0.00000000' }));
+    updateProduct.mockResolvedValue(product({ commissionTypeId: null }));
 
     renderWithProviders(<ProductsPage />);
     await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    await user.clear(await screen.findByLabelText(/spread markup per lot/i));
+    await user.click(await screen.findByRole('combobox', { name: /commission type/i }));
+    await user.click(await screen.findByRole('option', { name: /pays no partner commission/i }));
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() =>
       expect(updateProduct).toHaveBeenCalledWith(
         'p-1',
-        expect.objectContaining({ spreadMarkupPerLot: '0' }),
+        expect.objectContaining({ commissionTypeId: null }),
       ),
     );
   });
 
-  it('says the figure changes nobody’s pay', async () => {
-    /*
-     * The hint is the feature. An operator who believed this drove partner
-     * commission would set it very differently, and nothing on the screen would
-     * contradict them.
-     */
+  it('offers no type on the demo product, which never pays commission', async () => {
     const user = userEvent.setup();
+    getProducts.mockResolvedValue([
+      product({ id: 'p-demo', name: 'Demo', type: 'demo', commissionTypeId: null, groups: [] }),
+    ]);
+
     renderWithProviders(<ProductsPage />);
-    await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
+    await user.click(await screen.findByRole('button', { name: /actions for demo/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    expect(
-      await screen.findByText(/does not change what any partner is paid/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/never pays commission/i)).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /commission type/i })).toBeNull();
   });
 });

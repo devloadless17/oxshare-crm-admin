@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Boxes, Pencil, Plus, Trash2 } from 'lucide-react';
-import { adminApi, type Product } from '@/lib/api/admin';
+import { adminApi, type IbCommissionType, type Product } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
@@ -66,6 +66,18 @@ export default function ProductsPage() {
   const [formOpen, setFormOpen] = React.useState(false);
 
   const query = useResource<Product[]>(keys.products.all(), () => adminApi.getProducts());
+  /*
+   * The rate cards, for the names in the table and the picker in the modal
+   * (0140). Fetched alongside rather than inside the modal: the table renders a
+   * type name on every real row, so it is needed either way.
+   */
+  const commissionTypes = useResource<IbCommissionType[]>(keys.ibCommissionTypes.all(), (signal) =>
+    adminApi.getIbCommissionTypes(signal),
+  );
+  const typeById = React.useMemo(
+    () => new Map((commissionTypes.data ?? []).map((type) => [type.id, type])),
+    [commissionTypes.data],
+  );
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.products.all() });
 
@@ -278,26 +290,31 @@ export default function ProductsPage() {
       },
     },
     {
-      header: t('products.colMarkup'),
       /*
-       * Rendered as the STRING the API sent, not through a number formatter.
-       *
-       * The column is NUMERIC(28,8) and the string carries exactly what was
-       * saved; `Number(...)` here would drop trailing zeros and could round the
-       * value, so the table would disagree with the form that wrote it. The
-       * ledger screen formats money for the same reason and by the same rule.
+       * The rate card this product pays partners on (0140) — by NAME, because
+       * "what does Standard pay" is the question the table is scanned for, and
+       * an id answers nobody. A real product with no type is called out: it
+       * pays no partner commission, which is legal and worth seeing.
        */
-      cell: (product) => product.spreadMarkupPerLot,
-      cellClassName: 'tabular text-muted-foreground',
-      align: 'right',
-      sortable: true,
-      sortKey: 'spreadMarkupPerLot',
-      /*
-       * Sorted as a NUMBER despite being a string — "10" must not sort before
-       * "9". The sort is a view concern and never writes anything back, so
-       * comparing numerically here cannot reach the column.
-       */
-      sortType: 'number',
+      header: t('products.colCommissionType'),
+      cell: (product) => {
+        if (product.type === 'demo') return <span className="text-muted-foreground">—</span>;
+        if (product.commissionTypeId === null) {
+          return <span className="text-warning">{t('products.commissionTypeNone')}</span>;
+        }
+        const type = typeById.get(product.commissionTypeId);
+        return (
+          <span className={type?.enabled === false ? 'text-warning' : ''}>
+            {type?.name ?? '—'}
+            {type?.enabled === false && (
+              <span className="text-muted-foreground">
+                {' · '}
+                {t('products.commissionTypeInactive')}
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       header: t('products.colOrder'),
@@ -380,6 +397,7 @@ export default function ProductsPage() {
         demoTaken={(query.data ?? []).some(
           (product) => product.type === 'demo' && product.id !== editing?.id,
         )}
+        commissionTypes={commissionTypes.data ?? []}
         saving={saveProduct.isPending}
         error={saveProduct.error}
         onSubmit={(values) => saveProduct.mutate(values)}

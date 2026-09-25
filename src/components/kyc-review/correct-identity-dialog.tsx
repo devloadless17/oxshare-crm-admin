@@ -35,11 +35,21 @@ import { t } from '@/lib/i18n';
  * that reason — `KYC_CORRECTION_REFUSED` is a distinct code on the wire
  * precisely so this branch can exist.
  */
+/** What a correction may change on an approved verification — the date of birth and the address. */
+export interface CorrectionPatch {
+  dateOfBirth?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+}
+
 export function CorrectIdentityDialog({
   panelRef,
   clientName,
   dateOfBirth,
   address,
+  city,
+  postalCode,
   loading,
   error,
   refusal,
@@ -51,16 +61,20 @@ export function CorrectIdentityDialog({
   /** Current values, so the operator corrects rather than retypes. */
   dateOfBirth: string;
   address: string;
+  city: string;
+  postalCode: string;
   loading: boolean;
   /** An ordinary failure — the request did not land. */
   error: string;
   /** A REFUSAL — it landed and the record is disqualifying. See above. */
   refusal: string;
   onCancel: () => void;
-  onConfirm: (patch: { dateOfBirth?: string; address?: string }) => Promise<void>;
+  onConfirm: (patch: CorrectionPatch) => Promise<void>;
 }) {
   const [dob, setDob] = React.useState(dateOfBirth);
   const [addr, setAddr] = React.useState(address);
+  const [town, setTown] = React.useState(city);
+  const [postcode, setPostcode] = React.useState(postalCode);
 
   /*
    * Send only what CHANGED. The route takes a partial patch and re-validates
@@ -72,6 +86,8 @@ export function CorrectIdentityDialog({
   const patch = {
     ...(dob !== dateOfBirth ? { dateOfBirth: dob } : {}),
     ...(addr !== address ? { address: addr } : {}),
+    ...(town !== city ? { city: town } : {}),
+    ...(postcode !== postalCode ? { postalCode: postcode } : {}),
   };
   const nothingChanged = Object.keys(patch).length === 0;
 
@@ -112,8 +128,42 @@ export function CorrectIdentityDialog({
           value={addr}
           onChange={(e) => setAddr(e.target.value)}
           disabled={loading}
+          maxLength={200}
           className="mb-3 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
         />
+
+        {/* The rest of the address (0139) — one correction, so a move is not
+            recorded as three. */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold mb-1" htmlFor="correct-city">
+              {t('kycReview.correctCity')}
+            </label>
+            <input
+              id="correct-city"
+              type="text"
+              value={town}
+              onChange={(e) => setTown(e.target.value)}
+              disabled={loading}
+              maxLength={100}
+              className="mb-3 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1" htmlFor="correct-postal">
+              {t('kycReview.correctPostalCode')}
+            </label>
+            <input
+              id="correct-postal"
+              type="text"
+              value={postcode}
+              onChange={(e) => setPostcode(e.target.value)}
+              disabled={loading}
+              maxLength={12}
+              className="mb-3 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm uppercase focus-outline"
+            />
+          </div>
+        </div>
 
         {/*
           THE REFUSAL, deliberately not styled as a field error. It is addressed

@@ -19,12 +19,13 @@ import { ChangeClientEmailDialog, EditClientProfileDialog } from './client-edit-
 
 // BOTH exports, per this repo's mocking note — components reach for `api` as
 // named and default interchangeably, and mocking one leaves the other undefined.
-const { updateClientProfile, changeClientEmail } = vi.hoisted(() => ({
+const { updateClientProfile, changeClientEmail, profileOptions } = vi.hoisted(() => ({
   updateClientProfile: vi.fn(),
   changeClientEmail: vi.fn(),
+  profileOptions: vi.fn(),
 }));
 vi.mock('@/lib/api', () => {
-  const api = { admin: { updateClientProfile, changeClientEmail } };
+  const api = { admin: { updateClientProfile, changeClientEmail, profileOptions } };
   return { api, default: api };
 });
 
@@ -47,6 +48,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   updateClientProfile.mockResolvedValue({ ...PROFILE });
   changeClientEmail.mockResolvedValue({ ...PROFILE });
+  profileOptions.mockResolvedValue({
+    countries: ['Lebanon', 'United Arab Emirates'],
+    nationalities: ['Emirati', 'Lebanese'],
+  });
 });
 
 describe('EditClientProfileDialog', () => {
@@ -123,6 +128,139 @@ describe('EditClientProfileDialog', () => {
     // The API answers 400 to an empty patch, so a live button here would only
     // ever produce an error message.
     expect(await screen.findByRole('button', { name: /save/i })).toBeDisabled();
+  });
+});
+
+describe('EditClientProfileDialog — the whole profile (0139)', () => {
+  it('offers the server’s lists, and sends the choice', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={PROFILE} />);
+
+    const country = await screen.findByLabelText(/country of residence/i);
+    await screen.findByRole('option', { name: 'United Arab Emirates' });
+    await user.selectOptions(country, 'United Arab Emirates');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { country: 'United Arab Emirates' });
+  });
+
+  it('edits the date of birth, nationality and address the client gave', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={PROFILE} />);
+
+    const dob = await screen.findByLabelText(/date of birth/i);
+    await user.type(dob, '1991-03-09');
+    await screen.findByRole('option', { name: 'Lebanese' });
+    await user.selectOptions(screen.getByLabelText(/nationality/i), 'Lebanese');
+    await user.type(screen.getByLabelText(/^city/i), 'Beirut');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', {
+      dateOfBirth: '1991-03-09',
+      nationality: 'Lebanese',
+      city: 'Beirut',
+    });
+  });
+
+  it('a field the VERIFICATION locked is disabled, says where to change it, and is never sent', async () => {
+    /*
+     * The sentence is the SERVER's (`lockedFields`): the dialog renders it
+     * rather than keeping a copy of the rule that could drift from the one
+     * that refuses.
+     */
+    const user = userEvent.setup();
+    const locked = {
+      ...PROFILE,
+      lockedFields: {
+        firstName: 'First name was verified by KYC. Changing it needs a new verification.',
+        dateOfBirth:
+          'Date of birth was verified by KYC. Correct it from the client’s KYC review, where the change is checked again and recorded on the verification.',
+      },
+    } as unknown as ClientProfile;
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={locked} />);
+
+    const firstName = await screen.findByDisplayValue('Layla');
+    expect(firstName).toBeDisabled();
+    expect(screen.getByLabelText(/date of birth/i)).toBeDisabled();
+    expect(screen.getByText(/needs a new verification/i)).toBeInTheDocument();
+    expect(screen.getByText(/from the client’s KYC review/i)).toBeInTheDocument();
+
+    // The phone is still the desk's.
+    const phone = screen.getByDisplayValue('+9613111222');
+    expect(phone).toBeEnabled();
+    await user.clear(phone);
+    await user.type(phone, '+961 71 000 111');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+961 71 000 111' });
+  });
+
+  it('puts the server’s refusal under the field it is about', async () => {
+    updateClientProfile.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: {
+          code: 'VALIDATION_FAILED',
+          message: 'Enter a complete phone number…',
+          fields: {
+            phone: 'Enter a complete phone number, including the country code.',
+          },
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={PROFILE} />);
+
+    const phone = await screen.findByDisplayValue('+9613111222');
+    await user.clear(phone);
+    await user.type(phone, '+961 70 12');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(
+      await screen.findByText(/including the country code/i, { selector: '[role="alert"]' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/^phone/i)).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('shows a lock that arrived AFTER the dialog opened the same way — under its field', async () => {
+    // A submission sent while the operator was typing: the server answers 409
+    // `PROFILE_LOCKED` naming the field, and the dialog says so where it applies.
+    updateClientProfile.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          code: 'PROFILE_LOCKED',
+          message: 'First name is being checked…',
+          fields: {
+            firstName:
+              "First name is being checked against the client's documents right now. It can change once the reviewer decides.",
+          },
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={PROFILE} />);
+
+    const firstName = await screen.findByDisplayValue('Layla');
+    await user.clear(firstName);
+    await user.type(firstName, 'Leila');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByText(/once the reviewer decides/i)).toBeInTheDocument();
+  });
+
+  it('keeps a stored value the list does not hold, rather than silently replacing it', async () => {
+    // Written before the rules ("Lebanon" as a nationality): shown as it is, and
+    // an untouched select sends nothing.
+    const user = userEvent.setup();
+    const legacy = { ...PROFILE, nationality: 'Lebanon' } as unknown as ClientProfile;
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={legacy} />);
+
+    await screen.findByRole('option', { name: 'Lebanese' });
+    expect(screen.getByLabelText(/nationality/i)).toHaveValue('Lebanon');
+    const phone = screen.getByDisplayValue('+9613111222');
+    await user.type(phone, '3');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+96131112223' });
   });
 });
 

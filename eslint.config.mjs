@@ -35,6 +35,10 @@ const I18N_ENFORCED = [
   // minimatch matched nothing and the rule had silently stopped running on all
   // of them — which is exactly where the hardcoded English crept back in.
   'src/components/layout/admin-layout.tsx',
+  'src/components/layout/sidebar-nav.tsx',
+  'src/app/(console)/partners/page.tsx',
+  'src/components/partners/partner-columns.tsx',
+  'src/components/partners/reassign-parent-from-list.tsx',
   'src/app/login/page.tsx',
   'src/app/(console)/transactions/page.tsx',
   'src/app/(console)/approvals/deposits/page.tsx',

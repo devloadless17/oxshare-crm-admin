@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/v1/profile/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The countries and nationalities a client profile accepts */
+        get: operations["ProfileOptionsController_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/notifications": {
         parameters: {
             query?: never;
@@ -64,7 +81,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mark every unread notification read. Idempotent. */
+        /** Mark unread notifications read — every one, or up to the newest one shown. Idempotent. */
         post: operations["NotificationsController_markAllRead"];
         delete?: never;
         options?: never;
@@ -79,7 +96,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The signed-in admin's notification feed, newest first */
+        /** The signed-in admin's tasks, newest first — inbox or history */
         get: operations["AdminNotificationsController_list"];
         put?: never;
         post?: never;
@@ -96,27 +113,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Unread notifications for the signed-in admin — the badge number */
-        get: operations["AdminNotificationsController_unreadCount"];
+        /** Tasks waiting on the signed-in admin — the bell badge, in total and per category */
+        get: operations["AdminNotificationsController_summary"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/notifications/{id}/read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Mark one notification read. Idempotent. */
-        post: operations["AdminNotificationsController_markRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -132,8 +132,59 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mark every unread notification read. Idempotent. */
+        /** Mark tasks read — all, or one category — up to what was shown */
         post: operations["AdminNotificationsController_markAllRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/read-subject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The reader opened an item (e.g. a KYC review) — mark their tasks about it read */
+        post: operations["AdminNotificationsController_markSubjectRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark one task read. Idempotent. */
+        post: operations["AdminNotificationsController_markRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/{id}/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark one task unread again (undo). Idempotent. */
+        post: operations["AdminNotificationsController_markUnread"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1194,8 +1245,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The partner list
-         * @description Joined to the person and the programme they are paid on, newest approval first.
+         * The partner directory
+         * @description Every partner the acting admin may see, joined to the person, their agency and what they have earned (one entry per currency). Searchable by Portal ID, name, email or referral code; newest approval first.
          */
         get: operations["AdminIbController_listPartners"];
         put?: never;
@@ -1215,7 +1266,7 @@ export interface paths {
         };
         /**
          * Export the partner list as CSV
-         * @description Every partner the acting admin may see, joined to the person and their programme. The list takes no filters, so neither does its export.
+         * @description Every partner the acting admin may see, joined to the person and their level — narrowed by the same `q` and `status` the directory takes, so the file is the list on screen.
          */
         get: operations["AdminIbController_exportPartners"];
         put?: never;
@@ -1374,6 +1425,54 @@ export interface paths {
         patch: operations["AdminIbLevelsController_update"];
         trace?: never;
     };
+    "/v1/admin/ib-commission-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every commission type, disabled ones included
+         * @description Each row names the products sold on it, so a delete or a disable can be refused on the screen before the API refuses it.
+         */
+        get: operations["AdminIbCommissionTypesController_list"];
+        put?: never;
+        /**
+         * Add a commission type
+         * @description Money per standard lot for the partners’ commission and for the client’s rebate. Each level of the ladder takes a percentage of these. Assign it to products on the product form.
+         */
+        post: operations["AdminIbCommissionTypesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ib-commission-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a commission type
+         * @description Refuses one that products are sold on, naming them, and one that has ever priced a payout — the record of what was paid has to stay explicable. Disable it instead.
+         */
+        delete: operations["AdminIbCommissionTypesController_remove"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a commission type
+         * @description Applies to the NEXT trade on every product sold on it. Accruals record the type AND the pool it produced, so nothing already earned is restated. Disabling one that products are sold on is refused: a disabled type stops paying, and those products would keep trading while every partner on them earned nothing.
+         */
+        patch: operations["AdminIbCommissionTypesController_update"];
+        trace?: never;
+    };
     "/v1/payments/methods": {
         parameters: {
             query?: never;
@@ -1528,6 +1627,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/transactions/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Totals of the signed-in client's filtered transactions, per currency and state */
+        get: operations["PaymentsController_myTransactionSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/transfers": {
         parameters: {
             query?: never;
@@ -1636,6 +1752,23 @@ export interface paths {
         };
         /** The signed-in client's wallets — balance, on_hold and available, all as strings */
         get: operations["WalletController_myWallets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/wallet/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An account statement for one of the signed-in client's wallets */
+        get: operations["WalletController_statement"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3910,6 +4043,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/transactions/{id}/attention/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark a payment that needed attention as resolved — clears the flag and its tasks
+         * @description For a deposit or withdrawal flagged as needing a person: reconcile it first (the platform dashboard, the ledger), then record what you found. Refuses a payment that is no longer flagged. Deposits need deposits.approve; withdrawals need withdrawals.settle.
+         */
+        patch: operations["AdminMoneyController_resolveAttention"];
+        trace?: never;
+    };
     "/v1/admin/transactions/export": {
         parameters: {
             query?: never;
@@ -4188,6 +4341,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ProfileOptionsDto: {
+            /**
+             * @description Countries of residence, sorted by name. Exactly the values the profile accepts.
+             * @example [
+             *       "Lebanon",
+             *       "United Arab Emirates"
+             *     ]
+             */
+            countries: string[];
+            /**
+             * @description Nationalities, as demonyms. Exactly the values the profile accepts.
+             * @example [
+             *       "Emirati",
+             *       "Lebanese"
+             *     ]
+             */
+            nationalities: string[];
+        };
         NotificationDto: {
             id: string;
             /**
@@ -4219,23 +4390,153 @@ export interface components {
             /** @description Unread rows for the caller. The bell badge number. */
             count: number;
         };
+        NotificationsReadAllDto: {
+            /**
+             * @description The `createdAt` of the newest notification the reader was shown.
+             * @example 2026-09-25T10:15:00.000Z
+             */
+            upTo?: string;
+        };
         NotificationsMarkAllReadResponseDto: {
             /** @description Rows marked read by this call. 0 when everything already was. */
             updated: number;
         };
+        AdminNotificationSubjectDto: {
+            /** @enum {string} */
+            kind: "transaction" | "kyc" | "ib_application" | "transfer" | "ib_accrual";
+            /** @description The item's id. For a KYC task, the client's id. */
+            id: string;
+        };
+        AdminNotificationClientDto: {
+            /** @description The Portal ID — never masked, so it still names the client under any role. */
+            portalId: number | null;
+            firstName?: string | null;
+            lastName?: string | null;
+        };
+        AdminNotificationResolutionDto: {
+            /**
+             * Format: date-time
+             * @description When somebody handled the item.
+             */
+            at: string;
+            /**
+             * @description The item state that ended the task — 'approved', 'rejected', 'success', 'failure', 'reversed', 'settled', 'resolved', 'reset'. Render per category; unknown → 'Handled'.
+             * @example approved
+             */
+            outcome: string;
+            /** @description The administrator who handled it — only when the decision itself recorded one. A cancel, a system settle or a release carries none. */
+            byName?: string | null;
+        };
+        AdminNotificationDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "admin.deposit.submitted" | "admin.deposit.attention" | "admin.withdrawal.requested" | "withdrawal.rival_submit_failed" | "withdrawal.rival_attention" | "admin.kyc.submitted" | "admin.kyc.resubmitted" | "admin.partner.applied" | "admin.commission.clawback" | "admin.transfer.stuck";
+            /** @enum {string} */
+            category: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
+            /**
+             * @example {
+             *       "transactionId": "a6e1…",
+             *       "amount": "250.00000000",
+             *       "currency": "USD"
+             *     }
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /** @description Null while unread. */
+            readAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            subject: components["schemas"]["AdminNotificationSubjectDto"];
+            client: components["schemas"]["AdminNotificationClientDto"];
+            /** @description Null while the item still waits on somebody. */
+            resolution: components["schemas"]["AdminNotificationResolutionDto"] | null;
+        };
+        AdminNotificationListResponseDto: {
+            items: components["schemas"]["AdminNotificationDto"][];
+            /** @description `null` on the last page (R-2.4). */
+            nextCursor: string | null;
+            /** @description Client fields hidden from this reader on every row, e.g. `client.firstName`. */
+            maskedFields: string[];
+        };
+        AdminNotificationCategoryCountsDto: {
+            deposits: number;
+            withdrawals: number;
+            kyc: number;
+            ib: number;
+            transfers: number;
+        };
+        AdminNotificationSummaryDto: {
+            /** @description Tasks waiting on the reader — unread and not yet handled by anyone. The bell badge. */
+            count: number;
+            byCategory: components["schemas"]["AdminNotificationCategoryCountsDto"];
+        };
+        AdminNotificationsReadAllDto: {
+            /**
+             * @description Only this category. Omitted: every category the reader can see.
+             * @enum {string}
+             */
+            category?: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
+            /**
+             * @description The `createdAt` of the newest row the reader was shown. Nothing newer is marked — a task that arrived after the list rendered stays unread.
+             * @example 2026-09-25T10:15:00.000Z
+             */
+            upTo?: string;
+        };
+        AdminNotificationsReadSubjectDto: {
+            /** @enum {string} */
+            subjectKind: "transaction" | "kyc" | "ib_application" | "transfer" | "ib_accrual";
+            /** @description The item's id — for a KYC task, the client's id. */
+            subjectId: string;
+        };
+        AdminNotificationMarkResponseDto: {
+            id: string;
+            readAt: string | null;
+        };
         RegisterDto: {
-            /** @example John */
+            /**
+             * @description As on the ID document.
+             * @example John
+             */
             firstName: string;
-            /** @example Doe */
+            /**
+             * @description As on the ID document.
+             * @example Doe
+             */
             lastName: string;
             /** @example john@example.com */
             email: string;
             /** @example StrongPass123! */
             password: string;
-            /** @example US */
-            country?: string;
-            /** @example +1234567890 */
+            /**
+             * @description YYYY-MM-DD. At least 18 years ago.
+             * @example 1990-04-12
+             */
+            dateOfBirth?: string;
+            /**
+             * @description From the KYC nationality list.
+             * @example Lebanese
+             */
+            nationality?: string;
+            /**
+             * @description International format with the country code. Stored as E.164.
+             * @example +96170123456
+             */
             phone?: string;
+            /**
+             * @description Country of residence, from the KYC country list.
+             * @example Lebanon
+             */
+            country?: string;
+            /** @example Hamra Street, Building 12, 3rd floor */
+            address?: string;
+            /** @example Beirut */
+            city?: string;
+            /**
+             * @description Optional — many addresses have none.
+             * @example 1103 2080
+             */
+            postalCode?: string;
             /** @example K7M2PQR9 */
             referralCode?: string;
         };
@@ -4293,6 +4594,19 @@ export interface components {
             country?: string;
             /** @example +971501234567 */
             phone?: string;
+            /**
+             * @description YYYY-MM-DD.
+             * @example 1990-04-12
+             */
+            dateOfBirth?: string;
+            /** @example Emirati */
+            nationality?: string;
+            /** @example Sheikh Zayed Road, Tower 2, Apt 1204 */
+            address?: string;
+            /** @example Dubai */
+            city?: string;
+            /** @example 00000 */
+            postalCode?: string;
             /** Format: date-time */
             createdAt: string;
             /**
@@ -4833,6 +5147,61 @@ export interface components {
              */
             reason: string;
         };
+        IbPartnerListAccountDto: {
+            userId: string;
+            /**
+             * @description The rung, which decides their terms (0112).
+             * @example 1
+             */
+            level: number;
+            /** @description What a client types at registration to be attributed here. */
+            referralCode: string;
+            /** @description A suspended partner keeps their code and tree, and stops earning. */
+            active: boolean;
+            agencyId: string | null;
+            /** Format: date-time */
+            approvedAt: string;
+        };
+        IbPartnerListPersonDto: {
+            id: string;
+            /**
+             * @description Their Portal ID.
+             * @example 1000245
+             */
+            portalId: number;
+            email?: string;
+            firstName?: string | null;
+            lastName?: string | null;
+        };
+        IbPartnerEarningsDto: {
+            /**
+             * @description The currency both figures are in.
+             * @example USD
+             */
+            currency: string;
+            /** @example 73.50000000 */
+            confirmed: string;
+            /** @example 0.00000000 */
+            pending: string;
+        };
+        IbPartnerRowDto: {
+            account: components["schemas"]["IbPartnerListAccountDto"];
+            user: components["schemas"]["IbPartnerListPersonDto"];
+            /** @example 1000210 */
+            parentPortalId: number | null;
+            /** @description True when this partner has a parent the reader may not see. With `parentPortalId` null and this false, they deal with the broker directly. */
+            parentOutsideTerritory: boolean;
+            /** @description Null when they are on no agency, which means the full catalogue. */
+            agencyName: string | null;
+            /** @description Commission only (a rebate is the client’s money), one entry per currency. */
+            earnings: components["schemas"]["IbPartnerEarningsDto"][];
+        };
+        IbPartnerListResponseDto: {
+            rows: components["schemas"]["IbPartnerRowDto"][];
+            /** @description Every partner matching the filters that this reader may see. */
+            total: number;
+            maskedFields: string[];
+        };
         IbPartnerPersonDto: {
             userId: string;
             /**
@@ -4869,12 +5238,6 @@ export interface components {
             /** Format: date-time */
             approvedAt: string;
         };
-        IbPartnerEarningsDto: {
-            /** @example 73.50000000 */
-            confirmed: string;
-            /** @example 0.00000000 */
-            pending: string;
-        };
         IbPartnerDetailDto: {
             userId: string;
             /**
@@ -4886,20 +5249,10 @@ export interface components {
             levelName: string | null;
             /** @description False when the level is disabled OR not configured at all. A disabled level pays nothing. */
             levelEnabled: boolean;
-            /**
-             * @description How their own commission is priced.
-             * @enum {string|null}
-             */
-            levelCommissionMode: "percent" | "per_lot" | null;
-            /** @description Their share of broker revenue, as a percentage. Read in `percent` mode. */
-            levelCommissionRate: string | null;
-            /** @description Money per standard lot. Read in `per_lot` mode. */
-            levelCommissionAmountPerLot: string | null;
-            /** @enum {string|null} */
-            levelRebateMode: "percent" | "per_lot" | null;
-            /** @description What their clients get back, as a percentage of the same revenue. */
-            levelRebateRate: string | null;
-            levelRebateAmountPerLot: string | null;
+            /** @description Their rung’s percentage of the traded product’s commission per lot (0140). Null when the rung is not configured. */
+            levelCommissionShare: string | null;
+            /** @description What their clients get back, as a percentage of the product’s rebate per lot. */
+            levelRebateShare: string | null;
             referralCode: string;
             /** @description A suspended partner keeps their code and tree, and stops earning. */
             active: boolean;
@@ -4916,7 +5269,8 @@ export interface components {
             directPartners: components["schemas"]["IbSubPartnerRowDto"][];
             /** @description How many clients they introduced. */
             referredClientCount: number;
-            earnings: components["schemas"]["IbPartnerEarningsDto"];
+            /** @description One entry per currency they have earned in, sorted by currency. Empty when nothing has accrued yet — never a zero in a currency nobody chose. */
+            earnings: components["schemas"]["IbPartnerEarningsDto"][];
             maskedFields?: string[];
         };
         ChangeIbLevelDto: {
@@ -4949,34 +5303,15 @@ export interface components {
             /** @description A disabled rung pays nobody standing on it. Disabling is refused while partners are there — see the service. */
             enabled: boolean;
             /**
-             * @description How the PARTNER’s leg is priced. Always `per_lot` on anything saved since 0117; the other two appear only on rungs configured before it.
-             * @enum {string}
+             * @description The partner’s percentage of the product’s commission per lot. Paid on every trade that reaches this rung, independently of the shares on the rungs beneath it.
+             * @example 70.0000
              */
-            commissionMode: "per_lot" | "percent" | "share_of_parent";
+            commissionShare: string;
             /**
-             * @description The partner’s share of broker revenue, as a percentage. Read in `percent` mode.
-             * @example 30.0000
+             * @description The client’s percentage of the product’s rebate per lot, read from the introducer’s rung.
+             * @example 50.0000
              */
-            commissionRate: string;
-            /**
-             * @description Money per standard lot. Set in `per_lot` mode, NULL in the other.
-             * @example 10.00000000
-             */
-            commissionAmountPerLot: string | null;
-            /**
-             * @description How the CLIENT’s rebate is priced. Always `per_lot` on anything saved since 0117.
-             * @enum {string}
-             */
-            rebateMode: "per_lot" | "percent" | "share_of_parent";
-            /** @example 0.0000 */
-            rebateRate: string;
-            /** @example 2.00000000 */
-            rebateAmountPerLot: string | null;
-            /**
-             * @description WHICH revenue a percentage at this rung is a share of — FR-IB-16. Ignored entirely by a per-lot term, which is priced from volume and never from revenue.
-             * @enum {string}
-             */
-            revenueBasis: "commission_swap" | "spread" | "commission_swap_spread";
+            rebateShare: string;
             /**
              * @description How many partners stand on this rung. Part of the row rather than a second call: it is what makes a delete refusable in the UI before the database refuses it, and what tells an operator how many people a rate change is about to affect.
              * @example 4
@@ -4989,8 +5324,8 @@ export interface components {
         };
         IbLevelLimitsDto: {
             /**
-             * @description How deep the ladder may run, from `IB_MAX_LEVELS`. Read by the form so it stops offering "add a level" at the right point — a hardcoded copy would drift the day a broker negotiates a deeper structure.
-             * @example 2
+             * @description How deep the ladder may run. Read by the form so it stops offering "add a level" at the right point — a hardcoded copy would drift the day the engine changes.
+             * @example 10
              */
             maxLevels: number;
             /**
@@ -5006,42 +5341,72 @@ export interface components {
             name: string;
             description?: string | null;
             /**
-             * @default per_lot
-             * @enum {string}
+             * @default 0
+             * @example 30.0000
              */
-            commissionMode: "per_lot";
-            /** @example 30.0000 */
-            commissionRate?: string;
-            /** @example 10.00000000 */
-            commissionAmountPerLot?: string;
+            commissionShare: string;
             /**
-             * @default per_lot
-             * @enum {string}
+             * @default 0
+             * @example 50.0000
              */
-            rebateMode: "per_lot";
-            /** @example 0.0000 */
-            rebateRate?: string;
-            /** @example 2.00000000 */
-            rebateAmountPerLot?: string;
-            /** @enum {string} */
-            revenueBasis?: "commission_swap" | "spread" | "commission_swap_spread";
+            rebateShare: string;
             /** @default true */
             enabled: boolean;
         };
         UpdateIbLevelDto: {
             name?: string;
             description?: string | null;
-            /** @enum {string} */
-            commissionMode?: "per_lot";
-            commissionRate?: string;
-            commissionAmountPerLot?: string;
-            /** @enum {string} */
-            rebateMode?: "per_lot";
-            rebateRate?: string;
-            rebateAmountPerLot?: string;
-            /** @enum {string} */
-            revenueBasis?: "commission_swap" | "spread" | "commission_swap_spread";
+            commissionShare?: string;
+            rebateShare?: string;
             enabled?: boolean;
+        };
+        IbCommissionTypeDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Standard terms */
+            name: string;
+            description: string | null;
+            /** @description A disabled type pays nobody on the products sold on it. Disabling is refused while products are assigned — move them first. */
+            enabled: boolean;
+            /**
+             * @description Money per standard lot for the PARTNERS, before each level’s share. A decimal string.
+             * @example 10.00000000
+             */
+            commissionPerLot: string;
+            /**
+             * @description Money per standard lot returned to the trading CLIENT, before the introducer level’s share. A decimal string.
+             * @example 3.00000000
+             */
+            rebatePerLot: string;
+            /** @example 0 */
+            sortOrder: number;
+            /** @description The products sold on this type, by name. Part of the row so a delete or a disable can be refused on the screen before the API refuses it. */
+            productNames: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateIbCommissionTypeDto: {
+            /** @example Standard terms */
+            name: string;
+            description?: string | null;
+            /** @example 10 */
+            commissionPerLot: string;
+            /** @example 3 */
+            rebatePerLot: string;
+            /** @default true */
+            enabled: boolean;
+            /** @example 0 */
+            sortOrder?: number;
+        };
+        UpdateIbCommissionTypeDto: {
+            name?: string;
+            description?: string | null;
+            commissionPerLot?: string;
+            rebatePerLot?: string;
+            enabled?: boolean;
+            sortOrder?: number;
         };
         PaymentMethodDto: {
             /**
@@ -5186,7 +5551,7 @@ export interface components {
              * @description Branch on this, never on the absence of a payment field.
              * @enum {string}
              */
-            kind: "payment" | "transfer" | "commission_transfer";
+            kind: "payment" | "transfer" | "commission_transfer" | "rebate";
             tradingAccountId?: string | null;
         };
         TransactionPageDto: {
@@ -5195,6 +5560,23 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+        };
+        TransactionSummaryRowDto: {
+            /** @example USD */
+            currency: string;
+            /**
+             * @description Wallet-side, as on the list's rows.
+             * @enum {string}
+             */
+            direction: "deposit" | "withdrawal";
+            /** @enum {string} */
+            state: "pending" | "approved" | "success" | "failure" | "rejected";
+            count: number;
+            /**
+             * @description Decimal string (§6.1).
+             * @example 1250.00000000
+             */
+            total: string;
         };
         RequestTransferDto: {
             /** @description A live trading account belonging to the caller. */
@@ -5266,6 +5648,52 @@ export interface components {
              * @example /v1/uploads/payment-logos/8f2c….png
              */
             logoUrl: string;
+        };
+        StatementLineDto: {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @enum {string} */
+            entryType: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment" | "transfer";
+            /** @example transaction */
+            referenceType: string;
+            referenceId: string;
+            /** @description Signed decimal string: positive credits, negative debits. */
+            amount: string;
+            /** @description Wallet balance after this line, as stored by the ledger. */
+            balanceAfter: string;
+            /** @description Payment rail name, if any. */
+            methodName: string | null;
+            /** @description Payment provider; `manual_admin` for money the team placed by hand. */
+            provider: string | null;
+            /** @description MT5 login, for a transfer line. */
+            tradingAccountLogin: string | null;
+            /** @description Trading account name, for a transfer line. */
+            tradingAccountName: string | null;
+            /** @enum {string|null} */
+            transferDirection: "wallet_to_account" | "account_to_wallet" | null;
+        };
+        StatementDto: {
+            walletId: string;
+            walletNumber: string;
+            /** @example USD */
+            currency: string;
+            /** @example 2026-09-01 */
+            from: string;
+            /** @example 2026-09-30 */
+            to: string;
+            /** @description Balance at the start of `from`. */
+            openingBalance: string;
+            /** @description Balance at the end of `to`. */
+            closingBalance: string;
+            totalCredits: string;
+            /** @description Positive: the sum of money that left. */
+            totalDebits: string;
+            lines: components["schemas"]["StatementLineDto"][];
+            /** @description True when the period held more lines than one statement returns. */
+            truncated: boolean;
+            /** Format: date-time */
+            generatedAt: string;
         };
         LedgerEntryDto: {
             id: string;
@@ -6063,10 +6491,10 @@ export interface components {
              */
             type: "real" | "demo";
             /**
-             * @description The broker's spread markup per standard lot, in the account currency. A COMMERCIAL RECORD ONLY — nothing computes from it, and it is deliberately not part of the revenue partners are paid a share of. A decimal string, never a number: it is money.
-             * @example 1.50000000
+             * Format: uuid
+             * @description The commission type this product pays partners on (0140) — the rate card whose per-lot amounts each level takes a share of. NULL means the product pays no partner commission at all; the demo product never carries one.
              */
-            spreadMarkupPerLot: string;
+            commissionTypeId: string | null;
             /** @example 0 */
             sortOrder: number;
             groups: components["schemas"]["ProductGroupDto"][];
@@ -6095,8 +6523,8 @@ export interface components {
             enabled: boolean;
             /** @enum {string} */
             type?: "real" | "demo";
-            /** @example 1.50000000 */
-            spreadMarkupPerLot?: string;
+            /** Format: uuid */
+            commissionTypeId?: string | null;
             /** @example 0 */
             sortOrder?: number;
         };
@@ -6397,9 +6825,19 @@ export interface components {
             emailVerified: boolean;
             country?: string;
             phone?: string;
+            /** @example 1990-04-12 */
+            dateOfBirth?: string;
+            nationality?: string;
+            address?: string;
+            city?: string;
+            postalCode?: string;
             /** Format: date-time */
             createdAt?: string;
             tags: components["schemas"]["ClientTagDto"][];
+            /** @description The profile fields the desk may not change right now, each with where it can be changed instead — the verification's lock (`deskLocks`). Present only for a reader holding clients.edit; empty when nothing is locked. */
+            lockedFields?: {
+                [key: string]: string;
+            };
             /** @description Absent without kyc.view. */
             kyc?: components["schemas"]["ProfileKycDto"];
             /** @description Document filenames. Absent without kyc.documents.view. */
@@ -6432,12 +6870,31 @@ export interface components {
             /** @example Haddad */
             lastName?: string;
             /**
-             * @description Send an empty string to clear it.
+             * @description International format with the country code; stored as E.164. Empty clears it.
              * @example +9613111222
              */
-            phone?: string | null;
-            /** @example Lebanon */
-            country?: string | null;
+            phone?: string;
+            /**
+             * @description Country of residence, from the KYC country list. Empty clears it.
+             * @example Lebanon
+             */
+            country?: string;
+            /**
+             * @description YYYY-MM-DD, 18 or older.
+             * @example 1990-04-12
+             */
+            dateOfBirth?: string;
+            /**
+             * @description From the KYC nationality list.
+             * @example Lebanese
+             */
+            nationality?: string;
+            /** @example Hamra Street, Building 12 */
+            address?: string;
+            /** @example Beirut */
+            city?: string;
+            /** @example 1103 2080 */
+            postalCode?: string;
         };
         ClientAccountDto: {
             /** Format: uuid */
@@ -6460,6 +6917,12 @@ export interface components {
             emailVerified: boolean;
             country: string | null;
             phone: string | null;
+            /** @example 1990-04-12 */
+            dateOfBirth: string | null;
+            nationality: string | null;
+            address: string | null;
+            city: string | null;
+            postalCode: string | null;
             /** Format: date-time */
             createdAt: string;
             /** @description Fields withheld from THIS response by the reader’s role (RBAC-03). A masked field is absent from the payload entirely, so this list is the only way to tell "hidden from you" apart from "this client has none" — an empty box otherwise reads as the second. */
@@ -6634,8 +7097,15 @@ export interface components {
              * @example 1985-04-12
              */
             dateOfBirth?: string;
-            /** @example 12 Rue Verdun, Beirut */
+            /** @example 12 Rue Verdun */
             address?: string;
+            /** @example Beirut */
+            city?: string;
+            /**
+             * @description Send an empty string to clear it — many addresses have none.
+             * @example 1103 2080
+             */
+            postalCode?: string;
         };
         RejectDto: {
             /** @description Free-text reason, when not using a configured reasonId. */
@@ -7132,6 +7602,18 @@ export interface components {
              * @example Checked MT5 deal history for 6480824 — the 1,000 never reached the account.
              */
             reason: string;
+        };
+        ResolveAttentionDto: {
+            /**
+             * @description What the reconciliation found. The audit record of a decision the system could not make on its own — the same weight as releasing a stuck transfer.
+             * @example Checked the platform dashboard — the reversal was a duplicate; client credited correctly.
+             */
+            note: string;
+        };
+        AttentionResolvedDto: {
+            id: string;
+            /** @description Always false after a successful resolve. */
+            needsAttention: boolean;
         };
         AdminTransactionSummaryRowDto: {
             /** @enum {string} */
@@ -7650,6 +8132,25 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    ProfileOptionsController_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOptionsDto"];
+                };
+            };
+        };
+    };
     NotificationsController_list: {
         parameters: {
             query?: {
@@ -7722,7 +8223,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationsReadAllDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -7737,11 +8242,16 @@ export interface operations {
     AdminNotificationsController_list: {
         parameters: {
             query?: {
-                limit?: string;
+                /** @description 'inbox': still waiting on you — unread AND not yet handled by anyone. 'history' (default): everything, handled or not. */
+                view?: "inbox" | "history";
+                /** @description History only. 'open': nobody has handled it yet. 'handled': resolved. */
+                status?: "open" | "handled";
+                category?: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
+                /** @description A client: Portal ID (exact, `#` optional) or part of a name or email. */
+                q?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
-                /** @description Pass 'true' to see only unread. */
-                unread?: string;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -7754,12 +8264,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NotificationListResponseDto"];
+                    "application/json": components["schemas"]["AdminNotificationListResponseDto"];
                 };
             };
         };
     };
-    AdminNotificationsController_unreadCount: {
+    AdminNotificationsController_summary: {
         parameters: {
             query?: never;
             header?: never;
@@ -7773,7 +8283,53 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NotificationUnreadCountDto"];
+                    "application/json": components["schemas"]["AdminNotificationSummaryDto"];
+                };
+            };
+        };
+    };
+    AdminNotificationsController_markAllRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNotificationsReadAllDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsMarkAllReadResponseDto"];
+                };
+            };
+        };
+    };
+    AdminNotificationsController_markSubjectRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNotificationsReadSubjectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsMarkAllReadResponseDto"];
                 };
             };
         };
@@ -7794,16 +8350,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NotificationDto"];
+                    "application/json": components["schemas"]["AdminNotificationMarkResponseDto"];
                 };
             };
         };
     };
-    AdminNotificationsController_markAllRead: {
+    AdminNotificationsController_markUnread: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -7813,7 +8371,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NotificationsMarkAllReadResponseDto"];
+                    "application/json": components["schemas"]["AdminNotificationMarkResponseDto"];
                 };
             };
         };
@@ -9188,6 +9746,9 @@ export interface operations {
                 limit?: string;
                 sort?: "approvedAt" | "level" | "referralCode" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
+                /** @description A Portal ID (exact), a name or email, or a referral code (exact). */
+                q?: string;
+                status?: "active" | "suspended";
             };
             header?: never;
             path?: never;
@@ -9199,7 +9760,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["IbPartnerListResponseDto"];
+                };
             };
         };
     };
@@ -9207,6 +9770,8 @@ export interface operations {
         parameters: {
             query?: {
                 format?: "csv";
+                q?: string;
+                status?: "active" | "suspended";
             };
             header?: never;
             path?: never;
@@ -9426,6 +9991,92 @@ export interface operations {
             };
         };
     };
+    AdminIbCommissionTypesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbCommissionTypeDto"][];
+                };
+            };
+        };
+    };
+    AdminIbCommissionTypesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIbCommissionTypeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbCommissionTypeDto"];
+                };
+            };
+        };
+    };
+    AdminIbCommissionTypesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminIbCommissionTypesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIbCommissionTypeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbCommissionTypeDto"];
+                };
+            };
+        };
+    };
     PaymentsController_listMethods: {
         parameters: {
             query?: never;
@@ -9601,6 +10252,8 @@ export interface operations {
     PaymentsController_myTransactions: {
         parameters: {
             query?: {
+                /** @description Comma-separated. Any of: payment, transfer, commission_transfer, rebate. */
+                kind?: string;
                 /** @description Deposits or withdrawals only. */
                 direction?: "deposit" | "withdrawal";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
@@ -9626,6 +10279,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionPageDto"];
+                };
+            };
+        };
+    };
+    PaymentsController_myTransactionSummary: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated. Any of: payment, transfer, commission_transfer, rebate. */
+                kind?: string;
+                /** @description Deposits or withdrawals only. */
+                direction?: "deposit" | "withdrawal";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                currency?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                from?: string;
+                /** @description Inclusive, YYYY-MM-DD. */
+                to?: string;
+                sort?: "createdAt" | "amount" | "direction" | "currency" | "state";
+                order?: "asc" | "desc";
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionSummaryRowDto"][];
                 };
             };
         };
@@ -9798,6 +10485,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WalletDto"][];
+                };
+            };
+        };
+    };
+    WalletController_statement: {
+        parameters: {
+            query: {
+                walletId: string;
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatementDto"];
                 };
             };
         };
@@ -12973,6 +13683,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_resolveAttention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveAttentionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionResolvedDto"];
                 };
             };
         };

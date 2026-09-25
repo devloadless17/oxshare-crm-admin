@@ -20,7 +20,10 @@ import { documentsOf } from '@/components/kyc-review/documents-of';
 import { useRejectOptions } from '@/components/kyc-review/use-reject-options';
 import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
 import { useKycStepConfig } from '@/components/kyc-review/use-kyc-step-config';
-import { CorrectIdentityDialog } from '@/components/kyc-review/correct-identity-dialog';
+import {
+  CorrectIdentityDialog,
+  type CorrectionPatch,
+} from '@/components/kyc-review/correct-identity-dialog';
 import { ReviewDock } from '@/components/kyc-review/review-dock';
 import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
 import { t } from '@/lib/i18n';
@@ -165,7 +168,7 @@ export default function KycDetailPage() {
     }
   };
 
-  const correctIdentity = async (patch: { dateOfBirth?: string; address?: string }) => {
+  const correctIdentity = async (patch: CorrectionPatch) => {
     setActionLoading(true);
     setActionError('');
     setCorrectionRefusal('');
@@ -480,6 +483,8 @@ export default function KycDetailPage() {
           clientName={`${data.user?.firstName ?? ''} ${data.user?.lastName ?? ''}`.trim()}
           dateOfBirth={String(data.personalInfo?.['dateOfBirth'] ?? '')}
           address={String(data.personalInfo?.['address'] ?? '')}
+          city={String(data.personalInfo?.['city'] ?? '')}
+          postalCode={String(data.personalInfo?.['postalCode'] ?? '')}
           loading={actionLoading}
           error={actionError}
           refusal={correctionRefusal}

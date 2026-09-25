@@ -1,7 +1,7 @@
 'use client';
 
 import { Coins, Network, Users } from 'lucide-react';
-import type { IbPartnerDetail } from '@/lib/api/admin';
+import type { IbPartnerDetail, IbPartnerEarnings } from '@/lib/api/admin';
 import { Badge } from '@/components/ui/badge';
 import { PermittedLink } from '@/components/permitted-link';
 import { EmptySection, ProfileCard } from '@/components/clients/profile/profile-cards';
@@ -23,8 +23,8 @@ import { PortalIdTag } from '@/components/clients/client-identity';
  *
  * ## Money is a STRING, all the way through
  *
- * `earnings.confirmed` and `.pending` are decimal strings at NUMERIC(28,8)
- * scale and are handed to `formatMoney` untouched. `Number()` on this path is a
+ * Each earnings line's `confirmed` and `pending` are decimal strings at
+ * NUMERIC(28,8) scale and are handed to `formatMoney` untouched. `Number()` on this path is a
  * lint error in this repo, and the reason is §6.1: the value can exceed what a
  * double represents exactly, so the conversion is wrong before formatting
  * starts.
@@ -32,14 +32,7 @@ import { PortalIdTag } from '@/components/clients/client-identity';
  * `rateValue` is a percentage rather than money, and is trimmed for display —
  * the stored scale is for arithmetic, not for reading.
  */
-export function ClientPartnerPanel({
-  detail,
-  currency,
-}: {
-  detail: IbPartnerDetail;
-  /** What the earnings are denominated in — the platform default. */
-  currency: string;
-}) {
+export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <ProfileCard title={t('clientProfile.partnerStanding')}>
@@ -71,27 +64,22 @@ export function ClientPartnerPanel({
           </Cell>
 
           <Cell label={t('clientProfile.partnerTerms')}>
-            {detail.levelCommissionMode === null ? (
+            {detail.levelCommissionShare === null ? (
               <span className="text-muted-foreground">—</span>
             ) : (
+              /*
+               * Shares of the traded product's commission type (0140). What
+               * they come to in money depends on which product the client
+               * trades, so the line names the fraction rather than a figure.
+               */
               <span className="tabular font-semibold">
                 {t('clientProfile.levelTerms', {
-                  commission:
-                    detail.levelCommissionMode === 'per_lot'
-                      ? t('clientProfile.termPerLot', {
-                          amount: formatDecimal(detail.levelCommissionAmountPerLot ?? '0'),
-                        })
-                      : t('clientProfile.termPercent', {
-                          rate: formatDecimal(detail.levelCommissionRate ?? '0'),
-                        }),
-                  rebate:
-                    detail.levelRebateMode === 'per_lot'
-                      ? t('clientProfile.termPerLot', {
-                          amount: formatDecimal(detail.levelRebateAmountPerLot ?? '0'),
-                        })
-                      : t('clientProfile.termPercent', {
-                          rate: formatDecimal(detail.levelRebateRate ?? '0'),
-                        }),
+                  commission: t('clientProfile.termCommissionShare', {
+                    share: formatDecimal(detail.levelCommissionShare),
+                  }),
+                  rebate: t('clientProfile.termRebateShare', {
+                    share: formatDecimal(detail.levelRebateShare ?? '0'),
+                  }),
                 })}
               </span>
             )}
@@ -132,17 +120,27 @@ export function ClientPartnerPanel({
 
       <ProfileCard title={t('clientProfile.partnerEarnings')}>
         <div className="grid grid-cols-2 gap-4">
+          {/*
+            ONE LINE PER CURRENCY, each in its own currency.
+
+            This took a `currency` prop — hard-coded "USD" by the profile — and
+            printed one total in it. The total was summed across every currency
+            the partner had accrued in, so 100 USD and 90 EUR read as $190.00:
+            a plausible figure describing nothing, on the number a partner is
+            paid against. The API returns a line per currency now, and there is
+            no FX source to add them with, so neither does this.
+          */}
           <Stat
             icon={Coins}
             label={t('clientProfile.partnerConfirmed')}
-            value={formatMoney(detail.earnings.confirmed, currency)}
+            value={<EarningsLines earnings={detail.earnings} field="confirmed" />}
             hint={t('clientProfile.partnerConfirmedHint')}
             tone="primary"
           />
           <Stat
             icon={Coins}
             label={t('clientProfile.partnerPending')}
-            value={formatMoney(detail.earnings.pending, currency)}
+            value={<EarningsLines earnings={detail.earnings} field="pending" />}
             hint={t('clientProfile.partnerPendingHint')}
           />
           <Stat
@@ -239,6 +237,33 @@ function Cell({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
+/**
+ * One figure per currency the partner has earned in, stacked.
+ *
+ * An em dash, never a zero, when nothing has accrued: `$0.00` would name a
+ * currency nobody chose and state a total nobody computed.
+ */
+function EarningsLines({
+  earnings,
+  field,
+}: {
+  earnings: IbPartnerEarnings[];
+  field: 'confirmed' | 'pending';
+}) {
+  if (earnings.length === 0) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  return (
+    <span className="block space-y-0.5">
+      {earnings.map((line) => (
+        <span key={line.currency} className="block">
+          {formatMoney(line[field], line.currency)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Stat({
   icon: Icon,
   label,
@@ -248,7 +273,7 @@ function Stat({
 }: {
   icon: React.ElementType;
   label: string;
-  value: string;
+  value: React.ReactNode;
   hint: string;
   tone?: 'primary';
 }) {
