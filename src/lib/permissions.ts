@@ -107,6 +107,12 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * nobody can open during the incident it exists for.
    */
   { prefix: '/bridge', requirement: { permission: 'trading.view' } },
+  /*
+   * The groups the sync job mirrors from MT5. `trading.view` for the reason
+   * `/bridge` shares it with `/trading-accounts`: all three answer "what does
+   * the MT5 side hold", and the screen writes nothing.
+   */
+  { prefix: '/mt5-groups', requirement: { permission: 'trading.view' } },
   // `payments.view` reads the list; the page checks `payments.manage` before it
   // draws any write control, and the API refuses the writes regardless.
   { prefix: '/payment-methods', requirement: { permission: 'payments.view' } },

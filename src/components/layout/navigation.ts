@@ -28,6 +28,7 @@ import {
   Radio,
   Receipt,
   Scale,
+  Server,
   Settings,
   Shield,
   ShieldCheck,
@@ -212,6 +213,12 @@ export const NAV: readonly NavEntry[] = [
     items: [
       { label: 'nav.products', href: '/products', icon: Boxes },
       { label: 'nav.leverages', href: '/leverages', icon: Gauge },
+      /*
+       * The groups MT5 reports, as the sync job last mirrored them — which the
+       * products above sell, and how many accounts sit in each. Beside the
+       * bridge because both answer "what does the server hold".
+       */
+      { label: 'nav.mt5Groups', href: '/mt5-groups', icon: Server },
       /* Whether the machinery behind every trading figure is actually up. */
       { label: 'nav.bridge', href: '/bridge', icon: Radio },
     ],

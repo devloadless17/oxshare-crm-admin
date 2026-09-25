@@ -147,6 +147,10 @@ export const keys = {
     limits: () => ['ib-levels', 'limits'] as const,
   },
 
+  mt5Groups: {
+    all: () => ['mt5-groups'] as const,
+  },
+
   ibCommissionTypes: {
     all: () => ['ib-commission-types'] as const,
   },

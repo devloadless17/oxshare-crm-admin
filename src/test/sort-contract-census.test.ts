@@ -171,6 +171,9 @@ const CLIENT_SIDE_SORTED = new Set([
   // — a handful of rows, no page, limit or cursor — so DataTable ordering the
   // screen IS ordering the dataset.
   'commission-types',
+  // `GET /admin/mt5-groups` returns the whole mirror as one array — the groups
+  // on one MT5 server, dozens at most — so client-side ordering orders it all.
+  'mt5-groups',
 ]);
 
 describe('every screen that offers a sort is visible to this census', () => {
