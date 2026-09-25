@@ -7,6 +7,10 @@ import type { Currency, PaymentMethod } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { assetUrl } from '@/lib/asset-url';
 import { useResource } from '@/hooks/use-resource';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import {
   Select,
@@ -135,6 +139,7 @@ function PaymentMethodForm({
    */
   const sortOrder = method?.sortOrder ?? 0;
   const [requiresProof, setRequiresProof] = React.useState(method?.requiresProof ?? false);
+  const fieldId = React.useId();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,9 +166,10 @@ function PaymentMethodForm({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">{t('paymentMethods.key')}</span>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor={`${fieldId}-key`}>{t('paymentMethods.key')}</Label>
+          <Input
+            id={`${fieldId}-key`}
             value={key}
             onChange={(e) => setKey(e.target.value)}
             readOnly={editing}
@@ -171,27 +177,26 @@ function PaymentMethodForm({
             maxLength={40}
             pattern="[a-z0-9_-]+"
             placeholder="whish"
-            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 font-mono text-xs read-only:cursor-not-allowed read-only:opacity-60 focus-outline"
+            className="font-mono text-xs read-only:cursor-not-allowed read-only:opacity-60"
           />
-          <span className="block text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             {editing ? t('paymentMethods.keyLocked') : t('paymentMethods.keyHint')}
-          </span>
-        </label>
+          </p>
+        </div>
 
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">{t('paymentMethods.name')}</span>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor={`${fieldId}-name`}>{t('paymentMethods.name')}</Label>
+          <Input
+            id={`${fieldId}-name`}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             maxLength={80}
             placeholder="Whish Money"
-            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
+            className="text-xs"
           />
-          <span className="block text-[11px] text-muted-foreground">
-            {t('paymentMethods.nameHint')}
-          </span>
-        </label>
+          <p className="text-[11px] text-muted-foreground">{t('paymentMethods.nameHint')}</p>
+        </div>
       </div>
 
       <CurrencyField value={currency} onChange={setCurrency} />
@@ -211,33 +216,35 @@ function PaymentMethodForm({
         one. The API refuses it on a gateway method, which is the contradiction
         that cannot be resolved by guessing.
       */}
-      <label className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
-        <input
-          type="checkbox"
+      <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+        <Checkbox
+          id={`${fieldId}-proof`}
           checked={requiresProof}
-          onChange={(e) => setRequiresProof(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 rounded border-input focus-outline"
+          onCheckedChange={(value) => setRequiresProof(value === true)}
+          aria-describedby={`${fieldId}-proof-hint`}
+          className="mt-0.5"
         />
-        <span className="space-y-1">
-          <span className="block text-xs font-semibold text-foreground">
+        <div className="space-y-1">
+          <Label htmlFor={`${fieldId}-proof`} className="cursor-pointer">
             {t('paymentMethods.requiresProof')}
-          </span>
-          <span className="block text-[11px] leading-relaxed text-muted-foreground">
+          </Label>
+          <p
+            id={`${fieldId}-proof-hint`}
+            className="text-[11px] leading-relaxed text-muted-foreground"
+          >
             {t('paymentMethods.requiresProofHint')}
-          </span>
-        </span>
-      </label>
+          </p>
+        </div>
+      </div>
 
       <div className="flex justify-end gap-2 pt-1">
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-semibold hover:bg-muted focus-outline"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>
           {t('common.cancel')}
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
+          size="sm"
+          loading={saving}
           /*
            * `!currency` is what replaces the native `required` the currency
            * `<select>` used to carry. Radix's Select is a button, not a form
@@ -245,11 +252,10 @@ function PaymentMethodForm({
            * the form would submit an empty currency, which is the silent 'USD'
            * bug reversed rather than fixed. See `CurrencyField` below.
            */
-          disabled={saving || !currency}
-          className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
+          disabled={!currency}
         >
-          {saving ? t('paymentMethods.saving') : t('paymentMethods.save')}
-        </button>
+          {t('paymentMethods.save')}
+        </Button>
       </div>
     </form>
   );
@@ -283,6 +289,7 @@ function PaymentMethodForm({
  * is a correction an operator must be able to make without a developer.
  */
 function CurrencyField({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  const triggerId = React.useId();
   const currencies = useResource<Currency[]>(keys.currencies.all(), (signal) =>
     api.admin.getCurrencies(signal),
   );
@@ -290,8 +297,8 @@ function CurrencyField({ value, onChange }: { value: string; onChange: (code: st
   const usable = (currencies.data ?? []).filter((c) => c.enabled);
 
   return (
-    <label className="space-y-1.5">
-      <span className="text-xs font-semibold text-foreground">{t('paymentMethods.currency')}</span>
+    <div className="space-y-1.5">
+      <Label htmlFor={triggerId}>{t('paymentMethods.currency')}</Label>
       {/*
         The placeholder is the ABSENCE of a value, not an option carrying `''`.
 
@@ -311,7 +318,7 @@ function CurrencyField({ value, onChange }: { value: string; onChange: (code: st
         onValueChange={onChange}
         disabled={usable.length === 0}
       >
-        <SelectTrigger className="h-10 w-full text-xs">
+        <SelectTrigger id={triggerId} className="h-10 w-full text-xs">
           <SelectValue placeholder={t('paymentMethods.currencyPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
@@ -322,7 +329,7 @@ function CurrencyField({ value, onChange }: { value: string; onChange: (code: st
           ))}
         </SelectContent>
       </Select>
-      <span className="block text-[11px] text-muted-foreground">
+      <p className="text-[11px] text-muted-foreground">
         {/*
           The list failing to load is stated rather than shown as an empty
           dropdown. An operator staring at a select with nothing in it has no way
@@ -331,8 +338,8 @@ function CurrencyField({ value, onChange }: { value: string; onChange: (code: st
         {currencies.status === 'error'
           ? t('paymentMethods.currencyLoadFailed')
           : t('paymentMethods.currencyHint')}
-      </span>
-    </label>
+      </p>
+    </div>
   );
 }
 
@@ -385,7 +392,7 @@ export function LogoField({ value, onChange }: { value: string; onChange: (url: 
 
   return (
     <div className="space-y-1.5">
-      <span className="text-xs font-semibold text-foreground">{t('paymentMethods.logo')}</span>
+      <p className="text-xs font-semibold text-foreground">{t('paymentMethods.logo')}</p>
 
       <div className="flex items-center gap-3">
         {/* The preview IS the confirmation that the upload worked — a filename
@@ -417,28 +424,32 @@ export function LogoField({ value, onChange }: { value: string; onChange: (url: 
         </span>
 
         <div className="flex flex-wrap gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
+            className="px-3"
             onClick={() => inputRef.current?.click()}
             disabled={busy}
-            className="focus-outline inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-50"
           >
-            <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+            <Upload aria-hidden="true" />
             {busy
               ? t('paymentMethods.logoUploading')
               : value
                 ? t('paymentMethods.logoReplace')
                 : t('paymentMethods.logoUpload')}
-          </button>
+          </Button>
 
           {value && !busy && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              className="px-3 text-muted-foreground"
               onClick={() => onChange('')}
-              className="focus-outline inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold text-muted-foreground hover:bg-muted"
             >
               {t('paymentMethods.logoRemove')}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -474,9 +485,7 @@ export function LogoField({ value, onChange }: { value: string; onChange: (url: 
         />
       </div>
 
-      <span className="block text-[11px] text-muted-foreground">
-        {t('paymentMethods.logoHint')}
-      </span>
+      <p className="text-[11px] text-muted-foreground">{t('paymentMethods.logoHint')}</p>
 
       {error && (
         <p role="alert" className="text-[11px] font-semibold text-destructive">

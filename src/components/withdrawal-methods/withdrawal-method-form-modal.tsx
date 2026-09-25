@@ -2,8 +2,11 @@
 
 import * as React from 'react';
 import type { WithdrawalMethod } from '@/lib/api/admin';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
-import { Spinner } from '@/components/ui/loader';
 import { LogoField } from '@/components/payment-methods/payment-method-form-modal';
 import { t } from '@/lib/i18n';
 
@@ -80,6 +83,7 @@ function WithdrawalMethodForm({
   const [logoUrl, setLogoUrl] = React.useState(method?.logoUrl ?? '');
   const [sortOrder, setSortOrder] = React.useState(String(method?.sortOrder ?? 0));
   const [enabled, setEnabled] = React.useState(method?.enabled ?? true);
+  const fieldId = React.useId();
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -96,11 +100,10 @@ function WithdrawalMethodForm({
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">
-            {t('withdrawalMethods.key')}
-          </span>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor={`${fieldId}-key`}>{t('withdrawalMethods.key')}</Label>
+          <Input
+            id={`${fieldId}-key`}
             value={key}
             onChange={(event) => setKey(event.target.value)}
             required
@@ -109,56 +112,51 @@ function WithdrawalMethodForm({
             pattern="[A-Za-z0-9_]+"
             placeholder="bank_transfer"
             disabled={method !== undefined}
-            className={`${INPUT_CLASS} font-mono`}
+            className="font-mono text-xs"
           />
-          <span className="block text-[11px] text-muted-foreground">
-            {t('withdrawalMethods.keyHint')}
-          </span>
-        </label>
+          <p className="text-[11px] text-muted-foreground">{t('withdrawalMethods.keyHint')}</p>
+        </div>
 
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">
-            {t('withdrawalMethods.name')}
-          </span>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor={`${fieldId}-name`}>{t('withdrawalMethods.name')}</Label>
+          <Input
+            id={`${fieldId}-name`}
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
             maxLength={80}
             placeholder={t('withdrawalMethods.namePlaceholder')}
-            className={INPUT_CLASS}
+            className="text-xs"
           />
-        </label>
+        </div>
       </div>
 
       <LogoField value={logoUrl} onChange={setLogoUrl} />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">
-            {t('withdrawalMethods.order')}
-          </span>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor={`${fieldId}-order`}>{t('withdrawalMethods.order')}</Label>
+          <Input
+            id={`${fieldId}-order`}
             type="number"
             min={0}
             value={sortOrder}
             onChange={(event) => setSortOrder(event.target.value)}
-            className={`${INPUT_CLASS} tabular`}
+            className="tabular text-xs"
           />
-          <span className="block text-[11px] text-muted-foreground">
-            {t('withdrawalMethods.orderHint')}
-          </span>
-        </label>
+          <p className="text-[11px] text-muted-foreground">{t('withdrawalMethods.orderHint')}</p>
+        </div>
 
-        <label className="flex items-center gap-2 self-center pt-4 text-xs font-medium">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2 self-center pt-4">
+          <Checkbox
+            id={`${fieldId}-enabled`}
             checked={enabled}
-            onChange={(event) => setEnabled(event.target.checked)}
-            className="h-4 w-4"
+            onCheckedChange={(value) => setEnabled(value === true)}
           />
-          {t('withdrawalMethods.enabled')}
-        </label>
+          <Label htmlFor={`${fieldId}-enabled`} className="cursor-pointer font-medium">
+            {t('withdrawalMethods.enabled')}
+          </Label>
+        </div>
       </div>
 
       {error && (
@@ -168,25 +166,13 @@ function WithdrawalMethodForm({
       )}
 
       <div className="flex justify-end gap-2 border-t border-border pt-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="h-9 cursor-pointer rounded-lg px-3 text-xs font-semibold text-muted-foreground hover:bg-muted focus-outline"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>
           {t('withdrawalMethods.cancel')}
-        </button>
-        <button
-          type="submit"
-          disabled={saving || !name.trim() || !key.trim()}
-          className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-outline"
-        >
-          {saving && <Spinner />}
-          {saving ? t('withdrawalMethods.saving') : t('withdrawalMethods.save')}
-        </button>
+        </Button>
+        <Button type="submit" size="sm" loading={saving} disabled={!name.trim() || !key.trim()}>
+          {t('withdrawalMethods.save')}
+        </Button>
       </div>
     </form>
   );
 }
-
-const INPUT_CLASS =
-  'h-9 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60';

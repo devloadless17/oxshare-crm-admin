@@ -104,6 +104,30 @@ describe('the withdrawal methods page', () => {
     );
   });
 
+  /*
+   * The console's own form parts: labelled fields, and the shared checkbox
+   * (a Radix `button role="checkbox"`, not a native input) named by its label.
+   */
+  it('adds a disabled method through the labelled enabled checkbox', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<WithdrawalMethodsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /add method/i }));
+    await user.type(screen.getByLabelText(/^key$/i), 'omt');
+    await user.type(screen.getByLabelText(/^name$/i), 'OMT');
+    const enabled = screen.getByRole('checkbox', { name: /offer it to clients/i });
+    expect(enabled.tagName).toBe('BUTTON');
+    expect(enabled).toBeChecked();
+    await user.click(enabled);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(createWithdrawalMethod).toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'omt', enabled: false }),
+      ),
+    );
+  });
+
   /* The key is the primary key, and every request made on the rail names it. */
   it('does not let the key of an existing method be edited', async () => {
     const user = userEvent.setup();
