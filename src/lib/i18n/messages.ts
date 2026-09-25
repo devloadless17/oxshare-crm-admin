@@ -1523,7 +1523,7 @@ export const messages = {
   'settings.tabEmail': 'Email',
   'settings.tabTrading': 'Trading',
   'settings.tabPlatforms': 'Platforms',
-  'settings.tabSecurity': 'Security',
+
   'settings.masterOnly': 'Master admin only',
 
   // ── Trading tab ───────────────────────────────────────────────────────────
@@ -2418,6 +2418,7 @@ export const messages = {
   'ledger.type.adjustment': 'Adjustment',
   'nav.bridge': 'MT5 bridge',
   'nav.apiKeys': 'API keys',
+  'nav.networkAccess': 'Network access',
   'nav.externalLinks': 'External links',
 
   // ── API keys ───────────────────────────────────────────────────────────────

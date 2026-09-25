@@ -260,13 +260,23 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
         'settings.edit',
         'settings.smtp.view',
         'settings.rival.view',
-        // The Security tab (RBAC-08 network access) — granted on its own to an
-        // operator who administers the allowlist and nothing else. It was
-        // missing from this union, so that operator had a tab and no door.
-        'settings.security.view',
+        /*
+         * `settings.security.view` is NOT in this union any more. The Security
+         * tab it opened became its own page, `/network-access`, below — so an
+         * operator who administers the allowlist and nothing else no longer
+         * needs a door into Settings to reach it.
+         */
       ],
     },
   },
+  /*
+   * RBAC-08 — which networks may reach the administration API. Its own page
+   * under Security since 25 Sep 2026; it was a tab on /settings. READ is the
+   * view key, and the add/remove controls inside check `settings.security.edit`
+   * — seeing which networks are trusted is an audit question, adding one can
+   * lock every administrator out.
+   */
+  { prefix: '/network-access', requirement: { permission: 'settings.security.view' } },
   /*
    * `admins.view`, not the old `users.view`, and that split is the point of the
    * key: one permission used to open the client list AND the administrator

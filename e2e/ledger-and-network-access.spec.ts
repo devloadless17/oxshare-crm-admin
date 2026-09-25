@@ -64,13 +64,20 @@ test.describe('ADM-13 — the ledger', () => {
 });
 
 test.describe('RBAC-08 — Network Access', () => {
-  test('the Security tab opens the panel and says the protection is OFF', async ({ page }) => {
+  test('an old Settings → Security link lands on the page', async ({ page }) => {
+    await page.goto('/settings?tab=security');
+    await expect(page).toHaveURL(/\/network-access$/);
+  });
+
+  test('the Network access page opens and says the protection is OFF', async ({ page }) => {
     const forbidden: string[] = [];
     page.on('response', (res) => {
       if (res.status() === 403) forbidden.push(`${res.request().method()} ${res.url()}`);
     });
 
-    await page.goto('/settings?tab=security');
+    // Its own page under Security since 25 Sep 2026 — it was a Settings tab.
+    await openNavItem(page, 'Security', 'Network access');
+    await expect(page).toHaveURL(/\/network-access$/);
 
     await expect(page.getByRole('heading', { name: /network access/i })).toBeVisible();
     /*
@@ -93,7 +100,7 @@ test.describe('RBAC-08 — Network Access', () => {
      * ::1 — not the operator's public address. A rule for the address they can
      * see in a browser is one the server can never match.
      */
-    await page.goto('/settings?tab=security');
+    await page.goto('/network-access');
     await expect(
       page.getByText(/the address the SERVER sees|could not determine the address/i),
     ).toBeVisible();
@@ -102,7 +109,7 @@ test.describe('RBAC-08 — Network Access', () => {
   test('warns before the FIRST rule, which is the one that starts enforcement', async ({
     page,
   }) => {
-    await page.goto('/settings?tab=security');
+    await page.goto('/network-access');
     await expect(page.getByRole('heading', { name: /network access/i })).toBeVisible();
 
     /*

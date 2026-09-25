@@ -144,7 +144,7 @@ describe('which tabs an admin is offered', () => {
      * same way; see the header of src/test/permissions.ts for why it has to
      * be kept in step by hand.
      */
-    expect(tabs).toEqual(['Trading', 'Email', 'Payments', 'Platforms', 'Security']);
+    expect(tabs).toEqual(['Trading', 'Email', 'Payments', 'Platforms']);
   });
 
   it('hides the Email tab from a non-master admin', () => {
@@ -230,34 +230,35 @@ describe('only the active panel mounts', () => {
   });
 });
 
-describe('the Security tab is back — RBAC-08', () => {
+describe('the Security tab moved to its own page — RBAC-08', () => {
   /*
-   * This block asserted the opposite until the allowlist was restored. It was
-   * deleted on 7 Aug as unwanted scope; the root CLAUDE.md records the tech lead
-   * confirming on 2 Aug that RBAC-08 is IN scope and the committed total is 41,
-   * and the deletion was never confirmed by them (D-51).
+   * The network allowlist is `/network-access` under Security in the sidebar
+   * since 25 Sep 2026. A tab here would be a second copy of the same control,
+   * and the two would drift.
    */
-  it('is offered to an admin holding settings.security.view', () => {
-    renderWithProviders(<AdminSettingsPage />);
-
-    expect(screen.getByRole('tab', { name: /security/i })).toBeInTheDocument();
-  });
-
-  it('is HIDDEN without that key, not merely disabled', () => {
-    // Which networks a company works from is a map of where its people are. An
-    // operator who cannot act on it does not need to read it.
-    identity.permissions = ['settings.edit'];
+  it('is not offered here, even to an admin holding settings.security.view', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     expect(screen.queryByRole('tab', { name: /security/i })).toBeNull();
   });
 
-  it('a ?tab=security link opens the panel rather than falling back', async () => {
+  /*
+   * A bookmark to the old tab is SENT to the new page rather than dropped on
+   * Trading: the allowlist still exists, and landing on trading limits instead
+   * would read as it having been removed.
+   */
+  it('sends a ?tab=security link to the network access page', () => {
     search.current = new URLSearchParams('tab=security');
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(screen.getByRole('tab', { name: /security/i })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText(/network access/i)).toBeInTheDocument();
+    expect(replace).toHaveBeenCalledWith('/network-access');
+  });
+
+  it('does not redirect any other tab', () => {
+    search.current = new URLSearchParams('tab=email');
+    renderWithProviders(<AdminSettingsPage />);
+
+    expect(replace).not.toHaveBeenCalledWith('/network-access');
   });
 });
 
