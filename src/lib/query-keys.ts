@@ -193,6 +193,10 @@ export const keys = {
     all: () => ['payment-methods'] as const,
   },
 
+  withdrawalMethods: {
+    all: () => ['withdrawal-methods'] as const,
+  },
+
   externalLinks: {
     all: () => ['external-links'] as const,
   },

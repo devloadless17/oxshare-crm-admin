@@ -1743,6 +1743,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/withdrawal-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every withdrawal method, enabled or not
+         * @description Includes disabled methods — switching them is the point of the screen. Clients see only the enabled ones, through GET /payments/withdrawal-methods.
+         */
+        get: operations["AdminWithdrawalMethodsController_list"];
+        put?: never;
+        /**
+         * Add a withdrawal method
+         * @description Key, name and an optional logo. `enabled` decides whether clients are offered it on the withdraw form.
+         */
+        post: operations["AdminWithdrawalMethodsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/withdrawal-methods/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a withdrawal method
+         * @description PATCH, and `key` itself is not editable: it is the primary key and withdrawal requests reference it. Disabling hides the method from new requests and leaves existing ones for the desk to settle.
+         */
+        patch: operations["AdminWithdrawalMethodsController_update"];
+        trace?: never;
+    };
     "/v1/wallet": {
         parameters: {
             query?: never;
@@ -5668,6 +5712,49 @@ export interface components {
              * @example /v1/uploads/payment-logos/8f2c….png
              */
             logoUrl: string;
+        };
+        AdminWithdrawalMethodDto: {
+            /**
+             * @description A stable machine key. Never renamed: `transactions.withdrawal_method_key` references it.
+             * @example whish
+             */
+            key: string;
+            /**
+             * @description What the client picks from.
+             * @example Whish Money
+             */
+            name: string;
+            logoUrl: string | null;
+            /** @description Whether clients are offered it on the withdraw form. Disabling leaves requests already made on it untouched — the desk still settles them. */
+            enabled: boolean;
+            /**
+             * @description The order clients see the methods in.
+             * @example 0
+             */
+            sortOrder: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateWithdrawalMethodDto: {
+            /** @example bank_transfer */
+            key: string;
+            /** @example Bank transfer */
+            name: string;
+            /** @example /v1/uploads/payment-logos/8f2c….png */
+            logoUrl?: string;
+            /** @default true */
+            enabled: boolean;
+            /** @default 0 */
+            sortOrder: number;
+        };
+        UpdateWithdrawalMethodDto: {
+            name?: string;
+            /** @example /v1/uploads/payment-logos/8f2c….png */
+            logoUrl?: string;
+            enabled?: boolean;
+            sortOrder?: number;
         };
         StatementLineDto: {
             id: string;
@@ -10536,6 +10623,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentLogoResponseDto"];
+                };
+            };
+        };
+    };
+    AdminWithdrawalMethodsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWithdrawalMethodDto"][];
+                };
+            };
+        };
+    };
+    AdminWithdrawalMethodsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWithdrawalMethodDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWithdrawalMethodDto"];
+                };
+            };
+        };
+    };
+    AdminWithdrawalMethodsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWithdrawalMethodDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWithdrawalMethodDto"];
                 };
             };
         };

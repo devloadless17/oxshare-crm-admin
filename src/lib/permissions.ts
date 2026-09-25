@@ -116,6 +116,8 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   // `payments.view` reads the list; the page checks `payments.manage` before it
   // draws any write control, and the API refuses the writes regardless.
   { prefix: '/payment-methods', requirement: { permission: 'payments.view' } },
+  /* The payout side's twin, on the same keys: one grant for "payment methods". */
+  { prefix: '/withdrawal-methods', requirement: { permission: 'payments.view' } },
   // `/payouts` is still listed nowhere and has no `page.tsx`: `canAccess`
   // denies an unlisted path (see the `!match` branch below), which is the
   // correct answer for a route that does not exist. `/trading-accounts` was in
