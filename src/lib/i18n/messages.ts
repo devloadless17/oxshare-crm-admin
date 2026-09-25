@@ -1770,8 +1770,10 @@ export const messages = {
 
   // ── Email tab ─────────────────────────────────────────────────────────────
   'smtp.title': 'Mail server (SMTP)',
+  // Sign-up mails a CODE (and a link) since 25 Sep 2026; withdrawals send no
+  // code at all any more, so neither the old "links" nor "withdrawal codes" held.
   'smtp.subtitle':
-    'How this system sends verification links, password resets, admin invitations and withdrawal codes.',
+    'How this system sends sign-up verification codes, password resets and admin invitations.',
   'smtp.loading': 'Loading mail settings',
   'smtp.loadFailed': 'Could not load the mail settings.',
   'smtp.host': 'Host',

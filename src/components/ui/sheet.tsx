@@ -40,6 +40,10 @@ const SIDES = {
   right:
     'inset-y-0 right-0 h-full w-full max-w-sm border-l slide-in-from-right-full data-[state=closed]:slide-out-to-right-full',
   left: 'inset-y-0 left-0 h-full w-full max-w-sm border-r slide-in-from-left-full data-[state=closed]:slide-out-to-left-full',
+  // The phone's own pattern for filters and actions: rises from the thumb's
+  // edge, never taller than most of the screen, its body scrolling inside.
+  bottom:
+    'inset-x-0 bottom-0 max-h-[85dvh] w-full rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)] slide-in-from-bottom-full data-[state=closed]:slide-out-to-bottom-full',
 } as const;
 
 const SheetOverlay = React.forwardRef<

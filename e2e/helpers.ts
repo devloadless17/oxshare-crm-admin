@@ -883,7 +883,13 @@ export async function registerClientWithPendingKyc(
   requirePrecondition(registered.status() === 429, 'registration is rate limited right now (10/h)');
   expect(registered.ok(), `register answered ${registered.status()}`).toBe(true);
 
-  const mail = await waitForMail(email, { subject: /verify/i });
+  /*
+   * `/verif/i`, not `/verify/i`: since 25 Sep 2026 the sign-up mail's subject is
+   * "<code> is your OxShare verification code", and "verification" does not
+   * contain "verify" — the old pattern waited out its timeout on a mail that
+   * had arrived.
+   */
+  const mail = await waitForMail(email, { subject: /verif/i });
   const token = new URL(linkIn(mail, TOPOLOGY_PORTAL_ORIGIN)).searchParams.get('token')!;
   expect(
     (
