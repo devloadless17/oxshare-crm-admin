@@ -6,6 +6,11 @@ import type { Mt5GroupRow } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import {
+  GroupCommissionCell,
+  GroupCommissionDetail,
+} from '@/components/mt5-groups/group-commission-detail';
+import { marginLevels } from '@/components/mt5-groups/group-commission';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -25,6 +30,14 @@ import { keys } from '@/lib/query-keys';
  * No "last seen" column and no removed groups. The screen lists what MT5 holds
  * today; a group the server stopped reporting stays in the mirror (so it can be
  * restored if it comes back) and is simply not shown.
+ *
+ * ## MT5's own commission, and the margin levels
+ *
+ * Each group shows the commission rules and margin-call / stop-out levels the
+ * trading server holds for it, as the bridge reports them. These are what MT5
+ * itself takes from a client's deals, set by the broker in MT5 — separate from
+ * the partner commission types. Expanding a row lists every rule and tier.
+ * "Not reported" means the bridge that ran the last sync predates these fields.
  *
  * ## Nothing here writes
  *
@@ -91,6 +104,23 @@ export default function Mt5GroupsPage() {
         ),
     },
     {
+      header: t('mt5Groups.colCommission'),
+      cell: (group) => (
+        <GroupCommissionCell commissions={group.commissions} currency={group.currency} />
+      ),
+    },
+    {
+      header: t('mt5Groups.colMargin'),
+      cell: (group) =>
+        marginLevels(
+          group.marginCall,
+          group.marginStopOut,
+          group.marginStopOutMode,
+          group.currency,
+        ) ?? <span className="text-muted-foreground">—</span>,
+      cellClassName: 'tabular',
+    },
+    {
       header: t('mt5Groups.colAccounts'),
       cell: (group) => group.accountCount,
       cellClassName: 'tabular',
@@ -124,6 +154,9 @@ export default function Mt5GroupsPage() {
           rowKey={(group) => group.name}
           dimmed={query.isFetching}
           clientPagination={GROUP_PAGING}
+          renderExpandedRow={(group) => (
+            <GroupCommissionDetail commissions={group.commissions} currency={group.currency} />
+          )}
           fill
           empty={<EmptyState icon={Server} message={t('mt5Groups.empty')} />}
         />
