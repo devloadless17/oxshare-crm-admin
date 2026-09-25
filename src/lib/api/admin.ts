@@ -143,6 +143,13 @@ export type IbLevelLimits = components['schemas']['IbLevelLimitsDto'];
  * of it. `productNames` is on the row so a delete or a disable can be refused
  * on the screen before the API refuses it.
  */
+/**
+ * One MT5 group as the sync job last mirrored it — `GET /admin/mt5-groups`.
+ * Read from the local mirror, not the bridge, so it answers when MT5 is down;
+ * `lastSeenAt` is how recently the server confirmed it.
+ */
+export type Mt5GroupRow = components['schemas']['Mt5GroupDto'];
+
 export type IbCommissionType = components['schemas']['IbCommissionTypeDto'];
 export type CreateIbCommissionType = components['schemas']['CreateIbCommissionTypeDto'];
 export type UpdateIbCommissionType = components['schemas']['UpdateIbCommissionTypeDto'];
@@ -1449,6 +1456,14 @@ export const adminApi = {
    */
   async deleteIbLevel(level: number): Promise<void> {
     await apiClient.delete(`/admin/ib-levels/${level}`);
+  },
+
+  /* ── MT5 groups ───────────────────────────────────────────────────────── */
+
+  /** Every mirrored group, removed ones included, with its product and account count. */
+  async getMt5GroupMirror(signal?: AbortSignal): Promise<Mt5GroupRow[]> {
+    const { data } = await apiClient.get<Mt5GroupRow[]>('/admin/mt5-groups', { signal });
+    return data;
   },
 
   /* ── Commission types (0140) ─────────────────────────────────────────── */

@@ -2417,6 +2417,34 @@ export const messages = {
   'ledger.type.payout': 'Payout',
   'ledger.type.adjustment': 'Adjustment',
   'nav.bridge': 'MT5 bridge',
+  'nav.mt5Groups': 'MT5 groups',
+  // ── MT5 groups ────────────────────────────────────────────────────────────
+  // The groups the server reports, as the sync job last mirrored them. Read
+  // from the mirror, so the page answers when the bridge is down — which is
+  // why every row says when the server last confirmed it.
+  'mt5Groups.pageTitle': 'MT5 groups',
+  'mt5Groups.subtitle':
+    'The groups on the MT5 server, refreshed automatically by the group sync. Assign a group to a product on the Products page to let clients open accounts in it.',
+  'mt5Groups.loading': 'Loading MT5 groups',
+  'mt5Groups.loadFailed': 'Could not load the MT5 groups.',
+  'mt5Groups.empty':
+    'No groups have been synced yet. They appear once the bridge is connected and the group sync has run.',
+  'mt5Groups.lastSynced': 'Last confirmed by the server {when}.',
+  'mt5Groups.colName': 'Group',
+  'mt5Groups.colCurrency': 'Currency',
+  'mt5Groups.colLeverage': 'Default leverage',
+  'mt5Groups.colProduct': 'Product',
+  'mt5Groups.colAccounts': 'Accounts',
+  'mt5Groups.colStatus': 'Status',
+  'mt5Groups.colLastSeen': 'Last seen',
+  'mt5Groups.statusActive': 'On the server',
+  'mt5Groups.statusRemoved': 'Removed from the server',
+  'mt5Groups.notSold': 'Not assigned',
+  'mt5Groups.productEnv': '{product} · {environment}',
+  'mt5Groups.envLive': 'live',
+  'mt5Groups.envDemo': 'demo',
+  'mt5Groups.leverageRatio': '1:{ratio}',
+  'mt5Groups.showRemoved': 'Show removed groups',
   'nav.apiKeys': 'API keys',
   'nav.networkAccess': 'Network access',
   'nav.externalLinks': 'External links',

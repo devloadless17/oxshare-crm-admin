@@ -2152,6 +2152,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/mt5-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every MT5 group the sync job has mirrored, removed ones included
+         * @description From the local mirror (`mt5_groups`), not the bridge — it renders when the server is unreachable. Each row names the product that sells the group, if any, and how many trading accounts the CRM holds in it.
+         */
+        get: operations["AdminMt5GroupsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/kyc/config": {
         parameters: {
             query?: never;
@@ -6144,6 +6164,56 @@ export interface components {
             environment: "live" | "demo";
             credentialsSentTo?: string;
             maskedFields?: string[];
+        };
+        Mt5GroupProductDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Standard */
+            name: string;
+            /**
+             * @description Which environment the product offers this group in.
+             * @enum {string}
+             */
+            environment: "live" | "demo";
+        };
+        Mt5GroupDto: {
+            /**
+             * @description The MT5 group path.
+             * @example real\Standard-USD
+             */
+            name: string;
+            /**
+             * @description The deposit currency the server reports.
+             * @example USD
+             */
+            currency: string;
+            /**
+             * @description The leverage the server assigns by default, when it reports one.
+             * @example 100
+             */
+            leverageDefault: number | null;
+            /**
+             * Format: date-time
+             * @description When the sync job first saw this group on the server.
+             */
+            firstSeenAt: string;
+            /**
+             * Format: date-time
+             * @description The last sync that saw it on the server.
+             */
+            lastSeenAt: string;
+            /**
+             * Format: date-time
+             * @description Set when the server stopped reporting the group. Kept, not deleted: accounts opened in it still exist, and a group that comes back is restored rather than duplicated.
+             */
+            removedAt: string | null;
+            /** @description The product that sells this group, or null when no product claims it — in which case no client can open an account in it from the portal. */
+            product: components["schemas"]["Mt5GroupProductDto"] | null;
+            /**
+             * @description How many trading accounts the CRM holds in this group.
+             * @example 12
+             */
+            accountCount: number;
         };
         KycDocumentPartDto: {
             /**
@@ -10929,6 +10999,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AdminMt5GroupsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5GroupDto"][];
+                };
             };
         };
     };
