@@ -1002,7 +1002,45 @@ export async function registerClientWithPendingKyc(
   await upload('selfie');
   expect((await step('address', {})).ok()).toBe(true);
   await upload('address_proof', 'utility_bill');
-  expect((await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write })).ok()).toBe(true);
+
+  /*
+   * WHATEVER ELSE THE BROKER CONFIGURED. The builder lets an operator add a
+   * required upload or question to any step — a development database's Proof
+   * of Address step carries one — and a helper that knew only the shipped
+   * defaults had every submission refused, which reads as a broken feature in
+   * whichever spec happened to mint the client. So the LIVE configuration is
+   * read, and every required field on an enabled step that the defaults above
+   * did not already answer is answered: a file gets the tiny PNG, a question a
+   * plausible value. The personal step is the profile, answered above.
+   */
+  const answeredByDefault = new Set(['doc_front', 'doc_back', 'selfie', 'address_proof']);
+  const configured = (await (
+    await portal.get(`${API_NODE_BASE}/kyc/config`, { headers: origin })
+  ).json()) as {
+    slug: string;
+    fields?: { name: string; type: string; required?: boolean; options?: string[] }[];
+  }[];
+  for (const configuredStep of configured) {
+    if (configuredStep.slug === 'personal') continue;
+    const answers: Record<string, string> = {};
+    for (const field of configuredStep.fields ?? []) {
+      if (!field.required || answeredByDefault.has(field.name)) continue;
+      // A document CHOICE is made by the uploads above, never typed.
+      if (field.type === 'doc') continue;
+      if (field.type === 'file' || field.type === 'camera') await upload(field.name);
+      else if (field.type === 'select') answers[field.name] = field.options?.[0] ?? 'E2E';
+      else if (field.type === 'date') answers[field.name] = '1990-01-01';
+      else answers[field.name] = 'Endtoend answer';
+    }
+    if (Object.keys(answers).length > 0) {
+      const answered = await step(configuredStep.slug, answers);
+      expect(answered.ok(), `answering ${configuredStep.slug}: ${answered.status()}`).toBe(true);
+    }
+  }
+
+  const submitted = await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write });
+  // The refusal's own sentence on failure — "…is required" names the field.
+  expect(submitted.ok(), `KYC submission answered ${await submitted.text()}`).toBe(true);
 
   const id = await clientIdByEmail(admin, email);
   return { portal, csrf, email, id, dispose: () => portal.dispose() };
