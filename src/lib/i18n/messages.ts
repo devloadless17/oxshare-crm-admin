@@ -2936,7 +2936,7 @@ export const messages = {
 
   'currencies.title': 'Currencies',
   'currencies.subtitle':
-    'The money this platform can hold. Adding or enabling one opens a wallet in it for every client, and a commission wallet for every partner. Disabling one hides its empty wallets from clients; balances stay theirs.',
+    'The money this platform can hold. Adding or enabling one offers it: clients and partners see it on their wallet screens and open a wallet in it themselves. Disabling one hides its empty wallets from clients; balances stay theirs.',
   'currencies.caption': 'Supported currencies',
   'currencies.loading': 'Loading currencies',
   'currencies.loadFailed': 'Could not load the currencies.',
@@ -2970,11 +2970,10 @@ export const messages = {
   // sure" about something the API refuses outright if any wallet exists.
   'currencies.confirmDeleteTitle': 'Delete {code}?',
   'currencies.confirmDelete':
-    'Only possible while it has never held money: the empty wallets opened for it are removed with it. To stop offering a currency that has been used, disable it instead.',
+    'Only possible while it has never held money: any empty wallets clients opened in it are removed with it. To stop offering a currency that has been used, disable it instead.',
   'currencies.deleteSucceeded': '{code} deleted',
   'currencies.defaultSucceeded': '{code} is now the default currency',
-  'currencies.enabledSucceeded':
-    '{code} enabled — opening its wallets for every client and partner',
+  'currencies.enabledSucceeded': '{code} enabled — clients can now open a wallet in it',
   'currencies.disabledSucceeded': '{code} disabled',
   'currencies.saveSucceeded': '{code} saved',
 
@@ -2987,7 +2986,7 @@ export const messages = {
   'currencies.decimalsHint': 'How balances are shown. Storage is always 8 decimal places.',
   'currencies.enabled': 'Enabled',
   'currencies.enabledHint':
-    'Saving it enabled opens a wallet in it for every client and a commission wallet for every partner. Disabling never touches existing balances.',
+    'Enabled, clients and partners are offered it and open their own wallets in it. No wallet is opened for anybody on save. Disabling never touches existing balances.',
   'currencies.isDefault': 'Default currency',
   'currencies.isDefaultHint':
     "The currency a new client's first wallet opens in. Exactly one currency holds this, and it must stay enabled.",
