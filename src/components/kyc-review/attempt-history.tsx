@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { components } from '@/lib/api/types.gen';
 import { DocViewer } from './doc-viewer';
+import { identitySection, reviewDocuments } from './review-sections';
 import { t } from '@/lib/i18n';
 
 type KycAttempt = components['schemas']['KycAttemptDto'];
@@ -106,15 +107,34 @@ export function AttemptHistory({ attempts }: { attempts: KycAttempt[] }) {
                       <span className="text-foreground">{a.rejectionReason}</span>
                     </div>
                   )}
-                  {a.rejectedFields && a.rejectedFields.length > 0 && (
+                  {(a.layout?.flags.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {a.rejectedFields.map((f) => (
+                      {/* Named as the review names them — never `doc_back`. */}
+                      {a.layout!.flags.map((flag) => (
                         <span
-                          key={f}
-                          className="rounded border border-destructive/30 bg-destructive/15 px-2 py-0.5 font-mono text-xs text-destructive"
+                          key={flag.id}
+                          className="rounded border border-destructive/30 bg-destructive/15 px-2 py-0.5 text-xs text-destructive"
                         >
-                          {f}
+                          {flag.label}
                         </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* WHO the client was, as the reviewer decided on it — the
+                      profile has moved on since, and this is the record. */}
+                  {a.layout && (
+                    <div className="text-xs">
+                      <span className="mb-1 block font-semibold text-foreground">
+                        {t('kycReview.identityAtDecision')}
+                      </span>
+                      {identitySection(a).rows.map((row) => (
+                        <div key={row.key} className="info-row">
+                          <span>{row.label}</span>
+                          <strong className={row.empty ? 'font-normal text-muted-foreground' : ''}>
+                            {row.value}
+                          </strong>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -123,49 +143,16 @@ export function AttemptHistory({ attempts }: { attempts: KycAttempt[] }) {
                       against what came next is how a reviewer tells a genuine
                       correction from the same file sent again. */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <DocViewer
-                      filePath={a.document?.frontFilePath}
-                      fileName={a.document?.frontFileName}
-                      label={
-                        (a.document?.docType ?? 'passport') === 'passport'
-                          ? t('kycReview.docPassport')
-                          : t('kycReview.docIdFront')
-                      }
-                    />
-                    <DocViewer
-                      filePath={a.selfie?.filePath}
-                      fileName={a.selfie?.fileName}
-                      label={t('kycReview.docSelfie')}
-                    />
-                    <DocViewer
-                      filePath={a.addressProof?.filePath}
-                      fileName={a.addressProof?.fileName}
-                      label={t('kycReview.docAddress')}
-                    />
-                    {/*
-                      The BACK of an ID and PAGE 2 of an address proof, both
-                      stored on the attempt and both absent from this grid.
-                      This table exists to answer "what did the document we
-                      refused actually look like" — an ID re-sent with only its
-                      back page corrected, or a bank statement whose address is
-                      on the second sheet, was unreadable in exactly the place
-                      built to read it. `DocViewer` renders nothing for an
-                      absent path, so a passport attempt is unchanged.
-                    */}
-                    {a.document?.backFilePath && (
+                    {/* EVERY file the attempt held — each page, the selfie, the
+                        broker's own uploads — named by the document it was. */}
+                    {reviewDocuments(a).map((doc) => (
                       <DocViewer
-                        filePath={a.document.backFilePath}
-                        fileName={a.document.backFileName}
-                        label={t('kycReview.docIdBack')}
+                        key={doc.filePath}
+                        filePath={doc.filePath}
+                        fileName={doc.fileName}
+                        label={doc.label}
                       />
-                    )}
-                    {a.addressProof?.page2FilePath && (
-                      <DocViewer
-                        filePath={a.addressProof.page2FilePath}
-                        fileName={a.addressProof.page2FileName}
-                        label={t('kycReview.docAddress2')}
-                      />
-                    )}
+                    ))}
                   </div>
                 </div>
               )}

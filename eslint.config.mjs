@@ -355,7 +355,8 @@ export default defineConfig([
       // minimatch — but every path here named the pre-group location and
       // pinned nothing until they were re-pointed.
       'src/app/(console)/kyc/\\[userId\\]/page.tsx',
-      'src/app/(console)/kyc/builder/page.tsx',
+      // (kyc/builder left this list on 26 Sep 2026 — split into
+      // components/kyc-builder/*, it is ~280 code lines.)
       'src/app/(console)/commissions/page.tsx',
       'src/app/(console)/transactions/page.tsx',
     ],

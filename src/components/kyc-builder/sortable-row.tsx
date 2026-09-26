@@ -62,18 +62,9 @@ export function SortableRow({
    * Renders the handle INERT rather than absent, so a row that cannot be
    * reordered still looks like a row.
    *
-   * ⚠️ NO PRODUCTION CALLER TODAY. This said "mandatory steps do not move",
-   * and that rule is gone — the owner retired the mandatory-step guard on
-   * 15 Aug 2026 (see the block above `updateKycConfig` in the backend's
-   * `admin-compliance.service.ts`, and the corrected note on
-   * `MANDATORY_KYC_SLUGS`). Both `<SortableRow>` call sites — `step-card.tsx`
-   * and the builder page — pass neither this nor `disabledReason`; the only
-   * caller that does is this component's own test.
-   *
-   * Kept rather than deleted because an inert-handle affordance is a
-   * reasonable thing for a sortable list to offer and the behaviour is tested.
-   * But it is unreachable from the product, so do not read its presence as
-   * evidence that some row somewhere is pinned — nothing is.
+   * The builder's overview pins Personal Information with it (the identity
+   * core, 26 Sep 2026): the identity every later step is checked against is
+   * collected first, so its row does not move and nothing moves above it.
    */
   disabled?: boolean;
   /** Accessible name for the handle, e.g. "Reorder Identity document". */

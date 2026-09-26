@@ -3,38 +3,35 @@ import { adminApi, requirePrecondition, STORAGE_STATE } from './helpers';
 import type { BrowserContext, Page } from '@playwright/test';
 
 /**
- * THE KYC STEP BUILDER, DRIVEN WITH A MOUSE.
+ * THE KYC STEP BUILDER, DRIVEN WITH A MOUSE — and the identity it cannot break.
  *
- * ## Why this file exists
+ * ## The report this file is built around (26 Sep 2026)
  *
- * Every other admin KYC surface had browser coverage — claim and hand-back,
- * the holder named in the queue, masked reviewers, documents opening from R2.
- * This screen had one line in `console-pages.spec.ts` that loads it and checks
- * it renders. Reordering, adding, editing, disabling, deleting and saving —
- * every control a person actually uses — were unclicked anywhere.
+ * In the builder, deleting First Name from Personal Information and adding it
+ * back made a CUSTOM field: a box labelled "First Name" that no longer was the
+ * client's first name. The cause was general — identity was recognised by a
+ * field's key inside a configuration the builder could freely rewrite — and so
+ * is the fix: the client's identity and the four built-in steps are the
+ * PLATFORM's (the owner's rulings). The identity is served on every read and
+ * dropped on every write, so no save can remove, rename or duplicate it; a
+ * question that would be a second copy of it is refused, under the question.
  *
- * That matters more here than on most screens: the builder edits what EVERY
- * client must submit to be verified, and verification is what opens the
- * withdrawal gate. `kyc_config.replace` is audited for exactly that reason.
- *
- * ## It must not assert the rule that was removed
- *
- * The four steps `personal`, `document`, `selfie` and `address` used to be
- * undeletable. The owner retired that on 15 Aug 2026 — a KYC flow sold as
- * configurable that refuses to drop four of its steps is not configurable, and
- * which documents a jurisdiction requires is the broker's decision. So this
- * file asserts a step CAN be removed, which is the behaviour that was chosen.
- * A spec asserting the old rule would pin a behaviour deliberately removed,
- * which is the same failure as a comment describing code that no longer exists.
+ * So this file drives the reported scenario first, then the doors around it: a
+ * crafted save, the built-in steps, the order, a save over somebody else's
+ * change, and a broker's own step from creation to deletion.
  *
  * ## The config is GLOBAL state, so every case restores it
  *
  * There is one KYC configuration and every client onboarding through the portal
- * reads it. A spec that leaves a step disabled breaks onboarding for the whole
- * database until somebody notices — the exact shape of the fixture damage this
- * suite spent the day removing. `afterEach` PUTs the snapshot back over the
- * API rather than trusting the UI to undo itself, because a failed test is
- * precisely when the UI cannot be trusted to.
+ * reads it. `afterEach` PUTs the snapshot back over the API rather than trusting
+ * the UI to undo itself, because a failed test is precisely when the UI cannot
+ * be trusted to — and it checks the restore LANDED.
+ *
+ * ⚠️ Never delete a step this file did not create. A step's address (its slug)
+ * is kept for life, and one made by an older build may not have the shape a NEW
+ * step must have ("custom slug 1" is on the dev database). Deleted and then
+ * restored, it would be judged as new — refused — and the restore would fail
+ * with the step gone.
  */
 
 test.use({ storageState: STORAGE_STATE });
@@ -44,17 +41,27 @@ test.use({ storageState: STORAGE_STATE });
  *
  * The index signature is load-bearing rather than lazy typing: `readConfig`
  * hands whole step objects straight back to `afterEach`, which PUTs them, and
- * that endpoint is a FULL REPLACE. A type naming only five keys would invite
- * somebody to `.map()` the snapshot into those five and silently drop every
- * field, hint and document binding on the way — restoring a configuration that
- * validates, saves, and is not the one this run found.
+ * that endpoint is a FULL REPLACE. A type naming only these keys would invite
+ * somebody to `.map()` the snapshot into them and silently drop every hint and
+ * document binding on the way.
  */
+type Field = {
+  id: string;
+  name: string;
+  label: string;
+  type: string;
+  required: boolean;
+  system?: boolean;
+  [key: string]: unknown;
+};
 type Step = {
   id: string;
   slug: string;
   title: string;
+  description: string;
   enabled: boolean;
   stepNumber: number;
+  fields: Field[];
   [key: string]: unknown;
 };
 
@@ -67,24 +74,31 @@ async function readConfig(context: BrowserContext): Promise<Step[]> {
   return (Array.isArray(body) ? body : ((body as { steps?: Step[] }).steps ?? [])) as Step[];
 }
 
+const shape = (steps: Step[]) =>
+  steps.map((s) => ({ slug: s.slug, enabled: s.enabled, stepNumber: s.stepNumber }));
+
+/** The builder, loaded: its Save button is on screen once the form has arrived. */
+async function openBuilder(page: Page): Promise<void> {
+  await page.goto('/kyc/builder');
+  await expect(page.getByRole('tab', { name: /overview/i })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: /save all changes/i })).toBeVisible();
+}
+
 /**
- * Open one step's TAB.
- *
- * The builder is a tablist — Overview, then one tab per step — and `Disable`
- * and `Delete step` render only inside the ACTIVE step's card. The Overview
- * panel carries reorder controls and an "Open" button and neither of those two.
- *
- * This exists because the first version of these tests reached for
- * `getByRole('button', { name: title })`, which matched the row summary on the
- * Overview panel ("Personal InformationForm Fields (7)"), clicked it, and then
- * waited sixty seconds for a Disable button that was never going to be on that
- * panel. The failure looked exactly like a missing control.
+ * Open one step's TAB. The builder is a tablist — Overview, then one tab per
+ * step — and a step's controls render only inside its own panel.
  */
 async function openStepTab(page: Page, title: string): Promise<void> {
   // Escaped: a step title is operator-supplied and may hold regex metacharacters.
   const name = new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
   await page.getByRole('tab', { name }).click();
   await expect(page.getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
+}
+
+function stepOf(steps: Step[], slug: string): Step {
+  const step = steps.find((s) => s.slug === slug);
+  expect(step, `no '${slug}' step — every configuration has the four built-in steps`).toBeTruthy();
+  return step!;
 }
 
 let snapshot: Step[] = [];
@@ -96,24 +110,11 @@ test.beforeEach(async ({ context }) => {
 
 test.afterEach(async ({ context }) => {
   /*
-   * Restore over the API, not through the screen. A test that failed half way
-   * through an edit cannot be trusted to undo it with the same controls.
-   *
    * ## Refuse to restore NOTHING
    *
    * `snapshot` is module-level and `afterEach` runs even when `beforeEach`
    * threw — so on a first-test failure it still holds its initial `[]`, and
-   * PUTting `{ steps: [] }` would REPLACE the live KYC configuration with an
-   * empty one. That is a full replace: every client onboarding through the
-   * portal would meet a wizard with no steps, and no test would report it
-   * because the restore itself answers 200. A cleanup that can destroy the
-   * thing it protects is worse than no cleanup, so this refuses.
-   *
-   * ## Verify the restore LANDED, do not trust the 200
-   *
-   * A 200 that did not persist is exactly the defect this whole file was
-   * written to catch. Taking the status code as proof here would mean the
-   * cleanup trusts the very thing the tests distrust.
+   * PUTting that would REPLACE the live KYC configuration with an empty one.
    */
   if (snapshot.length === 0) {
     throw new Error(
@@ -124,129 +125,229 @@ test.afterEach(async ({ context }) => {
 
   const api = await adminApi(context);
   let lastStatus = 0;
+  let lastBody = '';
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const res = await api.put('/admin/kyc-config', { steps: snapshot });
     lastStatus = res.status();
     if (lastStatus === 200) break;
+    lastBody = await res.text();
     // A restore is worth retrying where a test assertion is not: the cost of
     // giving up is a broken onboarding flow for every client in the database.
     await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
   }
-  expect(lastStatus, 'FAILED TO RESTORE THE KYC CONFIG — onboarding may be broken').toBe(200);
+  expect(
+    lastStatus,
+    `FAILED TO RESTORE THE KYC CONFIG — onboarding may be broken: ${lastBody}`,
+  ).toBe(200);
 
+  // A 200 that did not persist is exactly the defect this file exists to catch.
   const restored = await readConfig(context);
   expect(
-    restored.map((s) => ({ slug: s.slug, enabled: s.enabled, stepNumber: s.stepNumber })),
+    shape(restored),
     'the restore was accepted but did not persist — the KYC config is NOT as this run found it',
-  ).toEqual(snapshot.map((s) => ({ slug: s.slug, enabled: s.enabled, stepNumber: s.stepNumber })));
+  ).toEqual(shape(snapshot));
 });
 
-test.describe('the KYC step builder', () => {
-  test('reorders a step, and the new order SURVIVES a reload', async ({ page, context }) => {
-    await page.goto('/kyc/builder');
-    await expect(page.getByRole('button', { name: /save all changes/i })).toBeVisible({
-      timeout: 30_000,
-    });
+test.describe('the client’s identity cannot be broken from the builder', () => {
+  test('First Name has no remove control, and a question called "First name" is refused under it', async ({
+    page,
+    context,
+  }) => {
+    await openBuilder(page);
+    const personal = stepOf(snapshot, 'personal');
+    await openStepTab(page, personal.title);
 
-    const before = snapshot.map((s) => s.slug);
-    // The second step's "up" moves it above the first — the first's own "up" is
-    // disabled, which is the guard worth exercising from the reachable side.
-    const moveUp = page.getByRole('button', { name: /move step up/i });
-    await expect(moveUp.first()).toBeDisabled();
-    await moveUp.nth(1).click();
+    // The identity is a fixed block: First Name is on it, with nothing to remove it by.
+    const identity = page.getByRole('region', { name: /the client.s identity/i });
+    const row = identity.getByRole('listitem').filter({ hasText: 'First Name' });
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText(/required to verify/i);
+    await expect(page.getByRole('button', { name: /remove field first name/i })).toHaveCount(0);
+
+    // The other door: the broker's own question, named like the identity field.
+    await page.getByRole('button', { name: /^add question$/i }).click();
+    const label = page.getByLabel('Field Label').last();
+    await label.fill('First name');
     await page.getByRole('button', { name: /save all changes/i }).click();
 
-    /*
-     * Asserted on the API, not on the screen. The screen re-renders from its own
-     * local state after a save, so reading it back proves the component
-     * re-rendered — not that anything was persisted. Only the config the portal
-     * will actually serve answers the question this test is asking.
-     */
-    await expect
-      .poll(async () => (await readConfig(context)).map((s) => s.slug), { timeout: 15_000 })
-      .toEqual([before[1], before[0], ...before.slice(2)]);
+    // Refused, and said UNDER the question — not as a line somewhere above the form.
+    await expect(label).toHaveAttribute('aria-invalid', 'true', { timeout: 15_000 });
+    await expect(page.getByRole('alert').filter({ hasText: /already collected/i })).toBeVisible();
+
+    // Nothing was saved: no second "First name" anywhere in what the portal serves.
+    const after = await readConfig(context);
+    const copies = after
+      .flatMap((step) => step.fields)
+      .filter((field) => !field.system && /^first name$/i.test(field.label.trim()));
+    expect(copies, 'a second "First name" reached the saved configuration').toEqual([]);
   });
 
-  test('disables a step, and the portal contract says so', async ({ page, context }) => {
-    await page.goto('/kyc/builder');
-    await expect(page.getByRole('button', { name: /save all changes/i })).toBeVisible({
-      timeout: 30_000,
-    });
-    const target = snapshot.find((s) => s.enabled);
-    expect(target, 'every step is already disabled — nothing to turn off').toBeTruthy();
+  test('a crafted save that DROPS First Name changes nothing; one that relabels it is refused', async ({
+    context,
+  }) => {
+    const api = await adminApi(context);
+    const personal = stepOf(snapshot, 'personal');
+    const firstName = personal.fields.find((field) => field.name === 'firstName');
+    expect(firstName?.system, 'First Name is not served as the platform’s field').toBe(true);
 
-    await openStepTab(page, target!.title);
-    await page.getByRole('button', { name: /^disable$/i }).click();
+    // Leaving it out is not deleting it: the identity is never stored, only served.
+    const without = snapshot.map((step) =>
+      step.slug === 'personal'
+        ? { ...step, fields: step.fields.filter((field) => field.name !== 'firstName') }
+        : step,
+    );
+    expect((await api.put('/admin/kyc-config', { steps: without })).status()).toBe(200);
+    const served = stepOf(await readConfig(context), 'personal').fields.find(
+      (field) => field.name === 'firstName',
+    );
+    expect(served).toMatchObject({ label: 'First Name', system: true, required: true });
+
+    // Changing it is refused — and the refusal names where in the posted form.
+    const relabelled = snapshot.map((step) =>
+      step.slug === 'personal'
+        ? {
+            ...step,
+            fields: step.fields.map((field) =>
+              field.name === 'firstName' ? { ...field, label: 'Given name' } : field,
+            ),
+          }
+        : step,
+    );
+    const refused = await api.put('/admin/kyc-config', { steps: relabelled });
+    expect(refused.status()).toBe(400);
+    const body = (await refused.json()) as { message?: string; fields?: Record<string, string> };
+    expect(JSON.stringify(body)).toMatch(/fixed by the platform/i);
+    expect(Object.keys(body.fields ?? {}).some((key) => key.startsWith('steps.'))).toBe(true);
+  });
+});
+
+test.describe('the built-in steps', () => {
+  test('Personal Information and Identity Document are always on; Selfie can be switched off', async ({
+    page,
+    context,
+  }) => {
+    await openBuilder(page);
+    for (const slug of ['personal', 'document']) {
+      await openStepTab(page, stepOf(snapshot, slug).title);
+      const panel = page.getByRole('tabpanel');
+      await expect(panel.getByText(/always on/i)).toBeVisible();
+      await expect(panel.getByRole('button', { name: /^disable$/i })).toHaveCount(0);
+      await expect(panel.getByRole('button', { name: /^delete step/i })).toHaveCount(0);
+    }
+
+    const selfie = stepOf(snapshot, 'selfie');
+    requirePrecondition(!selfie.enabled, 'the selfie step is already off — nothing to switch');
+    await openStepTab(page, selfie.title);
+    await page
+      .getByRole('tabpanel')
+      .getByRole('button', { name: /^disable$/i })
+      .click();
     await page.getByRole('button', { name: /save all changes/i }).click();
 
     await expect
-      .poll(async () => (await readConfig(context)).find((s) => s.slug === target!.slug)?.enabled, {
-        timeout: 15_000,
-      })
+      .poll(async () => stepOf(await readConfig(context), 'selfie').enabled, { timeout: 15_000 })
       .toBe(false);
   });
 
-  test('DELETES one of the four once-mandatory steps — configurability is the point', async ({
+  test('a crafted save that deletes the Identity Document step is refused', async ({ context }) => {
+    const api = await adminApi(context);
+    const res = await api.put('/admin/kyc-config', {
+      steps: snapshot.filter((step) => step.slug !== 'document'),
+    });
+    expect(res.status()).toBe(400);
+    expect(shape(await readConfig(context))).toEqual(shape(snapshot));
+  });
+});
+
+test.describe('the order', () => {
+  test('Personal Information stays first; another step moves, and the order SURVIVES a reload', async ({
     page,
     context,
   }) => {
-    /*
-     * `document` is one of the four the old rule protected. Removing it is the
-     * capability the owner chose on 15 Aug; a spec that asserted the refusal
-     * would be pinning a rule that no longer exists.
-     */
-    const target = snapshot.find((s) => s.slug === 'document');
-    expect(target, "no 'document' step — the default config has changed").toBeTruthy();
-    /*
-     * The screen now refuses to delete the LAST remaining step, so this case
-     * needs something left behind to be testing deletion rather than the floor.
-     * Through `requirePrecondition` rather than a bare skip: under E2E_STRICT a
-     * skipped Playwright test reports as PASSING, and a run that never deleted
-     * anything must not be indistinguishable from one that did.
-     */
-    requirePrecondition(
-      snapshot.length <= 1,
-      'only one KYC step is configured, so the last-step guard is what would be exercised',
-    );
+    requirePrecondition(snapshot.length < 3, 'fewer than three steps — nothing movable');
+    await openBuilder(page);
 
-    await page.goto('/kyc/builder');
-    await expect(page.getByRole('button', { name: /save all changes/i })).toBeVisible({
-      timeout: 30_000,
+    const [first, second, third] = snapshot;
+    expect(first!.slug).toBe('personal');
+    await expect(page.getByRole('button', { name: `Move ${first!.title} down` })).toBeDisabled();
+    // Nothing moves above Personal Information either.
+    await expect(page.getByRole('button', { name: `Move ${second!.title} up` })).toBeDisabled();
+
+    await page.getByRole('button', { name: `Move ${third!.title} up` }).click();
+    await page.getByRole('button', { name: /save all changes/i }).click();
+
+    // Asserted on the API: the screen re-renders from its own state after a save.
+    await expect
+      .poll(async () => (await readConfig(context)).map((s) => s.slug), { timeout: 15_000 })
+      .toEqual([first!.slug, third!.slug, second!.slug, ...snapshot.slice(3).map((s) => s.slug)]);
+  });
+});
+
+test.describe('two people editing the form', () => {
+  test('a save over somebody else’s change is refused — and says so — rather than erasing it', async ({
+    page,
+    context,
+  }) => {
+    await openBuilder(page);
+    const selfie = stepOf(snapshot, 'selfie');
+
+    // Somebody else saves while this screen is open.
+    const elsewhere = `${selfie.description} (changed by another admin)`;
+    const api = await adminApi(context);
+    const theirs = await api.put('/admin/kyc-config', {
+      steps: snapshot.map((step) =>
+        step.slug === 'selfie' ? { ...step, description: elsewhere } : step,
+      ),
     });
-    await openStepTab(page, target!.title);
-    await page.getByRole('button', { name: /^delete step/i }).click();
-    await page.getByRole('button', { name: /^delete$/i }).click();
+    expect(theirs.status()).toBe(200);
+
+    // This screen, still on the form it loaded, edits and saves.
+    await openStepTab(page, selfie.title);
+    await page.getByLabel(/description \/ instructions/i).fill('Mine');
+    await page.getByRole('button', { name: /save all changes/i }).click();
+
+    await expect(
+      page.getByRole('alert').filter({ hasText: /someone else changed this form/i }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /^reload$/i })).toBeVisible();
+    expect(stepOf(await readConfig(context), 'selfie').description).toBe(elsewhere);
+  });
+});
+
+test.describe('a step of the broker’s own', () => {
+  test('is added with an address made from its title, saved, and deleted again', async ({
+    page,
+    context,
+  }) => {
+    await openBuilder(page);
+    const title = `E2E source of funds ${Date.now()}`;
+
+    await page.getByRole('button', { name: /add custom step/i }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel(/step title/i).fill(title);
+    await dialog.getByRole('button', { name: /^add step$/i }).click();
     await page.getByRole('button', { name: /save all changes/i }).click();
 
     await expect
-      .poll(async () => (await readConfig(context)).map((s) => s.slug), { timeout: 15_000 })
-      .not.toContain('document');
-  });
+      .poll(async () => (await readConfig(context)).find((s) => s.title === title)?.slug, {
+        timeout: 15_000,
+      })
+      // From its title, so the client's address bar reads like the step.
+      .toMatch(/^e2e-source-of-funds-\d+$/);
 
-  test('a save with no changes leaves the configuration byte-for-byte identical', async ({
-    page,
-    context,
-  }) => {
-    /*
-     * The quiet one, and the reason it is here: `PUT /admin/kyc-config` is a FULL
-     * REPLACE, and the screen sends whatever it currently holds. If the read and
-     * the write disagree about any field — a default filled in on load, a number
-     * re-derived — an operator who opens the builder and clicks Save changes the
-     * onboarding flow without touching a control, and the audit row records a
-     * change nobody made.
-     */
-    await page.goto('/kyc/builder');
+    // Deleted from its own tab — a step this run created, so the restore is safe.
+    await openStepTab(page, title);
+    await page.getByRole('button', { name: `Delete step ${title}` }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: /^delete$/i })
+      .click();
     await page.getByRole('button', { name: /save all changes/i }).click();
-    await expect(page.getByRole('button', { name: /save all changes/i })).toBeEnabled({
-      timeout: 15_000,
-    });
 
-    const after = await readConfig(context);
-    expect(
-      after.map((s) => ({ slug: s.slug, enabled: s.enabled, stepNumber: s.stepNumber })),
-      'opening the builder and saving without editing altered the configuration',
-    ).toEqual(
-      snapshot.map((s) => ({ slug: s.slug, enabled: s.enabled, stepNumber: s.stepNumber })),
-    );
+    await expect
+      .poll(async () => (await readConfig(context)).some((s) => s.title === title), {
+        timeout: 15_000,
+      })
+      .toBe(false);
   });
 });

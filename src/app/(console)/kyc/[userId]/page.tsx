@@ -9,21 +9,22 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage } from '@/lib/api/errors';
+import { apiErrorMessage, apiFieldErrors } from '@/lib/api/errors';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { CopyableId } from '@/components/copyable-id';
 import { DocViewer } from '@/components/kyc-review/doc-viewer';
 import { ApproveDialog } from '@/components/kyc-review/approve-dialog';
 import { RejectDialog } from '@/components/kyc-review/reject-dialog';
 import { DocLightbox } from '@/components/kyc-review/doc-lightbox';
-import { documentsOf } from '@/components/kyc-review/documents-of';
+import { reviewDocuments, reviewFieldGroups } from '@/components/kyc-review/review-sections';
 import { useRejectOptions } from '@/components/kyc-review/use-reject-options';
 import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
-import { useKycStepConfig } from '@/components/kyc-review/use-kyc-step-config';
 import {
   CorrectIdentityDialog,
   type CorrectionPatch,
 } from '@/components/kyc-review/correct-identity-dialog';
+import { ReverifyDialog } from '@/components/kyc-review/reverify-dialog';
+import { isMasked } from '@/lib/masking';
 import { ReviewDock } from '@/components/kyc-review/review-dock';
 import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
 import { t } from '@/lib/i18n';
@@ -83,6 +84,8 @@ export default function KycDetailPage() {
    * is wrong, and they need different words and a different remedy.
    */
   const [correctionRefusal, setCorrectionRefusal] = useState('');
+  const [correctionErrors, setCorrectionErrors] = useState<Record<string, string>>({});
+  const [showReverify, setShowReverify] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
   /** Which document the lightbox is showing, or null when it is closed. */
@@ -152,11 +155,8 @@ export default function KycDetailPage() {
   );
   useFocusTrap(rejectPanelRef, showRejectModal, () => setShowRejectModal(false), !actionLoading);
 
-  // Both configurable lists the reject dialog offers, loaded when it opens.
+  // The configured reasons, loaded when the dialog opens; the items from the layout.
   const { reasons, fieldGroups } = useRejectOptions(showRejectModal, data);
-  // The broker's labels, for the files a custom step collected — one cache
-  // entry shared with the summary card, so the two name a file the same way.
-  const stepConfig = useKycStepConfig();
 
   const approve = async () => {
     setActionLoading(true);
@@ -176,11 +176,18 @@ export default function KycDetailPage() {
     setActionLoading(true);
     setActionError('');
     setCorrectionRefusal('');
+    setCorrectionErrors({});
     try {
       await api.patch(`/admin/kyc/${userId}/personal-info`, patch);
       await refreshAfterDecision();
       setShowCorrectDialog(false);
     } catch (e: unknown) {
+      // The profile's own sentence, under the field it is about.
+      const fields = apiFieldErrors(e);
+      if (Object.keys(fields).length > 0) {
+        setCorrectionErrors(fields);
+        return;
+      }
       /*
        * A REFUSAL is not a failure. `KYC_CORRECTION_REFUSED` means the request
        * landed and the corrected value would not have been accepted at
@@ -194,6 +201,21 @@ export default function KycDetailPage() {
       } else {
         setActionError(apiErrorMessage(e, t('kycReview.correctFailed')));
       }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  /** Return this APPROVED verification to the client to update — see ReverifyDialog. */
+  const requestReverification = async (request: { reason: string; items: string[] }) => {
+    setActionLoading(true);
+    setActionError('');
+    try {
+      await api.post(`/admin/kyc/${userId}/reverify`, request);
+      await refreshAfterDecision();
+      setShowReverify(false);
+    } catch (e: unknown) {
+      setActionError(apiErrorMessage(e, t('kycReview.reverifyFailed')));
     } finally {
       setActionLoading(false);
     }
@@ -333,11 +355,13 @@ export default function KycDetailPage() {
    */
   const canCorrectIdentity =
     data.status === 'approved' && hasPermission(admin, 'kyc.identity.correct');
+  // The same power as a rejection — returning a decided verification.
+  const canReverify = data.status === 'approved' && hasPermission(admin, 'kyc.review');
   const waitingDays = daysWaiting(data.status, data.submittedAt);
   // One derived list, shared by the grid and the lightbox, so the two cannot
-  // disagree about which documents exist.
-  const documents = documentsOf(data, stepConfig);
-  const docType = data.document?.docType ?? 'passport';
+  // disagree about which documents exist — named from the server's layout.
+  const documents = reviewDocuments(data);
+  const clientName = `${data.user?.firstName ?? ''} ${data.user?.lastName ?? ''}`.trim();
 
   return (
     <div className="detail-page">
@@ -411,7 +435,6 @@ export default function KycDetailPage() {
         {/* Left: who this is, what they sent, and when — see SubmissionSummary. */}
         <SubmissionSummary
           data={data}
-          docType={docType}
           attempts={history.data ?? []}
           onOpenFile={(filePath) => {
             const at = documents.findIndex((d) => d.filePath === filePath);
@@ -422,9 +445,7 @@ export default function KycDetailPage() {
         {/* Right: Documents */}
         <div className="detail-right">
           <div className="docs-card">
-            <h3>
-              {t('kycReview.uploadedFiles', { docType: docType.replace('_', ' ').toUpperCase() })}
-            </h3>
+            <h3>{t('kycReview.documentsTitle')}</h3>
             <div className="docs-grid">
               {documents.map((d, i) => (
                 <DocViewer
@@ -457,11 +478,24 @@ export default function KycDetailPage() {
                   onClick={() => {
                     setActionError('');
                     setCorrectionRefusal('');
+                    setCorrectionErrors({});
                     setShowCorrectDialog(true);
                   }}
                   className="ms-2 font-semibold underline focus-outline"
                 >
                   {t('kycReview.correctAction')}
+                </button>
+              )}
+              {canReverify && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionError('');
+                    setShowReverify(true);
+                  }}
+                  className="ms-3 font-semibold underline focus-outline"
+                >
+                  {t('kycReview.reverifyAction')}
                 </button>
               )}
             </div>
@@ -473,7 +507,7 @@ export default function KycDetailPage() {
       {showApproveConfirm && (
         <ApproveDialog
           panelRef={approvePanelRef}
-          clientName={`${data.user?.firstName ?? ''} ${data.user?.lastName ?? ''}`.trim()}
+          clientName={clientName}
           loading={actionLoading}
           error={actionError}
           onCancel={() => !actionLoading && setShowApproveConfirm(false)}
@@ -483,17 +517,29 @@ export default function KycDetailPage() {
 
       {showCorrectDialog && (
         <CorrectIdentityDialog
-          panelRef={approvePanelRef}
-          clientName={`${data.user?.firstName ?? ''} ${data.user?.lastName ?? ''}`.trim()}
-          dateOfBirth={String(data.personalInfo?.['dateOfBirth'] ?? '')}
-          address={String(data.personalInfo?.['address'] ?? '')}
-          city={String(data.personalInfo?.['city'] ?? '')}
-          postalCode={String(data.personalInfo?.['postalCode'] ?? '')}
+          clientName={clientName}
+          current={data.personalInfo ?? {}}
+          isHidden={(key) =>
+            isMasked(`kyc.personalInfo.${key}`, data.maskedFields) ||
+            isMasked(`client.${key}`, data.maskedFields)
+          }
           loading={actionLoading}
           error={actionError}
+          fieldErrors={correctionErrors}
           refusal={correctionRefusal}
           onCancel={() => !actionLoading && setShowCorrectDialog(false)}
           onConfirm={correctIdentity}
+        />
+      )}
+
+      {showReverify && (
+        <ReverifyDialog
+          clientName={clientName}
+          groups={reviewFieldGroups(data)}
+          loading={actionLoading}
+          error={actionError}
+          onCancel={() => !actionLoading && setShowReverify(false)}
+          onConfirm={requestReverification}
         />
       )}
 

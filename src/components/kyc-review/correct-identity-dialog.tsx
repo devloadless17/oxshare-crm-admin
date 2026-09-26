@@ -1,100 +1,109 @@
 'use client';
 
 import * as React from 'react';
-import type { RefObject } from 'react';
-import { t } from '@/lib/i18n';
+import api from '@/lib/api';
+import { useResource } from '@/hooks/use-resource';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
+import { keys } from '@/lib/query-keys';
+import { t, type MessageKey } from '@/lib/i18n';
+
+/** Every identity field a reviewer may correct — all of them but the phone. */
+const CORRECTABLE = [
+  'firstName',
+  'lastName',
+  'dateOfBirth',
+  'nationality',
+  'country',
+  'address',
+  'city',
+  'postalCode',
+] as const;
+type Correctable = (typeof CORRECTABLE)[number];
+
+export type CorrectionPatch = Partial<Record<Correctable, string>> & { reason: string };
+
+const LABEL: Readonly<Record<Correctable, MessageKey>> = {
+  firstName: 'clientProfile.fieldFirstName',
+  lastName: 'clientProfile.fieldLastName',
+  dateOfBirth: 'clientProfile.fieldDateOfBirth',
+  nationality: 'clientProfile.fieldNationality',
+  country: 'clientProfile.fieldCountry',
+  address: 'clientProfile.fieldAddress',
+  city: 'clientProfile.fieldCity',
+  postalCode: 'clientProfile.fieldPostalCode',
+};
+
+const FIELD =
+  'h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline disabled:opacity-60 aria-[invalid=true]:border-destructive';
 
 /**
- * CORRECT A DATE OF BIRTH OR AN ADDRESS ON AN APPROVED SUBMISSION.
+ * CORRECT AN APPROVED CLIENT'S VERIFIED DETAILS (the owner's ruling, 26 Sep 2026).
  *
- * ## The gap it closes
+ * Any identity field but the phone — a misspelt surname used to have no remedy
+ * but a rejection, which shuts the money doors for a typo. Every value is
+ * re-checked by the profile's rules on the server, and each refusal is shown
+ * under its own field. A REASON is required: it goes on the audit row beside
+ * both values. The client is emailed which details changed.
  *
- * A client whose verification is APPROVED cannot edit their own submission —
- * `kyc.service.ts` refuses a step edit and a reset for that state, correctly,
- * and tells them "contact support if your details have changed". Support then
- * had nothing: the admin edit dialog patches the `users` row, which carries no
- * date of birth and no address, and there was no route that touched an approved
- * submission. The product named a remedy that did not exist.
+ * Pre-filled with what is on file, and only what CHANGED is sent. A field this
+ * reviewer's role hides is shown as hidden and cannot be written — they cannot
+ * see what they would be replacing.
  *
- * Four of the six KYC states already have a path — the client edits their own
- * steps. This closes the one that did not, which is the state every real client
- * ends up in.
- *
- * ## The 409 is NOT a form error, and must never render as one
- *
- * The corrected value is re-validated against the same rules that governed
- * submission — invalid date, future date, under 18. Without that, this route
- * would be a bypass for the age rule on the side of the system where it is
- * least visible, working in both directions.
- *
- * So a refusal here means something quite different from a typo: the operator
- * has just discovered that an APPROVED client's identity details are
- * disqualifying. That is a compliance finding about the RECORD, not a complaint
- * about their keystroke, and the remedy is a rejection rather than another
- * attempt at this form. It is given its own styling and its own sentence for
- * that reason — `KYC_CORRECTION_REFUSED` is a distinct code on the wire
- * precisely so this branch can exist.
+ * A material change — a new passport, a move abroad — is not a correction: that
+ * is "Request re-verification", beside this.
  */
-/** What a correction may change on an approved verification — the date of birth and the address. */
-export interface CorrectionPatch {
-  dateOfBirth?: string;
-  address?: string;
-  city?: string;
-  postalCode?: string;
-}
-
 export function CorrectIdentityDialog({
-  panelRef,
   clientName,
-  dateOfBirth,
-  address,
-  city,
-  postalCode,
+  current,
+  isHidden,
   loading,
   error,
+  fieldErrors,
   refusal,
   onCancel,
   onConfirm,
 }: {
-  panelRef: RefObject<HTMLDivElement | null>;
   clientName: string;
-  /** Current values, so the operator corrects rather than retypes. */
-  dateOfBirth: string;
-  address: string;
-  city: string;
-  postalCode: string;
+  /** The profile as the review shows it. */
+  current: Readonly<Record<string, unknown>>;
+  isHidden: (key: Correctable) => boolean;
   loading: boolean;
-  /** An ordinary failure — the request did not land. */
   error: string;
-  /** A REFUSAL — it landed and the record is disqualifying. See above. */
+  fieldErrors: Readonly<Record<string, string>>;
   refusal: string;
   onCancel: () => void;
   onConfirm: (patch: CorrectionPatch) => Promise<void>;
 }) {
-  const [dob, setDob] = React.useState(dateOfBirth);
-  const [addr, setAddr] = React.useState(address);
-  const [town, setTown] = React.useState(city);
-  const [postcode, setPostcode] = React.useState(postalCode);
+  const initial = React.useMemo(
+    () =>
+      Object.fromEntries(
+        CORRECTABLE.map((key) => [key, typeof current[key] === 'string' ? current[key] : '']),
+      ) as Record<Correctable, string>,
+    [current],
+  );
+  const [values, setValues] = React.useState(initial);
+  const [reason, setReason] = React.useState('');
+  const panel = React.useRef<HTMLDivElement>(null);
+  useFocusTrap(panel, true, onCancel, !loading);
+  const options = useResource(keys.profileOptions.all(), (signal) =>
+    api.admin.profileOptions(signal),
+  );
 
-  /*
-   * Send only what CHANGED. The route takes a partial patch and re-validates
-   * exactly the fields it is given — so echoing an untouched date of birth would
-   * re-check a value nobody edited, and a record whose stored DOB is
-   * disqualifying would then refuse a correction to the street name. That is the
-   * same trap this dialog exists to remove, from the other direction.
-   */
-  const patch = {
-    ...(dob !== dateOfBirth ? { dateOfBirth: dob } : {}),
-    ...(addr !== address ? { address: addr } : {}),
-    ...(town !== city ? { city: town } : {}),
-    ...(postcode !== postalCode ? { postalCode: postcode } : {}),
-  };
-  const nothingChanged = Object.keys(patch).length === 0;
+  const changed = CORRECTABLE.filter((key) => !isHidden(key) && values[key] !== initial[key]);
+  const reasonOk = reason.trim().length >= 10;
+  const canConfirm = changed.length > 0 && reasonOk && !loading;
+
+  const choices = (key: Correctable) =>
+    key === 'country'
+      ? (options.data?.countries ?? [])
+      : key === 'nationality'
+        ? (options.data?.nationalities ?? [])
+        : undefined;
 
   return (
     <div className="modal-overlay" onClick={() => !loading && onCancel()}>
       <div
-        ref={panelRef}
+        ref={panel}
         className="modal"
         role="dialog"
         aria-modal="true"
@@ -103,74 +112,90 @@ export function CorrectIdentityDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 id="correct-identity-title">{t('kycReview.correctTitle')}</h3>
-        <p className="text-xs text-muted-foreground mb-4">
+        <p className="mb-4 text-xs text-muted-foreground">
           {t('kycReview.correctBody', { client: clientName })}
         </p>
 
-        <label className="block text-xs font-semibold mb-1" htmlFor="correct-dob">
-          {t('kycReview.correctDob')}
-        </label>
-        <input
-          id="correct-dob"
-          type="date"
-          value={dob}
-          onChange={(e) => setDob(e.target.value)}
-          disabled={loading}
-          className="mb-3 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
-        />
-
-        <label className="block text-xs font-semibold mb-1" htmlFor="correct-address">
-          {t('kycReview.correctAddress')}
-        </label>
-        <input
-          id="correct-address"
-          type="text"
-          value={addr}
-          onChange={(e) => setAddr(e.target.value)}
-          disabled={loading}
-          maxLength={200}
-          className="mb-3 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
-        />
-
-        {/* The rest of the address (0139) — one correction, so a move is not
-            recorded as three. */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold mb-1" htmlFor="correct-city">
-              {t('kycReview.correctCity')}
-            </label>
-            <input
-              id="correct-city"
-              type="text"
-              value={town}
-              onChange={(e) => setTown(e.target.value)}
-              disabled={loading}
-              maxLength={100}
-              className="mb-3 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1" htmlFor="correct-postal">
-              {t('kycReview.correctPostalCode')}
-            </label>
-            <input
-              id="correct-postal"
-              type="text"
-              value={postcode}
-              onChange={(e) => setPostcode(e.target.value)}
-              disabled={loading}
-              maxLength={12}
-              className="mb-3 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm uppercase focus-outline"
-            />
-          </div>
+        <div className="grid max-h-[50vh] grid-cols-1 gap-3 overflow-y-auto pe-1 sm:grid-cols-2">
+          {CORRECTABLE.map((key) => {
+            const hidden = isHidden(key);
+            const list = choices(key);
+            const problem = fieldErrors[key];
+            const control = {
+              id: `correct-${key}`,
+              disabled: loading || hidden,
+              'aria-invalid': Boolean(problem),
+              'aria-describedby': problem ? `correct-${key}-error` : undefined,
+              className: FIELD,
+            };
+            const set = (next: string) => setValues((prev) => ({ ...prev, [key]: next }));
+            return (
+              <div key={key} className={key === 'address' ? 'sm:col-span-2' : ''}>
+                <label className="mb-1 block text-xs font-semibold" htmlFor={`correct-${key}`}>
+                  {t(LABEL[key])}
+                </label>
+                {list ? (
+                  <select
+                    {...control}
+                    value={hidden ? '' : values[key]}
+                    onChange={(e) => set(e.target.value)}
+                  >
+                    <option value="">
+                      {hidden ? t('masking.hidden') : t('clientProfile.choose')}
+                    </option>
+                    {/* A stored value the list no longer holds stays visible. */}
+                    {values[key] && !list.includes(values[key]) && (
+                      <option value={values[key]}>{values[key]}</option>
+                    )}
+                    {list.map((choice) => (
+                      <option key={choice} value={choice}>
+                        {choice}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    {...control}
+                    type={key === 'dateOfBirth' ? 'date' : 'text'}
+                    value={hidden ? '' : values[key]}
+                    placeholder={hidden ? t('masking.hidden') : undefined}
+                    onChange={(e) => set(e.target.value)}
+                  />
+                )}
+                {problem && (
+                  <p
+                    id={`correct-${key}-error`}
+                    role="alert"
+                    className="mt-1 text-[11px] font-medium text-destructive"
+                  >
+                    {problem}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/*
-          THE REFUSAL, deliberately not styled as a field error. It is addressed
-          to the record rather than to the operator, and it names the remedy the
-          product actually has — rejecting the verification — because another
-          attempt at this form cannot succeed.
-        */}
+        <p className="mt-3 text-[11px] text-muted-foreground">{t('kycReview.correctPhoneNote')}</p>
+
+        <label className="mb-1 mt-4 block text-xs font-semibold" htmlFor="correct-reason">
+          {t('kycReview.correctReason')} <span className="text-destructive">*</span>
+        </label>
+        <textarea
+          id="correct-reason"
+          className="reject-textarea"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          maxLength={500}
+          disabled={loading}
+          aria-describedby="correct-reason-hint"
+          placeholder={t('kycReview.correctReasonPlaceholder')}
+        />
+        <p id="correct-reason-hint" className="mb-3 text-[11px] text-muted-foreground">
+          {t('kycReview.correctReasonHint')}
+        </p>
+
         {refusal && (
           <div
             className="mb-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3"
@@ -185,23 +210,28 @@ export function CorrectIdentityDialog({
             </p>
           </div>
         )}
-
         {error && (
-          <p className="text-xs font-semibold text-destructive mb-3" role="alert">
+          <p className="mb-3 text-xs font-semibold text-destructive" role="alert">
             {error}
           </p>
         )}
 
         <div className="modal-btns">
-          <button className="btn-cancel" onClick={() => onCancel()} disabled={loading}>
+          <button type="button" className="btn-cancel" onClick={onCancel} disabled={loading}>
             {t('common.cancel')}
           </button>
           <button
+            type="button"
             className="btn-approve-confirm"
-            onClick={() => void onConfirm(patch)}
-            disabled={loading || nothingChanged}
+            disabled={!canConfirm}
+            onClick={() =>
+              void onConfirm({
+                reason: reason.trim(),
+                ...Object.fromEntries(changed.map((key) => [key, values[key]])),
+              })
+            }
           >
-            {t('kycReview.correctConfirm')}
+            {loading ? t('common.saving') : t('kycReview.correctConfirm')}
           </button>
         </div>
       </div>

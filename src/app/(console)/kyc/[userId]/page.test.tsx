@@ -19,15 +19,18 @@ import KycDetailPage from './page';
  *  - a failed action says why, and does not leave the screen looking successful.
  */
 
-const { get, patch, getRejectionReasons } = vi.hoisted(() => ({
+const { get, patch, post, getRejectionReasons, profileOptions } = vi.hoisted(() => ({
   get: vi.fn(),
   patch: vi.fn(),
+  post: vi.fn(),
   getRejectionReasons: vi.fn(),
+  profileOptions: vi.fn(),
 }));
 
-vi.mock('@/lib/api', () => ({
-  default: { get, patch, admin: { getRejectionReasons } },
-}));
+vi.mock('@/lib/api', () => {
+  const api = { get, patch, post, admin: { getRejectionReasons, profileOptions } };
+  return { api, default: api };
+});
 
 /*
  * The page now gates its write controls on the viewer's permissions (credit,
@@ -65,41 +68,63 @@ vi.mock('next/navigation', () => ({
   useParams: () => ({ userId: '1000245' }),
 }));
 
+/**
+ * How the SERVER lays the submission out (26 Sep 2026) — the review reads this
+ * rather than the builder's configuration, which a `kyc.review`-only reviewer
+ * cannot open. It carries a broker's own question ("Tax ID") so the reject
+ * dialog's items are proven to come from here.
+ */
+const LAYOUT = {
+  identity: [
+    { key: 'firstName', label: 'First Name', required: true },
+    { key: 'lastName', label: 'Last Name', required: true },
+    { key: 'dateOfBirth', label: 'Date of Birth', required: true },
+    { key: 'country', label: 'Country of Residence', required: true },
+    { key: 'postalCode', label: 'Postal / ZIP code', required: false },
+  ],
+  identityDocument: {
+    type: 'passport',
+    label: 'Passport',
+    pages: [{ slot: 'doc_front', label: 'Photo Page', required: true }],
+  },
+  proofOfAddress: {
+    asked: true,
+    type: 'utility_bill',
+    label: 'Utility Bill',
+    pages: [{ slot: 'address_proof', label: 'The Bill', required: true }],
+  },
+  selfie: { asked: true, label: 'Selfie' },
+  additional: [
+    {
+      slug: 'personal',
+      title: 'Personal Information',
+      fields: [{ name: 'taxId', label: 'Tax ID', type: 'text', step: 'personal' }],
+    },
+  ],
+  flags: [],
+};
+
 const SUBMISSION = {
   userId: '0b7d3c9e-4f21-48a6-9c05-2d8e11aa3f47',
   status: 'submitted',
   submittedAt: '2026-08-03T15:00:21.792Z',
   user: { email: 'client@oxshare.com', firstName: 'John', lastName: 'Doe', portalId: 1000245 },
-  personalInfo: { firstName: 'John', lastName: 'Doe', country: 'UAE' },
+  personalInfo: {
+    firstName: 'John',
+    lastName: 'Doe',
+    dateOfBirth: '1990-04-12',
+    country: 'UAE',
+    taxId: 'AE-123',
+  },
   document: { docType: 'passport', frontFilePath: '/uploads/kyc/front.png' },
   selfie: { filePath: '/uploads/kyc/selfie.png' },
   addressProof: { docType: 'utility_bill', filePath: '/uploads/kyc/address.png' },
+  layout: LAYOUT,
 };
 
 const REASONS = [
   { id: 'r-1', context: 'kyc', label: 'Document expired', createdAt: '2026-08-01T00:00:00.000Z' },
   { id: 'r-2', context: 'kyc', label: 'Image unreadable', createdAt: '2026-08-01T00:00:00.000Z' },
-];
-
-/**
- * The step configuration the reject dialog derives its flaggable fields from.
- *
- * Includes a field that is NOT in the hardcoded fallback, because that is the
- * defect the derivation fixes: a field added through /kyc/builder used to be
- * impossible to flag for correction.
- */
-const STEP_CONFIG = [
-  {
-    id: 'step-1',
-    stepNumber: 1,
-    slug: 'personal',
-    title: 'Personal Information',
-    enabled: true,
-    fields: [
-      { id: 'f-1', name: 'firstName', label: 'First Name', type: 'text', required: true },
-      { id: 'f-2', name: 'taxId', label: 'Tax ID', type: 'text', required: true },
-    ],
-  },
 ];
 
 /**
@@ -120,12 +145,14 @@ const HISTORY = [
     reviewedByName: 'Dana Reviewer',
     archivedAt: '2026-07-30T09:00:00.000Z',
     document: { docType: 'passport', frontFilePath: '/uploads/kyc/old-front.png' },
+    personalInfo: { firstName: 'John', lastName: 'Doe' },
+    // Laid out by the server like the live submission — flags by label.
+    layout: { ...LAYOUT, flags: [{ id: 'doc_front', label: 'Passport' }] },
   },
 ];
 
 /** Route by URL — this page issues three different GETs. */
 function getFor(url: string) {
-  if (url.includes('/admin/kyc-config')) return Promise.resolve({ data: STEP_CONFIG });
   if (url.includes('/history')) return Promise.resolve({ data: HISTORY });
   return Promise.resolve({ data: SUBMISSION });
 }
@@ -135,7 +162,12 @@ beforeEach(() => {
   permissions.current = ALL_PERMISSIONS;
   get.mockImplementation(getFor);
   patch.mockResolvedValue({ data: {} });
+  post.mockResolvedValue({ data: {} });
   getRejectionReasons.mockResolvedValue(REASONS);
+  profileOptions.mockResolvedValue({
+    countries: ['Lebanon', 'UAE'],
+    nationalities: ['Emirati', 'Lebanese'],
+  });
 });
 
 async function openRejectDialog() {
@@ -190,20 +222,17 @@ describe('KYC review — rejection requires a reason', () => {
     expect(body.rejectedFields?.length).toBe(1);
   });
 
-  it('offers a field added through the KYC builder, not a hardcoded list', async () => {
+  it('offers a field added through the KYC builder, from the submission’s own layout', async () => {
     /*
-     * The defect this closes. The flaggable fields were a fixed array, so a
-     * field configured through /kyc/builder appeared in the client's wizard and
-     * in the reviewer's Personal Information card — and could not be flagged for
-     * correction. A reviewer could see a bad value and had no way to ask for
-     * that specific thing to be fixed.
-     *
-     * `taxId` is in STEP_CONFIG and deliberately NOT in FALLBACK_FIELD_OPTIONS,
-     * so this fails if the list ever stops being derived.
+     * The flaggable fields were a fixed array, then read from the builder's
+     * configuration — which a reviewer holding only `kyc.review` cannot open,
+     * so they fell back to a list naming fields this form may not ask. They come
+     * from the layout the API serves with the submission now.
      */
     await openRejectDialog();
 
-    expect(await screen.findByText('Tax ID')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Tax ID')).toBeInTheDocument();
+    expect(get).not.toHaveBeenCalledWith('/admin/kyc-config', expect.anything());
   });
 
   it('sends the CONFIGURED field id, which is the contract the portal reads back', async () => {
@@ -322,11 +351,9 @@ describe('KYC review — load states', () => {
 
   it('hides review actions for a submission that is already decided', async () => {
     get.mockImplementation((url: string) =>
-      url.includes('/admin/kyc-config')
-        ? Promise.resolve({ data: STEP_CONFIG })
-        : url.includes('/history')
-          ? Promise.resolve({ data: HISTORY })
-          : Promise.resolve({ data: { ...SUBMISSION, status: 'approved' } }),
+      url.includes('/history')
+        ? Promise.resolve({ data: HISTORY })
+        : Promise.resolve({ data: { ...SUBMISSION, status: 'approved' } }),
     );
     renderWithProviders(<KycDetailPage />);
 
@@ -364,9 +391,12 @@ describe('KYC review — previous attempts', () => {
 
     await user.click(row);
 
-    // The reason it was refused — the thing a resubmission used to erase.
+    // The reason it was refused — the thing a resubmission used to erase —
+    // and what was returned, by label: never `doc_front`.
     expect(await screen.findByText(/passport expired/i)).toBeInTheDocument();
-    expect(screen.getByText('doc_front')).toBeInTheDocument();
+    expect(screen.queryByText('doc_front')).not.toBeInTheDocument();
+    // Who the client was when it was decided.
+    expect(screen.getByText(/identity at the time/i)).toBeInTheDocument();
   });
 });
 
@@ -383,25 +413,15 @@ describe('KYC review — previous attempts', () => {
 describe('correcting identity details on an approved submission', () => {
   const approved = { ...SUBMISSION, status: 'approved' };
 
-  /*
-   * DELEGATES to `getFor` for everything but the submission itself. Replacing
-   * the whole implementation drops `/admin/kyc-config`, `useKycStepConfig`
-   * returns nothing, and `personalInfoGroups` throws inside SubmissionSummary —
-   * which surfaces as the control being absent from the DOM, i.e. exactly the
-   * failure these cases are looking for, from an unrelated cause.
-   */
+  // DELEGATES to `getFor` for the history; serves the submission as approved.
   const servingApproved = (url: string) =>
-    url.includes('/admin/kyc-config') || url.includes('/history')
-      ? getFor(url)
-      : Promise.resolve({ data: approved });
+    url.includes('/history') ? getFor(url) : Promise.resolve({ data: approved });
 
   it('offers the control on an APPROVED submission', async () => {
     get.mockImplementation(servingApproved);
     renderWithProviders(<KycDetailPage />);
 
-    expect(
-      await screen.findByRole('button', { name: /correct identity details/i }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^correct details$/i })).toBeInTheDocument();
   });
 
   it('does NOT offer it on a submission still awaiting a decision', async () => {
@@ -414,9 +434,7 @@ describe('correcting identity details on an approved submission', () => {
     renderWithProviders(<KycDetailPage />);
     await screen.findByText(/john doe/i);
 
-    expect(
-      screen.queryByRole('button', { name: /correct identity details/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^correct details$/i })).not.toBeInTheDocument();
   });
 
   it('does NOT offer it to a reviewer who lacks kyc.identity.correct', async () => {
@@ -428,9 +446,7 @@ describe('correcting identity details on an approved submission', () => {
     renderWithProviders(<KycDetailPage />);
     await screen.findByText(/john doe/i);
 
-    expect(
-      screen.queryByRole('button', { name: /correct identity details/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^correct details$/i })).not.toBeInTheDocument();
   });
 
   it('renders a REFUSAL as a finding about the record, not as a form error', async () => {
@@ -460,16 +476,131 @@ describe('correcting identity details on an approved submission', () => {
     });
 
     renderWithProviders(<KycDetailPage />);
-    await user.click(await screen.findByRole('button', { name: /correct identity details/i }));
+    await user.click(await screen.findByRole('button', { name: /^correct details$/i }));
     await user.clear(screen.getByLabelText(/date of birth/i));
     await user.type(screen.getByLabelText(/date of birth/i), '2015-04-02');
+    await user.type(
+      screen.getByLabelText(/reason for the correction/i),
+      'Typed wrongly at sign-up',
+    );
     await user.click(screen.getByRole('button', { name: /save correction/i }));
 
     // The server's sentence, under a heading addressed to the record...
     expect(await screen.findByText(/at least 18 years old/i)).toBeInTheDocument();
     expect(screen.getByText(/this record cannot hold that value/i)).toBeInTheDocument();
     // ...and the remedy the product actually has, rather than "try again".
-    expect(screen.getByText(/reject it and ask the client to verify again/i)).toBeInTheDocument();
+    expect(screen.getByText(/is not valid\. request a re-verification/i)).toBeInTheDocument();
+  });
+
+  it('corrects ANY identity field, pre-filled, and sends only what changed — with the reason', async () => {
+    // A misspelt surname on an approved client had no remedy but a rejection.
+    const user = userEvent.setup();
+    get.mockImplementation(servingApproved);
+    renderWithProviders(<KycDetailPage />);
+    await user.click(await screen.findByRole('button', { name: /^correct details$/i }));
+
+    const surname = screen.getByLabelText(/^last name/i);
+    expect(surname).toHaveValue('Doe');
+    expect(screen.queryByLabelText(/phone/i)).toBeNull();
+    const save = screen.getByRole('button', { name: /save correction/i });
+    await user.clear(surname);
+    await user.type(surname, 'Dough');
+    // No reason, no save: a verified record never changes silently.
+    expect(save).toBeDisabled();
+    await user.type(
+      screen.getByLabelText(/reason for the correction/i),
+      'Surname misspelt at sign-up',
+    );
+    await user.click(save);
+
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    expect(patch.mock.calls[0]).toEqual([
+      '/admin/kyc/1000245/personal-info',
+      { reason: 'Surname misspelt at sign-up', lastName: 'Dough' },
+    ]);
+  });
+
+  it('puts the profile’s own refusal under the field it is about', async () => {
+    const user = userEvent.setup();
+    get.mockImplementation(servingApproved);
+    patch.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          code: 'VALIDATION_FAILED',
+          message: 'First name may contain only letters…',
+          fields: { firstName: 'First name may contain only letters…' },
+        },
+      },
+    });
+    renderWithProviders(<KycDetailPage />);
+    await user.click(await screen.findByRole('button', { name: /^correct details$/i }));
+    const first = screen.getByLabelText(/^first name/i);
+    await user.clear(first);
+    await user.type(first, 't1');
+    await user.type(screen.getByLabelText(/reason for the correction/i), 'Name typed wrongly');
+    await user.click(screen.getByRole('button', { name: /save correction/i }));
+
+    expect(await screen.findByText(/may contain only letters/i)).toBeInTheDocument();
+    expect(first).toHaveAttribute('aria-invalid', 'true');
+  });
+});
+
+describe('returning an approved verification for re-verification', () => {
+  const approved = { ...SUBMISSION, status: 'approved' };
+  const servingApproved = (url: string) =>
+    url.includes('/history') ? getFor(url) : Promise.resolve({ data: approved });
+
+  it('asks the client to UPDATE the ticked items, with the reason — and says money pauses', async () => {
+    const user = userEvent.setup();
+    get.mockImplementation(servingApproved);
+    renderWithProviders(<KycDetailPage />);
+    await user.click(await screen.findByRole('button', { name: /request re-verification/i }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent(/deposits and withdrawals pause/i);
+    const confirm = screen.getByRole('button', { name: /return for re-verification/i });
+    expect(confirm).toBeDisabled();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Passport' }));
+    await user.type(
+      screen.getByLabelText(/reason, sent to the client/i),
+      'Your passport on file has expired.',
+    );
+    await user.click(confirm);
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post.mock.calls[0]).toEqual([
+      '/admin/kyc/1000245/reverify',
+      { reason: 'Your passport on file has expired.', items: ['doc_front'] },
+    ]);
+  });
+
+  it('is offered only on an approved verification, and only to kyc.review', async () => {
+    permissions.current = ALL_PERMISSIONS.filter((p) => p !== 'kyc.review');
+    get.mockImplementation(servingApproved);
+    renderWithProviders(<KycDetailPage />);
+    await screen.findByText(/john doe/i);
+    expect(screen.queryByRole('button', { name: /request re-verification/i })).toBeNull();
+  });
+});
+
+describe('the review is laid out by the server', () => {
+  it('shows the identity in the platform’s order, the date of birth on its own day', async () => {
+    renderWithProviders(<KycDetailPage />);
+    await screen.findByText(/john doe/i);
+    // Built and printed in UTC: west of Greenwich it used to read one day early.
+    expect(screen.getByText(/Apr 12, 1990|12 Apr 1990/)).toBeInTheDocument();
+    // A blank optional field is stated, not dropped.
+    expect(screen.getByText('Postal / ZIP code')).toBeInTheDocument();
+  });
+
+  it('names the identity document ON FILE, and lists the broker’s own questions apart', async () => {
+    renderWithProviders(<KycDetailPage />);
+    await screen.findByText(/john doe/i);
+    expect(screen.getAllByText('Passport').length).toBeGreaterThan(0);
+    expect(screen.getByText('Tax ID')).toBeInTheDocument();
+    expect(screen.getByText('AE-123')).toBeInTheDocument();
   });
 });
 

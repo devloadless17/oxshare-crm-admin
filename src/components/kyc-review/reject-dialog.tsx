@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { RejectionReason } from '@/lib/api/admin';
-import type { FieldGroup } from './field-options';
+import type { ReviewFieldGroup as FieldGroup } from './review-sections';
 import { t } from '@/lib/i18n';
 
 /**

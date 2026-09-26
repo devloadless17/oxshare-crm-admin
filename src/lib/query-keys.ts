@@ -61,6 +61,11 @@ export const keys = {
     pendingCount: () => ['kyc', 'pending-count'] as const,
     /** The step builder's config, and the document-type catalogue it offers. */
     config: () => ['kyc', 'config'] as const,
+    /**
+     * The builder's own read: the form AND the version a save must name
+     * (`If-Match`). Under `config`, so invalidating the form refreshes both.
+     */
+    builder: () => ['kyc', 'config', 'builder'] as const,
     documentCatalogue: () => ['kyc', 'document-catalogue'] as const,
   },
 
