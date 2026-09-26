@@ -9,9 +9,11 @@ const FOCUSABLE =
  * Dialog keyboard behaviour: Escape closes, Tab cycles inside, focus starts in
  * the dialog and returns to whatever opened it.
  *
- * Of the seven hand-rolled modals in this app, one handled Escape and none
- * trapped or restored focus — a keyboard user tabbed straight out of the dialog
- * into the page behind it and had no way back.
+ * TWIN — byte-identical in oxshare-crm-admin and oxshare-crm-client
+ * (`scripts/check-twins.sh`). Of the seven hand-rolled modals the console first
+ * had, one handled Escape and none trapped or restored focus — a keyboard user
+ * tabbed straight out of the dialog into the page behind it and had no way
+ * back. The portal's phone drawer had the same gap until it took this hook.
  *
  * @param enabled false while the dialog is closed, and while a request is in
  *   flight if dismissing mid-request would lose data.
@@ -35,14 +37,14 @@ export function useFocusTrap(
    *
    * Together: focus was yanked to the Close button after every keystroke, and
    * since space activates a button, typing a name containing a space closed the
-   * dialog and discarded everything typed. It reproduced on the commission-plan
-   * form and the withdrawal reject/settle dialogs — the money screens.
+   * dialog and discarded everything typed. It reproduced on the console's
+   * commission-plan form and withdrawal reject/settle dialogs — money screens.
    *
    * Both are fixed below, and measured: reverting either one alone does NOT bring
    * the bug back, because each independently breaks the chain. Both are worth
    * keeping on their own merits — an effect that re-runs every render is wrong,
-   * and a dialog should open with focus in its form. src/components/ui/modal.test.tsx
-   * pins each half separately.
+   * and a dialog should open with focus in its form. The console's
+   * src/components/ui/modal.test.tsx pins each half separately.
    */
   const onCloseRef = useRef(onClose);
   const enabledRef = useRef(enabled);
@@ -69,8 +71,8 @@ export function useFocusTrap(
        * What the browser will ACTUALLY stop on. `offsetParent` rules out
        * `display: none`, but not an element inside an `inert` subtree or one
        * with `visibility: hidden` — both skipped by Tab, both still matched by
-       * the selector. The phone drawer holds exactly those: every closed menu
-       * group's links. Counted as the "last" element, one of them made the
+       * the selector. Both apps' phone drawers hold exactly those: every closed
+       * menu group's links. Counted as the "last" element, one of them made the
        * wrap-around below never fire, and Tab walked out of the drawer into the
        * page behind its overlay.
        */
