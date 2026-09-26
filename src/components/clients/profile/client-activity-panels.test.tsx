@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/render';
 import type { ClientClosedPositionRow } from '@/lib/api/admin';
-import { ClientClosedPositionsPanel } from './client-activity-panels';
+import {
+  ClientClosedPositionsPanel,
+  ClientTransactionsPanel,
+  transactionMethodLabel,
+} from './client-activity-panels';
 
 /**
  * The client profile's Positions tab: CLOSED positions only (owner, 26 Sep
@@ -12,11 +16,14 @@ import { ClientClosedPositionsPanel } from './client-activity-panels';
  * the position's side, both prices, MT5's commission and swap apart from the
  * realised result, and marks a demo account — and nothing about open trades.
  */
-const { getClientClosedPositions } = vi.hoisted(() => ({ getClientClosedPositions: vi.fn() }));
+const { getClientClosedPositions, getClientTransactions } = vi.hoisted(() => ({
+  getClientClosedPositions: vi.fn(),
+  getClientTransactions: vi.fn(),
+}));
 
 // Both exports — see the note in leverages/page.test.tsx.
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getClientClosedPositions } };
+  const api = { admin: { getClientClosedPositions, getClientTransactions } };
   return { api, default: api };
 });
 
@@ -98,5 +105,54 @@ describe('the closed positions table', () => {
     renderWithProviders(<ClientClosedPositionsPanel userId="client-1" />);
 
     expect(await screen.findByText('No closed positions yet.')).toBeInTheDocument();
+  });
+});
+
+describe("the History tab's method column (owner, 26 Sep 2026)", () => {
+  it('names the method, never its key', () => {
+    expect(
+      transactionMethodLabel({ methodName: 'Whish Money', methodKey: 'whish', provider: 'whish' }),
+    ).toBe('Whish Money');
+    expect(
+      transactionMethodLabel({ methodName: null, methodKey: null, provider: 'manual_admin' }),
+    ).toBe('Manual credit');
+    expect(
+      transactionMethodLabel({ methodName: null, methodKey: null, provider: 'transfer' }),
+    ).toBe('Internal transfer');
+    expect(
+      transactionMethodLabel({ methodName: null, methodKey: null, provider: 'commission' }),
+    ).toBe('Commission');
+    // An unknown source is still a source — readable, never blank.
+    expect(
+      transactionMethodLabel({ methodName: null, methodKey: null, provider: 'bank_wire' }),
+    ).toBe('Bank wire');
+  });
+
+  it('shows the label in the table, with the raw provider only on hover', async () => {
+    getClientTransactions.mockResolvedValue({
+      rows: [
+        {
+          id: 't-1',
+          direction: 'deposit',
+          state: 'success',
+          amount: '10.00000000',
+          currency: 'USD',
+          methodKey: null,
+          methodName: null,
+          provider: 'manual_admin',
+          providerRef: 'ref-1',
+          createdAt: '2026-09-20T10:00:00.000Z',
+          settledAt: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 10,
+    });
+    renderWithProviders(<ClientTransactionsPanel userId="client-1" />);
+
+    const cell = await screen.findByText('Manual credit');
+    expect(cell).toHaveAttribute('title', 'manual_admin');
+    expect(screen.queryByText('manual_admin')).toBeNull();
   });
 });

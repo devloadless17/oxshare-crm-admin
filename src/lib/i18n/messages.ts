@@ -986,6 +986,28 @@ export const messages = {
   'clientProfile.tabCompliance': 'Compliance',
   'clientProfile.tabMoney': 'Money',
   'clientProfile.tabNetwork': 'Network',
+  // A partner's book, in full — the clients they introduced and those clients' accounts.
+  'clientProfile.tabReferredClients': 'Referred clients',
+  'clientProfile.tabReferredAccounts': 'Referred accounts',
+  'clientProfile.referredClientsTitle': 'Clients this partner introduced',
+  'clientProfile.referredClientsSearch': 'Search the clients this partner introduced',
+  'clientProfile.referredClientsSearchPlaceholder': 'Name, email or Portal ID…',
+  'clientProfile.referredClientsOpenList': 'Open in the clients list →',
+  'clientProfile.referredClientsLoading': 'Loading the clients this partner introduced',
+  'clientProfile.referredClientsLoadFailed': 'Could not load the clients this partner introduced.',
+  'clientProfile.referredClientsEmpty': 'This partner has not introduced any clients yet.',
+  'clientProfile.referredClientsNoMatch': 'No client this partner introduced matches that search.',
+  'clientProfile.referredAccountsTitle': 'Trading accounts of the clients this partner introduced',
+  'clientProfile.referredAccountsSearch':
+    'Search the accounts of the clients this partner introduced',
+  'clientProfile.referredAccountsLoading': 'Loading the accounts of this partner’s clients',
+  'clientProfile.referredAccountsLoadFailed':
+    'Could not load the accounts of this partner’s clients.',
+  'clientProfile.referredAccountsEmpty':
+    'None of this partner’s clients holds a trading account yet.',
+  'clientProfile.referredAccountsNoMatch':
+    'No account of this partner’s clients matches that search.',
+  'clientProfile.referredAccountsViewOwner': 'View client profile',
   'clientProfile.partnerLoading': 'Loading partner standing',
   'clientProfile.partnerLoadFailed': 'Could not load their partner standing.',
 
@@ -1042,7 +1064,6 @@ export const messages = {
   'clientProfile.actionReassignParent': 'Reassign parent',
   'clientProfile.actionManageTags': 'Manage tags',
   'clientProfile.actionOpenKyc': 'Open KYC review',
-  'clientProfile.actionViewDocuments': 'View documents',
   'clientProfile.actionViewAuditTrail': 'View audit trail',
   'clientProfile.actionViewCommissions': 'View commission ledger',
   'clientProfile.actionViewReferred': 'View clients they introduced',
@@ -1075,8 +1096,6 @@ export const messages = {
   'clientProfile.fieldCity': 'City',
   'clientProfile.fieldPostalCode': 'Postal / ZIP code',
   'clientProfile.fieldAddressLine': 'Address',
-  'clientProfile.fieldPhoneHint':
-    'International format, with the country code — e.g. +961 70 123 456.',
   'clientProfile.choose': 'Choose…',
   'clientProfile.listLoading': 'Loading the list…',
   // The server's per-field refusals are shown under their box; this is the line above.
@@ -1084,6 +1103,16 @@ export const messages = {
   // The lock, in the server's words (`lockedFields`), shown under each field.
   'clientProfile.lockedNotice':
     'Some fields are locked by the client’s identity verification. Each says where it can be changed.',
+  // Said ONCE above the form, with the way to change a locked field.
+  'clientProfile.lockedNoticeApproved':
+    'The locked fields belong to the client’s approved verification. Correct them — or fill in one the verification left empty — on the KYC review: the change is checked again, recorded with a reason, and the client is told.',
+  'clientProfile.lockedNoticeInReview':
+    'The locked fields are being checked against the client’s documents right now. They can change once the reviewer decides.',
+  'clientProfile.lockedCorrectAction': 'Correct verified details on the KYC review →',
+  // Under each locked field — the full sentence is kept for screen readers and on hover.
+  'clientProfile.lockedVerified': 'Verified by KYC',
+  'clientProfile.lockedInReview': 'Being checked by KYC',
+  'clientProfile.lockedShort': 'Locked',
 
   'clientProfile.changeEmailTitle': 'Change sign-in email',
   'clientProfile.changeEmailWarnTitle': 'This changes how the client signs in.',
@@ -1140,6 +1169,9 @@ export const messages = {
   'clientProfile.txState': 'State',
   'clientProfile.txMethod': 'Method',
   'clientProfile.txCreated': 'Created',
+  // Money that went through no payment method, named from where it came from.
+  'clientProfile.txMethodTransfer': 'Internal transfer',
+  'clientProfile.txMethodCommission': 'Commission',
   'clientProfile.txLoading': 'Loading transactions',
   'clientProfile.txLoadFailed': 'Their transactions could not be loaded.',
   'clientProfile.txNone': 'No transactions yet.',
@@ -2933,6 +2965,10 @@ export const messages = {
   'externalLinks.fieldEnabled': 'Show this link to clients',
   'externalLinks.fieldEnabledHint':
     'Unticked, it is off the client sidebar and still on this screen, with its title, description and position kept.',
+
+  'phone.countryCode': 'Country code — {country} ({dialCode})',
+  'country.searchPlaceholder': 'Search country or code…',
+  'country.noneFound': 'No country found',
 
   'currencies.title': 'Currencies',
   'currencies.subtitle':

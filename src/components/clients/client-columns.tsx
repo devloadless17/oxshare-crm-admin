@@ -315,7 +315,8 @@ export function clientColumns({
               {
                 label: t('clients.viewProfile'),
                 icon: Eye,
-                href: `/clients/${c.id}`,
+                // By Portal ID, as the name link beside it — never the uuid.
+                href: `/clients/${c.portalId}`,
               },
               /*
                * PARTNERS ONLY, and `type` is what says so — an individual or a

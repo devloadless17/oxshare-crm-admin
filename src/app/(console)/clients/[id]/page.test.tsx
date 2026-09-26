@@ -24,8 +24,19 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
  * the case at the bottom.
  */
 
-const { getClient, getTags, assignTag, unassignTag, getPartnerDetail } = vi.hoisted(() => ({
+const {
+  getClient,
+  getTags,
+  assignTag,
+  unassignTag,
+  getPartnerDetail,
+  getClients,
+  getTradingAccounts,
+} = vi.hoisted(() => ({
   getClient: vi.fn(),
+  // A partner's Referred clients / Referred accounts tabs.
+  getClients: vi.fn(),
+  getTradingAccounts: vi.fn(),
   getTags: vi.fn(),
   assignTag: vi.fn(),
   unassignTag: vi.fn(),
@@ -42,7 +53,17 @@ const { getClient, getTags, assignTag, unassignTag, getPartnerDetail } = vi.hois
 }));
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getClient, getTags, assignTag, unassignTag, getPartnerDetail } };
+  const api = {
+    admin: {
+      getClient,
+      getTags,
+      assignTag,
+      unassignTag,
+      getPartnerDetail,
+      getClients,
+      getTradingAccounts,
+    },
+  };
   return { api, default: api };
 });
 
@@ -99,6 +120,8 @@ beforeEach(() => {
   // Not a partner — the ordinary answer, and the one that keeps the partner tab
   // absent so these cases exercise the individual-client shape.
   getPartnerDetail.mockResolvedValue(null);
+  getClients.mockResolvedValue({ items: [], total: 0, maskedFields: [] });
+  getTradingAccounts.mockResolvedValue({ items: [], total: 0, maskedFields: [] });
 });
 
 describe('the profile itself', () => {
@@ -437,5 +460,82 @@ describe('the partner tab', () => {
     expect(screen.getByText(/90\.00/)).toBeInTheDocument();
     expect(screen.getByText(/100\.00/)).toBeInTheDocument();
     expect(screen.queryByText(/190\.00/)).not.toBeInTheDocument();
+  });
+});
+
+describe("a partner's book — Referred clients and Referred accounts (owner, 26 Sep 2026)", () => {
+  it('offers both tabs for a partner, and neither for an ordinary client', async () => {
+    getPartnerDetail.mockResolvedValue(partnerDetail());
+    const { unmount } = renderWithProviders(<ClientProfilePage />);
+
+    expect(await screen.findByRole('tab', { name: /referred clients/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /referred accounts/i })).toBeInTheDocument();
+    unmount();
+
+    getPartnerDetail.mockResolvedValue(null);
+    renderWithProviders(<ClientProfilePage />);
+    await screen.findByText('John Doe');
+    expect(screen.queryByRole('tab', { name: /referred/i })).toBeNull();
+  });
+
+  it("lists the partner's clients by their Portal ID, and their accounts the same way", async () => {
+    const user = userEvent.setup();
+    getPartnerDetail.mockResolvedValue(partnerDetail());
+    renderWithProviders(<ClientProfilePage />);
+
+    await user.click(await screen.findByRole('tab', { name: /referred clients/i }));
+    await vi.waitFor(() =>
+      expect(getClients).toHaveBeenCalledWith(
+        expect.objectContaining({ referredBy: '1000245', page: 1, withTotal: true }),
+        expect.anything(),
+      ),
+    );
+
+    await user.click(screen.getByRole('tab', { name: /referred accounts/i }));
+    await vi.waitFor(() =>
+      expect(getTradingAccounts).toHaveBeenCalledWith(
+        expect.objectContaining({ referredBy: '1000245', page: 1 }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('the menu takes "View clients they introduced" to the Referred clients tab', async () => {
+    const user = userEvent.setup();
+    getPartnerDetail.mockResolvedValue(partnerDetail());
+    renderWithProviders(<ClientProfilePage />);
+    await screen.findByRole('tab', { name: /referred clients/i });
+
+    await user.click(screen.getByRole('button', { name: /actions for/i }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: /view clients they introduced/i }),
+    );
+
+    expect(screen.getByRole('tab', { name: /referred clients/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+});
+
+describe('the actions menu, trimmed (owner, 26 Sep 2026)', () => {
+  it('offers no commission-level change, no parent reassignment and no documents item', async () => {
+    const user = userEvent.setup();
+    getPartnerDetail.mockResolvedValue(partnerDetail());
+    getClient.mockResolvedValue(profile({ documents: ['passport.png'] }));
+    renderWithProviders(<ClientProfilePage />);
+    await screen.findByRole('tab', { name: /referred clients/i });
+
+    await user.click(screen.getByRole('button', { name: /actions for/i }));
+    await screen.findByRole('menuitem', { name: /edit profile/i });
+
+    expect(screen.queryByRole('menuitem', { name: /commission level/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /reassign parent/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /view documents/i })).toBeNull();
+    // The KYC review stays, by Portal ID.
+    expect(screen.getByRole('menuitem', { name: /open kyc review/i })).toHaveAttribute(
+      'href',
+      '/kyc/1000245',
+    );
   });
 });

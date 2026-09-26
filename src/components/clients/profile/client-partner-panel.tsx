@@ -232,7 +232,9 @@ function Cell({ label, children }: { label: string; children: React.ReactNode })
       <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </dt>
-      <dd className="mt-0.5 truncate text-sm">{children}</dd>
+      {/* Wrapped, never truncated: "What they earn" is a sentence, and cutting it
+          off mid-way hid the terms (owner, 26 Sep 2026). */}
+      <dd className="mt-0.5 break-words text-sm">{children}</dd>
     </div>
   );
 }

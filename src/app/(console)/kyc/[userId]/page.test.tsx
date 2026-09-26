@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
@@ -422,6 +422,41 @@ describe('correcting identity details on an approved submission', () => {
     renderWithProviders(<KycDetailPage />);
 
     expect(await screen.findByRole('button', { name: /^correct details$/i })).toBeInTheDocument();
+  });
+
+  /*
+   * The client profile's Edit profile links here with `?correct=1` for a field
+   * the verification locked (owner, 26 Sep 2026) — the dialog opens on arrival,
+   * once, and only where the correction is offered.
+   */
+  describe('arriving from Edit profile with ?correct=1', () => {
+    afterEach(() => window.history.replaceState(null, '', '/'));
+
+    it('opens Correct details straight away', async () => {
+      window.history.replaceState(null, '', '/kyc/1000142?correct=1');
+      get.mockImplementation(servingApproved);
+      renderWithProviders(<KycDetailPage />);
+
+      expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    });
+
+    it('opens nothing without the parameter', async () => {
+      get.mockImplementation(servingApproved);
+      renderWithProviders(<KycDetailPage />);
+
+      await screen.findByRole('button', { name: /^correct details$/i });
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('opens nothing for a reviewer who may not correct', async () => {
+      window.history.replaceState(null, '', '/kyc/1000142?correct=1');
+      permissions.current = ALL_PERMISSIONS.filter((p) => p !== 'kyc.identity.correct');
+      get.mockImplementation(servingApproved);
+      renderWithProviders(<KycDetailPage />);
+
+      await screen.findByText(/john doe/i);
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
   });
 
   it('does NOT offer it on a submission still awaiting a decision', async () => {

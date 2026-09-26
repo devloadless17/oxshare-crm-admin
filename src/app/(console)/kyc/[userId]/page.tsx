@@ -158,6 +158,25 @@ export default function KycDetailPage() {
   // The configured reasons, loaded when the dialog opens; the items from the layout.
   const { reasons, fieldGroups } = useRejectOptions(showRejectModal, data);
 
+  /*
+   * `?correct=1` opens "Correct details" on arrival. The client profile's Edit
+   * profile links here for the fields a verification locked (owner, 26 Sep
+   * 2026) — a locked field that only says "go somewhere else" is a dead end.
+   * Once per visit, and only where the correction is actually offered —
+   * decided the first render the submission is here, during render rather
+   * than in an effect (React's pattern for state that follows data).
+   */
+  const [correctionAsked, setCorrectionAsked] = useState(false);
+  if (!correctionAsked && data) {
+    setCorrectionAsked(true);
+    const asked =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('correct') === '1';
+    if (asked && data.status === 'approved' && hasPermission(admin, 'kyc.identity.correct')) {
+      setShowCorrectDialog(true);
+    }
+  }
+
   const approve = async () => {
     setActionLoading(true);
     setActionError('');

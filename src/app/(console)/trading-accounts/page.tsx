@@ -3,15 +3,12 @@
 import { clientLabel } from '@/components/clients/client-identity';
 import * as React from 'react';
 import { Suspense } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CandlestickChart, Plus } from 'lucide-react';
+import { CandlestickChart, Plus } from 'lucide-react';
 import api from '@/lib/api';
 import type {
-  TradingAccountEnvironment,
   TradingAccountListResponse,
   TradingAccountRow,
   TradingAccountSortKey,
-  TradingAccountStatus,
 } from '@/lib/api/admin';
 import { TRADING_ACCOUNT_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
@@ -30,19 +27,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { t, type MessageKey } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
 import { RowActions } from '@/components/row-actions';
 import { OpenAccountModal } from '@/components/trading/open-account-modal';
-import { FundAccountModal } from '@/components/trading/fund-account-modal';
-import { relativeTime } from '@/lib/relative-time';
-import { formatMoney } from '@/lib/money';
-import { apiErrorMessage } from '@/lib/api/errors';
-import { toastSuccess } from '@/lib/toast';
+import { tradingAccountColumns } from '@/components/trading/trading-account-columns';
+import { useAccountFunding } from '@/components/trading/use-account-funding';
 import { keys } from '@/lib/query-keys';
-import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 
 /**
  * Client trading accounts — `GET /admin/trading-accounts`.
@@ -71,30 +64,6 @@ import { ClientIdentity, clientName } from '@/components/clients/client-identity
  * `sortable: false` — R-2.5 makes an unrecognised sort a 400 rather than a
  * silent fallback.
  */
-
-const ENVIRONMENT_LABELS: Record<TradingAccountEnvironment, MessageKey> = {
-  live: 'tradingAccounts.envLive',
-  demo: 'tradingAccounts.envDemo',
-};
-
-/** Label and tone per account state, keyed off the API's own enum. */
-const STATUS_META: Record<TradingAccountStatus, { labelKey: MessageKey; classes: string }> = {
-  active: {
-    labelKey: 'tradingAccounts.statusActive',
-    classes: 'bg-success/10 text-success border-success/20',
-  },
-  suspended: {
-    labelKey: 'tradingAccounts.statusSuspended',
-    classes: 'bg-warning/10 text-warning border-warning/20',
-  },
-  closed: {
-    labelKey: 'tradingAccounts.statusClosed',
-    classes: 'bg-muted text-muted-foreground border-border',
-  },
-};
-
-/** A column may only claim to be sortable if the API will actually sort by it. */
-const sortableBy = (key: TradingAccountSortKey) => ({ sortable: true as const, sortKey: key });
 
 /*
  * `useSearchParams()` requires a Suspense boundary at prerender or
@@ -170,28 +139,10 @@ function TradingAccountsPageContent() {
    */
   const { admin } = useAdmin();
   const canCreate = hasPermission(admin, 'trading.create');
-  const canDeposit = hasPermission(admin, 'trading.deposit');
-  const canWithdraw = hasPermission(admin, 'trading.withdraw');
-  /*
-   * ── The money control, and the two keys are NOT symmetric ────────────────
-   *
-   * A DEPOSIT mints balance into a wallet and then moves it onto the account,
-   * so it needs `wallets.credit` (the key that governs minting) as well as
-   * `trading.deposit`. A WITHDRAWAL mints nothing — it moves money the client
-   * already has off their account into their own wallet — so `trading.withdraw`
-   * alone is the right gate, and requiring `wallets.credit` for it would mean
-   * granting the power to create money in order to take some away.
-   *
-   * The service asserts the same pair. This only decides whether to offer a
-   * control that would otherwise always 403.
-   */
-  const canFundIn = hasPermission(admin, 'wallets.credit') && canDeposit;
-  const canFundOut = canWithdraw;
-  const canMoveMoney = canFundIn || canFundOut;
+  // The money control — see `useAccountFunding`.
+  const funding = useAccountFunding();
 
   const [openFor, setOpenFor] = React.useState<{ userId: string; label: string } | null>(null);
-  const [funding, setFunding] = React.useState<TradingAccountRow | null>(null);
-  const [fundError, setFundError] = React.useState<string | undefined>(undefined);
 
   const query = useResource<TradingAccountListResponse>(
     keys.tradingAccounts.list(params),
@@ -199,73 +150,6 @@ function TradingAccountsPageContent() {
   );
 
   const rows = query.data?.items ?? [];
-
-  const queryClient = useQueryClient();
-
-  /*
-   * Funding writes a DEPOSIT and a TRANSFER, so it moves rather more than this
-   * page shows: the wallet balance, the client's transaction history, the
-   * ledger, and the account's own cached balance column.
-   */
-  const fund = useMutation({
-    mutationFn: (values: { amount: string; reason: string; direction: 'deposit' | 'withdraw' }) =>
-      api.admin.fundTradingAccount(
-        funding!.id,
-        values,
-        /*
-         * ONE key per intended funding, minted from the row rather than per
-         * attempt — the account id plus its current cached balance, so a retry
-         * of the same submission reuses it while a second, deliberate funding
-         * gets a new one (the balance has moved).
-         *
-         * The server stores it as the deposit's `provider_ref`, so this is what
-         * makes a double-click credit once in the DATABASE rather than only in
-         * a cache.
-         */
-        `fund:${funding!.id}:${values.direction}:${funding!.balance ?? '0'}`,
-      ),
-    onSuccess: (result, values) => {
-      const account = funding;
-      setFunding(null);
-      setFundError(undefined);
-
-      void queryClient.invalidateQueries({ queryKey: keys.tradingAccounts.all() });
-      void queryClient.invalidateQueries({ queryKey: keys.transactions.all() });
-      void queryClient.invalidateQueries({ queryKey: keys.ledger.all() });
-      void queryClient.invalidateQueries({ queryKey: keys.wallets.all() });
-      void queryClient.invalidateQueries({ queryKey: keys.clients.all() });
-
-      /*
-       * THE HALF-DONE CASE GETS ITS OWN MESSAGE, and it is not an error toast.
-       *
-       * A failed onward transfer does NOT unwind the deposit, so the money is
-       * genuinely in the client's wallet. Reporting a bare failure here would
-       * send the operator to fund it a second time — which would work, and
-       * would leave the client credited twice.
-       */
-      if (result.transferError) {
-        toastSuccess(
-          t('tradingAccounts.fundPartial', {
-            amount: `${values.amount} ${account?.currency ?? ''}`,
-            error: result.transferError,
-          }),
-        );
-        return;
-      }
-
-      toastSuccess(
-        t(values.direction === 'deposit' ? 'tradingAccounts.funded' : 'tradingAccounts.withdrawn', {
-          amount: `${values.amount} ${account?.currency ?? ''}`,
-          login: account?.login ?? '',
-        }),
-        // Worth surfacing rather than hiding: the key replayed an earlier
-        // funding, so the operator's click moved no money. "Already added" and
-        // "just added" look identical otherwise.
-        result.replayed ? t('tradingAccounts.fundReplayed') : undefined,
-      );
-    },
-    onError: (e: unknown) => setFundError(apiErrorMessage(e, t('tradingAccounts.fundFailed'))),
-  });
 
   /*
    * The BALANCE COLUMN IS A CACHE, and nothing writes to it except a console
@@ -308,150 +192,7 @@ function TradingAccountsPageContent() {
     ...(status ? { status } : {}),
   });
 
-  const columns: Column<TradingAccountRow>[] = [
-    {
-      header: t('tradingAccounts.colOwner'),
-      // Sorts by EMAIL — the key the endpoint orders on, and the unique,
-      // always-present field. Grouping by it puts one client's accounts
-      // together, which is the reason to sort this column.
-      ...sortableBy('userEmail'),
-      cell: (a) => (
-        <ClientIdentity
-          name={clientName(a.user.firstName, a.user.lastName)}
-          email={a.user.email}
-          portalId={a.user.portalId}
-        />
-      ),
-    },
-    {
-      header: t('tradingAccounts.colLogin'),
-      // Sortable, and the endpoint pins NULLS LAST in both directions — see the
-      // note at the top of this file.
-      ...sortableBy('login'),
-      cell: (a) =>
-        a.login ? (
-          // Left-aligned and monospaced: it is an identifier, not a quantity.
-          <span className="font-mono font-semibold">{a.login}</span>
-        ) : (
-          <span className="text-xs text-muted-foreground">{t('tradingAccounts.noLogin')}</span>
-        ),
-    },
-    {
-      header: t('tradingAccounts.colEnvironment'),
-      ...sortableBy('environment'),
-      cell: (a) => (
-        <span
-          className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-            // Demo is deliberately muted and live is not. An operator scanning
-            // this column is looking for the accounts that hold real money.
-            a.environment === 'live'
-              ? 'border-info/20 bg-info/10 text-info'
-              : 'border-border bg-muted text-muted-foreground'
-          }`}
-        >
-          {t(ENVIRONMENT_LABELS[a.environment])}
-        </span>
-      ),
-    },
-    {
-      header: t('tradingAccounts.colCurrency'),
-      ...sortableBy('currency'),
-      cell: (a) => <span className="font-mono text-xs font-semibold">{a.currency}</span>,
-    },
-    {
-      header: t('tradingAccounts.colBalance'),
-      align: 'right',
-      // Sortable because the SERVER orders it, on the NUMERIC column. No
-      // `sortType: 'money'` — that comparator drives the client-side fallback,
-      // which `onSortChange` switches off.
-      ...sortableBy('balance'),
-      /*
-       * FORMATTED through decimal.js, never coerced (§6.1).
-       *
-       * A list an operator SCANS to compare accounts, so it follows the wallets
-       * screen: two places and thousands separators instead of a raw
-       * `1000.00000000`. Deliberately not the withdrawals queue's rule — there
-       * the exact string is kept, because authorising one specific payout is a
-       * different job from comparing a column of balances.
-       */
-      /*
-       * Live where MT5 answered, the cached column otherwise — and the two are
-       * VISUALLY DISTINCT, because a number nobody can date is worse than no
-       * number. An account MT5 would not answer for is absent from the map
-       * rather than null, which is what makes the fallback detectable.
-       */
-      cell: (a) => (
-        <span
-          title={
-            a.balanceSyncedAt
-              ? t('tradingAccounts.syncedHint', { when: relativeTime(a.balanceSyncedAt) })
-              : a.login
-                ? t('tradingAccounts.neverSyncedHint')
-                : t('tradingAccounts.noLoginHint')
-          }
-        >
-          {formatMoney(a.balance, a.currency)}
-          {/*
-            The AGE, on its own line and never omitted.
-            
-            A mirrored number rendered bare is indistinguishable from a live one,
-            which is worse than either — it invites an operator to act on a figure
-            whose vintage they cannot see. "Never" is its own answer and reads
-            differently from "4 minutes ago": it means MT5 has not confirmed this
-            account at all, not that the balance is old.
-          */}
-          <span className="block text-[11px] text-muted-foreground">
-            {a.balanceSyncedAt ? relativeTime(a.balanceSyncedAt) : t('tradingAccounts.neverSynced')}
-          </span>
-        </span>
-      ),
-      cellClassName: 'font-mono font-semibold text-foreground whitespace-nowrap tabular',
-    },
-    {
-      header: t('tradingAccounts.colLeverage'),
-      align: 'right',
-      /*
-       * NOT sortable — `leverage` is absent from the endpoint's allowlist.
-       *
-       * It is also the one number on this row that is genuinely a number: a
-       * ratio the bridge sets, not money, so rendering it as `1:500` is
-       * formatting rather than a coercion of a decimal string.
-       */
-      sortable: false,
-      cell: (a) =>
-        a.leverage ? (
-          <span className="tabular">1:{a.leverage}</span>
-        ) : (
-          <span className="text-xs text-muted-foreground">{t('tradingAccounts.noLeverage')}</span>
-        ),
-      cellClassName: 'whitespace-nowrap',
-    },
-    {
-      header: t('tradingAccounts.colStatus'),
-      ...sortableBy('status'),
-      cell: (a) => (
-        <span
-          className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_META[a.status].classes}`}
-        >
-          {t(STATUS_META[a.status].labelKey)}
-        </span>
-      ),
-    },
-    {
-      header: t('tradingAccounts.colOpened'),
-      ...sortableBy('createdAt'),
-      cell: (a) => formatDate(a.createdAt),
-      cellClassName: 'text-muted-foreground whitespace-nowrap',
-    },
-    /*
-     * NO ACTIONS COLUMN, deliberately.
-     *
-     * `AdminHoldingsController` exposes reads only. MetaTrader is the system of
-     * record for logins, groups and leverage (ARCHITECTURE §1), and there is no
-     * endpoint here that suspends, closes or repoints an account — so a
-     * three-dot menu would have to invent its entries.
-     */
-  ];
+  const columns: Column<TradingAccountRow>[] = tradingAccountColumns();
 
   const isFiltered = Boolean(userId || environment || status);
 
@@ -460,7 +201,7 @@ function TradingAccountsPageContent() {
    * only exists for an operator who can act. A row menu that renders empty is
    * a control that looks broken rather than absent.
    */
-  if (canMoveMoney) {
+  if (funding.canMoveMoney) {
     columns.push({
       header: '',
       cell: (a) => (
@@ -494,20 +235,7 @@ function TradingAccountsPageContent() {
            * record — the server refuses it, and a client tops up their own demo
            * account from the portal.
            */
-          items={
-            a.login && a.status === 'active' && a.environment === 'live'
-              ? [
-                  {
-                    label: t('tradingAccounts.fundAction'),
-                    icon: Banknote,
-                    onSelect: () => {
-                      setFundError(undefined);
-                      setFunding(a);
-                    },
-                  },
-                ]
-              : []
-          }
+          items={funding.canFund(a) ? [funding.action(a)] : []}
         />
       ),
     });
@@ -683,27 +411,7 @@ function TradingAccountsPageContent() {
         />
       )}
 
-      {funding && (
-        <FundAccountModal
-          open
-          onClose={() => {
-            setFunding(null);
-            setFundError(undefined);
-          }}
-          login={funding.login ?? ''}
-          currency={funding.currency}
-          canDeposit={canFundIn}
-          canWithdraw={canFundOut}
-          saving={fund.isPending}
-          error={fundError}
-          onSubmit={(values) => fund.mutate(values)}
-        />
-      )}
+      {funding.dialog}
     </div>
   );
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
 }

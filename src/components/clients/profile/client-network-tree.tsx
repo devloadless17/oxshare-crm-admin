@@ -236,14 +236,22 @@ function Branch({
   }
 
   const subPartners = partner?.directPartners ?? [];
+  /*
+   * ONE ROW PER PERSON. A client this partner introduced who later became a
+   * partner placed under them is BOTH — a referred client and a sub-partner —
+   * and was drawn twice (owner, 26 Sep 2026). They are shown once, as the
+   * partner node, which is the one that opens onto their own branch.
+   */
+  const partnerIds = new Set(subPartners.map((sub) => sub.userId));
+  const leaves = clients.filter((client) => !partnerIds.has(client.clientUserId));
 
-  if (clients.length === 0 && subPartners.length === 0) {
+  if (leaves.length === 0 && subPartners.length === 0) {
     return <p className="py-2 text-xs text-muted-foreground">{t('clientProfile.networkEmpty')}</p>;
   }
 
   return (
     <div className="space-y-0.5">
-      {clients.map((client) => (
+      {leaves.map((client) => (
         <div key={client.clientUserId} className="flex items-center gap-2 py-1.5 ps-1">
           {/* A client is a LEAF: they introduce nobody, so they get no
               disclosure control. An always-disabled chevron would imply the
