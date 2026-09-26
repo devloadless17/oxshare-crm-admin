@@ -93,7 +93,8 @@ export function RejectDialog({
           </div>
         )}
 
-        <div className="space-y-4 max-h-[50vh] overflow-y-auto pe-1 mb-4">
+        {/* Room for the focus ring inside the scroll area — see correct-identity-dialog. */}
+        <div className="-mx-1 -mt-1 mb-3 max-h-[50vh] space-y-4 overflow-y-auto p-1">
           {fieldGroups.map((grp) => (
             <div key={grp.group} className="space-y-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-destructive block">
