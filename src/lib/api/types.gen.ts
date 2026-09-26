@@ -1053,6 +1053,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ib/wallet/commission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a commission wallet in an offered currency
+         * @description For an active partner. Refused for a currency that does not exist or is disabled. Opening one already held returns it unchanged. Commission is credited into a wallet opened on the first confirmed payout anyway; this shows the card before then.
+         */
+        post: operations["IbController_openCommissionWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ib/wallet/transfers": {
         parameters: {
             query?: never;
@@ -1797,7 +1817,11 @@ export interface paths {
         /** The signed-in client's wallets — balance, on_hold and available, all as strings */
         get: operations["WalletController_myWallets"];
         put?: never;
-        post?: never;
+        /**
+         * Open a wallet in an offered currency for the signed-in client
+         * @description Refused for a currency that does not exist or is disabled. Opening one the client already holds returns it unchanged.
+         */
+        post: operations["WalletController_openWallet"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5184,6 +5208,13 @@ export interface components {
              *     ]
              */
             products: string[];
+        };
+        OpenOwnWalletDto: {
+            /**
+             * @description An enabled currency code, e.g. EUR or USDT.
+             * @example EUR
+             */
+            currency: string;
         };
         IbWalletTransferResultDto: {
             /** @description The `ib_wallet_transfers` row — its id in /transactions too. */
@@ -9931,6 +9962,29 @@ export interface operations {
             };
         };
     };
+    IbController_openCommissionWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenOwnWalletDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletDto"];
+                };
+            };
+        };
+    };
     IbController_myWalletTransfers: {
         parameters: {
             query?: never;
@@ -10964,6 +11018,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WalletDto"][];
+                };
+            };
+        };
+    };
+    WalletController_openWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenOwnWalletDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletDto"];
                 };
             };
         };
