@@ -217,18 +217,19 @@ function ProductForm({
    */
   const staged = new Set(groups.map((group) => group.mt5Group.toLowerCase()));
   /*
-   * ONE GROUP PER CURRENCY on a product — the API refuses a second, because a
-   * client picks a product and a currency and must land in exactly one group.
-   * Every group here shares the product's environment, so the currency alone
-   * names the slot. A group in a taken currency is shown disabled, naming the
-   * group in the way: removing that one frees the slot, and Save detaches
-   * before it attaches, so a swap goes through in one edit.
+   * Currencies this product holds SEVERAL groups in — allowed (backend 0146),
+   * and worth saying what it means. A client opening from the portal picks a
+   * product and a currency and is put in the group attached FIRST; the others
+   * in that currency take accounts opened from the console only. The list is
+   * in attachment order (saved groups as the API orders them, then the ones
+   * added here), so the first in it is the one clients get.
    */
-  const slotHeldBy = new Map(
-    groups
-      .filter((group) => group.currency)
-      .map((group) => [group.currency.toUpperCase(), group.mt5Group] as const),
-  );
+  const sharedCurrencies = [...new Set(groups.map((group) => group.currency).filter(Boolean))]
+    .map((currency) => ({
+      currency,
+      inCurrency: groups.filter((group) => group.currency === currency),
+    }))
+    .filter(({ inCurrency }) => inCurrency.length > 1);
   /*
    * The oldest confirmation in the list, or null when the read was live. Rows
    * only carry `lastSeenAt` on the fallback path, so any non-null value means
@@ -453,6 +454,19 @@ function ProductForm({
           </ul>
         )}
 
+        {sharedCurrencies.map(({ currency, inCurrency }) => (
+          <p key={currency} className="text-[11px] leading-relaxed text-muted-foreground">
+            {t('products.portalUsesFirst', {
+              currency,
+              first: inCurrency[0]?.mt5Group ?? '',
+              others: inCurrency
+                .slice(1)
+                .map((group) => group.mt5Group)
+                .join(', '),
+            })}
+          </p>
+        ))}
+
         {/* The environment is decided by the product's type, not per group —
             the badge restates which one every added group will get. */}
         <div className="grid gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-center">
@@ -467,9 +481,6 @@ function ProductForm({
             <SelectContent>
               {available.data?.map((group) => {
                 const alreadyHere = staged.has(group.name.toLowerCase());
-                const heldBy = alreadyHere
-                  ? undefined
-                  : slotHeldBy.get(group.currency.toUpperCase());
                 return (
                   <SelectItem
                     key={group.name}
@@ -480,17 +491,15 @@ function ProductForm({
                      * back several products since backend 0142, and the account
                      * records whichever product it was opened under.
                      */
-                    disabled={alreadyHere || heldBy !== undefined}
+                    disabled={alreadyHere}
                   >
                     {group.name}
                     {group.currency ? ` · ${group.currency}` : ''}
                     {alreadyHere
                       ? ` — ${t('products.alreadyAdded')}`
-                      : heldBy !== undefined
-                        ? ` — ${t('products.currencyTaken', { currency: group.currency, group: heldBy })}`
-                        : group.claimed
-                          ? ` — ${t('products.claimed')}`
-                          : ''}
+                      : group.claimed
+                        ? ` — ${t('products.claimed')}`
+                        : ''}
                   </SelectItem>
                 );
               })}

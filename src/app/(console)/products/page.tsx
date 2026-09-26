@@ -23,7 +23,7 @@ import { keys } from '@/lib/query-keys';
  * A product is the sellable thing a client recognises — "Standard", "ECN" — and
  * the MT5 groups behind it are what an account is actually opened in. A group
  * fixes one currency and one environment and an account points at exactly one,
- * so a product spans SEVERAL groups: one per currency, per environment. That is
+ * so a product spans SEVERAL groups — any number, in any currencies (0146). That is
  * why the groups are their own modal rather than a column.
  *
  * ## Disable and delete are different operations
@@ -92,9 +92,8 @@ export default function ProductsPage() {
    * leaves the product saved and the rest of its groups attached, which is why
    * the failure is reported with the group named rather than as "save failed".
    *
-   * Detaching happens BEFORE attaching, deliberately. A product holds one group
-   * per currency, so swapping its USD group for another in one edit only works
-   * if the old one is released first.
+   * Detaching happens BEFORE attaching, so an edit that removes a group and adds
+   * another leaves the product in its final state even if the attach is refused.
    *
    * ## Reconciled against the SERVER's groups, never the ones the form opened with
    *

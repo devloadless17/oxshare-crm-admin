@@ -1708,7 +1708,7 @@ export const messages = {
   'products.enable': 'Activate',
   'products.disable': 'Deactivate',
   'products.groupsExplainer':
-    'One group per currency, per environment. A group fixes both, and an account points at exactly one — so a product sold live and demo in two currencies needs four. Detaching one leaves accounts already in it trading.',
+    'Attach any MT5 groups this product is sold in. A client opening an account picks the product and a currency; when the product has several groups in that currency, the account opens in the one attached first. Detaching a group leaves accounts already in it trading.',
   'products.colName': 'Product',
   'products.colDescription': 'Description',
   'products.colGroups': 'Groups',
@@ -1722,7 +1722,7 @@ export const messages = {
   'products.pending': 'on save',
   'products.alreadyAdded': 'already added',
   'products.subtitle':
-    'What the broker sells. Each product is backed by MT5 groups — one per currency, per environment — and a product with no group cannot be opened by anybody.',
+    'What the broker sells. Each product is backed by one or more MT5 groups, and a product with no group cannot be opened by anybody.',
   'products.readOnly': 'You do not have permission to change these.',
   'products.loading': 'Loading products',
   'products.loadFailed': 'Could not load the products.',
@@ -1752,8 +1752,9 @@ export const messages = {
   // Not "unavailable": the group exists, it simply belongs somewhere else, and
   // the operator needs to know which of those two it is.
   'products.claimed': 'also on another product',
-  // One group per currency on a product: says which group holds the currency.
-  'products.currencyTaken': '{currency} is already {group} — remove it first',
+  // A product may hold several groups in one currency; say which one clients get.
+  'products.portalUsesFirst':
+    'Clients opening a {currency} account from the portal get {first}, the first attached. {others} take accounts opened from the console only.',
   /*
    * A picker that cannot say how stale it is reads exactly like a current one.
    *
