@@ -386,23 +386,44 @@ describe('attaching MT5 groups on the product form', () => {
     expect(detachProductGroup).not.toHaveBeenCalled();
   });
 
-  /* The 409 the operator hit: the form no longer offers it. */
-  it('will not offer a second group in a currency the product already has', async () => {
+  /*
+   * No rule about currencies (the owner's call, 26 Sep 2026): every group is
+   * offered except one ALREADY on this product, and a second USD group
+   * attaches beside the first.
+   */
+  it('offers and attaches a second group in a currency the product already has', async () => {
     const user = userEvent.setup();
+    updateProduct.mockResolvedValue(product());
     await openEdit(user);
 
     await user.click(await screen.findByRole('combobox', { name: /choose a group/i }));
-
-    const taken = await screen.findByRole('option', { name: /real\\Pro-USD/ });
-    expect(taken).toHaveAttribute('aria-disabled', 'true');
-    expect(taken).toHaveTextContent('USD is already real\\Standard-USD — remove it first');
+    const second = await screen.findByRole('option', { name: /real\\Pro-USD/ });
+    expect(second).not.toHaveAttribute('aria-disabled', 'true');
+    expect(second).not.toHaveTextContent(/remove it first/);
     expect(screen.getByRole('option', { name: /^real\\Standard-USD/ })).toHaveTextContent(
       'already added',
     );
-    expect(screen.getByRole('option', { name: /real\\Standard-EUR/ })).not.toHaveAttribute(
-      'aria-disabled',
-      'true',
+    await user.click(second);
+    await user.click(screen.getByRole('button', { name: /^attach$/i }));
+
+    // Says which of the two a portal client is put in.
+    expect(
+      screen.getByText(
+        'Clients opening a USD account from the portal get real\\Standard-USD, the first ' +
+          'attached. real\\Pro-USD take accounts opened from the console only.',
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(attachProductGroup).toHaveBeenCalledWith('p-1', {
+        environment: 'live',
+        mt5Group: 'real\\Pro-USD',
+      }),
     );
+    // The first USD group stays: nothing is detached to make room.
+    expect(detachProductGroup).not.toHaveBeenCalled();
   });
 
   it('swaps the USD group in one edit, detaching the old one before attaching the new', async () => {
