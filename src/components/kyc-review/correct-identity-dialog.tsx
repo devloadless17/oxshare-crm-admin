@@ -116,7 +116,10 @@ export function CorrectIdentityDialog({
           {t('kycReview.correctBody', { client: clientName })}
         </p>
 
-        <div className="grid max-h-[50vh] grid-cols-1 gap-3 overflow-y-auto pe-1 sm:grid-cols-2">
+        {/* A scroll area clips what is drawn outside its box, and a focus ring is
+            (2px outline, 2px offset): 4px of room on every side, given back by the
+            negative margin so nothing moves. */}
+        <div className="-m-1 grid max-h-[50vh] grid-cols-1 gap-3 overflow-y-auto p-1 sm:grid-cols-2">
           {CORRECTABLE.map((key) => {
             const hidden = isHidden(key);
             const list = choices(key);

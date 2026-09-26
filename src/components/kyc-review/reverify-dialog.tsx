@@ -59,7 +59,8 @@ export function ReverifyDialog({
         <p className="mb-2 text-xs font-bold text-foreground">
           {t('kycReview.reverifyItems')} <span className="text-destructive">*</span>
         </p>
-        <div className="mb-4 max-h-[40vh] space-y-4 overflow-y-auto pe-1">
+        {/* Room for the focus ring inside the scroll area — see correct-identity-dialog. */}
+        <div className="-mx-1 -mt-1 mb-3 max-h-[40vh] space-y-4 overflow-y-auto p-1">
           {groups.map((group) => (
             <fieldset key={group.group} className="space-y-2">
               <legend className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
