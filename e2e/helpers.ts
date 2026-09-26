@@ -880,6 +880,96 @@ export interface MintedClient {
  * @param label distinguishes concurrent runs in the mailbox and the audit log.
  */
 /**
+ * Upload the tiny PNG as a signed-in client, into `field`.
+ *
+ * The DOCUMENT TYPE rides on the upload. Since the 24 Sep KYC overhaul a step
+ * stores only its configured string fields, so a `docType` sent with the step
+ * is dropped — the choice was never made, and submission answered 400 "Proof
+ * of address is required." The portal's own helper (`uploadKycFile`) sends it
+ * this way too. A 429 is waited out (the cap is per minute), never weakened.
+ */
+export function kycUploader(
+  portal: APIRequestContext,
+  headers: Record<string, string>,
+): (field: string, docType?: string) => Promise<void> {
+  return async (field, docType) => {
+    const send = () =>
+      portal.post(`${API_NODE_BASE}/kyc/upload`, {
+        headers,
+        multipart: {
+          file: { name: `${field}.png`, mimeType: 'image/png', buffer: TINY_PNG },
+          field,
+          ...(docType ? { docType } : {}),
+        },
+      });
+    let res = await send();
+    if (res.status() === 429) {
+      await new Promise((resolve) => setTimeout(resolve, 61_000));
+      res = await send();
+    }
+    expect(res.ok(), `uploading ${field} answered ${res.status()}`).toBe(true);
+  };
+}
+
+/**
+ * WHATEVER ELSE THE BROKER CONFIGURED, answered as a client would.
+ *
+ * The builder lets an operator add required questions and uploads to steps of
+ * their own — a development database carries several — and a spec that knew
+ * only the shipped defaults had every submission refused, which reads as a
+ * broken feature in whichever spec happened to be running. So the LIVE
+ * configuration is read, and every required field of the broker's own on every
+ * step is answered: a file gets the tiny PNG, a question a plausible value, and
+ * each as the judge reads its type — a checkbox is answered only TICKED
+ * ("true", or one of its choices), never by any text.
+ *
+ * The platform's own fields are left alone: the identity (`system`) is the
+ * profile, and the documents and the selfie are uploaded by their slots.
+ */
+export async function answerBrokersQuestions(
+  portal: APIRequestContext,
+  headers: Record<string, string>,
+  upload: (field: string) => Promise<void> = kycUploader(portal, headers),
+): Promise<void> {
+  const platformSlots = new Set(['doc_front', 'doc_back', 'selfie', 'address_proof']);
+  const configured = (await (
+    await portal.get(`${API_NODE_BASE}/kyc/config`, { headers })
+  ).json()) as {
+    slug: string;
+    fields?: {
+      name: string;
+      type: string;
+      required?: boolean;
+      system?: boolean;
+      options?: string[];
+    }[];
+  }[];
+  for (const configuredStep of configured) {
+    const answers: Record<string, string> = {};
+    for (const field of configuredStep.fields ?? []) {
+      if (!field.required || field.system || platformSlots.has(field.name)) continue;
+      // A document CHOICE is made by uploading its pages, never typed.
+      if (field.type.startsWith('doc')) continue;
+      if (field.type === 'file' || field.type === 'camera') await upload(field.name);
+      else if (field.type === 'select') answers[field.name] = field.options?.[0] ?? 'E2E';
+      else if (field.type === 'checkbox') answers[field.name] = field.options?.[0] ?? 'true';
+      else if (field.type === 'date') answers[field.name] = '1990-01-01';
+      else if (field.type === 'phone') answers[field.name] = '+96170000011';
+      else answers[field.name] = 'Endtoend answer';
+    }
+    if (Object.keys(answers).length > 0) {
+      const answered = await portal.post(`${API_NODE_BASE}/kyc/step`, {
+        headers,
+        data: { step: configuredStep.slug, data: answers },
+      });
+      expect(answered.ok(), `answering ${configuredStep.slug}: ${await answered.text()}`).toBe(
+        true,
+      );
+    }
+  }
+}
+
+/**
  * A client REGISTERED at runtime, carried by wire to a submitted KYC.
  *
  * EXPENSIVE, and to be used only where the ACT of submitting is the subject —
@@ -917,9 +1007,22 @@ export async function registerClientWithPendingKyc(
     firstName: 'Endtoend',
     lastName: label.replace(/[^\p{L} '-]/gu, '') || 'Client',
   };
+  /*
+   * What a sign-up must give since 26 Sep 2026 — names, date of birth,
+   * nationality, phone and country; the API answers 400 without them — and
+   * what the personal step adds for a verification (address, city). One object
+   * for both calls, for the reason the names above are.
+   */
+  const identity = {
+    ...name,
+    dateOfBirth: '1988-08-08',
+    phone: '+96170000010',
+    nationality: 'Lebanese',
+    country: 'Lebanon',
+  };
   const registered = await portal.post(`${API_NODE_BASE}/auth/register`, {
     headers: origin,
-    data: { email, password, ...name },
+    data: { email, password, ...identity },
   });
   requirePrecondition(registered.status() === 429, 'registration is rate limited right now (10/h)');
   expect(registered.ok(), `register answered ${registered.status()}`).toBe(true);
@@ -962,81 +1065,20 @@ export async function registerClientWithPendingKyc(
    * inside it removes the protection from production to make CI green, which
    * is the wrong trade on a system that accepts identity documents.
    */
-  /*
-   * The DOCUMENT TYPE rides on the upload. Since the 24 Sep KYC overhaul a step
-   * stores only its configured string fields, so a `docType` sent with the step
-   * is dropped — the choice was never made, and submission answered 400 "Proof
-   * of address is required." The portal's own helper (`uploadKycFile`) already
-   * sends it this way; this one had been left behind.
-   */
-  const upload = async (field: string, docType?: string): Promise<void> => {
-    const send = () =>
-      portal.post(`${API_NODE_BASE}/kyc/upload`, {
-        headers: write,
-        multipart: {
-          file: { name: `${field}.png`, mimeType: 'image/png', buffer: TINY_PNG },
-          field,
-          ...(docType ? { docType } : {}),
-        },
-      });
-    let res = await send();
-    if (res.status() === 429) {
-      await new Promise((resolve) => setTimeout(resolve, 61_000));
-      res = await send();
-    }
-    expect(res.ok(), `uploading ${field} answered ${res.status()}`).toBe(true);
-  };
-  expect(
-    (
-      await step('personal', {
-        ...name,
-        dateOfBirth: '1988-08-08',
-        phone: '+96170000010',
-        nationality: 'Lebanese',
-        country: 'Lebanon',
-      })
-    ).ok(),
-  ).toBe(true);
+  const upload = kycUploader(portal, write);
+  const personal = await step('personal', {
+    ...identity,
+    address: 'Hamra Street 12',
+    city: 'Beirut',
+  });
+  expect(personal.ok(), `the personal step answered ${await personal.text()}`).toBe(true);
   expect((await step('document', {})).ok()).toBe(true);
   await upload('doc_front', 'passport');
   await upload('selfie');
   expect((await step('address', {})).ok()).toBe(true);
   await upload('address_proof', 'utility_bill');
 
-  /*
-   * WHATEVER ELSE THE BROKER CONFIGURED. The builder lets an operator add a
-   * required upload or question to any step — a development database's Proof
-   * of Address step carries one — and a helper that knew only the shipped
-   * defaults had every submission refused, which reads as a broken feature in
-   * whichever spec happened to mint the client. So the LIVE configuration is
-   * read, and every required field on an enabled step that the defaults above
-   * did not already answer is answered: a file gets the tiny PNG, a question a
-   * plausible value. The personal step is the profile, answered above.
-   */
-  const answeredByDefault = new Set(['doc_front', 'doc_back', 'selfie', 'address_proof']);
-  const configured = (await (
-    await portal.get(`${API_NODE_BASE}/kyc/config`, { headers: origin })
-  ).json()) as {
-    slug: string;
-    fields?: { name: string; type: string; required?: boolean; options?: string[] }[];
-  }[];
-  for (const configuredStep of configured) {
-    if (configuredStep.slug === 'personal') continue;
-    const answers: Record<string, string> = {};
-    for (const field of configuredStep.fields ?? []) {
-      if (!field.required || answeredByDefault.has(field.name)) continue;
-      // A document CHOICE is made by the uploads above, never typed.
-      if (field.type === 'doc') continue;
-      if (field.type === 'file' || field.type === 'camera') await upload(field.name);
-      else if (field.type === 'select') answers[field.name] = field.options?.[0] ?? 'E2E';
-      else if (field.type === 'date') answers[field.name] = '1990-01-01';
-      else answers[field.name] = 'Endtoend answer';
-    }
-    if (Object.keys(answers).length > 0) {
-      const answered = await step(configuredStep.slug, answers);
-      expect(answered.ok(), `answering ${configuredStep.slug}: ${answered.status()}`).toBe(true);
-    }
-  }
+  await answerBrokersQuestions(portal, write, upload);
 
   const submitted = await portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write });
   // The refusal's own sentence on failure — "…is required" names the field.

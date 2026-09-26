@@ -285,6 +285,30 @@ navigation lists places an operator can go, not a roadmap. A new page gets its r
 `permissions.ts` and its leaf in `NAV` **together** — `canAccess` denies an unlisted path, so a
 page with no route requirement renders the "no access" panel rather than itself.
 
+## KYC: the builder and the review (26 Sep 2026)
+
+The rules are in `../CLAUDE.md` ("The identity core is the PLATFORM's"). Here they are SHAPES the
+screens take, so nothing on them can do what the server refuses:
+
+- **Builder** (`app/(console)/kyc/builder/page.tsx` + `components/kyc-builder/`). The identity is
+  `identity-block.tsx`: locked rows, not editor rows. There is no control that could remove First Name.
+  Identity Document and Proof of Address are a `document-checklist.tsx`, and the last ticked document
+  cannot be unticked. Built-in steps have no delete and no title field. Upload field types are offered
+  on the broker's own steps only (`field-types.ts`). `builder-save.ts` sends `If-Match` and turns a
+  refusal's `steps.i.fields.j` keys into the step and field they name, so each sentence appears under
+  its field. A 409 `KYC_CONFIG_STALE` shows the Reload banner and never retries over a colleague's save.
+- **Review** (`app/(console)/kyc/[userId]/page.tsx` + `components/kyc-review/`). It renders the SERVER's
+  `layout` through `review-sections.ts` and never reads the builder config. Dates of birth are UTC-safe
+  (`formatCalendarDate`). Documents are named by the one on file, never a guessed passport. The reject
+  and re-verification dialogs offer the same `reviewFieldGroups`, and only pages that exist.
+- **An approved submission** offers *Correct details* (`correct-identity-dialog.tsx`: every identity field
+  but the phone, pre-filled, sends only what changed, a reason required, each refusal under its field)
+  and *Request re-verification* (`reverify-dialog.tsx`: items, a reason, and the plain money-pause
+  line).
+- E2E: `kyc-builder.spec.ts` (the reported scenario, crafted saves, the stale 409) and
+  `kyc-correct-and-reverify.spec.ts` (both actions, through to the money gate and the inbox). Never
+  delete a step a spec did not create — see the warning at the top of `kyc-builder.spec.ts`.
+
 ## The sidebar: main items with sub-items (25 Sep 2026)
 
 The owner asked for his old CRM's shape: a short list of MAIN items that each open onto their

@@ -110,10 +110,13 @@ test.describe('a custom KYC step, end to end', () => {
       // the document checks in `submit`, so this fails on the step itself.
       const premature = await client.portal.post(`${API_NODE_BASE}/kyc/submit`, { headers: write });
       expect(premature.status(), 'an unanswered required custom step was submittable').toBe(400);
+      // Refused ON the step's own field — the server answers per field since
+      // 26 Sep 2026, so the portal can put the sentence under the question.
+      const refusal = (await premature.json()) as { fields?: Record<string, string> };
       expect(
-        JSON.stringify(await premature.json()),
-        'submission was refused for some OTHER reason — this no longer tests the step',
-      ).toContain(TITLE);
+        refusal.fields?.[FIELD],
+        `submission was refused for some OTHER reason — this no longer tests the step: ${JSON.stringify(refusal)}`,
+      ).toMatch(new RegExp(LABEL, 'i'));
 
       // ── 2. An UNCONFIGURED slug is refused ───────────────────────────────
       const stranger = await client.portal.post(`${API_NODE_BASE}/kyc/step`, {

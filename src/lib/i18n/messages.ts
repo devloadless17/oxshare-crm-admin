@@ -703,17 +703,50 @@ export const messages = {
     'Applies to future activity. Commission already credited is not restated.',
   'kycReview.correctTitle': 'Correct identity details',
   'kycReview.correctBody':
-    "Corrects the date of birth or address on {client}'s APPROVED verification. Everything else — a wrong name, a wrong document — needs the verification redone.",
+    "Corrects {client}'s verified details. Each value is checked again, the change is recorded with your reason, and the client is emailed which details changed. For a new document or a move abroad, request a re-verification instead.",
   'kycReview.correctDob': 'Date of birth',
   'kycReview.correctAddress': 'Address',
   'kycReview.correctCity': 'City',
   'kycReview.correctPostalCode': 'Postal / ZIP code',
   'kycReview.correctConfirm': 'Save correction',
-  'kycReview.correctAction': 'Correct identity details',
   'kycReview.correctFailed': 'Could not save the correction.',
   'kycReview.correctRefusedTitle': 'This record cannot hold that value',
   'kycReview.correctRefusedRemedy':
-    'These details would not have been accepted at submission, so this approved verification is not valid. Reject it and ask the client to verify again.',
+    'These details would not have been accepted at submission, so this approved verification is not valid. Request a re-verification instead.',
+  'kycReview.correctReason': 'Reason for the correction',
+  'kycReview.correctReasonPlaceholder':
+    'e.g. Surname misspelt at registration; the passport reads "Haddad".',
+  'kycReview.correctReasonHint':
+    'At least 10 characters. Recorded on the audit trail beside the old and new values.',
+  'kycReview.correctPhoneNote':
+    "The phone number is not part of a correction: edit it on the client's profile.",
+  'kycReview.correctAction': 'Correct details',
+  // ── Re-verification (26 Sep 2026): an approved verification returned to the client ──
+  'kycReview.reverifyAction': 'Request re-verification',
+  'kycReview.reverifyTitle': 'Ask {client} to update their verification',
+  'kycReview.reverifyBody':
+    'For a detail that changed materially — a new passport, a move abroad. The client is emailed the reason and what to update; their resubmission comes back to this queue.',
+  'kycReview.reverifyItems': 'What must the client update?',
+  'kycReview.reverifyReason': 'Reason, sent to the client',
+  'kycReview.reverifyReasonPlaceholder':
+    'e.g. Your passport on file has expired. Please upload your new one.',
+  'kycReview.reverifyMoneyPause':
+    'Deposits and withdrawals pause until the updated verification is approved.',
+  'kycReview.reverifyConfirm': 'Return for re-verification',
+  'kycReview.reverifyFailed': 'Could not return the verification.',
+  'kycReview.reverificationRequested':
+    'Re-verification requested — this client was verified before, and was asked to update the items below.',
+  // ── The review, laid out by the server ──
+  'kycReview.identityTitle': "Client's identity",
+  'kycReview.identityDocumentTitle': 'Identity document',
+  'kycReview.proofOfAddressTitle': 'Proof of address',
+  'kycReview.selfieTitle': 'Selfie',
+  'kycReview.unlistedAnswers': 'Answers to questions no longer on the form',
+  'kycReview.notAsked': 'Not asked by this form',
+  'kycReview.pageMissing': 'Not uploaded',
+  'kycReview.pageUploaded': 'Uploaded',
+  'kycReview.identityAtDecision': 'Identity at the time',
+  'kycReview.documentsTitle': 'Documents',
   'clientProfile.networkCapped': 'Showing {shown} of {total} introduced clients.',
   'clientProfile.networkSeeAll': 'See all of them',
   'clientProfile.networkOutsideScope':
@@ -1375,27 +1408,17 @@ export const messages = {
   'builder.required': 'Required',
   'builder.stepTitle': 'Step Title',
   'builder.stepDescription': 'Description / Instructions',
-  'builder.fieldsHint': 'Configure field labels, input types, and requirement flags.',
   'builder.holdsAdded':
-    'Collects typed answers and files. Passports, ID cards and proofs of address belong on the Identity Document and Proof of Address steps — here, add a File field for each photo you need.',
+    'Your own step: any question, and any extra file or photo you need. Passports, ID cards and proofs of address are collected on their own steps, once.',
   'builder.holdsPersonal':
-    "The client's profile. Add any question or upload — passports and other documents are collected on the Identity Document and Proof of Address steps.",
-  'builder.holdsDocument':
-    'The client picks one of the documents offered here and uploads its pages. Any question or upload you add is asked too.',
-  'builder.holdsSelfie':
-    'Takes one live selfie with its camera. Any question or upload you add is asked too.',
+    'Questions of your own, asked after the identity — occupation, source of funds, a declaration. Uploads go on a step of your own.',
   'builder.checkboxChoices': 'Choices (optional)',
   'builder.checkboxChoicesPlaceholder': 'e.g. Salary, Savings, Gift',
   'builder.checkboxSingle':
     'No choices: a single tick box — the label is what the client confirms.',
   'builder.checkboxMany': '{count} {count:choice|choices} — the client ticks any that apply.',
-  'builder.selfieAlwaysNote': 'Always taken while this step is enabled.',
-  'builder.lockedSelfie':
-    'The selfie step takes its photo with this camera — disable the step to stop asking for a selfie.',
   'builder.lockedLastDocument':
     'Clients must be offered at least one document here — add another first, or disable the step.',
-  'builder.documentChoiceNote':
-    'Offered as a choice — the client picks one document and uploads every page it needs.',
   'builder.addField': 'Add Field',
   'builder.fieldLabel': 'Field Label',
   /*
@@ -1414,15 +1437,45 @@ export const messages = {
   'builder.typeCamera': 'Live Camera',
   'builder.typeCheckbox': 'Checkbox',
   'builder.newStepTitle': 'Add Custom Onboarding Step',
-  'builder.newStepBody': 'Create a new step for your KYC verification flow.',
-  'builder.urlSlug': 'URL Slug',
+  'builder.newStepBody':
+    'A step of your own, for questions and uploads the built-in steps do not cover. Its address is made from its name.',
   'builder.guidance': 'Description / Guidance',
   'builder.addStep': 'Add Step',
   'builder.titlePlaceholder': 'e.g., Employment & Tax Declaration',
-  'builder.slugPlaceholder': 'e.g., employment (optional)',
   'builder.guidancePlaceholder':
     'e.g., Provide details about your employment status and source of funds.',
   'builder.newField': 'New Field',
+  // ── The identity core (26 Sep 2026): what is the platform's, and what is yours ──
+  'builder.identityTitle': "The client's identity",
+  'builder.identityBody':
+    'Fixed by the platform, as in any regulated CRM: these fields, their labels and which are required cannot be changed, removed or asked twice. The client fills them in at sign-up and confirms them here.',
+  'builder.identityLockedSr': '(fixed by the platform)',
+  'builder.identityRequired': 'Required to verify',
+  'builder.identityOptional': 'Optional',
+  'builder.identitySummary':
+    "Personal Information always asks for the client's identity — {count} fields, fixed by the platform. Below are the fields you added.",
+  'builder.acceptedIdentityBody':
+    'The client chooses ONE of the documents ticked here and uploads its pages. Each is collected once, only on this step.',
+  'builder.acceptedAddressBody':
+    'The client chooses ONE of the documents ticked here as proof of their address.',
+  'builder.builtIn': 'Built-in',
+  'builder.alwaysOn': 'Always on',
+  'builder.selfieFixed':
+    'The client takes one live selfie with their camera, compared with their identity document. Nothing here to configure — switch the step off to stop asking for one.',
+  'builder.yourQuestions': 'Your questions',
+  'builder.fieldsTitle': 'Fields',
+  'builder.addQuestion': 'Add question',
+  'builder.noQuestions': 'No questions of your own yet.',
+  'builder.noOwnFields': 'No fields of your own yet.',
+  'builder.personalFirst':
+    'Personal Information comes first: every later step is checked against the identity it collects.',
+  'builder.moveUpNamed': 'Move {title} up',
+  'builder.moveDownNamed': 'Move {title} down',
+  'builder.defaultStepDescription': 'A few more details we need to complete your verification.',
+  'builder.staleBody':
+    'Someone else changed this form while you were editing it. Reload to see their changes, then make yours again.',
+  'builder.reload': 'Reload',
+  'builder.loadFailed': 'The KYC form could not be loaded.',
 
   // ── Roles (/roles) ────────────────────────────────────────────────────────
   // RBAC-01/02. Was the "Roles" tab of /settings until the three concerns were
@@ -2016,9 +2069,7 @@ export const messages = {
 
   'builder.subtitle':
     'Customize, add, edit, or disable steps and fields for client identity verification onboarding.',
-  'builder.slugLockedFull': '(locked — the client flow submits by this slug)',
   'builder.noFieldsHint': 'No custom fields added yet. Click "Add Field" to configure inputs.',
-  'builder.slugIdentifier': 'URL Slug Identifier',
   /*
    * This string existed with NO consumer: somebody wrote the copy for a lock and
    * the input stayed editable, so the intent survived and the behaviour did not.
@@ -2026,9 +2077,6 @@ export const messages = {
    * suffix label into the sentence a tooltip has to be. `builder.slugLockedFull`
    * beside it is still orphaned.
    */
-  'builder.slugLocked':
-    'Decides where this step stores its answers. Set by the system and not editable — a slug with no matching column would stop clients mid-form.',
-  'builder.fieldsCount': 'Form Fields ({count})',
   'builder.noFields': 'No custom fields added yet.',
 
   // Field editor — `options` and `hint` are in the API schema and had no
@@ -2055,7 +2103,6 @@ export const messages = {
   'builder.unsavedBody': 'Your edits are not live until you save.',
   'builder.stepsCount': '{count} steps',
   'builder.activeCount': '{count} active',
-  'builder.totalFields': '{count} fields in total',
   'builder.previewIntro':
     'The order a client walks through, exactly as the portal renders it. Disabled steps are skipped.',
   'builder.previewSkipped': 'Skipped — step is disabled',
@@ -2067,7 +2114,6 @@ export const messages = {
   'builder.noProblems': 'Nothing to flag.',
   'builder.colStep': 'Step',
   'builder.colField': 'Field',
-  'builder.colKey': 'Key',
   'builder.colType': 'Type',
   'builder.colRequired': 'Required',
   'builder.yes': 'Yes',
@@ -2077,8 +2123,6 @@ export const messages = {
   'builder.enable': 'Enable',
   'builder.disable': 'Disable',
   'builder.deleteStep': 'Delete step',
-  'builder.deleteLastStepRefused':
-    'This is the only step left. A KYC flow with no steps cannot verify anyone.',
   'builder.deleteStepNamed': 'Delete step {title}',
   'builder.saveAll': 'Save all changes',
   'builder.savingAll': 'Saving…',
@@ -2088,24 +2132,15 @@ export const messages = {
   'builder.resetFailed': 'Failed to reset steps.',
   'builder.stepAdded': 'Added step "{title}". Remember to save your changes.',
   'builder.stepDeleted': 'Step deleted.',
-  'builder.mandatoryDisable':
-    '"{title}" is required by the KYC spec (FR-CORE-15) and cannot be disabled.',
-  'builder.mandatoryDelete':
-    '"{title}" is required by the KYC spec (FR-CORE-15) and cannot be deleted.',
   'builder.noSteps': 'No steps configured yet.',
   // The `document` field type: one field that is the picker AND its uploads.
-  'builder.typeDocument': 'Document Upload',
   'builder.acceptedDocuments': 'Documents this step accepts',
   'builder.documentParts': '{count} {count:photo|photos} required',
-  'builder.noDocumentsPicked': 'Pick at least one, or the client has nothing to upload.',
   'builder.tabOverview': 'Overview',
   'builder.openStep': 'Open',
   // Per-ACTION, not one shared string. A disabled control has to say why IT is
   // disabled: "cannot be disabled or deleted" on a delete button makes the
   // reader work out which half applies to the thing they just clicked.
-  'builder.requiredCannotDisable': 'Required step — cannot be disabled',
-  'builder.requiredCannotDelete': 'Required step — cannot be deleted',
-  'builder.requiredCannotReorder': 'Required step — its position is fixed by the KYC spec',
 
   'kycReview.totalSubmissions': '{count} total submissions',
   'kycReview.rejectionReasonLabel': '❌ Rejection Reason',

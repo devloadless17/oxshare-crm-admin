@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The countries and nationalities a client profile accepts */
+        /** The countries and nationalities a client profile accepts, and what it requires */
         get: operations["ProfileOptionsController_options"];
         put?: never;
         post?: never;
@@ -3363,6 +3363,26 @@ export interface paths {
         patch: operations["AdminComplianceController_rejectKyc"];
         trace?: never;
     };
+    "/v1/admin/kyc/{userId}/reverify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return an APPROVED verification to the client to update (re-verification)
+         * @description For a verified detail that changed materially — a new passport, a move abroad. The verification returns to the client with the items to redo, the level goes back to 0 (deposits and withdrawals pause until re-approval), and the client is emailed the reason — as a request to update, not as a rejection. `reverificationRequestedAt` is set until the next approval. A typo is a correction instead (`PATCH .../personal-info`).
+         */
+        post: operations["AdminComplianceController_requestReverification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/rejection-reasons": {
         parameters: {
             query?: never;
@@ -3406,9 +3426,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get current KYC onboarding steps configuration */
+        /**
+         * Get current KYC onboarding steps configuration
+         * @description The form as every reader sees it: the platform's identity fields, built-in steps and documents included (`system` / `core`), the broker's own parts as stored. The `ETag` header is the version a save must name in `If-Match`.
+         */
         get: operations["AdminComplianceController_getKycConfig"];
-        /** Update entire KYC onboarding steps configuration */
+        /**
+         * Update entire KYC onboarding steps configuration
+         * @description Send `If-Match` with the `ETag` the form was read with: a form somebody else has changed since answers **409 `KYC_CONFIG_STALE`** instead of silently replacing their work. Adding a step also needs `kyc.create`, removing one `kyc.delete`. A refusal names where it is in the posted form — `fields` is keyed `steps.<i>` or `steps.<i>.fields.<j>`.
+         */
         put: operations["AdminComplianceController_updateKycConfig"];
         post?: never;
         delete?: never;
@@ -4409,6 +4435,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ProfileRequiredDto: {
+            /**
+             * @description Required to register: who the person is and how to reach them.
+             * @example [
+             *       "firstName",
+             *       "lastName",
+             *       "dateOfBirth",
+             *       "nationality",
+             *       "phone",
+             *       "country"
+             *     ]
+             */
+            registration: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "postalCode")[];
+            /** @description Required to submit a verification: everything but the postal code. */
+            verification: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "postalCode")[];
+        };
         ProfileOptionsDto: {
             /**
              * @description Countries of residence, sorted by name. Exactly the values the profile accepts.
@@ -4426,6 +4468,8 @@ export interface components {
              *     ]
              */
             nationalities: string[];
+            /** @description Which fields are required, and when. Served so no form keeps its own copy of the rule (the owner’s ruling, 26 Sep 2026). */
+            required: components["schemas"]["ProfileRequiredDto"];
         };
         NotificationDto: {
             id: string;
@@ -5104,10 +5148,10 @@ export interface components {
             /** @description The client whose activity earned it. */
             clientName: string;
             /**
-             * @description What produced it. `position` is a closed trade — the only source that pays a revenue share. `transaction` rows are historical: commission is no longer earned on deposits.
+             * @description What produced it. `deal` is a trade closed on MT5, from the live feed — every new commission. `position` is a closed trade from the older CRM path. `transaction` rows are historical: commission is no longer earned on deposits.
              * @enum {string}
              */
-            source: "position" | "transaction";
+            source: "deal" | "position" | "transaction";
             /** @description The base it was calculated from — the broker's revenue on the trade. */
             baseAmount: string;
             /** @description Percentage under revenue share; amount per lot under per-lot. */
@@ -6421,6 +6465,8 @@ export interface components {
             hint?: string;
             /** @description Resolved from the field type. Read-only — writes are ignored. */
             document?: components["schemas"]["KycDocumentTypeDto"];
+            /** @description The platform's own field — fixed, never editable. */
+            system?: boolean;
         };
         KycStepConfigDto: {
             /** @example step-1 */
@@ -6442,6 +6488,10 @@ export interface components {
             icon?: string;
             enabled: boolean;
             fields: components["schemas"]["KycFieldConfigDto"][];
+            /** @description One of the four built-in steps. */
+            core?: boolean;
+            /** @description A built-in step that cannot be switched off. */
+            alwaysOn?: boolean;
         };
         KycDocumentStateDto: {
             /** @example passport */
@@ -6507,6 +6557,11 @@ export interface components {
             rejectionReason?: string;
             /** @description Field names the client must re-submit. */
             rejectedFields?: string[];
+            /**
+             * Format: date-time
+             * @description A returned APPROVED verification.
+             */
+            reverificationRequestedAt?: string;
             /** @description Every enabled step, in order: complete or not, what it still owes and what was returned. The same judgement `POST /kyc/submit` applies — render it, do not re-derive it. */
             steps: components["schemas"]["KycStepStateDto"][];
             /** Format: date-time */
@@ -7252,6 +7307,81 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
         };
+        KycReviewIdentityFieldDto: {
+            /** @enum {string} */
+            key: "firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "postalCode";
+            /** @example Date of Birth */
+            label: string;
+            required: boolean;
+        };
+        KycReviewPageDto: {
+            /**
+             * @description Where the file is stored on the submission.
+             * @example doc_back
+             */
+            slot: string;
+            /** @example Back Side */
+            label: string;
+            required: boolean;
+        };
+        KycReviewDocumentDto: {
+            /** @example national_id */
+            type: string | null;
+            /** @example National ID */
+            label: string;
+            pages: components["schemas"]["KycReviewPageDto"][];
+        };
+        KycReviewAddressDto: {
+            /** @example national_id */
+            type: string | null;
+            /** @example National ID */
+            label: string;
+            pages: components["schemas"]["KycReviewPageDto"][];
+            /** @description Whether the form asks for a proof of address at all. */
+            asked: boolean;
+        };
+        KycReviewSelfieDto: {
+            asked: boolean;
+            /** @example Selfie */
+            label: string;
+        };
+        KycReviewFieldDto: {
+            /** @example customField_1790281526943 */
+            name: string;
+            /** @example Employer */
+            label: string;
+            /** @example text */
+            type: string;
+            /**
+             * @description `personal` → read `personalInfo[name]`; any other → `stepData[step][name]`.
+             * @example source-of-funds
+             */
+            step: string;
+        };
+        KycReviewSectionDto: {
+            /**
+             * @description `unlisted` for removed questions.
+             * @example source-of-funds
+             */
+            slug: string;
+            /** @example Source of funds */
+            title: string;
+            fields: components["schemas"]["KycReviewFieldDto"][];
+        };
+        KycReviewFlagDto: {
+            /** @example doc_back */
+            id: string;
+            /** @example National ID (Back Side) */
+            label: string;
+        };
+        KycReviewLayoutDto: {
+            identity: components["schemas"]["KycReviewIdentityFieldDto"][];
+            identityDocument: components["schemas"]["KycReviewDocumentDto"];
+            proofOfAddress: components["schemas"]["KycReviewAddressDto"];
+            selfie: components["schemas"]["KycReviewSelfieDto"];
+            additional: components["schemas"]["KycReviewSectionDto"][];
+            flags: components["schemas"]["KycReviewFlagDto"][];
+        };
         KycSubmissionDto: {
             userId: string;
             /** @enum {string} */
@@ -7282,6 +7412,9 @@ export interface components {
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
+            /** Format: date-time */
+            reverificationRequestedAt?: string;
+            layout?: components["schemas"]["KycReviewLayoutDto"];
         };
         KycListResponseDto: {
             items: components["schemas"]["KycSubmissionDto"][];
@@ -7320,13 +7453,27 @@ export interface components {
             };
             /** Format: date-time */
             archivedAt: string;
+            layout?: components["schemas"]["KycReviewLayoutDto"];
         };
         CorrectKycIdentityDto: {
+            /**
+             * @description Why the verified record is being changed. Recorded on the audit row.
+             * @example Surname misspelt at registration; passport reads "Haddad".
+             */
+            reason: string;
+            /** @example Layla */
+            firstName?: string;
+            /** @example Haddad */
+            lastName?: string;
             /**
              * @description ISO date. RE-VALIDATED through the same rules as submission: an impossible, future or under-18 date is REFUSED with 409, not 400 — that is a fact about the record rather than about what was typed.
              * @example 1985-04-12
              */
             dateOfBirth?: string;
+            /** @example Lebanese */
+            nationality?: string;
+            /** @example Lebanon */
+            country?: string;
             /** @example 12 Rue Verdun */
             address?: string;
             /** @example Beirut */
@@ -7344,6 +7491,17 @@ export interface components {
             reasonId?: string;
             /** @description Field names the client must re-submit, e.g. ["doc_front"]. */
             rejectedFields?: string[];
+        };
+        ReverifyKycDto: {
+            /** @example Your passport on file has expired. Please upload your new one. */
+            reason: string;
+            /**
+             * @example [
+             *       "doc_front",
+             *       "address"
+             *     ]
+             */
+            items: string[];
         };
         RejectionReasonResponseDto: {
             id: string;
@@ -7377,13 +7535,18 @@ export interface components {
             hint?: string;
             /** @description Hydrated from `type` on read. Accepted on write and ignored. */
             document?: Record<string, never>;
+            /** @description Served on read. Accepted on write and ignored. */
+            system?: boolean;
         };
         KycStepDto: {
             id?: string;
             /** @description Server-assigned ordering; ignored on create. */
             stepNumber?: number;
-            /** @example personal */
-            slug: string;
+            /**
+             * @description Optional for a new step (generated from its title); an existing step's never changes.
+             * @example source-of-funds
+             */
+            slug?: string;
             /** @example Personal Information */
             title: string;
             description?: string;
@@ -7394,6 +7557,10 @@ export interface components {
             icon?: string;
             enabled?: boolean;
             fields: components["schemas"]["KycFieldDto"][];
+            /** @description Served on read. Accepted on write and ignored. */
+            core?: boolean;
+            /** @description Served on read. Accepted on write and ignored. */
+            alwaysOn?: boolean;
         };
         KycConfigDto: {
             steps: components["schemas"]["KycStepDto"][];
@@ -12889,6 +13056,31 @@ export interface operations {
             };
         };
     };
+    AdminComplianceController_requestReverification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReverifyKycDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycSubmissionDto"];
+                };
+            };
+        };
+    };
     AdminComplianceController_listRejectionReasons: {
         parameters: {
             query: {
@@ -12995,7 +13187,9 @@ export interface operations {
     AdminComplianceController_updateKycConfig: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "if-match": string;
+            };
             path?: never;
             cookie?: never;
         };

@@ -1,16 +1,15 @@
 import type { components } from '@/lib/api/types.gen';
 
 type KycFieldType = components['schemas']['KycFieldConfigDto']['type'];
-type KycDocumentType = components['schemas']['KycDocumentTypeDto'];
+type KycStep = components['schemas']['KycStepConfigDto'];
+type KycField = components['schemas']['KycFieldConfigDto'];
 
 /**
  * EVERY base type in the schema, in one place.
  *
  * The union lives in `types.gen.ts` and TypeScript checks this list against it
  * — `satisfies` below means a type added to the API and not added here is a
- * compile error rather than a silently unofferable option. The builder was
- * previously missing `camera` for exactly that reason: the hand-written copy of
- * the union omitted it.
+ * compile error rather than a silently unofferable option.
  */
 export const FIELD_TYPES = [
   { value: 'text', label: 'builder.typeText' },
@@ -22,79 +21,56 @@ export const FIELD_TYPES = [
   { value: 'checkbox', label: 'builder.typeCheckbox' },
 ] as const satisfies readonly { value: KycFieldType; label: string }[];
 
+export type FieldTypeOption = (typeof FIELD_TYPES)[number];
+
 /**
- * What a field on this step may be — the builder's copy of the server's rule
- * (`assertFieldsFitTheirStep`, backend `kyc-config-integrity.ts`), which
- * refuses anything else on save.
- *
- * EVERY base type on EVERY step: a broker may add questions and uploads to the
- * built-in steps as readily as to one they add (asked for in local testing),
- * and their answers are kept, checked and shown to the reviewer like any other.
- *
- * A catalogue DOCUMENT only on the step that holds its kind — the identity step
- * or the proof-of-address step. Anywhere else a document had no real home, and
- * a week of bugs came from giving it one; a File field per photo does that job.
- *
- * The selfie step's own camera stays a camera: it is how the step takes the one
- * selfie the server asks for.
+ * The four built-in steps (the identity core, backend `common/kyc/identity-core.ts`).
+ * The API marks them `core`; the slug is the fallback for a response from an
+ * API that predates the flag.
  */
-const DOCUMENT_STEPS: Readonly<Record<string, 'identity' | 'address'>> = {
-  document: 'identity',
-  address: 'address',
-};
+const CORE_SLUGS: readonly string[] = ['personal', 'document', 'selfie', 'address'];
 
-/** The kind of document a step holds — own keys only, so `constructor` holds none. */
-function documentKindOf(slug: string): 'identity' | 'address' | undefined {
-  return Object.prototype.hasOwnProperty.call(DOCUMENT_STEPS, slug)
-    ? DOCUMENT_STEPS[slug]
-    : undefined;
+export function isCoreStep(step: Pick<KycStep, 'slug' | 'core'>): boolean {
+  return step.core ?? CORE_SLUGS.includes(step.slug);
 }
 
-/** The selfie step's own camera — the field the server's selfie comes from. */
-export function isCanonicalSelfie(slug: string, field: { name: string }): boolean {
-  return slug === 'selfie' && field.name === 'selfie';
+/** Personal Information and Identity Document: a verification IS these two. */
+export function isAlwaysOn(step: Pick<KycStep, 'slug' | 'alwaysOn'>): boolean {
+  return step.alwaysOn ?? (step.slug === 'personal' || step.slug === 'document');
 }
 
-export interface StepFieldTypes {
-  base: readonly (typeof FIELD_TYPES)[number][];
-  documents: KycDocumentType[];
+/** The platform's own field — an identity field or the selfie camera. Fixed, never edited. */
+export function isSystemField(field: Pick<KycField, 'system'>): boolean {
+  return field.system === true;
 }
 
-export function fieldTypesForStep(
-  slug: string,
-  catalogue: readonly KycDocumentType[],
-  field?: { name: string },
-): StepFieldTypes {
-  if (field && isCanonicalSelfie(slug, field)) {
-    return { base: FIELD_TYPES.filter((type) => type.value === 'camera'), documents: [] };
-  }
-  const kind = documentKindOf(slug);
-  return {
-    base: FIELD_TYPES,
-    documents: kind ? catalogue.filter((doc) => doc.category === kind) : [],
-  };
+export function isDocumentField(field: Pick<KycField, 'type'>): boolean {
+  return field.type.startsWith('doc:');
+}
+
+/** The broker's own fields on a step — never the platform's, never a catalogue document. */
+export function ownFields<F extends Pick<KycField, 'system' | 'type'>>(fields: readonly F[]): F[] {
+  return fields.filter((field) => !isSystemField(field) && !isDocumentField(field));
 }
 
 /**
- * Why this field cannot be removed, or `undefined` when it can.
+ * What a field of the broker's may be, on this step (the server's rule,
+ * `assertStepsHoldWhatTheyAreFor`):
  *
- * An enabled document step with no document to choose, or a selfie step with no
- * camera, is a step no client could complete — the server refuses to save one.
- * Saying so on the button, rather than in an error after Save, is the point.
+ *  - on Personal Information, a QUESTION — never an upload, so a document the
+ *    client sends is never mixed in with who they are;
+ *  - on a step of the broker's own, anything — questions and uploads;
+ *  - on Identity Document, Proof of Address and Selfie, nothing: those hold
+ *    only their own documents and camera.
  */
-export function lockedReason(
-  slug: string,
-  field: { name: string; type: string },
-  fields: readonly { type: string }[],
-): 'selfie' | 'lastDocument' | undefined {
-  if (isCanonicalSelfie(slug, field)) return 'selfie';
-  const isDocument = (type: string) => type.startsWith('doc:');
-  if (
-    documentKindOf(slug) &&
-    isDocument(field.type) &&
-    fields.filter((candidate) => isDocument(candidate.type)).length === 1
-  ) {
-    return 'lastDocument';
+export function fieldTypesForStep(slug: string): readonly FieldTypeOption[] {
+  if (slug === 'personal') {
+    return FIELD_TYPES.filter((type) => type.value !== 'file' && type.value !== 'camera');
   }
-  return undefined;
+  return CORE_SLUGS.includes(slug) ? [] : FIELD_TYPES;
+}
+
+/** Whether the broker may add their own fields to this step at all. */
+export function takesOwnFields(slug: string): boolean {
+  return fieldTypesForStep(slug).length > 0;
 }

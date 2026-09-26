@@ -3,8 +3,12 @@
 import type { components } from '@/lib/api/types.gen';
 import { AttemptHistory } from './attempt-history';
 import { Paperclip } from 'lucide-react';
-import { personalInfoGroups, rejectedFieldLabels } from './personal-info-rows';
-import { useKycStepConfig } from './use-kyc-step-config';
+import {
+  additionalSections,
+  flagLabels,
+  identitySection,
+  type ReviewSection,
+} from './review-sections';
 import { t, type MessageKey } from '@/lib/i18n';
 
 type KycDetail = components['schemas']['KycSubmissionDto'];
@@ -40,92 +44,78 @@ function decisionLabelKey(status: string): MessageKey {
 
 export function SubmissionSummary({
   data,
-  docType,
   attempts,
   onOpenFile,
 }: {
   data: KycDetail;
-  docType: string;
-  /** Previously decided attempts, oldest first. Empty for a first submission. */
   attempts: KycAttempt[];
-  /** Opens an uploaded answer in the document viewer, by its stored path. */
   onOpenFile?: (filePath: string) => void;
 }) {
-  const steps = useKycStepConfig();
-  const groups = personalInfoGroups(data.personalInfo, steps, data.stepData);
-  const rejectedLabels = rejectedFieldLabels(data.rejectedFields ?? [], steps);
+  const identity = identitySection(data);
+  const additional = additionalSections(data);
+  const flagged = flagLabels(data);
+  const layout = data.layout;
 
   return (
     <div className="detail-left">
-      {/*
-        One card per configured STEP, so the reviewer reads the submission in the
-        same shape the client filled it in — rather than one flat list in
-        whatever order the JSON happened to hold. See personal-info-rows.ts.
-      */}
-      {groups.length > 0 ? (
-        groups.map((group) => (
-          <div key={group.title} className="info-card">
-            <h3>{group.title}</h3>
-            {group.rows.map((row) => (
-              <div key={row.key} className="info-row">
-                <span>{row.label}</span>
-                <strong
-                  className={[
-                    data.status === 'rejected' && data.rejectedFields?.includes(row.key)
-                      ? 'text-destructive font-bold'
-                      : '',
-                    // Dimmed rather than blank: "submitted nothing here" is an
-                    // answer the reviewer needs, and an empty cell reads as a
-                    // rendering fault.
-                    row.empty ? 'text-muted-foreground font-normal' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                >
-                  {row.file && onOpenFile ? (
-                    /*
-                     * An uploaded answer is OPENED, not printed. It used to
-                     * render as its stored record — `{"fileName":…,"filePath":…}`
-                     * — which is how a reviewer met a custom step's upload.
-                     */
-                    <button
-                      type="button"
-                      onClick={() => onOpenFile(row.file!.filePath)}
-                      className="inline-flex max-w-full items-center gap-1 text-link hover:underline focus-outline"
-                    >
-                      <Paperclip className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      <span className="truncate">{row.value}</span>
-                      <span className="shrink-0 font-normal">· {t('kycReview.viewFile')}</span>
-                    </button>
-                  ) : (
-                    row.value
-                  )}
-                </strong>
-              </div>
-            ))}
-          </div>
-        ))
-      ) : (
-        <div className="info-card">
-          <h3>{t('kycReview.personalInfo')}</h3>
-          <p className="not-submitted">{t('kycReview.notSubmitted')}</p>
-        </div>
+      {data.reverificationRequestedAt && (
+        <p className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
+          {t('kycReview.reverificationRequested')}
+        </p>
       )}
 
       {/*
-        WHAT THE SELFIE PROVES, said once and where the decision is made.
+        THE LAYOUT IS THE SERVER'S (26 Sep 2026): the client's identity in the
+        platform's order, the documents by their exact names, then the broker's
+        own questions grouped by the step they were asked on — never mixed, and
+        never labelled from today's builder when the client answered yesterday's.
+      */}
+      <SectionCard section={identity} data={data} onOpenFile={onOpenFile} />
 
-        A reviewer sees a face photograph beside an ID and the natural reading is
-        that something checked it. Nothing did: the portal opens the front camera
-        and uploads what it captures, and `POST /kyc/upload` accepts any JPEG
-        from any client — so a printed photo, or a phone held up to the lens,
-        arrives looking exactly like a live capture.
+      {layout && (
+        <div className="info-card">
+          <h3>{t('kycReview.identityDocumentTitle')}</h3>
+          <DocumentRows
+            label={layout.identityDocument.label}
+            pages={layout.identityDocument.pages}
+            present={{
+              doc_front: data.document?.frontFilePath,
+              doc_back: data.document?.backFilePath,
+            }}
+          />
+          <h3 className="mt-4">{t('kycReview.proofOfAddressTitle')}</h3>
+          {layout.proofOfAddress.asked ? (
+            <DocumentRows
+              label={layout.proofOfAddress.label}
+              pages={layout.proofOfAddress.pages}
+              present={{
+                address_proof: data.addressProof?.filePath,
+                address_proof_2: data.addressProof?.page2FilePath,
+              }}
+            />
+          ) : (
+            <p className="not-submitted">{t('kycReview.notAsked')}</p>
+          )}
+          <div className="info-row">
+            <span>{t('kycReview.selfieTitle')}</span>
+            <strong className={data.selfie?.filePath ? '' : 'font-normal text-muted-foreground'}>
+              {!layout.selfie.asked
+                ? t('kycReview.notAsked')
+                : data.selfie?.filePath
+                  ? t('kycReview.pageUploaded')
+                  : t('kycReview.pageMissing')}
+            </strong>
+          </div>
+        </div>
+      )}
 
-        That is a fair control at this stage and it is NOT liveness. Saying so is
-        the cheapest honest thing available: a reviewer who knows they are
-        judging a photograph compares it against the ID, and one who believes it
-        was verified does not. It costs nothing and it is the difference between
-        a control and a belief about a control.
+      {additional.map((section) => (
+        <SectionCard key={section.id} section={section} data={data} onOpenFile={onOpenFile} />
+      ))}
+
+      {/*
+        WHAT THE SELFIE PROVES, said once and where the decision is made: a
+        photograph compared with the ID by a person, NOT a liveness check.
       */}
       <p className="not-submitted text-[11px] leading-snug">{t('kycReview.selfieCaveat')}</p>
 
@@ -158,21 +148,11 @@ export function SubmissionSummary({
         </div>
       </div>
 
-      <div className="info-card">
-        <h3>{t('kycReview.documentType')}</h3>
-        <div className="info-row">
-          <span>{t('kycReview.typeLabel')}</span>
-          <strong className="uppercase tracking-wider text-link">
-            {docType.replace('_', ' ')}
-          </strong>
-        </div>
-      </div>
-
       {data.status === 'rejected' && data.rejectionReason && (
         <div className="rejection-card">
           <h3>{t('kycReview.rejectionReasonLabel')}</h3>
           <p>{data.rejectionReason}</p>
-          {data.rejectedFields && data.rejectedFields.length > 0 && (
+          {flagged.length > 0 && (
             <div className="mt-3 pt-3 border-t border-destructive/20">
               <span className="text-xs font-bold text-destructive block mb-1">
                 {t('kycReview.flaggedFields')}
@@ -180,7 +160,7 @@ export function SubmissionSummary({
               {/* By the label the client read, never the stored key — a builder
                   field's key is `customField_<timestamp>`. */}
               <div className="flex flex-wrap gap-1.5">
-                {rejectedLabels.map((label) => (
+                {flagged.map((label) => (
                   <span
                     key={label}
                     className="text-[11px] bg-destructive/15 text-destructive px-2 py-0.5 rounded border border-destructive/30"
@@ -238,5 +218,78 @@ export function SubmissionSummary({
         </div>
       </div>
     </div>
+  );
+}
+
+/** One section of rows: a label, the value — "—" when blank — and a file opens the viewer. */
+function SectionCard({
+  section,
+  data,
+  onOpenFile,
+}: {
+  section: ReviewSection;
+  data: KycDetail;
+  onOpenFile?: (filePath: string) => void;
+}) {
+  if (section.rows.length === 0) return null;
+  return (
+    <div className="info-card">
+      <h3>{section.title}</h3>
+      {section.rows.map((row) => (
+        <div key={row.key} className="info-row">
+          <span>{row.label}</span>
+          <strong
+            className={[
+              data.status === 'rejected' && row.flagged ? 'text-destructive font-bold' : '',
+              // Dimmed rather than blank: "nothing here" is an answer the
+              // reviewer needs, and an empty cell reads as a rendering fault.
+              row.empty ? 'text-muted-foreground font-normal' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {row.file && onOpenFile ? (
+              <button
+                type="button"
+                onClick={() => onOpenFile(row.file!.filePath)}
+                className="inline-flex max-w-full items-center gap-1 text-link hover:underline focus-outline"
+              >
+                <Paperclip className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{row.value}</span>
+                <span className="shrink-0 font-normal">· {t('kycReview.viewFile')}</span>
+              </button>
+            ) : (
+              row.value
+            )}
+          </strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** A document ON FILE by its exact name, and whether each of its pages arrived. */
+function DocumentRows({
+  label,
+  pages,
+  present,
+}: {
+  label: string;
+  pages: { slot: string; label: string }[];
+  present: Record<string, string | undefined>;
+}) {
+  return (
+    <>
+      {pages
+        .filter((page, index) => index === 0 || present[page.slot])
+        .map((page) => (
+          <div key={page.slot} className="info-row">
+            <span>{pages.length > 1 ? `${label} — ${page.label}` : label}</span>
+            <strong className={present[page.slot] ? '' : 'font-normal text-muted-foreground'}>
+              {present[page.slot] ? t('kycReview.pageUploaded') : t('kycReview.pageMissing')}
+            </strong>
+          </div>
+        ))}
+    </>
   );
 }
