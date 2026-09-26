@@ -10,9 +10,11 @@ import { Moon, Sun } from 'lucide-react';
 import { useHydrated } from '@/hooks/use-hydrated';
 import { t } from '@/lib/i18n';
 
+/* twin:config:start */
 // ── App-specific config ─────────────────────────────────────────────────────
 /** Matches this app's notification bell, which the toggle sits beside. */
 const TRIGGER_RADIUS = 'rounded-lg';
+/* twin:config:end */
 
 /**
  * Light or dark — ONE icon, beside the notification bell.

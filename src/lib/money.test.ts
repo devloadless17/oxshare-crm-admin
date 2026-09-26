@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareMoney, formatDecimal, formatMoney, isZeroMoney } from './money';
+import { compareMoney, floorToScale, formatDecimal, formatMoney, isZeroMoney } from './money';
 
 describe('formatMoney', () => {
   it('formats USD with a leading symbol and USDT as a trailing code', () => {
@@ -129,5 +129,44 @@ describe('compareMoney — what replaced Number() on the P/L column', () => {
 
   it('holds above 2^53, where a float stops being exact', () => {
     expect(compareMoney('9007199254740993', '9007199254740992')).toBeGreaterThan(0);
+  });
+});
+
+describe('floorToScale — what a "use max" button may offer', () => {
+  it('floors, never rounds up', () => {
+    // Rounding up would offer money the client does not have, trading a
+    // precision refusal for an insufficient-balance one.
+    expect(floorToScale('50.129', 2)).toBe('50.12');
+    expect(floorToScale('50.999', 2)).toBe('50.99');
+    expect(floorToScale('0.009', 2)).toBe('0.00');
+  });
+
+  it('pads to the scale, so the value reads as money', () => {
+    expect(floorToScale('50', 2)).toBe('50.00');
+    expect(floorToScale('50.1', 2)).toBe('50.10');
+  });
+
+  it('handles the shape a wallet actually returns', () => {
+    // NUMERIC(28,8) comes back with all eight places; the trailing zeros carry
+    // no precision and must not change the answer.
+    expect(floorToScale('5248.25000000', 2)).toBe('5248.25');
+    // Sub-cent value a commission accrual can legitimately leave behind.
+    expect(floorToScale('100.12345678', 2)).toBe('100.12');
+  });
+
+  it('honours a scale other than 2, because the operator sets it', () => {
+    expect(floorToScale('1.23456789', 4)).toBe('1.2345');
+    expect(floorToScale('1.23456789', 0)).toBe('1');
+  });
+
+  it('keeps precision that a float would destroy', () => {
+    expect(floorToScale('12345678901234567.891', 2)).toBe('12345678901234567.89');
+  });
+
+  it('returns the input unchanged when it cannot be read', () => {
+    // This feeds a convenience button. Silently producing '0.00' would offer a
+    // withdrawal of nothing; handing the value back lets the server judge it.
+    expect(floorToScale('abc', 2)).toBe('abc');
+    expect(floorToScale('', 2)).toBe('');
   });
 });
