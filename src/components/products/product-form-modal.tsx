@@ -44,15 +44,6 @@ export interface ProductFormValues {
    * that pays no partner commission. The demo product never carries one.
    */
   commissionTypeId: string | null;
-  /**
-   * Where in the list this product sits, or `undefined` for "wherever".
-   *
-   * OPTIONAL, and that is the fix: the API appends when no position is given
-   * and inserts — pushing the rest down — when one is. A create that always
-   * sent a number could not express "just add it", so the box opened on 0 and
-   * every new product went to the FRONT of the client's list.
-   */
-  sortOrder: number | undefined;
   /** The complete set the operator wants. The caller diffs it against the row. */
   groups: StagedGroup[];
 }
@@ -162,16 +153,6 @@ function ProductForm({
    */
   const enabled = product?.enabled ?? true;
   /*
-   * BLANK on create, not '0'.
-   *
-   * Since ordering became "insert here and push the rest down", 0 is a real
-   * instruction — put this first — and it was the one every new product silently
-   * gave. Empty means "no opinion", which the API turns into an append.
-   */
-  const [sortOrder, setSortOrder] = React.useState(
-    product === undefined ? '' : String(product.sortOrder),
-  );
-  /*
    * `'none'` in the control, `null` on the wire. The select needs a value for
    * "no type" and an empty string is not a value Radix will show — so the
    * sentinel lives here and is translated back at submit.
@@ -277,14 +258,13 @@ function ProductForm({
        */
       commissionTypeId:
         type === 'demo' ? null : commissionTypeId === NO_TYPE ? null : commissionTypeId,
-      sortOrder: parseOrder(sortOrder),
       groups,
     });
   };
 
   return (
     <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
-      <label className="space-y-1.5">
+      <label className="space-y-1.5 sm:col-span-2">
         <span className="block text-xs font-semibold">{t('products.name')}</span>
         <input
           value={name}
@@ -294,22 +274,6 @@ function ProductForm({
           placeholder="Standard"
           className={INPUT_CLASS}
         />
-      </label>
-
-      <label className="space-y-1.5">
-        <span className="block text-xs font-semibold">{t('products.order')}</span>
-        <input
-          type="number"
-          value={sortOrder}
-          onChange={(event) => setSortOrder(event.target.value)}
-          min={0}
-          max={1000}
-          /* Says what leaving it alone DOES, so the empty box is a choice
-             rather than something the operator thinks they forgot. */
-          placeholder={t('products.orderPlaceholder')}
-          className={INPUT_CLASS}
-        />
-        <span className="block text-[11px] text-muted-foreground">{t('products.orderHint')}</span>
       </label>
 
       <label className="space-y-1.5 sm:col-span-2">
@@ -568,26 +532,5 @@ const NO_TYPE = 'none';
 
 const INPUT_CLASS =
   'h-9 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60';
-
-/**
- * A sort order, as an integer the API will take.
- *
- * `Number(x) || 0` would do here and is deliberately not used: it is the idiom
- * that turns a typo into a silent 0 on the forms that configure money, and a
- * codebase where it appears on the harmless fields is one where it appears on
- * the others too.
- */
-function parseOrder(value: string): number | undefined {
-  const trimmed = value.trim();
-  /* Empty is "no opinion" — the API appends. Returning 0 here is what put every
-     new product at the front of the list. */
-  if (trimmed === '') return undefined;
-
-  const parsed = Number.parseInt(trimmed, 10);
-  /* A typo is also "no opinion" rather than position zero: `Number(x) || 0` is
-     the idiom that turns a fat finger into a silent reorder, and this form is
-     one keystroke from the money screens that must never use it. */
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
-}
 
 export type { ProductGroup };

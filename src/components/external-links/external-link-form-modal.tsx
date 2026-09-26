@@ -3,13 +3,6 @@
 import * as React from 'react';
 import { Modal } from '@/components/ui/modal';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 
 export interface ExternalLinkFormValues {
@@ -17,8 +10,6 @@ export interface ExternalLinkFormValues {
   description: string;
   url: string;
   enabled: boolean;
-  /** ZERO-BASED, as stored. The form labels it from 1; see the position select. */
-  sortOrder: number;
 }
 
 const INPUT_CLASS =
@@ -47,14 +38,6 @@ function isAcceptableUrl(raw: string): boolean {
   }
 }
 
-/** `1 — first`, `4 — last`, and a bare number in between. */
-function positionLabel(index: number, slotCount: number): string {
-  const position = String(index + 1);
-  if (index === 0) return t('externalLinks.orderFirst', { position });
-  if (index === slotCount - 1) return t('externalLinks.orderLast', { position });
-  return position;
-}
-
 /**
  * Add a link to the client portal's sidebar, or edit one.
  *
@@ -66,39 +49,18 @@ function positionLabel(index: number, slotCount: number): string {
  * delete-and-recreate — which is the whole reason the table is keyed the way it
  * is.
  *
- * ## The position is a CHOICE FROM THE LIST, never a number to type
+ * ## No position field (owner, 26 Sep 2026)
  *
- * It was a free number input, blank on add, and every part of that was wrong in
- * a way the operator could not see:
- *
- *   - **Blank meant "append", silently.** The one state the field could be in
- *     that was not a position, standing for the position it would actually get.
- *   - **A typed number could exceed the list.** `placeInOrder` clamps it, so 47
- *     in a list of three lands at the end — a correct outcome the form never
- *     said was coming.
- *   - **It leaked the ZERO-BASED storage.** "Order 0" is the top of the sidebar,
- *     which no operator guesses.
- *
- * So the control is a `Select` over the positions that actually exist, always
- * populated, labelled 1-based with the first and last named. Adding offers one
- * more slot than there are links — the new one — and defaults to it, which is
- * the append that used to be a blank field. Editing offers exactly the slots
- * that exist and defaults to where the link already is.
- *
- * The zero-based value goes to the API unchanged; only the LABEL is 1-based, so
- * nothing here has to know about the storage convention twice.
+ * A new link goes to the end of the sidebar and an edited one stays where it
+ * is; the API decides both. There is nothing to choose here.
  *
  * ## Radix, not native form controls
  *
- * The position select and the visibility checkbox are the shadcn components, so
+ * The visibility checkbox is the shadcn component, so
  * this form looks and behaves like every other one in the console rather than
- * rendering whatever the browser draws. Both differ from their native
- * counterparts at the call site and the differences are easy to get wrong:
+ * rendering whatever the browser draws. It differs from its native
+ * counterpart at the call site in a way that is easy to get wrong:
  *
- *   - `Select` speaks STRINGS. The position is a number, so it is stringified
- *     on the way in and parsed on the way out — and `value=""` is reserved by
- *     Radix for the placeholder state, which is one more reason this control is
- *     never empty.
  *   - `Checkbox` is a `<button role="checkbox">`, so there is no `e.target`. It
  *     reports `boolean | 'indeterminate'` and is paired with its label by
  *     `id`/`htmlFor` rather than by wrapping — see `ui/checkbox.tsx`.
@@ -106,7 +68,6 @@ function positionLabel(index: number, slotCount: number): string {
 export function ExternalLinkFormModal({
   open,
   editing,
-  linkCount,
   saving,
   error,
   onClose,
@@ -115,14 +76,6 @@ export function ExternalLinkFormModal({
   open: boolean;
   /** Null when adding. */
   editing: ExternalLinkFormValues | null;
-  /**
-   * How many links exist right now, INCLUDING the one being edited.
-   *
-   * The slot count is derived rather than passed, because the two cases differ
-   * by exactly one and a caller computing it is a caller that can get it wrong:
-   * adding creates a slot, editing moves within the ones there are.
-   */
-  linkCount: number;
   saving: boolean;
   error?: string;
   onClose: () => void;
@@ -146,25 +99,6 @@ export function ExternalLinkFormModal({
   const [url, setUrl] = React.useState(editing?.url ?? '');
   const [enabled, setEnabled] = React.useState(editing?.enabled ?? true);
 
-  /*
-   * Adding creates a slot; editing moves within the ones that exist. `max(1, …)`
-   * only guards a nonsensical `linkCount: 0` while editing — there is always at
-   * least the row being edited.
-   */
-  const slotCount = editing ? Math.max(1, linkCount) : linkCount + 1;
-
-  /*
-   * The DEFAULT is the answer, pre-selected: where the link already sits when
-   * editing, and the end of the menu when adding. Clamped, because a row whose
-   * stored position drifted past the list (a hand-written UPDATE, a stale query
-   * behind a concurrent delete) must not select a slot that is not on offer —
-   * Radix would render an empty trigger and the first save would move the link
-   * somewhere nobody chose.
-   */
-  const [sortOrder, setSortOrder] = React.useState(
-    editing ? Math.min(Math.max(editing.sortOrder, 0), slotCount - 1) : slotCount - 1,
-  );
-
   const trimmedTitle = title.trim();
   const trimmedUrl = url.trim();
 
@@ -187,7 +121,6 @@ export function ExternalLinkFormModal({
             description: description.trim(),
             url: trimmedUrl,
             enabled,
-            sortOrder,
           });
         }}
       >
@@ -259,44 +192,6 @@ export function ExternalLinkFormModal({
           />
           <p className="text-[11px] text-muted-foreground">
             {t('externalLinks.fieldDescriptionHint')}
-          </p>
-        </div>
-
-        <div className="space-y-1.5">
-          <span className="block text-xs font-semibold">{t('externalLinks.fieldSortOrder')}</span>
-          <Select
-            /*
-             * Radix speaks STRINGS. The position is a number in state and on the
-             * wire, so it is stringified here and parsed on the way out — one
-             * conversion at the boundary rather than a string threaded through
-             * the form the way the old free-text input did it.
-             */
-            value={String(sortOrder)}
-            onValueChange={(next) => setSortOrder(Number(next))}
-            disabled={saving}
-          >
-            <SelectTrigger
-              id="external-link-sort"
-              className="h-9 w-full"
-              aria-label={t('externalLinks.fieldSortOrder')}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {/*
-                One item per slot, in sidebar order. `Array.from` rather than a
-                map over the rows: the OPTIONS are positions, and adding has one
-                more of them than there are links.
-              */}
-              {Array.from({ length: slotCount }, (_, index) => (
-                <SelectItem key={index} value={String(index)}>
-                  {positionLabel(index, slotCount)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-[11px] text-muted-foreground">
-            {t('externalLinks.fieldSortOrderHint')}
           </p>
         </div>
 

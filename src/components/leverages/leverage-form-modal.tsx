@@ -8,7 +8,6 @@ export interface LeverageFormValues {
   ratio: number;
   label: string;
   enabled: boolean;
-  sortOrder: number;
 }
 
 const INPUT_CLASS =
@@ -65,10 +64,8 @@ export function LeverageFormModal({
   const [ratio, setRatio] = React.useState(editing ? String(editing.ratio) : '');
   const [label, setLabel] = React.useState(editing?.label ?? '');
   const [enabled, setEnabled] = React.useState(editing?.enabled ?? true);
-  const [sortOrder, setSortOrder] = React.useState(editing ? String(editing.sortOrder) : '');
 
   const parsedRatio = Number.parseInt(ratio.trim(), 10);
-  const parsedSort = Number.parseInt(sortOrder.trim(), 10);
 
   /*
    * Mirrors `LeveragesService.assertRatio` so the operator is told before the
@@ -91,9 +88,8 @@ export function LeverageFormModal({
             ratio: parsedRatio,
             label: label.trim(),
             enabled,
-            // Blank means "leave it where it is" when editing, and "append"
-            // when adding — the API does the appending.
-            sortOrder: Number.isInteger(parsedSort) ? parsedSort : (editing?.sortOrder ?? 0),
+            // No order (owner, 26 Sep 2026): a new rung goes last, and an
+            // edited one stays where it is — the API decides both.
           });
         }}
       >
@@ -134,23 +130,6 @@ export function LeverageFormModal({
             className={INPUT_CLASS}
           />
           <p className="text-[11px] text-muted-foreground">{t('leverages.fieldLabelHint')}</p>
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="leverage-sort" className="text-xs font-semibold">
-            {t('leverages.fieldSortOrder')}
-          </label>
-          <input
-            id="leverage-sort"
-            type="number"
-            step={1}
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            disabled={saving}
-            placeholder={t('leverages.fieldSortOrderPlaceholder')}
-            className={`${INPUT_CLASS} font-mono`}
-          />
-          <p className="text-[11px] text-muted-foreground">{t('leverages.fieldSortOrderHint')}</p>
         </div>
 
         <label className="flex cursor-pointer items-center gap-2.5">

@@ -17,14 +17,9 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
  * outage is a toggle rather than retyping the row. The row menu has to offer
  * both and they must not be the same action.
  *
- * **The position is a choice from the list, never a number to type.** The order
- * field started as a free number input, blank on add, and every part of that was
- * wrong somewhere the operator could not see it: blank silently meant "append",
- * a typed number past the end was clamped with nothing saying so, and the value
- * shown was the ZERO-BASED storage — "0" being the top of the sidebar, which
- * nobody guesses. The cases below pin the replacement: always populated, always
- * a real slot, labelled from 1, and sent to the API as the zero-based value it
- * has always been.
+ * **There is no position to choose (owner, 26 Sep 2026).** No order column and
+ * no order field: a new link goes to the end of the sidebar and an edited one
+ * stays where it is — the API decides both, so neither request carries one.
  */
 const { getExternalLinks, createExternalLink, updateExternalLink, deleteExternalLink } = vi.hoisted(
   () => ({
@@ -114,17 +109,11 @@ describe('the list', () => {
     expect(screen.getAllByText(/^shown$/i).length).toBe(2);
   });
 
-  it('counts the order from 1, not from the stored zero', async () => {
+  it('shows no order column', async () => {
     renderWithProviders(<ExternalLinksPage />);
     await screen.findByText('Calendar');
 
-    /*
-     * `sort_order` is zero-based on the wire and no operator reads "0" as the
-     * top of a menu. The form's position select counts the same way, so the two
-     * agree and the raw value stays where it belongs.
-     */
-    const orders = screen.getAllByText(/^[123]$/).map((el) => el.textContent);
-    expect(orders).toEqual(['1', '2', '3']);
+    expect(screen.queryByRole('columnheader', { name: /order/i })).toBeNull();
   });
 });
 
@@ -183,47 +172,8 @@ describe('hiding', () => {
  * attribute to assert against — what the operator sees is the TRIGGER's text,
  * which is what these check.
  */
-async function openPositionOptions(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('combobox', { name: /position in the sidebar/i }));
-  return screen.getAllByRole('option');
-}
-
-describe('the position field', () => {
-  it('offers one slot more than there are links when adding, and defaults to last', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<ExternalLinksPage />);
-    await screen.findByText('Calendar');
-
-    await user.click(screen.getByRole('button', { name: /add link/i }));
-
-    /*
-     * Three links, four slots — the new one. Defaulting to the last is the
-     * append that used to be a BLANK FIELD, said out loud: the operator sees
-     * where the link is going before they save it.
-     *
-     * This is also the mount-timing regression. The modal used to be rendered
-     * unconditionally, so it seeded on the page's FIRST render — before the
-     * query answered, when `linkCount` was 0 — and every new link defaulted to
-     * the top of the sidebar with nothing correcting it.
-     */
-    const trigger = await screen.findByRole('combobox', { name: /position in the sidebar/i });
-    expect(trigger).toHaveTextContent('4 — last');
-    expect(await openPositionOptions(user)).toHaveLength(4);
-  });
-
-  it('names the first and last slots rather than only numbering them', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<ExternalLinksPage />);
-    await screen.findByText('Calendar');
-
-    await user.click(screen.getByRole('button', { name: /add link/i }));
-
-    // "4" alone says nothing about a list the operator cannot see from the modal.
-    const labels = (await openPositionOptions(user)).map((option) => option.textContent);
-    expect(labels).toEqual(['1 — first', '2', '3', '4 — last']);
-  });
-
-  it('sends the ZERO-BASED value, so choosing "first" is not silently an append', async () => {
+describe('no position field', () => {
+  it('adds a link without asking for a position, and sends none', async () => {
     createExternalLink.mockResolvedValue(link({ id: 'l-4' }));
     const user = userEvent.setup();
     renderWithProviders(<ExternalLinksPage />);
@@ -231,44 +181,37 @@ describe('the position field', () => {
 
     await user.click(screen.getByRole('button', { name: /add link/i }));
     await user.type(await screen.findByLabelText(/^title$/i), 'Analysis');
+    expect(screen.queryByRole('combobox', { name: /position/i })).toBeNull();
     await user.type(screen.getByLabelText(/^link$/i), 'https://example.com/analysis');
-    // Open the listbox first — Radix portals the options, so there is nothing
-    // to click until the trigger has been.
-    await openPositionOptions(user);
-    await user.click(screen.getByRole('option', { name: '1 — first' }));
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
-    /*
-     * The regression this pins. The create call used to spread the field
-     * conditionally — `values.sortOrder ? { sortOrder } : {}` — so position 0,
-     * the TOP of the sidebar, was falsy and got dropped, and the API appended
-     * instead. Choosing "first" put the link last, silently.
-     */
+    // The API puts it last; nothing here decides otherwise.
     expect(createExternalLink).toHaveBeenCalledWith({
       title: 'Analysis',
       description: undefined,
       url: 'https://example.com/analysis',
       enabled: true,
-      sortOrder: 0,
     });
   });
 
-  it('opens on the link’s current position when editing, with no extra slot', async () => {
+  it('edits a link without sending a position, so it stays where it is', async () => {
+    updateExternalLink.mockResolvedValue(link({ id: 'l-2', title: 'Help desk' }));
     const user = userEvent.setup();
     renderWithProviders(<ExternalLinksPage />);
     await screen.findByText('Help centre');
 
     await user.click(screen.getAllByRole('button', { name: /actions for Help centre/i })[0]!);
     await user.click(await screen.findByText(/^edit$/i));
+    const title = await screen.findByLabelText(/^title$/i);
+    await user.clear(title);
+    await user.type(title, 'Help desk');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
 
-    /*
-     * Editing moves WITHIN the slots that exist — three links, three options —
-     * where adding creates one. Pre-selected where the link already sits, so
-     * saving an unrelated change does not move it.
-     */
-    const trigger = await screen.findByRole('combobox', { name: /position in the sidebar/i });
-    expect(trigger).toHaveTextContent('2');
-    expect(await openPositionOptions(user)).toHaveLength(3);
+    expect(updateExternalLink).toHaveBeenCalledWith(
+      'l-2',
+      expect.not.objectContaining({ sortOrder: expect.anything() }),
+    );
+    expect(updateExternalLink.mock.calls[0]?.[1]).toMatchObject({ title: 'Help desk' });
   });
 });
 

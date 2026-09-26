@@ -16,7 +16,6 @@ export interface WithdrawalMethodFormValues {
   /** An upload path or an https URL; empty means no logo. */
   logoUrl: string;
   enabled: boolean;
-  sortOrder: number;
 }
 
 /**
@@ -81,19 +80,16 @@ function WithdrawalMethodForm({
   const [key, setKey] = React.useState(method?.key ?? '');
   const [name, setName] = React.useState(method?.name ?? '');
   const [logoUrl, setLogoUrl] = React.useState(method?.logoUrl ?? '');
-  const [sortOrder, setSortOrder] = React.useState(String(method?.sortOrder ?? 0));
   const [enabled, setEnabled] = React.useState(method?.enabled ?? true);
   const fieldId = React.useId();
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    const order = Number.parseInt(sortOrder, 10);
     onSubmit({
       key: key.trim(),
       name: name.trim(),
       logoUrl: logoUrl.trim(),
       enabled,
-      sortOrder: Number.isFinite(order) && order >= 0 ? order : 0,
     });
   };
 
@@ -133,30 +129,15 @@ function WithdrawalMethodForm({
 
       <LogoField value={logoUrl} onChange={setLogoUrl} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor={`${fieldId}-order`}>{t('withdrawalMethods.order')}</Label>
-          <Input
-            id={`${fieldId}-order`}
-            type="number"
-            min={0}
-            value={sortOrder}
-            onChange={(event) => setSortOrder(event.target.value)}
-            className="tabular text-xs"
-          />
-          <p className="text-[11px] text-muted-foreground">{t('withdrawalMethods.orderHint')}</p>
-        </div>
-
-        <div className="flex items-center gap-2 self-center pt-4">
-          <Checkbox
-            id={`${fieldId}-enabled`}
-            checked={enabled}
-            onCheckedChange={(value) => setEnabled(value === true)}
-          />
-          <Label htmlFor={`${fieldId}-enabled`} className="cursor-pointer font-medium">
-            {t('withdrawalMethods.enabled')}
-          </Label>
-        </div>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id={`${fieldId}-enabled`}
+          checked={enabled}
+          onCheckedChange={(value) => setEnabled(value === true)}
+        />
+        <Label htmlFor={`${fieldId}-enabled`} className="cursor-pointer font-medium">
+          {t('withdrawalMethods.enabled')}
+        </Label>
       </div>
 
       {error && (

@@ -223,11 +223,6 @@ export default function CurrenciesPage() {
       cellClassName: 'tabular text-muted-foreground',
     },
     {
-      header: t('currencies.colOrder'),
-      cell: (c) => c.sortOrder,
-      cellClassName: 'tabular text-muted-foreground',
-    },
-    {
       header: t('currencies.colStatus'),
       cell: (c) =>
         c.enabled ? (

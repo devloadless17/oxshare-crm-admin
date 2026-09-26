@@ -99,9 +99,11 @@ describe('the withdrawal methods page', () => {
 
     await waitFor(() =>
       expect(createWithdrawalMethod).toHaveBeenCalledWith(
-        expect.objectContaining({ key: 'omt', name: 'OMT', enabled: true, sortOrder: 0 }),
+        expect.objectContaining({ key: 'omt', name: 'OMT', enabled: true }),
       ),
     );
+    // No order is asked for or sent: the API puts a new method last.
+    expect(createWithdrawalMethod.mock.calls[0]?.[0]).not.toHaveProperty('sortOrder');
   });
 
   /*

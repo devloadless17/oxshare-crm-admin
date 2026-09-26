@@ -122,7 +122,6 @@ export default function AgenciesPage() {
       adminApi.updateAgency(agency.id, {
         name: agency.name,
         description: agency.description,
-        sortOrder: agency.sortOrder,
         enabled: !agency.enabled,
       }),
     onSuccess: async (_data, agency) => {

@@ -80,23 +80,13 @@ export default function ExternalLinksPage() {
             description: values.description,
             url: values.url,
             enabled: values.enabled,
-            sortOrder: values.sortOrder,
           })
         : api.admin.createExternalLink({
             title: values.title,
             description: values.description || undefined,
             url: values.url,
             enabled: values.enabled,
-            /*
-             * ALWAYS sent, never conditionally.
-             *
-             * This was `...(values.sortOrder ? { sortOrder } : {})`, which is
-             * the falsy-zero bug in its natural habitat: position 0 is the TOP
-             * of the sidebar, and dropping the field made the API append
-             * instead. Choosing "first" put the link last, silently. The form
-             * now always has an answer, so there is nothing to omit.
-             */
-            sortOrder: values.sortOrder,
+            // No position (owner, 26 Sep 2026): the API puts a new link last.
           }),
     onSuccess: async () => {
       await invalidate();
@@ -200,19 +190,6 @@ export default function ExternalLinksPage() {
           <Badge variant="warning">{t('externalLinks.statusHidden')}</Badge>
         ),
     },
-    {
-      header: t('externalLinks.colOrder'),
-      align: 'right',
-      /*
-       * `+ 1`, because `sort_order` is zero-based in the database and no
-       * operator reads "0" as the top of a menu. The form's position select
-       * counts from 1 for the same reason, so the two agree — and the raw value
-       * stays where it belongs, on the wire.
-       */
-      cell: (row) => (
-        <span className="tabular text-xs text-muted-foreground">{row.sortOrder + 1}</span>
-      ),
-    },
     ...(canManage
       ? [
           actionsColumn<ExternalLink>(
@@ -308,15 +285,7 @@ export default function ExternalLinksPage() {
         "seeded when the operator opened the form".
         
         Mounted unconditionally it seeded once, on the page's FIRST render —
-        before `useResource` had answered, so `linkCount` was 0. The add form
-        then offered one slot and defaulted to position 0, and neither corrected
-        itself when the links arrived, because nothing remounted it. Every new
-        link went to the TOP of the sidebar unless the operator noticed and
-        changed it.
-        
-        Keying on `rows.length` would also fix that and would be worse: a
-        background refetch that changed the count would remount the form under
-        somebody mid-sentence and throw away what they had typed. `Modal`
+        before the link being edited had loaded, and never re-seeded. `Modal`
         already returns null while closed, so this costs nothing.
       */}
       {formOpen && (
@@ -328,13 +297,6 @@ export default function ExternalLinksPage() {
            */
           key={editing ? `edit-${editing.id}` : 'add'}
           open={formOpen}
-          /*
-           * The list the position select is built from. Passed as a COUNT rather
-           * than the rows themselves: the options are positions, not links, and
-           * handing over the rows would invite the form to render titles it
-           * would then have to keep in step with a reorder happening under it.
-           */
-          linkCount={rows.length}
           editing={
             editing
               ? {
@@ -342,7 +304,6 @@ export default function ExternalLinksPage() {
                   description: editing.description ?? '',
                   url: editing.url,
                   enabled: editing.enabled,
-                  sortOrder: editing.sortOrder,
                 }
               : null
           }

@@ -4904,8 +4904,8 @@ export interface components {
             decimals: number;
             /** @default true */
             enabled: boolean;
-            /** @default 0 */
-            sortOrder: number;
+            /** @description Omitted puts it after the last one. */
+            sortOrder?: number;
             /** @default false */
             isDefault: boolean;
         };
@@ -5739,8 +5739,8 @@ export interface components {
             logoUrl?: string;
             /** @default true */
             enabled: boolean;
-            /** @default 0 */
-            sortOrder: number;
+            /** @description Omitted puts it after the last one. */
+            sortOrder?: number;
             /** @description OFFLINE: the client pays outside the platform and must attach a receipt. Such a deposit is filed through POST /payments/deposits/offline and settles when an operator approves it — the JSON deposit route refuses the method. Cannot be combined with a gateway key. */
             requiresProof?: boolean;
         };
@@ -5794,8 +5794,8 @@ export interface components {
             logoUrl?: string;
             /** @default true */
             enabled: boolean;
-            /** @default 0 */
-            sortOrder: number;
+            /** @description Omitted puts it after the last one. */
+            sortOrder?: number;
         };
         UpdateWithdrawalMethodDto: {
             name?: string;
