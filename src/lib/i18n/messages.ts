@@ -2935,7 +2935,7 @@ export const messages = {
 
   'currencies.title': 'Currencies',
   'currencies.subtitle':
-    'The money this platform can hold. Disabling one stops new wallets and deposits in it; existing balances stay readable.',
+    'The money this platform can hold. Adding or enabling one opens a wallet in it for every client, and a commission wallet for every partner. Disabling one hides its empty wallets from clients; balances stay theirs.',
   'currencies.caption': 'Supported currencies',
   'currencies.loading': 'Loading currencies',
   'currencies.loadFailed': 'Could not load the currencies.',
@@ -2969,10 +2969,11 @@ export const messages = {
   // sure" about something the API refuses outright if any wallet exists.
   'currencies.confirmDeleteTitle': 'Delete {code}?',
   'currencies.confirmDelete':
-    'This is only possible while no client holds a wallet in it. To stop offering a currency that is in use, disable it instead.',
+    'Only possible while it has never held money: the empty wallets opened for it are removed with it. To stop offering a currency that has been used, disable it instead.',
   'currencies.deleteSucceeded': '{code} deleted',
   'currencies.defaultSucceeded': '{code} is now the default currency',
-  'currencies.enabledSucceeded': '{code} enabled',
+  'currencies.enabledSucceeded':
+    '{code} enabled — opening its wallets for every client and partner',
   'currencies.disabledSucceeded': '{code} disabled',
   'currencies.saveSucceeded': '{code} saved',
 
@@ -2985,7 +2986,7 @@ export const messages = {
   'currencies.decimalsHint': 'How balances are shown. Storage is always 8 decimal places.',
   'currencies.enabled': 'Enabled',
   'currencies.enabledHint':
-    'Clients can open wallets and deposit in this currency. Disabling never touches existing balances.',
+    'Saving it enabled opens a wallet in it for every client and a commission wallet for every partner. Disabling never touches existing balances.',
   'currencies.isDefault': 'Default currency',
   'currencies.isDefaultHint':
     "The currency a new client's first wallet opens in. Exactly one currency holds this, and it must stay enabled.",
