@@ -2,7 +2,6 @@
 
 import { clientLabel } from '@/components/clients/client-identity';
 import { Suspense, useMemo, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientListResponse, ClientRow, ClientSortKey } from '@/lib/api/admin';
@@ -23,9 +22,8 @@ import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
 import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
-import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
 import { ExportButton } from '@/components/export-button';
-import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -66,8 +64,6 @@ function ClientsPageContent() {
   /* The same key `PermissionsGuard` enforces on PATCH /admin/ib/partners/:id/program. */
   const canEditPartners = hasPermission(admin, 'ib.partners.edit');
   const canViewTags = hasPermission(admin, 'tags.view') || hasPermission(admin, 'clients.view');
-  const queryClient = useQueryClient();
-  const confirm = useConfirm();
 
   const url = useTableQueryState();
   /*
@@ -154,44 +150,8 @@ function ClientsPageContent() {
     enabled: canViewTags,
   });
 
-  const setStatusMutation = useMutation({
-    mutationFn: ({ client, next }: { client: ClientRow; next: 'active' | 'suspended' }) =>
-      api.admin.setClientStatus(client.id, next),
-    onSuccess: async (_data, { client, next }) => {
-      await queryClient.invalidateQueries({ queryKey: keys.clients.all() });
-      // The Portal ID when a role hides the email — never the uuid.
-      const who = client.email ?? `#${client.portalId}`;
-      toastSuccess(
-        next === 'suspended'
-          ? t('clients.suspendSucceeded', { email: who })
-          : t('clients.reactivateSucceeded', { email: who }),
-      );
-    },
-    /*
-     * This mutation had NO error handling. A refusal — the API declines to
-     * suspend a client outside the operator's tag scope — left the row exactly
-     * as it was, which is indistinguishable from the click not registering.
-     */
-    onError: (error) => toastError(error, t('clients.statusFailed')),
-  });
-
-  const toggleStatus = async (client: ClientRow) => {
-    const next = client.status === 'suspended' ? 'active' : 'suspended';
-    // Suspension bites immediately server-side — live sessions die on the next
-    // request — so confirm before pulling the trigger. Reactivating is not
-    // confirmed: it restores access rather than removing it.
-    if (next === 'suspended') {
-      const email = client.email ?? `#${client.portalId}`;
-      const ok = await confirm({
-        title: t('clients.confirmSuspendTitle', { email }),
-        description: t('clients.confirmSuspend', { email }),
-        confirmLabel: t('clients.suspend'),
-        destructive: true,
-      });
-      if (!ok) return;
-    }
-    setStatusMutation.mutate({ client, next });
-  };
+  // Suspend / reactivate from a row — shared with a partner's Referred clients tab.
+  const status = useClientStatusToggle();
 
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
@@ -229,7 +189,6 @@ function ClientsPageContent() {
     params.order,
   ]);
   const maskedFields = query.data?.maskedFields ?? [];
-  const actingId = setStatusMutation.isPending ? setStatusMutation.variables?.client.id : null;
 
   /*
    * There is no `countries` list any more, and no country FILTER.
@@ -256,8 +215,8 @@ function ClientsPageContent() {
     canViewTags,
     canEditPartners,
     maskedFields,
-    actingId,
-    onToggleStatus: (client: ClientRow) => void toggleStatus(client),
+    actingId: status.actingId,
+    onToggleStatus: (client: ClientRow) => void status.toggle(client),
     onChangeProgram: setProgramTarget,
   });
 
@@ -357,12 +316,12 @@ function ClientsPageContent() {
 
       <MaskedFieldsNotice labels={maskedFieldLabels(maskedFields, FIELD_LABELS)} />
 
-      {setStatusMutation.isError && (
+      {status.mutation.isError && (
         <div
           className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
           role="alert"
         >
-          {apiErrorMessage(setStatusMutation.error, t('clients.statusFailed'))}
+          {apiErrorMessage(status.mutation.error, t('clients.statusFailed'))}
         </div>
       )}
 

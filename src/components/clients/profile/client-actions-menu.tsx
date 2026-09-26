@@ -9,9 +9,6 @@ import {
   Pencil,
   Coins,
   ScrollText,
-  FileText,
-  Network,
-  Percent,
   ShieldCheck,
   Tags,
   Users,
@@ -60,30 +57,22 @@ export function ClientActionsMenu({
   profile,
   partner,
   onManageTags,
-  onChangeProgram,
-  onReassignParent,
   onEditProfile,
   onChangeEmail,
-  onShowDocuments,
-  onShowNetwork,
+  onShowReferred,
 }: {
   profile: ClientProfile;
   /** Null when this client is not a partner — the partner block is then absent. */
   partner: IbPartnerDetail | null;
   onManageTags: () => void;
-  onChangeProgram: () => void;
-  onReassignParent: () => void;
   onEditProfile: () => void;
   onChangeEmail: () => void;
   /**
-   * Both of these move the page to a TAB, which is why they are callbacks and
-   * not links. The menu renders above the tab strip and is therefore reachable
-   * from all six tabs, while their targets live inside one — a `TabPanel`
-   * returns null when it is not active, so the old `#documents` hash resolved
-   * to nothing five-sixths of the time and the item read as broken.
+   * Moves the page to the partner's "Referred clients" TAB — a callback, not a
+   * link, because the menu sits above every tab and a `TabPanel` renders
+   * nothing while it is not active. Absent when that tab is not offered.
    */
-  onShowDocuments: () => void;
-  onShowNetwork: () => void;
+  onShowReferred?: () => void;
 }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
@@ -101,14 +90,11 @@ export function ClientActionsMenu({
    */
   const canChangeEmail = hasPermission(admin, 'clients.email');
   const canSuspendClient = hasPermission(admin, 'clients.suspend');
-  const canEditPartner = hasPermission(admin, 'ib.partners.edit');
   const canSuspendPartner = hasPermission(admin, 'ib.partners.suspend');
   const canAssignTags = hasPermission(admin, 'clients.tag');
   const canReviewKyc = hasPermission(admin, 'kyc.review');
-  const canViewDocs = hasPermission(admin, 'kyc.documents.view') || canReviewKyc;
   const canViewCommissions =
     hasPermission(admin, 'ib.view') || hasPermission(admin, 'ib.commissions.view');
-  const canViewClients = hasPermission(admin, 'clients.view');
   const canViewAudit = hasPermission(admin, 'audit.view');
 
   /*
@@ -237,24 +223,9 @@ export function ClientActionsMenu({
           {
             label: t('clientProfile.actionOpenKyc'),
             icon: ShieldCheck,
-            href: `/kyc/${profile.id}`,
+            // By Portal ID, as every console URL — never the uuid.
+            href: `/kyc/${profile.portalId}`,
             separatorBefore: canEditClient || canChangeEmail || canSuspendClient || canAssignTags,
-          },
-        ]
-      : []),
-    ...(canViewDocs && (profile.documents?.length ?? 0) > 0
-      ? [
-          {
-            label: t('clientProfile.actionViewDocuments'),
-            icon: FileText,
-            /*
-             * Selects the Overview tab and THEN scrolls. It used to be a bare
-             * `#documents` hash, which only resolves while Overview is the
-             * active tab — from Money, Partner, Positions, History or Network
-             * the click added a fragment to the URL and moved nothing.
-             */
-            onSelect: onShowDocuments,
-            separatorBefore: !canReviewKyc && (canSuspendClient || canAssignTags),
           },
         ]
       : []),
@@ -273,25 +244,12 @@ export function ClientActionsMenu({
           },
         ]
       : []),
-    ...(partner && canEditPartner
-      ? [
-          /* The TERMS. "Change level" used to sit above this, moving a partner
-             on the ladder — a rung that decided nothing, presented beside the
-             control that decided everything. 0102 removed it; this is the one
-             entry that changes what a partner is paid. */
-          {
-            label: t('clientProfile.actionChangeLevel'),
-            icon: Percent,
-            separatorBefore: !canSuspendPartner,
-            onSelect: onChangeProgram,
-          },
-          {
-            label: t('clientProfile.actionReassignParent'),
-            icon: Network,
-            onSelect: onReassignParent,
-          },
-        ]
-      : []),
+    /*
+     * NO "Change commission level" and NO "Reassign parent" here (owner, 26 Sep
+     * 2026). Both re-price or re-place a partner; they are the Partners desk's
+     * controls, and a profile opened to answer a question should not carry them.
+     * Nor "View documents": the Overview tab lists them.
+     */
     /*
      * EVERYTHING THAT HAS HAPPENED TO THIS CLIENT — the audit trail, scoped to
      * them.
@@ -331,21 +289,18 @@ export function ClientActionsMenu({
           },
         ]
       : []),
-    ...(partner && canViewClients
+    ...(partner && onShowReferred
       ? [
           {
             label: t('clientProfile.actionViewReferred'),
             icon: Users,
             /*
-             * The NETWORK tab, which lists the clients THIS partner
-             * introduced. It used to link to `/clients?type=referral`, and
-             * `type` is derived as "referred by ANY partner" — so an item
-             * inside a menu titled "Actions for {this partner}" opened a
-             * platform-wide list, and an operator answering "how many clients
-             * has this partner brought in" read the whole platform's referral
-             * count as theirs.
+             * The REFERRED CLIENTS tab — THIS partner's clients, in full. It
+             * once linked to `/clients?type=referral`, and `type` is derived
+             * as "referred by ANY partner", so a menu titled "Actions for
+             * {this partner}" opened a platform-wide list.
              */
-            onSelect: onShowNetwork,
+            onSelect: onShowReferred,
           },
         ]
       : []),

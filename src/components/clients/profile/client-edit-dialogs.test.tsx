@@ -29,6 +29,22 @@ vi.mock('@/lib/api', () => {
   return { api, default: api };
 });
 
+/*
+ * The signed-in admin — the lock notice's link depends on what they hold.
+ * Real keys: `hasPermission` has no wildcard.
+ */
+const session = vi.hoisted(() => ({ permissions: [] as string[] }));
+vi.mock('@/context/AdminAuthContext', () => ({
+  useAdmin: () => ({
+    admin: {
+      id: 'a-1',
+      email: 'desk@oxshare.com',
+      role: 'admin',
+      permissions: session.permissions,
+    },
+  }),
+}));
+
 const PROFILE = {
   id: 'c-1',
   email: 'layla@example.com',
@@ -36,6 +52,7 @@ const PROFILE = {
   lastName: 'Hadad',
   phone: '+9613111222',
   country: 'Lebanon',
+  portalId: 1000142,
   type: 'individual',
   status: 'active',
   verificationLevel: 1,
@@ -46,6 +63,7 @@ const PROFILE = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  session.permissions = ['clients.edit'];
   updateClientProfile.mockResolvedValue({ ...PROFILE });
   changeClientEmail.mockResolvedValue({ ...PROFILE });
   profileOptions.mockResolvedValue({
@@ -73,9 +91,10 @@ describe('EditClientProfileDialog', () => {
 
     // Omitting it would mean "leave it alone"; the empty string is what the API
     // reads as "remove what is there".
-    await user.clear(await screen.findByDisplayValue('+9613111222'));
+    await user.clear(await screen.findByLabelText(/^phone/i));
     await user.click(screen.getByRole('button', { name: /save/i }));
 
+    // The picker keeps its country, but a dial code alone is no number.
     expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '' });
   });
 
@@ -108,9 +127,9 @@ describe('EditClientProfileDialog', () => {
     expect(lastName).toBeDisabled();
 
     // The whole point: another field is still editable and the form still saves.
-    const phone = await screen.findByDisplayValue('+9613111222');
+    const phone = await screen.findByLabelText(/^phone/i);
     await user.clear(phone);
-    await user.type(phone, '+9613999888');
+    await user.type(phone, '3 999 888');
     await user.click(screen.getByRole('button', { name: /save/i }));
 
     /*
@@ -119,7 +138,7 @@ describe('EditClientProfileDialog', () => {
      * than by indexing into `mock.calls`, which is possibly-undefined under
      * the type-checked lint rules and says the same thing less directly.
      */
-    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+9613999888' });
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+961 3 999 888' });
   });
 
   it('cannot be saved when nothing has changed', async () => {
@@ -186,10 +205,10 @@ describe('EditClientProfileDialog — the whole profile (0139)', () => {
     expect(screen.getByText(/from the client’s KYC review/i)).toBeInTheDocument();
 
     // The phone is still the desk's.
-    const phone = screen.getByDisplayValue('+9613111222');
+    const phone = screen.getByLabelText(/^phone/i);
     expect(phone).toBeEnabled();
     await user.clear(phone);
-    await user.type(phone, '+961 71 000 111');
+    await user.type(phone, '71 000 111');
     await user.click(screen.getByRole('button', { name: /save/i }));
     expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+961 71 000 111' });
   });
@@ -210,9 +229,9 @@ describe('EditClientProfileDialog — the whole profile (0139)', () => {
     const user = userEvent.setup();
     renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={PROFILE} />);
 
-    const phone = await screen.findByDisplayValue('+9613111222');
+    const phone = await screen.findByLabelText(/^phone/i);
     await user.clear(phone);
-    await user.type(phone, '+961 70 12');
+    await user.type(phone, '70 12');
     await user.click(screen.getByRole('button', { name: /save/i }));
 
     expect(
@@ -257,10 +276,85 @@ describe('EditClientProfileDialog — the whole profile (0139)', () => {
 
     await screen.findByRole('option', { name: 'Lebanese' });
     expect(screen.getByLabelText(/nationality/i)).toHaveValue('Lebanon');
-    const phone = screen.getByDisplayValue('+9613111222');
+    const phone = screen.getByLabelText(/^phone/i);
     await user.type(phone, '3');
     await user.click(screen.getByRole('button', { name: /save/i }));
-    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+96131112223' });
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+961 3 111 2223' });
+  });
+});
+
+describe('EditClientProfileDialog — the phone picker (owner, 26 Sep 2026)', () => {
+  it('shows a stored number as the portal does: its country, and the number grouped', async () => {
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={PROFILE} />);
+
+    expect(await screen.findByLabelText(/^phone/i)).toHaveValue('3 111 222');
+    expect(screen.getByRole('button', { name: /country code — lebanon/i })).toHaveTextContent(
+      '+961',
+    );
+  });
+
+  it('changes the country, and sends the number under the new code', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={PROFILE} />);
+
+    await user.click(await screen.findByRole('button', { name: /country code — lebanon/i }));
+    await user.type(screen.getByRole('textbox', { name: /search country/i }), 'United Arab');
+    await user.click(screen.getByRole('button', { name: /united arab emirates/i }));
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+971 3 111 222' });
+  });
+});
+
+describe('EditClientProfileDialog — a verified client (owner, 26 Sep 2026)', () => {
+  const APPROVED = {
+    ...PROFILE,
+    dateOfBirth: null,
+    kyc: { status: 'approved', submittedAt: '2026-09-04T00:00:00.000Z' },
+    lockedFields: {
+      firstName:
+        'First name was verified by KYC. Use "Correct details" on the client\'s KYC review, where the change is checked again, recorded with a reason, and the client is told.',
+      dateOfBirth:
+        'Date of birth was verified by KYC. Use "Correct details" on the client\'s KYC review, where the change is checked again, recorded with a reason, and the client is told.',
+    },
+  } as unknown as ClientProfile;
+
+  it('says it once, with a short label under each field — not the paragraph eight times', async () => {
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={APPROVED} />);
+
+    expect(await screen.findByText(/belong to the client’s approved verification/i)).toBeVisible();
+    expect(screen.getAllByText('Verified by KYC')).toHaveLength(2);
+    // The server's own sentence is still there for a screen reader, on the field.
+    expect(screen.getByLabelText(/^first name/i)).toHaveAccessibleDescription(
+      /First name was verified by KYC/,
+    );
+  });
+
+  it('links straight to "Correct details" for a reviewer who may correct', async () => {
+    session.permissions = ['clients.edit', 'kyc.review', 'kyc.identity.correct'];
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={APPROVED} />);
+
+    expect(
+      await screen.findByRole('link', { name: /correct verified details on the kyc review/i }),
+    ).toHaveAttribute('href', '/kyc/1000142?correct=1');
+  });
+
+  it('offers the KYC review, not the correction, to a reviewer who may not correct', async () => {
+    session.permissions = ['clients.edit', 'kyc.review'];
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={APPROVED} />);
+
+    expect(await screen.findByRole('link', { name: /open the kyc review/i })).toHaveAttribute(
+      'href',
+      '/kyc/1000142',
+    );
+    expect(screen.queryByRole('link', { name: /correct verified details/i })).toBeNull();
+  });
+
+  it('offers no link at all to a desk that holds neither', async () => {
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={APPROVED} />);
+
+    await screen.findByText(/approved verification/i);
+    expect(screen.queryByRole('link')).toBeNull();
   });
 });
 

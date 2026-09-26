@@ -7,6 +7,10 @@ import api from '@/lib/api';
 import type { ClientProfile } from '@/lib/api/admin';
 import { apiFieldErrors } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
+import { PermittedLink } from '@/components/permitted-link';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { isMasked } from '@/lib/masking';
 import { PROFILE_FIELD_KEYS, type ProfileKey } from '@/lib/profile';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -22,7 +26,7 @@ const FIELDS: Readonly<
     ProfileKey,
     {
       label: MessageKey;
-      kind: 'text' | 'date' | 'select';
+      kind: 'text' | 'date' | 'select' | 'phone';
       maxLength?: number;
       hint?: MessageKey;
       /** Required on the server: a name can be corrected, never cleared. */
@@ -40,12 +44,8 @@ const FIELDS: Readonly<
   lastName: { label: 'clientProfile.fieldLastName', kind: 'text', maxLength: 100, required: true },
   dateOfBirth: { label: 'clientProfile.fieldDateOfBirth', kind: 'date' },
   nationality: { label: 'clientProfile.fieldNationality', kind: 'select' },
-  phone: {
-    label: 'clientProfile.fieldPhone',
-    kind: 'text',
-    maxLength: 32,
-    hint: 'clientProfile.fieldPhoneHint',
-  },
+  // The portal's own picker — country, dial code, number (owner, 26 Sep 2026).
+  phone: { label: 'clientProfile.fieldPhone', kind: 'phone' },
   country: { label: 'clientProfile.fieldCountry', kind: 'select' },
   address: { label: 'clientProfile.fieldAddress', kind: 'text', maxLength: 200, wide: true },
   city: { label: 'clientProfile.fieldCity', kind: 'text', maxLength: 100 },
@@ -89,6 +89,7 @@ export function ClientProfileForm({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { admin } = useAdmin();
   const initial = React.useMemo(() => startingValues(profile), [profile]);
   const [values, setValues] = React.useState(initial);
   const options = useResource(keys.profileOptions.all(), (signal) =>
@@ -107,6 +108,18 @@ export function ClientProfileForm({
   ) as Partial<Record<ProfileKey, string>>;
   const hasChanges = Object.keys(changed).length > 0;
   const anyLocked = PROFILE_FIELD_KEYS.some((key) => Boolean(locked(key)));
+  /*
+   * Where the verification stands, for the short label under a locked field.
+   * Absent for a reader without kyc.view — then the label is the generic one
+   * and the server's sentence still says why.
+   */
+  const verification = profile.kyc?.status;
+  const lockedLabel =
+    verification === 'approved'
+      ? t('clientProfile.lockedVerified')
+      : verification === 'pending' || verification === 'in_review'
+        ? t('clientProfile.lockedInReview')
+        : t('clientProfile.lockedShort');
 
   const save = useMutation({
     mutationFn: () => api.admin.updateClientProfile(profile.id, changed),
@@ -137,10 +150,43 @@ export function ClientProfileForm({
         {t('clientProfile.editProfileBody')}
       </p>
       {anyLocked && (
-        <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+        /*
+         * ONE statement of the lock, with the way past it (owner, 26 Sep 2026).
+         *
+         * The server's sentence used to repeat under every locked field — eight
+         * copies of the same paragraph on an approved client — and none of them
+         * was a link, so "use Correct details on the KYC review" left the
+         * operator to find it. The action is here now; under each field is a
+         * short label, with the server's full sentence kept for screen readers
+         * and on hover.
+         */
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
           <Lock className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          {t('clientProfile.lockedNotice')}
-        </p>
+          <div className="space-y-1.5">
+            <p>
+              {verification === 'approved'
+                ? t('clientProfile.lockedNoticeApproved')
+                : verification === 'pending' || verification === 'in_review'
+                  ? t('clientProfile.lockedNoticeInReview')
+                  : t('clientProfile.lockedNotice')}
+            </p>
+            {verification === 'approved' && hasPermission(admin, 'kyc.identity.correct') ? (
+              <PermittedLink
+                href={`/kyc/${profile.portalId}?correct=1`}
+                className="inline-block font-semibold text-link hover:underline focus-outline"
+              >
+                {t('clientProfile.lockedCorrectAction')}
+              </PermittedLink>
+            ) : hasPermission(admin, 'kyc.review') ? (
+              <PermittedLink
+                href={`/kyc/${profile.portalId}`}
+                className="inline-block font-semibold text-link hover:underline focus-outline"
+              >
+                {t('clientProfile.openKycReview')}
+              </PermittedLink>
+            ) : null}
+          </div>
+        </div>
       )}
       {hasFieldErrors && (
         <p className="text-xs font-semibold text-destructive" role="alert">
@@ -176,7 +222,18 @@ export function ClientProfileForm({
               <label htmlFor={`profile-${key}`} className="text-xs font-semibold text-foreground">
                 {t(spec.label)}
               </label>
-              {spec.kind === 'select' ? (
+              {spec.kind === 'phone' ? (
+                <PhoneInput
+                  id={control.id}
+                  value={value}
+                  /* The picker emits the dial code alone while no number is
+                     typed; that is an empty phone, not a phone of "+961". */
+                  onChange={(next) => set(next.includes(' ') ? next : '')}
+                  disabled={control.disabled}
+                  aria-invalid={control['aria-invalid']}
+                  aria-describedby={control['aria-describedby']}
+                />
+              ) : spec.kind === 'select' ? (
                 <select
                   {...control}
                   value={value}
@@ -222,10 +279,12 @@ export function ClientProfileForm({
               {reason && (
                 <span
                   id={`${key}-locked`}
-                  className="flex items-start gap-1 text-[11px] text-muted-foreground"
+                  title={reason}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground"
                 >
-                  <Lock className="mt-px h-3 w-3 shrink-0" aria-hidden="true" />
-                  {reason}
+                  <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <span aria-hidden="true">{lockedLabel}</span>
+                  <span className="sr-only">{reason}</span>
                 </span>
               )}
               {spec.hint && !error && editable(key) && (

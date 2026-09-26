@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/render';
 import { ClientNetworkTree } from './client-network-tree';
-import type { ClientProfile } from '@/lib/api/admin';
+import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
 import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
@@ -206,5 +206,37 @@ describe('referrals outside the reader’s territory', () => {
     });
     const notice = screen.getByText(/outside your territory/i);
     expect(notice.textContent).not.toMatch(/@/);
+  });
+});
+
+describe('one row per person (owner, 26 Sep 2026)', () => {
+  it('draws a client who is also a sub-partner once — as the partner', () => {
+    /*
+     * Reported: Cyrine was introduced by Bassam AND placed under him as a
+     * partner, and the tree listed her twice — a leaf and a branch.
+     */
+    const clients = someClients(2);
+    const partner = {
+      level: 2,
+      directPartners: [
+        {
+          userId: 'client-1',
+          portalId: 1000101,
+          firstName: 'Ada',
+          lastName: 'Number1',
+          email: 'ada1@example.com',
+          level: 3,
+          active: true,
+          referralCode: 'SUBCODE1',
+        },
+      ],
+    } as unknown as IbPartnerDetail;
+
+    renderTree({ referredClients: clients, partner });
+
+    expect(screen.getAllByText('Ada Number1')).toHaveLength(1);
+    // …as the expandable partner node, not the leaf.
+    expect(screen.getByRole('button', { name: /Ada Number1/ })).toBeInTheDocument();
+    expect(screen.getByText('Ada Number0')).toBeInTheDocument();
   });
 });

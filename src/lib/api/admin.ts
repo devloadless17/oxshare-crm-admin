@@ -844,6 +844,8 @@ export interface TradingAccountListParams {
   limit: number;
   page?: number;
   userId?: string;
+  /** Accounts of every client this partner introduced — their Portal ID or uuid. */
+  referredBy?: string;
   /** Free text over the owner's email and name — see `WalletListParams.q`. */
   q?: string;
   environment?: TradingAccountEnvironment;
@@ -857,6 +859,7 @@ export function tradingAccountListSearchParams(params: TradingAccountListParams)
   const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
   if (params.page !== undefined) query.set('page', String(params.page));
   if (params.userId) query.set('userId', params.userId);
+  if (params.referredBy) query.set('referredBy', params.referredBy);
   if (params.q) query.set('q', params.q);
   if (params.environment) query.set('environment', params.environment);
   if (params.status) query.set('status', params.status);

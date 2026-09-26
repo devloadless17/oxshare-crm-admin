@@ -4,7 +4,18 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, ArrowLeft, FileText, Handshake, History, User, Wallet } from 'lucide-react';
+import {
+  Activity,
+  ArrowLeft,
+  CandlestickChart,
+  FileText,
+  Handshake,
+  History,
+  Network,
+  User,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -34,10 +45,7 @@ import {
   RecordReferrerDialog,
   refusalMessage,
 } from '@/components/clients/profile/record-referrer-dialog';
-import {
-  ChangeLevelDialog,
-  ReassignParentDialog,
-} from '@/components/clients/profile/client-partner-dialogs';
+import { ReferredTabPanels } from '@/components/clients/profile/client-referred-panels';
 import {
   ClientNotFound,
   EmptySection,
@@ -53,6 +61,7 @@ import { PermittedLink } from '@/components/permitted-link';
 import { keys } from '@/lib/query-keys';
 import { isMasked } from '@/lib/masking';
 import { formatDateOfBirth } from '@/lib/profile';
+import { formatPhone } from '@/components/ui/phone-input';
 
 /**
  * FR-ADM-01's full client profile.
@@ -89,6 +98,9 @@ const TAB_PARTNER = 'partner';
 const TAB_POSITIONS = 'positions';
 const TAB_HISTORY = 'history';
 const TAB_NETWORK = 'network';
+// A partner's book in full (owner, 26 Sep 2026) — only for a partner, like the Partner tab.
+const TAB_REFERRED_CLIENTS = 'referred-clients';
+const TAB_REFERRED_ACCOUNTS = 'referred-accounts';
 
 export default function ClientProfilePage() {
   const params = useParams<{ id: string }>();
@@ -109,12 +121,11 @@ export default function ClientProfilePage() {
    */
   const canRecordReferrer = hasPermission(admin, 'clients.referrer.set');
   const canViewWallets = hasPermission(admin, 'wallets.view');
+  const canViewClients = hasPermission(admin, 'clients.view');
   const canAssignTags = hasPermission(admin, 'clients.tag');
 
   const [tab, setTab] = React.useState(TAB_OVERVIEW);
   const [tagsOpen, setTagsOpen] = React.useState(false);
-  const [programOpen, setProgramOpen] = React.useState(false);
-  const [parentOpen, setParentOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [emailOpen, setEmailOpen] = React.useState(false);
   const [showRecordReferrer, setShowRecordReferrer] = React.useState(false);
@@ -274,7 +285,7 @@ export default function ClientProfilePage() {
           },
         ]
       : []),
-    // Only for a client who IS a partner — see the header note.
+    // Only for a client who IS a partner — see the header note — and their book.
     ...(partner
       ? [
           {
@@ -282,12 +293,30 @@ export default function ClientProfilePage() {
             label: t('clientProfile.tabPartner'),
             icon: <Handshake className="h-3.5 w-3.5" />,
           },
+          ...(canViewClients
+            ? [
+                {
+                  value: TAB_REFERRED_CLIENTS,
+                  label: t('clientProfile.tabReferredClients'),
+                  icon: <Users className="h-3.5 w-3.5" />,
+                },
+              ]
+            : []),
+          ...(canViewTrading
+            ? [
+                {
+                  value: TAB_REFERRED_ACCOUNTS,
+                  label: t('clientProfile.tabReferredAccounts'),
+                  icon: <CandlestickChart className="h-3.5 w-3.5" />,
+                },
+              ]
+            : []),
         ]
       : []),
     {
       value: TAB_NETWORK,
       label: t('clientProfile.tabNetwork'),
-      icon: <Handshake className="h-3.5 w-3.5" />,
+      icon: <Network className="h-3.5 w-3.5" />,
     },
   ];
 
@@ -382,25 +411,12 @@ export default function ClientProfilePage() {
                   profile={profile}
                   partner={partner}
                   onManageTags={() => setTagsOpen(true)}
-                  onChangeProgram={() => setProgramOpen(true)}
-                  onReassignParent={() => setParentOpen(true)}
                   onEditProfile={() => setEditOpen(true)}
                   onChangeEmail={() => setEmailOpen(true)}
-                  /*
-                   * Tab moves, not links. `TabPanel` unmounts what is not
-                   * active, so the documents anchor exists only while Overview
-                   * is selected — the scroll is deferred a frame so the panel
-                   * has mounted before it looks for the target.
-                   */
-                  onShowDocuments={() => {
-                    setTab(TAB_OVERVIEW);
-                    requestAnimationFrame(() =>
-                      document
-                        .getElementById('documents')
-                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-                    );
-                  }}
-                  onShowNetwork={() => setTab(TAB_NETWORK)}
+                  // A tab move, not a link — the menu sits above every tab.
+                  onShowReferred={
+                    partner && canViewClients ? () => setTab(TAB_REFERRED_CLIENTS) : undefined
+                  }
                 />
               </div>
             </header>
@@ -435,7 +451,10 @@ export default function ClientProfilePage() {
                       label={t('clientProfile.fieldPhone')}
                       field="client.phone"
                       profile={profile}
-                    />
+                    >
+                      {/* Grouped for reading — `+961 70 123 456`, not an unbroken run. */}
+                      {formatPhone(profile.phone) || '—'}
+                    </Field>
                     {/* The rest of the ONE profile (0139) — the same record the
                         client's KYC form shows them. One row per field, so each
                         is masked on its own key. */}
@@ -622,6 +641,15 @@ export default function ClientProfilePage() {
                   <ClientPartnerPanel detail={partner} />
                 </AsyncBoundary>
               </TabPanel>
+            )}
+
+            {partner && (
+              <ReferredTabPanels
+                activeTab={tab}
+                partnerPortalId={profile.portalId}
+                clients={canViewClients ? TAB_REFERRED_CLIENTS : undefined}
+                accounts={canViewTrading ? TAB_REFERRED_ACCOUNTS : undefined}
+              />
             )}
 
             {canViewTrading && (
@@ -821,23 +849,6 @@ export default function ClientProfilePage() {
                 onCancel={() => !referrerLoading && setShowRecordReferrer(false)}
                 onConfirm={recordReferrer}
               />
-            )}
-
-            {partner && (
-              <>
-                <ChangeLevelDialog
-                  open={programOpen}
-                  onClose={() => setProgramOpen(false)}
-                  partner={partner}
-                  name={displayName}
-                />
-                <ReassignParentDialog
-                  open={parentOpen}
-                  onClose={() => setParentOpen(false)}
-                  partner={partner}
-                  name={displayName}
-                />
-              </>
             )}
           </div>
         )}

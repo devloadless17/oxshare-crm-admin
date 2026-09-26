@@ -8414,6 +8414,8 @@ export interface components {
             amount: string;
             currency: string;
             methodKey: string | null;
+            /** @description The payment or payout method’s display name. Null for money that went through no method — a manual credit (`provider` = manual_admin) — which a screen names from `provider`. */
+            methodName: string | null;
             provider: string | null;
             providerRef: string | null;
             /** Format: date-time */
@@ -11437,6 +11439,8 @@ export interface operations {
             query?: {
                 /** @description Accounts of one client. */
                 userId?: string;
+                /** @description Accounts of every client this partner introduced, by the partner’s Portal ID (users.referred_by_ib_user_id). Scoped like every other filter. */
+                referredBy?: string;
                 /** @description A number matches the MT5 login OR the owner’s Portal ID — both exact, because an operator holding one cannot tell which it is. Anything else searches the OWNER by email or name — the identifiers the Owner column displays. */
                 q?: string;
                 environment?: "live" | "demo";

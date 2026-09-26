@@ -3,7 +3,11 @@
 import * as React from 'react';
 import { History, Receipt } from 'lucide-react';
 import api from '@/lib/api';
-import type { ClientClosedPositionRow, ClientTransactionRow } from '@/lib/api/admin';
+import {
+  MANUAL_ADMIN_PROVIDER,
+  type ClientClosedPositionRow,
+  type ClientTransactionRow,
+} from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
@@ -185,6 +189,37 @@ export function ClientClosedPositionsPanel({ userId }: { userId: string }) {
   );
 }
 
+/**
+ * What a movement went through, in words (owner, 26 Sep 2026).
+ *
+ * This printed `methodKey ?? provider` — `manual_admin`, `whish` — machine
+ * keys nobody on the desk should have to read. The server now sends the
+ * method's display name for a deposit or a withdrawal that went through one;
+ * money that went through NO method is named from its provider, the one set of
+ * values a screen may recognise (see MANUAL_ADMIN_PROVIDER). Anything else is
+ * the provider made readable, never a blank: an unknown source is still a
+ * source.
+ */
+export function transactionMethodLabel(
+  row: Pick<ClientTransactionRow, 'methodName' | 'methodKey' | 'provider'>,
+): string {
+  if (row.methodName) return row.methodName;
+  switch (row.provider) {
+    case MANUAL_ADMIN_PROVIDER:
+      return t('financial.methodManualCredit');
+    case 'transfer':
+      return t('clientProfile.txMethodTransfer');
+    case 'commission':
+      return t('clientProfile.txMethodCommission');
+    default: {
+      const raw = row.provider ?? row.methodKey;
+      if (!raw) return '—';
+      const words = raw.replace(/[_-]+/g, ' ').trim();
+      return words.charAt(0).toUpperCase() + words.slice(1);
+    }
+  }
+}
+
 export function ClientTransactionsPanel({ userId }: { userId: string }) {
   const [page, setPage] = React.useState(1);
 
@@ -249,8 +284,9 @@ export function ClientTransactionsPanel({ userId }: { userId: string }) {
     {
       header: t('clientProfile.txMethod'),
       cell: (row) => (
-        <span className="text-xs text-muted-foreground">
-          {row.methodKey ?? row.provider ?? '—'}
+        // The raw provider stays on hover, for whoever is tracing the row.
+        <span className="text-xs text-muted-foreground" title={row.provider ?? undefined}>
+          {transactionMethodLabel(row)}
         </span>
       ),
     },
