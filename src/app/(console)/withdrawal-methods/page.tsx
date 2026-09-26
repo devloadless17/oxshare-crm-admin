@@ -60,7 +60,6 @@ export default function WithdrawalMethodsPage() {
         name: values.name,
         logoUrl: values.logoUrl === '' ? undefined : values.logoUrl,
         enabled: values.enabled,
-        sortOrder: values.sortOrder,
       };
       return editing
         ? api.admin.updateWithdrawalMethod(editing.key, body)
@@ -125,12 +124,6 @@ export default function WithdrawalMethodsPage() {
           <span>{m.name}</span>
         </div>
       ),
-    },
-    {
-      header: t('withdrawalMethods.colOrder'),
-      cell: (m) => m.sortOrder,
-      cellClassName: 'tabular text-muted-foreground',
-      align: 'right',
     },
     {
       header: t('withdrawalMethods.colStatus'),

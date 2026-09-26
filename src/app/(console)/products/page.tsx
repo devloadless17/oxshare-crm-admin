@@ -175,7 +175,6 @@ export default function ProductsPage() {
       adminApi.updateProduct(product.id, {
         name: product.name,
         description: product.description,
-        sortOrder: product.sortOrder,
         enabled: !product.enabled,
       }),
     onSuccess: async (_data, product) => {
@@ -328,15 +327,6 @@ export default function ProductsPage() {
           </span>
         );
       },
-    },
-    {
-      header: t('products.colOrder'),
-      cell: (product) => product.sortOrder,
-      cellClassName: 'tabular text-muted-foreground',
-      align: 'right',
-      sortable: true,
-      sortKey: 'sortOrder',
-      sortType: 'number',
     },
     actionsColumn<Product>((product) => (
       <RowActions

@@ -76,13 +76,11 @@ export default function LeveragesPage() {
         ? api.admin.updateLeverage(editing.ratio, {
             label: values.label || undefined,
             enabled: values.enabled,
-            sortOrder: values.sortOrder,
           })
         : api.admin.createLeverage({
             ratio: values.ratio,
             label: values.label || undefined,
             enabled: values.enabled,
-            ...(values.sortOrder ? { sortOrder: values.sortOrder } : {}),
           }),
     onSuccess: async () => {
       await invalidate();
@@ -168,11 +166,6 @@ export default function LeveragesPage() {
            */
           <Badge variant="warning">{t('leverages.statusWithdrawn')}</Badge>
         ),
-    },
-    {
-      header: t('leverages.colOrder'),
-      align: 'right',
-      cell: (row) => <span className="tabular text-xs text-muted-foreground">{row.sortOrder}</span>,
     },
     ...(canManage
       ? [
@@ -278,7 +271,6 @@ export default function LeveragesPage() {
                 ratio: editing.ratio,
                 label: editing.label ?? '',
                 enabled: editing.enabled,
-                sortOrder: editing.sortOrder,
               }
             : null
         }

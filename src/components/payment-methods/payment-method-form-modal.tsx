@@ -28,7 +28,6 @@ export interface PaymentMethodFormValues {
   currency: string;
   logoUrl: string;
   enabled: boolean;
-  sortOrder: number;
   /** OFFLINE: the client pays outside the platform and uploads a receipt. */
   requiresProof: boolean;
 }
@@ -128,16 +127,6 @@ function PaymentMethodForm({
   // A new method starts enabled; changing it is the row action, not this form.
   const enabled = method?.enabled ?? true;
 
-  /*
-   * `sortOrder` is not asked for, but IS sent, carrying whatever the method
-   * already held.
-   *
-   * It is the presentation order the client's deposit screen is sorted by —
-   * real, but not a decision worth a field. Dropping it from the payload would
-   * blank an existing method's value on the next edit, which is a destructive
-   * side effect of opening a dialog and pressing Save.
-   */
-  const sortOrder = method?.sortOrder ?? 0;
   const [requiresProof, setRequiresProof] = React.useState(method?.requiresProof ?? false);
   const fieldId = React.useId();
 
@@ -149,7 +138,6 @@ function PaymentMethodForm({
       currency,
       logoUrl: logoUrl.trim(),
       enabled,
-      sortOrder,
       requiresProof,
     });
   };

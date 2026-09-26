@@ -13,7 +13,6 @@ export interface AgencyFormValues {
   name: string;
   description: string | null;
   enabled: boolean;
-  sortOrder: number;
   /** The complete set the operator wants. The caller diffs it against the row. */
   productIds: string[];
 }
@@ -108,16 +107,6 @@ function AgencyForm({
    * silently reopen it to applications.
    */
   const enabled = agency?.enabled ?? true;
-  /*
-   * NOT an input any more, and still sent.
-   *
-   * `sortOrder` decides the order applicants see the programmes in, and the
-   * column keeps working — it is simply not worth a field on a screen that
-   * holds a handful of agencies, where name order is as good an answer. Carried
-   * through untouched rather than dropped to 0, which would silently reshuffle
-   * a list somebody had arranged.
-   */
-  const sortOrder = agency?.sortOrder ?? 0;
   const [productIds, setProductIds] = React.useState<string[]>(agency?.productIds ?? []);
 
   const toggleProduct = (id: string) =>
@@ -131,7 +120,6 @@ function AgencyForm({
       name: name.trim(),
       description: description.trim() || null,
       enabled,
-      sortOrder,
       productIds,
     });
   };

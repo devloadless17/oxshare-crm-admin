@@ -13,7 +13,6 @@ export interface CurrencyFormValues {
   decimals: number;
   enabled: boolean;
   isDefault: boolean;
-  sortOrder: number;
 }
 
 /**
@@ -102,7 +101,6 @@ function CurrencyForm({
   const [decimals, setDecimals] = React.useState(currency?.decimals ?? 2);
   const [enabled, setEnabled] = React.useState(currency?.enabled ?? true);
   const [isDefault, setIsDefault] = React.useState(currency?.isDefault ?? false);
-  const [sortOrder, setSortOrder] = React.useState(currency?.sortOrder ?? 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +113,6 @@ function CurrencyForm({
       decimals,
       enabled,
       isDefault,
-      sortOrder,
     });
   };
 
@@ -173,36 +170,20 @@ function CurrencyForm({
         />
       </label>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">{t('currencies.decimals')}</span>
-          <input
-            type="number"
-            min={0}
-            max={8}
-            value={decimals}
-            onChange={(e) => setDecimals(Number(e.target.value))}
-            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
-          />
-          <span className="block text-[11px] text-muted-foreground">
-            {t('currencies.decimalsHint')}
-          </span>
-        </label>
-
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">{t('currencies.order')}</span>
-          <input
-            type="number"
-            min={0}
-            value={sortOrder}
-            onChange={(e) => setSortOrder(Number(e.target.value))}
-            className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
-          />
-          <span className="block text-[11px] text-muted-foreground">
-            {t('currencies.orderHint')}
-          </span>
-        </label>
-      </div>
+      <label className="block space-y-1.5">
+        <span className="text-xs font-semibold text-foreground">{t('currencies.decimals')}</span>
+        <input
+          type="number"
+          min={0}
+          max={8}
+          value={decimals}
+          onChange={(e) => setDecimals(Number(e.target.value))}
+          className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
+        />
+        <span className="block text-[11px] text-muted-foreground">
+          {t('currencies.decimalsHint')}
+        </span>
+      </label>
 
       <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
         {/* `htmlFor` rather than wrapping: the Radix checkbox is a button, and

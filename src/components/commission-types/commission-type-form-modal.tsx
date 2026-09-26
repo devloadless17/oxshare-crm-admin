@@ -21,7 +21,6 @@ export interface CommissionTypeFormValues {
   commissionPerLot: string;
   rebatePerLot: string;
   enabled: boolean;
-  sortOrder: number;
 }
 
 /**
@@ -106,7 +105,6 @@ function CommissionTypeForm({
    * cannot silently put it back into service.
    */
   const enabled = type?.enabled ?? true;
-  const sortOrder = type?.sortOrder ?? 0;
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -116,7 +114,6 @@ function CommissionTypeForm({
       commissionPerLot: commissionPerLot.trim() === '' ? '0' : commissionPerLot.trim(),
       rebatePerLot: rebatePerLot.trim() === '' ? '0' : rebatePerLot.trim(),
       enabled,
-      sortOrder,
     });
   };
 

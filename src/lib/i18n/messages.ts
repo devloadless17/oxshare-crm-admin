@@ -350,7 +350,6 @@ export const messages = {
   'withdrawalMethods.readOnly': 'You do not have permission to change these.',
   'withdrawalMethods.colKey': 'Key',
   'withdrawalMethods.colName': 'Name',
-  'withdrawalMethods.colOrder': 'Order',
   'withdrawalMethods.colStatus': 'Status',
   'withdrawalMethods.colActions': 'Actions',
   'withdrawalMethods.statusEnabled': 'Enabled',
@@ -365,8 +364,6 @@ export const messages = {
     'A permanent identifier — letters, digits and underscores. It cannot be changed later.',
   'withdrawalMethods.name': 'Name',
   'withdrawalMethods.namePlaceholder': 'Bank transfer',
-  'withdrawalMethods.order': 'Order',
-  'withdrawalMethods.orderHint': 'Lower numbers are listed first on the withdraw form.',
   'withdrawalMethods.enabled': 'Offer it to clients',
   'withdrawalMethods.save': 'Save',
   'withdrawalMethods.cancel': 'Cancel',
@@ -1738,9 +1735,6 @@ export const messages = {
   'products.saving': 'Saving...',
   // Says what the number DOES to the rest of the list, because it now moves
   // them. "Lower comes first" described a sort key; this describes an insert.
-  'products.orderHint':
-    'Where it sits in the client’s list. Taking a position pushes the products below it down.',
-  'products.orderPlaceholder': 'Last',
   // The rate card this product pays partners on (0140). The spread markup
   // that stood here drove nothing and is gone.
   'products.commissionType': 'Commission type',
@@ -1766,7 +1760,6 @@ export const messages = {
   'products.colDescription': 'Description',
   'products.colGroups': 'Groups',
   'products.colCurrencies': 'Currencies',
-  'products.colOrder': 'Order',
   'products.colCommissionType': 'Commission type',
   'products.colStatus': 'Status',
   'products.statusActive': 'Active',
@@ -1787,7 +1780,6 @@ export const messages = {
   'products.deleteFailed': 'Could not delete that product.',
   'products.disabled': 'Inactive',
   'products.name': 'Name',
-  'products.order': 'Order',
   'products.description': 'Description',
   'products.descriptionPlaceholder': 'Shown to clients choosing an account type.',
   'products.save': 'Save',
@@ -2839,7 +2831,6 @@ export const messages = {
   'leverages.colRatio': 'Leverage',
   'leverages.colLabel': 'Label',
   'leverages.colStatus': 'Status',
-  'leverages.colOrder': 'Order',
   'leverages.colActions': 'Actions',
   'leverages.labelDefault': 'Shown as 1:{ratio}',
   'leverages.actionsFor': 'Actions for 1:{ratio}',
@@ -2871,9 +2862,6 @@ export const messages = {
     'Fixed once created: accounts opened at this leverage carry the number.',
   'leverages.fieldLabel': 'Label (optional)',
   'leverages.fieldLabelHint': 'What the client reads. Left blank, they see 1:<leverage>.',
-  'leverages.fieldSortOrder': 'Order (optional)',
-  'leverages.fieldSortOrderPlaceholder': 'Appended to the end',
-  'leverages.fieldSortOrderHint': 'Lower comes first. Numbered in tens so one fits between.',
   'leverages.fieldEnabled': 'Offer this leverage to clients',
   'leverages.fieldEnabledHint':
     'Unticked, it is withdrawn: off the account-opening menu, with existing accounts unaffected.',
@@ -2899,7 +2887,6 @@ export const messages = {
   'externalLinks.colDescription': 'Description',
   'externalLinks.colUrl': 'Link',
   'externalLinks.colStatus': 'Status',
-  'externalLinks.colOrder': 'Order',
   'externalLinks.colActions': 'Actions',
   'externalLinks.noDescription': 'No description',
   'externalLinks.actionsFor': 'Actions for {title}',
@@ -2943,11 +2930,6 @@ export const messages = {
    * never showed them. Adding now defaults to the last slot, which is the same
    * outcome, said out loud.
    */
-  'externalLinks.fieldSortOrder': 'Position in the sidebar',
-  'externalLinks.orderFirst': '{position} — first',
-  'externalLinks.orderLast': '{position} — last',
-  'externalLinks.fieldSortOrderHint':
-    'Where this link sits in the client’s menu. The links below it move down to make room.',
   'externalLinks.fieldEnabled': 'Show this link to clients',
   'externalLinks.fieldEnabledHint':
     'Unticked, it is off the client sidebar and still on this screen, with its title, description and position kept.',
@@ -2971,7 +2953,6 @@ export const messages = {
   'currencies.colName': 'Name',
   'currencies.colSymbol': 'Symbol',
   'currencies.colDecimals': 'Decimals',
-  'currencies.colOrder': 'Order',
   'currencies.colStatus': 'Status',
   'currencies.colActions': 'Actions',
   'currencies.statusEnabled': 'Enabled',
@@ -3003,8 +2984,6 @@ export const messages = {
   'currencies.symbol': 'Symbol',
   'currencies.decimals': 'Display decimals',
   'currencies.decimalsHint': 'How balances are shown. Storage is always 8 decimal places.',
-  'currencies.order': 'Sort order',
-  'currencies.orderHint': 'Lower numbers appear first, in the portal as well as here.',
   'currencies.enabled': 'Enabled',
   'currencies.enabledHint':
     'Clients can open wallets and deposit in this currency. Disabling never touches existing balances.',

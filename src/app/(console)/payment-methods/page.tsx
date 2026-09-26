@@ -53,16 +53,14 @@ export default function PaymentMethodsPage() {
        * on the wire and the API treats absent and empty differently — `''` would
        * store an empty string where "no logo" means null.
        *
-       * `sortOrder` is carried through rather than asked for: it is not on the
-       * form, but dropping it from the payload would blank an existing method's
-       * presentation order on the next edit.
+       * No `sortOrder` (owner, 26 Sep 2026): the API puts a new method last and
+       * leaves an edited one where it is.
        */
       const body = {
         name: values.name,
         currency: values.currency,
         logoUrl: values.logoUrl === '' ? undefined : values.logoUrl,
         enabled: values.enabled,
-        sortOrder: values.sortOrder,
         /*
          * ⚠️ EVERY FIELD ON THE FORM MUST BE LISTED HERE, and nothing checks it.
          *
