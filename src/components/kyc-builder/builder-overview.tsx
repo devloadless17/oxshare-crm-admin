@@ -80,13 +80,14 @@ export function BuilderOverview({
           <ol className="space-y-2">
             {steps.map((step, index) => (
               <SortableRow
+                as="li"
                 key={step.id}
                 id={step.id}
                 disabled={pinned(step)}
                 disabledReason={t('builder.personalFirst')}
                 handleLabel={t('builder.reorderStep', { title: step.title })}
               >
-                <li
+                <div
                   className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 ${
                     step.enabled ? 'border-border bg-card' : 'border-border/50 bg-muted/20'
                   }`}
@@ -148,7 +149,7 @@ export function BuilderOverview({
                       {t('builder.openStep')}
                     </Button>
                   </div>
-                </li>
+                </div>
               </SortableRow>
             ))}
           </ol>

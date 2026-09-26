@@ -50,6 +50,7 @@ import { cn } from '@/lib/utils';
 
 /** One draggable row. `children` renders the row's own content. */
 export function SortableRow({
+  as: Element = 'div',
   id,
   disabled,
   handleLabel,
@@ -57,6 +58,12 @@ export function SortableRow({
   className,
   children,
 }: {
+  /**
+   * `li` when the rows ARE a list's items: an `<ol>` may hold only `<li>`
+   * directly, so a row wrapped around an `<li>` broke the list for screen
+   * readers (axe, 26 Sep 2026).
+   */
+  as?: 'div' | 'li';
   id: string;
   /**
    * Renders the handle INERT rather than absent, so a row that cannot be
@@ -85,7 +92,7 @@ export function SortableRow({
   } = useSortable({ id, disabled });
 
   return (
-    <div
+    <Element
       ref={setNodeRef}
       style={{
         // `CSS.Transform.toString` emits a translate3d, so the row moves on the
@@ -121,7 +128,7 @@ export function SortableRow({
         </button>
         <div className="min-w-0 flex-1">{children}</div>
       </div>
-    </div>
+    </Element>
   );
 }
 

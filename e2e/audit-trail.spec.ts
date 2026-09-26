@@ -38,7 +38,10 @@ test('actions land in order, attributed, and the action filter narrows on the se
     });
 
     await test.step('the log answers newest FIRST, each row owned by its actor', async () => {
-      const res = await admin.get('/admin/audit-log?limit=10');
+      // The newest 100, not 10: other writes in a long run can push the tag's
+      // first row past the tenth (a cross-host run saw two of three). The rows
+      // are filtered to this tag below either way.
+      const res = await admin.get('/admin/audit-log?limit=100');
       expect(res.ok()).toBe(true);
       const { items } = (await res.json()) as { items: AuditEntry[] };
       const ours = items.filter((e) => e.subjectId === tagId);
