@@ -92,9 +92,18 @@ export default function ProductsPage() {
    * leaves the product saved and the rest of its groups attached, which is why
    * the failure is reported with the group named rather than as "save failed".
    *
-   * Detaching happens BEFORE attaching, deliberately. A group may back only one
-   * product, so moving one between products in a single edit only works if the
-   * old claim is released first.
+   * Detaching happens BEFORE attaching, deliberately. A product holds one group
+   * per currency, so swapping its USD group for another in one edit only works
+   * if the old one is released first.
+   *
+   * ## Reconciled against the SERVER's groups, never the ones the form opened with
+   *
+   * The create/update answer carries the product's groups as the database has
+   * them right now, and that is what the wanted list is compared with. The form's
+   * opening copy goes stale the moment a save half-succeeds: a detach that went
+   * through before an attach was refused would be detached AGAIN on the retry,
+   * and the retry would fail with "That group is not attached" every time until
+   * the dialog was closed.
    */
   const saveProduct = useMutation({
     mutationFn: async (values: ProductFormValues) => {
@@ -116,17 +125,20 @@ export default function ProductsPage() {
         ? await adminApi.updateProduct(editing.id, withoutType)
         : await adminApi.createProduct(product);
 
-      const before = editing?.groups ?? [];
-      const wanted = new Set(wantedGroups.map((group) => group.mt5Group));
+      // MT5 group paths match case-insensitively, as they do on the server.
+      const key = (mt5Group: string) => mt5Group.toLowerCase();
+      const current = saved.groups;
+      const wanted = new Set(wantedGroups.map((group) => key(group.mt5Group)));
+      const present = new Set(current.map((group) => key(group.mt5Group)));
 
-      for (const group of before) {
-        if (!wanted.has(group.mt5Group)) {
+      for (const group of current) {
+        if (!wanted.has(key(group.mt5Group))) {
           await adminApi.detachProductGroup(saved.id, group.id);
         }
       }
 
       for (const group of wantedGroups) {
-        if (group.id !== undefined) continue;
+        if (present.has(key(group.mt5Group))) continue;
         await adminApi.attachProductGroup(saved.id, {
           environment: group.environment,
           mt5Group: group.mt5Group,
@@ -143,7 +155,9 @@ export default function ProductsPage() {
       toastSuccess(t('products.saveSucceeded', { name: values.name }));
     },
     // Inline in the modal, which stays open — the refusals here name the field,
-    // or the group MT5 would not accept.
+    // or the group MT5 would not accept. The table is refreshed all the same:
+    // a save that half-succeeded changed real rows, and the list must show them.
+    onError: () => invalidate(),
   });
 
   const deleteProduct = useMutation({

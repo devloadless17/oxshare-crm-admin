@@ -33,6 +33,8 @@ const {
   deleteProduct,
   getAvailableGroups,
   getIbCommissionTypes,
+  attachProductGroup,
+  detachProductGroup,
 } = vi.hoisted(() => ({
   getProducts: vi.fn(),
   createProduct: vi.fn(),
@@ -40,6 +42,8 @@ const {
   deleteProduct: vi.fn(),
   getAvailableGroups: vi.fn(),
   getIbCommissionTypes: vi.fn(),
+  attachProductGroup: vi.fn(),
+  detachProductGroup: vi.fn(),
 }));
 
 vi.mock('@/lib/api/admin', async () => {
@@ -53,6 +57,8 @@ vi.mock('@/lib/api/admin', async () => {
       deleteProduct,
       getAvailableGroups,
       getIbCommissionTypes,
+      attachProductGroup,
+      detachProductGroup,
     },
   };
 });
@@ -322,5 +328,140 @@ describe('the commission type', () => {
 
     expect(await screen.findByText(/never pays commission/i)).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: /commission type/i })).toBeNull();
+  });
+});
+
+/*
+ * ATTACHING MT5 GROUPS on the product form — every path an operator can take.
+ *
+ * On 26 Sep 2026 attaching a group answered a bare 409 from the database. The
+ * form offered a group the product could not take (a second one in a currency
+ * it already had), and a save that half-succeeded could never be retried.
+ */
+describe('attaching MT5 groups on the product form', () => {
+  const group = (name: string, currency: string, claimed = false) => ({
+    name,
+    currency,
+    claimed,
+    lastSeenAt: null,
+  });
+
+  async function openEdit(user: ReturnType<typeof userEvent.setup>) {
+    renderWithProviders(<ProductsPage />);
+    await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+  }
+
+  async function pick(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+    await user.click(await screen.findByRole('combobox', { name: /choose a group/i }));
+    await user.click(await screen.findByRole('option', { name }));
+    await user.click(screen.getByRole('button', { name: /^attach$/i }));
+  }
+
+  beforeEach(() => {
+    getAvailableGroups.mockResolvedValue([
+      group('real\\Standard-USD', 'USD'),
+      group('real\\Pro-USD', 'USD'),
+      group('real\\Standard-EUR', 'EUR'),
+      group('real\\Shared-GBP', 'GBP', true),
+    ]);
+    attachProductGroup.mockResolvedValue(product());
+    detachProductGroup.mockResolvedValue(product({ groups: [] }));
+  });
+
+  it('offers a group another product sells, says so, and attaches it on save', async () => {
+    const user = userEvent.setup();
+    updateProduct.mockResolvedValue(product());
+    await openEdit(user);
+
+    await pick(user, /real\\Shared-GBP · GBP — also on another product/);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(attachProductGroup).toHaveBeenCalledWith('p-1', {
+        environment: 'live',
+        mt5Group: 'real\\Shared-GBP',
+      }),
+    );
+    expect(detachProductGroup).not.toHaveBeenCalled();
+  });
+
+  /* The 409 the operator hit: the form no longer offers it. */
+  it('will not offer a second group in a currency the product already has', async () => {
+    const user = userEvent.setup();
+    await openEdit(user);
+
+    await user.click(await screen.findByRole('combobox', { name: /choose a group/i }));
+
+    const taken = await screen.findByRole('option', { name: /real\\Pro-USD/ });
+    expect(taken).toHaveAttribute('aria-disabled', 'true');
+    expect(taken).toHaveTextContent('USD is already real\\Standard-USD — remove it first');
+    expect(screen.getByRole('option', { name: /^real\\Standard-USD/ })).toHaveTextContent(
+      'already added',
+    );
+    expect(screen.getByRole('option', { name: /real\\Standard-EUR/ })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+
+  it('swaps the USD group in one edit, detaching the old one before attaching the new', async () => {
+    const user = userEvent.setup();
+    updateProduct.mockResolvedValue(product());
+    await openEdit(user);
+
+    await user.click(await screen.findByRole('button', { name: /detach this group/i }));
+    await pick(user, /real\\Pro-USD/);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(attachProductGroup).toHaveBeenCalledTimes(1));
+    expect(detachProductGroup).toHaveBeenCalledWith('p-1', 'g-1');
+    expect(attachProductGroup).toHaveBeenCalledWith('p-1', {
+      environment: 'live',
+      mt5Group: 'real\\Pro-USD',
+    });
+    expect(detachProductGroup.mock.invocationCallOrder[0]).toBeLessThan(
+      attachProductGroup.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it('shows the API’s reason when an attach is refused, and keeps the dialog open', async () => {
+    const user = userEvent.setup();
+    updateProduct.mockResolvedValue(product());
+    attachProductGroup.mockRejectedValueOnce({
+      response: { status: 400, data: { message: 'MT5 does not report a group called "x".' } },
+    });
+    await openEdit(user);
+
+    await pick(user, /real\\Standard-EUR/);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(await screen.findByText(/MT5 does not report a group called/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeInTheDocument();
+  });
+
+  /*
+   * A save that half-succeeded — the old group detached, the new one refused —
+   * must be retryable. The retry reconciles against what the SERVER says the
+   * product holds now, so the detached group is not detached again.
+   */
+  it('retries a half-finished save without detaching the same group twice', async () => {
+    const user = userEvent.setup();
+    // First save: the product still holds real\Standard-USD. Second: it no longer does.
+    updateProduct.mockResolvedValueOnce(product()).mockResolvedValueOnce(product({ groups: [] }));
+    attachProductGroup.mockRejectedValueOnce({
+      response: { status: 400, data: { message: 'The trading server did not answer.' } },
+    });
+    await openEdit(user);
+
+    await user.click(await screen.findByRole('button', { name: /detach this group/i }));
+    await pick(user, /real\\Pro-USD/);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+    expect(await screen.findByText(/did not answer/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(attachProductGroup).toHaveBeenCalledTimes(2));
+    expect(detachProductGroup).toHaveBeenCalledTimes(1);
   });
 });

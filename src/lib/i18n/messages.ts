@@ -1752,6 +1752,8 @@ export const messages = {
   // Not "unavailable": the group exists, it simply belongs somewhere else, and
   // the operator needs to know which of those two it is.
   'products.claimed': 'also on another product',
+  // One group per currency on a product: says which group holds the currency.
+  'products.currencyTaken': '{currency} is already {group} — remove it first',
   /*
    * A picker that cannot say how stale it is reads exactly like a current one.
    *

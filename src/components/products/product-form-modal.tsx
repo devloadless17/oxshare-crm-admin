@@ -217,6 +217,19 @@ function ProductForm({
    */
   const staged = new Set(groups.map((group) => group.mt5Group.toLowerCase()));
   /*
+   * ONE GROUP PER CURRENCY on a product — the API refuses a second, because a
+   * client picks a product and a currency and must land in exactly one group.
+   * Every group here shares the product's environment, so the currency alone
+   * names the slot. A group in a taken currency is shown disabled, naming the
+   * group in the way: removing that one frees the slot, and Save detaches
+   * before it attaches, so a swap goes through in one edit.
+   */
+  const slotHeldBy = new Map(
+    groups
+      .filter((group) => group.currency)
+      .map((group) => [group.currency.toUpperCase(), group.mt5Group] as const),
+  );
+  /*
    * The oldest confirmation in the list, or null when the read was live. Rows
    * only carry `lastSeenAt` on the fallback path, so any non-null value means
    * the whole list came from the catalogue rather than from MT5.
@@ -448,12 +461,15 @@ function ProductForm({
           </Badge>
 
           <Select value={chosen} onValueChange={setChosen}>
-            <SelectTrigger className="h-9 text-xs">
+            <SelectTrigger className="h-9 text-xs" aria-label={t('products.chooseGroup')}>
               <SelectValue placeholder={t('products.chooseGroup')} />
             </SelectTrigger>
             <SelectContent>
               {available.data?.map((group) => {
                 const alreadyHere = staged.has(group.name.toLowerCase());
+                const heldBy = alreadyHere
+                  ? undefined
+                  : slotHeldBy.get(group.currency.toUpperCase());
                 return (
                   <SelectItem
                     key={group.name}
@@ -464,15 +480,17 @@ function ProductForm({
                      * back several products since backend 0142, and the account
                      * records whichever product it was opened under.
                      */
-                    disabled={alreadyHere}
+                    disabled={alreadyHere || heldBy !== undefined}
                   >
                     {group.name}
                     {group.currency ? ` · ${group.currency}` : ''}
                     {alreadyHere
                       ? ` — ${t('products.alreadyAdded')}`
-                      : group.claimed
-                        ? ` — ${t('products.claimed')}`
-                        : ''}
+                      : heldBy !== undefined
+                        ? ` — ${t('products.currencyTaken', { currency: group.currency, group: heldBy })}`
+                        : group.claimed
+                          ? ` — ${t('products.claimed')}`
+                          : ''}
                   </SelectItem>
                 );
               })}
