@@ -76,6 +76,9 @@ test.describe('RBAC-08 — Network Access', () => {
     });
 
     // Its own page under Security since 25 Sep 2026 — it was a Settings tab.
+    // From a console page, as its neighbour does: a fresh test page is blank,
+    // with no sidebar to open (this case timed out on about:blank).
+    await page.goto('/dashboard');
     await openNavItem(page, 'Security', 'Network access');
     await expect(page).toHaveURL(/\/network-access$/);
 
