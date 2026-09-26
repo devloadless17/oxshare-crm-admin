@@ -700,6 +700,38 @@ describe('client scope', () => {
     expect(updateAdminUser.mock.calls[0]?.[1]).toEqual({ maskedFields: null });
   });
 
+  it('shows the ROLE’s fields the moment the override is cleared — no save, no reopen', async () => {
+    // Reported: the panel kept showing the override's fields after "follow the
+    // role again", because it fell back to the SERVER's effective mask — which,
+    // for somebody with an override, IS the override.
+    getRoles.mockResolvedValue(
+      ROLES.map((role) => (role.id === 'r-1' ? { ...role, maskedFields: ['client.phone'] } : role)),
+    );
+    // An override that hides NOTHING, on a role that hides the phone.
+    getAdminUsers.mockResolvedValue([master, sub({ maskedFields: [], maskedFieldsOverride: [] })]);
+    const dialog = await openEditor();
+    const phone = dialog.getByRole('button', { name: /phone number/i });
+    expect(phone).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.click(dialog.getByRole('button', { name: /follow the role again/i }));
+    expect(phone).toHaveAttribute('aria-pressed', 'true');
+    expect(dialog.getByText('Inherits the role')).toBeInTheDocument();
+  });
+
+  it('shows the NEW role’s fields while inheriting, before anything is saved', async () => {
+    getRoles.mockResolvedValue(
+      ROLES.map((role) => (role.id === 'r-2' ? { ...role, maskedFields: ['client.phone'] } : role)),
+    );
+    const user = userEvent.setup();
+    const dialog = await openEditor();
+    const phone = dialog.getByRole('button', { name: /phone number/i });
+    expect(phone).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(dialog.getByLabelText(/role/i));
+    await user.click(await screen.findByRole('option', { name: 'Finance Auditor' }));
+    expect(phone).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('forks the role mask into an override on the first toggle', async () => {
     // Inheriting admin; the operator hides the phone for THIS person only.
     const dialog = await openEditor();

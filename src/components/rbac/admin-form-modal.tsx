@@ -107,15 +107,26 @@ export function AdminFormModal({
     admin.maskedFieldsOverride ?? null,
   );
   const inheriting = maskOverride === null;
-  // What the panel shows: the override when there is one, the role's mask
-  // through the glass when there is not.
-  const effectiveMask = maskOverride ?? admin.maskedFields ?? [];
+  /*
+   * What the panel shows: the override when there is one, the CHOSEN ROLE's
+   * mask through the glass when there is not — read from the roles list, the
+   * invite dialog's rule.
+   *
+   * It fell back to `admin.maskedFields`, the SERVER's effective mask, which
+   * for somebody WITH an override is that override. So "Clear the override and
+   * follow the role again" kept showing the override's fields, and choosing
+   * another role kept showing the old role's, until a save and a reopen made
+   * the server recompute (reported). The form already knows the answer.
+   */
+  const chosenRole = roles.find((role) => role.id === roleId);
+  const roleMask = chosenRole?.maskedFields ?? [];
+  const effectiveMask = maskOverride ?? roleMask;
 
   const toggleMaskField = (key: string) => {
     // The first toggle FORKS the role's mask into an override — the operator
     // edits what they see, not an invisible empty list.
     setMaskOverride((prev) => {
-      const base = prev ?? admin.maskedFields ?? [];
+      const base = prev ?? roleMask;
       return base.includes(key) ? base.filter((k) => k !== key) : [...base, key];
     });
   };
