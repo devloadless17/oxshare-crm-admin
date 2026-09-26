@@ -13,18 +13,21 @@ import Decimal from 'decimal.js';
  * `Number('12345678901234567.89')` is already wrong before formatting starts.
  * `Intl.NumberFormat` is also out — it takes a number.
  *
- * TWIN FILE — an identical copy lives at the same path in oxshare-crm-client,
- * and `check:twins` compares them. Behaviour changes belong in both.
- *
- * Why it exists here too: the admin app renders money on the withdrawals queue,
- * the ledger view and the commission-plan screens, and it had no helper at all —
- * so the easy thing to reach for was `Number(a) + Number(b)`, which is wrong past
- * the eighth decimal place and silent about it. The lint bans below it stop the
- * coercion; this file is what makes the correct alternative available.
+ * TWIN FILE — byte-identical in oxshare-crm-admin and oxshare-crm-client, and
+ * `check:twins` compares them. Behaviour changes belong in both. (The console
+ * renders money on the withdrawals queue, the ledger and the commission screens;
+ * `floorToScale` came from the portal's "use max" buttons and is here for both.)
  */
 
-/** Display scale. The stored scale is 8; we round for humans, never for maths. */
-const DISPLAY_SCALE = 2;
+/**
+ * Display scale. The stored scale is 8; we round for humans, never for maths.
+ *
+ * Exported as the FALLBACK for `floorToScale` when the currency catalogue has
+ * not loaded — every currency this platform holds declares 2, so falling back
+ * to it offers the right figure in practice and, when it is ever wrong, offers
+ * slightly LESS rather than an amount the server would refuse.
+ */
+export const DISPLAY_SCALE = 2;
 
 const SYMBOLS: Record<string, string> = { USD: '$' };
 
@@ -63,6 +66,33 @@ export function formatMoney(value: string, currency: string, fallback = '—'): 
  * is a string comparison that breaks the moment the API returns `'0'` or
  * `'0.0'` instead of the current fixed 8dp shape.
  */
+/**
+ * The largest value at `scale` that is not MORE than `value` — floor, never round.
+ *
+ * For "use max" buttons. A wallet holds NUMERIC(28,8) and commission and rebates
+ * are percentages, so a balance can legitimately carry sub-cent value that no
+ * payout rail can send: the API refuses an amount with more decimal places than
+ * the currency declares (D-77), so offering the raw balance would produce a
+ * server refusal the client cannot explain — the exact failure the "use max"
+ * comment on the withdraw screen already warns about, reached a second way.
+ *
+ * DOWN, always. Rounding up offers money the client does not have and trades one
+ * refusal for another.
+ *
+ * Returns the input unchanged if it will not parse: this feeds a convenience
+ * button, and a button that silently produces "0" is worse than one that
+ * produces what the server will judge for itself.
+ */
+export function floorToScale(value: string, scale: number): string {
+  try {
+    const d = new Decimal(value);
+    if (!d.isFinite()) return value;
+    return d.toDecimalPlaces(scale, Decimal.ROUND_DOWN).toFixed(scale);
+  } catch {
+    return value;
+  }
+}
+
 export function isZeroMoney(value: string): boolean {
   try {
     return new Decimal(value).isZero();
@@ -88,9 +118,6 @@ export function isZeroMoney(value: string): boolean {
  * An unparseable value falls back to a text comparison rather than throwing: a
  * bad row is a data problem, and it must not take down a render — the same
  * choice `formatMoney` makes with its fallback.
- *
- * `compareValues(a, b, 'money')` in lib/table-sort.ts is the DataTable's route
- * to the same rule; this is the direct one, for a caller sorting a plain array.
  */
 export function compareMoney(a: string, b: string): number {
   try {

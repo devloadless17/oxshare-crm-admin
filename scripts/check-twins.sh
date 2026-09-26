@@ -80,6 +80,17 @@ fi
 # across both apps) and the token casing (the admin API answers accessToken, the
 # portal answers access_token — a frozen backend divergence). Listing it here
 # would make this check assert something untrue, so it is reviewed by hand.
+#
+# NOT twins any more, deliberately — the portal changed them for its customers
+# and its own check-twins.sh records why (26 Sep 2026: this list had kept them,
+# so every run here reported three decisions as drift):
+#   src/components/ui/button.tsx — no press transform in the customer app, and
+#     `loading` pulls in the portal's loader. The SHAPE (variants, sizes,
+#     `asChild`, props) is still meant to match and is reviewed by hand.
+#   src/components/backend-pending.tsx — the portal no longer paints endpoint
+#     names for clients; the console's readers own those endpoints.
+#   src/lib/money.test.ts — each app keeps its own suite. `money.ts` itself IS a
+#     twin, and both suites test `floorToScale`.
 TWINS=(
   src/lib/env.ts
   src/lib/env.test.ts
@@ -87,7 +98,6 @@ TWINS=(
   src/lib/api/errors.test.ts
   src/hooks/use-resource.ts
   src/components/query-provider.tsx
-  src/components/backend-pending.tsx
   src/components/theme-provider.tsx
   src/components/theme-toggle.tsx
   src/lib/utils.ts
@@ -104,8 +114,6 @@ TWINS=(
   src/lib/i18n/index.ts
   src/lib/i18n/locale-storage.ts
   src/components/locale-direction.tsx
-  src/lib/money.test.ts
-  src/components/ui/button.tsx
   src/components/ui/input.tsx
   src/components/ui/label.tsx
   src/components/ui/select.tsx
