@@ -113,7 +113,10 @@ export function Tabs({
             role="tab"
             id={`${idPrefix}-tab-${tab.value}`}
             aria-selected={selected}
-            aria-controls={`${idPrefix}-panel-${tab.value}`}
+            // Only the SELECTED tab's panel is in the page (`TabPanel` renders
+            // nothing for the others), and `aria-controls` must name an element
+            // that exists — axe flagged every inactive tab (26 Sep 2026).
+            aria-controls={selected ? `${idPrefix}-panel-${tab.value}` : undefined}
             // Roving tabindex: one stop for the whole strip, then arrows within.
             tabIndex={selected ? 0 : -1}
             onClick={() => onValueChange(tab.value)}

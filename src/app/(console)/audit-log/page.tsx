@@ -403,7 +403,7 @@ function AuditLogPageContent() {
             url.set({ action: val === 'all' ? undefined : val, page: undefined });
           }}
         >
-          <SelectTrigger className="h-9 w-48">
+          <SelectTrigger className="h-9 w-48" aria-label={t('auditLog.filterByAction')}>
             <SelectValue placeholder={t('auditLog.filterAllActions')} />
           </SelectTrigger>
           <SelectContent>

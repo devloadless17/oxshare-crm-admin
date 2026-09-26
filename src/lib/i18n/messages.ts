@@ -2265,6 +2265,7 @@ export const messages = {
   'common.retryShort': 'Retry',
   'common.loading': 'Loading',
   'auditLog.filterAllActions': 'All Actions',
+  'auditLog.filterByAction': 'Filter by action',
   'clients.searchAria': 'Search clients by name, email or Portal ID',
   'kycBuilder.requiredStepTitle': 'Required by FR-CORE-15 — cannot be disabled or deleted',
   'kycBuilder.moveStepUp': 'Move Step Up',

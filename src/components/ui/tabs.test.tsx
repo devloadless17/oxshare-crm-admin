@@ -57,6 +57,9 @@ describe('ARIA wiring', () => {
     // non-visual user.
     expect(tab.getAttribute('aria-controls')).toBe(panel.getAttribute('id'));
     expect(panel.getAttribute('aria-labelledby')).toBe(tab.getAttribute('id'));
+    // An inactive tab's panel is not in the page, so it names none: a reference
+    // to a missing id is invalid ARIA (axe, 26 Sep 2026).
+    expect(screen.getByRole('tab', { name: 'One' })).not.toHaveAttribute('aria-controls');
   });
 
   it('keeps one tab stop for the whole strip', () => {
