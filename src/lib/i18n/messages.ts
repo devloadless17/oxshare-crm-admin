@@ -877,7 +877,15 @@ export const messages = {
   'adminUsers.scopeTagsAllChosen': 'Every tag is already on this administrator.',
   'adminUsers.scopeTagsNoneChosen': 'No tags chosen.',
   'adminUsers.scopeEmptyWarning':
-    'No tags selected means UNRESTRICTED — this administrator can see every client in the system.',
+    'No tags chosen: this administrator sees no clients — or only new clients, if that is ticked below.',
+  'adminUsers.scopeModeLabel': 'Which clients this administrator sees',
+  'adminUsers.scopeModeAll': 'All clients',
+  'adminUsers.scopeModeTags': 'Only these tags',
+  'adminUsers.scopeModeAllHint': 'Sees every client, including new ones.',
+  'adminUsers.scopeModeAllLocked':
+    'Only an administrator who sees every client can grant all clients.',
+  'adminUsers.scopeNone': 'No clients',
+  'adminUsers.scopeNewOnly': 'New clients only',
   'adminUsers.maskSection': 'Field visibility',
   'adminUsers.maskSummary': '{count} {count:field|fields} hidden',
   'adminUsers.maskSummaryNone': 'Nothing hidden',

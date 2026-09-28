@@ -6968,6 +6968,7 @@ export interface components {
             maskedFieldsOverride?: string[] | null;
             scopedTags: components["schemas"]["AdminScopeTagDto"][];
             seesUntriaged: boolean;
+            seesAllClients: boolean;
             /** @example /uploads/avatars/6f1c.png */
             avatarUrl?: string | null;
             /** Format: date-time */
@@ -6989,10 +6990,12 @@ export interface components {
             permissions?: string[];
             /** @description Client fields this admin may not see. Omit to inherit the role’s mask; [] means no mask. */
             maskedFields?: string[];
-            /** @description Client tags this admin is scoped to. Omit or [] means UNRESTRICTED — every client. */
+            /** @description Client tags this admin is limited to. [] means no territory tags (new clients only, or none) — every client is only ever `seesAllClients` (0154). */
             scopedTagIds?: string[];
             /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
             seesUntriaged?: boolean;
+            /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
+            seesAllClients?: boolean;
         };
         InviteResponseDto: {
             message: string;
@@ -7852,10 +7855,12 @@ export interface components {
             permissions?: string[];
             /** @description Client fields this administrator may not see. null clears the override and inherits the role; [] explicitly masks nothing. */
             maskedFields?: string[] | null;
-            /** @description Client tag ids. An EMPTY ARRAY means unrestricted (every client), not none — see D-10. */
+            /** @description Client tag ids. [] means no territory tags (new clients only, or none) — every client is only ever `seesAllClients` (0154). */
             scopedTagIds?: string[];
             /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
             seesUntriaged?: boolean;
+            /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
+            seesAllClients?: boolean;
         };
         AdminStatusDto: {
             /** @enum {string} */

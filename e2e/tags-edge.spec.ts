@@ -44,7 +44,7 @@ test('territory and system tags refuse deletion; an ordinary tag cascades cleanl
     const refusal = await master.del(`/admin/tags/${anchor.id}`);
     expect(refusal.status(), 'deleted a tag that anchors a territory').toBe(409);
     const sentence = ((await refusal.json()) as { message: string }).message;
-    expect(sentence, 'the refusal does not name the consequence').toMatch(/every client|scope/i);
+    expect(sentence, 'the refusal does not name the consequence').toMatch(/territory/i);
 
     // The scoped admin's world is unchanged: a FOREIGN-TAGGED client is still
     // invisible. (Untagged clients like bravo are legitimately visible — the
