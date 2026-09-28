@@ -4505,9 +4505,9 @@ export interface components {
              *       "country"
              *     ]
              */
-            registration: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "postalCode")[];
+            registration: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "stateProvince" | "postalCode")[];
             /** @description Required to submit a verification: everything but the postal code. */
-            verification: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "postalCode")[];
+            verification: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "stateProvince" | "postalCode")[];
         };
         ProfileOptionsDto: {
             /**
@@ -4783,6 +4783,8 @@ export interface components {
             address?: string;
             /** @example Dubai */
             city?: string;
+            /** @example Dubai */
+            stateProvince?: string;
             /** @example 00000 */
             postalCode?: string;
             /** Format: date-time */
@@ -7187,6 +7189,7 @@ export interface components {
             nationality?: string;
             address?: string;
             city?: string;
+            stateProvince?: string;
             postalCode?: string;
             /** Format: date-time */
             createdAt?: string;
@@ -7252,6 +7255,8 @@ export interface components {
             address?: string;
             /** @example Beirut */
             city?: string;
+            /** @example Mount Lebanon */
+            stateProvince?: string;
             /** @example 1103 2080 */
             postalCode?: string;
             /**
@@ -7286,6 +7291,7 @@ export interface components {
             nationality: string | null;
             address: string | null;
             city: string | null;
+            stateProvince: string | null;
             postalCode: string | null;
             /** Format: date-time */
             createdAt: string;
@@ -7388,7 +7394,7 @@ export interface components {
         };
         KycReviewIdentityFieldDto: {
             /** @enum {string} */
-            key: "firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "postalCode";
+            key: "firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "stateProvince" | "postalCode";
             /** @example Date of Birth */
             label: string;
             required: boolean;
@@ -7557,6 +7563,11 @@ export interface components {
             address?: string;
             /** @example Beirut */
             city?: string;
+            /**
+             * @description Send an empty string to clear it — many addresses have none.
+             * @example Mount Lebanon
+             */
+            stateProvince?: string;
             /**
              * @description Send an empty string to clear it — many addresses have none.
              * @example 1103 2080

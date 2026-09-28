@@ -16,6 +16,7 @@ const CORRECTABLE = [
   'country',
   'address',
   'city',
+  'stateProvince',
   'postalCode',
 ] as const;
 type Correctable = (typeof CORRECTABLE)[number];
@@ -30,6 +31,7 @@ const LABEL: Readonly<Record<Correctable, MessageKey>> = {
   country: 'clientProfile.fieldCountry',
   address: 'clientProfile.fieldAddress',
   city: 'clientProfile.fieldCity',
+  stateProvince: 'clientProfile.fieldStateProvince',
   postalCode: 'clientProfile.fieldPostalCode',
 };
 

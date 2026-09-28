@@ -481,6 +481,11 @@ export default function ClientProfilePage() {
                       profile={profile}
                     />
                     <Field
+                      label={t('clientProfile.fieldStateProvince')}
+                      field="client.stateProvince"
+                      profile={profile}
+                    />
+                    <Field
                       label={t('clientProfile.fieldPostalCode')}
                       field="client.postalCode"
                       profile={profile}

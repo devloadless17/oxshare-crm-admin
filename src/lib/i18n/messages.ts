@@ -1095,6 +1095,7 @@ export const messages = {
   'clientProfile.fieldNationality': 'Nationality',
   'clientProfile.fieldAddress': 'Street address',
   'clientProfile.fieldCity': 'City',
+  'clientProfile.fieldStateProvince': 'State / Province',
   'clientProfile.fieldPostalCode': 'Postal / ZIP code',
   'clientProfile.fieldAddressLine': 'Address',
   'clientProfile.choose': 'Choose…',

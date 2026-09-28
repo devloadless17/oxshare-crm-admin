@@ -49,6 +49,7 @@ const FIELDS: Readonly<
   country: { label: 'clientProfile.fieldCountry', kind: 'select' },
   address: { label: 'clientProfile.fieldAddress', kind: 'text', maxLength: 200, wide: true },
   city: { label: 'clientProfile.fieldCity', kind: 'text', maxLength: 100 },
+  stateProvince: { label: 'clientProfile.fieldStateProvince', kind: 'text', maxLength: 100 },
   postalCode: { label: 'clientProfile.fieldPostalCode', kind: 'text', maxLength: 12 },
 };
 
