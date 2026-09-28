@@ -7598,9 +7598,9 @@ export interface components {
         RejectDto: {
             /** @description Free-text reason, when not using a configured reasonId. */
             reason?: string;
-            /** @description Id of a configured rejection reason. */
+            /** @description Id of a configured KYC rejection reason. */
             reasonId?: string;
-            /** @description Field names the client must re-submit, e.g. ["doc_front"]. */
+            /** @description What the client must update: identity details by key, pages on file by slot (e.g. "doc_front"), the selfie, or a question on their form. Anything else is refused. */
             rejectedFields?: string[];
         };
         ReverifyKycDto: {
