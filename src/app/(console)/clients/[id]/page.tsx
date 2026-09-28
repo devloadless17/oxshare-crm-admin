@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
   ArrowLeft,
@@ -36,6 +36,7 @@ import {
   EditClientProfileDialog,
 } from '@/components/clients/profile/client-edit-dialogs';
 import { ClientPartnerPanel } from '@/components/clients/profile/client-partner-panel';
+import { useClientTagToggle } from '@/components/clients/profile/use-client-tag-toggle';
 import {
   ClientClosedPositionsPanel,
   ClientTransactionsPanel,
@@ -54,7 +55,7 @@ import {
   ProfileCard,
 } from '@/components/clients/profile/profile-cards';
 import { buildKycDocUrl } from '@/lib/kyc-doc-url';
-import { toastError, toastSuccess } from '@/lib/toast';
+import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { clientLabel } from '@/components/clients/client-identity';
 import { PermittedLink } from '@/components/permitted-link';
@@ -193,30 +194,16 @@ export default function ClientProfilePage() {
     }
   };
 
-  const toggleTag = useMutation({
-    mutationFn: ({ tagId, attached }: { tagId: string; attached: boolean }) =>
-      attached ? api.admin.unassignTag(clientId, tagId) : api.admin.assignTag(clientId, tagId),
-    onSuccess: async (_data, { tagId, attached }) => {
-      // Also the tags screen: `getTags` returns ClientTagWithCount, so
-      // attaching or detaching moves a number an operator reads elsewhere.
-      // And `clients.all()`, because the list renders each client's tags.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
-        queryClient.invalidateQueries({ queryKey: keys.tags.all() }),
-      ]);
-      const label = (tagsQuery.data ?? []).find((tag) => tag.id === tagId)?.label ?? tagId;
-      toastSuccess(
-        attached
-          ? t('clientProfile.tagRemoved', { label })
-          : t('clientProfile.tagAdded', { label }),
-      );
-    },
-    /*
-     * A tag is an ACCESS-CONTROL primitive — `admin_client_tag_scopes` decides
-     * which administrators may see this client — so the API refuses an
-     * assignment that would take the client out of the operator's own scope.
-     */
-    onError: (error) => toastError(error, t('clientProfile.tagFailed')),
+  /*
+   * Any tag, on a client you can see — a change that would take the client out
+   * of YOUR territory is asked first, and a hand-off leaves the page. See the
+   * hook.
+   */
+  const tagToggle = useClientTagToggle({
+    clientId,
+    portalId: query.data?.portalId,
+    labelOf: (tagId) => (tagsQuery.data ?? []).find((tag) => tag.id === tagId)?.label ?? tagId,
+    onHandedOver: () => setTagsOpen(false),
   });
 
   /*
@@ -806,10 +793,8 @@ export default function ClientProfilePage() {
                     hint: tag.slug,
                   }))}
                   selected={[...attachedIds]}
-                  onToggle={(tagId) =>
-                    toggleTag.mutate({ tagId, attached: attachedIds.has(tagId) })
-                  }
-                  disabled={toggleTag.isPending}
+                  onToggle={(tagId) => void tagToggle.toggle(tagId, attachedIds.has(tagId))}
+                  disabled={tagToggle.pending}
                   emptyMessage={t('clientProfile.noTagsAvailable')}
                 />
                 <div className="flex justify-end">

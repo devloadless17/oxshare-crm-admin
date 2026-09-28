@@ -70,6 +70,8 @@ vi.mock('@/lib/api', () => {
 vi.mock('next/navigation', () => ({
   // The route carries the Portal ID, exactly as every console link builds it.
   useParams: () => ({ id: '1000245' }),
+  // The tag hook leaves the page after a hand-off (use-client-tag-toggle.ts).
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 const permissions = { current: ALL_PERMISSIONS };

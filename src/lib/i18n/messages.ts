@@ -939,6 +939,14 @@ export const messages = {
   'clientProfile.tagAdded': 'Tag “{label}” added',
   'clientProfile.tagRemoved': 'Tag “{label}” removed',
   'clientProfile.tagFailed': 'Could not change that tag.',
+  // A tag change that takes the client out of YOUR territory (a hand-off to
+  // another desk) is asked first — see use-client-tag-toggle.ts.
+  'clientProfile.tagLeavesScopeTitle': 'Hand {client} over?',
+  'clientProfile.tagLeavesScopeBody':
+    'Changing “{label}” takes {client} out of your territory. You will no longer see or open this client — administrators whose territory covers them still will.',
+  'clientProfile.tagLeavesScopeConfirm': 'Hand over',
+  'clientProfile.tagHandedOver':
+    '{client} was handed over with “{label}” and is no longer in your territory.',
   'clientProfile.walletOpenFailed': 'Could not open the wallet.',
   // Named per currency: several identical bins down a list announce as "button"
   // with nothing to say which wallet each one closes.

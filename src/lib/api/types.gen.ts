@@ -3246,9 +3246,9 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Attach a tag to a client */
+        /** Attach a tag to a client (any tag, on a client you can see) */
         post: operations["AdminTagsController_assign"];
-        /** Detach a tag from a client */
+        /** Detach a tag from a client (any tag, on a client you can see) */
         delete: operations["AdminTagsController_unassign"];
         options?: never;
         head?: never;
@@ -7369,6 +7369,12 @@ export interface components {
             assignedByName?: string | null;
             /** Format: date-time */
             assignedAt: string;
+        };
+        ClientTagChangeResultDto: {
+            /** @description The client’s tags after the change. Empty when `stillVisible` is false. */
+            assignments: components["schemas"]["ClientTagAssignmentDto"][];
+            /** @description False when the change took the client out of the acting admin’s territory — sent only with confirmLeavesScope=true. */
+            stillVisible: boolean;
         };
         KycDocumentDto: {
             docType?: string;
@@ -13012,7 +13018,10 @@ export interface operations {
     };
     AdminTagsController_assign: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Required when the change takes the client out of your own territory — without it that answers 409 TAG_CHANGE_LEAVES_SCOPE. */
+                confirmLeavesScope?: "true";
+            };
             header?: never;
             path: {
                 id: string;
@@ -13027,14 +13036,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
+                    "application/json": components["schemas"]["ClientTagChangeResultDto"];
                 };
             };
         };
     };
     AdminTagsController_unassign: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Required when the change takes the client out of your own territory — without it that answers 409 TAG_CHANGE_LEAVES_SCOPE. */
+                confirmLeavesScope?: "true";
+            };
             header?: never;
             path: {
                 id: string;
@@ -13049,7 +13061,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
+                    "application/json": components["schemas"]["ClientTagChangeResultDto"];
                 };
             };
         };

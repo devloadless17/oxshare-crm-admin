@@ -76,6 +76,8 @@ export type ClientProfile = components['schemas']['ClientProfileDto'];
  */
 export type ClientAccount = components['schemas']['ClientAccountDto'];
 export type ClientTag = components['schemas']['ClientTagDto'];
+/** What adding or removing a tag answers — the tags afterwards, and whether you still see the client. */
+export type ClientTagChangeResult = components['schemas']['ClientTagChangeResultDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
 export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
 export type Currency = components['schemas']['CurrencyDto'];
@@ -2616,14 +2618,32 @@ export const adminApi = {
    * primary key cannot catch it because the second request is a legitimately
    * different write. Both of these are idempotent by construction.
    */
-  async assignTag(clientId: string, tagId: string): Promise<ClientTag[]> {
-    const { data } = await apiClient.post<ClientTag[]>(`/admin/clients/${clientId}/tags/${tagId}`);
+  /**
+   * Any tag, on a client you can see. A change that takes the client out of
+   * YOUR territory answers 409 TAG_CHANGE_LEAVES_SCOPE until it is resent with
+   * `confirmLeavesScope` — see `useClientTagToggle`.
+   */
+  async assignTag(
+    clientId: string,
+    tagId: string,
+    options: { confirmLeavesScope?: boolean } = {},
+  ): Promise<ClientTagChangeResult> {
+    const { data } = await apiClient.post<ClientTagChangeResult>(
+      `/admin/clients/${clientId}/tags/${tagId}`,
+      undefined,
+      { params: options.confirmLeavesScope ? { confirmLeavesScope: 'true' } : undefined },
+    );
     return data;
   },
 
-  async unassignTag(clientId: string, tagId: string): Promise<ClientTag[]> {
-    const { data } = await apiClient.delete<ClientTag[]>(
+  async unassignTag(
+    clientId: string,
+    tagId: string,
+    options: { confirmLeavesScope?: boolean } = {},
+  ): Promise<ClientTagChangeResult> {
+    const { data } = await apiClient.delete<ClientTagChangeResult>(
       `/admin/clients/${clientId}/tags/${tagId}`,
+      { params: options.confirmLeavesScope ? { confirmLeavesScope: 'true' } : undefined },
     );
     return data;
   },
