@@ -154,47 +154,97 @@ export function flagLabels(data: KycDetail): string[] {
   return (data.layout?.flags ?? []).map((flag) => flag.label);
 }
 
+/** The files of one part of the verification, under the heading the review gives it. */
+export interface ReviewDocumentGroup {
+  /** `identity` · `address` · `selfie`, or the broker's step slug. */
+  id: string;
+  title: string;
+  docs: LightboxDoc[];
+}
+
 /**
- * Every file on the submission, in the order the review shows them: the
+ * Every file on the submission, GROUPED the way the verification is: the
  * identity document's pages (named by the document ON FILE — never a guessed
- * passport), the proof of address's, the selfie, then the broker's own uploads
- * under the labels they were asked with.
+ * passport), the proof of address's, the selfie, then each of the broker's own
+ * steps under its title.
+ *
+ * It was one flat grid, so the selfie sat straight after the tenancy
+ * agreement's pages and read as part of the proof of address, and a custom
+ * step's live-camera photo sat beside the selfie looking like a second one
+ * (reported 28 Sep 2026). Empty groups are left out.
+ */
+export function reviewDocumentGroups(data: KycDetail): ReviewDocumentGroup[] {
+  const layout = data.layout;
+  const docsOf = (files: [string | undefined, string | undefined, string][]): LightboxDoc[] =>
+    files.flatMap(([filePath, fileName, label]) =>
+      filePath ? [{ filePath, fileName: fileName ?? '', label }] : [],
+    );
+  const pageLabel = (
+    document: { label: string; pages: { slot: string; label: string }[] } | undefined,
+    fallback: string,
+    slot: string,
+  ) => {
+    const pages = document?.pages ?? [];
+    const page = pages.find((p) => p.slot === slot);
+    const name = document?.label ?? fallback;
+    return page && pages.length > 1 ? `${name} — ${page.label}` : name;
+  };
+  const idDoc = layout?.identityDocument;
+  const addressDoc = layout?.proofOfAddress;
+
+  const groups: ReviewDocumentGroup[] = [
+    {
+      id: 'identity',
+      title: t('kycReview.identityDocumentTitle'),
+      docs: docsOf([
+        [
+          data.document?.frontFilePath,
+          data.document?.frontFileName,
+          pageLabel(idDoc, t('kycReview.docIdFront'), 'doc_front'),
+        ],
+        [
+          data.document?.backFilePath,
+          data.document?.backFileName,
+          pageLabel(idDoc, t('kycReview.docIdFront'), 'doc_back'),
+        ],
+      ]),
+    },
+    {
+      id: 'address',
+      title: t('kycReview.proofOfAddressTitle'),
+      docs: docsOf([
+        [
+          data.addressProof?.filePath,
+          data.addressProof?.fileName,
+          pageLabel(addressDoc, t('kycReview.docAddress'), 'address_proof'),
+        ],
+        [
+          data.addressProof?.page2FilePath,
+          data.addressProof?.page2FileName,
+          pageLabel(addressDoc, t('kycReview.docAddress'), 'address_proof_2'),
+        ],
+      ]),
+    },
+    {
+      id: 'selfie',
+      title: t('kycReview.selfieTitle'),
+      docs: docsOf([[data.selfie?.filePath, data.selfie?.fileName, t('kycReview.docSelfie')]]),
+    },
+    ...additionalSections(data).map((section) => ({
+      id: section.id,
+      title: section.title,
+      docs: section.rows.flatMap((row) => (row.file ? [{ ...row.file, label: row.label }] : [])),
+    })),
+  ];
+  return groups.filter((group) => group.docs.length > 0);
+}
+
+/**
+ * The same files as ONE list, in the same order — what the lightbox steps
+ * through, so its next and previous follow the page.
  */
 export function reviewDocuments(data: KycDetail): LightboxDoc[] {
-  const layout = data.layout;
-  const docs: LightboxDoc[] = [];
-  const add = (filePath: string | undefined, fileName: string | undefined, label: string) => {
-    if (filePath) docs.push({ filePath, fileName: fileName ?? '', label });
-  };
-  const identityPages = layout?.identityDocument.pages ?? [];
-  const idLabel = (slot: string) => {
-    const page = identityPages.find((p) => p.slot === slot);
-    const name = layout?.identityDocument.label ?? t('kycReview.docIdFront');
-    return page && identityPages.length > 1 ? `${name} — ${page.label}` : name;
-  };
-  add(data.document?.frontFilePath, data.document?.frontFileName, idLabel('doc_front'));
-  add(data.document?.backFilePath, data.document?.backFileName, idLabel('doc_back'));
-
-  const addressPages = layout?.proofOfAddress.pages ?? [];
-  const addressLabel = (slot: string) => {
-    const page = addressPages.find((p) => p.slot === slot);
-    const name = layout?.proofOfAddress.label ?? t('kycReview.docAddress');
-    return page && addressPages.length > 1 ? `${name} — ${page.label}` : name;
-  };
-  add(data.addressProof?.filePath, data.addressProof?.fileName, addressLabel('address_proof'));
-  add(
-    data.addressProof?.page2FilePath,
-    data.addressProof?.page2FileName,
-    addressLabel('address_proof_2'),
-  );
-  add(data.selfie?.filePath, data.selfie?.fileName, t('kycReview.docSelfie'));
-
-  for (const section of additionalSections(data)) {
-    for (const row of section.rows) {
-      if (row.file) docs.push({ ...row.file, label: row.label });
-    }
-  }
-  return docs;
+  return reviewDocumentGroups(data).flatMap((group) => group.docs);
 }
 
 /** One group of items a reviewer can return — see `reviewFieldGroups`. */

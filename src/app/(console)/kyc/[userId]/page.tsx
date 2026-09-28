@@ -12,11 +12,15 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage, apiFieldErrors } from '@/lib/api/errors';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { CopyableId } from '@/components/copyable-id';
-import { DocViewer } from '@/components/kyc-review/doc-viewer';
+import { DocumentGroups } from '@/components/kyc-review/document-groups';
 import { ApproveDialog } from '@/components/kyc-review/approve-dialog';
 import { RejectDialog } from '@/components/kyc-review/reject-dialog';
 import { DocLightbox } from '@/components/kyc-review/doc-lightbox';
-import { reviewDocuments, reviewFieldGroups } from '@/components/kyc-review/review-sections';
+import {
+  reviewDocumentGroups,
+  reviewDocuments,
+  reviewFieldGroups,
+} from '@/components/kyc-review/review-sections';
 import { useRejectOptions } from '@/components/kyc-review/use-reject-options';
 import { SubmissionSummary } from '@/components/kyc-review/submission-summary';
 import {
@@ -465,17 +469,7 @@ export default function KycDetailPage() {
         <div className="detail-right">
           <div className="docs-card">
             <h3>{t('kycReview.documentsTitle')}</h3>
-            <div className="docs-grid">
-              {documents.map((d, i) => (
-                <DocViewer
-                  key={d.filePath}
-                  filePath={d.filePath}
-                  fileName={d.fileName}
-                  label={d.label}
-                  onOpen={() => setLightboxAt(i)}
-                />
-              ))}
-            </div>
+            <DocumentGroups groups={reviewDocumentGroups(data)} onOpen={setLightboxAt} />
           </div>
 
           {/* The decision controls are DOCKED at the foot of the screen — see
