@@ -119,6 +119,7 @@ const master = {
   permissions: ALL_PERMISSIONS,
   maskedFields: [],
   scopedTags: [],
+  seesAllClients: true,
   createdAt: '2026-08-01T00:00:00.000Z',
 };
 
@@ -134,6 +135,7 @@ const sub = (over: Record<string, unknown> = {}) => ({
   // modal being opened.
   maskedFields: [],
   scopedTags: [],
+  seesAllClients: false,
   createdAt: '2026-08-01T00:00:00.000Z',
   ...over,
 });
@@ -612,11 +614,13 @@ describe('client scope', () => {
     expect(dialog.getByText(/inherits the role/i)).toBeInTheDocument();
   });
 
-  it('WARNS that an empty scope means every client', async () => {
+  it('says plainly that no tags means no clients — never every client (0154)', async () => {
+    // An empty list meant UNRESTRICTED until 0154; every client is now its own
+    // explicit choice, so the warning must not promise the opposite.
     const dialog = await openEditor();
 
-    expect(dialog.getByRole('note')).toHaveTextContent(/UNRESTRICTED/i);
-    expect(dialog.getByRole('note')).toHaveTextContent(/every client/i);
+    expect(dialog.getByRole('note')).toHaveTextContent(/sees no clients/i);
+    expect(dialog.getByRole('note')).not.toHaveTextContent(/every client/i);
   });
 
   it('sends the chosen tags, and only when they changed', async () => {
@@ -777,6 +781,8 @@ describe('the directory row', () => {
   });
 
   it('says "all clients" for an unrestricted administrator', async () => {
+    // Stated from the explicit grant (0154), never inferred from an empty list.
+    getAdminUsers.mockResolvedValue([master, sub({ seesAllClients: true })]);
     renderWithProviders(<AdminUsersPage />);
     await screen.findByText('sub@oxshare.com');
     const row = rowFor('sub@oxshare.com');

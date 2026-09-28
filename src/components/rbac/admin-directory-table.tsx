@@ -299,11 +299,11 @@ export function AdminDirectoryTable({
         return (
           <div className="flex flex-col gap-0.5">
             <span className="text-[11px]">
-              {/* Stated from the grant (0154), never inferred from an empty list. */}
-              {row.admin.seesAllClients
-                ? t('adminUsers.scopeAll')
-                : row.admin.scopedTags.length > 0
-                  ? t('adminUsers.scopeCount', { count: row.admin.scopedTags.length })
+              {/* Tags restrict, only the grant means everyone (0154) — never an empty list. */}
+              {row.admin.scopedTags.length > 0
+                ? t('adminUsers.scopeCount', { count: row.admin.scopedTags.length })
+                : row.admin.seesAllClients
+                  ? t('adminUsers.scopeAll')
                   : row.admin.seesUntriaged
                     ? t('adminUsers.scopeNewOnly')
                     : t('adminUsers.scopeNone')}
