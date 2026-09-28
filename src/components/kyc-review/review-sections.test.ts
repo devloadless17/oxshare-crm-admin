@@ -3,6 +3,7 @@ import {
   additionalSections,
   formatCalendarDate,
   identitySection,
+  reviewDocumentGroups,
   reviewDocuments,
   reviewFieldGroups,
 } from './review-sections';
@@ -125,6 +126,36 @@ describe('the documents', () => {
       'Utility Bill',
       'Selfie photo',
       'Payslip',
+    ]);
+  });
+});
+
+/*
+ * Reported 28 Sep 2026: every file sat in ONE grid, so the selfie read as part
+ * of the proof of address (it came straight after the tenancy agreement), and a
+ * broker's live-camera question looked like a second selfie beside it.
+ */
+describe('the documents, grouped', () => {
+  it('puts each part of the verification under its own heading, the broker’s steps by title', () => {
+    const groups = reviewDocumentGroups(DATA);
+    expect(groups.map((group) => [group.title, group.docs.map((doc) => doc.label)])).toEqual([
+      ['Identity document', ['National ID — Front Side']],
+      ['Proof of address', ['Utility Bill']],
+      ['Selfie', ['Selfie photo']],
+      ['Source of funds', ['Payslip']],
+    ]);
+  });
+
+  it('keeps the lightbox’s one list in the SAME order as the groups', () => {
+    expect(reviewDocuments(DATA)).toEqual(reviewDocumentGroups(DATA).flatMap((g) => g.docs));
+  });
+
+  it('leaves out a part with nothing on file', () => {
+    const noSelfie = { ...DATA, selfie: undefined } as typeof DATA;
+    expect(reviewDocumentGroups(noSelfie).map((group) => group.id)).toEqual([
+      'identity',
+      'address',
+      'source-of-funds',
     ]);
   });
 });
