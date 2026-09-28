@@ -151,6 +151,7 @@ export function AttemptHistory({ attempts }: { attempts: KycAttempt[] }) {
                         filePath={doc.filePath}
                         fileName={doc.fileName}
                         label={doc.label}
+                        returned={doc.returned}
                       />
                     ))}
                   </div>

@@ -713,8 +713,7 @@ export const messages = {
   'kycReview.correctReason': 'Reason for the correction',
   'kycReview.correctReasonPlaceholder':
     'e.g. Surname misspelt at registration; the passport reads "Haddad".',
-  'kycReview.correctReasonHint':
-    'At least 10 characters. Recorded on the audit trail beside the old and new values.',
+  'kycReview.correctReasonHint': 'Recorded on the audit trail beside the old and new values.',
   'kycReview.correctPhoneNote':
     "The phone number is not part of a correction: edit it on the client's profile.",
   'kycReview.correctAction': 'Correct details',
@@ -742,6 +741,8 @@ export const messages = {
   'kycReview.notAsked': 'Not asked by this form',
   'kycReview.pageMissing': 'Not uploaded',
   'kycReview.pageUploaded': 'Uploaded',
+  // A page the reviewer returned, while it is with the client — shown in red.
+  'kycReview.pageReturned': 'Returned',
   'kycReview.identityAtDecision': 'Identity at the time',
   'kycReview.documentsTitle': 'Documents',
   'clientProfile.networkCapped': 'Showing {shown} of {total} introduced clients.',

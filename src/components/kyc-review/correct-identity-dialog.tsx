@@ -90,7 +90,8 @@ export function CorrectIdentityDialog({
   );
 
   const changed = CORRECTABLE.filter((key) => !isHidden(key) && values[key] !== initial[key]);
-  const reasonOk = reason.trim().length >= 10;
+  // A reason must EXIST, at any length (the server's rule, trimmed the same way).
+  const reasonOk = reason.trim() !== '';
   const canConfirm = changed.length > 0 && reasonOk && !loading;
 
   const choices = (key: Correctable) =>

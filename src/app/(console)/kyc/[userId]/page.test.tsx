@@ -540,18 +540,20 @@ describe('correcting identity details on an approved submission', () => {
     const save = screen.getByRole('button', { name: /save correction/i });
     await user.clear(surname);
     await user.type(surname, 'Dough');
-    // No reason, no save: a verified record never changes silently.
+    // No reason, no save: a verified record never changes silently…
     expect(save).toBeDisabled();
-    await user.type(
-      screen.getByLabelText(/reason for the correction/i),
-      'Surname misspelt at sign-up',
-    );
+    const reason = screen.getByLabelText(/reason for the correction/i);
+    await user.type(reason, '   ');
+    expect(save).toBeDisabled();
+    // …and a SHORT reason is a whole one (28 Sep 2026: ten characters were demanded).
+    await user.clear(reason);
+    await user.type(reason, 'Typo');
     await user.click(save);
 
     await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
     expect(patch.mock.calls[0]).toEqual([
       '/admin/kyc/1000245/personal-info',
-      { reason: 'Surname misspelt at sign-up', lastName: 'Dough' },
+      { reason: 'Typo', lastName: 'Dough' },
     ]);
   });
 
@@ -598,16 +600,20 @@ describe('returning an approved verification for re-verification', () => {
     expect(confirm).toBeDisabled();
 
     await user.click(screen.getByRole('checkbox', { name: 'Passport' }));
-    await user.type(
-      screen.getByLabelText(/reason, sent to the client/i),
-      'Your passport on file has expired.',
-    );
+    const reason = screen.getByLabelText(/reason, sent to the client/i);
+    // Spaces are no reason…
+    await user.type(reason, '   ');
+    expect(confirm).toBeDisabled();
+    // …but a SHORT one is a whole one. Ten characters were demanded until it was
+    // reported that "Expired" had to be padded to get the button to work (28 Sep 2026).
+    await user.clear(reason);
+    await user.type(reason, 'Expired');
     await user.click(confirm);
 
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
     expect(post.mock.calls[0]).toEqual([
       '/admin/kyc/1000245/reverify',
-      { reason: 'Your passport on file has expired.', items: ['doc_front'] },
+      { reason: 'Expired', items: ['doc_front'] },
     ]);
   });
 

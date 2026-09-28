@@ -31,10 +31,16 @@ export function DocViewer({
   filePath,
   label,
   fileName,
+  returned = false,
   onOpen,
 }: {
   filePath?: string;
   label: string;
+  /**
+   * The reviewer returned this file and it is still with the client: the tile
+   * says so in red, as a returned answer does in the summary.
+   */
+  returned?: boolean;
   /** The name the client uploaded it under, when the submission carries one. */
   fileName?: string;
   /**
@@ -54,10 +60,19 @@ export function DocViewer({
   const turned = quarterTurns % 2 === 1;
 
   return (
-    <div className="flex flex-col gap-2 p-4 rounded-xl border border-border bg-card/60">
+    <div
+      className={`flex flex-col gap-2 p-4 rounded-xl border bg-card/60 ${returned ? 'border-destructive/60' : 'border-border'}`}
+    >
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          {label}
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            {label}
+          </div>
+          {returned && (
+            <span className="text-xs font-bold text-destructive">
+              {t('kycReview.pageReturned')}
+            </span>
+          )}
         </div>
         {filePath && !isPdf && !imgFailed && (
           <button

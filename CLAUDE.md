@@ -301,10 +301,16 @@ screens take, so nothing on them can do what the server refuses:
   `layout` through `review-sections.ts` and never reads the builder config. Dates of birth are UTC-safe
   (`formatCalendarDate`). Documents are named by the one on file, never a guessed passport. The reject
   and re-verification dialogs offer the same `reviewFieldGroups`, and only pages that exist.
+  The selfie has its own heading in the summary. While a submission is `rejected`, every item the
+  reviewer returned reads **Returned** in red: an answer, a document page (`doc_back`), the selfie and
+  a broker's upload, in the summary AND on its tile (`reviewDocumentGroups` sets `returned`). Until
+  28 Sep 2026 only answers turned red, and a returned passport or bill still said "Uploaded".
 - **An approved submission** offers *Correct details* (`correct-identity-dialog.tsx`: every identity field
   but the phone, pre-filled, sends only what changed, a reason required, each refusal under its field)
   and *Request re-verification* (`reverify-dialog.tsx`: items, a reason, and the plain money-pause
-  line).
+  line). **A reason may be any length, just not blank** — the server trims it and refuses only an
+  empty one. Both dialogs demanded ten characters until 28 Sep 2026, and a reviewer had to pad
+  "Expired" before the button worked, with nothing on screen saying why.
 - E2E: `kyc-builder.spec.ts` (the reported scenario, crafted saves, the stale 409) and
   `kyc-correct-and-reverify.spec.ts` (both actions, through to the money gate and the inbox). Never
   delete a step a spec did not create — see the warning at the top of `kyc-builder.spec.ts`.

@@ -55,6 +55,14 @@ export function SubmissionSummary({
   const additional = additionalSections(data);
   const flagged = flagLabels(data);
   const layout = data.layout;
+  /*
+   * What the reviewer returned, while it is still with the client — the same
+   * rule that turns a typed answer red in `SectionCard`. Documents are flagged
+   * by PAGE (`doc_back`, `address_proof_2`) and the selfie by `selfie`; they
+   * used to show "Uploaded" in black whatever the flags said (reported
+   * 28 Sep 2026: the red worked for answers, never for a passport or a bill).
+   */
+  const returned = new Set(data.status === 'rejected' ? (data.rejectedFields ?? []) : []);
 
   return (
     <div className="detail-left">
@@ -82,6 +90,7 @@ export function SubmissionSummary({
               doc_front: data.document?.frontFilePath,
               doc_back: data.document?.backFilePath,
             }}
+            returned={returned}
           />
           <h3 className="mt-4">{t('kycReview.proofOfAddressTitle')}</h3>
           {layout.proofOfAddress.asked ? (
@@ -92,18 +101,32 @@ export function SubmissionSummary({
                 address_proof: data.addressProof?.filePath,
                 address_proof_2: data.addressProof?.page2FilePath,
               }}
+              returned={returned}
             />
           ) : (
             <p className="not-submitted">{t('kycReview.notAsked')}</p>
           )}
+          {/* Its OWN heading: without one the selfie row read as a page of the
+              proof of address above it (reported 28 Sep 2026). */}
+          <h3 className="mt-4">{t('kycReview.selfieTitle')}</h3>
           <div className="info-row">
-            <span>{t('kycReview.selfieTitle')}</span>
-            <strong className={data.selfie?.filePath ? '' : 'font-normal text-muted-foreground'}>
+            <span>{t('kycReview.docSelfie')}</span>
+            <strong
+              className={
+                returned.has('selfie')
+                  ? 'text-destructive font-bold'
+                  : data.selfie?.filePath
+                    ? ''
+                    : 'font-normal text-muted-foreground'
+              }
+            >
               {!layout.selfie.asked
                 ? t('kycReview.notAsked')
-                : data.selfie?.filePath
-                  ? t('kycReview.pageUploaded')
-                  : t('kycReview.pageMissing')}
+                : returned.has('selfie')
+                  ? t('kycReview.pageReturned')
+                  : data.selfie?.filePath
+                    ? t('kycReview.pageUploaded')
+                    : t('kycReview.pageMissing')}
             </strong>
           </div>
         </div>
@@ -268,28 +291,48 @@ function SectionCard({
   );
 }
 
-/** A document ON FILE by its exact name, and whether each of its pages arrived. */
+/**
+ * A document ON FILE by its exact name, whether each of its pages arrived, and —
+ * in red — each page the reviewer returned.
+ */
 function DocumentRows({
   label,
   pages,
   present,
+  returned,
 }: {
   label: string;
   pages: { slot: string; label: string }[];
   present: Record<string, string | undefined>;
+  returned: ReadonlySet<string>;
 }) {
   return (
     <>
       {pages
         .filter((page, index) => index === 0 || present[page.slot])
-        .map((page) => (
-          <div key={page.slot} className="info-row">
-            <span>{pages.length > 1 ? `${label} — ${page.label}` : label}</span>
-            <strong className={present[page.slot] ? '' : 'font-normal text-muted-foreground'}>
-              {present[page.slot] ? t('kycReview.pageUploaded') : t('kycReview.pageMissing')}
-            </strong>
-          </div>
-        ))}
+        .map((page) => {
+          const isReturned = returned.has(page.slot);
+          return (
+            <div key={page.slot} className="info-row">
+              <span>{pages.length > 1 ? `${label} — ${page.label}` : label}</span>
+              <strong
+                className={
+                  isReturned
+                    ? 'text-destructive font-bold'
+                    : present[page.slot]
+                      ? ''
+                      : 'font-normal text-muted-foreground'
+                }
+              >
+                {isReturned
+                  ? t('kycReview.pageReturned')
+                  : present[page.slot]
+                    ? t('kycReview.pageUploaded')
+                    : t('kycReview.pageMissing')}
+              </strong>
+            </div>
+          );
+        })}
     </>
   );
 }

@@ -90,11 +90,10 @@ test('Correct details fixes a misspelt surname, with a reason — the client sta
   const dialog = page.getByRole('dialog', { name: /correct identity details/i });
   await dialog.getByLabel(/^last name$/i).fill('Haddad');
   const save = dialog.getByRole('button', { name: /^save correction$/i });
-  // The reason is the point: no reason, no correction.
+  // The reason is the point: no reason, no correction…
   await expect(save).toBeDisabled();
-  await dialog
-    .getByLabel(/reason for the correction/i)
-    .fill('Surname misspelt against the passport — e2e.');
+  // …and a SHORT one is a whole one: ten characters were demanded until 28 Sep 2026.
+  await dialog.getByLabel(/reason for the correction/i).fill('Typo');
 
   const [response] = await Promise.all([
     page.waitForResponse(
@@ -133,9 +132,8 @@ test('Request re-verification returns it with the items to redo, and money waits
   await page.getByRole('button', { name: /^request re-verification$/i }).click();
   const dialog = page.getByRole('dialog', { name: /update their verification/i });
   await dialog.getByRole('checkbox', { name: /residential address/i }).click();
-  await dialog
-    .getByLabel(/reason, sent to the client/i)
-    .fill('You told us you have moved abroad — please update your address.');
+  // Nine characters: the floor of ten is gone (28 Sep 2026).
+  await dialog.getByLabel(/reason, sent to the client/i).fill('Relocated');
   // Said plainly before anything is sent: the money pauses.
   await expect(dialog).toContainText(/deposits and withdrawals/i);
 
@@ -165,7 +163,7 @@ test('Request re-verification returns it with the items to redo, and money waits
 
   // Asked to UPDATE, with the reason as written — not told they were rejected.
   const mail = await waitForMail(client.email, { subject: /please update your verification/i });
-  expect(`${mail.text} ${mail.html}`).toMatch(/moved abroad/i);
+  expect(`${mail.text} ${mail.html}`).toMatch(/relocated/i);
 
   // The client answers it: a new address settles the item, and they resubmit.
   const write = { Origin: TOPOLOGY_PORTAL_ORIGIN, 'X-OxShare-CSRF': client.csrf };

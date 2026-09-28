@@ -10,6 +10,8 @@ export interface LightboxDoc {
   filePath: string;
   label: string;
   fileName?: string;
+  /** The reviewer returned this file and it is still with the client — drawn red. */
+  returned?: boolean;
 }
 
 const ZOOM_STEP = 0.5;

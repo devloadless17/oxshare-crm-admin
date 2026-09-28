@@ -40,6 +40,7 @@ export function DocumentGroups({
                 filePath={doc.filePath}
                 fileName={doc.fileName}
                 label={doc.label}
+                returned={doc.returned}
                 onOpen={() => onOpen((firstIndex[at] ?? 0) + i)}
               />
             ))}

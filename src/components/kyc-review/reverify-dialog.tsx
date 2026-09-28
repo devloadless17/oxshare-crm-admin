@@ -40,7 +40,8 @@ export function ReverifyDialog({
 
   const toggle = (id: string) =>
     setItems((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
-  const canConfirm = items.length > 0 && reason.trim().length >= 10 && !loading;
+  // A reason must EXIST, at any length (the server's rule, trimmed the same way).
+  const canConfirm = items.length > 0 && reason.trim() !== '' && !loading;
 
   return (
     <div className="modal-overlay" onClick={() => !loading && !reason.trim() && onCancel()}>
