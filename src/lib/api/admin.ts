@@ -639,6 +639,8 @@ export const IB_ACCRUAL_SORT_KEYS = [
 export type IbAccrualSortKey = (typeof IB_ACCRUAL_SORT_KEYS)[number];
 /** One movement of a client's money — what `creditWallet` answers with. */
 export type Transaction = components['schemas']['TransactionDto'];
+/** What a hand credit answers — the transaction written and whether it was a replay. */
+export type WalletCreditResult = components['schemas']['WalletCreditResultDto'];
 /**
  * `transaction.provider` for money an admin placed by hand.
  *
@@ -766,18 +768,7 @@ export interface CreatedMt5Account {
  * null — and there is no half-done state, so a failure throws rather than
  * returning, which is why `transferError` is always null in that direction.
  */
-export interface FundTradingAccountResult {
-  /** The wallet deposit. NULL on a withdrawal, which writes no transaction row. */
-  transaction: Transaction | null;
-  /** True when the idempotency key replayed an earlier movement. Nothing moved. */
-  replayed: boolean;
-  /** The settled transfer, or null when the onward leg did not complete. */
-  transfer: { id: string; state: string } | null;
-  /** Why the transfer did not happen. Always null on a withdrawal — see above. */
-  transferError: string | null;
-  /** Where the money ended up on a withdrawal. Absent on a deposit. */
-  destination?: 'wallet';
-}
+export type FundTradingAccountResult = components['schemas']['TradingAccountFundResultDto'];
 
 /** What MT5 says an account holds right now — distinct from the cached column. */
 export interface Mt5LiveSnapshot {
@@ -1929,8 +1920,8 @@ export const adminApi = {
   async creditWallet(
     body: { userId: string; amount: string; currency: string; reason: string },
     key: string,
-  ): Promise<{ transaction: Transaction; replayed: boolean }> {
-    const { data } = await apiClient.post<{ transaction: Transaction; replayed: boolean }>(
+  ): Promise<WalletCreditResult> {
+    const { data } = await apiClient.post<WalletCreditResult>(
       '/admin/wallets/credit',
       body,
       idempotent(key),

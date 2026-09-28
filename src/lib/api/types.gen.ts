@@ -7803,6 +7803,7 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+            maskedFields: string[];
         };
         ApiKeyDto: {
             id: string;
@@ -7979,6 +7980,11 @@ export interface components {
             /** @example Goodwill adjustment for the failed 4 August transfer. */
             reason: string;
         };
+        WalletCreditResultDto: {
+            transaction: components["schemas"]["TransactionDto"];
+            /** @description True when the idempotency key replayed an earlier credit — nothing moved again. */
+            replayed: boolean;
+        };
         FundTradingAccountDto: {
             /** @example 250.00000000 */
             amount: string;
@@ -7989,6 +7995,17 @@ export interface components {
              * @enum {string}
              */
             direction: "deposit" | "withdraw";
+        };
+        TradingAccountFundResultDto: {
+            transaction: components["schemas"]["TransactionDto"] | null;
+            replayed: boolean;
+            transfer: components["schemas"]["TransferDto"] | null;
+            transferError: string | null;
+            /**
+             * @description Where the money went, on a withdrawal.
+             * @enum {string}
+             */
+            destination?: "wallet";
         };
         OpenWalletDto: {
             /** Format: uuid */
@@ -14067,7 +14084,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TransactionDto"];
+                    "application/json": components["schemas"]["WalletCreditResultDto"];
                 };
             };
         };
@@ -14095,7 +14112,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TransactionDto"];
+                    "application/json": components["schemas"]["TradingAccountFundResultDto"];
                 };
             };
         };
