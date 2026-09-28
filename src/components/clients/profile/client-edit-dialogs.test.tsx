@@ -306,55 +306,110 @@ describe('EditClientProfileDialog — the phone picker (owner, 26 Sep 2026)', ()
   });
 });
 
-describe('EditClientProfileDialog — a verified client (owner, 26 Sep 2026)', () => {
-  const APPROVED = {
+/*
+ * A VERIFIED client (owner, 26 and 28 Sep 2026). A verified detail is edited
+ * ON THE CLIENT: by an admin who may correct verified details, with a reason —
+ * or it is held, with the server's sentence saying why, in place. Nothing here
+ * sends the admin to another screen: that link was reported as a bad
+ * experience, and it is gone.
+ */
+describe('EditClientProfileDialog — a verified client', () => {
+  const VERIFIED_HELD =
+    'was verified by KYC. Only an admin who may correct verified details can change it.';
+  const HELD = {
     ...PROFILE,
     dateOfBirth: null,
     kyc: { status: 'approved', submittedAt: '2026-09-04T00:00:00.000Z' },
     lockedFields: {
-      firstName:
-        'First name was verified by KYC. Use "Correct details" on the client\'s KYC review, where the change is checked again, recorded with a reason, and the client is told.',
-      dateOfBirth:
-        'Date of birth was verified by KYC. Use "Correct details" on the client\'s KYC review, where the change is checked again, recorded with a reason, and the client is told.',
+      firstName: `First name ${VERIFIED_HELD}`,
+      dateOfBirth: `Date of birth ${VERIFIED_HELD}`,
     },
+    correctableFields: [],
+  } as unknown as ClientProfile;
+  const CORRECTABLE = {
+    ...PROFILE,
+    kyc: { status: 'approved', submittedAt: '2026-09-04T00:00:00.000Z' },
+    lockedFields: {},
+    correctableFields: ['firstName', 'lastName', 'dateOfBirth', 'nationality', 'country'],
   } as unknown as ClientProfile;
 
-  it('says it once, with a short label under each field — not the paragraph eight times', async () => {
-    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={APPROVED} />);
+  it('holds verified details for an admin who may not correct — said once, a label under each', async () => {
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={HELD} />);
 
-    expect(await screen.findByText(/belong to the client’s approved verification/i)).toBeVisible();
+    expect(
+      await screen.findByText(/only an admin who may correct verified details can change them/i),
+    ).toBeVisible();
     expect(screen.getAllByText('Verified by KYC')).toHaveLength(2);
+    expect(screen.getByLabelText(/^first name/i)).toBeDisabled();
     // The server's own sentence is still there for a screen reader, on the field.
     expect(screen.getByLabelText(/^first name/i)).toHaveAccessibleDescription(
       /First name was verified by KYC/,
     );
-  });
-
-  it('links straight to "Correct details" for a reviewer who may correct', async () => {
-    session.permissions = ['clients.edit', 'kyc.review', 'kyc.identity.correct'];
-    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={APPROVED} />);
-
-    expect(
-      await screen.findByRole('link', { name: /correct verified details on the kyc review/i }),
-    ).toHaveAttribute('href', '/kyc/1000142?correct=1');
-  });
-
-  it('offers the KYC review, not the correction, to a reviewer who may not correct', async () => {
-    session.permissions = ['clients.edit', 'kyc.review'];
-    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={APPROVED} />);
-
-    expect(await screen.findByRole('link', { name: /open the kyc review/i })).toHaveAttribute(
-      'href',
-      '/kyc/1000142',
-    );
-    expect(screen.queryByRole('link', { name: /correct verified details/i })).toBeNull();
-  });
-
-  it('offers no link at all to a desk that holds neither', async () => {
-    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={APPROVED} />);
-
-    await screen.findByText(/approved verification/i);
+    // …and nothing sends the admin elsewhere to edit the client.
     expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('lets a corrector change a verified detail HERE — the reason is asked for, and sent', async () => {
+    session.permissions = ['clients.edit', 'kyc.review', 'kyc.identity.correct'];
+    const user = userEvent.setup();
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={CORRECTABLE} />);
+
+    expect(await screen.findByText(/you can correct them here/i)).toBeVisible();
+    const surname = screen.getByLabelText(/^last name/i);
+    expect(surname).toBeEnabled();
+    expect(screen.queryByRole('link')).toBeNull();
+
+    // No reason box until a verified detail changes.
+    expect(screen.queryByLabelText(/reason for changing verified details/i)).toBeNull();
+    await user.clear(surname);
+    await user.type(surname, 'Haddad');
+    const save = screen.getByRole('button', { name: /^save$/i });
+    expect(save, 'a verified detail was saved without a reason').toBeDisabled();
+
+    await user.type(screen.getByLabelText(/reason for changing verified details/i), ' Typo ');
+    expect(save).toBeEnabled();
+    await user.click(save);
+
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { lastName: 'Haddad', reason: 'Typo' });
+  });
+
+  it('asks no reason when only the phone changes — it is contact, not identity', async () => {
+    session.permissions = ['clients.edit', 'kyc.identity.correct'];
+    const user = userEvent.setup();
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={CORRECTABLE} />);
+
+    const phone = await screen.findByLabelText(/^phone/i);
+    await user.clear(phone);
+    await user.type(phone, '71 000 111');
+    expect(screen.queryByLabelText(/reason for changing verified details/i)).toBeNull();
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(updateClientProfile).toHaveBeenCalledWith('c-1', { phone: '+961 71 000 111' });
+  });
+
+  it('puts the server’s refusal of the reason under the reason box', async () => {
+    session.permissions = ['clients.edit', 'kyc.identity.correct'];
+    updateClientProfile.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: {
+          code: 'VALIDATION_FAILED',
+          message: 'A verified detail changes only with a reason.',
+          fields: { reason: 'Give a reason for changing a verified detail.' },
+        },
+      },
+      isAxiosError: true,
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<EditClientProfileDialog open onClose={vi.fn()} profile={CORRECTABLE} />);
+
+    const surname = await screen.findByLabelText(/^last name/i);
+    await user.clear(surname);
+    await user.type(surname, 'Haddad');
+    await user.type(screen.getByLabelText(/reason for changing verified details/i), 'x');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(await screen.findByText('Give a reason for changing a verified detail.')).toBeVisible();
   });
 });
 

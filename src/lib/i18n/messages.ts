@@ -1106,10 +1106,18 @@ export const messages = {
     'Some fields are locked by the client’s identity verification. Each says where it can be changed.',
   // Said ONCE above the form, with the way to change a locked field.
   'clientProfile.lockedNoticeApproved':
-    'The locked fields belong to the client’s approved verification. Correct them — or fill in one the verification left empty — on the KYC review: the change is checked again, recorded with a reason, and the client is told.',
+    'The locked fields were verified by KYC. Only an admin who may correct verified details can change them.',
   'clientProfile.lockedNoticeInReview':
     'The locked fields are being checked against the client’s documents right now. They can change once the reviewer decides.',
-  'clientProfile.lockedCorrectAction': 'Correct verified details on the KYC review →',
+  // A verified detail is corrected HERE (28 Sep 2026), never on another screen.
+  'clientProfile.correctionNotice':
+    'Some details were verified by KYC. You can correct them here: a change needs a reason, is checked again and recorded on the verification, and the client is told. They stay verified.',
+  'clientProfile.verifiedBadge': 'Verified by KYC',
+  'clientProfile.correctionReason': 'Reason for changing verified details',
+  'clientProfile.correctionReasonPlaceholder':
+    'e.g. Surname misspelt at sign-up; the passport reads "Haddad".',
+  'clientProfile.correctionReasonHint':
+    'Recorded on the verification beside the old and new values. The client is told which details changed.',
   // Under each locked field — the full sentence is kept for screen readers and on hover.
   'clientProfile.lockedVerified': 'Verified by KYC',
   'clientProfile.lockedInReview': 'Being checked by KYC',

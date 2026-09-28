@@ -7191,10 +7191,12 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
             tags: components["schemas"]["ClientTagDto"][];
-            /** @description The profile fields the desk may not change right now, each with where it can be changed instead — the verification's lock (`deskLocks`). Present only for a reader holding clients.edit; empty when nothing is locked. */
+            /** @description The details THIS admin may not change right now, each with the sentence saying why — a review is checking it, or it was verified and they may not correct verified details (`adminEditRule`). Present only for a reader holding clients.edit; empty when nothing is held. */
             lockedFields?: {
                 [key: string]: string;
             };
+            /** @description Verified details THIS admin may correct: they change only with a `reason`, are recorded on the verification, and the client is told. Present only for a reader holding clients.edit. */
+            correctableFields?: string[];
             /** @description Absent without kyc.view. */
             kyc?: components["schemas"]["ProfileKycDto"];
             /** @description Document filenames. Absent without kyc.documents.view. */
@@ -7252,6 +7254,11 @@ export interface components {
             city?: string;
             /** @example 1103 2080 */
             postalCode?: string;
+            /**
+             * @description Required when a verified detail changes. Recorded on the audit row.
+             * @example Surname misspelt at registration; the passport reads "Haddad".
+             */
+            reason?: string;
         };
         ClientAccountDto: {
             /** Format: uuid */
