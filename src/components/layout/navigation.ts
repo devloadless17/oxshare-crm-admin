@@ -35,6 +35,7 @@ import {
   SlidersHorizontal,
   Tags,
   UserCog,
+  UserPlus,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -171,6 +172,12 @@ export const NAV: readonly NavEntry[] = [
        */
       { label: 'nav.partners', href: '/partners', icon: Handshake },
       { label: 'nav.partnerApprovals', href: '/approvals/ib', icon: ClipboardCheck },
+      /*
+       * Who the partners BROUGHT IN: every referred client and their
+       * introducer, on one page (owner, 28 Sep 2026). After the partners and
+       * their applications, before what they earned from those clients.
+       */
+      { label: 'nav.referrals', href: '/referrals', icon: UserPlus },
       { label: 'nav.commissions', href: '/commissions', icon: HandCoins },
       { label: 'nav.commissionTypes', href: '/commission-types', icon: BadgePercent },
       { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
