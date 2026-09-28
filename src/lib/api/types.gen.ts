@@ -6639,7 +6639,6 @@ export interface components {
             steps: components["schemas"]["KycStepStateDto"][];
             /** Format: date-time */
             submittedAt?: string;
-            reviewedBy?: string;
             /** Format: date-time */
             reviewedAt?: string;
             /** Format: date-time */
