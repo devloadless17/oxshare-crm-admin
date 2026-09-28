@@ -69,6 +69,8 @@ export type ClientListResponse = components['schemas']['ClientListResponseDto'];
  */
 export type ClientKycStatus = ClientRow['kycStatus'];
 export type ClientProfile = components['schemas']['ClientProfileDto'];
+/** A client's identity record: document versions with their status, and every decision. */
+export type ClientIdentityRecord = components['schemas']['ClientIdentityRecordDto'];
 /**
  * What an edit answers with: the account fields, without the profile screen's
  * tags, KYC and trading accounts. A separate DTO on the API for exactly that
@@ -2506,6 +2508,13 @@ export const adminApi = {
       `/admin/clients/${id}/transactions?${query.toString()}`,
       { signal },
     );
+    return data;
+  },
+
+  async getClientIdentity(id: string, signal?: AbortSignal): Promise<ClientIdentityRecord> {
+    const { data } = await apiClient.get<ClientIdentityRecord>(`/admin/clients/${id}/identity`, {
+      signal,
+    });
     return data;
   },
 

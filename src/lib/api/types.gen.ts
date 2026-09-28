@@ -3167,6 +3167,26 @@ export interface paths {
         patch: operations["AdminClientsController_setClientStatus"];
         trace?: never;
     };
+    "/v1/admin/clients/{id}/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A client's identity record: every document version, and every verification decision
+         * @description Documents need kyc.documents.view (or kyc.review) and decisions need kyc.view; a half the reader may not see is ABSENT, not empty.
+         */
+        get: operations["AdminClientIdentityController_recordFor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tags": {
         parameters: {
             query?: never;
@@ -7330,6 +7350,93 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "suspended";
+        };
+        ClientIdentityPageDto: {
+            /** @example 0 */
+            part: number;
+            /** @example Photo Page */
+            label: string;
+            /**
+             * @description Opened through GET /uploads/kyc/:file, which checks the reader and audits it.
+             * @example uploads/kyc/2f0c….jpg
+             */
+            path: string;
+            /** @description The name it was uploaded as. */
+            fileName?: string | null;
+        };
+        ClientIdentityVersionDto: {
+            id: string;
+            /** @example passport */
+            docType?: string | null;
+            /** @example Passport */
+            docLabel?: string | null;
+            /**
+             * @description Read from the verification log: a draft; presented and awaiting review; or the outcome of the latest decision that covered it.
+             * @enum {string}
+             */
+            status: "draft" | "awaiting_review" | "verified" | "returned" | "reverification_requested";
+            /**
+             * @description Which of its pages that decision returned.
+             * @example [
+             *       "doc_back"
+             *     ]
+             */
+            returnedPages: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description When it was presented for review; null for a draft.
+             */
+            presentedAt?: string | null;
+            pages: components["schemas"]["ClientIdentityPageDto"][];
+        };
+        ClientIdentityDocumentDto: {
+            /**
+             * @description identity | address | selfie | other:<field>
+             * @example identity
+             */
+            slot: string;
+            /** @example Identity document */
+            label: string;
+            /** @description Newest first. */
+            versions: components["schemas"]["ClientIdentityVersionDto"][];
+        };
+        ClientVerificationDto: {
+            seq: number;
+            /** @enum {string} */
+            outcome: "verified" | "returned" | "reverification_requested";
+            /** @example 1 */
+            levelAfter: number;
+            /**
+             * @description manual_review | legacy | fixture | import | provider
+             * @example manual_review
+             */
+            method: string;
+            /** @description The reviewer's email as it was when they decided. */
+            decidedBy?: string | null;
+            reason?: string | null;
+            /**
+             * @example [
+             *       "doc_front"
+             *     ]
+             */
+            returnedItems: string[];
+            /**
+             * @description returnedItems as a person reads them, in the same order.
+             * @example [
+             *       "Identity document — first page"
+             *     ]
+             */
+            returnedLabels: string[];
+            /** Format: date-time */
+            decidedAt: string;
+        };
+        ClientIdentityRecordDto: {
+            /** @description Absent without kyc.documents.view (or kyc.review). */
+            documents?: components["schemas"]["ClientIdentityDocumentDto"][];
+            /** @description Newest first. Absent without kyc.view. */
+            verifications?: components["schemas"]["ClientVerificationDto"][];
         };
         ClientTagWithCountDto: {
             id: string;
@@ -12902,6 +13009,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientAccountDto"];
+                };
+            };
+        };
+    };
+    AdminClientIdentityController_recordFor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientIdentityRecordDto"];
                 };
             };
         };

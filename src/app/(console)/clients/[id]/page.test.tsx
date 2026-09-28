@@ -32,8 +32,11 @@ const {
   getPartnerDetail,
   getClients,
   getTradingAccounts,
+  getClientIdentity,
 } = vi.hoisted(() => ({
   getClient: vi.fn(),
+  // The identity record panel (documents and decisions) — its own request.
+  getClientIdentity: vi.fn().mockResolvedValue({}),
   // A partner's Referred clients / Referred accounts tabs.
   getClients: vi.fn(),
   getTradingAccounts: vi.fn(),
@@ -62,6 +65,7 @@ vi.mock('@/lib/api', () => {
       getPartnerDetail,
       getClients,
       getTradingAccounts,
+      getClientIdentity,
     },
   };
   return { api, default: api };
@@ -208,11 +212,11 @@ describe('the documents section — the sharpest of the three absences', () => {
 
   it('says NONE UPLOADED when the viewer can see them and there are none', async () => {
     // The other half. These two must never render the same way.
-    getClient.mockResolvedValue(profile({ documents: [] }));
+    getClientIdentity.mockResolvedValue({ documents: [], verifications: [] });
     renderWithProviders(<ClientProfilePage />);
 
     await screen.findByText('John Doe');
-    expect(screen.getByText(/no documents uploaded/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no documents uploaded/i)).toBeInTheDocument();
     expect(screen.queryByText(/documents are hidden/i)).not.toBeInTheDocument();
   });
 
@@ -225,11 +229,37 @@ describe('the documents section — the sharpest of the three absences', () => {
      * would answer "nobody", because opening a profile is not viewing a
      * document.
      */
-    getClient.mockResolvedValue(profile({ documents: ['passport.png'] }));
+    getClientIdentity.mockResolvedValue({
+      documents: [
+        {
+          slot: 'identity',
+          label: 'Identity document',
+          versions: [
+            {
+              id: 'v1',
+              docType: 'passport',
+              docLabel: 'Passport',
+              status: 'verified',
+              returnedPages: [],
+              createdAt: '2026-09-01T10:00:00Z',
+              presentedAt: '2026-09-01T10:00:00Z',
+              pages: [
+                {
+                  part: 0,
+                  label: 'Photo Page',
+                  path: 'uploads/kyc/passport.png',
+                  fileName: 'p.png',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
     renderWithProviders(<ClientProfilePage />);
 
     await screen.findByText('John Doe');
-    const link = await screen.findByRole('link', { name: /passport\.png/i });
+    const link = await screen.findByRole('link', { name: /photo page/i });
     expect(link).toHaveAttribute('href', expect.stringContaining('passport.png'));
     expect(screen.queryByRole('img', { name: /passport/i })).not.toBeInTheDocument();
   });

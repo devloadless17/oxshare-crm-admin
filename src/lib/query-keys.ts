@@ -74,6 +74,7 @@ export const keys = {
     list: (params: Params) => ['clients', 'list', params] as const,
     detail: (userId: string) => ['clients', 'detail', userId] as const,
     partner: (userId: string) => ['clients', 'detail', userId, 'partner'] as const,
+    identity: (userId: string) => ['clients', 'detail', userId, 'identity'] as const,
     transactions: (userId: string, page: number) =>
       ['clients', 'detail', userId, 'transactions', page] as const,
     closedPositions: (userId: string, page: number) =>

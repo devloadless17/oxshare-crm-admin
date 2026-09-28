@@ -8,7 +8,6 @@ import {
   Activity,
   ArrowLeft,
   CandlestickChart,
-  FileText,
   Handshake,
   History,
   Network,
@@ -36,6 +35,7 @@ import {
   EditClientProfileDialog,
 } from '@/components/clients/profile/client-edit-dialogs';
 import { ClientPartnerPanel } from '@/components/clients/profile/client-partner-panel';
+import { ClientIdentityPanel } from '@/components/clients/profile/client-identity-panel';
 import { useClientTagToggle } from '@/components/clients/profile/use-client-tag-toggle';
 import {
   ClientClosedPositionsPanel,
@@ -54,7 +54,6 @@ import {
   KycStatusBadge,
   ProfileCard,
 } from '@/components/clients/profile/profile-cards';
-import { buildKycDocUrl } from '@/lib/kyc-doc-url';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { clientLabel } from '@/components/clients/client-identity';
@@ -564,35 +563,10 @@ export default function ClientProfilePage() {
 
                 <div id="documents">
                   <ProfileCard
-                    title={t('clientProfile.sectionDocuments')}
+                    title={t('clientProfile.sectionIdentityRecord')}
                     hiddenReason={canViewDocs ? undefined : t('clientProfile.documentsHidden')}
                   >
-                    {profile.documents && profile.documents.length > 0 ? (
-                      <ul className="space-y-1.5">
-                        {profile.documents.map((file) => (
-                          <li key={file}>
-                            {/*
-                             * A LINK, never an inline image. Every fetch goes
-                             * through GET /uploads/kyc/:file, which applies the
-                             * client scope, checks the reader and writes the
-                             * R-6.6 audit row. Embedding the bytes would route
-                             * an audited PII read around its own audit.
-                             */}
-                            <a
-                              href={buildKycDocUrl(file)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 font-mono text-[11px] text-link hover:underline focus-outline"
-                            >
-                              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-                              {file}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <EmptySection message={t('clientProfile.noDocuments')} />
-                    )}
+                    <ClientIdentityPanel clientId={profile.id} />
                   </ProfileCard>
                 </div>
               </div>
