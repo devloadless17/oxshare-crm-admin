@@ -389,6 +389,12 @@ export interface ClientListParams {
    * looks like a bug; `UsersStore.countReferredBy` records why.
    */
   referredBy?: string;
+  /**
+   * `'true'`: only clients a partner introduced — the Referrals page, which is
+   * this list with that one filter fixed. `'false'`: only clients nobody did.
+   * The API refuses any other value with a 400.
+   */
+  referred?: 'true' | 'false';
   sort?: ClientSortKey;
   order?: 'asc' | 'desc';
 }

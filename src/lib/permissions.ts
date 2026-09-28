@@ -223,6 +223,13 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    */
   { prefix: '/partners', requirement: { permission: 'ib.view' } },
   /*
+   * The Referrals page is `GET /admin/clients?referred=true`, so it asks for
+   * what that endpoint enforces: `clients.view`. The "Introduced by" column
+   * inside needs `ib.view` as well and is drawn only when it is held — the page
+   * without it is still the list of referred clients.
+   */
+  { prefix: '/referrals', requirement: { permission: 'clients.view' } },
+  /*
    * The commission ledger. It was NOT LISTED, and an unlisted path is denied —
    * so the screen shipped unreachable for everybody, which is the failure mode
    * the deny-by-default note below promises will be caught on the author's
