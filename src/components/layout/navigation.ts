@@ -26,7 +26,6 @@ import {
   LineChart,
   Link2,
   Network,
-  Radio,
   Receipt,
   Scale,
   Server,
@@ -225,8 +224,6 @@ export const NAV: readonly NavEntry[] = [
        * bridge because both answer "what does the server hold".
        */
       { label: 'nav.mt5Groups', href: '/mt5-groups', icon: Server },
-      /* Whether the machinery behind every trading figure is actually up. */
-      { label: 'nav.bridge', href: '/bridge', icon: Radio },
     ],
   },
   {
