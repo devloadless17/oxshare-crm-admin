@@ -780,6 +780,21 @@ export const messages = {
   'clients.empty': 'No clients match the current filters.',
   'clients.nounOne': 'client',
   'clients.nounMany': 'clients',
+  // The partner who introduced a client — the Referrals page's column.
+  'clients.colIntroducedBy': 'Introduced by',
+  // Introduced, by a partner the reader may not see — never "not introduced".
+  'clients.introducedByOutside': 'A partner outside your territory',
+
+  // ── Referrals (owner, 28 Sep 2026) ───────────────────────────────────────
+  // The client list narrowed to clients a partner introduced, under
+  // Introducing brokers. The title matches the sidebar label.
+  'referrals.title': 'Referrals',
+  'referrals.subtitle': 'Clients who joined through a partner, and the partner who introduced them',
+  'referrals.loading': 'Loading referrals',
+  'referrals.loadFailed': 'Failed to load referrals.',
+  'referrals.caption': 'Clients introduced by a partner',
+  'referrals.empty': 'No referred clients match the current filters.',
+  'referrals.emptyNone': 'No client has joined through a partner yet.',
   'tags.overflow': '+{count} more',
 
   // ── ADM-14 tag management ───────────────────────────────────────────────
@@ -3050,6 +3065,7 @@ export const messages = {
    */
   'nav.partnerApprovals': 'Partner applications',
   'nav.partners': 'Partners',
+  'nav.referrals': 'Referrals',
   'nav.commissionTypes': 'Commission types',
   'nav.ibLevels': 'Partner levels',
   // ── Commission levels (0112) ──────────────────────────────────────────────

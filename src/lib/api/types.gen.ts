@@ -7073,6 +7073,19 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        ClientRowReferrerDto: {
+            ibUserId: string;
+            /** @description The introducer’s Portal ID. Absent, with their name, when they are outside your territory. */
+            portalId?: number;
+            /** @description Absent when the introducer is outside your territory. */
+            firstName?: string;
+            /** @description Absent when the introducer is outside your territory. */
+            lastName?: string;
+            /** @description Not carried on a list row. */
+            email?: string;
+            /** @description True when a partner the reader may not see introduced this client — distinct from “not introduced”, which is an absent `referrer`. */
+            outsideTerritory: boolean;
+        };
         ClientRowDto: {
             id: string;
             /** @example 1000001 */
@@ -7104,6 +7117,8 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
             tags?: components["schemas"]["ClientTagDto"][];
+            /** @description The partner who introduced this client. Absent when nobody did, and absent for a reader without ib.view — the screen tells the two apart by its own permission check. */
+            referrer?: components["schemas"]["ClientRowReferrerDto"];
         };
         ClientListResponseDto: {
             items: components["schemas"]["ClientRowDto"][];
@@ -12668,6 +12683,8 @@ export interface operations {
                 tag?: string;
                 /** @description Clients introduced by this partner, by the partner’s Portal ID (users.referred_by_ib_user_id). Scoped like every other filter — a reader still only sees their own territory. A value that is not a Portal ID is a 400, never a silently unfiltered list. */
                 referredBy?: string;
+                /** @description `true`: only clients a partner introduced (the Referrals page); `false`: only clients nobody introduced. On users.referred_by_ib_user_id, so a referred client who later became a partner still counts. Any other value is a 400. */
+                referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
             };
@@ -12706,6 +12723,8 @@ export interface operations {
                 tag?: string;
                 /** @description Clients introduced by this partner, by Portal ID — the same filter as the list, so the file matches the screen it was exported from. */
                 referredBy?: string;
+                /** @description `true`: only clients a partner introduced (the Referrals page); `false`: only clients nobody introduced. On users.referred_by_ib_user_id, so a referred client who later became a partner still counts. Any other value is a 400. */
+                referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
             };

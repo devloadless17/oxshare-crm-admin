@@ -9,6 +9,7 @@ import { MaskedValue } from '@/components/masked-value';
 import { CopyableId } from '@/components/copyable-id';
 import { isMasked } from '@/lib/masking';
 import { ClientTagChips } from './client-tag-chips';
+import { IntroducedByCell } from './introduced-by-cell';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
 
@@ -70,6 +71,7 @@ export function clientColumns({
   actingId,
   onToggleStatus,
   onChangeProgram,
+  showReferrer = false,
 }: {
   canSuspend: boolean;
   canViewTags: boolean;
@@ -79,6 +81,12 @@ export function clientColumns({
   actingId: string | null | undefined;
   onToggleStatus: (client: ClientRow) => void;
   onChangeProgram: (client: ClientRow) => void;
+  /**
+   * Draw "Introduced by" after the Portal ID — the Referrals page. Pass it only
+   * for a reader holding `ib.view`: without it the API sends no `referrer`, and
+   * a column of dashes would say nobody introduced anyone.
+   */
+  showReferrer?: boolean;
 }): Column<ClientRow>[] {
   const hidden = (field: string) => isMasked(field, maskedFields);
 
@@ -172,6 +180,15 @@ export function clientColumns({
       <CopyableId value={String(c.portalId)} full copyLabel={t('common.copyPortalId')} />
     ),
   });
+
+  if (showReferrer) {
+    // Not sortable: the introducer is not a column of `users` the API orders by.
+    columns.push({
+      header: t('clients.colIntroducedBy'),
+      sortable: false,
+      cell: (c) => <IntroducedByCell referrer={c.referrer} />,
+    });
+  }
 
   columns.push(
     {

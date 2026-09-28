@@ -26,7 +26,6 @@ import {
   LineChart,
   Link2,
   Network,
-  Radio,
   Receipt,
   Scale,
   Server,
@@ -36,6 +35,7 @@ import {
   SlidersHorizontal,
   Tags,
   UserCog,
+  UserPlus,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -172,6 +172,12 @@ export const NAV: readonly NavEntry[] = [
        */
       { label: 'nav.partners', href: '/partners', icon: Handshake },
       { label: 'nav.partnerApprovals', href: '/approvals/ib', icon: ClipboardCheck },
+      /*
+       * Who the partners BROUGHT IN: every referred client and their
+       * introducer, on one page (owner, 28 Sep 2026). After the partners and
+       * their applications, before what they earned from those clients.
+       */
+      { label: 'nav.referrals', href: '/referrals', icon: UserPlus },
       { label: 'nav.commissions', href: '/commissions', icon: HandCoins },
       { label: 'nav.commissionTypes', href: '/commission-types', icon: BadgePercent },
       { label: 'nav.ibLevels', href: '/ib-levels', icon: Layers },
@@ -225,8 +231,6 @@ export const NAV: readonly NavEntry[] = [
        * bridge because both answer "what does the server hold".
        */
       { label: 'nav.mt5Groups', href: '/mt5-groups', icon: Server },
-      /* Whether the machinery behind every trading figure is actually up. */
-      { label: 'nav.bridge', href: '/bridge', icon: Radio },
     ],
   },
   {

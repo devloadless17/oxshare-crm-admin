@@ -12,6 +12,16 @@ import {
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 
+/** The derived client types, in the order the type filter offers them. */
+const CLIENT_TYPES = ['individual', 'referral', 'partner'] as const;
+type ClientType = (typeof CLIENT_TYPES)[number];
+
+const TYPE_LABELS: Record<ClientType, string> = {
+  individual: t('clients.typeIndividual'),
+  referral: t('clients.typeReferral'),
+  partner: t('clients.typePartner'),
+};
+
 /**
  * The filters this bar renders — and only those.
  *
@@ -67,6 +77,7 @@ export function ClientFilters({
   isFiltered,
   onChange,
   onClear,
+  types = CLIENT_TYPES,
 }: {
   values: ClientFilterValues;
   tags: readonly ClientTagWithCount[];
@@ -76,6 +87,12 @@ export function ClientFilters({
   isFiltered: boolean;
   onChange: (patch: Partial<ClientFilterValues>) => void;
   onClear: () => void;
+  /**
+   * The client types the type filter offers. The Referrals page drops
+   * `individual`: a referred client is a referral or, since, a partner, so
+   * that option could only ever answer "nobody".
+   */
+  types?: readonly ClientType[];
 }) {
   const hidden = (field: string) => hiddenFilters.includes(field);
 
@@ -87,11 +104,7 @@ export function ClientFilters({
         value={values.type}
         onChange={(v) => onChange({ type: v })}
         placeholder={t('clients.allTypes')}
-        options={[
-          { value: 'individual', label: t('clients.typeIndividual') },
-          { value: 'referral', label: t('clients.typeReferral') },
-          { value: 'partner', label: t('clients.typePartner') },
-        ]}
+        options={types.map((value) => ({ value, label: TYPE_LABELS[value] }))}
       />
 
       {/*

@@ -71,7 +71,9 @@ function consoleRoutes(root = 'src/app'): string[] {
  * bell's full page, opened from "Open all notifications" in the header's bell
  * panel — the bell is its door on every screen.
  */
-const OFF_NAV = ['/profile', '/notifications'];
+// These routes remain available by URL, but are intentionally omitted from
+// the sidebar and command palette.
+const OFF_NAV = ['/profile', '/notifications', '/bridge'];
 
 describe('the navigation tree names only real, reachable pages', () => {
   it('finds the console screens, so the checks below cannot pass vacuously', () => {
