@@ -20,6 +20,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { OutsideTerritoryCount } from '@/components/clients/outside-territory-count';
 
 /**
  * ADM-14's vocabulary — the tags themselves, not the clients carrying them.
@@ -192,19 +193,23 @@ export default function TagsPage() {
     },
     {
       header: t('tags.colClients'),
-      cell: (tag) =>
-        tag.clientCount === 0 ? (
-          <span className="text-muted-foreground">0</span>
-        ) : (
-          // The link that made URL-state on the client list non-optional. A
-          // count nobody can act on is a number on a screen.
-          <Link
-            href={`/clients?tag=${tag.slug}`}
-            className="text-link hover:underline focus-outline"
-          >
-            {t('tags.clientCount', { count: tag.clientCount })}
-          </Link>
-        ),
+      cell: (tag) => (
+        <>
+          {tag.clientCount === 0 ? (
+            <span className="text-muted-foreground">0</span>
+          ) : (
+            // The link that made URL-state on the client list non-optional. A
+            // count nobody can act on is a number on a screen.
+            <Link
+              href={`/clients?tag=${tag.slug}`}
+              className="text-link hover:underline focus-outline"
+            >
+              {t('tags.clientCount', { count: tag.clientCount })}
+            </Link>
+          )}
+          <OutsideTerritoryCount count={tag.clientsOutsideScope} />
+        </>
+      ),
     },
     ...(canManage
       ? [

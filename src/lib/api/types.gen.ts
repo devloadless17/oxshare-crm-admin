@@ -5551,10 +5551,15 @@ export interface components {
              */
             rebateShare: string;
             /**
-             * @description How many partners stand on this rung. Part of the row rather than a second call: it is what makes a delete refusable in the UI before the database refuses it, and what tells an operator how many people a rate change is about to affect.
+             * @description How many partners stand on this rung in the reader’s territory. Part of the row rather than a second call: with `partnersOutsideScope` it is what makes a delete refusable in the UI before the database refuses it, and what tells an operator how many people a rate change is about to affect.
              * @example 4
              */
             partnerCount: number;
+            /**
+             * @description How many partners stand on this rung OUTSIDE the reader’s territory — a count, never who (D-81 R2). Zero for a reader who sees every client. The rung is emptied only when both this and `partnerCount` are zero.
+             * @example 0
+             */
+            partnersOutsideScope: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -6537,10 +6542,15 @@ export interface components {
             /** @description Every product that sells this group, by name — several since 0142. Empty when no product does, in which case no client can open an account in it from the portal. */
             products: components["schemas"]["Mt5GroupProductDto"][];
             /**
-             * @description How many trading accounts the CRM holds in this group.
+             * @description How many trading accounts the CRM holds in this group, in the reader’s territory.
              * @example 12
              */
             accountCount: number;
+            /**
+             * @description How many it holds OUTSIDE the reader’s territory — a count, never who (D-81 R2). Zero for a reader who sees every client.
+             * @example 0
+             */
+            accountsOutsideScope: number;
         };
         KycDocumentPartDto: {
             /**
@@ -7488,8 +7498,10 @@ export interface components {
             description?: string;
             /** Format: date-time */
             createdAt: string;
-            /** @description How many clients carry this tag. */
+            /** @description How many clients carry this tag in the reader’s territory. */
             clientCount: number;
+            /** @description How many clients carry it OUTSIDE the reader’s territory — a count, never who (D-81 R2). Zero for a reader who sees every client. */
+            clientsOutsideScope: number;
         };
         CreateClientTagDto: {
             /** @example High risk */

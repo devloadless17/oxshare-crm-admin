@@ -13,6 +13,7 @@ import {
 import { marginLevels } from '@/components/mt5-groups/group-commission';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { OutsideTerritoryCount } from '@/components/clients/outside-territory-count';
 
 /**
  * MT5 groups — the groups the server currently reports, as the group sync
@@ -122,7 +123,12 @@ export default function Mt5GroupsPage() {
     },
     {
       header: t('mt5Groups.colAccounts'),
-      cell: (group) => group.accountCount,
+      cell: (group) => (
+        <>
+          {group.accountCount}
+          <OutsideTerritoryCount count={group.accountsOutsideScope} />
+        </>
+      ),
       cellClassName: 'tabular',
       align: 'right',
       sortable: true,

@@ -16,6 +16,7 @@ import { RowActions } from '@/components/row-actions';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { OutsideTerritoryCount } from '@/components/clients/outside-territory-count';
 
 /**
  * The commission ladder, drawn as a TREE of read-only cards.
@@ -141,10 +142,12 @@ export default function IbLevelsPage() {
        * asking with the number turns a refusal into an informed cancellation.
        */
       description:
-        level.partnerCount > 0
+        // Everyone on the rung, the reader's territory or not: the API refuses
+        // on the whole count, so the question has to ask about all of it.
+        level.partnerCount + level.partnersOutsideScope > 0
           ? t('ibLevels.confirmDeleteOccupied', {
               level: String(level.level),
-              count: String(level.partnerCount),
+              count: String(level.partnerCount + level.partnersOutsideScope),
             })
           : t('ibLevels.confirmDelete', { level: String(level.level) }),
       confirmLabel: t('common.delete'),
@@ -361,7 +364,10 @@ function LevelCard({
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="shrink-0 text-muted-foreground">{t('ibLevels.partners')}</dt>
-          <dd className="text-right font-semibold tabular">{level.partnerCount}</dd>
+          <dd className="text-right font-semibold tabular">
+            {level.partnerCount}
+            <OutsideTerritoryCount count={level.partnersOutsideScope} />
+          </dd>
         </div>
       </dl>
 

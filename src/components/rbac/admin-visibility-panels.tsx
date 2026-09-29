@@ -100,6 +100,7 @@ export function AdminTagScopePanel({
         slug: id,
         label: t('adminUsers.scopeUnknownTag'),
         clientCount: 0,
+        clientsOutsideScope: 0,
         createdAt: '',
       },
   );

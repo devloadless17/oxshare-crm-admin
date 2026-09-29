@@ -28,6 +28,7 @@ function group(over: Partial<Mt5GroupRow> = {}): Mt5GroupRow {
     leverageDefault: 100,
     products: [{ id: 'p-1', name: 'Standard', environment: 'live' }],
     accountCount: 12,
+    accountsOutsideScope: 0,
     marginCall: '100.00000000',
     marginStopOut: '50.00000000',
     marginStopOutMode: 'percent',
