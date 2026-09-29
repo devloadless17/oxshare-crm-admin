@@ -76,7 +76,7 @@ type Referred = NonNullable<ClientProfile['referredClients']>;
 
 const someClients = (n: number): Referred =>
   Array.from({ length: n }, (_, i) => ({
-    clientUserId: `client-${i}`,
+    clientUserId: 1000100 + i,
     clientPortalId: 1000100 + i,
     firstName: 'Ada',
     lastName: `Number${i}`,
@@ -220,7 +220,7 @@ describe('one row per person (owner, 26 Sep 2026)', () => {
       level: 2,
       directPartners: [
         {
-          userId: 'client-1',
+          userId: 1000101,
           portalId: 1000101,
           firstName: 'Ada',
           lastName: 'Number1',
@@ -238,5 +238,27 @@ describe('one row per person (owner, 26 Sep 2026)', () => {
     // …as the expandable partner node, not the leaf.
     expect(screen.getByRole('button', { name: /Ada Number1/ })).toBeInTheDocument();
     expect(screen.getByText('Ada Number0')).toBeInTheDocument();
+  });
+});
+
+describe('sub-partners outside the reader’s territory — a count, never who (R2)', () => {
+  it('counts hidden sub-partners instead of claiming nobody is beneath them', () => {
+    const partner = {
+      level: 1,
+      directPartners: [],
+      directPartnersOutsideScope: 2,
+    } as unknown as IbPartnerDetail;
+    renderTree({ referredClients: [], partner });
+
+    expect(
+      screen.getByText(/2 sub-partners beneath this partner are outside your territory/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/nobody beneath them/i)).not.toBeInTheDocument();
+  });
+
+  it('never says "nobody" above a count of hidden referrals', () => {
+    renderTree({ referredClients: [], referredOutsideScope: 4 });
+    expect(screen.getByText(/4 more clients introduced/i)).toBeInTheDocument();
+    expect(screen.queryByText(/nobody beneath them/i)).not.toBeInTheDocument();
   });
 });

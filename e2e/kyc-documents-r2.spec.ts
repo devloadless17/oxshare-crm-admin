@@ -49,7 +49,7 @@ test.describe('KYC documents are served from object storage', () => {
       const api = await adminApi(ctx);
       const explicit = process.env['E2E_KYC_USER_ID'];
       shared = explicit ? undefined : await registerClientWithPendingKyc(api, 'r2docs');
-      targetUserId = explicit ?? shared!.id;
+      targetUserId = explicit ?? String(shared!.id);
     } finally {
       await ctx.close();
     }

@@ -53,7 +53,7 @@ const DATA = {
   stepData: {
     'source-of-funds': {
       customField_e: 'Acme',
-      customField_p: { filePath: '/uploads/kyc/p.png', fileName: 'payslip.png' },
+      customField_p: { filePath: '/uploads/kyc/p.png' },
     },
   },
   document: { docType: 'national_id', frontFilePath: '/uploads/kyc/f.png' },
@@ -98,7 +98,7 @@ describe('the broker’s own questions', () => {
     const [section] = additionalSections(DATA);
     expect(section?.rows.map((row) => [row.label, row.value, row.flagged])).toEqual([
       ['Employer', 'Acme', true],
-      ['Payslip', 'payslip.png', false],
+      ['Payslip', 'View', false],
     ]);
     expect(section?.rows[1]?.file?.filePath).toBe('/uploads/kyc/p.png');
   });
@@ -157,5 +157,35 @@ describe('the documents, grouped', () => {
       'address',
       'source-of-funds',
     ]);
+  });
+});
+
+/*
+ * Reported 28 Sep 2026: a returned ANSWER turned red, a returned passport or
+ * bill never did. The tiles take the same rule as the answers.
+ */
+describe('the documents the reviewer returned', () => {
+  const returnedIn = (status: string) =>
+    ({
+      ...DATA,
+      status,
+      document: { ...DATA.document, backFilePath: '/uploads/kyc/k.png' },
+      rejectedFields: ['doc_back', 'address_proof', 'selfie', 'customField_p'],
+    }) as typeof DATA;
+
+  it('marks each returned file while it is with the client — a page, the selfie, a broker’s upload', () => {
+    expect(
+      reviewDocuments(returnedIn('rejected')).map((doc) => [doc.label, doc.returned === true]),
+    ).toEqual([
+      ['National ID — Front Side', false],
+      ['National ID — Back Side', true],
+      ['Utility Bill', true],
+      ['Selfie photo', true],
+      ['Payslip', true],
+    ]);
+  });
+
+  it('marks nothing once the submission is back with the reviewer', () => {
+    expect(reviewDocuments(returnedIn('submitted')).some((doc) => doc.returned)).toBe(false);
   });
 });

@@ -229,7 +229,9 @@ describe('what the list shows', () => {
     // `unavailable` is a to-do for the API owner, not a failure — the screen
     // must say which endpoint it wanted (the BackendPending contract).
     getTransactions.mockRejectedValue(
-      Object.assign(new Error('not built'), { response: { status: 404, data: {} } }),
+      Object.assign(new Error('not built'), {
+        response: { status: 404, data: { code: 'ROUTE_NOT_FOUND' } },
+      }),
     );
     renderWithProviders(<FinancialPage />);
 

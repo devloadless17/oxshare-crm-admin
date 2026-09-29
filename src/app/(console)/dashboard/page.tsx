@@ -539,7 +539,7 @@ export default function AdminDashboardPage() {
                   {reviewQueue.map((submission) => (
                     <li key={submission.userId}>
                       <PermittedLink
-                        href={`/kyc/${submission.user?.portalId ?? submission.userId}`}
+                        href={`/kyc/${submission.userId}`}
                         className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-accent/40 focus-outline"
                       >
                         <div className="min-w-0 text-sm">

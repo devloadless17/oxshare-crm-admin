@@ -1,10 +1,12 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Wallet } from 'lucide-react';
 import api from '@/lib/api';
 import type { Currency, WalletListResponse, WalletRow } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -45,7 +47,7 @@ import { keys } from '@/lib/query-keys';
  * with either. A control that appears and then 403s is worse than one that never
  * appeared.
  */
-export function ClientWalletsPanel({ userId }: { userId: string }) {
+export function ClientWalletsPanel({ userId }: { userId: ClientRef }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
 
@@ -175,7 +177,7 @@ export function ClientWalletsPanel({ userId }: { userId: string }) {
   const requestClose = async (wallet: WalletRow) => {
     const ok = await confirm({
       title: t('wallets.closeConfirmTitle', { currency: wallet.currency }),
-      description: t('wallets.closeConfirmBody', { email: wallet.user.email ?? '—' }),
+      description: t('wallets.closeConfirmBody', { email: clientLabel(wallet.user) }),
       confirmLabel: t('wallets.closeConfirm'),
       destructive: true,
     });

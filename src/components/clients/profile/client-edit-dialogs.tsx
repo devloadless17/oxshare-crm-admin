@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientProfile } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
@@ -44,7 +45,7 @@ const FIELD =
  */
 async function refreshProfile(
   queryClient: ReturnType<typeof useQueryClient>,
-  clientId: string,
+  clientId: ClientRef,
 ): Promise<void> {
   await queryClient.invalidateQueries({ queryKey: keys.clients.detail(clientId) });
 }

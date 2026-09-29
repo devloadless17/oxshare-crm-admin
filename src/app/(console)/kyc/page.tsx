@@ -282,8 +282,7 @@ function KycQueue() {
       // NOT sortable — same reason as Country below: R-2.5 makes an
       // unrecognised sort key a 400, and the API has no `userId` sort.
       sortable: false,
-      // The Portal ID, never the uuid: the uuid still keys the row inside the
-      // system and is shown to no one (owner's decision, 24 Sep 2026).
+      // The Portal ID — the client's one identifier since backend 0159 (D-83).
       cell: (row) =>
         row.user?.portalId !== undefined ? (
           <CopyableId value={String(row.user.portalId)} full copyLabel={t('common.copyPortalId')} />
@@ -434,9 +433,9 @@ function KycQueue() {
       sortable: false,
       cell: (row) => (
         <PermittedLink
-          href={`/kyc/${row.user?.portalId ?? row.userId}`}
+          href={`/kyc/${row.userId}`}
           className="inline-flex items-center gap-1 font-semibold text-xs text-link hover:underline focus-outline rounded-sm"
-          aria-label={`Review KYC submission of ${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim()}
+          aria-label={`Review KYC submission of ${clientLabel(row.user ?? {})}`}
         >
           <span>{t('kycReview.review')}</span>
           <ChevronRight className="h-4 w-4" />
@@ -519,7 +518,7 @@ function KycQueue() {
           caption={t('kyc.queueCaption')}
           columns={columns}
           rows={rows}
-          rowKey={(row) => row.userId}
+          rowKey={(row) => String(row.userId)}
           /*
            * Double-click a row to open its review screen — the same destination
            * the Review link in the last column points at.

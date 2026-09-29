@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { DataTable, compareValues } from './data-table';
+
+/** The reader's own mask, per test — null admin (nothing hidden) by default. */
+let readerMask: string[] | undefined;
+vi.mock('@/context/AdminAuthContext', () => ({
+  useAdmin: () => ({ admin: readerMask ? { maskedFields: readerMask } : null }),
+}));
 
 /**
  * The table sorted money as text, and that is a money bug.
@@ -231,5 +237,31 @@ describe('sortability is declared, never inferred from the header text', () => {
     }
 
     expect(seen).toEqual(['amount']);
+  });
+});
+
+describe('a sort the reader’s mask forbids is not offered (D-82)', () => {
+  const rows = [{ id: '1', amount: '9.00000000' }];
+  const rowKey = (r: { id: string }) => r.id;
+  const columns = [
+    { header: 'Client', sortKey: 'userEmail', cell: () => 'x' },
+    { header: 'Amount', sortKey: 'amount', cell: (r: { amount: string }) => r.amount },
+  ];
+
+  it('drops the client-email sort for a role that hides client emails — the API would 400', () => {
+    readerMask = ['client.email'];
+    renderWithProviders(
+      <DataTable rows={rows} rowKey={rowKey} columns={columns} onSortChange={() => {}} />,
+    );
+    expect(screen.queryByRole('button', { name: /client/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /amount/i })).toBeInTheDocument();
+    readerMask = undefined;
+  });
+
+  it('offers it when the field is visible', () => {
+    renderWithProviders(
+      <DataTable rows={rows} rowKey={rowKey} columns={columns} onSortChange={() => {}} />,
+    );
+    expect(screen.getByRole('button', { name: /client/i })).toBeInTheDocument();
   });
 });

@@ -13,9 +13,8 @@ import type { KycStepConfig } from './step-card';
  * of the broker's in one table.
  *
  * ORDER lives here, because "move this one earlier" is a statement about the
- * sequence. Personal Information is pinned FIRST — the identity every later
- * step is checked against is collected before anything is checked against it —
- * so its row has no live handle and no step can be moved above it.
+ * sequence. Every step moves — Personal Information included — since Phase 2
+ * (29 Sep 2026): the order is the broker's.
  *
  * The table lists the BROKER's fields only, with the two problems a save would
  * otherwise meet: a key shared across steps and a drop-down with no choices.
@@ -28,15 +27,10 @@ export function BuilderOverview({
   onOpen,
 }: {
   steps: KycStepConfig[];
-  /** The new order, Personal Information still first. */
   onReorder: (next: KycStepConfig[]) => void;
   onOpen: (stepId: string) => void;
 }) {
-  const pinned = (step: KycStepConfig) => step.slug === 'personal';
-  const reorder = (next: KycStepConfig[]) => {
-    // Personal Information first, whatever was dropped where.
-    onReorder([...next.filter(pinned), ...next.filter((step) => !pinned(step))]);
-  };
+  const reorder = (next: KycStepConfig[]) => onReorder(next);
   const move = (index: number, direction: -1 | 1) => {
     const target = index + direction;
     if (target < 0 || target >= steps.length) return;
@@ -83,8 +77,6 @@ export function BuilderOverview({
                 as="li"
                 key={step.id}
                 id={step.id}
-                disabled={pinned(step)}
-                disabledReason={t('builder.personalFirst')}
                 handleLabel={t('builder.reorderStep', { title: step.title })}
               >
                 <div
@@ -122,7 +114,7 @@ export function BuilderOverview({
                   <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       type="button"
-                      disabled={pinned(step) || index <= 1}
+                      disabled={index === 0}
                       onClick={() => move(index, -1)}
                       className="focus-outline flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-30"
                       title={t('kycBuilder.moveStepUp')}
@@ -132,7 +124,7 @@ export function BuilderOverview({
                     </button>
                     <button
                       type="button"
-                      disabled={pinned(step) || index === steps.length - 1}
+                      disabled={index === steps.length - 1}
                       onClick={() => move(index, 1)}
                       className="focus-outline flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-30"
                       title={t('kycBuilder.moveStepDown')}

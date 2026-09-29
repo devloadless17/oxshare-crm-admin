@@ -32,8 +32,11 @@ const {
   getPartnerDetail,
   getClients,
   getTradingAccounts,
+  getClientIdentity,
 } = vi.hoisted(() => ({
   getClient: vi.fn(),
+  // The identity record panel (documents and decisions) — its own request.
+  getClientIdentity: vi.fn().mockResolvedValue({}),
   // A partner's Referred clients / Referred accounts tabs.
   getClients: vi.fn(),
   getTradingAccounts: vi.fn(),
@@ -62,6 +65,7 @@ vi.mock('@/lib/api', () => {
       getPartnerDetail,
       getClients,
       getTradingAccounts,
+      getClientIdentity,
     },
   };
   return { api, default: api };
@@ -70,6 +74,8 @@ vi.mock('@/lib/api', () => {
 vi.mock('next/navigation', () => ({
   // The route carries the Portal ID, exactly as every console link builds it.
   useParams: () => ({ id: '1000245' }),
+  // The tag hook leaves the page after a hand-off (use-client-tag-toggle.ts).
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 const permissions = { current: ALL_PERMISSIONS };
@@ -206,11 +212,11 @@ describe('the documents section — the sharpest of the three absences', () => {
 
   it('says NONE UPLOADED when the viewer can see them and there are none', async () => {
     // The other half. These two must never render the same way.
-    getClient.mockResolvedValue(profile({ documents: [] }));
+    getClientIdentity.mockResolvedValue({ documents: [], verifications: [] });
     renderWithProviders(<ClientProfilePage />);
 
     await screen.findByText('John Doe');
-    expect(screen.getByText(/no documents uploaded/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no documents uploaded/i)).toBeInTheDocument();
     expect(screen.queryByText(/documents are hidden/i)).not.toBeInTheDocument();
   });
 
@@ -223,11 +229,36 @@ describe('the documents section — the sharpest of the three absences', () => {
      * would answer "nobody", because opening a profile is not viewing a
      * document.
      */
-    getClient.mockResolvedValue(profile({ documents: ['passport.png'] }));
+    getClientIdentity.mockResolvedValue({
+      documents: [
+        {
+          slot: 'identity',
+          label: 'Identity document',
+          versions: [
+            {
+              id: 'v1',
+              docType: 'passport',
+              docLabel: 'Passport',
+              status: 'verified',
+              returnedPages: [],
+              createdAt: '2026-09-01T10:00:00Z',
+              presentedAt: '2026-09-01T10:00:00Z',
+              pages: [
+                {
+                  part: 0,
+                  label: 'Photo Page',
+                  path: 'uploads/kyc/passport.png',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
     renderWithProviders(<ClientProfilePage />);
 
     await screen.findByText('John Doe');
-    const link = await screen.findByRole('link', { name: /passport\.png/i });
+    const link = await screen.findByRole('link', { name: /photo page/i });
     expect(link).toHaveAttribute('href', expect.stringContaining('passport.png'));
     expect(screen.queryByRole('img', { name: /passport/i })).not.toBeInTheDocument();
   });
@@ -282,12 +313,11 @@ describe('a client the viewer may not see', () => {
 
   it('does NOT show the not-found card for a genuinely unbuilt endpoint', async () => {
     /*
-     * `useResource` maps every 404 to `unavailable`, which everywhere else in
-     * this app means "this endpoint is not built yet". Branching on the status
-     * alone would render a missing FEATURE as a missing CLIENT — and send
-     * somebody looking for a client that was never the problem.
+     * Only the API's ROUTE_NOT_FOUND is "this endpoint is not built yet"
+     * (`unavailable`); rendering it as a missing CLIENT would send somebody
+     * looking for a client that was never the problem.
      */
-    getClient.mockRejectedValue({ response: { status: 404, data: {} } });
+    getClient.mockRejectedValue({ response: { status: 404, data: { code: 'ROUTE_NOT_FOUND' } } });
     renderWithProviders(<ClientProfilePage />);
 
     expect(await screen.findByText(/not implemented yet/i)).toBeInTheDocument();

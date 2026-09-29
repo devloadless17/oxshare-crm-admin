@@ -26,7 +26,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
 import { keys } from '@/lib/query-keys';
-import { PortalIdTag } from '@/components/clients/client-identity';
+import { PortalIdTag, clientLabel } from '@/components/clients/client-identity';
 
 /**
  * The partner application queue.
@@ -258,7 +258,9 @@ function PartnerApprovalsContent() {
               href={`/clients/${row.user.portalId}`}
               className="truncate font-semibold text-link hover:underline focus-outline"
             >
-              {row.user.firstName} {row.user.lastName}
+              {/* Never "undefined undefined": a masked name falls back to the
+                  email, then the Portal ID, which no role can hide. */}
+              {clientLabel(row.user)}
             </PermittedLink>
             <PortalIdTag id={row.user.portalId} />
           </div>
@@ -395,7 +397,7 @@ function PartnerApprovalsContent() {
       return (
         <RowActions
           label={t('table.rowActions', {
-            name: `${row.user.firstName} ${row.user.lastName}`,
+            name: clientLabel(row.user),
           })}
           busy={approvingId === row.application.id}
           items={items}
@@ -541,12 +543,7 @@ function PartnerApprovalsContent() {
       */}
       <PartnerApproveDialog
         open={approving !== null}
-        name={
-          approving
-            ? `${approving.user.firstName} ${approving.user.lastName}`.trim() ||
-              approving.user.email
-            : ''
-        }
+        name={approving ? clientLabel(approving.user) : ''}
         // Null means the application named none, which is what makes the dialog
         // ask instead of confirm. The resolved name lives on the ROW — the list
         // endpoint attaches it beside the application, never inside it, so
@@ -566,7 +563,7 @@ function PartnerApprovalsContent() {
 
       <PartnerRejectDialog
         open={rejecting !== null}
-        applicantName={rejecting ? `${rejecting.user.firstName} ${rejecting.user.lastName}` : ''}
+        applicantName={rejecting ? clientLabel(rejecting.user) : ''}
         saving={reject.isPending}
         error={
           reject.isError

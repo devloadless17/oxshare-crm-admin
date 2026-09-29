@@ -67,7 +67,10 @@ export function useInfiniteResource<T>(
           : hasData
             ? 'ready'
             : httpStatus === 404
-              ? 'unavailable'
+              ? (query.error as { response?: { data?: { code?: unknown } } })?.response?.data
+                  ?.code === 'ROUTE_NOT_FOUND'
+                ? 'unavailable'
+                : 'notFound'
               : 'error'
       : 'ready';
 

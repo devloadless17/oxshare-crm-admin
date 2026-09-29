@@ -51,6 +51,7 @@ const TAGS = [
     slug: 'levant-desk',
     label: 'Levant Desk',
     clientCount: 3,
+    clientsOutsideScope: 0,
     isSystem: false,
     createdAt: '2026-08-01T00:00:00.000Z',
   },

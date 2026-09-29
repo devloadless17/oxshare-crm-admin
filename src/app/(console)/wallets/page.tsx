@@ -43,7 +43,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
-import { ClientIdentity, clientName } from '@/components/clients/client-identity';
+import { ClientIdentity, clientName, clientLabel } from '@/components/clients/client-identity';
 
 /**
  * Client wallets — `GET /admin/wallets`.
@@ -554,7 +554,8 @@ function WalletsPageContent() {
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {t('wallets.closeConfirmBody', {
-                  email: closing?.user.email ?? '',
+                  // Blank for a role that hides the email; the label never is.
+                  email: closing ? clientLabel(closing.user) : '',
                   number: closing?.walletNumber ?? '',
                 })}
               </AlertDialogDescription>

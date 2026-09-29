@@ -140,7 +140,7 @@ async function mintFundedClient(
 /** The balance the SERVER reports — never a number read off a screen. */
 async function usdBalance(
   admin: Awaited<ReturnType<typeof adminApiSession>>,
-  clientId: string,
+  clientId: number,
 ): Promise<string> {
   const res = await admin.get(`/admin/wallets?userId=${clientId}&limit=100&page=1`);
   expect(res.ok()).toBe(true);

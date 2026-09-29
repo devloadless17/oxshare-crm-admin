@@ -30,13 +30,16 @@ import { t } from '@/lib/i18n';
 export function DocViewer({
   filePath,
   label,
-  fileName,
+  returned = false,
   onOpen,
 }: {
   filePath?: string;
   label: string;
-  /** The name the client uploaded it under, when the submission carries one. */
-  fileName?: string;
+  /**
+   * The reviewer returned this file and it is still with the client: the tile
+   * says so in red, as a returned answer does in the summary.
+   */
+  returned?: boolean;
   /**
    * Open this document in the lightbox. When absent the tile falls back to a
    * new browser tab, which is what it did before the lightbox existed and is
@@ -54,10 +57,19 @@ export function DocViewer({
   const turned = quarterTurns % 2 === 1;
 
   return (
-    <div className="flex flex-col gap-2 p-4 rounded-xl border border-border bg-card/60">
+    <div
+      className={`flex flex-col gap-2 p-4 rounded-xl border bg-card/60 ${returned ? 'border-destructive/60' : 'border-border'}`}
+    >
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          {label}
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            {label}
+          </div>
+          {returned && (
+            <span className="text-xs font-bold text-destructive">
+              {t('kycReview.pageReturned')}
+            </span>
+          )}
         </div>
         {filePath && !isPdf && !imgFailed && (
           <button
@@ -112,13 +124,9 @@ export function DocViewer({
           {t('kycReview.notUploaded')}
         </div>
       )}
-      {/* The name the client chose. `scan_0001.jpg` and `IMG_4821.HEIC` tell a
-          reviewer something a thumbnail does not — and it is already on the wire. */}
-      {filePath && fileName && (
-        <div className="truncate text-[11px] text-muted-foreground" title={fileName}>
-          {fileName}
-        </div>
-      )}
+      {/* No filename under the tile: what the client called the file is not kept
+          (backend 0160, D-84) — it carried names and document numbers whatever a
+          role hid. The label says what the document IS. */}
     </div>
   );
 }

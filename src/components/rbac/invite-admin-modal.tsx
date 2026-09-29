@@ -84,12 +84,16 @@ export function InviteAdminModal({
    */
   const inviterScoped = (inviter?.scopedTags?.length ?? 0) > 0;
   const canGrantIntake = !inviterScoped || (inviter?.seesUntriaged ?? false);
+  // Every client is its own grant (0154), and only an inviter who has it may
+  // give it — which is also what the API does with a silent invite.
+  const canGrantAll = inviter?.seesAllClients ?? false;
 
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [roleId, setRoleId] = React.useState('');
   const [scopedTagIds, setScopedTagIds] = React.useState<string[]>([]);
   const [seesUntriaged, setSeesUntriaged] = React.useState(canGrantIntake);
+  const [allClients, setAllClients] = React.useState(canGrantAll);
   /** `null` = inherit the chosen role's mask; a list = this person's override. */
   const [maskOverride, setMaskOverride] = React.useState<string[] | null>(null);
   const [result, setResult] = React.useState<{ inviteUrl?: string } | null>(null);
@@ -206,11 +210,11 @@ export function InviteAdminModal({
          *   unrestricted inviter, no tags picked → unrestricted invitee
          *   SCOPED inviter, no tags picked       → inherits the INVITER's territory
          *
-         * Sending `[]` instead is not equivalent and is not safer. From a
-         * scoped inviter an explicit `[]` is REFUSED by name (`assertScopable`:
-         * an empty scope means every client, which is sight they do not hold),
-         * so an operator who simply picked no tags would get an error instead
-         * of a sensible colleague.
+         * Since 0154 an explicit `[]` means NO territory tags (new clients
+         * only, or none) — never every client — so it is safe, but for a
+         * scoped inviter who picked nothing, inheriting their territory is the
+         * sensible colleague. Every client is only ever `seesAllClients`, sent
+         * when the operator changed it from the default above.
          *
          * This comment previously said an empty territory is "unrestricted, the
          * absence of a choice, not a value", which is what the API did until
@@ -221,8 +225,9 @@ export function InviteAdminModal({
          * sub-admin holding `admins.create` could mint a colleague who saw
          * every client, and this line is what sent that request.
          */
-        ...(scopedTagIds.length > 0 ? { scopedTagIds } : {}),
-        ...(seesUntriaged !== canGrantIntake ? { seesUntriaged } : {}),
+        ...(allClients !== canGrantAll ? { seesAllClients: allClients } : {}),
+        ...(!allClients && (scopedTagIds.length > 0 || canGrantAll) ? { scopedTagIds } : {}),
+        ...(!allClients && seesUntriaged !== canGrantIntake ? { seesUntriaged } : {}),
         ...(maskOverride !== null ? { maskedFields: maskOverride } : {}),
       });
       setResult(created);
@@ -436,29 +441,34 @@ export function InviteAdminModal({
                     prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
                   )
                 }
+                allClients={allClients}
+                onAllClientsChange={setAllClients}
+                canGrantAll={canGrantAll}
                 disabled={loading}
               />
-              <div className="border-t border-border pt-2.5">
-                <label className="flex cursor-pointer items-start gap-2 text-xs font-medium">
-                  <input
-                    type="checkbox"
-                    checked={seesUntriaged}
-                    onChange={(e) => setSeesUntriaged(e.target.checked)}
-                    // Locked when the inviter cannot grant it — the API would
-                    // refuse, and a tick that cannot happen is a lie.
-                    disabled={loading || !canGrantIntake}
-                    className="mt-0.5 h-3.5 w-3.5 accent-primary"
-                  />
-                  <span>
-                    {t('adminUsers.seesUntriaged')}
-                    <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
-                      {canGrantIntake
-                        ? t('adminUsers.seesUntriagedHint')
-                        : t('adminUsers.seesUntriagedLockedOwn')}
+              {!allClients && (
+                <div className="border-t border-border pt-2.5">
+                  <label className="flex cursor-pointer items-start gap-2 text-xs font-medium">
+                    <input
+                      type="checkbox"
+                      checked={seesUntriaged}
+                      onChange={(e) => setSeesUntriaged(e.target.checked)}
+                      // Locked when the inviter cannot grant it — the API would
+                      // refuse, and a tick that cannot happen is a lie.
+                      disabled={loading || !canGrantIntake}
+                      className="mt-0.5 h-3.5 w-3.5 accent-primary"
+                    />
+                    <span>
+                      {t('adminUsers.seesUntriaged')}
+                      <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                        {canGrantIntake
+                          ? t('adminUsers.seesUntriagedHint')
+                          : t('adminUsers.seesUntriagedLockedOwn')}
+                      </span>
                     </span>
-                  </span>
-                </label>
-              </div>
+                  </label>
+                </div>
+              )}
             </div>
           )}
 

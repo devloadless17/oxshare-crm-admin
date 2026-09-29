@@ -7,9 +7,9 @@ import { t } from '@/lib/i18n';
  *
  * `portalId` is the number staff and clients know an account by (backend
  * migration 0133): new clients from 1,000,000, clients imported from the old
- * platform under their old numbers. The uuid still addresses records — URLs,
- * API calls, React keys — but is never shown, so nobody reads or pastes one.
- * Every client search box takes the Portal ID, `#` and all, so what is read
+ * platform under their old numbers. Since backend 0159 (D-83) it is also the
+ * client's primary key: URLs, API calls and React keys all carry it, and the
+ * uuid it replaced no longer exists. Every client search box takes the Portal ID, `#` and all, so what is read
  * here can be pasted straight back into any of them.
  *
  * ## Why the ID survives when everything else is hidden
@@ -60,9 +60,9 @@ export function ClientIdentity({
   /** The name in medium weight — off where the client is not the row's subject. */
   strong?: boolean;
   /**
-   * The uuid, for the one case with nothing else to show: a client row that no
+   * The id, for the one case with nothing else to show: a client row that no
    * longer exists, which an append-only ledger outlives. Said in words, with
-   * the uuid kept on hover for forensics rather than printed.
+   * the id kept on hover for forensics rather than printed.
    */
   removedId?: string;
 }) {

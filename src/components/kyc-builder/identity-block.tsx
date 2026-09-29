@@ -1,58 +1,98 @@
 'use client';
 
-import { Lock } from 'lucide-react';
+import { Fingerprint, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 import type { KycFieldConfig } from './field-editor';
 
 /**
- * THE CLIENT'S IDENTITY, as Personal Information asks for it — fixed by the
- * platform (the owner's ruling, 26 Sep 2026).
+ * One of the client's IDENTITY details on Personal Information (Phase 2, 29 Sep
+ * 2026 — the owner's "everything customizable").
  *
- * The nine fields arrive from the API marked `system`: their labels, types and
- * whether they are required are the platform's, and they cannot be removed,
- * renamed, retyped or moved. So they are not editor rows at all — there is no
- * control here that could delete First Name, which is how a broker once
- * removed a client's real name from the form and re-added it as a custom box.
- *
- * Each row says what it is and whether a verification needs it; the lock says
- * why nothing here can change.
+ * The broker decides where it sits (it is a row of the step's list like any
+ * question), whether it is required, and whether it is asked at all — sign-up
+ * already holds the core details. What the platform keeps is its name and
+ * meaning: there is no label or type to edit, so a detail can never become a
+ * box that only looks like it.
  */
-export function IdentityBlock({ fields }: { fields: readonly KycFieldConfig[] }) {
+export function IdentityRow({
+  field,
+  onRequiredChange,
+  onRemove,
+}: {
+  field: KycFieldConfig;
+  onRequiredChange: (required: boolean) => void;
+  onRemove: () => void;
+}) {
   return (
-    <section aria-labelledby="identity-block-title" className="space-y-3">
-      <div>
-        <h4
-          id="identity-block-title"
-          className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground"
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/60 px-3.5 py-2.5">
+      <span className="flex items-center gap-2 text-xs font-medium text-foreground">
+        <Fingerprint className="h-3.5 w-3.5 text-link" aria-hidden="true" />
+        {field.label}
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link">
+          {t('builder.identityBadge')}
+        </span>
+      </span>
+      <div className="flex items-center gap-3">
+        <label className="flex cursor-pointer items-center gap-2">
+          <Checkbox
+            checked={field.required}
+            onCheckedChange={(checked) => onRequiredChange(checked === true)}
+            aria-label={t('builder.identityRequiredNamed', { label: field.label })}
+          />
+          <span className="text-[11px] font-medium">{t('builder.requiredField')}</span>
+        </label>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="focus-outline flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          aria-label={t('builder.removeIdentityNamed', { label: field.label })}
+          title={t('builder.removeIdentity')}
         >
-          <Lock className="h-3.5 w-3.5" aria-hidden="true" />
-          {t('builder.identityTitle')}
-        </h4>
-        <p className="mt-1 max-w-prose text-[11px] text-muted-foreground">
-          {t('builder.identityBody')}
-        </p>
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
       </div>
-      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card/60">
-        {fields.map((field) => (
-          <li
-            key={field.id}
-            className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5"
-          >
-            <span className="flex items-center gap-2 text-xs font-medium text-foreground">
-              <Lock className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-              {field.label}
-              <span className="sr-only">{t('builder.identityLockedSr')}</span>
-            </span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                field.required ? 'bg-primary/10 text-link' : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {field.required ? t('builder.identityRequired') : t('builder.identityOptional')}
-            </span>
-          </li>
+    </div>
+  );
+}
+
+/**
+ * Ask for an identity detail the form does not ask for yet — any of the
+ * platform's, each once. Nothing to offer when all of them are placed.
+ */
+export function AddIdentityDetail({
+  missing,
+  onAdd,
+}: {
+  missing: readonly KycFieldConfig[];
+  onAdd: (field: KycFieldConfig) => void;
+}) {
+  if (missing.length === 0) return null;
+  return (
+    <Select
+      value=""
+      onValueChange={(name) => {
+        const field = missing.find((candidate) => candidate.name === name);
+        if (field) onAdd(field);
+      }}
+    >
+      <SelectTrigger className="h-8 w-auto gap-1.5 text-xs" aria-label={t('builder.addIdentity')}>
+        <SelectValue placeholder={t('builder.addIdentity')} />
+      </SelectTrigger>
+      <SelectContent>
+        {missing.map((field) => (
+          <SelectItem key={field.name} value={field.name}>
+            {field.label}
+          </SelectItem>
         ))}
-      </ul>
-    </section>
+      </SelectContent>
+    </Select>
   );
 }

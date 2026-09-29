@@ -168,6 +168,8 @@ export const messages = {
   // ── Session ───────────────────────────────────────────────────────────────
   'session.loading': 'Loading your session',
   'session.deniedTitle': 'Access denied',
+  'common.notFoundTitle': 'Not found',
+  'common.notFoundBody': 'It may have been removed, or it is not available to you.',
   'session.deniedBody':
     'Your role does not include access to this section. Ask a master admin if you need it.',
   'session.backToDashboard': 'Back to dashboard',
@@ -713,8 +715,7 @@ export const messages = {
   'kycReview.correctReason': 'Reason for the correction',
   'kycReview.correctReasonPlaceholder':
     'e.g. Surname misspelt at registration; the passport reads "Haddad".',
-  'kycReview.correctReasonHint':
-    'At least 10 characters. Recorded on the audit trail beside the old and new values.',
+  'kycReview.correctReasonHint': 'Recorded on the audit trail beside the old and new values.',
   'kycReview.correctPhoneNote':
     "The phone number is not part of a correction: edit it on the client's profile.",
   'kycReview.correctAction': 'Correct details',
@@ -742,12 +743,16 @@ export const messages = {
   'kycReview.notAsked': 'Not asked by this form',
   'kycReview.pageMissing': 'Not uploaded',
   'kycReview.pageUploaded': 'Uploaded',
+  // A page the reviewer returned, while it is with the client — shown in red.
+  'kycReview.pageReturned': 'Returned',
   'kycReview.identityAtDecision': 'Identity at the time',
   'kycReview.documentsTitle': 'Documents',
   'clientProfile.networkCapped': 'Showing {shown} of {total} introduced clients.',
   'clientProfile.networkSeeAll': 'See all of them',
   'clientProfile.networkOutsideScope':
     '{count} more {count:client|clients} introduced by this partner {count:is|are} outside your territory, so {count:it is|they are} not listed here.',
+  'clientProfile.networkPartnersOutsideScope':
+    '{count} {count:sub-partner|sub-partners} beneath this partner {count:is|are} outside your territory, so {count:it is|they are} not listed here.',
   'clients.referredByNotice': 'Showing only the clients introduced by {who}.',
   'clients.referredByWho': 'this partner',
   'clients.referredByClear': 'Show all clients',
@@ -876,7 +881,15 @@ export const messages = {
   'adminUsers.scopeTagsAllChosen': 'Every tag is already on this administrator.',
   'adminUsers.scopeTagsNoneChosen': 'No tags chosen.',
   'adminUsers.scopeEmptyWarning':
-    'No tags selected means UNRESTRICTED — this administrator can see every client in the system.',
+    'No tags chosen: this administrator sees no clients — or only new clients, if that is ticked below.',
+  'adminUsers.scopeModeLabel': 'Which clients this administrator sees',
+  'adminUsers.scopeModeAll': 'All clients',
+  'adminUsers.scopeModeTags': 'Only these tags',
+  'adminUsers.scopeModeAllHint': 'Sees every client, including new ones.',
+  'adminUsers.scopeModeAllLocked':
+    'Only an administrator who sees every client can grant all clients.',
+  'adminUsers.scopeNone': 'No clients',
+  'adminUsers.scopeNewOnly': 'New clients only',
   'adminUsers.maskSection': 'Field visibility',
   'adminUsers.maskSummary': '{count} {count:field|fields} hidden',
   'adminUsers.maskSummaryNone': 'Nothing hidden',
@@ -922,6 +935,26 @@ export const messages = {
   'clientProfile.referralsHidden': 'Referral relationships are hidden by your permissions.',
   'clientProfile.noKyc': 'This client has not started verification.',
   'clientProfile.noDocuments': 'No documents uploaded.',
+  'clientProfile.sectionIdentityRecord': 'Identity documents',
+  'clientProfile.identityLoading': 'Loading the identity record',
+  'clientProfile.identityLoadFailed': 'The identity record could not be loaded.',
+  'clientProfile.identityCurrent': 'Latest',
+  'clientProfile.identityEarlier': 'Earlier versions ({count})',
+  'clientProfile.identityPresented': 'Presented {date}',
+  'clientProfile.identityDraft': 'Being prepared by the client',
+  'clientProfile.identityReturnedPages': 'Returned: {pages}',
+  'clientProfile.identityStatusDraft': 'Draft',
+  'clientProfile.identityStatusAwaiting': 'Awaiting review',
+  'clientProfile.identityStatusVerified': 'Verified',
+  'clientProfile.identityStatusReturned': 'Returned',
+  'clientProfile.identityStatusReverify': 'Re-verification requested',
+  'clientProfile.sectionVerifications': 'Verification history',
+  'clientProfile.verificationsHidden': 'The verification history is hidden by your permissions.',
+  'clientProfile.noVerifications': 'No verification decisions yet.',
+  'clientProfile.verificationBy': 'by {who}',
+  'clientProfile.verificationMethodLegacy': 'recorded from the account’s level',
+  'clientProfile.verificationMethodFixture': 'test fixture',
+  'clientProfile.verificationReturned': 'Returned items: {items}',
   'clientProfile.noTradingAccounts': 'No trading accounts yet.',
   // An account whose MT5 login has not been issued yet. Named rather than left
   // blank: a row with nothing where the login belongs reads as a broken table,
@@ -938,6 +971,14 @@ export const messages = {
   'clientProfile.tagAdded': 'Tag “{label}” added',
   'clientProfile.tagRemoved': 'Tag “{label}” removed',
   'clientProfile.tagFailed': 'Could not change that tag.',
+  // A tag change that takes the client out of YOUR territory (a hand-off to
+  // another desk) is asked first — see use-client-tag-toggle.ts.
+  'clientProfile.tagLeavesScopeTitle': 'Hand {client} over?',
+  'clientProfile.tagLeavesScopeBody':
+    'Changing “{label}” takes {client} out of your territory. You will no longer see or open this client — administrators whose territory covers them still will.',
+  'clientProfile.tagLeavesScopeConfirm': 'Hand over',
+  'clientProfile.tagHandedOver':
+    '{client} was handed over with “{label}” and is no longer in your territory.',
   'clientProfile.walletOpenFailed': 'Could not open the wallet.',
   // Named per currency: several identical bins down a list announce as "button"
   // with nothing to say which wallet each one closes.
@@ -975,6 +1016,7 @@ export const messages = {
   'clientProfile.partnerSince': 'Partner since',
   'clientProfile.partnerParent': 'Placed under',
   'clientProfile.partnerNoParent': 'Deals with the broker directly',
+  'clientProfile.partnerParentOutsideTerritory': 'A partner outside your territory',
 
   'clientProfile.partnerEarnings': 'Earnings',
   'clientProfile.partnerConfirmed': 'Confirmed',
@@ -985,6 +1027,7 @@ export const messages = {
   'clientProfile.partnerClientsHint': 'They introduced',
   'clientProfile.partnerSubCount': 'Sub-partners',
   'clientProfile.partnerSubCountHint': 'Directly beneath them',
+  'clientProfile.outsideTerritoryCount': '+{count} outside your territory',
 
   'clientProfile.partnerAgency': 'Agency',
   'clientProfile.partnerAgencyNoProducts': 'This agency lists no products yet.',
@@ -1109,6 +1152,7 @@ export const messages = {
   'clientProfile.fieldNationality': 'Nationality',
   'clientProfile.fieldAddress': 'Street address',
   'clientProfile.fieldCity': 'City',
+  'clientProfile.fieldStateProvince': 'State / Province',
   'clientProfile.fieldPostalCode': 'Postal / ZIP code',
   'clientProfile.fieldAddressLine': 'Address',
   'clientProfile.choose': 'Choose…',
@@ -1120,10 +1164,18 @@ export const messages = {
     'Some fields are locked by the client’s identity verification. Each says where it can be changed.',
   // Said ONCE above the form, with the way to change a locked field.
   'clientProfile.lockedNoticeApproved':
-    'The locked fields belong to the client’s approved verification. Correct them — or fill in one the verification left empty — on the KYC review: the change is checked again, recorded with a reason, and the client is told.',
+    'The locked fields were verified by KYC. Only an admin who may correct verified details can change them.',
   'clientProfile.lockedNoticeInReview':
     'The locked fields are being checked against the client’s documents right now. They can change once the reviewer decides.',
-  'clientProfile.lockedCorrectAction': 'Correct verified details on the KYC review →',
+  // A verified detail is corrected HERE (28 Sep 2026), never on another screen.
+  'clientProfile.correctionNotice':
+    'Some details were verified by KYC. You can correct them here: a change needs a reason, is checked again and recorded on the verification, and the client is told. They stay verified.',
+  'clientProfile.verifiedBadge': 'Verified by KYC',
+  'clientProfile.correctionReason': 'Reason for changing verified details',
+  'clientProfile.correctionReasonPlaceholder':
+    'e.g. Surname misspelt at sign-up; the passport reads "Haddad".',
+  'clientProfile.correctionReasonHint':
+    'Recorded on the verification beside the old and new values. The client is told which details changed.',
   // Under each locked field — the full sentence is kept for screen readers and on hover.
   'clientProfile.lockedVerified': 'Verified by KYC',
   'clientProfile.lockedInReview': 'Being checked by KYC',
@@ -1148,6 +1200,7 @@ export const messages = {
   'clientProfile.reassignParentBody':
     'Who they sit under. The API refuses a choice that would close a loop, and a partner’s own level is not changed by moving them.',
   'clientProfile.reassignParentNone': 'No parent — deals with the broker directly',
+  'clientProfile.reassignParentKeepOutside': 'Keep current — a partner outside your territory',
   'clientProfile.reassignParentSave': 'Reassign',
   'clientProfile.parentChanged': 'Parent reassigned',
   'clientProfile.parentFailed': 'Their parent could not be reassigned.',
@@ -1490,6 +1543,19 @@ export const messages = {
     'e.g., Provide details about your employment status and source of funds.',
   'builder.newField': 'New Field',
   // ── The identity core (26 Sep 2026): what is the platform's, and what is yours ──
+  'builder.identityBadge': 'Identity',
+  'builder.identityRequiredNamed': '{label} is required',
+  'builder.removeIdentity': 'Stop asking for this detail',
+  'builder.removeIdentityNamed': 'Stop asking for {label}',
+  'builder.addIdentity': 'Ask for an identity detail…',
+  'builder.personalRowsTitle': 'Identity details and questions',
+  'builder.personalRowsBody':
+    'Arrange the client’s identity details and your own questions in any order. A detail you remove is not asked here — the client’s answer from sign-up stays on their profile.',
+  'builder.evidenceRequired': 'Required',
+  'builder.evidenceRequiredHint': 'The client must provide this before they can submit.',
+  'builder.evidenceOptionalHint': 'Optional: the client may skip this step’s evidence.',
+  'builder.moveTo': 'Move to…',
+  'builder.moveFieldNamed': 'Move {label} to another step',
   'builder.identityTitle': "The client's identity",
   'builder.identityBody':
     'Fixed by the platform, as in any regulated CRM: these fields, their labels and which are required cannot be changed, removed or asked twice. The client fills them in at sign-up and confirms them here.',
@@ -1497,7 +1563,7 @@ export const messages = {
   'builder.identityRequired': 'Required to verify',
   'builder.identityOptional': 'Optional',
   'builder.identitySummary':
-    "Personal Information always asks for the client's identity — {count} fields, fixed by the platform. Below are the fields you added.",
+    "Personal Information asks for {count} of the client's identity details — arrange them on its tab. Below are the fields you added.",
   'builder.acceptedIdentityBody':
     'The client chooses ONE of the documents ticked here and uploads its pages. Each is collected once, only on this step.',
   'builder.acceptedAddressBody':

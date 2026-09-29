@@ -29,13 +29,25 @@ describe('useResource status mapping', () => {
   it.each([
     [401, 'unauthenticated'],
     [403, 'forbidden'],
-    [404, 'unavailable'],
+    // A route's own 404 — a missing record, or one outside the territory.
+    [404, 'notFound'],
     [500, 'error'],
   ] as const)('maps HTTP %i to %s', async (status, expected) => {
     const { result } = renderHook(() => useResource(['t', status], failingWith(status)), {
       wrapper,
     });
     await waitFor(() => expect(result.current.status).toBe(expected));
+  });
+
+  it('maps only the API’s ROUTE_NOT_FOUND to unavailable ("not built yet")', async () => {
+    const missingRoute = () =>
+      Promise.reject(
+        Object.assign(new Error('HTTP 404'), {
+          response: { status: 404, data: { code: 'ROUTE_NOT_FOUND' } },
+        }),
+      );
+    const { result } = renderHook(() => useResource(['t', 'route'], missingRoute), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('unavailable'));
   });
 
   it('is ready with the data once the fetcher resolves', async () => {

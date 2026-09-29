@@ -1,3 +1,4 @@
+import type { ClientRef } from '@/lib/api/admin';
 /**
  * THE query-key registry. Every `queryKey` and every `invalidateQueries` in
  * this app resolves through here, and lint refuses an inline array literal in
@@ -56,8 +57,8 @@ export const keys = {
   kyc: {
     all: () => ['kyc'] as const,
     queue: (params: Params) => ['kyc', 'queue', params] as const,
-    detail: (userId: string) => ['kyc', 'detail', userId] as const,
-    history: (userId: string) => ['kyc', 'detail', userId, 'history'] as const,
+    detail: (userId: ClientRef) => ['kyc', 'detail', userId] as const,
+    history: (userId: ClientRef) => ['kyc', 'detail', userId, 'history'] as const,
     pendingCount: () => ['kyc', 'pending-count'] as const,
     /** The step builder's config, and the document-type catalogue it offers. */
     config: () => ['kyc', 'config'] as const,
@@ -67,16 +68,18 @@ export const keys = {
      */
     builder: () => ['kyc', 'config', 'builder'] as const,
     documentCatalogue: () => ['kyc', 'document-catalogue'] as const,
+    identityCatalogue: () => ['kyc', 'identity-catalogue'] as const,
   },
 
   clients: {
     all: () => ['clients'] as const,
     list: (params: Params) => ['clients', 'list', params] as const,
-    detail: (userId: string) => ['clients', 'detail', userId] as const,
-    partner: (userId: string) => ['clients', 'detail', userId, 'partner'] as const,
-    transactions: (userId: string, page: number) =>
+    detail: (userId: ClientRef) => ['clients', 'detail', userId] as const,
+    partner: (userId: ClientRef) => ['clients', 'detail', userId, 'partner'] as const,
+    identity: (userId: ClientRef) => ['clients', 'detail', userId, 'identity'] as const,
+    transactions: (userId: ClientRef, page: number) =>
       ['clients', 'detail', userId, 'transactions', page] as const,
-    closedPositions: (userId: string, page: number) =>
+    closedPositions: (userId: ClientRef, page: number) =>
       ['clients', 'detail', userId, 'closed-positions', page] as const,
   },
 
@@ -164,7 +167,7 @@ export const keys = {
     all: () => ['ib-partners'] as const,
     list: (params: Params) => ['ib-partners', 'list', params] as const,
     forReassign: () => ['ib-partners', 'for-reassign'] as const,
-    detail: (userId: string) => ['ib-partners', 'detail', userId] as const,
+    detail: (userId: ClientRef) => ['ib-partners', 'detail', userId] as const,
   },
 
   ibAccruals: {

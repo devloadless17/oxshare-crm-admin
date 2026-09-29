@@ -53,24 +53,32 @@ import { t } from '@/lib/i18n';
  * is small, fixed and worth reading in full — an operator needs to see the
  * fields they have not hidden as much as the ones they have.
  *
- * ── The empty case is stated in words, never left to inference ──────────────
+ * ── "All clients" is a CHOICE, never what an empty list means (0154) ─────────
  *
- * An empty scope means UNRESTRICTED — every client — following RBAC-08's empty
- * allowlist and D-10, so that introducing the feature cannot blind every
- * existing sub-admin. Both readings of "no tags selected" are plausible and one
- * of them is a data breach, so the panel says which it is rather than hoping
- * the operator guesses right.
+ * An empty territory used to mean every client, so clearing the last chip
+ * silently widened an administrator to the whole client base. Every client is
+ * now its own explicit option, offered only by an admin who sees every client
+ * themselves (the server refuses anyone else), and "only these tags" with none
+ * chosen says plainly that it means no clients — or only new ones.
  */
 export function AdminTagScopePanel({
   tags,
   selected,
   onToggle,
+  allClients,
+  onAllClientsChange,
+  canGrantAll,
   disabled,
   disabledReason,
 }: {
   tags: readonly ClientTagWithCount[];
   selected: readonly string[];
   onToggle: (tagId: string) => void;
+  /** Sees every client — the explicit grant (0154). */
+  allClients: boolean;
+  onAllClientsChange: (allClients: boolean) => void;
+  /** Only an administrator who sees every client may grant it. */
+  canGrantAll: boolean;
   disabled?: boolean;
   /** Why the whole panel is inert — e.g. this is the master admin. */
   disabledReason?: string;
@@ -92,6 +100,7 @@ export function AdminTagScopePanel({
         slug: id,
         label: t('adminUsers.scopeUnknownTag'),
         clientCount: 0,
+        clientsOutsideScope: 0,
         createdAt: '',
       },
   );
@@ -105,7 +114,37 @@ export function AdminTagScopePanel({
         <>
           <p className="text-[11px] text-muted-foreground">{t('adminUsers.scopeHint')}</p>
 
-          {tags.length === 0 ? (
+          <div
+            role="radiogroup"
+            aria-label={t('adminUsers.scopeModeLabel')}
+            className="grid grid-cols-2 gap-2"
+          >
+            {[
+              { value: true, label: t('adminUsers.scopeModeAll') },
+              { value: false, label: t('adminUsers.scopeModeTags') },
+            ].map((option) => (
+              <button
+                key={String(option.value)}
+                type="button"
+                role="radio"
+                aria-checked={allClients === option.value}
+                disabled={disabled || (option.value && !canGrantAll && !allClients)}
+                onClick={() => onAllClientsChange(option.value)}
+                className="focus-outline rounded-lg border border-border px-3 py-2 text-xs font-semibold aria-checked:border-ring aria-checked:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          {!canGrantAll && !allClients && (
+            <p className="text-[11px] text-muted-foreground">
+              {t('adminUsers.scopeModeAllLocked')}
+            </p>
+          )}
+
+          {allClients ? (
+            <p className="text-[11px] text-muted-foreground">{t('adminUsers.scopeModeAllHint')}</p>
+          ) : tags.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t('adminUsers.scopeNoTags')}</p>
           ) : (
             <>
@@ -174,7 +213,7 @@ export function AdminTagScopePanel({
             </>
           )}
 
-          {selected.length === 0 && (
+          {!allClients && selected.length === 0 && (
             <p
               className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-[11px] text-warning"
               role="note"

@@ -3167,6 +3167,26 @@ export interface paths {
         patch: operations["AdminClientsController_setClientStatus"];
         trace?: never;
     };
+    "/v1/admin/clients/{id}/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A client's identity record: every document version, and every verification decision
+         * @description Documents need kyc.documents.view (or kyc.review) and decisions need kyc.view; a half the reader may not see is ABSENT, not empty.
+         */
+        get: operations["AdminClientIdentityController_recordFor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tags": {
         parameters: {
             query?: never;
@@ -3246,9 +3266,9 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Attach a tag to a client */
+        /** Attach a tag to a client (any tag, on a client you can see) */
         post: operations["AdminTagsController_assign"];
-        /** Detach a tag from a client */
+        /** Detach a tag from a client (any tag, on a client you can see) */
         delete: operations["AdminTagsController_unassign"];
         options?: never;
         head?: never;
@@ -3510,6 +3530,26 @@ export interface paths {
         };
         /** Documents a `document` field may accept */
         get: operations["AdminComplianceController_getDocumentCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/kyc-config/identity-catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The identity details Personal Information may ask for
+         * @description The platform owns their names, kinds and meaning; the builder decides which are asked, where, and whether each is required. `required` here is the default tier.
+         */
+        get: operations["AdminComplianceController_getIdentityCatalogue"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4505,9 +4545,9 @@ export interface components {
              *       "country"
              *     ]
              */
-            registration: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "postalCode")[];
+            registration: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "stateProvince" | "postalCode")[];
             /** @description Required to submit a verification: everything but the postal code. */
-            verification: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "postalCode")[];
+            verification: ("firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "stateProvince" | "postalCode")[];
         };
         ProfileOptionsDto: {
             /**
@@ -4656,7 +4696,7 @@ export interface components {
         AdminNotificationsReadSubjectDto: {
             /** @enum {string} */
             subjectKind: "transaction" | "kyc" | "ib_application" | "transfer" | "ib_accrual";
-            /** @description The item's id — for a KYC task, the client's id. */
+            /** @description The item's id — for a KYC task the client's Portal ID, for any other item the record's uuid. */
             subjectId: string;
         };
         AdminNotificationMarkResponseDto: {
@@ -4783,6 +4823,8 @@ export interface components {
             address?: string;
             /** @example Dubai */
             city?: string;
+            /** @example Dubai */
+            stateProvince?: string;
             /** @example 00000 */
             postalCode?: string;
             /** Format: date-time */
@@ -5068,9 +5110,12 @@ export interface components {
             sortOrder?: number;
         };
         IbAccountDto: {
-            userId: string;
+            userId: number;
             level: number;
-            parentIbUserId: string | null;
+            /** @description Null at the top of a chain — or, on an admin response, when the parent is outside your territory (`parentOutsideTerritory`). */
+            parentIbUserId: number | null;
+            /** @description Admin responses only: true when a parent exists that the reader may not see. The fact, never the id (R1). */
+            parentOutsideTerritory?: boolean;
             /** @description What a client types at registration to be attributed here. */
             referralCode: string;
             active: boolean;
@@ -5082,7 +5127,7 @@ export interface components {
         };
         IbApplicationDto: {
             id: string;
-            userId: string;
+            userId: number;
             motivation: string | null;
             website: string | null;
             /** @enum {string} */
@@ -5139,7 +5184,7 @@ export interface components {
              * @example 4f7kq2nm8xcb
              */
             walletNumber: string;
-            userId: string;
+            userId: number;
             /**
              * @description The wallet name — "<CURRENCY> Wallet" for a main wallet, "Commission Wallet" for a partner's earnings wallet. Server-generated from `currency` and `kind`; never writable. English and canonical — a localised UI should build its own label from `currency` and `kind` rather than translating this string.
              * @example USD Wallet
@@ -5174,7 +5219,7 @@ export interface components {
             createdAt: string;
         };
         IbReferredClientDto: {
-            userId: string;
+            userId: number;
             /** @description The client's display name. Their EMAIL is deliberately absent — a partner is owed attribution, not their referrals' contact details. */
             name: string;
             /** @description Whether this client has completed identity verification. */
@@ -5186,7 +5231,7 @@ export interface components {
             since: string;
         };
         IbSubPartnerDto: {
-            userId: string;
+            userId: number;
             name: string;
             /** @description A suspended sub-partner keeps their tree and stops earning. */
             active: boolean;
@@ -5312,7 +5357,7 @@ export interface components {
         };
         ApproveIbApplicationDto: {
             /** @description The parent to nest the new partner under. OMITTED means "the reviewer did not say" — the introducer recorded at registration becomes the parent, which is the ordinary case. An explicit NULL roots them: they deal with the broker directly at level 1, whoever introduced them. */
-            parentIbUserId?: string | null;
+            parentIbUserId?: number | null;
             /**
              * Format: uuid
              * @description Omitted grants the agency the applicant chose. Required when the application carries none — a partner cannot be approved without an agency.
@@ -5333,7 +5378,7 @@ export interface components {
             reason: string;
         };
         IbPartnerListAccountDto: {
-            userId: string;
+            userId: number;
             /**
              * @description The rung, which decides their terms (0112).
              * @example 1
@@ -5348,7 +5393,11 @@ export interface components {
             approvedAt: string;
         };
         IbPartnerListPersonDto: {
-            id: string;
+            /**
+             * @description The client’s Portal ID (0159).
+             * @example 1000245
+             */
+            id: number;
             /**
              * @description Their Portal ID.
              * @example 1000245
@@ -5388,7 +5437,7 @@ export interface components {
             maskedFields: string[];
         };
         IbPartnerPersonDto: {
-            userId: string;
+            userId: number;
             /**
              * @description Their Portal ID.
              * @example 1000245
@@ -5399,7 +5448,7 @@ export interface components {
             lastName: string | null;
         };
         IbSubPartnerRowDto: {
-            userId: string;
+            userId: number;
             /**
              * @description Their Portal ID.
              * @example 1000245
@@ -5424,7 +5473,7 @@ export interface components {
             approvedAt: string;
         };
         IbPartnerDetailDto: {
-            userId: string;
+            userId: number;
             /**
              * @description The rung, and what decides their terms. 1 is a partner dealing with the broker directly.
              * @example 1
@@ -5450,10 +5499,14 @@ export interface components {
             parent: components["schemas"]["IbPartnerPersonDto"] | null;
             /** @description True when this partner has a parent the reader may not see. Distinguishes “deals with the broker directly” from “parent outside your territory”. */
             parentOutsideTerritory: boolean;
-            /** @description SCOPED to the reader’s territory. No out-of-territory total accompanies it — a count is itself a disclosure, and there is no row cap here for one to describe. */
+            /** @description SCOPED to the reader’s territory. The ones withheld are counted in `directPartnersOutsideScope` — never named. */
             directPartners: components["schemas"]["IbSubPartnerRowDto"][];
+            /** @description How many direct sub-partners sit OUTSIDE the reader’s territory, and so are absent from `directPartners`. Zero for an unrestricted reader. A count, no identity (R2): a line that silently dropped them would read as a partner with nobody beneath them. */
+            directPartnersOutsideScope: number;
             /** @description How many clients they introduced. */
             referredClientCount: number;
+            /** @description How many clients this partner introduced sit OUTSIDE the reader’s territory, and so are absent from `referredClientCount`. Zero for an unrestricted reader. A count, no identity. */
+            referredClientsOutsideScope: number;
             /** @description One entry per currency they have earned in, sorted by currency. Empty when nothing has accrued yet — never a zero in a currency nobody chose. */
             earnings: components["schemas"]["IbPartnerEarningsDto"][];
             maskedFields?: string[];
@@ -5467,7 +5520,7 @@ export interface components {
         };
         ReassignIbParentDto: {
             /** @description The new parent partner, or null to make them a direct partner. */
-            parentIbUserId: string | null;
+            parentIbUserId: number | null;
         };
         SetIbActiveDto: {
             /** @description False suspends: the referral code and the tree are kept, the earning stops. There is no delete — removing the row would orphan every partner beneath them. */
@@ -5498,10 +5551,15 @@ export interface components {
              */
             rebateShare: string;
             /**
-             * @description How many partners stand on this rung. Part of the row rather than a second call: it is what makes a delete refusable in the UI before the database refuses it, and what tells an operator how many people a rate change is about to affect.
+             * @description How many partners stand on this rung in the reader’s territory. Part of the row rather than a second call: with `partnersOutsideScope` it is what makes a delete refusable in the UI before the database refuses it, and what tells an operator how many people a rate change is about to affect.
              * @example 4
              */
             partnerCount: number;
+            /**
+             * @description How many partners stand on this rung OUTSIDE the reader’s territory — a count, never who (D-81 R2). Zero for a reader who sees every client. The rung is emptied only when both this and `partnerCount` are zero.
+             * @example 0
+             */
+            partnersOutsideScope: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -5698,7 +5756,7 @@ export interface components {
         };
         TransactionDto: {
             id: string;
-            userId: string;
+            userId: number;
             walletId: string;
             /** @enum {string} */
             direction: "deposit" | "withdrawal";
@@ -5778,7 +5836,7 @@ export interface components {
         };
         TransferDto: {
             id: string;
-            userId: string;
+            userId: number;
             walletId: string;
             tradingAccountId: string;
             /** @enum {string} */
@@ -5931,7 +5989,7 @@ export interface components {
              * @example 4f7kq2nm8xcb
              */
             walletNumber: string;
-            userId: string;
+            userId: number;
             /** @example 1000001 */
             userPortalId: number | null;
             userFirstName: string | null;
@@ -6362,11 +6420,8 @@ export interface components {
             stats: components["schemas"]["DashboardStatsDto"];
         };
         CreateMt5AccountDto: {
-            /**
-             * Format: uuid
-             * @description The client this account belongs to.
-             */
-            userId: string;
+            /** @description The client this account belongs to. */
+            userId: number;
             /** @example real\Standard */
             group: string;
             /**
@@ -6487,10 +6542,15 @@ export interface components {
             /** @description Every product that sells this group, by name — several since 0142. Empty when no product does, in which case no client can open an account in it from the portal. */
             products: components["schemas"]["Mt5GroupProductDto"][];
             /**
-             * @description How many trading accounts the CRM holds in this group.
+             * @description How many trading accounts the CRM holds in this group, in the reader’s territory.
              * @example 12
              */
             accountCount: number;
+            /**
+             * @description How many it holds OUTSIDE the reader’s territory — a count, never who (D-81 R2). Zero for a reader who sees every client.
+             * @example 0
+             */
+            accountsOutsideScope: number;
         };
         KycDocumentPartDto: {
             /**
@@ -6563,20 +6623,19 @@ export interface components {
             fields: components["schemas"]["KycFieldConfigDto"][];
             /** @description One of the four built-in steps. */
             core?: boolean;
-            /** @description A built-in step that cannot be switched off. */
+            /** @description Always false: every step can be switched off. */
             alwaysOn?: boolean;
+            /** @description Identity document, selfie and proof of address steps: whether the client must provide it, or may skip it. Absent on other steps. */
+            evidenceRequired?: boolean;
         };
         KycDocumentStateDto: {
             /** @example passport */
             docType?: string;
             frontFilePath?: string;
-            frontFileName?: string;
             backFilePath?: string;
-            backFileName?: string;
         };
         KycFileStateDto: {
             filePath?: string;
-            fileName?: string;
             /** @example utility_bill */
             docType?: string;
             /** @description Second page, for multi-page address proof. */
@@ -6610,7 +6669,7 @@ export interface components {
             returned: components["schemas"]["KycOwedDto"][];
         };
         KycStatusDto: {
-            userId: string;
+            userId: number;
             /** @enum {string} */
             status: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
             /** @description Free-form key/value bag whose keys come from the step configuration. */
@@ -6639,7 +6698,6 @@ export interface components {
             steps: components["schemas"]["KycStepStateDto"][];
             /** Format: date-time */
             submittedAt?: string;
-            reviewedBy?: string;
             /** Format: date-time */
             reviewedAt?: string;
             /** Format: date-time */
@@ -6947,6 +7005,7 @@ export interface components {
             maskedFieldsOverride?: string[] | null;
             scopedTags: components["schemas"]["AdminScopeTagDto"][];
             seesUntriaged: boolean;
+            seesAllClients: boolean;
             /** @example /uploads/avatars/6f1c.png */
             avatarUrl?: string | null;
             /** Format: date-time */
@@ -6968,10 +7027,12 @@ export interface components {
             permissions?: string[];
             /** @description Client fields this admin may not see. Omit to inherit the role’s mask; [] means no mask. */
             maskedFields?: string[];
-            /** @description Client tags this admin is scoped to. Omit or [] means UNRESTRICTED — every client. */
+            /** @description Client tags this admin is limited to. [] means no territory tags (new clients only, or none) — every client is only ever `seesAllClients` (0154). */
             scopedTagIds?: string[];
             /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
             seesUntriaged?: boolean;
+            /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
+            seesAllClients?: boolean;
         };
         InviteResponseDto: {
             message: string;
@@ -7074,7 +7135,8 @@ export interface components {
             createdAt: string;
         };
         ClientRowReferrerDto: {
-            ibUserId: string;
+            /** @description Absent when the introducer is outside your territory. */
+            ibUserId?: number;
             /** @description The introducer’s Portal ID. Absent, with their name, when they are outside your territory. */
             portalId?: number;
             /** @description Absent when the introducer is outside your territory. */
@@ -7087,7 +7149,11 @@ export interface components {
             outsideTerritory: boolean;
         };
         ClientRowDto: {
-            id: string;
+            /**
+             * @description The client’s Portal ID — their one id (0159).
+             * @example 1000245
+             */
+            id: number;
             /** @example 1000001 */
             portalId: number;
             email?: string;
@@ -7152,7 +7218,8 @@ export interface components {
             createdAt: string;
         };
         ProfileReferrerDto: {
-            ibUserId: string;
+            /** @description Absent when the introducer is outside your territory. */
+            ibUserId?: number;
             /** @description The introducer’s Portal ID — what the profile links by. Absent, with the rest of their identity, when the introducer is outside your territory. */
             portalId?: number;
             /** @description Absent when the introducer is outside your territory. */
@@ -7163,13 +7230,13 @@ export interface components {
             lastName?: string;
             /** @description True when this client WAS introduced by a partner the reader may not see. Keeps “introduced, by someone outside your territory” distinct from “not introduced”. */
             outsideTerritory: boolean;
-            /** @description False when the attribution was switched off. */
-            active: boolean;
+            /** @description False when the attribution was switched off. Absent when the introducer is outside your territory: whether a partner you may not see is suspended is not yours to learn. */
+            active?: boolean;
             /** Format: date-time */
             since: string;
         };
         ProfileReferredClientDto: {
-            clientUserId: string;
+            clientUserId: number;
             /**
              * @description Their Portal ID.
              * @example 1000245
@@ -7183,7 +7250,11 @@ export interface components {
             since: string;
         };
         ClientProfileDto: {
-            id: string;
+            /**
+             * @description The client’s Portal ID — their one id (0159).
+             * @example 1000245
+             */
+            id: number;
             /** @example 1000001 */
             portalId: number;
             email?: string;
@@ -7203,14 +7274,17 @@ export interface components {
             nationality?: string;
             address?: string;
             city?: string;
+            stateProvince?: string;
             postalCode?: string;
             /** Format: date-time */
             createdAt?: string;
             tags: components["schemas"]["ClientTagDto"][];
-            /** @description The profile fields the desk may not change right now, each with where it can be changed instead — the verification's lock (`deskLocks`). Present only for a reader holding clients.edit; empty when nothing is locked. */
+            /** @description The details THIS admin may not change right now, each with the sentence saying why — a review is checking it, or it was verified and they may not correct verified details (`adminEditRule`). Present only for a reader holding clients.edit; empty when nothing is held. */
             lockedFields?: {
                 [key: string]: string;
             };
+            /** @description Verified details THIS admin may correct: they change only with a `reason`, are recorded on the verification, and the client is told. Present only for a reader holding clients.edit. */
+            correctableFields?: string[];
             /** @description Absent without kyc.view. */
             kyc?: components["schemas"]["ProfileKycDto"];
             /** @description Document filenames. Absent without kyc.documents.view. */
@@ -7266,12 +7340,22 @@ export interface components {
             address?: string;
             /** @example Beirut */
             city?: string;
+            /** @example Mount Lebanon */
+            stateProvince?: string;
             /** @example 1103 2080 */
             postalCode?: string;
+            /**
+             * @description Required when a verified detail changes. Recorded on the audit row.
+             * @example Surname misspelt at registration; the passport reads "Haddad".
+             */
+            reason?: string;
         };
         ClientAccountDto: {
-            /** Format: uuid */
-            id: string;
+            /**
+             * @description The client’s Portal ID — their one id (0159).
+             * @example 1000245
+             */
+            id: number;
             /**
              * @description The client’s Portal ID.
              * @example 1000245
@@ -7295,6 +7379,7 @@ export interface components {
             nationality: string | null;
             address: string | null;
             city: string | null;
+            stateProvince: string | null;
             postalCode: string | null;
             /** Format: date-time */
             createdAt: string;
@@ -7319,6 +7404,91 @@ export interface components {
              */
             status: "active" | "suspended";
         };
+        ClientIdentityPageDto: {
+            /** @example 0 */
+            part: number;
+            /** @example Photo Page */
+            label: string;
+            /**
+             * @description Opened through GET /uploads/kyc/:file, which checks the reader and audits it.
+             * @example uploads/kyc/2f0c….jpg
+             */
+            path: string;
+        };
+        ClientIdentityVersionDto: {
+            id: string;
+            /** @example passport */
+            docType?: string | null;
+            /** @example Passport */
+            docLabel?: string | null;
+            /**
+             * @description Read from the verification log: a draft; presented and awaiting review; or the outcome of the latest decision that covered it.
+             * @enum {string}
+             */
+            status: "draft" | "awaiting_review" | "verified" | "returned" | "reverification_requested";
+            /**
+             * @description Which of its pages that decision returned.
+             * @example [
+             *       "doc_back"
+             *     ]
+             */
+            returnedPages: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description When it was presented for review; null for a draft.
+             */
+            presentedAt?: string | null;
+            pages: components["schemas"]["ClientIdentityPageDto"][];
+        };
+        ClientIdentityDocumentDto: {
+            /**
+             * @description identity | address | selfie | other:<field>
+             * @example identity
+             */
+            slot: string;
+            /** @example Identity document */
+            label: string;
+            /** @description Newest first. */
+            versions: components["schemas"]["ClientIdentityVersionDto"][];
+        };
+        ClientVerificationDto: {
+            seq: number;
+            /** @enum {string} */
+            outcome: "verified" | "returned" | "reverification_requested";
+            /** @example 1 */
+            levelAfter: number;
+            /**
+             * @description manual_review | legacy | fixture | import | provider
+             * @example manual_review
+             */
+            method: string;
+            /** @description The reviewer's email as it was when they decided. */
+            decidedBy?: string | null;
+            reason?: string | null;
+            /**
+             * @example [
+             *       "doc_front"
+             *     ]
+             */
+            returnedItems: string[];
+            /**
+             * @description returnedItems as a person reads them, in the same order.
+             * @example [
+             *       "Identity document — first page"
+             *     ]
+             */
+            returnedLabels: string[];
+            /** Format: date-time */
+            decidedAt: string;
+        };
+        ClientIdentityRecordDto: {
+            /** @description Absent without kyc.documents.view (or kyc.review). */
+            documents?: components["schemas"]["ClientIdentityDocumentDto"][];
+            /** @description Newest first. Absent without kyc.view. */
+            verifications?: components["schemas"]["ClientVerificationDto"][];
+        };
         ClientTagWithCountDto: {
             id: string;
             /** @description Stable machine name. Filter with ?tag=<slug>; a rename does not change it. */
@@ -7328,8 +7498,10 @@ export interface components {
             description?: string;
             /** Format: date-time */
             createdAt: string;
-            /** @description How many clients carry this tag. */
+            /** @description How many clients carry this tag in the reader’s territory. */
             clientCount: number;
+            /** @description How many clients carry it OUTSIDE the reader’s territory — a count, never who (D-81 R2). Zero for a reader who sees every client. */
+            clientsOutsideScope: number;
         };
         CreateClientTagDto: {
             /** @example High risk */
@@ -7358,23 +7530,24 @@ export interface components {
             /** Format: date-time */
             assignedAt: string;
         };
+        ClientTagChangeResultDto: {
+            /** @description The client’s tags after the change. Empty when `stillVisible` is false. */
+            assignments: components["schemas"]["ClientTagAssignmentDto"][];
+            /** @description False when the change took the client out of the acting admin’s territory — sent only with confirmLeavesScope=true. */
+            stillVisible: boolean;
+        };
         KycDocumentDto: {
             docType?: string;
             frontFilePath?: string;
             backFilePath?: string;
-            frontFileName?: string;
-            backFileName?: string;
         };
         KycSelfieDto: {
             filePath?: string;
-            fileName?: string;
         };
         KycAddressProofDto: {
             docType?: string;
             filePath?: string;
-            fileName?: string;
             page2FilePath?: string;
-            page2FileName?: string;
         };
         KycUserDto: {
             id: string;
@@ -7397,7 +7570,7 @@ export interface components {
         };
         KycReviewIdentityFieldDto: {
             /** @enum {string} */
-            key: "firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "postalCode";
+            key: "firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "stateProvince" | "postalCode";
             /** @example Date of Birth */
             label: string;
             required: boolean;
@@ -7471,7 +7644,7 @@ export interface components {
             flags: components["schemas"]["KycReviewFlagDto"][];
         };
         KycSubmissionDto: {
-            userId: string;
+            userId: number;
             /** @enum {string} */
             status: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
             /** Format: date-time */
@@ -7568,6 +7741,11 @@ export interface components {
             city?: string;
             /**
              * @description Send an empty string to clear it — many addresses have none.
+             * @example Mount Lebanon
+             */
+            stateProvince?: string;
+            /**
+             * @description Send an empty string to clear it — many addresses have none.
              * @example 1103 2080
              */
             postalCode?: string;
@@ -7575,9 +7753,9 @@ export interface components {
         RejectDto: {
             /** @description Free-text reason, when not using a configured reasonId. */
             reason?: string;
-            /** @description Id of a configured rejection reason. */
+            /** @description Id of a configured KYC rejection reason. */
             reasonId?: string;
-            /** @description Field names the client must re-submit, e.g. ["doc_front"]. */
+            /** @description What the client must update: identity details by key, pages on file by slot (e.g. "doc_front"), the selfie, or a question on their form. Anything else is refused. */
             rejectedFields?: string[];
         };
         ReverifyKycDto: {
@@ -7644,6 +7822,8 @@ export interface components {
              */
             icon?: string;
             enabled?: boolean;
+            /** @description Identity document, selfie and proof of address steps: whether the client must provide it (default true) or may skip it. */
+            evidenceRequired?: boolean;
             fields: components["schemas"]["KycFieldDto"][];
             /** @description Served on read. Accepted on write and ignored. */
             core?: boolean;
@@ -7652,6 +7832,11 @@ export interface components {
         };
         KycConfigDto: {
             steps: components["schemas"]["KycStepDto"][];
+            /**
+             * @description The builder format this save was made in. Since Phase 2 (identity placements, evidence required, every step editable) it must be 2; an older console answers 409 `KYC_BUILDER_OUTDATED` rather than saving a form it cannot represent.
+             * @example 2
+             */
+            format?: number;
         };
         PermissionItemDto: {
             key: string;
@@ -7722,10 +7907,12 @@ export interface components {
             permissions?: string[];
             /** @description Client fields this administrator may not see. null clears the override and inherits the role; [] explicitly masks nothing. */
             maskedFields?: string[] | null;
-            /** @description Client tag ids. An EMPTY ARRAY means unrestricted (every client), not none — see D-10. */
+            /** @description Client tag ids. [] means no territory tags (new clients only, or none) — every client is only ever `seesAllClients` (0154). */
             scopedTagIds?: string[];
             /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
             seesUntriaged?: boolean;
+            /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
+            seesAllClients?: boolean;
         };
         AdminStatusDto: {
             /** @enum {string} */
@@ -7780,6 +7967,7 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+            maskedFields: string[];
         };
         ApiKeyDto: {
             id: string;
@@ -7917,7 +8105,7 @@ export interface components {
             /** @description WHY the row needs attention, in words the operator can act on. Written whenever rivalNeedsAttention flips true; null once a retry lands or the flag was never raised. */
             rivalAttentionReason?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
-            userId?: string;
+            userId?: number;
             walletId?: string;
             direction?: string;
             methodKey?: string | null;
@@ -7941,11 +8129,8 @@ export interface components {
             maskedFields?: string[];
         };
         CreditWalletDto: {
-            /**
-             * Format: uuid
-             * @description The client to credit.
-             */
-            userId: string;
+            /** @description The client to credit. */
+            userId: number;
             /** @example 250.00000000 */
             amount: string;
             /**
@@ -7955,6 +8140,11 @@ export interface components {
             currency: string;
             /** @example Goodwill adjustment for the failed 4 August transfer. */
             reason: string;
+        };
+        WalletCreditResultDto: {
+            transaction: components["schemas"]["TransactionDto"];
+            /** @description True when the idempotency key replayed an earlier credit — nothing moved again. */
+            replayed: boolean;
         };
         FundTradingAccountDto: {
             /** @example 250.00000000 */
@@ -7967,9 +8157,19 @@ export interface components {
              */
             direction: "deposit" | "withdraw";
         };
+        TradingAccountFundResultDto: {
+            transaction: components["schemas"]["TransactionDto"] | null;
+            replayed: boolean;
+            transfer: components["schemas"]["TransferDto"] | null;
+            transferError: string | null;
+            /**
+             * @description Where the money went, on a withdrawal.
+             * @enum {string}
+             */
+            destination?: "wallet";
+        };
         OpenWalletDto: {
-            /** Format: uuid */
-            userId: string;
+            userId: number;
             /**
              * @description Must be a currency the platform holds and has enabled.
              * @example USD
@@ -7985,7 +8185,7 @@ export interface components {
         DepositDecisionDto: {
             id: string;
             /** @description The client this deposit belongs to. */
-            userId: string;
+            userId: number;
             /**
              * @description Monetary value — always a string, never a number
              * @example 250.00000000
@@ -8024,7 +8224,7 @@ export interface components {
              * @example 4f7kq2nm8xcb
              */
             walletNumber: string;
-            userId: string;
+            userId: number;
             /** @example 1000001 */
             userPortalId: number | null;
             userFirstName: string | null;
@@ -8298,9 +8498,9 @@ export interface components {
         KycTrendPointDto: {
             /** @example 2026-08-01 */
             date: string;
-            /** @description Submissions whose submitted_at falls on this day. */
+            /** @description Submissions made on this day — every one, including those since decided, replaced or reset: the archived attempts plus the submissions still waiting. */
             submitted: number;
-            /** @description Submissions REVIEWED on this day whose status is approved. A rejection reviewed the same day is not counted here. */
+            /** @description Approvals decided on this day by a review, from the decision log. An approval later reversed stays on its day; a rejection is never counted. */
             approved: number;
         };
         KycTrendSeriesDto: {
@@ -10262,9 +10462,9 @@ export interface operations {
                 page?: string;
                 limit?: string;
                 /** @description Restrict to one partner. */
-                ibUserId?: string;
+                ibUserId?: number;
                 /** @description Restrict to one client. */
-                clientUserId?: string;
+                clientUserId?: number;
                 /** @description The PARTNER's Portal ID (digits, matched exactly) or free text over their email and name — the identifiers the list displays. It deliberately does not search the client on the row: an out-of-scope client's identity is masked, and a filter that matched it would answer "does this person exist in another territory" from the row count. */
                 q?: string;
                 status?: "pending" | "confirmed" | "reversed";
@@ -10366,7 +10566,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -10387,7 +10587,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -10412,7 +10612,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -10437,7 +10637,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -11541,9 +11741,9 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Accounts of one client. */
-                userId?: string;
+                userId?: number;
                 /** @description Accounts of every client this partner introduced, by the partner’s Portal ID (users.referred_by_ib_user_id). Scoped like every other filter. */
-                referredBy?: string;
+                referredBy?: number;
                 /** @description A number matches the MT5 login OR the owner’s Portal ID — both exact, because an operator holding one cannot tell which it is. Anything else searches the OWNER by email or name — the identifiers the Owner column displays. */
                 q?: string;
                 environment?: "live" | "demo";
@@ -12682,7 +12882,7 @@ export interface operations {
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
                 /** @description Clients introduced by this partner, by the partner’s Portal ID (users.referred_by_ib_user_id). Scoped like every other filter — a reader still only sees their own territory. A value that is not a Portal ID is a 400, never a silently unfiltered list. */
-                referredBy?: string;
+                referredBy?: number;
                 /** @description `true`: only clients a partner introduced (the Referrals page); `false`: only clients nobody introduced. On users.referred_by_ib_user_id, so a referred client who later became a partner still counts. Any other value is a 400. */
                 referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
@@ -12722,7 +12922,7 @@ export interface operations {
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
                 /** @description Clients introduced by this partner, by Portal ID — the same filter as the list, so the file matches the screen it was exported from. */
-                referredBy?: string;
+                referredBy?: number;
                 /** @description `true`: only clients a partner introduced (the Referrals page); `false`: only clients nobody introduced. On users.referred_by_ib_user_id, so a referred client who later became a partner still counts. Any other value is a 400. */
                 referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
@@ -12750,7 +12950,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -12771,7 +12971,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -12796,7 +12996,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -12821,7 +13021,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -12846,7 +13046,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -12860,7 +13060,30 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ClientAccountDto"];
+                };
+            };
+        };
+    };
+    AdminClientIdentityController_recordFor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientIdentityRecordDto"];
+                };
             };
         };
     };
@@ -12977,7 +13200,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -12995,10 +13218,13 @@ export interface operations {
     };
     AdminTagsController_assign: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Required when the change takes the client out of your own territory — without it that answers 409 TAG_CHANGE_LEAVES_SCOPE. */
+                confirmLeavesScope?: "true";
+            };
             header?: never;
             path: {
-                id: string;
+                id: number;
                 tagId: string;
             };
             cookie?: never;
@@ -13010,17 +13236,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
+                    "application/json": components["schemas"]["ClientTagChangeResultDto"];
                 };
             };
         };
     };
     AdminTagsController_unassign: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Required when the change takes the client out of your own territory — without it that answers 409 TAG_CHANGE_LEAVES_SCOPE. */
+                confirmLeavesScope?: "true";
+            };
             header?: never;
             path: {
-                id: string;
+                id: number;
                 tagId: string;
             };
             cookie?: never;
@@ -13032,7 +13261,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClientTagAssignmentDto"][];
+                    "application/json": components["schemas"]["ClientTagChangeResultDto"];
                 };
             };
         };
@@ -13094,7 +13323,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13115,7 +13344,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13136,7 +13365,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13157,7 +13386,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13178,7 +13407,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13203,7 +13432,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13224,7 +13453,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13249,7 +13478,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13410,6 +13639,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KycDocumentTypeDto"][];
+                };
+            };
+        };
+    };
+    AdminComplianceController_getIdentityCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycFieldConfigDto"][];
                 };
             };
         };
@@ -14036,7 +14284,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TransactionDto"];
+                    "application/json": components["schemas"]["WalletCreditResultDto"];
                 };
             };
         };
@@ -14064,7 +14312,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TransactionDto"];
+                    "application/json": components["schemas"]["TradingAccountFundResultDto"];
                 };
             };
         };
@@ -14073,7 +14321,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Wallets of one client. */
-                userId?: string;
+                userId?: number;
                 /** @description Exact match on the wallet code. */
                 currency?: string;
                 /** @description A wallet number or the OWNER’s Portal ID (both matched exactly), or free text over the owner’s email and name — the identifiers this screen actually displays. Before this existed the only client filter was `userId`, a uuid shown nowhere on the page, so an operator had to fetch it from /clients first. */
@@ -14353,7 +14601,7 @@ export interface operations {
     AdminMoneyController_listLedger: {
         parameters: {
             query: {
-                userId: string;
+                userId: number;
                 /** @description A Portal ID (digits, matched exactly) or the client’s email or name — the identifiers the Client column shows. Scope still applies: this cannot reach a client outside the actor’s territory. */
                 q?: string;
                 walletId: string;
@@ -14459,7 +14707,7 @@ export interface operations {
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description Narrow to one client (UUID). */
-                userId?: string;
+                userId?: number;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
@@ -14496,7 +14744,7 @@ export interface operations {
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description Narrow to one client (UUID). */
-                userId?: string;
+                userId?: number;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
@@ -14532,7 +14780,7 @@ export interface operations {
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description Narrow to one client (UUID). */
-                userId?: string;
+                userId?: number;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
@@ -14658,7 +14906,7 @@ export interface operations {
             query?: {
                 format?: "csv";
                 /** @description Wallets of one client. */
-                userId?: string;
+                userId?: number;
                 /** @description Exact match on the wallet code. */
                 currency?: string;
             };
@@ -14684,7 +14932,7 @@ export interface operations {
             query?: {
                 format?: "csv";
                 /** @description Accounts of one client. */
-                userId?: string;
+                userId?: number;
                 environment?: "live" | "demo";
                 status?: "active" | "suspended" | "closed";
             };
@@ -14713,7 +14961,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -14737,7 +14985,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };

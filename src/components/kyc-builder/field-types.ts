@@ -36,7 +36,8 @@ export function isCoreStep(step: Pick<KycStep, 'slug' | 'core'>): boolean {
 
 /** Personal Information and Identity Document: a verification IS these two. */
 export function isAlwaysOn(step: Pick<KycStep, 'slug' | 'alwaysOn'>): boolean {
-  return step.alwaysOn ?? (step.slug === 'personal' || step.slug === 'document');
+  // Since Phase 2 (29 Sep 2026) every step, the built-in ones included, can be switched off.
+  return step.alwaysOn === true;
 }
 
 /** The platform's own field — an identity field or the selfie camera. Fixed, never edited. */
@@ -63,14 +64,24 @@ export function ownFields<F extends Pick<KycField, 'system' | 'type'>>(fields: r
  *  - on Identity Document, Proof of Address and Selfie, nothing: those hold
  *    only their own documents and camera.
  */
-export function fieldTypesForStep(slug: string): readonly FieldTypeOption[] {
-  if (slug === 'personal') {
-    return FIELD_TYPES.filter((type) => type.value !== 'file' && type.value !== 'camera');
-  }
-  return CORE_SLUGS.includes(slug) ? [] : FIELD_TYPES;
+export function fieldTypesForStep(_slug: string): readonly FieldTypeOption[] {
+  // Phase 2: questions of every kind, uploads included, on every step.
+  return FIELD_TYPES;
 }
 
-/** Whether the broker may add their own fields to this step at all. */
-export function takesOwnFields(slug: string): boolean {
-  return fieldTypesForStep(slug).length > 0;
+export function takesOwnFields(_slug: string): boolean {
+  return true;
+}
+
+/** An identity detail placed on Personal Information: the platform's field, the broker's placement. */
+export function isIdentityField(
+  step: Pick<KycStep, 'slug'>,
+  field: Pick<KycField, 'system'>,
+): boolean {
+  return step.slug === 'personal' && isSystemField(field);
+}
+
+/** The steps whose evidence the broker may make optional. */
+export function takesEvidence(slug: string): boolean {
+  return slug === 'document' || slug === 'selfie' || slug === 'address';
 }

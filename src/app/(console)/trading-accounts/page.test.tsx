@@ -216,7 +216,9 @@ describe('trading accounts — listing', () => {
 
   it('names the endpoint when the API is not built yet', async () => {
     getTradingAccounts.mockRejectedValue(
-      Object.assign(new Error('nope'), { response: { status: 404, data: {} } }),
+      Object.assign(new Error('nope'), {
+        response: { status: 404, data: { code: 'ROUTE_NOT_FOUND' } },
+      }),
     );
     renderWithProviders(<TradingAccountsPage />);
 

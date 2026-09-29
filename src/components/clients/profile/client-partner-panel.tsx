@@ -2,6 +2,7 @@
 
 import { Coins, Network, Users } from 'lucide-react';
 import type { IbPartnerDetail, IbPartnerEarnings } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { Badge } from '@/components/ui/badge';
 import { PermittedLink } from '@/components/permitted-link';
 import { EmptySection, ProfileCard } from '@/components/clients/profile/profile-cards';
@@ -109,6 +110,12 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
                 person={detail.parent}
                 className="text-link hover:underline focus-outline"
               />
+            ) : detail.parentOutsideTerritory ? (
+              /* They HAVE a parent, whom this reader may not see — never the
+                 false "deals with the broker directly". */
+              <span className="text-muted-foreground">
+                {t('clientProfile.partnerParentOutsideTerritory')}
+              </span>
             ) : (
               /* Not an absence to apologise for: no parent means they deal with
                  the broker directly, which is the top of a chain. */
@@ -147,13 +154,19 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
             icon={Users}
             label={t('clientProfile.partnerClients')}
             value={String(detail.referredClientCount)}
-            hint={t('clientProfile.partnerClientsHint')}
+            hint={withOutside(
+              t('clientProfile.partnerClientsHint'),
+              detail.referredClientsOutsideScope,
+            )}
           />
           <Stat
             icon={Network}
             label={t('clientProfile.partnerSubCount')}
             value={String(detail.directPartners.length)}
-            hint={t('clientProfile.partnerSubCountHint')}
+            hint={withOutside(
+              t('clientProfile.partnerSubCountHint'),
+              detail.directPartnersOutsideScope,
+            )}
           />
         </div>
       </ProfileCard>
@@ -218,7 +231,15 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
             ))}
           </ul>
         ) : (
-          <EmptySection message={t('clientProfile.partnerNoSubPartners')} />
+          <EmptySection
+            message={
+              detail.directPartnersOutsideScope > 0
+                ? t('clientProfile.networkPartnersOutsideScope', {
+                    count: String(detail.directPartnersOutsideScope),
+                  })
+                : t('clientProfile.partnerNoSubPartners')
+            }
+          />
         )}
       </ProfileCard>
     </div>
@@ -266,6 +287,17 @@ function EarningsLines({
   );
 }
 
+/**
+ * A scoped figure with what it leaves out: the count outside the reader's
+ * territory, never who (R2). Every figure beside it is scoped, so without
+ * this a partner whose book sits in another territory reads as having none.
+ */
+function withOutside(hint: string, outside: number): string {
+  return outside > 0
+    ? `${hint} · ${t('clientProfile.outsideTerritoryCount', { count: String(outside) })}`
+    : hint;
+}
+
 function Stat({
   icon: Icon,
   label,
@@ -308,7 +340,7 @@ function PersonLink({
   className,
 }: {
   person: {
-    userId: string;
+    userId: ClientRef;
     firstName: string | null;
     lastName: string | null;
     email?: string;

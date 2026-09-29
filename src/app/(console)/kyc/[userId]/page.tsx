@@ -1,5 +1,6 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import { useRef, useState } from 'react';
 import type { components } from '@/lib/api/types.gen';
 import { useQueryClient } from '@tanstack/react-query';
@@ -100,9 +101,13 @@ export default function KycDetailPage() {
     keys.kyc.detail(userId),
     async (signal) => (await api.get<KycDetail>(`/admin/kyc/${userId}`, { signal })).data,
   );
-  // Reading the submission reads its "Review KYC" task. The response's uuid,
-  // not the URL's: the URL may carry the Portal ID.
-  useMarkSubjectRead('kyc', query.status === 'ready' ? query.data?.userId : undefined);
+  // Reading the submission reads its "Review KYC" task, whose subject is the
+  // client by Portal ID. The response's id, not the URL's: the URL may carry
+  // `#1000245` or a leading space that the API tolerates and the marker must not.
+  useMarkSubjectRead(
+    'kyc',
+    query.status === 'ready' && query.data ? String(query.data.userId) : undefined,
+  );
 
   /*
    * Previously decided attempts.
@@ -318,7 +323,7 @@ export default function KycDetailPage() {
    * not that compliance review is unimplemented. Its own render test caught
    * this the moment the boundary swallowed it.
    */
-  if (query.status === 'unavailable')
+  if (query.status === 'notFound')
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
         <p className="text-sm text-muted-foreground">{t('kycReview.notFound')}</p>
@@ -384,7 +389,8 @@ export default function KycDetailPage() {
   // One derived list, shared by the grid and the lightbox, so the two cannot
   // disagree about which documents exist — named from the server's layout.
   const documents = reviewDocuments(data);
-  const clientName = `${data.user?.firstName ?? ''} ${data.user?.lastName ?? ''}`.trim();
+  // Name, else email, else the Portal ID — a masked name must not blank the heading.
+  const clientName = data.user ? clientLabel(data.user, '') : '';
 
   return (
     <div className="detail-page">
@@ -407,9 +413,7 @@ export default function KycDetailPage() {
               {(data.user?.firstName?.[0] ?? '?').toUpperCase()}
             </span>
             <div className="min-w-0">
-              <h1 className="truncate">
-                {data.user?.firstName} {data.user?.lastName}
-              </h1>
+              <h1 className="truncate">{clientName}</h1>
               <p className="truncate">{data.user?.email}</p>
               {/*
                 The PORTAL ID — the number staff and the client use, and what

@@ -300,7 +300,7 @@ export const CONSOLE_PAGES = [
   '/api-keys',
   '/profile',
   // The bell's full page (backend 0140): every task names its client by
-  // Portal ID, and must never print or link a uuid.
+  // Portal ID.
   '/notifications',
 ] as const;
 
@@ -861,7 +861,7 @@ export interface MintedClient {
   portal: APIRequestContext;
   csrf: string;
   email: string;
-  id: string;
+  id: number;
   dispose: () => Promise<void>;
 }
 
@@ -1133,7 +1133,7 @@ export async function mintFreshClientWithPendingKyc(
       'non-development API has no way to mint a fresh money fixture',
   );
   const { id, email, password } = (await made.json()) as {
-    id: string;
+    id: number;
     email: string;
     password: string;
   };
@@ -1276,7 +1276,7 @@ export async function mintClientWithPendingKyc(
 }
 
 /**
- * Resolve a client's uuid from their address, through the admin index.
+ * Resolve a client's Portal ID from their address, through the admin index.
  *
  * The lookup was copy-pasted into four specs, each re-deriving that
  * `?q=<email>` is a SEARCH and can return near-matches — so the exact-email
@@ -1285,12 +1285,12 @@ export async function mintClientWithPendingKyc(
 export async function clientIdByEmail(
   admin: { get: (path: string) => Promise<{ json: () => Promise<unknown> }> },
   email: string,
-): Promise<string> {
+): Promise<number> {
   const found = await admin.get(`/admin/clients?q=${encodeURIComponent(email)}&limit=5`);
   const id =
-    ((await found.json()) as { items: { id: string; email: string }[] }).items.find(
+    ((await found.json()) as { items: { id: number; email: string }[] }).items.find(
       (c) => c.email === email,
-    )?.id ?? '';
+    )?.id ?? 0;
   expect(id, `${email} is not on the admin index`).toBeTruthy();
   return id;
 }

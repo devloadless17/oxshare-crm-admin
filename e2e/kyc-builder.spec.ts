@@ -10,11 +10,15 @@ import type { BrowserContext, Page } from '@playwright/test';
  * In the builder, deleting First Name from Personal Information and adding it
  * back made a CUSTOM field: a box labelled "First Name" that no longer was the
  * client's first name. The cause was general — identity was recognised by a
- * field's key inside a configuration the builder could freely rewrite — and so
- * is the fix: the client's identity and the four built-in steps are the
- * PLATFORM's (the owner's rulings). The identity is served on every read and
- * dropped on every write, so no save can remove, rename or duplicate it; a
- * question that would be a second copy of it is refused, under the question.
+ * field's key inside a configuration the builder could freely rewrite.
+ *
+ * Since Phase 2 (29 Sep 2026, the owner's "everything customizable") an identity
+ * detail is a PLACEMENT: whether it is asked, where it sits and whether it is
+ * required are the broker's; its name, label and type are the platform's,
+ * rebuilt on every read. So First Name taken off and asked for again is the
+ * client's name, and a question that would be a second copy of it is refused,
+ * under the question. Every built-in step can be retitled, moved and switched
+ * off — never deleted.
  *
  * So this file drives the reported scenario first, then the doors around it: a
  * crafted save, the built-in steps, the order, a save over somebody else's
@@ -101,6 +105,13 @@ function stepOf(steps: Step[], slug: string): Step {
   return step!;
 }
 
+/** The steps with Personal Information's fields changed — a crafted save's body. */
+function withPersonalFields(steps: Step[], change: (fields: Field[]) => Field[]): Step[] {
+  return steps.map((step) =>
+    step.slug === 'personal' ? { ...step, fields: change(step.fields) } : step,
+  );
+}
+
 let snapshot: Step[] = [];
 
 test.beforeEach(async ({ context }) => {
@@ -127,7 +138,7 @@ test.afterEach(async ({ context }) => {
   let lastStatus = 0;
   let lastBody = '';
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    const res = await api.put('/admin/kyc-config', { steps: snapshot });
+    const res = await api.put('/admin/kyc-config', { format: 2, steps: snapshot });
     lastStatus = res.status();
     if (lastStatus === 200) break;
     lastBody = await res.text();
@@ -148,24 +159,26 @@ test.afterEach(async ({ context }) => {
   ).toEqual(shape(snapshot));
 });
 
-test.describe('the client’s identity cannot be broken from the builder', () => {
-  test('First Name has no remove control, and a question called "First name" is refused under it', async ({
+test.describe('the client’s identity details on the form', () => {
+  test('First Name taken off and asked for again is the client’s name — never a box that looks like it', async ({
     page,
     context,
   }) => {
-    await openBuilder(page);
     const personal = stepOf(snapshot, 'personal');
+    requirePrecondition(
+      !personal.fields.some((field) => field.name === 'firstName'),
+      'First Name is not asked on this form — nothing to take off',
+    );
+    await openBuilder(page);
     await openStepTab(page, personal.title);
 
-    // The identity is a fixed block: First Name is on it, with nothing to remove it by.
-    const identity = page.getByRole('region', { name: /the client.s identity/i });
-    const row = identity.getByRole('listitem').filter({ hasText: 'First Name' });
-    await expect(row).toHaveCount(1);
-    await expect(row).toContainText(/required to verify/i);
-    await expect(page.getByRole('button', { name: /remove field first name/i })).toHaveCount(0);
+    // The reported scenario: take First Name off, then ask for it again.
+    await page.getByRole('button', { name: 'Stop asking for First Name' }).click();
+    await page.getByRole('combobox', { name: /ask for an identity detail/i }).click();
+    await page.getByRole('option', { name: 'First Name', exact: true }).click();
 
-    // The other door: the broker's own question, named like the identity field.
-    await page.getByRole('button', { name: /^add question$/i }).click();
+    // The other door: the broker's own question, named like the identity detail.
+    await page.getByRole('button', { name: /^add field$/i }).click();
     const label = page.getByLabel('Field Label').last();
     await label.fill('First name');
     await page.getByRole('button', { name: /save all changes/i }).click();
@@ -174,70 +187,83 @@ test.describe('the client’s identity cannot be broken from the builder', () =>
     await expect(label).toHaveAttribute('aria-invalid', 'true', { timeout: 15_000 });
     await expect(page.getByRole('alert').filter({ hasText: /already collected/i })).toBeVisible();
 
-    // Nothing was saved: no second "First name" anywhere in what the portal serves.
-    const after = await readConfig(context);
-    const copies = after
-      .flatMap((step) => step.fields)
-      .filter((field) => !field.system && /^first name$/i.test(field.label.trim()));
-    expect(copies, 'a second "First name" reached the saved configuration').toEqual([]);
+    // Without the lookalike it saves — and the one "First Name" is the platform's.
+    await page.getByRole('button', { name: /^remove field first name$/i }).click();
+    await page.getByRole('button', { name: /save all changes/i }).click();
+    await expect
+      .poll(
+        async () =>
+          stepOf(await readConfig(context), 'personal')
+            .fields.filter((field) => /^first name$/i.test(field.label.trim()))
+            .map(({ name, system }) => ({ name, system })),
+        { timeout: 15_000 },
+      )
+      .toEqual([{ name: 'firstName', system: true }]);
   });
 
-  test('a crafted save that DROPS First Name changes nothing; one that relabels it is refused', async ({
+  test('a crafted save may stop asking for First Name, never rename it; an outdated builder is refused', async ({
     context,
   }) => {
     const api = await adminApi(context);
-    const personal = stepOf(snapshot, 'personal');
-    const firstName = personal.fields.find((field) => field.name === 'firstName');
-    expect(firstName?.system, 'First Name is not served as the platform’s field').toBe(true);
+    requirePrecondition(
+      !stepOf(snapshot, 'personal').fields.some((field) => field.name === 'firstName'),
+      'First Name is not asked on this form',
+    );
 
-    // Leaving it out is not deleting it: the identity is never stored, only served.
-    const without = snapshot.map((step) =>
-      step.slug === 'personal'
-        ? { ...step, fields: step.fields.filter((field) => field.name !== 'firstName') }
-        : step,
+    // Taken off: sign-up already holds it, so the form may stop asking.
+    const without = withPersonalFields(snapshot, (fields) =>
+      fields.filter((field) => field.name !== 'firstName'),
     );
-    expect((await api.put('/admin/kyc-config', { steps: without })).status()).toBe(200);
-    const served = stepOf(await readConfig(context), 'personal').fields.find(
-      (field) => field.name === 'firstName',
-    );
-    expect(served).toMatchObject({ label: 'First Name', system: true, required: true });
+    expect((await api.put('/admin/kyc-config', { format: 2, steps: without })).status()).toBe(200);
+    const served = stepOf(await readConfig(context), 'personal').fields;
+    expect(served.map((field) => field.name)).not.toContain('firstName');
 
-    // Changing it is refused — and the refusal names where in the posted form.
-    const relabelled = snapshot.map((step) =>
-      step.slug === 'personal'
-        ? {
-            ...step,
-            fields: step.fields.map((field) =>
-              field.name === 'firstName' ? { ...field, label: 'Given name' } : field,
-            ),
-          }
-        : step,
+    // Relabelled: the platform names its details, so the label is put back.
+    const relabelled = withPersonalFields(snapshot, (fields) =>
+      fields.map((field) =>
+        field.name === 'firstName' ? { ...field, label: 'Given name' } : field,
+      ),
     );
-    const refused = await api.put('/admin/kyc-config', { steps: relabelled });
+    expect((await api.put('/admin/kyc-config', { format: 2, steps: relabelled })).status()).toBe(
+      200,
+    );
+    expect(
+      stepOf(await readConfig(context), 'personal').fields.find((f) => f.name === 'firstName'),
+    ).toMatchObject({ label: 'First Name', system: true });
+
+    // Re-keyed: refused, and the refusal names where in the posted form.
+    const rekeyed = withPersonalFields(snapshot, (fields) =>
+      fields.map((field) => (field.name === 'firstName' ? { ...field, name: 'givenName' } : field)),
+    );
+    const refused = await api.put('/admin/kyc-config', { format: 2, steps: rekeyed });
     expect(refused.status()).toBe(400);
-    const body = (await refused.json()) as { message?: string; fields?: Record<string, string> };
+    const body = (await refused.json()) as { fields?: Record<string, string> };
     expect(JSON.stringify(body)).toMatch(/fixed by the platform/i);
     expect(Object.keys(body.fields ?? {}).some((key) => key.startsWith('steps.'))).toBe(true);
+
+    // A builder from before Phase 2 would save the identity away — it is turned back.
+    const outdated = await api.put('/admin/kyc-config', { steps: snapshot });
+    expect(outdated.status()).toBe(409);
+    expect(((await outdated.json()) as { code?: string }).code).toBe('KYC_BUILDER_OUTDATED');
   });
 });
 
 test.describe('the built-in steps', () => {
-  test('Personal Information and Identity Document are always on; Selfie can be switched off', async ({
+  test('each can be switched off, none deleted — and Identity Document switched off stays off', async ({
     page,
     context,
   }) => {
     await openBuilder(page);
-    for (const slug of ['personal', 'document']) {
+    for (const slug of ['personal', 'document', 'selfie', 'address']) {
       await openStepTab(page, stepOf(snapshot, slug).title);
       const panel = page.getByRole('tabpanel');
-      await expect(panel.getByText(/always on/i)).toBeVisible();
-      await expect(panel.getByRole('button', { name: /^disable$/i })).toHaveCount(0);
+      await expect(panel.getByRole('button', { name: /^(disable|enable)$/i })).toBeVisible();
       await expect(panel.getByRole('button', { name: /^delete step/i })).toHaveCount(0);
     }
 
-    const selfie = stepOf(snapshot, 'selfie');
-    requirePrecondition(!selfie.enabled, 'the selfie step is already off — nothing to switch');
-    await openStepTab(page, selfie.title);
+    const document = stepOf(snapshot, 'document');
+    requirePrecondition(!document.enabled, 'Identity Document is already off — nothing to switch');
+    await openStepTab(page, document.title);
     await page
       .getByRole('tabpanel')
       .getByRole('button', { name: /^disable$/i })
@@ -245,13 +271,14 @@ test.describe('the built-in steps', () => {
     await page.getByRole('button', { name: /save all changes/i }).click();
 
     await expect
-      .poll(async () => stepOf(await readConfig(context), 'selfie').enabled, { timeout: 15_000 })
+      .poll(async () => stepOf(await readConfig(context), 'document').enabled, { timeout: 15_000 })
       .toBe(false);
   });
 
   test('a crafted save that deletes the Identity Document step is refused', async ({ context }) => {
     const api = await adminApi(context);
     const res = await api.put('/admin/kyc-config', {
+      format: 2,
       steps: snapshot.filter((step) => step.slug !== 'document'),
     });
     expect(res.status()).toBe(400);
@@ -260,26 +287,25 @@ test.describe('the built-in steps', () => {
 });
 
 test.describe('the order', () => {
-  test('Personal Information stays first; another step moves, and the order SURVIVES a reload', async ({
+  test('any step moves — Personal Information included — and the order SURVIVES a reload', async ({
     page,
     context,
   }) => {
-    requirePrecondition(snapshot.length < 3, 'fewer than three steps — nothing movable');
+    requirePrecondition(snapshot.length < 2, 'fewer than two steps — nothing to move');
     await openBuilder(page);
 
-    const [first, second, third] = snapshot;
-    expect(first!.slug).toBe('personal');
-    await expect(page.getByRole('button', { name: `Move ${first!.title} down` })).toBeDisabled();
-    // Nothing moves above Personal Information either.
-    await expect(page.getByRole('button', { name: `Move ${second!.title} up` })).toBeDisabled();
+    const [first, second] = snapshot;
+    const last = snapshot[snapshot.length - 1]!;
+    await expect(page.getByRole('button', { name: `Move ${first!.title} up` })).toBeDisabled();
+    await expect(page.getByRole('button', { name: `Move ${last.title} down` })).toBeDisabled();
 
-    await page.getByRole('button', { name: `Move ${third!.title} up` }).click();
+    await page.getByRole('button', { name: `Move ${first!.title} down` }).click();
     await page.getByRole('button', { name: /save all changes/i }).click();
 
     // Asserted on the API: the screen re-renders from its own state after a save.
     await expect
       .poll(async () => (await readConfig(context)).map((s) => s.slug), { timeout: 15_000 })
-      .toEqual([first!.slug, third!.slug, second!.slug, ...snapshot.slice(3).map((s) => s.slug)]);
+      .toEqual([second!.slug, first!.slug, ...snapshot.slice(2).map((s) => s.slug)]);
   });
 });
 
@@ -295,6 +321,7 @@ test.describe('two people editing the form', () => {
     const elsewhere = `${selfie.description} (changed by another admin)`;
     const api = await adminApi(context);
     const theirs = await api.put('/admin/kyc-config', {
+      format: 2,
       steps: snapshot.map((step) =>
         step.slug === 'selfie' ? { ...step, description: elsewhere } : step,
       ),

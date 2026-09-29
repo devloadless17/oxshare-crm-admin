@@ -80,7 +80,7 @@ function amountOf(n: TaskFacts): string {
   return amount ? formatMoney(amount, str(n.params['currency'])) : '';
 }
 
-/** The client's Portal ID for a URL, or nothing — never the uuid (0133). */
+/** The client's Portal ID for a URL, or nothing (0133; the client's only id since 0159). */
 function pid(n: TaskFacts): string {
   return n.client.portalId === null ? '' : String(n.client.portalId);
 }

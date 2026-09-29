@@ -276,7 +276,7 @@ function PartnersPageContent() {
           caption={t('partners.caption')}
           columns={columns}
           rows={rows}
-          rowKey={(row) => row.account.userId}
+          rowKey={(row) => String(row.account.userId)}
           dimmed={query.isFetching}
           empty={<EmptyState icon={Handshake} message={t('partners.empty')} />}
           sortColumn={sortKey}

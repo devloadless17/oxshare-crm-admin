@@ -189,7 +189,9 @@ describe('audit log — listing', () => {
 
   it('names the endpoint when the API is not built yet', async () => {
     get.mockRejectedValue(
-      Object.assign(new Error('nope'), { response: { status: 404, data: {} } }),
+      Object.assign(new Error('nope'), {
+        response: { status: 404, data: { code: 'ROUTE_NOT_FOUND' } },
+      }),
     );
     renderWithProviders(<AuditLogPage />);
 

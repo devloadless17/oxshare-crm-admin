@@ -12,7 +12,7 @@ type KycSubmission = components['schemas']['KycSubmissionDto'];
 type KycDetail = Pick<
   KycSubmission,
   'layout' | 'personalInfo' | 'stepData' | 'rejectedFields' | 'document' | 'addressProof' | 'selfie'
-> & { maskedFields?: string[] };
+> & { maskedFields?: string[]; status?: string };
 
 /**
  * THE REVIEW, laid out by the SERVER (26 Sep 2026).
@@ -39,7 +39,7 @@ export interface ReviewRow {
   masked: boolean;
   /** The reviewer returned this item. */
   flagged: boolean;
-  file?: { filePath: string; fileName: string };
+  file?: { filePath: string };
 }
 
 export interface ReviewSection {
@@ -48,14 +48,17 @@ export interface ReviewSection {
   rows: ReviewRow[];
 }
 
-type StoredFile = { filePath: string; fileName: string };
+/**
+ * An uploaded answer: its path, and nothing else. What the client called the
+ * file is not kept (backend 0160, D-84) — it carried names and document numbers.
+ */
+type StoredFile = { filePath: string };
 
 function isStoredFile(value: unknown): value is StoredFile {
   return (
     typeof value === 'object' &&
     value !== null &&
-    typeof (value as StoredFile).filePath === 'string' &&
-    typeof (value as StoredFile).fileName === 'string'
+    typeof (value as StoredFile).filePath === 'string'
   );
 }
 
@@ -135,7 +138,7 @@ export function additionalSections(data: KycDetail): ReviewSection[] {
       const shown = hidden
         ? { value: t('masking.hidden'), empty: true }
         : file
-          ? { value: file.fileName || t('kycReview.viewFile'), empty: false }
+          ? { value: t('kycReview.viewFile'), empty: false }
           : display(raw, field.type);
       return {
         key: `${field.step}.${field.name}`,
@@ -172,12 +175,28 @@ export interface ReviewDocumentGroup {
  * agreement's pages and read as part of the proof of address, and a custom
  * step's live-camera photo sat beside the selfie looking like a second one
  * (reported 28 Sep 2026). Empty groups are left out.
+ *
+ * A file the reviewer RETURNED is marked `returned` while the submission is
+ * with the client — the rule that turns a returned answer red. Pages are
+ * flagged by slot (`doc_back`), the selfie by `selfie`, a broker's upload by
+ * its field; the tiles used to look the same whatever was returned (reported
+ * 28 Sep 2026, beside the same gap in the summary).
  */
 export function reviewDocumentGroups(data: KycDetail): ReviewDocumentGroup[] {
   const layout = data.layout;
-  const docsOf = (files: [string | undefined, string | undefined, string][]): LightboxDoc[] =>
-    files.flatMap(([filePath, fileName, label]) =>
-      filePath ? [{ filePath, fileName: fileName ?? '', label }] : [],
+  const rejected = data.status === 'rejected';
+  const returned = new Set(rejected ? (data.rejectedFields ?? []) : []);
+  const docsOf = (files: [string | undefined, string, string][]): LightboxDoc[] =>
+    files.flatMap(([filePath, label, flag]) =>
+      filePath
+        ? [
+            {
+              filePath,
+              label,
+              ...(returned.has(flag) ? { returned: true } : {}),
+            },
+          ]
+        : [],
     );
   const pageLabel = (
     document: { label: string; pages: { slot: string; label: string }[] } | undefined,
@@ -199,13 +218,13 @@ export function reviewDocumentGroups(data: KycDetail): ReviewDocumentGroup[] {
       docs: docsOf([
         [
           data.document?.frontFilePath,
-          data.document?.frontFileName,
           pageLabel(idDoc, t('kycReview.docIdFront'), 'doc_front'),
+          'doc_front',
         ],
         [
           data.document?.backFilePath,
-          data.document?.backFileName,
           pageLabel(idDoc, t('kycReview.docIdFront'), 'doc_back'),
+          'doc_back',
         ],
       ]),
     },
@@ -215,25 +234,35 @@ export function reviewDocumentGroups(data: KycDetail): ReviewDocumentGroup[] {
       docs: docsOf([
         [
           data.addressProof?.filePath,
-          data.addressProof?.fileName,
           pageLabel(addressDoc, t('kycReview.docAddress'), 'address_proof'),
+          'address_proof',
         ],
         [
           data.addressProof?.page2FilePath,
-          data.addressProof?.page2FileName,
           pageLabel(addressDoc, t('kycReview.docAddress'), 'address_proof_2'),
+          'address_proof_2',
         ],
       ]),
     },
     {
       id: 'selfie',
       title: t('kycReview.selfieTitle'),
-      docs: docsOf([[data.selfie?.filePath, data.selfie?.fileName, t('kycReview.docSelfie')]]),
+      docs: docsOf([[data.selfie?.filePath, t('kycReview.docSelfie'), 'selfie']]),
     },
     ...additionalSections(data).map((section) => ({
       id: section.id,
       title: section.title,
-      docs: section.rows.flatMap((row) => (row.file ? [{ ...row.file, label: row.label }] : [])),
+      docs: section.rows.flatMap((row) =>
+        row.file
+          ? [
+              {
+                ...row.file,
+                label: row.label,
+                ...(rejected && row.flagged ? { returned: true } : {}),
+              },
+            ]
+          : [],
+      ),
     })),
   ];
   return groups.filter((group) => group.docs.length > 0);

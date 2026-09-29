@@ -11,6 +11,7 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+import { useAdmin } from '@/context/AdminAuthContext';
 
 export interface AdminFormValues {
   name?: string;
@@ -24,10 +25,12 @@ export interface AdminFormValues {
    */
   /** RBAC-03 mask override. `null` clears it — back to inheriting the role. */
   maskedFields?: string[] | null;
-  /** RBAC-03 territory. An EMPTY ARRAY means unrestricted, not none. */
+  /** RBAC-03 territory. An EMPTY ARRAY means no territory tags — never every client (0154). */
   scopedTagIds?: string[];
   /** D-60 — sees the intake pool (clients with no tags yet). */
   seesUntriaged?: boolean;
+  /** Sees every client — the explicit grant (0154). */
+  seesAllClients?: boolean;
 }
 
 /** Order- and duplicate-insensitive membership equality. */
@@ -96,6 +99,9 @@ export function AdminFormModal({
   const [roleId, setRoleId] = React.useState<string>(admin.roleId ?? '');
   const [scopedTagIds, setScopedTagIds] = React.useState<string[]>(currentScope);
   const [seesUntriaged, setSeesUntriaged] = React.useState<boolean>(admin.seesUntriaged ?? false);
+  // Every client is its own choice (0154); only an admin who has it may give it.
+  const [allClients, setAllClients] = React.useState<boolean>(admin.seesAllClients);
+  const canGrantAll = useAdmin().admin?.seesAllClients ?? false;
   /*
    * `null` = inheriting the role's mask; a list = this person's override.
    * The DTO serves both halves (`maskedFields` is the EFFECTIVE mask,
@@ -164,8 +170,11 @@ export function AdminFormModal({
      * because the panel presents order-free chips, the array order alone would
      * otherwise make every save look like a change.
      */
-    if (!sameSet(scopedTagIds, currentScope)) values.scopedTagIds = scopedTagIds;
-    if (seesUntriaged !== (admin.seesUntriaged ?? false)) values.seesUntriaged = seesUntriaged;
+    if (allClients !== admin.seesAllClients) values.seesAllClients = allClients;
+    if (!allClients && !sameSet(scopedTagIds, currentScope)) values.scopedTagIds = scopedTagIds;
+    if (!allClients && seesUntriaged !== (admin.seesUntriaged ?? false)) {
+      values.seesUntriaged = seesUntriaged;
+    }
     /*
      * The override is sent only when it CHANGED, with `null` meaning "clear it
      * — follow the role again". `[]` is a real value (explicitly mask nothing
@@ -272,6 +281,9 @@ export function AdminFormModal({
                     prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
                   )
                 }
+                allClients={allClients}
+                onAllClientsChange={setAllClients}
+                canGrantAll={canGrantAll}
                 disabled={busy}
               />
               {/*
@@ -282,7 +294,7 @@ export function AdminFormModal({
                * exemption: that tier is gone; an unrestricted admin is simply
                * one with no territory rows, and the grant is then moot.)
                */}
-              {
+              {!allClients && (
                 <div className="border-t border-border pt-2.5">
                   <label className="flex cursor-pointer items-start gap-2 text-xs font-medium">
                     <input
@@ -300,7 +312,7 @@ export function AdminFormModal({
                     </span>
                   </label>
                 </div>
-              }
+              )}
             </div>
           )}
 

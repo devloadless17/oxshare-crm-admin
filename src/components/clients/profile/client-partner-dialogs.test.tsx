@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import type { IbLevel, IbPartnerDetail } from '@/lib/api/admin';
-import { ChangeLevelDialog } from './client-partner-dialogs';
+import { ChangeLevelDialog, ReassignParentDialog } from './client-partner-dialogs';
 
 /**
  * The control that moves a partner between RUNGS — what decides their terms.
@@ -16,13 +16,19 @@ import { ChangeLevelDialog } from './client-partner-dialogs';
  * The dialog is not the enforcement — it is what stops an operator learning a
  * rule by being refused, and what stops them changing pay by accident.
  */
-const { getIbLevels, changeIbPartnerLevel } = vi.hoisted(() => ({
-  getIbLevels: vi.fn(),
-  changeIbPartnerLevel: vi.fn(),
-}));
+const { getIbLevels, changeIbPartnerLevel, getIbPartners, reassignIbPartnerParent } = vi.hoisted(
+  () => ({
+    getIbLevels: vi.fn(),
+    changeIbPartnerLevel: vi.fn(),
+    getIbPartners: vi.fn(),
+    reassignIbPartnerParent: vi.fn(),
+  }),
+);
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getIbLevels, changeIbPartnerLevel } };
+  const api = {
+    admin: { getIbLevels, changeIbPartnerLevel, getIbPartners, reassignIbPartnerParent },
+  };
   return { api, default: api };
 });
 
@@ -37,6 +43,7 @@ function level(over: Partial<IbLevel> = {}): IbLevel {
     commissionShare: '70.0000',
     rebateShare: '50.0000',
     partnerCount: 3,
+    partnersOutsideScope: 0,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
     ...over,
@@ -165,5 +172,46 @@ describe('moving a partner to another level', () => {
 
     /* The NUMBER, not an id — a level is its number, and that is the API's key. */
     await waitFor(() => expect(changeIbPartnerLevel).toHaveBeenCalledWith('u-1', 2));
+  });
+});
+
+describe('reassigning a partner whose parent is outside the reader’s territory', () => {
+  /*
+   * The API sends `parent: null` and `parentOutsideTerritory: true`. The dialog
+   * used to open on "No parent" — a false statement about the partner, one
+   * click from detaching them and moving who earns on their sub-tree.
+   */
+  const OUTSIDE = {
+    ...PARTNER,
+    parent: null,
+    parentOutsideTerritory: true,
+  } as unknown as IbPartnerDetail;
+
+  beforeEach(() => {
+    getIbPartners.mockResolvedValue({ rows: [], total: 0 });
+  });
+
+  it('opens on "keep current", not "no parent", and will not save it', async () => {
+    renderWithProviders(
+      <ReassignParentDialog open onClose={vi.fn()} partner={OUTSIDE} name="Layla Hadad" />,
+    );
+    expect(
+      await screen.findByRole('radio', {
+        name: /keep current — a partner outside your territory/i,
+      }),
+    ).toBeChecked();
+    expect(screen.getByRole('radio', { name: /no parent/i })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: /^reassign$/i })).toBeDisabled();
+  });
+
+  it('detaches only when "no parent" is chosen on purpose', async () => {
+    const user = userEvent.setup();
+    reassignIbPartnerParent.mockResolvedValue({});
+    renderWithProviders(
+      <ReassignParentDialog open onClose={vi.fn()} partner={OUTSIDE} name="Layla Hadad" />,
+    );
+    await user.click(await screen.findByRole('radio', { name: /no parent/i }));
+    await user.click(screen.getByRole('button', { name: /^reassign$/i }));
+    await waitFor(() => expect(reassignIbPartnerParent).toHaveBeenCalledWith('u-1', null));
   });
 });

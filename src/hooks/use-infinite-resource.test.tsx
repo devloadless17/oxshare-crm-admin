@@ -28,7 +28,8 @@ describe('useInfiniteResource', () => {
   it.each([
     [401, 'unauthenticated'],
     [403, 'forbidden'],
-    [404, 'unavailable'],
+    // A route's own 404; only the API's ROUTE_NOT_FOUND is "not built yet".
+    [404, 'notFound'],
     [500, 'error'],
   ] as const)('maps HTTP %i to %s', async (status, expected) => {
     const { wrapper } = harness();

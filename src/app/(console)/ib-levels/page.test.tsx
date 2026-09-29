@@ -81,6 +81,7 @@ function mainPartner(over: Partial<IbLevel> = {}): IbLevel {
     commissionShare: '70.0000',
     rebateShare: '50.0000',
     partnerCount: 0,
+    partnersOutsideScope: 0,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
     ...over,
