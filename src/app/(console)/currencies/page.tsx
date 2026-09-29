@@ -226,6 +226,22 @@ export default function CurrenciesPage() {
     /*
      * The limits, read at a glance — in the row's own currency, grouped so an
      * LBP billion and a USD fifty thousand are both legible (0162).
+     *
+     * ── Four columns, and the two that are not here ────────────────────────
+     *
+     * `maxAdminCredit` is GONE, not hidden: the column, the DTO field, the
+     * form input and the enforcement were all removed at the owner's request
+     * (29 Sep 2026, migration 0168). Nothing now bounds a hand credit by
+     * amount. `admin-money.service.ts` carries the reasoning and what it gives
+     * up; `admin-credit-unbounded.spec.ts` pins the new behaviour so a ceiling
+     * cannot come back by accident.
+     *
+     * `maxWithdrawalDaily` is the opposite case — still stored, still editable
+     * in the edit form, and still enforced as a rolling 24-hour cap in
+     * `transactions.service.ts`. It is absent from this TABLE only, because the
+     * glance is for the four limits an operator reasons about day to day and a
+     * fifth number made a row nobody read. Wanting the column back is these
+     * four lines and the `currencies.perDay` string, both still in place.
      */
     {
       header: t('currencies.colDepositLimits'),
@@ -234,19 +250,7 @@ export default function CurrenciesPage() {
     },
     {
       header: t('currencies.colWithdrawalLimits'),
-      cell: (c) => (
-        <span className="flex flex-col">
-          <LimitRange min={c.minWithdrawal} max={c.maxWithdrawal} />
-          <span className="text-[11px]">
-            {t('currencies.perDay', { amount: formatDecimal(c.maxWithdrawalDaily) })}
-          </span>
-        </span>
-      ),
-      cellClassName: 'tabular whitespace-nowrap text-muted-foreground',
-    },
-    {
-      header: t('currencies.colAdminCredit'),
-      cell: (c) => formatDecimal(c.maxAdminCredit),
+      cell: (c) => <LimitRange min={c.minWithdrawal} max={c.maxWithdrawal} />,
       cellClassName: 'tabular whitespace-nowrap text-muted-foreground',
     },
     {

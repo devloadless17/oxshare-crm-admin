@@ -7,14 +7,13 @@ import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
 import { LimitInput, plainAmount } from './limit-input';
 
-/** The six money limits, in the currency's own units (0162). Decimal strings. */
+/** The five money limits, in the currency's own units (0162). Decimal strings. */
 export interface CurrencyLimitValues {
   minDeposit: string;
   maxDeposit: string;
   minWithdrawal: string;
   maxWithdrawal: string;
   maxWithdrawalDaily: string;
-  maxAdminCredit: string;
 }
 
 export interface CurrencyFormValues extends CurrencyLimitValues {
@@ -32,7 +31,6 @@ const LIMIT_KEYS = [
   'minWithdrawal',
   'maxWithdrawal',
   'maxWithdrawalDaily',
-  'maxAdminCredit',
 ] as const satisfies readonly (keyof CurrencyLimitValues)[];
 
 /**
@@ -141,7 +139,6 @@ function CurrencyForm({
     minWithdrawal: plainAmount(currency?.minWithdrawal),
     maxWithdrawal: plainAmount(currency?.maxWithdrawal),
     maxWithdrawalDaily: plainAmount(currency?.maxWithdrawalDaily),
-    maxAdminCredit: plainAmount(currency?.maxAdminCredit),
   }));
   const setLimit = (key: keyof CurrencyLimitValues) => (value: string) =>
     setLimits((current) => ({ ...current, [key]: value }));
@@ -275,7 +272,6 @@ function CurrencyForm({
           {limitField('minWithdrawal', '10')}
           {limitField('maxWithdrawal', '50000')}
           {limitField('maxWithdrawalDaily', '100000', t('currencies.limitDailyHint'))}
-          {limitField('maxAdminCredit', '50000', t('currencies.limitAdminCreditHint'))}
         </div>
       </fieldset>
 

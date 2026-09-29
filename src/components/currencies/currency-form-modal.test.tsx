@@ -29,7 +29,6 @@ const LBP: Currency = {
   minWithdrawal: '1000000.00000000',
   maxWithdrawal: '500000000.00000000',
   maxWithdrawalDaily: '1000000000.00000000',
-  maxAdminCredit: '100000000.00000000',
   createdAt: '2026-09-29T00:00:00.000Z',
   updatedAt: '2026-09-29T00:00:00.000Z',
 };
@@ -51,7 +50,6 @@ describe('the currency form’s limits', () => {
       'Minimum withdrawal',
       'Maximum withdrawal',
       'Daily withdrawal limit',
-      'Maximum admin credit',
     ]) {
       const box = screen.getByLabelText(label);
       expect(box).toHaveValue('');
@@ -76,7 +74,6 @@ describe('the currency form’s limits', () => {
       'Minimum withdrawal': '1000000',
       'Maximum withdrawal': '500000000',
       'Daily withdrawal limit': '1000000000',
-      'Maximum admin credit': '100000000',
     };
     for (const [label, value] of Object.entries(fill)) {
       await user.type(screen.getByLabelText(label), value);
@@ -90,7 +87,6 @@ describe('the currency form’s limits', () => {
       // Separators typed for readability are stripped, never parsed as a number.
       maxDeposit: '5000000000',
       maxWithdrawalDaily: '1000000000',
-      maxAdminCredit: '100000000',
     });
   });
 
