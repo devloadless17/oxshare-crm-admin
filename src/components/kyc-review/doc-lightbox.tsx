@@ -9,7 +9,6 @@ import { t } from '@/lib/i18n';
 export interface LightboxDoc {
   filePath: string;
   label: string;
-  fileName?: string;
   /** The reviewer returned this file and it is still with the client — drawn red. */
   returned?: boolean;
 }
@@ -145,7 +144,6 @@ export function DocLightbox({
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">{doc.label}</p>
-            {doc.fileName && <p className="truncate text-xs text-white/60">{doc.fileName}</p>}
           </div>
 
           <div className="flex items-center gap-1">

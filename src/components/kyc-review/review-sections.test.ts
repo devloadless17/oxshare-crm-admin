@@ -53,7 +53,7 @@ const DATA = {
   stepData: {
     'source-of-funds': {
       customField_e: 'Acme',
-      customField_p: { filePath: '/uploads/kyc/p.png', fileName: 'payslip.png' },
+      customField_p: { filePath: '/uploads/kyc/p.png' },
     },
   },
   document: { docType: 'national_id', frontFilePath: '/uploads/kyc/f.png' },
@@ -98,7 +98,7 @@ describe('the broker’s own questions', () => {
     const [section] = additionalSections(DATA);
     expect(section?.rows.map((row) => [row.label, row.value, row.flagged])).toEqual([
       ['Employer', 'Acme', true],
-      ['Payslip', 'payslip.png', false],
+      ['Payslip', 'View', false],
     ]);
     expect(section?.rows[1]?.file?.filePath).toBe('/uploads/kyc/p.png');
   });

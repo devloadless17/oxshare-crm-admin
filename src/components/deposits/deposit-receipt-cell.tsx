@@ -74,7 +74,7 @@ export function DepositReceiptCell({ filename }: { filename?: string | null }) {
       </button>
       {open && (
         <DocLightbox
-          docs={[{ filePath: path, label: t('deposits.colReceipt'), fileName: filename }]}
+          docs={[{ filePath: path, label: t('deposits.colReceipt') }]}
           index={0}
           onClose={() => setOpen(false)}
           /* One receipt per row, so navigation never fires — but the prop is

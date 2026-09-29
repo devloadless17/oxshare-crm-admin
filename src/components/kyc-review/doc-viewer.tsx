@@ -30,7 +30,6 @@ import { t } from '@/lib/i18n';
 export function DocViewer({
   filePath,
   label,
-  fileName,
   returned = false,
   onOpen,
 }: {
@@ -41,8 +40,6 @@ export function DocViewer({
    * says so in red, as a returned answer does in the summary.
    */
   returned?: boolean;
-  /** The name the client uploaded it under, when the submission carries one. */
-  fileName?: string;
   /**
    * Open this document in the lightbox. When absent the tile falls back to a
    * new browser tab, which is what it did before the lightbox existed and is
@@ -127,13 +124,9 @@ export function DocViewer({
           {t('kycReview.notUploaded')}
         </div>
       )}
-      {/* The name the client chose. `scan_0001.jpg` and `IMG_4821.HEIC` tell a
-          reviewer something a thumbnail does not — and it is already on the wire. */}
-      {filePath && fileName && (
-        <div className="truncate text-[11px] text-muted-foreground" title={fileName}>
-          {fileName}
-        </div>
-      )}
+      {/* No filename under the tile: what the client called the file is not kept
+          (backend 0160, D-84) — it carried names and document numbers whatever a
+          role hid. The label says what the document IS. */}
     </div>
   );
 }

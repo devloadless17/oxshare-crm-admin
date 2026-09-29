@@ -38,7 +38,6 @@ export function DocumentGroups({
               <DocViewer
                 key={doc.filePath}
                 filePath={doc.filePath}
-                fileName={doc.fileName}
                 label={doc.label}
                 returned={doc.returned}
                 onOpen={() => onOpen((firstIndex[at] ?? 0) + i)}

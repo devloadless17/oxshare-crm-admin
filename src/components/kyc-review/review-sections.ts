@@ -39,7 +39,7 @@ export interface ReviewRow {
   masked: boolean;
   /** The reviewer returned this item. */
   flagged: boolean;
-  file?: { filePath: string; fileName: string };
+  file?: { filePath: string };
 }
 
 export interface ReviewSection {
@@ -48,14 +48,17 @@ export interface ReviewSection {
   rows: ReviewRow[];
 }
 
-type StoredFile = { filePath: string; fileName: string };
+/**
+ * An uploaded answer: its path, and nothing else. What the client called the
+ * file is not kept (backend 0160, D-84) — it carried names and document numbers.
+ */
+type StoredFile = { filePath: string };
 
 function isStoredFile(value: unknown): value is StoredFile {
   return (
     typeof value === 'object' &&
     value !== null &&
-    typeof (value as StoredFile).filePath === 'string' &&
-    typeof (value as StoredFile).fileName === 'string'
+    typeof (value as StoredFile).filePath === 'string'
   );
 }
 
@@ -135,7 +138,7 @@ export function additionalSections(data: KycDetail): ReviewSection[] {
       const shown = hidden
         ? { value: t('masking.hidden'), empty: true }
         : file
-          ? { value: file.fileName || t('kycReview.viewFile'), empty: false }
+          ? { value: t('kycReview.viewFile'), empty: false }
           : display(raw, field.type);
       return {
         key: `${field.step}.${field.name}`,
@@ -183,15 +186,12 @@ export function reviewDocumentGroups(data: KycDetail): ReviewDocumentGroup[] {
   const layout = data.layout;
   const rejected = data.status === 'rejected';
   const returned = new Set(rejected ? (data.rejectedFields ?? []) : []);
-  const docsOf = (
-    files: [string | undefined, string | undefined, string, string][],
-  ): LightboxDoc[] =>
-    files.flatMap(([filePath, fileName, label, flag]) =>
+  const docsOf = (files: [string | undefined, string, string][]): LightboxDoc[] =>
+    files.flatMap(([filePath, label, flag]) =>
       filePath
         ? [
             {
               filePath,
-              fileName: fileName ?? '',
               label,
               ...(returned.has(flag) ? { returned: true } : {}),
             },
@@ -218,13 +218,11 @@ export function reviewDocumentGroups(data: KycDetail): ReviewDocumentGroup[] {
       docs: docsOf([
         [
           data.document?.frontFilePath,
-          data.document?.frontFileName,
           pageLabel(idDoc, t('kycReview.docIdFront'), 'doc_front'),
           'doc_front',
         ],
         [
           data.document?.backFilePath,
-          data.document?.backFileName,
           pageLabel(idDoc, t('kycReview.docIdFront'), 'doc_back'),
           'doc_back',
         ],
@@ -236,13 +234,11 @@ export function reviewDocumentGroups(data: KycDetail): ReviewDocumentGroup[] {
       docs: docsOf([
         [
           data.addressProof?.filePath,
-          data.addressProof?.fileName,
           pageLabel(addressDoc, t('kycReview.docAddress'), 'address_proof'),
           'address_proof',
         ],
         [
           data.addressProof?.page2FilePath,
-          data.addressProof?.page2FileName,
           pageLabel(addressDoc, t('kycReview.docAddress'), 'address_proof_2'),
           'address_proof_2',
         ],
@@ -251,9 +247,7 @@ export function reviewDocumentGroups(data: KycDetail): ReviewDocumentGroup[] {
     {
       id: 'selfie',
       title: t('kycReview.selfieTitle'),
-      docs: docsOf([
-        [data.selfie?.filePath, data.selfie?.fileName, t('kycReview.docSelfie'), 'selfie'],
-      ]),
+      docs: docsOf([[data.selfie?.filePath, t('kycReview.docSelfie'), 'selfie']]),
     },
     ...additionalSections(data).map((section) => ({
       id: section.id,

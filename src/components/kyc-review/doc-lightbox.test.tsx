@@ -20,9 +20,9 @@ import { DocLightbox, type LightboxDoc } from './doc-lightbox';
  */
 
 const DOCS: LightboxDoc[] = [
-  { filePath: 'uploads/kyc/a.png', label: 'Passport', fileName: 'passport.png' },
-  { filePath: 'uploads/kyc/b.png', label: 'Selfie', fileName: 'selfie.png' },
-  { filePath: 'uploads/kyc/c.pdf', label: 'Proof of address', fileName: 'bill.pdf' },
+  { filePath: 'uploads/kyc/a.png', label: 'Passport' },
+  { filePath: 'uploads/kyc/b.png', label: 'Selfie' },
+  { filePath: 'uploads/kyc/c.pdf', label: 'Proof of address' },
 ];
 
 function renderLightbox(index = 0) {
@@ -33,13 +33,10 @@ function renderLightbox(index = 0) {
 }
 
 describe('DocLightbox', () => {
-  it('shows the document, its label and the name the client uploaded it under', () => {
+  it('shows the document under what it IS — the client’s filename is not kept (D-84)', () => {
     renderLightbox();
 
     expect(screen.getByRole('dialog', { name: 'Passport' })).toBeInTheDocument();
-    // `passport.png` vs `IMG_4821.HEIC` tells a reviewer something a thumbnail
-    // does not.
-    expect(screen.getByText('passport.png')).toBeInTheDocument();
   });
 
   it('offers zoom and rotate, which the fixed-size tile could not', () => {

@@ -248,7 +248,6 @@ describe('the documents section — the sharpest of the three absences', () => {
                   part: 0,
                   label: 'Photo Page',
                   path: 'uploads/kyc/passport.png',
-                  fileName: 'p.png',
                 },
               ],
             },

@@ -149,7 +149,6 @@ export function AttemptHistory({ attempts }: { attempts: KycAttempt[] }) {
                       <DocViewer
                         key={doc.filePath}
                         filePath={doc.filePath}
-                        fileName={doc.fileName}
                         label={doc.label}
                         returned={doc.returned}
                       />

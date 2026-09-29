@@ -16,7 +16,7 @@ describe('the document tiles', () => {
           {
             id: 'identity',
             title: 'Identity document',
-            docs: [{ filePath: '/uploads/kyc/f.png', fileName: 'f.png', label: 'Passport' }],
+            docs: [{ filePath: '/uploads/kyc/f.png', label: 'Passport' }],
           },
           {
             id: 'address',
@@ -24,7 +24,6 @@ describe('the document tiles', () => {
             docs: [
               {
                 filePath: '/uploads/kyc/b.png',
-                fileName: 'b.png',
                 label: 'Utility Bill',
                 returned: true,
               },

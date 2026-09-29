@@ -6622,13 +6622,10 @@ export interface components {
             /** @example passport */
             docType?: string;
             frontFilePath?: string;
-            frontFileName?: string;
             backFilePath?: string;
-            backFileName?: string;
         };
         KycFileStateDto: {
             filePath?: string;
-            fileName?: string;
             /** @example utility_bill */
             docType?: string;
             /** @description Second page, for multi-page address proof. */
@@ -7407,8 +7404,6 @@ export interface components {
              * @example uploads/kyc/2f0c….jpg
              */
             path: string;
-            /** @description The name it was uploaded as. */
-            fileName?: string | null;
         };
         ClientIdentityVersionDto: {
             id: string;
@@ -7533,19 +7528,14 @@ export interface components {
             docType?: string;
             frontFilePath?: string;
             backFilePath?: string;
-            frontFileName?: string;
-            backFileName?: string;
         };
         KycSelfieDto: {
             filePath?: string;
-            fileName?: string;
         };
         KycAddressProofDto: {
             docType?: string;
             filePath?: string;
-            fileName?: string;
             page2FilePath?: string;
-            page2FileName?: string;
         };
         KycUserDto: {
             id: string;
