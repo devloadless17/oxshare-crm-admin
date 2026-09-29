@@ -318,7 +318,7 @@ export default function KycDetailPage() {
    * not that compliance review is unimplemented. Its own render test caught
    * this the moment the boundary swallowed it.
    */
-  if (query.status === 'unavailable')
+  if (query.status === 'notFound')
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
         <p className="text-sm text-muted-foreground">{t('kycReview.notFound')}</p>

@@ -37,6 +37,32 @@ describe('AsyncBoundary on a 401', () => {
   });
 });
 
+describe('AsyncBoundary on a record 404 (notFound)', () => {
+  it('says "not found" in the server’s words — never "not built yet", never retry', () => {
+    /*
+     * A route's own 404 is also what a record outside the reader's territory
+     * answers. It rendered BackendPending ("not implemented yet") until the API
+     * began marking a missing ROUTE separately (ROUTE_NOT_FOUND).
+     */
+    renderWithProviders(
+      <AsyncBoundary
+        status="notFound"
+        label="Loading"
+        endpoints={['GET /admin/transactions/:id']}
+        onRetry={vi.fn()}
+        error={{ response: { status: 404, data: { message: 'Deposit not found.' } } }}
+      >
+        <p>{'never rendered'}</p>
+      </AsyncBoundary>,
+    );
+
+    expect(screen.getByText('Not found')).toBeInTheDocument();
+    expect(screen.getByText('Deposit not found.')).toBeInTheDocument();
+    expect(screen.queryByText(/not implemented|not built/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
+  });
+});
+
 describe('AsyncBoundary error state', () => {
   it('shows the request id the API returned', () => {
     renderWithProviders(

@@ -212,7 +212,7 @@ export default function ClientProfilePage() {
    *
    * Branched on the machine CODE (R-2.2), never on the status alone.
    */
-  if (query.status === 'unavailable' && apiErrorCode(query.error) === 'CLIENT_NOT_FOUND') {
+  if (query.status === 'notFound') {
     return <ClientNotFound />;
   }
 

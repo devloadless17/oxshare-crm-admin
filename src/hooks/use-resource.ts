@@ -36,11 +36,26 @@ import { useQuery, type QueryKey } from '@tanstack/react-query';
  * being ended, with a Retry button that could never work. Named separately so
  * `AsyncBoundary` can render nothing alarming while the redirect is in flight.
  */
+/**
+ * `notFound` is a 404 from a route that EXISTS: the record is missing — or it is
+ * outside the reader's territory, which the API answers identically on purpose.
+ * Only the API's `ROUTE_NOT_FOUND` (no such endpoint) is `unavailable`. Every
+ * 404 used to be `unavailable`, so a link to a client outside the reader's
+ * territory rendered "this endpoint is not built yet".
+ */
 export type ResourceStatus =
-  'loading' | 'ready' | 'unavailable' | 'forbidden' | 'unauthenticated' | 'error';
+  'loading' | 'ready' | 'unavailable' | 'notFound' | 'forbidden' | 'unauthenticated' | 'error';
 
 export function httpStatusOf(error: unknown): number | undefined {
   return (error as { response?: { status?: number } })?.response?.status;
+}
+
+/** The API's machine code for "no such endpoint" — see `notFound`. */
+function isMissingRoute(error: unknown): boolean {
+  return (
+    (error as { response?: { data?: { code?: unknown } } })?.response?.data?.code ===
+    'ROUTE_NOT_FOUND'
+  );
 }
 
 export interface Resource<T> {
@@ -213,7 +228,9 @@ export function useResource<T>(
           : hasData
             ? 'ready'
             : httpStatus === 404
-              ? 'unavailable'
+              ? isMissingRoute(query.error)
+                ? 'unavailable'
+                : 'notFound'
               : 'error'
       : 'ready';
 

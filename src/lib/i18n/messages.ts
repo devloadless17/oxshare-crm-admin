@@ -168,6 +168,8 @@ export const messages = {
   // ── Session ───────────────────────────────────────────────────────────────
   'session.loading': 'Loading your session',
   'session.deniedTitle': 'Access denied',
+  'common.notFoundTitle': 'Not found',
+  'common.notFoundBody': 'It may have been removed, or it is not available to you.',
   'session.deniedBody':
     'Your role does not include access to this section. Ask a master admin if you need it.',
   'session.backToDashboard': 'Back to dashboard',

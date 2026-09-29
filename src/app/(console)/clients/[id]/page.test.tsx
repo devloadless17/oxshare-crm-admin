@@ -314,12 +314,11 @@ describe('a client the viewer may not see', () => {
 
   it('does NOT show the not-found card for a genuinely unbuilt endpoint', async () => {
     /*
-     * `useResource` maps every 404 to `unavailable`, which everywhere else in
-     * this app means "this endpoint is not built yet". Branching on the status
-     * alone would render a missing FEATURE as a missing CLIENT — and send
-     * somebody looking for a client that was never the problem.
+     * Only the API's ROUTE_NOT_FOUND is "this endpoint is not built yet"
+     * (`unavailable`); rendering it as a missing CLIENT would send somebody
+     * looking for a client that was never the problem.
      */
-    getClient.mockRejectedValue({ response: { status: 404, data: {} } });
+    getClient.mockRejectedValue({ response: { status: 404, data: { code: 'ROUTE_NOT_FOUND' } } });
     renderWithProviders(<ClientProfilePage />);
 
     expect(await screen.findByText(/not implemented yet/i)).toBeInTheDocument();

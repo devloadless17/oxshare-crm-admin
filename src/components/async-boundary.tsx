@@ -94,6 +94,28 @@ export function AsyncBoundary({
   }
 
   /*
+   * A route's own 404: the RECORD is missing — or, in the console, outside the
+   * reader's territory, which the API answers identically on purpose. Never
+   * "not built yet" (that is `unavailable`, the API's ROUTE_NOT_FOUND), and no
+   * retry: asking again cannot make it exist. The server's sentence when it
+   * wrote one ("Deposit not found.").
+   */
+  if (status === 'notFound') {
+    const card = (
+      <div
+        className="rounded-xl border border-border bg-card p-8 text-center space-y-2"
+        role="alert"
+      >
+        <p className="text-sm font-semibold text-foreground">{t('common.notFoundTitle')}</p>
+        <p className="text-sm text-muted-foreground">
+          {apiErrorMessage(error, '') || t('common.notFoundBody')}
+        </p>
+      </div>
+    );
+    return fill ? <div className={frame}>{card}</div> : card;
+  }
+
+  /*
    * A 403 is a closed door, not a broken page — R-2.3.
    *
    * It used to fall into the branch below, which offers "something went wrong"
