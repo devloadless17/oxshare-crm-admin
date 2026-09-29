@@ -5282,16 +5282,6 @@ export interface components {
              * @example 50000.00000000
              */
             maxWithdrawal: string;
-            /**
-             * @description The most one client may withdraw in any rolling 24 hours. In this currency's own units.
-             * @example 100000.00000000
-             */
-            maxWithdrawalDaily: string;
-            /**
-             * @description The most an operator may credit or fund in one action. In this currency's own units.
-             * @example 50000.00000000
-             */
-            maxAdminCredit: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -5332,16 +5322,6 @@ export interface components {
              * @example 50000
              */
             maxWithdrawal: string;
-            /**
-             * @description The most one client may withdraw in any rolling 24 hours. In this currency's own units.
-             * @example 100000
-             */
-            maxWithdrawalDaily: string;
-            /**
-             * @description The most an operator may credit or fund in one action. In this currency's own units.
-             * @example 50000
-             */
-            maxAdminCredit: string;
         };
         UpdateCurrencyDto: {
             /** @example Euro */
@@ -5372,16 +5352,6 @@ export interface components {
              * @example 50000
              */
             maxWithdrawal?: string;
-            /**
-             * @description The most one client may withdraw in any rolling 24 hours. In this currency's own units.
-             * @example 100000
-             */
-            maxWithdrawalDaily?: string;
-            /**
-             * @description The most an operator may credit or fund in one action. In this currency's own units.
-             * @example 50000
-             */
-            maxAdminCredit?: string;
         };
         LeverageDto: {
             /**

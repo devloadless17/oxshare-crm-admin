@@ -234,19 +234,7 @@ export default function CurrenciesPage() {
     },
     {
       header: t('currencies.colWithdrawalLimits'),
-      cell: (c) => (
-        <span className="flex flex-col">
-          <LimitRange min={c.minWithdrawal} max={c.maxWithdrawal} />
-          <span className="text-[11px]">
-            {t('currencies.perDay', { amount: formatDecimal(c.maxWithdrawalDaily) })}
-          </span>
-        </span>
-      ),
-      cellClassName: 'tabular whitespace-nowrap text-muted-foreground',
-    },
-    {
-      header: t('currencies.colAdminCredit'),
-      cell: (c) => formatDecimal(c.maxAdminCredit),
+      cell: (c) => <LimitRange min={c.minWithdrawal} max={c.maxWithdrawal} />,
       cellClassName: 'tabular whitespace-nowrap text-muted-foreground',
     },
     {

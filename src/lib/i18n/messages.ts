@@ -3476,8 +3476,6 @@ export const messages = {
   'currencies.colStatus': 'Status',
   'currencies.colDepositLimits': 'Deposit',
   'currencies.colWithdrawalLimits': 'Withdrawal',
-  'currencies.colAdminCredit': 'Admin credit',
-  'currencies.perDay': '{amount} a day',
   // The money limits (0162) — in the currency's own units.
   'currencies.limitsTitle': 'Limits',
   'currencies.limitsHint':
@@ -3486,10 +3484,6 @@ export const messages = {
   'currencies.limit.maxDeposit': 'Maximum deposit',
   'currencies.limit.minWithdrawal': 'Minimum withdrawal',
   'currencies.limit.maxWithdrawal': 'Maximum withdrawal',
-  'currencies.limit.maxWithdrawalDaily': 'Daily withdrawal limit',
-  'currencies.limit.maxAdminCredit': 'Maximum admin credit',
-  'currencies.limitDailyHint': 'per client, rolling 24 hours',
-  'currencies.limitAdminCreditHint': 'per credit or funding',
   'currencies.limitMalformed': 'An amount, e.g. 10 or 5000000 — up to 8 decimals.',
   'currencies.colActions': 'Actions',
   'currencies.statusEnabled': 'Enabled',
