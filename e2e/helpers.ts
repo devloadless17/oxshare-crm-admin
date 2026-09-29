@@ -618,9 +618,16 @@ export async function searchOwnClients(page: Page): Promise<void> {
    * cohort is six rows; a hundred-row page keeps it on screen for a long time,
    * and the portal now registers under a domain of its own.
    */
+  /*
+   * OLDEST first, too (29 Sep 2026). A hundred rows stopped being enough: specs
+   * keep minting clients on this domain (`kyc-check-…`, `r2-full-…`), so newest
+   * first pushed the seeded cohort — created before any of them — off the page
+   * and every search here timed out. Oldest first keeps it on top for good.
+   */
   const current = new URL(page.url());
-  if (current.searchParams.get('limit') !== '100') {
-    current.searchParams.set('limit', '100');
+  const wanted = { limit: '100', sort: 'createdAt', order: 'asc' };
+  if (Object.entries(wanted).some(([k, v]) => current.searchParams.get(k) !== v)) {
+    for (const [k, v] of Object.entries(wanted)) current.searchParams.set(k, v);
     await page.goto(current.pathname + current.search);
   }
   const box = clientSearchBox(page);
