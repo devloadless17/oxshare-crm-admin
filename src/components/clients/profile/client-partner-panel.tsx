@@ -153,13 +153,19 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
             icon={Users}
             label={t('clientProfile.partnerClients')}
             value={String(detail.referredClientCount)}
-            hint={t('clientProfile.partnerClientsHint')}
+            hint={withOutside(
+              t('clientProfile.partnerClientsHint'),
+              detail.referredClientsOutsideScope,
+            )}
           />
           <Stat
             icon={Network}
             label={t('clientProfile.partnerSubCount')}
             value={String(detail.directPartners.length)}
-            hint={t('clientProfile.partnerSubCountHint')}
+            hint={withOutside(
+              t('clientProfile.partnerSubCountHint'),
+              detail.directPartnersOutsideScope,
+            )}
           />
         </div>
       </ProfileCard>
@@ -224,7 +230,15 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
             ))}
           </ul>
         ) : (
-          <EmptySection message={t('clientProfile.partnerNoSubPartners')} />
+          <EmptySection
+            message={
+              detail.directPartnersOutsideScope > 0
+                ? t('clientProfile.networkPartnersOutsideScope', {
+                    count: String(detail.directPartnersOutsideScope),
+                  })
+                : t('clientProfile.partnerNoSubPartners')
+            }
+          />
         )}
       </ProfileCard>
     </div>
@@ -270,6 +284,17 @@ function EarningsLines({
       ))}
     </span>
   );
+}
+
+/**
+ * A scoped figure with what it leaves out: the count outside the reader's
+ * territory, never who (R2). Every figure beside it is scoped, so without
+ * this a partner whose book sits in another territory reads as having none.
+ */
+function withOutside(hint: string, outside: number): string {
+  return outside > 0
+    ? `${hint} · ${t('clientProfile.outsideTerritoryCount', { count: String(outside) })}`
+    : hint;
 }
 
 function Stat({

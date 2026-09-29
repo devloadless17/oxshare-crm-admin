@@ -137,6 +137,7 @@ export function ClientNetworkTree({
             depth={0}
             preloadedPartner={partner}
             preloadedClients={referredClients ?? []}
+            hiddenAtRoot={hiddenByScope}
           />
         </div>
 
@@ -200,12 +201,15 @@ function Branch({
   depth,
   preloadedPartner,
   preloadedClients,
+  hiddenAtRoot = false,
   enabled = true,
 }: {
   userId: string;
   depth: number;
   preloadedPartner?: IbPartnerDetail | null;
   preloadedClients?: NonNullable<ClientProfile['referredClients']>;
+  /** The root's referrals outside the reader's territory, said under the tree. */
+  hiddenAtRoot?: boolean;
   enabled?: boolean;
 }) {
   const needsFetch = enabled && preloadedPartner === undefined;
@@ -237,6 +241,31 @@ function Branch({
 
   const subPartners = partner?.directPartners ?? [];
   /*
+   * THE PEOPLE BENEATH THIS NODE THE READER MAY NOT SEE — counted, never named
+   * (R2). Without them an expanded partner whose line sits in another
+   * territory said "Nobody beneath them", which is false. The ROOT's referred
+   * count is said once, under the whole tree, so it is not repeated here.
+   * Two lines rather than one sum: a person can be both a referred client and
+   * a sub-partner, and a sum would count them twice.
+   */
+  const clientsOutside =
+    preloadedClients === undefined ? (profileQuery.data?.referredOutsideScope ?? 0) : 0;
+  const partnersOutside = partner?.directPartnersOutsideScope ?? 0;
+  const outsideNotes = (
+    <>
+      {clientsOutside > 0 && (
+        <p className="py-1 ps-1 text-xs text-muted-foreground">
+          {t('clientProfile.networkOutsideScope', { count: String(clientsOutside) })}
+        </p>
+      )}
+      {partnersOutside > 0 && (
+        <p className="py-1 ps-1 text-xs text-muted-foreground">
+          {t('clientProfile.networkPartnersOutsideScope', { count: String(partnersOutside) })}
+        </p>
+      )}
+    </>
+  );
+  /*
    * ONE ROW PER PERSON. A client this partner introduced who later became a
    * partner placed under them is BOTH — a referred client and a sub-partner —
    * and was drawn twice (owner, 26 Sep 2026). They are shown once, as the
@@ -246,6 +275,9 @@ function Branch({
   const leaves = clients.filter((client) => !partnerIds.has(client.clientUserId));
 
   if (leaves.length === 0 && subPartners.length === 0) {
+    if (clientsOutside > 0 || partnersOutside > 0) return outsideNotes;
+    // The root's hidden referrals are said under the tree; "Nobody" would contradict it.
+    if (preloadedClients !== undefined && hiddenAtRoot) return null;
     return <p className="py-2 text-xs text-muted-foreground">{t('clientProfile.networkEmpty')}</p>;
   }
 
@@ -266,6 +298,7 @@ function Branch({
       {subPartners.map((sub) => (
         <PartnerNode key={sub.userId} sub={sub} depth={depth} />
       ))}
+      {outsideNotes}
     </div>
   );
 }

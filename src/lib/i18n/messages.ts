@@ -749,6 +749,8 @@ export const messages = {
   'clientProfile.networkSeeAll': 'See all of them',
   'clientProfile.networkOutsideScope':
     '{count} more {count:client|clients} introduced by this partner {count:is|are} outside your territory, so {count:it is|they are} not listed here.',
+  'clientProfile.networkPartnersOutsideScope':
+    '{count} {count:sub-partner|sub-partners} beneath this partner {count:is|are} outside your territory, so {count:it is|they are} not listed here.',
   'clients.referredByNotice': 'Showing only the clients introduced by {who}.',
   'clients.referredByWho': 'this partner',
   'clients.referredByClear': 'Show all clients',
@@ -1023,6 +1025,7 @@ export const messages = {
   'clientProfile.partnerClientsHint': 'They introduced',
   'clientProfile.partnerSubCount': 'Sub-partners',
   'clientProfile.partnerSubCountHint': 'Directly beneath them',
+  'clientProfile.outsideTerritoryCount': '+{count} outside your territory',
 
   'clientProfile.partnerAgency': 'Agency',
   'clientProfile.partnerAgencyNoProducts': 'This agency lists no products yet.',
