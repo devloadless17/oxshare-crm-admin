@@ -228,7 +228,7 @@ function PartnersPageContent() {
           title={t('partners.searchHint')}
           // Wide enough for a placeholder naming four things; a clipped one
           // reads as a broken control.
-          className="h-9 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline sm:w-80"
+          className="w-full sm:w-80"
           // Filter and page written together, so narrowing lands on page one.
           onChange={(next) => url.set({ q: next || undefined, page: undefined })}
         />

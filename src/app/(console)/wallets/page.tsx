@@ -485,7 +485,7 @@ function WalletsPageContent() {
           title={t('wallets.filterClientHint')}
           // Wider than the default box: the placeholder names four things the
           // search takes, and a clipped placeholder reads as a broken one.
-          className="h-9 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline sm:w-80"
+          className="w-full sm:w-80"
           // Filter and page written together, so narrowing always lands on page
           // one rather than past the end of the new result set.
           onChange={(next) => url.set({ q: next || undefined, page: undefined })}

@@ -2406,6 +2406,7 @@ export const messages = {
   'pagination.lastTitle': 'Last Page',
   'pagination.lastAria': 'Go to Last Page',
   'common.close': 'Close',
+  'common.clearSearch': 'Clear search',
   'common.copy': 'Copy',
   /* The CopyableId button's default label. Says what lands on the clipboard —
      the FULL value, not the characters a truncated cell shows. A Portal ID
