@@ -450,13 +450,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
          * horizontal page scroll respectively.
          */
         /*
-         * The content pane's left inset tracks the sidebar's width, so the two
-         * must animate over the SAME duration and easing or the content visibly
-         * lags behind the panel it is supposed to be attached to. Only
-         * `padding` moves here — `transition-all` was also animating the
-         * background on a theme switch.
+         * The content pane's inset MOVES IN ONE STEP; only the sidebar glides.
+         *
+         * It used to animate `padding` alongside the sidebar, which re-lays-out
+         * the whole page on every frame of the 300ms slide. Light pages hid the
+         * cost; the dashboard (five charts, dense cards) dropped frames twice per
+         * collapse — "it feels heavy when collapsing on the dashboard", reported
+         * 30 Sep 2026. In one step the page is laid out once and each chart
+         * redraws once (`dashboard/chart-resize.ts`), while the sidebar still
+         * slides over the space it leaves or takes.
          */
-        className={`motion-slide flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ease-in-out ${
+        className={`flex min-w-0 flex-1 flex-col ${
           collapsed ? 'lg:ps-20' : 'lg:ps-64'
         }`}
       >

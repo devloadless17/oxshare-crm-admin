@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { CHART_RESIZE_DEBOUNCE_MS } from './chart-resize';
 import type { KycTrendPoint } from '@/lib/api/admin';
 import { useChartTokens } from './chart-theme';
 import { ChartTooltip } from './chart-tooltip';
@@ -50,7 +51,7 @@ export function KycTrendChart({ points }: { points: KycTrendPoint[] }) {
   ];
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" debounce={CHART_RESIZE_DEBOUNCE_MS}>
       <LineChart data={points} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid stroke={tokens.grid} strokeDasharray="" vertical={false} />
         <XAxis

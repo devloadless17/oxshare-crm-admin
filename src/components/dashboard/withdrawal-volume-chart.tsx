@@ -1,6 +1,7 @@
 'use client';
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CHART_RESIZE_DEBOUNCE_MS } from './chart-resize';
 import type { WithdrawalVolumePoint } from '@/lib/api/admin';
 import { formatMoney } from '@/lib/money';
 import { useChartTokens } from './chart-theme';
@@ -59,7 +60,7 @@ export function WithdrawalVolumeChart({ points }: { points: WithdrawalVolumePoin
   }));
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" debounce={CHART_RESIZE_DEBOUNCE_MS}>
       <BarChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid stroke={tokens.grid} strokeDasharray="" vertical={false} />
         <XAxis
