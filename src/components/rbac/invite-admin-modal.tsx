@@ -104,7 +104,7 @@ export function InviteAdminModal({
    * The copied-flash timer, cleared on unmount. A bare `setTimeout` here fires
    * `setCopied(false)` after the component may be gone — in jsdom that is a
    * `ReferenceError: window is not defined` blamed on an unrelated test. Same
-   * fix as `rival-settings-panel.tsx`.
+   * fix as `payment-providers/copy-controls.tsx`.
    */
   const flashTimer = React.useRef<number | null>(null);
   React.useEffect(

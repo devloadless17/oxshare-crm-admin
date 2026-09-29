@@ -28,7 +28,6 @@ const LBP: Currency = {
   maxDeposit: '5000000000.00000000',
   minWithdrawal: '1000000.00000000',
   maxWithdrawal: '500000000.00000000',
-  maxWithdrawalDaily: '1000000000.00000000',
   createdAt: '2026-09-29T00:00:00.000Z',
   updatedAt: '2026-09-29T00:00:00.000Z',
 };
@@ -49,12 +48,17 @@ describe('the currency form’s limits', () => {
       'Maximum deposit',
       'Minimum withdrawal',
       'Maximum withdrawal',
-      'Daily withdrawal limit',
     ]) {
       const box = screen.getByLabelText(label);
       expect(box).toHaveValue('');
       expect(box).toBeRequired();
     }
+  });
+
+  it('asks only the four limits — no daily cap, no admin credit (owner, 29 Sep 2026)', () => {
+    open();
+    expect(screen.queryByLabelText('Daily withdrawal limit')).toBeNull();
+    expect(screen.queryByLabelText('Maximum admin credit')).toBeNull();
   });
 
   it('shows an existing currency’s limits as typed, and reads a billion back grouped', () => {
@@ -73,7 +77,6 @@ describe('the currency form’s limits', () => {
       'Maximum deposit': '5,000,000,000',
       'Minimum withdrawal': '1000000',
       'Maximum withdrawal': '500000000',
-      'Daily withdrawal limit': '1000000000',
     };
     for (const [label, value] of Object.entries(fill)) {
       await user.type(screen.getByLabelText(label), value);
@@ -86,7 +89,6 @@ describe('the currency form’s limits', () => {
       minDeposit: '1000000',
       // Separators typed for readability are stripped, never parsed as a number.
       maxDeposit: '5000000000',
-      maxWithdrawalDaily: '1000000000',
     });
   });
 

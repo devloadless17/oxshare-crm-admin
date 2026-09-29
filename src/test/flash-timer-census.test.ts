@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
  * it does not warn, it THROWS: `ReferenceError: window is not defined`,
  * reported as an unhandled error against whichever test happened to be running.
  *
- * `rival-settings-panel.tsx` records what that cost the first time — "a red
+ * `payment-providers/copy-controls.tsx` records what that cost the first time — "a red
  * gate with 965 passing tests and no failure to point at" — and was fixed with
  * a ref plus an unmount cleanup. The fix was applied THERE and to nothing else,
  * so four more components kept the defect: smtp-settings-panel,
@@ -78,7 +78,7 @@ describe('a component never arms a timer it cannot cancel', () => {
       'A timer is armed and its handle discarded, so nothing can cancel it on unmount.\n' +
         'In jsdom the callback fires after teardown and throws `window is not defined`,\n' +
         'which is reported against an unrelated test — a red gate with nothing to point at.\n' +
-        'Hold the id and clear it, as rival-settings-panel.tsx does:\n' +
+        'Hold the id and clear it, as payment-providers/copy-controls.tsx does:\n' +
         '  const flashTimer = React.useRef<number | null>(null);\n' +
         '  React.useEffect(() => () => {\n' +
         '    if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);\n' +

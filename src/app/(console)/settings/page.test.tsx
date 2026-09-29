@@ -128,23 +128,17 @@ beforeEach(() => {
 });
 
 describe('which tabs an admin is offered', () => {
-  it('offers all five to a full-access admin', () => {
+  it('offers all four to a full-access admin', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
     /*
      * Security is back — RBAC-08 was restored (D-51 → 41).
      *
-     * Payments used to be absent here, and the note that stood in this place
-     * blamed the fixture for not stubbing the Rival settings call. That was
-     * the wrong diagnosis: the tab is gated on `settings.rival.view` alone,
-     * and the key was simply missing from ALL_PERMISSIONS. The Rival API was
-     * never reached either way — TabPanel renders null while inactive, so the
-     * panel does not mount. Eight keys had drifted out of that fixture the
-     * same way; see the header of src/test/permissions.ts for why it has to
-     * be kept in step by hand.
+     * No Payments tab since backend 0168: the Rival connection is a payment
+     * provider, under System → Payment providers.
      */
-    expect(tabs).toEqual(['Trading', 'Email', 'Payments', 'Platforms', 'Scheduled jobs']);
+    expect(tabs).toEqual(['Trading', 'Email', 'Platforms', 'Scheduled jobs']);
   });
 
   it('hides the Email tab from a non-master admin', () => {

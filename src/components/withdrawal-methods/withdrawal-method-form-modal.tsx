@@ -1,13 +1,18 @@
 'use client';
 
 import * as React from 'react';
-import type { WithdrawalMethod } from '@/lib/api/admin';
+import type { PaymentProvider, WithdrawalMethod } from '@/lib/api/admin';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import { LogoField } from '@/components/payment-methods/payment-method-form-modal';
+import {
+  DEFAULT_ROUTE,
+  RoutePicker,
+  type MethodRoute,
+} from '@/components/payment-providers/route-picker';
 import { t } from '@/lib/i18n';
 
 export interface WithdrawalMethodFormValues {
@@ -18,6 +23,8 @@ export interface WithdrawalMethodFormValues {
   /** An upload path or an https URL; empty means no logo. */
   logoUrl: string;
   enabled: boolean;
+  /** Who pays it and what the client gives — sent on create only (backend 0168). */
+  route: MethodRoute;
 }
 
 /**
@@ -35,6 +42,7 @@ export interface WithdrawalMethodFormValues {
 export function WithdrawalMethodFormModal({
   open,
   method,
+  providers,
   saving,
   error,
   onSubmit,
@@ -43,6 +51,8 @@ export function WithdrawalMethodFormModal({
   open: boolean;
   /** Absent means create. */
   method?: WithdrawalMethod;
+  /** Every payment provider, when this admin may view them — the routes offered. */
+  providers?: readonly PaymentProvider[];
   saving: boolean;
   error?: string;
   onSubmit: (values: WithdrawalMethodFormValues) => void;
@@ -59,6 +69,7 @@ export function WithdrawalMethodFormModal({
       <WithdrawalMethodForm
         key={method?.key ?? 'new'}
         method={method}
+        providers={providers}
         saving={saving}
         error={error}
         onSubmit={onSubmit}
@@ -70,17 +81,24 @@ export function WithdrawalMethodFormModal({
 
 function WithdrawalMethodForm({
   method,
+  providers,
   saving,
   error,
   onSubmit,
   onClose,
 }: {
   method?: WithdrawalMethod;
+  providers?: readonly PaymentProvider[];
   saving: boolean;
   error?: string;
   onSubmit: (values: WithdrawalMethodFormValues) => void;
   onClose: () => void;
 }) {
+  const [route, setRoute] = React.useState<MethodRoute>(
+    method
+      ? { providerCode: method.providerCode, channelCode: method.channelCode }
+      : DEFAULT_ROUTE.payout,
+  );
   const [internalLabel, setInternalLabel] = React.useState(method?.internalLabel ?? '');
   // A NEW rail's internal name follows its display name until it is edited.
   const [labelEdited, setLabelEdited] = React.useState(method !== undefined);
@@ -96,6 +114,7 @@ function WithdrawalMethodForm({
       name: name.trim(),
       logoUrl: logoUrl.trim(),
       enabled,
+      route,
     });
   };
 
@@ -137,6 +156,15 @@ function WithdrawalMethodForm({
           />
         </div>
       </div>
+
+      <RoutePicker
+        id={`${fieldId}-route`}
+        direction="payout"
+        value={route}
+        onChange={setRoute}
+        fixed={method !== undefined}
+        providers={providers}
+      />
 
       <LogoField value={logoUrl} onChange={setLogoUrl} />
 

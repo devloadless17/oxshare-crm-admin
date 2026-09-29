@@ -33,6 +33,7 @@ vi.mock('@/lib/api', () => {
       createWithdrawalMethod,
       updateWithdrawalMethod,
       uploadPaymentMethodLogo,
+      getPaymentProviders: () => Promise.resolve([]),
     },
   };
   return { api, default: api };
@@ -63,13 +64,17 @@ function method(over: Partial<WithdrawalMethod> = {}): WithdrawalMethod {
     enabled: true,
     sortOrder: 0,
     inUse: false,
+    // Rival's Whish payout route, paid by Rival (backend 0168).
+    providerCode: 'rival',
+    channelCode: 'whish',
+    paidBy: 'provider',
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
     ...over,
     // A row's internal name starts as its display name, as the API's does.
     internalLabel: over.internalLabel ?? over.name ?? 'Whish Money',
-    // `whish` is what the payout integration matches on (0161).
-    builtIn: over.builtIn ?? (over.key ?? 'whish') === 'whish',
+    // No method is built in since backend 0168.
+    builtIn: false,
   };
 }
 

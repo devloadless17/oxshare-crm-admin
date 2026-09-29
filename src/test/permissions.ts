@@ -128,6 +128,8 @@ export const ALL_PERMISSIONS: string[] = [
   'payments.view',
   'payments.create',
   'payments.edit',
+  'payments.providers.view',
+  'payments.providers.edit',
   'apikeys.view',
   'apikeys.create',
   'apikeys.revoke',

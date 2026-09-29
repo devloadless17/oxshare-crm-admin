@@ -50,6 +50,7 @@ import {
   RetryRivalButton,
   RivalStatusBadge,
 } from '@/components/transactions/withdrawal-rival';
+import { providerDisplayName } from '@/components/payment-providers/provider-labels';
 import { t, type MessageKey } from '@/lib/i18n';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { formatMoney } from '@/lib/money';
@@ -284,7 +285,15 @@ function TransactionsPageContent() {
       title: t('withdrawals.confirmApproveTitle', {
         amount: formatMoney(row.amount, row.currency),
       }),
-      description: t('withdrawals.confirmApprove', { name }),
+      // Who pays it if approved now (backend 0168): the provider for an
+      // automated payout it can take, else the desk, in one step.
+      description:
+        row.paidBy === 'provider'
+          ? t('withdrawals.confirmApproveProvider', {
+              name,
+              provider: providerDisplayName(row.providerCode),
+            })
+          : t('withdrawals.confirmApprove', { name }),
       confirmLabel: t('withdrawals.approve'),
     });
     if (ok) approve.mutate(row);

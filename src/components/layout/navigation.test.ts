@@ -144,6 +144,7 @@ describe('where the client asked things to live', () => {
     expect(groupOf('/admin-users')?.id).toBe('system');
     expect(groupOf('/roles')?.id).toBe('system');
     expect(groupOf('/payment-methods')?.id).toBe('system');
+    expect(groupOf('/payment-providers')?.id).toBe('system');
     // The payout rails sit beside the deposit ones.
     expect(groupOf('/withdrawal-methods')?.id).toBe('system');
     // What stays under Security.

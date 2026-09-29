@@ -93,7 +93,7 @@ function PlatformRow({ link, canManage }: { link: PlatformLink; canManage: boole
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
   /*
-   * Flash timer held and cleared on unmount — see `rival-settings-panel.tsx`
+   * Flash timer held and cleared on unmount — see `payment-providers/copy-controls.tsx`
    * for what an unguarded one costs (`ReferenceError: window is not defined`,
    * blamed on an unrelated test). Enforced by `flash-timer-census.test.ts`.
    */

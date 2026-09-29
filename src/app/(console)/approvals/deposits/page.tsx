@@ -86,6 +86,10 @@ function DepositApprovalsContent() {
 
   const params = {
     direction: 'deposit' as const,
+    // Only deposits a person decides (backend 0168): one on a provider's hosted
+    // page is settled by the provider, and listing it here offered an Approve
+    // the API could only refuse.
+    decidedBy: 'desk' as const,
     state,
     q: debouncedSearch || undefined,
     page,

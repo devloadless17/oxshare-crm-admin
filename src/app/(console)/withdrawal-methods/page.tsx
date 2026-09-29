@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
-import type { WithdrawalMethod } from '@/lib/api/admin';
+import type { PaymentProvider, WithdrawalMethod } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
@@ -19,6 +19,7 @@ import {
   WithdrawalMethodFormModal,
   type WithdrawalMethodFormValues,
 } from '@/components/withdrawal-methods/withdrawal-method-form-modal';
+import { routeLabel } from '@/components/payment-providers/provider-labels';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -53,9 +54,20 @@ export default function WithdrawalMethodsPage() {
   const query = useResource<WithdrawalMethod[]>(keys.withdrawalMethods.all(), (signal) =>
     api.admin.getWithdrawalMethods(signal),
   );
+  // The providers, for "Paid through" and the dialog's routes (backend 0168).
+  const canViewProviders = hasPermission(admin, 'payments.providers.view');
+  const providers = useResource<PaymentProvider[]>(
+    keys.paymentProviders.all(),
+    (signal) => api.admin.getPaymentProviders(signal),
+    { enabled: canViewProviders },
+  );
 
+  // A provider's page lists its methods, so a method change moves it too.
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: keys.withdrawalMethods.all() });
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: keys.withdrawalMethods.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.paymentProviders.all() }),
+    ]);
 
   const saveMethod = useMutation({
     mutationFn: (values: WithdrawalMethodFormValues) => {
@@ -66,9 +78,14 @@ export default function WithdrawalMethodsPage() {
         enabled: values.enabled,
       };
       // No key is ever sent: the API generates a new rail's permanent ID (0161).
+      // The route is chosen once, at creation, and fixed after (backend 0168).
       return editing
         ? api.admin.updateWithdrawalMethod(editing.key, body)
-        : api.admin.createWithdrawalMethod(body);
+        : api.admin.createWithdrawalMethod({
+            ...body,
+            providerCode: values.route.providerCode,
+            channelCode: values.route.channelCode,
+          });
     },
     onSuccess: async (_data, values) => {
       setFormOpen(false);
@@ -138,6 +155,26 @@ export default function WithdrawalMethodsPage() {
       ),
     },
     {
+      /*
+       * Who pays it now (backend 0168): Rival while it is on, the desk by hand
+       * when it is not — the question the approve dialog also answers.
+       */
+      header: t('withdrawalMethods.colRoute'),
+      cell: (m) => (
+        <span className="text-xs">
+          {routeLabel(providers.data, m, 'payout')}
+          <span className="block text-muted-foreground">
+            {m.paidBy === 'provider'
+              ? t('providers.paidBy.provider', {
+                  provider:
+                    providers.data?.find((p) => p.code === m.providerCode)?.name ?? m.providerCode,
+                })
+              : t('providers.paidBy.desk')}
+          </span>
+        </span>
+      ),
+    },
+    {
       header: t('withdrawalMethods.colStatus'),
       cell: (m) =>
         m.enabled ? (
@@ -163,20 +200,16 @@ export default function WithdrawalMethodsPage() {
                     separatorBefore: true,
                     onSelect: () => toggleEnabled.mutate(m),
                   },
-                  // `whish` is never deleted; a used method shows why it cannot be.
-                  ...(!m.builtIn
-                    ? [
-                        {
-                          label: m.inUse
-                            ? t('withdrawalMethods.deleteInUse')
-                            : t('withdrawalMethods.delete'),
-                          icon: Trash2,
-                          destructive: true,
-                          disabled: m.inUse,
-                          onSelect: () => void confirmDelete(m),
-                        },
-                      ]
-                    : []),
+                  // A used method shows why it cannot be deleted.
+                  {
+                    label: m.inUse
+                      ? t('withdrawalMethods.deleteInUse')
+                      : t('withdrawalMethods.delete'),
+                    icon: Trash2,
+                    destructive: true,
+                    disabled: m.inUse,
+                    onSelect: () => void confirmDelete(m),
+                  },
                 ]}
               />
             ),
@@ -235,6 +268,7 @@ export default function WithdrawalMethodsPage() {
       <WithdrawalMethodFormModal
         open={formOpen}
         method={editing}
+        providers={providers.data}
         saving={saveMethod.isPending}
         error={
           saveMethod.isError

@@ -144,7 +144,6 @@ function currency(code: string): Currency {
     maxDeposit: '250000.00000000',
     minWithdrawal: '10.00000000',
     maxWithdrawal: '50000.00000000',
-    maxWithdrawalDaily: '100000.00000000',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };

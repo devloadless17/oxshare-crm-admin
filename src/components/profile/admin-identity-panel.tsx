@@ -278,7 +278,7 @@ function NameForm({ admin, onSaved }: { admin: AdminProfile; onSaved: () => Prom
    * then, so `window` is gone and it surfaces as `ReferenceError: window is not
    * defined` — an unhandled error attributed to whichever test happened to be
    * running, not to the panel that armed it. Same defect, same fix and same
-   * reasoning as `rival-settings-panel.tsx`, whose comment records what it cost
+   * reasoning as `payment-providers/copy-controls.tsx`, whose comment records what it cost
    * the first time: a red gate with 965 passing tests and no failure to point at.
    */
   const flashTimer = React.useRef<number | null>(null);

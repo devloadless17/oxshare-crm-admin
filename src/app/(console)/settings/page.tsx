@@ -3,14 +3,13 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Clock, LineChart, Mail, MonitorDown, Wallet } from 'lucide-react';
+import { Clock, LineChart, Mail, MonitorDown } from 'lucide-react';
 import { PageLoader } from '@/components/ui/loader';
 import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
 import { ScheduledJobsPanel } from '@/components/rbac/scheduled-jobs-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
 
 import { TradingSettingsPanel } from '@/components/rbac/trading-settings-panel';
-import { RivalSettingsPanel } from '@/components/rbac/rival-settings-panel';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
@@ -83,10 +82,11 @@ function AdminSettingsContent() {
    * gets handed out for the sake of the broad one.
    */
   const canViewSmtp = hasPermission(admin, 'settings.smtp.view');
-  // The Rival tab follows the SMTP pattern exactly: its own view/edit pair,
-  // hidden without the first, read-only without the second.
-  const canViewRival = hasPermission(admin, 'settings.rival.view');
-  const canEditRival = hasPermission(admin, 'settings.rival.edit');
+  /*
+   * No Payments tab any more: the Rival connection is a payment provider,
+   * managed under System → Payment providers beside the methods that run on
+   * it (backend 0168).
+   */
   const canEditSmtp = hasPermission(admin, 'settings.smtp.edit');
 
   const tabs = React.useMemo<TabDefinition[]>(() => {
@@ -125,19 +125,6 @@ function AdminSettingsContent() {
             icon: <Mail className="h-4 w-4" aria-hidden="true" />,
           }
         : null,
-      /*
-       * Payments (the Rival connection), on `settings.rival.view`. Hidden
-       * rather than disabled without it, like Email: where the money platform
-       * points — and whether events are flowing — is not information every
-       * read-only admin needs.
-       */
-      canViewRival
-        ? {
-            value: 'payments',
-            label: t('settings.tabPayments'),
-            icon: <Wallet className="h-4 w-4" aria-hidden="true" />,
-          }
-        : null,
       {
         value: 'platforms',
         label: t('settings.tabPlatforms'),
@@ -155,7 +142,7 @@ function AdminSettingsContent() {
       },
     ];
     return all.filter((tab): tab is TabDefinition => tab !== null);
-  }, [canViewSmtp, canViewRival]);
+  }, [canViewSmtp]);
 
   /*
    * An unknown or forbidden `?tab=` falls back to the first tab rather than
@@ -214,10 +201,6 @@ function AdminSettingsContent() {
 
         <TabPanel value="trading" activeValue={active} idPrefix="settings">
           <TradingSettingsPanel canManage={canManageSettings} />
-        </TabPanel>
-
-        <TabPanel value="payments" activeValue={active} idPrefix="settings">
-          <RivalSettingsPanel canManage={canEditRival} />
         </TabPanel>
 
         <TabPanel value="jobs" activeValue={active} idPrefix="settings">

@@ -118,6 +118,12 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/payment-methods', requirement: { permission: 'payments.view' } },
   /* The payout side's twin, on the same keys: one grant for "payment methods". */
   { prefix: '/withdrawal-methods', requirement: { permission: 'payments.view' } },
+  /*
+   * The systems behind the methods (backend 0168) — Rival's connection moved
+   * here from Settings. Its own key: a provider's settings decide where every
+   * payment and payout instruction goes, which `payments.view` does not cover.
+   */
+  { prefix: '/payment-providers', requirement: { permission: 'payments.providers.view' } },
   // `/payouts` is still listed nowhere and has no `page.tsx`: `canAccess`
   // denies an unlisted path (see the `!match` branch below), which is the
   // correct answer for a route that does not exist. `/trading-accounts` was in
@@ -261,11 +267,11 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * The API enforces both independently.
    */
   /*
-   * `settings.smtp.view` and `settings.rival.view` are in the family too: an
-   * operator granted ONLY the mail tab or ONLY the payments tab (a real shape —
-   * "configure the Rival connection and nothing else") must be able to reach
-   * the screen those tabs live on. Each tab still hides itself without its own
-   * view key, so the union widens the door without widening any panel.
+   * `settings.smtp.view` is in the family too: an operator granted ONLY the
+   * mail tab must be able to reach the screen it lives on. The tab still hides
+   * itself without its own view key, so the union widens the door without
+   * widening any panel. (`settings.rival.view` left with the Payments tab: the
+   * Rival connection is on Payment providers since backend 0168.)
    */
   {
     prefix: '/settings',
@@ -274,7 +280,6 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
         'settings.view',
         'settings.edit',
         'settings.smtp.view',
-        'settings.rival.view',
         /*
          * `settings.security.view` is NOT in this union any more. The Security
          * tab it opened became its own page, `/network-access`, below — so an
