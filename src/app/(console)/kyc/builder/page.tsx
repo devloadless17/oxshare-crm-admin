@@ -252,8 +252,8 @@ export default function KycBuilderPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col pb-12">
-      <div className="flex flex-col justify-between gap-4 border-b border-border pb-6 sm:flex-row sm:items-center">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between border-b border-border pb-6">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
             {t('builder.title')}
           </h1>

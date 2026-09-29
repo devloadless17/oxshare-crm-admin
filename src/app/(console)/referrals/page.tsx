@@ -167,8 +167,8 @@ function ReferralsPageContent() {
         />
       )}
 
-      <div className="shrink-0 flex flex-wrap items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between shrink-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('referrals.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t('referrals.subtitle')}</p>
         </div>
