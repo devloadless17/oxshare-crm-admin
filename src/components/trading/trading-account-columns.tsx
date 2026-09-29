@@ -5,7 +5,12 @@ import type {
   TradingAccountStatus,
 } from '@/lib/api/admin';
 import type { Column } from '@/components/data-table';
-import { ClientIdentity, clientName } from '@/components/clients/client-identity';
+import {
+  ClientIdentity,
+  clientName,
+  clientProfileHref,
+} from '@/components/clients/client-identity';
+import { PermittedLink } from '@/components/permitted-link';
 import { relativeTime } from '@/lib/relative-time';
 import { formatMoney } from '@/lib/money';
 import { t, type MessageKey } from '@/lib/i18n';
@@ -69,7 +74,13 @@ export function tradingAccountColumns(): Column<TradingAccountRow>[] {
       cell: (a) =>
         a.login ? (
           // Left-aligned and monospaced: it is an identifier, not a quantity.
-          <span className="font-mono font-semibold">{a.login}</span>
+          // It opens the owner's profile, whose overview lists their accounts.
+          <PermittedLink
+            href={clientProfileHref(a.user.portalId)}
+            className="text-link hover:underline focus-outline rounded-sm"
+          >
+            <span className="font-mono font-semibold">{a.login}</span>
+          </PermittedLink>
         ) : (
           <span className="text-xs text-muted-foreground">{t('tradingAccounts.noLogin')}</span>
         ),

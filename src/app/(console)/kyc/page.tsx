@@ -1,6 +1,6 @@
 'use client';
 
-import { clientLabel } from '@/components/clients/client-identity';
+import { clientLabel, clientProfileHref } from '@/components/clients/client-identity';
 import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import type { components } from '@/lib/api/types.gen';
@@ -270,7 +270,17 @@ function KycQueue() {
                 rather than "you may not see this one". clientLabel falls
                 through to the Portal ID, which no role can mask.
               */}
-              {clientLabel(row.user ?? {})}
+              {row.user?.portalId !== undefined ? (
+                // The CLIENT; "Review" at the row's end opens the submission.
+                <PermittedLink
+                  href={clientProfileHref(row.user.portalId)}
+                  className="text-link hover:underline focus-outline rounded-sm"
+                >
+                  {clientLabel(row.user)}
+                </PermittedLink>
+              ) : (
+                clientLabel(row.user ?? {})
+              )}
             </div>
             <div className="text-xs text-muted-foreground">{row.user?.email}</div>
           </div>

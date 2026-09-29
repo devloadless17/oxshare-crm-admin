@@ -41,14 +41,21 @@ test('actions land in order, attributed, and the action filter narrows on the se
       // The newest 100, not 10: other writes in a long run can push the tag's
       // first row past the tenth (a cross-host run saw two of three). The rows
       // are filtered to this tag below either way.
-      const res = await admin.get('/admin/audit-log?limit=100');
-      expect(res.ok()).toBe(true);
-      const { items } = (await res.json()) as { items: AuditEntry[] };
-      const ours = items.filter((e) => e.subjectId === tagId);
-      expect(
-        ours.map((e) => e.action),
-        'three rows, newest first',
-      ).toEqual(['client_tag.delete', 'client_tag.update', 'client_tag.create']);
+      // POLLED: configuration changes are audited fire-and-forget
+      // (`AdminAuditService.record` — a lost audit row must not undo a tag
+      // rename; money is audited inside its transaction instead), so the delete's
+      // row can land a moment after its response. A cross-host run read too soon.
+      let ours: AuditEntry[] = [];
+      await expect(async () => {
+        const res = await admin.get('/admin/audit-log?limit=100');
+        expect(res.ok()).toBe(true);
+        const { items } = (await res.json()) as { items: AuditEntry[] };
+        ours = items.filter((e) => e.subjectId === tagId);
+        expect(
+          ours.map((e) => e.action),
+          'three rows, newest first',
+        ).toEqual(['client_tag.delete', 'client_tag.update', 'client_tag.create']);
+      }).toPass({ timeout: 10_000 });
       for (const row of ours) {
         expect(row.actorEmail, 'a row without its actor is not an audit trail').toBe(
           E2E_ADMIN.email,

@@ -292,7 +292,7 @@ function AuditLogPageContent() {
             {e.actorEmail === undefined ? <MaskedChip /> : e.actorEmail}
             {/* A client actor is named by Portal ID too — the one identifier a
                 role never hides, so a masked email still leaves a name. */}
-            {e.actorPortalId !== null && <PortalIdTag id={e.actorPortalId} />}
+            {e.actorPortalId !== null && <PortalIdTag id={e.actorPortalId} linked />}
           </div>
           <div className="flex items-center gap-1.5">
             <span className="font-mono text-[11px] text-muted-foreground">
@@ -341,7 +341,7 @@ function AuditLogPageContent() {
             it concerns (if any) named beneath it.
           */}
           {e.subjectPortalId !== null ? (
-            <PortalIdTag id={e.subjectPortalId} />
+            <PortalIdTag id={e.subjectPortalId} linked />
           ) : (
             <>
               <div
@@ -352,7 +352,7 @@ function AuditLogPageContent() {
               </div>
               {e.clientPortalId !== null && (
                 <div className="text-[11px] text-muted-foreground">
-                  {t('audit.subjectClient')} <PortalIdTag id={e.clientPortalId} />
+                  {t('audit.subjectClient')} <PortalIdTag id={e.clientPortalId} linked />
                 </div>
               )}
             </>

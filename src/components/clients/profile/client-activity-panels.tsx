@@ -285,10 +285,9 @@ export function ClientTransactionsPanel({ userId }: { userId: ClientRef }) {
     {
       header: t('clientProfile.txMethod'),
       cell: (row) => (
-        // The raw provider stays on hover, for whoever is tracing the row.
-        <span className="text-xs text-muted-foreground" title={row.provider ?? undefined}>
-          {transactionMethodLabel(row)}
-        </span>
+        // No raw provider on hover: it spells the method's key, which the console
+        // never shows (backend 0161). The CSV's Provider column carries it.
+        <span className="text-xs text-muted-foreground">{transactionMethodLabel(row)}</span>
       ),
     },
     {

@@ -62,9 +62,14 @@ function method(over: Partial<WithdrawalMethod> = {}): WithdrawalMethod {
     logoUrl: null,
     enabled: true,
     sortOrder: 0,
+    inUse: false,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
     ...over,
+    // A row's internal name starts as its display name, as the API's does.
+    internalLabel: over.internalLabel ?? over.name ?? 'Whish Money',
+    // `whish` is what the payout integration matches on (0161).
+    builtIn: over.builtIn ?? (over.key ?? 'whish') === 'whish',
   };
 }
 
@@ -88,21 +93,21 @@ describe('the withdrawal methods page', () => {
     expect(screen.getByText('Disabled')).toBeInTheDocument();
   });
 
-  it('adds a method with the key and name the operator typed', async () => {
+  it('adds a method named once: the internal name follows the display name', async () => {
     const user = userEvent.setup();
     renderWithProviders(<WithdrawalMethodsPage />);
 
     await user.click(await screen.findByRole('button', { name: /add method/i }));
-    await user.type(screen.getByPlaceholderText('bank_transfer'), 'omt');
     await user.type(screen.getByPlaceholderText('Bank transfer'), 'OMT');
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() =>
       expect(createWithdrawalMethod).toHaveBeenCalledWith(
-        expect.objectContaining({ key: 'omt', name: 'OMT', enabled: true }),
+        expect.objectContaining({ internalLabel: 'OMT', name: 'OMT', enabled: true }),
       ),
     );
-    // No order is asked for or sent: the API puts a new method last.
+    // No key (the API generates the permanent ID) and no order (it goes last).
+    expect(createWithdrawalMethod.mock.calls[0]?.[0]).not.toHaveProperty('key');
     expect(createWithdrawalMethod.mock.calls[0]?.[0]).not.toHaveProperty('sortOrder');
   });
 
@@ -115,8 +120,9 @@ describe('the withdrawal methods page', () => {
     renderWithProviders(<WithdrawalMethodsPage />);
 
     await user.click(await screen.findByRole('button', { name: /add method/i }));
-    await user.type(screen.getByLabelText(/^key$/i), 'omt');
     await user.type(screen.getByLabelText(/^name$/i), 'OMT');
+    await user.clear(screen.getByLabelText(/internal name/i));
+    await user.type(screen.getByLabelText(/internal name/i), 'OMT payouts');
     const enabled = screen.getByRole('checkbox', { name: /offer it to clients/i });
     expect(enabled.tagName).toBe('BUTTON');
     expect(enabled).toBeChecked();
@@ -125,20 +131,22 @@ describe('the withdrawal methods page', () => {
 
     await waitFor(() =>
       expect(createWithdrawalMethod).toHaveBeenCalledWith(
-        expect.objectContaining({ key: 'omt', enabled: false }),
+        expect.objectContaining({ internalLabel: 'OMT payouts', name: 'OMT', enabled: false }),
       ),
     );
   });
 
-  /* The key is the primary key, and every request made on the rail names it. */
-  it('does not let the key of an existing method be edited', async () => {
+  /* The key is a permanent ID (backend 0161): the desk sees and edits the internal name. */
+  it('never shows a method’s key, in the list or the edit dialog', async () => {
     const user = userEvent.setup();
     renderWithProviders(<WithdrawalMethodsPage />);
 
     await user.click(await screen.findByRole('button', { name: /actions for whish money/i }));
+    expect(screen.queryByText('whish')).toBeNull();
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    expect(await screen.findByDisplayValue('whish')).toBeDisabled();
+    expect(await screen.findByLabelText(/internal name/i)).toHaveValue('Whish Money');
+    expect(screen.queryByDisplayValue('whish')).toBeNull();
   });
 
   it('switches a method on or off with a single flag', async () => {

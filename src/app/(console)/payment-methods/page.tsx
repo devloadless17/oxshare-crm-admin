@@ -2,20 +2,21 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CreditCard, Eye, EyeOff, Pencil, Plus } from 'lucide-react';
+import { CreditCard, Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import type { PaymentMethod } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { assetUrl } from '@/lib/asset-url';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
+import { MethodNameCell } from '@/components/payment-methods/method-name-cell';
 import {
   PaymentMethodFormModal,
   type PaymentMethodFormValues,
@@ -28,14 +29,15 @@ const METHOD_PAGING = { noun: ['method', 'methods'] as [string, string] };
 export default function PaymentMethodsPage() {
   const { admin } = useAdmin();
   /*
-   * There is no `payments.delete`: a method is DISABLED rather than removed,
-   * because deleting one would orphan every deposit that used it (0043). So the
-   * split is create and edit only, and the enable/disable toggle is an EDIT.
+   * There is no `payments.delete`: `payments.edit` deletes only a method NO
+   * transaction references (a typo, a test row). A used one is DISABLED, because
+   * its deposits must keep naming it — the API refuses the delete (0161).
    */
   const canCreate = hasPermission(admin, 'payments.create');
   const canEdit = hasPermission(admin, 'payments.edit');
   const canManage = canCreate || canEdit;
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [editing, setEditing] = React.useState<PaymentMethod | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
@@ -57,6 +59,7 @@ export default function PaymentMethodsPage() {
        * leaves an edited one where it is.
        */
       const body = {
+        internalLabel: values.internalLabel,
         name: values.name,
         currency: values.currency,
         logoUrl: values.logoUrl === '' ? undefined : values.logoUrl,
@@ -77,15 +80,13 @@ export default function PaymentMethodsPage() {
         requiresProof: values.requiresProof,
       };
 
-      if (editing) {
-        return api.admin.updatePaymentMethod(editing.key, body);
-      }
-      return api.admin.createPaymentMethod({ ...body, key: values.key });
+      // No key is ever sent: the API generates a new method's permanent ID, and
+      // an existing one is addressed by it, never changes it (backend 0161).
+      if (editing) return api.admin.updatePaymentMethod(editing.key, body);
+      return api.admin.createPaymentMethod(body);
     },
     onSuccess: async (_data, values) => {
-      // Read before `editing` is cleared: `key` is the primary key and an
-      // update's payload omits it.
-      const name = editing?.name ?? values.name;
+      const name = values.internalLabel;
       setFormOpen(false);
       setEditing(undefined);
       await invalidate();
@@ -107,8 +108,8 @@ export default function PaymentMethodsPage() {
        */
       toastSuccess(
         method.enabled
-          ? t('paymentMethods.disabledSucceeded', { name: method.name })
-          : t('paymentMethods.enabledSucceeded', { name: method.name }),
+          ? t('paymentMethods.disabledSucceeded', { name: method.internalLabel })
+          : t('paymentMethods.enabledSucceeded', { name: method.internalLabel }),
       );
     },
     /*
@@ -118,7 +119,30 @@ export default function PaymentMethodsPage() {
     onError: (error) => toastError(error, t('paymentMethods.saveFailed')),
   });
 
-  const togglingKey = toggleEnabled.isPending ? toggleEnabled.variables?.key : undefined;
+  const remove = useMutation({
+    mutationFn: (method: PaymentMethod) => api.admin.deletePaymentMethod(method.key),
+    onSuccess: async (_data, method) => {
+      await invalidate();
+      toastSuccess(t('paymentMethods.deleted', { name: method.internalLabel }));
+    },
+    onError: (error) => toastError(error, t('paymentMethods.deleteFailed')),
+  });
+
+  const confirmDelete = async (method: PaymentMethod) => {
+    const ok = await confirm({
+      title: t('paymentMethods.confirmDeleteTitle', { name: method.internalLabel }),
+      description: t('paymentMethods.confirmDelete'),
+      confirmLabel: t('paymentMethods.delete'),
+      destructive: true,
+    });
+    if (ok) remove.mutate(method);
+  };
+
+  const togglingKey = toggleEnabled.isPending
+    ? toggleEnabled.variables?.key
+    : remove.isPending
+      ? remove.variables?.key
+      : undefined;
 
   const openCreate = () => {
     setEditing(undefined);
@@ -134,41 +158,9 @@ export default function PaymentMethodsPage() {
 
   const columns: Column<PaymentMethod>[] = [
     {
-      header: t('paymentMethods.colKey'),
-      cell: (m) => <span className="font-mono font-semibold">{m.key}</span>,
-    },
-    {
       header: t('paymentMethods.colName'),
       cell: (m) => (
-        <div className="flex items-center gap-2">
-          {/*
-            Through `assetUrl`, NEVER the stored value raw. The API returns
-            `/v1/uploads/…`, which the browser resolves against THIS app's origin
-            — where no `/v1` route exists — so a raw src 404'd on every uploaded
-            logo while the upload itself reported success.
-          */}
-          {/*
-            FIXED HEIGHT, AUTO WIDTH — not a square.
-
-            A payment brand mark is usually a WORDMARK: the Whish logo is
-            123×27, a 4.5:1 ratio. Constrained to `h-5 w-5`, `object-contain`
-            honoured the ratio by shrinking it to 20×4.5px — a legible logo
-            rendered as an unreadable sliver, which looks like a broken file.
-            Height is what should be uniform down a column of rows; width
-            follows the artwork, capped so a very wide mark cannot push the name
-            out of the row.
-          */}
-          {assetUrl(m.logoUrl) && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={assetUrl(m.logoUrl)}
-              alt=""
-              aria-hidden="true"
-              className="h-5 w-auto max-w-20 shrink-0 rounded object-contain"
-            />
-          )}
-          <span>{m.name}</span>
-        </div>
+        <MethodNameCell internalLabel={m.internalLabel} name={m.name} logoUrl={m.logoUrl} />
       ),
     },
     /*
@@ -222,7 +214,7 @@ export default function PaymentMethodsPage() {
           actionsColumn<PaymentMethod>(
             (m) => (
               <RowActions
-                label={t('table.rowActions', { name: m.name })}
+                label={t('table.rowActions', { name: m.internalLabel })}
                 busy={togglingKey === m.key}
                 items={[
                   { label: t('paymentMethods.edit'), icon: Pencil, onSelect: () => openEdit(m) },
@@ -232,6 +224,21 @@ export default function PaymentMethodsPage() {
                     separatorBefore: true,
                     onSelect: () => toggleEnabled.mutate(m),
                   },
+                  // A gateway is never deleted, so it is not offered. A used
+                  // method is shown disabled with the reason, not hidden.
+                  ...(canEdit && !m.builtIn
+                    ? [
+                        {
+                          label: m.inUse
+                            ? t('paymentMethods.deleteInUse')
+                            : t('paymentMethods.delete'),
+                          icon: Trash2,
+                          destructive: true,
+                          disabled: m.inUse,
+                          onSelect: () => void confirmDelete(m),
+                        },
+                      ]
+                    : []),
                 ]}
               />
             ),

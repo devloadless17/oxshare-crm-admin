@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { SearchField } from '@/components/ui/search-field';
 
 /**
  * A search box over a URL parameter, that an operator can actually TYPE in.
@@ -47,7 +48,7 @@ export function UrlSearchInput({
   label,
   placeholder,
   title,
-  className = 'h-9 w-64 rounded-lg border border-input bg-card px-3 text-xs focus-outline',
+  className = 'w-64',
   delayMs = 300,
 }: {
   /** The current value of the URL parameter. */
@@ -58,6 +59,7 @@ export function UrlSearchInput({
   placeholder: string;
   /** The `title` tooltip — used to say WHAT is matched. */
   title?: string;
+  /** Layout of the box (width) — the look is `SearchField`'s. */
   className?: string;
   delayMs?: number;
 }) {
@@ -86,11 +88,16 @@ export function UrlSearchInput({
   }, [text, delayMs]);
 
   return (
-    <input
-      type="search"
+    <SearchField
       value={text}
-      onChange={(e) => setText(e.target.value)}
-      aria-label={label}
+      onChange={setText}
+      // Clearing is not typing: the list follows at once, not after the debounce.
+      onClear={() => {
+        setText('');
+        written.current = '';
+        onChange('');
+      }}
+      label={label}
       placeholder={placeholder}
       title={title}
       className={className}

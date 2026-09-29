@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { CandlestickChart, Eye, Search, Users } from 'lucide-react';
+import { CandlestickChart, Eye, Users } from 'lucide-react';
+import { SearchField } from '@/components/ui/search-field';
 import api from '@/lib/api';
 import type {
   ClientListResponse,
@@ -95,20 +96,13 @@ function TableSearch({
   placeholder: string;
 }) {
   return (
-    <label className="relative block w-full sm:w-80">
-      <span className="sr-only">{label}</span>
-      <Search
-        className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <input
-        type="search"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="h-9 w-full rounded-lg border border-input bg-card pl-8 pr-3 text-xs focus-outline"
-      />
-    </label>
+    <SearchField
+      value={value}
+      onChange={onChange}
+      label={label}
+      placeholder={placeholder}
+      className="w-full sm:w-80"
+    />
   );
 }
 

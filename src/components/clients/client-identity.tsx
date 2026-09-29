@@ -1,4 +1,5 @@
 import { t } from '@/lib/i18n';
+import { PermittedLink } from '@/components/permitted-link';
 
 /*
  * How the console names a client — in one place, so every table agrees.
@@ -19,10 +20,45 @@ import { t } from '@/lib/i18n';
  * masked — it identifies the record, not the person — so it is what still
  * names the row. The uuid used to be that fallback, which printed 36
  * characters nobody could use.
+ *
+ * ## A client's name OPENS their profile, on every screen (owner, 29 Sep 2026)
+ *
+ * Only the client list linked its names; on the withdrawal desk, deposits,
+ * wallets, trading accounts, the ledger and the rest the name was plain text,
+ * so reaching the person behind a row meant copying the Portal ID into the
+ * client search. `ClientIdentity` links now, in the brand link colour, through
+ * `PermittedLink` — plain text for an operator who may not open profiles. Pass
+ * `link={false}` only where the identity already sits INSIDE another link (a
+ * link in a link is invalid HTML and a click lands on the wrong one).
  */
 
-/** `#1000245`, with "Portal ID" spoken before it and shown on hover. */
-export function PortalIdTag({ id }: { id: number }) {
+/** Where a client's profile lives — by Portal ID, the one identifier the console shows. */
+export function clientProfileHref(portalId: number): string {
+  return `/clients/${portalId}`;
+}
+
+const LINK_CLASS = 'text-link hover:underline focus-outline rounded-sm';
+
+/**
+ * `#1000245`, with "Portal ID" spoken before it and shown on hover.
+ *
+ * `linked` makes it open the client's profile — for a screen where the Portal
+ * ID is ALL that names a client (the audit log, a fully masked row).
+ */
+export function PortalIdTag({ id, linked = false }: { id: number; linked?: boolean }) {
+  if (linked) {
+    return (
+      <PermittedLink href={clientProfileHref(id)} className={LINK_CLASS}>
+        {/* The tag's grey would override the link colour; a link reads as one. */}
+        <span
+          className="relative whitespace-nowrap font-mono text-[11px] font-medium"
+          title={t('common.portalId')}
+        >
+          <span className="sr-only">{t('common.portalId')} </span>#{id}
+        </span>
+      </PermittedLink>
+    );
+  }
   return (
     /*
      * `relative` makes this span the containing block of the `sr-only` label
@@ -53,6 +89,7 @@ export function ClientIdentity({
   portalId,
   strong = true,
   removedId,
+  link = true,
 }: {
   name?: string | null;
   email?: string | null;
@@ -65,11 +102,33 @@ export function ClientIdentity({
    * the id kept on hover for forensics rather than printed.
    */
   removedId?: string;
+  /**
+   * The name (or, with no name readable, the email) opens the client's profile.
+   * Off only inside another link — see the note at the top of this file.
+   */
+  link?: boolean;
 }) {
-  const tag = portalId === null || portalId === undefined ? null : <PortalIdTag id={portalId} />;
+  const hasId = portalId !== null && portalId !== undefined;
+  const tag = hasId ? <PortalIdTag id={portalId} /> : null;
+  const linked = link && hasId;
+  /** The row's leading text, as a profile link when there is a profile to open. */
+  const lead = (text: string, className: string) =>
+    linked ? (
+      <PermittedLink href={clientProfileHref(portalId)} className={`truncate ${LINK_CLASS}`}>
+        {/* `truncate` here too: without access the link renders its children bare. */}
+        <span className={`truncate ${className}`} title={text}>
+          {text}
+        </span>
+      </PermittedLink>
+    ) : (
+      <span className={`truncate ${className}`} title={text}>
+        {text}
+      </span>
+    );
 
   if (!name && !email) {
-    if (tag) return tag;
+    // Everything readable is masked: the Portal ID names the row, and opens it.
+    if (hasId) return <PortalIdTag id={portalId} linked={link} />;
     return removedId ? (
       <span className="text-xs italic text-muted-foreground" title={removedId}>
         {t('common.clientRemoved')}
@@ -89,17 +148,20 @@ export function ClientIdentity({
     <div className="min-w-0 max-w-[16rem]">
       {name && (
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <span className={`truncate text-foreground ${strong ? 'font-medium' : ''}`} title={name}>
-            {name}
-          </span>
+          {lead(name, `${linked ? '' : 'text-foreground'} ${strong ? 'font-medium' : ''}`)}
           {tag}
         </div>
       )}
       {email && (
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate text-xs text-muted-foreground" title={email}>
-            {email}
-          </span>
+          {name ? (
+            <span className="truncate text-xs text-muted-foreground" title={email}>
+              {email}
+            </span>
+          ) : (
+            // No readable name: the email leads the row, so it is the link.
+            lead(email, 'text-xs')
+          )}
           {!name && tag}
         </div>
       )}

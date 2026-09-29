@@ -11,7 +11,9 @@ import { LogoField } from '@/components/payment-methods/payment-method-form-moda
 import { t } from '@/lib/i18n';
 
 export interface WithdrawalMethodFormValues {
-  key: string;
+  /** What the DESK calls the rail — shown in place of the key, and renamable. */
+  internalLabel: string;
+  /** What the CLIENT sees. */
   name: string;
   /** An upload path or an https URL; empty means no logo. */
   logoUrl: string;
@@ -25,8 +27,10 @@ export interface WithdrawalMethodFormValues {
  * currency (a withdrawal is paid in its wallet's currency) and no offline-proof
  * switch (that is a deposit concern). The logo goes through the same upload.
  *
- * The KEY is fixed once created — it is the primary key, and every withdrawal
- * request made on the method references it — so it is shown read-only on edit.
+ * No KEY on this form: it is the permanent ID the API generates and never shows
+ * (backend 0161). The desk types and renames the INTERNAL NAME, which every admin
+ * screen shows; `name` is what a client sees. On a new rail the internal name
+ * follows the display name until the operator edits it.
  */
 export function WithdrawalMethodFormModal({
   open,
@@ -77,7 +81,9 @@ function WithdrawalMethodForm({
   onSubmit: (values: WithdrawalMethodFormValues) => void;
   onClose: () => void;
 }) {
-  const [key, setKey] = React.useState(method?.key ?? '');
+  const [internalLabel, setInternalLabel] = React.useState(method?.internalLabel ?? '');
+  // A NEW rail's internal name follows its display name until it is edited.
+  const [labelEdited, setLabelEdited] = React.useState(method !== undefined);
   const [name, setName] = React.useState(method?.name ?? '');
   const [logoUrl, setLogoUrl] = React.useState(method?.logoUrl ?? '');
   const [enabled, setEnabled] = React.useState(method?.enabled ?? true);
@@ -86,7 +92,7 @@ function WithdrawalMethodForm({
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     onSubmit({
-      key: key.trim(),
+      internalLabel: internalLabel.trim(),
       name: name.trim(),
       logoUrl: logoUrl.trim(),
       enabled,
@@ -97,20 +103,22 @@ function WithdrawalMethodForm({
     <form onSubmit={submit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`${fieldId}-key`}>{t('withdrawalMethods.key')}</Label>
+          <Label htmlFor={`${fieldId}-label`}>{t('withdrawalMethods.internalLabel')}</Label>
           <Input
-            id={`${fieldId}-key`}
-            value={key}
-            onChange={(event) => setKey(event.target.value)}
+            id={`${fieldId}-label`}
+            value={internalLabel}
+            onChange={(event) => {
+              setInternalLabel(event.target.value);
+              setLabelEdited(true);
+            }}
             required
-            minLength={2}
-            maxLength={40}
-            pattern="[A-Za-z0-9_]+"
-            placeholder="bank_transfer"
-            disabled={method !== undefined}
-            className="font-mono text-xs"
+            maxLength={80}
+            placeholder="Bank payouts – BLOM"
+            className="text-xs"
           />
-          <p className="text-[11px] text-muted-foreground">{t('withdrawalMethods.keyHint')}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {t('withdrawalMethods.internalLabelHint')}
+          </p>
         </div>
 
         <div className="space-y-1.5">
@@ -118,7 +126,10 @@ function WithdrawalMethodForm({
           <Input
             id={`${fieldId}-name`}
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value);
+              if (!labelEdited) setInternalLabel(event.target.value);
+            }}
             required
             maxLength={80}
             placeholder={t('withdrawalMethods.namePlaceholder')}
@@ -150,7 +161,12 @@ function WithdrawalMethodForm({
         <Button type="button" variant="outline" size="sm" onClick={onClose}>
           {t('withdrawalMethods.cancel')}
         </Button>
-        <Button type="submit" size="sm" loading={saving} disabled={!name.trim() || !key.trim()}>
+        <Button
+          type="submit"
+          size="sm"
+          loading={saving}
+          disabled={!name.trim() || !internalLabel.trim()}
+        >
           {t('withdrawalMethods.save')}
         </Button>
       </div>

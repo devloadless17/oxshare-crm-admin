@@ -764,3 +764,12 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* The browser's own clear button inside a search box is hidden everywhere: an 8px
+   glyph with no hover, no pointer and a different look per browser. The console's
+   SearchField draws a real one (components/ui/search-field.tsx). */
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}

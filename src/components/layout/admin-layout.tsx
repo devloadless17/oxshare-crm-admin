@@ -374,9 +374,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             className={`flex items-center rounded-md focus-outline ${rail ? '' : 'min-w-0 flex-1'}`}
           >
             {rail ? (
-              <BrandLogo variant="mark" className="h-9 w-auto shrink-0" />
+              <BrandLogo variant="mark" className="shrink-0" />
             ) : (
-              <BrandLogo className="h-10 w-auto shrink-0" />
+              <BrandLogo className="shrink-0" />
             )}
           </Link>
 

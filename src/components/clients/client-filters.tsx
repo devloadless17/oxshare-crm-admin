@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { SearchField } from '@/components/ui/search-field';
 import type { ClientTagWithCount } from '@/lib/api/admin';
 import {
   Select,
@@ -246,13 +247,19 @@ function SearchBox({ value, onChange }: { value: string; onChange: (value: strin
   }, [text]);
 
   return (
-    <input
-      type="search"
+    <SearchField
       value={text}
-      onChange={(e) => setText(e.target.value)}
+      onChange={setText}
+      // Clearing is not typing: the list follows at once, not after the debounce.
+      onClear={() => {
+        setText('');
+        written.current = '';
+        onChange('');
+      }}
       placeholder={t('clients.searchPlaceholder')}
-      aria-label={t('clients.searchLabel')}
-      className="h-9 w-full sm:w-72 rounded-lg border border-input bg-card px-3 text-sm focus-outline"
+      label={t('clients.searchLabel')}
+      className="w-full sm:w-72"
+      inputClassName="text-sm"
     />
   );
 }

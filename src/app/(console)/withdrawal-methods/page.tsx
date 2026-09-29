@@ -2,18 +2,19 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Eye, EyeOff, Pencil, Plus } from 'lucide-react';
+import { Banknote, Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import type { WithdrawalMethod } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { assetUrl } from '@/lib/asset-url';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
+import { MethodNameCell } from '@/components/payment-methods/method-name-cell';
 import {
   WithdrawalMethodFormModal,
   type WithdrawalMethodFormValues,
@@ -25,16 +26,17 @@ import { keys } from '@/lib/query-keys';
  * Withdrawal methods — the payout rails the portal's withdraw form offers.
  *
  * The twin of Deposit methods (`/payment-methods`), and shaped like it: every
- * method listed, disabled ones included; add, edit, enable and disable, never
- * delete. `withdrawal_payment_methods` has existed since migration 0062 and the
+ * method listed, disabled ones included; add, edit (the key too, 0161), enable
+ * and disable, and delete one nobody used. `withdrawal_payment_methods` has existed since migration 0062 and the
  * withdraw form has always read it — until now it could only be changed in the
  * database.
  *
- * ## Why disable and not delete
+ * ## Why disable and not delete, once used
  *
  * Every withdrawal request names the rail it was made on, and the desk has to
- * be able to read that name when it settles the request. So a method is
- * switched off — which stops it being offered — and never removed.
+ * be able to read that name when it settles the request. So a used method is
+ * switched off — which stops it being offered — and never removed. Only one no
+ * request references can be deleted.
  */
 const METHOD_PAGING = { noun: ['method', 'methods'] as [string, string] };
 
@@ -43,6 +45,7 @@ export default function WithdrawalMethodsPage() {
   const canCreate = hasPermission(admin, 'payments.create');
   const canEdit = hasPermission(admin, 'payments.edit');
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [editing, setEditing] = React.useState<WithdrawalMethod | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
@@ -57,19 +60,21 @@ export default function WithdrawalMethodsPage() {
   const saveMethod = useMutation({
     mutationFn: (values: WithdrawalMethodFormValues) => {
       const body = {
+        internalLabel: values.internalLabel,
         name: values.name,
         logoUrl: values.logoUrl === '' ? undefined : values.logoUrl,
         enabled: values.enabled,
       };
+      // No key is ever sent: the API generates a new rail's permanent ID (0161).
       return editing
         ? api.admin.updateWithdrawalMethod(editing.key, body)
-        : api.admin.createWithdrawalMethod({ ...body, key: values.key });
+        : api.admin.createWithdrawalMethod(body);
     },
     onSuccess: async (_data, values) => {
       setFormOpen(false);
       setEditing(undefined);
       await invalidate();
-      toastSuccess(t('withdrawalMethods.saveSucceeded', { name: values.name }));
+      toastSuccess(t('withdrawalMethods.saveSucceeded', { name: values.internalLabel }));
     },
     // Failures render inline in the form, which stays open.
   });
@@ -81,14 +86,37 @@ export default function WithdrawalMethodsPage() {
       await invalidate();
       toastSuccess(
         method.enabled
-          ? t('withdrawalMethods.disabledSucceeded', { name: method.name })
-          : t('withdrawalMethods.enabledSucceeded', { name: method.name }),
+          ? t('withdrawalMethods.disabledSucceeded', { name: method.internalLabel })
+          : t('withdrawalMethods.enabledSucceeded', { name: method.internalLabel }),
       );
     },
     onError: (error) => toastError(error, t('withdrawalMethods.saveFailed')),
   });
 
-  const togglingKey = toggleEnabled.isPending ? toggleEnabled.variables?.key : undefined;
+  const remove = useMutation({
+    mutationFn: (method: WithdrawalMethod) => api.admin.deleteWithdrawalMethod(method.key),
+    onSuccess: async (_data, method) => {
+      await invalidate();
+      toastSuccess(t('withdrawalMethods.deleted', { name: method.internalLabel }));
+    },
+    onError: (error) => toastError(error, t('withdrawalMethods.deleteFailed')),
+  });
+
+  const confirmDelete = async (method: WithdrawalMethod) => {
+    const ok = await confirm({
+      title: t('withdrawalMethods.confirmDeleteTitle', { name: method.internalLabel }),
+      description: t('withdrawalMethods.confirmDelete'),
+      confirmLabel: t('withdrawalMethods.delete'),
+      destructive: true,
+    });
+    if (ok) remove.mutate(method);
+  };
+
+  const togglingKey = toggleEnabled.isPending
+    ? toggleEnabled.variables?.key
+    : remove.isPending
+      ? remove.variables?.key
+      : undefined;
 
   const openCreate = () => {
     setEditing(undefined);
@@ -104,25 +132,9 @@ export default function WithdrawalMethodsPage() {
 
   const columns: Column<WithdrawalMethod>[] = [
     {
-      header: t('withdrawalMethods.colKey'),
-      cell: (m) => <span className="font-mono font-semibold">{m.key}</span>,
-    },
-    {
       header: t('withdrawalMethods.colName'),
       cell: (m) => (
-        <div className="flex items-center gap-2">
-          {/* Through `assetUrl`, never raw — see the deposit methods page. */}
-          {assetUrl(m.logoUrl) && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={assetUrl(m.logoUrl)}
-              alt=""
-              aria-hidden="true"
-              className="h-5 w-auto max-w-20 shrink-0 rounded object-contain"
-            />
-          )}
-          <span>{m.name}</span>
-        </div>
+        <MethodNameCell internalLabel={m.internalLabel} name={m.name} logoUrl={m.logoUrl} />
       ),
     },
     {
@@ -139,7 +151,7 @@ export default function WithdrawalMethodsPage() {
           actionsColumn<WithdrawalMethod>(
             (m) => (
               <RowActions
-                label={t('table.rowActions', { name: m.name })}
+                label={t('table.rowActions', { name: m.internalLabel })}
                 busy={togglingKey === m.key}
                 items={[
                   { label: t('withdrawalMethods.edit'), icon: Pencil, onSelect: () => openEdit(m) },
@@ -151,6 +163,20 @@ export default function WithdrawalMethodsPage() {
                     separatorBefore: true,
                     onSelect: () => toggleEnabled.mutate(m),
                   },
+                  // `whish` is never deleted; a used method shows why it cannot be.
+                  ...(!m.builtIn
+                    ? [
+                        {
+                          label: m.inUse
+                            ? t('withdrawalMethods.deleteInUse')
+                            : t('withdrawalMethods.delete'),
+                          icon: Trash2,
+                          destructive: true,
+                          disabled: m.inUse,
+                          onSelect: () => void confirmDelete(m),
+                        },
+                      ]
+                    : []),
                 ]}
               />
             ),

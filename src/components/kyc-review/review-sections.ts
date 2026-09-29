@@ -297,7 +297,11 @@ export function reviewFieldGroups(data: KycDetail): ReviewFieldGroup[] {
   const groups: ReviewFieldGroup[] = [
     {
       group: t('kycReview.identityTitle'),
-      fields: layout.identity.map((field) => ({ id: field.key, label: field.label })),
+      // Only what the form asks: the client has no field for any other detail.
+      // (Absent on an API older than the flag: offered, as it was.)
+      fields: layout.identity
+        .filter((field) => field.asked !== false)
+        .map((field) => ({ id: field.key, label: field.label })),
     },
   ];
   const pages = (
@@ -314,7 +318,8 @@ export function reviewFieldGroups(data: KycDetail): ReviewFieldGroup[] {
     doc_front: data.document?.frontFilePath,
     doc_back: data.document?.backFilePath,
   });
-  if (identityPages.length > 0) {
+  // Absent on an API older than the flag: offered, as it was.
+  if (layout.identityDocument.asked !== false && identityPages.length > 0) {
     groups.push({ group: t('kycReview.identityDocumentTitle'), fields: identityPages });
   }
   if (layout.proofOfAddress.asked) {

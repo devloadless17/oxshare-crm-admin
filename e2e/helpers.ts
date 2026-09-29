@@ -618,9 +618,16 @@ export async function searchOwnClients(page: Page): Promise<void> {
    * cohort is six rows; a hundred-row page keeps it on screen for a long time,
    * and the portal now registers under a domain of its own.
    */
+  /*
+   * OLDEST first, too (29 Sep 2026). A hundred rows stopped being enough: specs
+   * keep minting clients on this domain (`kyc-check-…`, `r2-full-…`), so newest
+   * first pushed the seeded cohort — created before any of them — off the page
+   * and every search here timed out. Oldest first keeps it on top for good.
+   */
   const current = new URL(page.url());
-  if (current.searchParams.get('limit') !== '100') {
-    current.searchParams.set('limit', '100');
+  const wanted = { limit: '100', sort: 'createdAt', order: 'asc' };
+  if (Object.entries(wanted).some(([k, v]) => current.searchParams.get(k) !== v)) {
+    for (const [k, v] of Object.entries(wanted)) current.searchParams.set(k, v);
     await page.goto(current.pathname + current.search);
   }
   const box = clientSearchBox(page);
@@ -635,6 +642,27 @@ export async function searchOwnClients(page: Page): Promise<void> {
     await settled;
   }
   await page.getByRole('link', { name: E2E_CLIENTS.alpha.name }).waitFor({ timeout: 15_000 });
+}
+
+/**
+ * Search the client list for `term` and wait for THAT response — for a reader
+ * whose role hides client email.
+ *
+ * `searchOwnClients` types the cohort's email DOMAIN, and since D-82 a search
+ * fragment never matches a field the reader's role hides: to a reader masking
+ * `client.email` the domain finds nobody, which is correct and made every
+ * scoped-reader check either time out or pass vacuously ("not found" read as
+ * "hidden"). Such a reader searches by a NAME, which the role shows.
+ */
+export async function searchClientsFor(page: Page, term: string): Promise<void> {
+  const box = clientSearchBox(page);
+  const settled = page.waitForResponse(
+    (res) =>
+      res.url().includes('/admin/clients') && new URL(res.url()).searchParams.get('q') === term,
+    { timeout: 20_000 },
+  );
+  await box.fill(term);
+  await settled;
 }
 
 /** The client list's own search box, distinguished from the header's. */
