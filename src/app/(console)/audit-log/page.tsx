@@ -379,9 +379,24 @@ function AuditLogPageContent() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('audit.title')}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t('audit.subtitle')}</p>
+      <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold tracking-tight">{t('audit.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t('audit.subtitle')}</p>
+        </div>
+        {/*
+          The audit log is the one screen an export is least optional on: it is
+          the record a compliance review asks for, and it is read by people who
+          cannot be handed a database. The endpoint has been served and
+          permission-gated on `audit.view` — the same key this screen needs —
+          for as long as the screen has existed, and no control ever offered it.
+          `export-button.tsx` states the rule this violated: a built endpoint
+          that no button reaches drifts out of the UI, and nobody notices.
+          In the HEADER, on the right, like every page's actions (29 Sep 2026).
+        */}
+        <div className="flex shrink-0 items-center gap-2">
+          <ExportButton resource="audit-log" filters={exportFilters} disabled={total === 0} />
+        </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
@@ -415,18 +430,6 @@ function AuditLogPageContent() {
             ))}
           </SelectContent>
         </Select>
-        {/*
-          The audit log is the one screen an export is least optional on: it is
-          the record a compliance review asks for, and it is read by people who
-          cannot be handed a database. The endpoint has been served and
-          permission-gated on `audit.view` — the same key this screen needs —
-          for as long as the screen has existed, and no control ever offered it.
-          `export-button.tsx` states the rule this violated: a built endpoint
-          that no button reaches drifts out of the UI, and nobody notices.
-        */}
-        <div className="ml-auto">
-          <ExportButton resource="audit-log" filters={exportFilters} disabled={total === 0} />
-        </div>
       </div>
 
       <AsyncBoundary

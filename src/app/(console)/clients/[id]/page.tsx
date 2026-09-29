@@ -364,8 +364,8 @@ export default function ClientProfilePage() {
            */
           <div className="flex min-h-0 flex-1 flex-col gap-4">
             <header className="shrink-0 rounded-xl border border-border bg-card p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
                   <h1 className="text-2xl font-bold tracking-tight">
                     {/*
                       The chip only when nothing of the name survives the mask;
