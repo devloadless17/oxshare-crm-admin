@@ -8,6 +8,7 @@ import { ToggleList } from '@/components/ui/toggle-list';
 import { Button } from '@/components/ui/button';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { t } from '@/lib/i18n';
+import { maskableFields } from '@/lib/masking';
 
 export interface RoleFormValues {
   name: string;
@@ -174,22 +175,14 @@ export function RoleForm({
         <div className="pt-3">
           <p className="mb-2 text-[11px] text-muted-foreground">{t('roles.maskHint')}</p>
           <ToggleList
-            options={Object.values(fieldCatalog)
-              .flatMap((group) => group.fields)
-              .map((field) => ({
-                value: field.key,
-                label: field.label,
-                hint: field.key,
-                // Shown and disabled WITH the reason, never omitted: an operator
-                // hunting for "why can I not hide the status column" — or "why
-                // can I not un-hide the email" — needs the answer where they
-                // are looking.
-                disabledReason: !field.maskable
-                  ? field.reason
-                  : ownMask.includes(field.key)
-                    ? t('roles.maskLockedOwn')
-                    : undefined,
-              }))}
+            options={maskableFields(fieldCatalog).map((field) => ({
+              value: field.key,
+              label: field.label,
+              hint: field.key,
+              // A field the editor's own role hides stays disabled with the
+              // reason: they cannot grant sight they do not have (D-82).
+              disabledReason: ownMask.includes(field.key) ? t('roles.maskLockedOwn') : undefined,
+            }))}
             selected={maskedFields}
             onToggle={(key) =>
               setMaskedFields((prev) =>

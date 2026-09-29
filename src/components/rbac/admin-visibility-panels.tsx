@@ -12,6 +12,7 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+import { maskableFields } from '@/lib/masking';
 
 /**
  * RBAC-03's configuration surface on one administrator: which CLIENTS they see.
@@ -256,16 +257,11 @@ export function AdminFieldMaskPanel({
   inheriting: boolean;
   onResetToRole: () => void;
 }) {
-  const fields = Object.values(catalog).flatMap((group) => group.fields);
-
-  const options: ToggleListOption[] = fields.map((field) => ({
+  // Only what can be hidden (`maskableFields`): unmaskable fields are left out.
+  const options: ToggleListOption[] = maskableFields(catalog).map((field) => ({
     value: field.key,
     label: field.label,
     hint: field.key,
-    // Unmaskable fields are SHOWN and disabled WITH THEIR REASON, not omitted.
-    // An operator hunting for "why can I not hide the status column" needs the
-    // answer where they are looking, not absence.
-    disabledReason: field.maskable ? undefined : field.reason,
   }));
 
   return (
