@@ -113,9 +113,12 @@ export function transactionColumns({
             `manual_admin` is the one provider a screen may recognise by name
             (see MANUAL_ADMIN_PROVIDER): such a row went through no payment
             method, so its fallback is a machine key nobody should read.
+            No raw `provider` on hover: it spells the method's key, which the
+            console never shows (backend 0161); the CSV's Provider column
+            carries it for reconciliation.
           */}
           {row.kind === 'payment' && (
-            <span className="text-xs text-muted-foreground" title={row.provider}>
+            <span className="text-xs text-muted-foreground">
               {row.methodName === MANUAL_ADMIN_PROVIDER
                 ? t('financial.methodManualCredit')
                 : row.methodName}

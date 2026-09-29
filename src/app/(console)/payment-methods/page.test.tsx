@@ -61,7 +61,11 @@ const method = (over: Partial<PaymentMethod> = {}): PaymentMethod => ({
   requiresProof: false,
   minAmount: '10.00000000',
   maxAmount: '250000.00000000',
+  builtIn: false,
+  inUse: false,
   ...over,
+  // A row's internal name starts as its display name, as the API's does.
+  internalLabel: over.internalLabel ?? over.name ?? 'External',
 });
 
 beforeEach(() => {
@@ -129,5 +133,38 @@ describe('marking a payment method as paid outside the platform', () => {
     // Otherwise an operator opening the form sees it unticked, saves something
     // unrelated, and silently turns the flag off.
     expect(await screen.findByRole('checkbox')).toBeChecked();
+  });
+});
+
+describe('the internal name stands in for the key (0161)', () => {
+  it('SENDS the internal name the admin typed, and never a key', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PaymentMethodsPage />);
+    await screen.findByText('External');
+    await user.click(screen.getByRole('button', { name: /external/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+
+    const label = await screen.findByRole('textbox', { name: /internal name/i });
+    await user.clear(label);
+    await user.type(label, 'OMT Hamra');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(updatePaymentMethod).toHaveBeenCalledWith(
+        'external',
+        expect.objectContaining({ internalLabel: 'OMT Hamra', name: 'External' }),
+      ),
+    );
+    expect(updatePaymentMethod.mock.calls[0]?.[1]).not.toHaveProperty('key');
+  });
+
+  it('lists the internal name with what clients see, and never shows the key', async () => {
+    getPaymentMethods.mockResolvedValue([
+      method({ key: 'pm_7k2m9x4q1a', internalLabel: 'OMT Hamra', name: 'OMT' }),
+    ]);
+    renderWithProviders(<PaymentMethodsPage />);
+    expect(await screen.findByText('OMT Hamra')).toBeInTheDocument();
+    expect(screen.getByText('Clients see “OMT”')).toBeInTheDocument();
+    expect(screen.queryByText(/pm_7k2m9x4q1a/)).not.toBeInTheDocument();
   });
 });

@@ -1770,12 +1770,16 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a payment method that was never used
+         * @description Only a method NO transaction references (a typo, a test row) — 409 otherwise: its deposits must keep naming it, so disable it instead. A gateway method is never deleted.
+         */
+        delete: operations["AdminPaymentMethodsController_remove"];
         options?: never;
         head?: never;
         /**
          * Update a payment method
-         * @description PATCH, and `key` itself is not editable: it is the primary key and `transactions.method_key` references it, so renaming is a data migration rather than an edit.
+         * @description PATCH. `key` is permanent (0161): transactions reference it and code dispatches on it. The desk renames a method with `internalLabel`, which every admin screen and export shows instead of `name`; clients keep seeing `name`.
          */
         patch: operations["AdminPaymentMethodsController_update"];
         trace?: never;
@@ -1831,12 +1835,16 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a withdrawal method that was never used
+         * @description Only a method NO withdrawal references — 409 otherwise; disable it instead. `whish` is never deleted.
+         */
+        delete: operations["AdminWithdrawalMethodsController_remove"];
         options?: never;
         head?: never;
         /**
          * Update a withdrawal method
-         * @description PATCH, and `key` itself is not editable: it is the primary key and withdrawal requests reference it. Disabling hides the method from new requests and leaves existing ones for the desk to settle.
+         * @description PATCH. `key` is permanent (0161); the desk renames a rail with `internalLabel`, shown on every admin screen instead of `name`. Disabling hides the method from new requests and leaves existing ones for the desk to settle.
          */
         patch: operations["AdminWithdrawalMethodsController_update"];
         trace?: never;
@@ -5859,11 +5867,54 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
-        CreatePaymentMethodDto: {
-            /** @example whish */
+        AdminPaymentMethodDto: {
+            /**
+             * @description A stable machine key. Never renamed.
+             * @example whish
+             */
             key: string;
             /** @example Whish Money */
             name: string;
+            /** @example USD */
+            currency: string;
+            logoUrl: string | null;
+            /**
+             * @description The smallest deposit this method accepts, RESOLVED SERVER-SIDE from the platform limits (§12.4). The same figure `POST /payments/deposits` enforces, so a client showing it cannot promise a floor the validator disagrees with. A decimal string, never a number (§6.1).
+             * @example 10.00000000
+             */
+            minAmount: string;
+            /**
+             * @description The largest deposit this method accepts. Same source and same guarantee as above.
+             * @example 5000.00000000
+             */
+            maxAmount: string;
+            enabled: boolean;
+            sortOrder: number;
+            /** @description The client must attach a receipt: this method is paid outside the platform and an operator approves it by hand. The portal reads this to decide whether to ask for one, rather than branching on the method key. */
+            requiresProof: boolean;
+            /**
+             * @description What the desk calls the method (admin-only, unique). The console shows it in place of the key.
+             * @example OMT – Hamra branch
+             */
+            internalLabel: string;
+            /** @description The platform’s code depends on this method (a payment gateway), so it cannot be deleted. */
+            builtIn: boolean;
+            /** @description A transaction references this method. Such a method cannot be deleted — disable it. */
+            inUse: boolean;
+        };
+        CreatePaymentMethodDto: {
+            /**
+             * @description The permanent ID. Omit it — the platform generates one (`pm_…`) and the console never shows it. Given only to create a row the CODE dispatches on (a gateway such as whish).
+             * @example whish
+             */
+            key?: string;
+            /** @example Whish Money */
+            name: string;
+            /**
+             * @description What the DESK calls the method — shown, typed and renamed in the console in place of the key, and on every admin screen, export and bell. Unique (case-insensitive). Never sent to a client. Omitted, it starts as `name`.
+             * @example OMT – Hamra branch
+             */
+            internalLabel?: string;
             /** @example USD */
             currency: string;
             /** @example /v1/uploads/payment-logos/8f2c….png */
@@ -5877,6 +5928,11 @@ export interface components {
         };
         UpdatePaymentMethodDto: {
             name?: string;
+            /**
+             * @description Renames the method for the desk: one row, and every admin screen, export and bell follows at once. Unique (case-insensitive), never blank, never sent to a client.
+             * @example OMT – Hamra branch
+             */
+            internalLabel?: string;
             currency?: string;
             /** @example /v1/uploads/payment-logos/8f2c….png */
             logoUrl?: string;
@@ -5884,6 +5940,12 @@ export interface components {
             sortOrder?: number;
             /** @description OFFLINE: the client pays outside the platform and must attach a receipt. Such a deposit is filed through POST /payments/deposits/offline and settles when an operator approves it — the JSON deposit route refuses the method. Cannot be combined with a gateway key. */
             requiresProof?: boolean;
+        };
+        DeletedMethodDto: {
+            /** @example typo_method */
+            key: string;
+            /** @example true */
+            deleted: boolean;
         };
         PaymentLogoResponseDto: {
             /**
@@ -5911,16 +5973,33 @@ export interface components {
              * @example 0
              */
             sortOrder: number;
+            /**
+             * @description What the desk calls the rail (admin-only, unique). The console shows it in place of the key.
+             * @example Whish payouts
+             */
+            internalLabel: string;
+            /** @description The platform’s code depends on this rail (`whish`, the Rival payouts). */
+            builtIn: boolean;
+            /** @description A withdrawal references this method. Such a method cannot be deleted. */
+            inUse: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
         };
         CreateWithdrawalMethodDto: {
-            /** @example bank_transfer */
-            key: string;
+            /**
+             * @description The permanent ID. Omit it — the platform generates one (`wm_…`) and the console never shows it. Given only to create a rail the CODE matches on (whish).
+             * @example whish
+             */
+            key?: string;
             /** @example Bank transfer */
             name: string;
+            /**
+             * @description What the DESK calls the method — shown, typed and renamed in the console in place of the key, and on every admin screen, export and bell. Unique (case-insensitive). Never sent to a client. Omitted, it starts as `name`.
+             * @example OMT – Hamra branch
+             */
+            internalLabel?: string;
             /** @example /v1/uploads/payment-logos/8f2c….png */
             logoUrl?: string;
             /** @default true */
@@ -5929,6 +6008,11 @@ export interface components {
             sortOrder?: number;
         };
         UpdateWithdrawalMethodDto: {
+            /**
+             * @description Renames the method for the desk: one row, and every admin screen, export and bell follows at once. Unique (case-insensitive), never blank, never sent to a client.
+             * @example OMT – Hamra branch
+             */
+            internalLabel?: string;
             name?: string;
             /** @example /v1/uploads/payment-logos/8f2c….png */
             logoUrl?: string;
@@ -11143,7 +11227,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaymentMethodDto"][];
+                    "application/json": components["schemas"]["AdminPaymentMethodDto"][];
                 };
             };
         };
@@ -11166,7 +11250,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaymentMethodDto"];
+                    "application/json": components["schemas"]["AdminPaymentMethodDto"];
                 };
             };
         };
@@ -11193,6 +11277,27 @@ export interface operations {
             };
         };
     };
+    AdminPaymentMethodsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedMethodDto"];
+                };
+            };
+        };
+    };
     AdminPaymentMethodsController_update: {
         parameters: {
             query?: never;
@@ -11213,7 +11318,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaymentMethodDto"];
+                    "application/json": components["schemas"]["AdminPaymentMethodDto"];
                 };
             };
         };
@@ -11275,6 +11380,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminWithdrawalMethodDto"];
+                };
+            };
+        };
+    };
+    AdminWithdrawalMethodsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedMethodDto"];
                 };
             };
         };

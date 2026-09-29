@@ -291,7 +291,8 @@ export type WalletDiscrepancy = components['schemas']['WalletDiscrepancyDto'];
 export type ApiKey = components['schemas']['ApiKeyDto'];
 /** The create response — the ONLY moment `plaintext` is ever populated. */
 export type IssuedApiKey = components['schemas']['IssuedApiKeyDto'];
-export type PaymentMethod = components['schemas']['PaymentMethodDto'];
+/** The console's shape: the method plus `keyRenamable` and `inUse`. */
+export type PaymentMethod = components['schemas']['AdminPaymentMethodDto'];
 export type CreatePaymentMethod = components['schemas']['CreatePaymentMethodDto'];
 export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'];
 /**
@@ -2453,22 +2454,25 @@ export const adminApi = {
   },
 
   async updatePaymentMethod(key: string, body: UpdatePaymentMethod): Promise<PaymentMethod> {
-    const { data } = await apiClient.patch<PaymentMethod>(`/admin/payment-methods/${key}`, body);
+    const { data } = await apiClient.patch<PaymentMethod>(
+      `/admin/payment-methods/${encodeURIComponent(key)}`,
+      body,
+    );
     return data;
   },
 
-  /*
-   * `deletePaymentMethod` is GONE, along with the endpoint behind it.
-   *
-   * `transactions.method_key` is a RESTRICT foreign key, so deleting only ever
-   * succeeded for a method nobody had used and threw a conflict on every method
-   * that mattered — a control whose working case was the uninteresting one.
-   *
-   * Disabling is what it was reached for: `updatePaymentMethod(key, { enabled:
-   * false })` removes the method from the client portal immediately and the API
-   * refuses new deposits through it, while every historical transaction keeps a
-   * readable method name instead of pointing at a row that no longer exists.
+  /**
+   * Deletes a method NO transaction references (a typo, a test row). The API
+   * answers 409 for one that was used — its deposits must keep naming it, so it
+   * is disabled instead — and for the gateway method.
    */
+  async deletePaymentMethod(key: string): Promise<void> {
+    await apiClient.delete(`/admin/payment-methods/${encodeURIComponent(key)}`);
+  },
+
+  async deleteWithdrawalMethod(key: string): Promise<void> {
+    await apiClient.delete(`/admin/withdrawal-methods/${encodeURIComponent(key)}`);
+  },
 
   async getRejectionReasons(context: RejectionContext): Promise<RejectionReason[]> {
     const { data } = await apiClient.get<RejectionReason[]>(

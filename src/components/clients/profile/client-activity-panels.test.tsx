@@ -128,7 +128,7 @@ describe("the History tab's method column (owner, 26 Sep 2026)", () => {
     ).toBe('Bank wire');
   });
 
-  it('shows the label in the table, with the raw provider only on hover', async () => {
+  it('shows the label in the table, and the raw provider nowhere', async () => {
     getClientTransactions.mockResolvedValue({
       rows: [
         {
@@ -151,8 +151,10 @@ describe("the History tab's method column (owner, 26 Sep 2026)", () => {
     });
     renderWithProviders(<ClientTransactionsPanel userId="client-1" />);
 
+    // Not even on hover: a provider spells a method's key, which the console
+    // never shows (backend 0161).
     const cell = await screen.findByText('Manual credit');
-    expect(cell).toHaveAttribute('title', 'manual_admin');
+    expect(cell).not.toHaveAttribute('title');
     expect(screen.queryByText('manual_admin')).toBeNull();
   });
 });
