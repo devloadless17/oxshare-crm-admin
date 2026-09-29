@@ -66,6 +66,7 @@ const method = (over: Partial<PaymentMethod> = {}): PaymentMethod => ({
   ownMaxAmount: null,
   builtIn: false,
   inUse: false,
+  proofFields: [],
   ...over,
   // A row's internal name starts as its display name, as the API's does.
   internalLabel: over.internalLabel ?? over.name ?? 'External',
@@ -169,5 +170,48 @@ describe('the internal name stands in for the key (0161)', () => {
     expect(await screen.findByText('OMT Hamra')).toBeInTheDocument();
     expect(screen.getByText('Clients see “OMT”')).toBeInTheDocument();
     expect(screen.queryByText(/pm_7k2m9x4q1a/)).not.toBeInTheDocument();
+  });
+});
+
+describe('the details an offline method asks for (backend 0163)', () => {
+  it('SENDS the details the admin set up — named, required and shown', async () => {
+    getPaymentMethods.mockResolvedValue([method({ requiresProof: true })]);
+    const user = userEvent.setup();
+    renderWithProviders(<PaymentMethodsPage />);
+    await screen.findByText('External');
+    await user.click(screen.getByRole('button', { name: /external/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+
+    await user.click(await screen.findByRole('button', { name: /add a detail/i }));
+    await user.type(screen.getByRole('textbox', { name: /detail name/i }), 'Transfer code');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    // In the payload, or the save answers 200 and asks clients nothing.
+    await waitFor(() =>
+      expect(updatePaymentMethod).toHaveBeenCalledWith(
+        'external',
+        expect.objectContaining({
+          proofFields: [
+            expect.objectContaining({
+              id: expect.stringMatching(/^f_[0-9a-z]{10}$/),
+              label: 'Transfer code',
+              type: 'text',
+              required: true,
+              enabled: true,
+            }),
+          ],
+        }),
+      ),
+    );
+  });
+
+  it('asks nothing of a method that takes payment through a hosted page', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PaymentMethodsPage />);
+    await screen.findByText('External');
+    await user.click(screen.getByRole('button', { name: /external/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+    await screen.findByRole('checkbox', { name: /paid outside the platform/i });
+    expect(screen.queryByRole('button', { name: /add a detail/i })).toBeNull();
   });
 });

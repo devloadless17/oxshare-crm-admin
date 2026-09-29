@@ -17,6 +17,7 @@ import { QueueToolbar } from '@/components/queue-toolbar';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { DepositReceiptCell } from '@/components/deposits/deposit-receipt-cell';
+import { DepositDetailsCell } from '@/components/deposits/deposit-details-cell';
 import { DepositRejectDialog } from '@/components/deposits/deposit-reject-dialog';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
@@ -212,6 +213,12 @@ function DepositApprovalsContent() {
       sortable: false,
       cell: (row) => <span data-external-ref="">{row.providerRef ?? '—'}</span>,
       cellClassName: 'font-mono text-xs whitespace-nowrap',
+    },
+    {
+      // What identifies the payment, as the client gave it (backend 0163).
+      header: t('deposits.colDetails'),
+      sortable: false,
+      cell: (row) => <DepositDetailsCell details={row.proofDetails} />,
     },
     {
       header: t('deposits.colReceipt'),

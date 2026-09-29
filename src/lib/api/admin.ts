@@ -294,6 +294,10 @@ export type ApiKey = components['schemas']['ApiKeyDto'];
 export type IssuedApiKey = components['schemas']['IssuedApiKeyDto'];
 /** The console's shape: the method plus `keyRenamable` and `inUse`. */
 export type PaymentMethod = components['schemas']['AdminPaymentMethodDto'];
+/** One detail an offline method asks the client for — hidden ones included (backend 0163). */
+export type PaymentMethodProofField = components['schemas']['ProofFieldDto'];
+/** One answer a client filed with an offline deposit, with the question as asked. */
+export type ProofDetail = components['schemas']['ProofDetailDto'];
 export type CreatePaymentMethod = components['schemas']['CreatePaymentMethodDto'];
 export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'];
 /**

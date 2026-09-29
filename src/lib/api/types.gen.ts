@@ -5769,6 +5769,23 @@ export interface components {
             enabled?: boolean;
             sortOrder?: number;
         };
+        AskedProofFieldDto: {
+            /**
+             * @description Answers are keyed by it.
+             * @example f_k3m9x2q7ab
+             */
+            id: string;
+            /** @example Phone number you sent from */
+            label: string;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            required: boolean;
+            /** @example The number on your OMT slip. */
+            hint: string | null;
+        };
         PaymentMethodDto: {
             /**
              * @description A stable machine key. Never renamed.
@@ -5794,6 +5811,8 @@ export interface components {
             sortOrder: number;
             /** @description The client must attach a receipt: this method is paid outside the platform and an operator approves it by hand. The portal reads this to decide whether to ask for one, rather than branching on the method key. */
             requiresProof: boolean;
+            /** @description What the client must also give with the receipt, in order — only the fields shown to clients, and only for a method paid outside the platform. Answer them as `details[<id>]` parts of POST /payments/deposits/offline. */
+            proofFields: components["schemas"]["AskedProofFieldDto"][];
         };
         RequestDepositDto: {
             /** @example 500.00000000 */
@@ -5872,6 +5891,25 @@ export interface components {
              */
             methodKey: string;
         };
+        ProofDetailDto: {
+            /** @example f_k3m9x2q7ab */
+            fieldId: string;
+            /**
+             * @description The question as asked.
+             * @example Phone number you sent from
+             */
+            label: string;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            /**
+             * @description A phone is E.164.
+             * @example +96170123456
+             */
+            value: string;
+        };
         TransactionDto: {
             id: string;
             userId: number;
@@ -5900,6 +5938,7 @@ export interface components {
             rivalExternalId?: string | null;
             destination?: string | null;
             proofFilename?: string | null;
+            proofDetails?: components["schemas"]["ProofDetailDto"][] | null;
             rejectionReason?: string | null;
             reviewedBy?: string | null;
             /** Format: date-time */
@@ -5977,6 +6016,25 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        ProofFieldDto: {
+            /**
+             * @description Answers are keyed by it.
+             * @example f_k3m9x2q7ab
+             */
+            id: string;
+            /** @example Phone number you sent from */
+            label: string;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            required: boolean;
+            /** @example The number on your OMT slip. */
+            hint: string | null;
+            /** @description Shown to clients. A hidden field is kept but never asked. */
+            enabled: boolean;
+        };
         AdminPaymentMethodDto: {
             /**
              * @description A stable machine key. Never renamed.
@@ -6002,6 +6060,8 @@ export interface components {
             sortOrder: number;
             /** @description The client must attach a receipt: this method is paid outside the platform and an operator approves it by hand. The portal reads this to decide whether to ask for one, rather than branching on the method key. */
             requiresProof: boolean;
+            /** @description Every detail the method asks for, hidden ones included. The details an OFFLINE method asks the client for with the receipt — e.g. the phone the money was sent from, or a transfer code. Ordered; the whole list is replaced on save. Asked only while `requiresProof` is true. */
+            proofFields: components["schemas"]["ProofFieldDto"][];
             /** @description The method's own minimum as the operator set it — null means the currency's. `minAmount` is what clients are actually held to. */
             ownMinAmount: string | null;
             /** @description The method's own maximum as the operator set it — null means the currency's. `maxAmount` is what clients are actually held to. */
@@ -6015,6 +6075,21 @@ export interface components {
             builtIn: boolean;
             /** @description A transaction references this method. Such a method cannot be deleted — disable it. */
             inUse: boolean;
+        };
+        ProofFieldInputDto: {
+            /**
+             * @description Permanent; generated by the console.
+             * @example f_k3m9x2q7ab
+             */
+            id: string;
+            /** @example Phone number you sent from */
+            label: string;
+            /** @enum {string} */
+            type: "text" | "phone";
+            required: boolean;
+            /** @description Shown to clients. */
+            enabled: boolean;
+            hint?: string | null;
         };
         CreatePaymentMethodDto: {
             /**
@@ -6049,6 +6124,8 @@ export interface components {
             sortOrder?: number;
             /** @description OFFLINE: the client pays outside the platform and must attach a receipt. Such a deposit is filed through POST /payments/deposits/offline and settles when an operator approves it — the JSON deposit route refuses the method. Cannot be combined with a gateway key. */
             requiresProof?: boolean;
+            /** @description The details an OFFLINE method asks the client for with the receipt — e.g. the phone the money was sent from, or a transfer code. Ordered; the whole list is replaced on save. Asked only while `requiresProof` is true. */
+            proofFields?: components["schemas"]["ProofFieldInputDto"][];
         };
         UpdatePaymentMethodDto: {
             name?: string;
@@ -6074,6 +6151,8 @@ export interface components {
              * @example 5000
              */
             ownMaxAmount?: string | null;
+            /** @description The details an OFFLINE method asks the client for with the receipt — e.g. the phone the money was sent from, or a transfer code. Ordered; the whole list is replaced on save. Asked only while `requiresProof` is true. */
+            proofFields?: components["schemas"]["ProofFieldInputDto"][];
         };
         DeletedMethodDto: {
             /** @example typo_method */
@@ -8629,6 +8708,8 @@ export interface components {
             tradingAccountId?: string | null;
             /** @description The RECEIPT on an offline deposit — the stored filename, served from GET /v1/uploads/deposit-proofs/<file>. Null on every other movement. On the list so the deposit desk can show the image beside the row it decides on, rather than fetching one per row. */
             proofFilename?: string | null;
+            /** @description What the client gave with an OFFLINE deposit to identify the payment — the phone it was sent from, a transfer code — each with the question as asked (0163). Null otherwise. Never masked: it is the proof the desk approves the deposit on, like the receipt. */
+            proofDetails?: components["schemas"]["ProofDetailDto"][] | null;
             walletId: string;
             /** Format: date-time */
             createdAt: string;
@@ -11230,6 +11311,10 @@ export interface operations {
                     method: string;
                     /** Format: uuid */
                     destinationTradingAccountId?: string;
+                    /** @description Answers to the method's `proofFields`, as `details[<fieldId>]` parts — e.g. the phone the money was sent from. Refused per field as `details.<fieldId>`. */
+                    details?: {
+                        [key: string]: string;
+                    };
                 };
             };
         };

@@ -81,6 +81,15 @@ export default function PaymentMethodsPage() {
         // The method's own range (0162) — null clears it back to the currency's.
         ownMinAmount: values.ownMinAmount,
         ownMaxAmount: values.ownMaxAmount,
+        // The details an offline method asks for — the whole list, in order.
+        proofFields: values.proofFields.map((field) => ({
+          id: field.id,
+          label: field.label,
+          type: field.type,
+          required: field.required,
+          enabled: field.enabled,
+          hint: field.hint,
+        })),
       };
 
       // No key is ever sent: the API generates a new method's permanent ID, and
