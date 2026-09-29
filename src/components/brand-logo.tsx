@@ -54,10 +54,18 @@ const VIEWBOX = {
   mark: '12.46 47.54 115.80 104.92',
 } as const;
 
-/** Intrinsic size, so no engine has to infer one: 28px tall, as rendered. */
+/**
+ * THE logo height, everywhere — 44px (the owner's call, 29 Sep 2026). It was drawn at six
+ * heights across the two apps (28px on the portal's sign-in, 48px on the console's), each
+ * call site choosing its own; now the component owns it and callers pass layout classes
+ * only. `brand-logo-census.test.ts` fails on a call site that sets a height again.
+ */
+export const BRAND_LOGO_HEIGHT_PX = 44;
+
+/** Intrinsic size, so no engine has to infer one — the same 44px it renders at. */
 const INTRINSIC = {
-  wordmark: { width: 76, height: 28 },
-  mark: { width: 31, height: 28 },
+  wordmark: { width: 119, height: BRAND_LOGO_HEIGHT_PX },
+  mark: { width: 49, height: BRAND_LOGO_HEIGHT_PX },
 } as const;
 
 export function BrandLogo({
@@ -75,6 +83,7 @@ export function BrandLogo({
   tone?: 'auto' | 'onDark';
   /** The accessible name. Omit when the logo sits inside an already-named link. */
   title?: string;
+  /** Layout only (`shrink-0`, margins) — never a height; the size is fixed above. */
   className?: string;
 }) {
   const word = tone === 'onDark' ? 'text-white' : 'text-[#1D1E1D] dark:text-white';
@@ -85,7 +94,7 @@ export function BrandLogo({
       width={INTRINSIC[variant].width}
       height={INTRINSIC[variant].height}
       fill="none"
-      className={`${word} ${className ?? ''}`.trim()}
+      className={`h-11 w-auto ${word} ${className ?? ''}`.trim()}
       {...(title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true })}
       focusable="false"
     >

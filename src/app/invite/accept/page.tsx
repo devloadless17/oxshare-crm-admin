@@ -192,7 +192,7 @@ function AcceptInviteContent() {
             (brand-logo.tsx); its title makes the heading read "OXShare Admin".
           */}
           <h1 className="flex flex-col items-center gap-2">
-            <BrandLogo title={t('app.name')} className="h-12 w-auto" />
+            <BrandLogo title={t('app.name')} />
             <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {t('app.adminSuffix')}
             </span>
