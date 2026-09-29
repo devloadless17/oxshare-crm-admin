@@ -1,23 +1,22 @@
 'use client';
 
-import { FileText } from 'lucide-react';
+import * as React from 'react';
+import { History } from 'lucide-react';
 import api from '@/lib/api';
-import type { ClientIdentityRecord } from '@/lib/api/admin';
-import type { ClientRef } from '@/lib/api/admin';
+import type { ClientIdentityRecord, ClientRef } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { Badge } from '@/components/ui/badge';
-import { buildKycDocUrl } from '@/lib/kyc-doc-url';
+import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { keys } from '@/lib/query-keys';
 import { t } from '@/lib/i18n';
 import type { MessageKey } from '@/lib/i18n/messages';
 
-type DocumentSlot = NonNullable<ClientIdentityRecord['documents']>[number];
-type Version = DocumentSlot['versions'][number];
 type Decision = NonNullable<ClientIdentityRecord['verifications']>[number];
 
 const STATUS: Record<
-  Version['status'],
+  Decision['outcome'] | 'draft' | 'awaiting_review',
   { key: MessageKey; variant: 'default' | 'success' | 'warning' | 'destructive' }
 > = {
   draft: { key: 'clientProfile.identityStatusDraft', variant: 'default' },
@@ -28,23 +27,42 @@ const STATUS: Record<
 };
 
 /**
- * The client's IDENTITY RECORD on their page (identity-core plan, slice 8):
- * every document and selfie they presented or are preparing — each version
- * with its status as the verification log decides it — and every decision.
+ * The client's VERIFICATION HISTORY — every decision on their identity, who
+ * made it, and what it returned — behind a button in the Documents tab.
  *
- * Pages are LINKS, never inline images, as the list this replaces was: each
- * open goes through GET /uploads/kyc/:file, which checks the reader and writes
- * the access row. Rendering thumbnails for every version would write "viewed"
- * rows for documents nobody looked at.
+ * It was half of the Overview's identity-record card, beside the documents. The
+ * owner moved the documents to their own tab (29 Sep 2026) and the card went
+ * with them; the decision log is the part no other screen on the profile
+ * shows, so it moved rather than went. Asked for only when opened.
  *
- * Each half is present only for a reader the API lets see it; an absent half
- * says so rather than showing an empty list that reads as "none".
+ * `verifications` is absent without kyc.view, and the dialog says so rather
+ * than showing an empty list that reads as "never decided".
  */
-export function ClientIdentityPanel({ clientId }: { clientId: ClientRef }) {
+export function VerificationHistoryButton({ clientId }: { clientId: ClientRef }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <History className="h-3.5 w-3.5" aria-hidden="true" />
+        {t('clientProfile.sectionVerifications')}
+      </Button>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        labelledBy="verification-history-title"
+        title={t('clientProfile.sectionVerifications')}
+      >
+        {open && <VerificationLog clientId={clientId} />}
+      </Modal>
+    </>
+  );
+}
+
+function VerificationLog({ clientId }: { clientId: ClientRef }) {
   const query = useResource<ClientIdentityRecord>(keys.clients.identity(clientId), (signal) =>
     api.admin.getClientIdentity(clientId, signal),
   );
-
+  const decisions = query.data?.verifications;
   return (
     <AsyncBoundary
       status={query.status}
@@ -54,124 +72,20 @@ export function ClientIdentityPanel({ clientId }: { clientId: ClientRef }) {
       errorMessage={t('clientProfile.identityLoadFailed')}
       error={query.error}
     >
-      {query.data && <IdentityRecord record={query.data} />}
+      {decisions === undefined ? (
+        <p className="text-xs text-muted-foreground">{t('clientProfile.verificationsHidden')}</p>
+      ) : decisions.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t('clientProfile.noVerifications')}</p>
+      ) : (
+        <ol className="space-y-2">
+          {decisions.map((decision) => (
+            <DecisionView key={decision.seq} decision={decision} />
+          ))}
+        </ol>
+      )}
     </AsyncBoundary>
   );
 }
-
-function IdentityRecord({ record }: { record: ClientIdentityRecord }) {
-  return (
-    <div className="space-y-6">
-      <section aria-labelledby="identity-documents">
-        <h3 id="identity-documents" className="mb-2 text-sm font-semibold">
-          {t('clientProfile.sectionDocuments')}
-        </h3>
-        {record.documents === undefined ? (
-          <p className="text-xs text-muted-foreground">{t('clientProfile.documentsHidden')}</p>
-        ) : record.documents.length === 0 ? (
-          <p className="text-xs text-muted-foreground">{t('clientProfile.noDocuments')}</p>
-        ) : (
-          <ul className="space-y-3">
-            {record.documents.map((slot) => (
-              <DocumentSlotView key={slot.slot} slot={slot} />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="identity-verifications">
-        <h3 id="identity-verifications" className="mb-2 text-sm font-semibold">
-          {t('clientProfile.sectionVerifications')}
-        </h3>
-        {record.verifications === undefined ? (
-          <p className="text-xs text-muted-foreground">{t('clientProfile.verificationsHidden')}</p>
-        ) : record.verifications.length === 0 ? (
-          <p className="text-xs text-muted-foreground">{t('clientProfile.noVerifications')}</p>
-        ) : (
-          <ol className="space-y-2">
-            {record.verifications.map((decision) => (
-              <DecisionView key={decision.seq} decision={decision} />
-            ))}
-          </ol>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function DocumentSlotView({ slot }: { slot: DocumentSlot }) {
-  const [latest, ...earlier] = slot.versions;
-  return (
-    <li className="rounded-lg border border-border p-3">
-      <p className="mb-1 text-xs font-medium text-muted-foreground">{slot.label}</p>
-      {latest && <VersionView version={latest} />}
-      {earlier.length > 0 && (
-        <details className="mt-2">
-          <summary className="cursor-pointer text-xs text-link focus-outline">
-            {t('clientProfile.identityEarlier', { count: earlier.length })}
-          </summary>
-          <ul className="mt-2 space-y-2 border-l border-border pl-3">
-            {earlier.map((version) => (
-              <li key={version.id}>
-                <VersionView version={version} />
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-    </li>
-  );
-}
-
-function VersionView({ version }: { version: Version }) {
-  const status = STATUS[version.status];
-  // A broker's upload has one page, and its returned item is the question's key.
-  const isReturned = (part: number) =>
-    version.returnedPages.some((id) => (PAGE_PART[id] ?? 0) === part);
-  return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        {version.docLabel && <span className="font-medium">{version.docLabel}</span>}
-        <Badge variant={status.variant}>{t(status.key)}</Badge>
-        <span className="text-muted-foreground">
-          {version.presentedAt
-            ? t('clientProfile.identityPresented', {
-                date: new Date(version.presentedAt).toLocaleString(),
-              })
-            : t('clientProfile.identityDraft')}
-        </span>
-      </div>
-      {version.pages.length > 0 && (
-        <ul className="flex flex-wrap gap-x-4 gap-y-1">
-          {version.pages.map((page) => (
-            <li key={page.part}>
-              <a
-                href={buildKycDocUrl(page.path)}
-                target="_blank"
-                rel="noreferrer"
-                className={`inline-flex items-center gap-1.5 text-xs hover:underline focus-outline ${
-                  isReturned(page.part) ? 'text-destructive' : 'text-link'
-                }`}
-              >
-                <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-                {page.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/** Which page a returned item names, for drawing it in red. */
-const PAGE_PART: Record<string, number> = {
-  doc_front: 0,
-  doc_back: 1,
-  address_proof: 0,
-  address_proof_2: 1,
-  selfie: 0,
-};
 
 function DecisionView({ decision }: { decision: Decision }) {
   const status = STATUS[decision.outcome];

@@ -2,11 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/render';
 import type { ClientClosedPositionRow } from '@/lib/api/admin';
-import {
-  ClientClosedPositionsPanel,
-  ClientTransactionsPanel,
-  transactionMethodLabel,
-} from './client-activity-panels';
+import { ClientClosedPositionsPanel } from './client-activity-panels';
+import { transactionMethodLabel } from './movement-labels';
 
 /**
  * The client profile's Positions tab: CLOSED positions only (owner, 26 Sep
@@ -16,14 +13,13 @@ import {
  * the position's side, both prices, MT5's commission and swap apart from the
  * realised result, and marks a demo account — and nothing about open trades.
  */
-const { getClientClosedPositions, getClientTransactions } = vi.hoisted(() => ({
+const { getClientClosedPositions } = vi.hoisted(() => ({
   getClientClosedPositions: vi.fn(),
-  getClientTransactions: vi.fn(),
 }));
 
 // Both exports — see the note in leverages/page.test.tsx.
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getClientClosedPositions, getClientTransactions } };
+  const api = { admin: { getClientClosedPositions } };
   return { api, default: api };
 });
 
@@ -108,7 +104,7 @@ describe('the closed positions table', () => {
   });
 });
 
-describe("the History tab's method column (owner, 26 Sep 2026)", () => {
+describe('a movement’s method, in words (owner, 26 Sep 2026)', () => {
   it('names the method, never its key', () => {
     expect(
       transactionMethodLabel({ methodName: 'Whish Money', methodKey: 'whish', provider: 'whish' }),
@@ -126,35 +122,5 @@ describe("the History tab's method column (owner, 26 Sep 2026)", () => {
     expect(
       transactionMethodLabel({ methodName: null, methodKey: null, provider: 'bank_wire' }),
     ).toBe('Bank wire');
-  });
-
-  it('shows the label in the table, and the raw provider nowhere', async () => {
-    getClientTransactions.mockResolvedValue({
-      rows: [
-        {
-          id: 't-1',
-          direction: 'deposit',
-          state: 'success',
-          amount: '10.00000000',
-          currency: 'USD',
-          methodKey: null,
-          methodName: null,
-          provider: 'manual_admin',
-          providerRef: 'ref-1',
-          createdAt: '2026-09-20T10:00:00.000Z',
-          settledAt: null,
-        },
-      ],
-      total: 1,
-      page: 1,
-      limit: 10,
-    });
-    renderWithProviders(<ClientTransactionsPanel userId="client-1" />);
-
-    // Not even on hover: a provider spells a method's key, which the console
-    // never shows (backend 0161).
-    const cell = await screen.findByText('Manual credit');
-    expect(cell).not.toHaveAttribute('title');
-    expect(screen.queryByText('manual_admin')).toBeNull();
   });
 });

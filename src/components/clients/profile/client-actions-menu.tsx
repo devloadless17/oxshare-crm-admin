@@ -92,7 +92,8 @@ export function ClientActionsMenu({
   const canSuspendClient = hasPermission(admin, 'clients.suspend');
   const canSuspendPartner = hasPermission(admin, 'ib.partners.suspend');
   const canAssignTags = hasPermission(admin, 'clients.tag');
-  const canReviewKyc = hasPermission(admin, 'kyc.review');
+  // The KYC page opens with either key (its route requirement), so the item does.
+  const canViewKyc = hasPermission(admin, 'kyc.view') || hasPermission(admin, 'kyc.review');
   const canViewCommissions =
     hasPermission(admin, 'ib.view') || hasPermission(admin, 'ib.commissions.view');
   const canViewAudit = hasPermission(admin, 'audit.view');
@@ -218,7 +219,7 @@ export function ClientActionsMenu({
       : []),
 
     // ── Compliance, as navigation rather than mutation ─────────────────────
-    ...(canReviewKyc
+    ...(canViewKyc
       ? [
           {
             label: t('clientProfile.actionOpenKyc'),

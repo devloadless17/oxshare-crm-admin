@@ -186,8 +186,6 @@ export type IbSubPartnerRow = components['schemas']['IbSubPartnerRowDto'];
 
 export type ClientClosedPositionsPage = components['schemas']['ClientClosedPositionsPageDto'];
 export type ClientClosedPositionRow = components['schemas']['ClientClosedPositionRowDto'];
-export type ClientTransactionsPage = components['schemas']['ClientTransactionsPageDto'];
-export type ClientTransactionRow = components['schemas']['ClientTransactionRowDto'];
 
 /**
  * The queue page. Hand-declared: the endpoint returns rows joined to their
@@ -259,6 +257,9 @@ export type ReconciliationReport = components['schemas']['ReconciliationReportDt
  * wallet ⇄ account transfers and commission transfers.
  */
 export type TransactionRow = components['schemas']['AdminTransactionRowDto'];
+/** The profile's Documents tab — KYC versions and deposit receipts, each with its status. */
+export type ClientDocument = components['schemas']['ClientDocumentDto'];
+export type ClientDocumentList = components['schemas']['ClientDocumentListDto'];
 /** What a deposit decision answers with — the row as it now stands. */
 export type DepositDecision = components['schemas']['DepositDecisionDto'];
 export type TransferRow = components['schemas']['TransferDto'];
@@ -2519,17 +2520,14 @@ export const adminApi = {
     return data;
   },
 
-  /** One client's money movements, all directions in one history. */
-  async getClientTransactions(
-    id: ClientRef,
-    params: { page?: number; limit?: number } = {},
-    signal?: AbortSignal,
-  ): Promise<ClientTransactionsPage> {
-    const query = new URLSearchParams();
-    if (params.page) query.set('page', String(params.page));
-    if (params.limit) query.set('limit', String(params.limit));
-    const { data } = await apiClient.get<ClientTransactionsPage>(
-      `/admin/clients/${id}/transactions?${query.toString()}`,
+  /**
+   * Every document a client handed the platform — KYC versions and deposit
+   * receipts — newest first, with the categories this reader may not see named
+   * in `hidden` (so "none" and "not yours to see" never read the same).
+   */
+  async getClientDocuments(clientId: ClientRef, signal?: AbortSignal): Promise<ClientDocumentList> {
+    const { data } = await apiClient.get<ClientDocumentList>(
+      `/admin/clients/${clientId}/documents`,
       { signal },
     );
     return data;

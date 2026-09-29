@@ -7,9 +7,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
   ArrowLeft,
+  ArrowLeftRight,
   CandlestickChart,
+  FileText,
   Handshake,
-  History,
+  LineChart,
   Network,
   User,
   Users,
@@ -35,12 +37,11 @@ import {
   EditClientProfileDialog,
 } from '@/components/clients/profile/client-edit-dialogs';
 import { ClientPartnerPanel } from '@/components/clients/profile/client-partner-panel';
-import { ClientIdentityPanel } from '@/components/clients/profile/client-identity-panel';
 import { useClientTagToggle } from '@/components/clients/profile/use-client-tag-toggle';
-import {
-  ClientClosedPositionsPanel,
-  ClientTransactionsPanel,
-} from '@/components/clients/profile/client-activity-panels';
+import { ClientClosedPositionsPanel } from '@/components/clients/profile/client-activity-panels';
+import { ClientAccountsPanel } from '@/components/clients/profile/client-accounts-panel';
+import { ClientTransactionsTab } from '@/components/clients/profile/client-transactions-tab';
+import { ClientDocumentsPanel } from '@/components/clients/profile/client-documents-panel';
 import { ClientNetworkTree } from '@/components/clients/profile/client-network-tree';
 import {
   RecordReferrerDialog,
@@ -96,7 +97,15 @@ const TAB_OVERVIEW = 'overview';
 const TAB_MONEY = 'money';
 const TAB_PARTNER = 'partner';
 const TAB_POSITIONS = 'positions';
-const TAB_HISTORY = 'history';
+/*
+ * The owner's three (29 Sep 2026): the client's MT5 ACCOUNTS beside their
+ * wallets; TRANSACTIONS — deposits, withdrawals and transfers as sub-tabs, each
+ * with filters, sorting and a Details view — which replaced History; and every
+ * DOCUMENT they handed over, KYC and deposit receipts alike, with its status.
+ */
+const TAB_ACCOUNTS = 'accounts';
+const TAB_TRANSACTIONS = 'transactions';
+const TAB_DOCUMENTS = 'documents';
 const TAB_NETWORK = 'network';
 // A partner's book in full (owner, 26 Sep 2026) — only for a partner, like the Partner tab.
 const TAB_REFERRED_CLIENTS = 'referred-clients';
@@ -109,8 +118,6 @@ export default function ClientProfilePage() {
   const queryClient = useQueryClient();
 
   const canViewKyc = hasPermission(admin, 'kyc.view') || hasPermission(admin, 'kyc.review');
-  const canViewDocs =
-    hasPermission(admin, 'kyc.documents.view') || hasPermission(admin, 'kyc.review');
   const canViewTrading = hasPermission(admin, 'trading.view');
   const canViewPartners = hasPermission(admin, 'ib.view');
   /*
@@ -120,7 +127,8 @@ export default function ClientProfilePage() {
    * hold the other.
    */
   const canRecordReferrer = hasPermission(admin, 'clients.referrer.set');
-  const canViewWallets = hasPermission(admin, 'wallets.view');
+  // The Financial list's key — the Transactions tab reads it, filtered to this client.
+  const canViewTransactions = hasPermission(admin, 'transactions.view');
   const canViewClients = hasPermission(admin, 'clients.view');
   const canAssignTags = hasPermission(admin, 'clients.tag');
 
@@ -246,8 +254,38 @@ export default function ClientProfilePage() {
       label: t('clientProfile.tabMoney'),
       icon: <Wallet className="h-3.5 w-3.5" />,
     },
+    // Beside Wallets: what the client holds on the MT5 side, and nobody else's.
+    ...(canViewTrading
+      ? [
+          {
+            value: TAB_ACCOUNTS,
+            label: t('clientProfile.tabAccounts'),
+            icon: <LineChart className="h-3.5 w-3.5" />,
+          },
+        ]
+      : []),
+    ...(canViewTransactions
+      ? [
+          {
+            value: TAB_TRANSACTIONS,
+            label: t('clientProfile.tabTransactions'),
+            icon: <ArrowLeftRight className="h-3.5 w-3.5" />,
+          },
+        ]
+      : []),
     /*
-     * Positions and History are shown for EVERY client type, partner or not.
+     * For every reader who may open the profile: the endpoint withholds each
+     * half (KYC, receipts) behind its own permission and SAYS which, so the tab
+     * never shows an empty list that means "hidden".
+     */
+    {
+      value: TAB_DOCUMENTS,
+      label: t('clientProfile.tabDocuments'),
+      icon: <FileText className="h-3.5 w-3.5" />,
+    },
+    /*
+     * Positions are shown for EVERY client type, partner or not — as are the
+     * Accounts, Transactions and Documents tabs above.
      * What a client traded and what moved through their balance are questions
      * asked of an individual as often as of a partner — gating them on type
      * would hide the answer precisely when somebody is investigating an
@@ -259,15 +297,6 @@ export default function ClientProfilePage() {
             value: TAB_POSITIONS,
             label: t('clientProfile.tabPositions'),
             icon: <Activity className="h-3.5 w-3.5" />,
-          },
-        ]
-      : []),
-    ...(canViewWallets
-      ? [
-          {
-            value: TAB_HISTORY,
-            label: t('clientProfile.tabHistory'),
-            icon: <History className="h-3.5 w-3.5" />,
           },
         ]
       : []),
@@ -384,9 +413,9 @@ export default function ClientProfilePage() {
                     {partner && !partner.active && (
                       <Badge variant="warning">{t('clientProfile.partnerSuspended')}</Badge>
                     )}
-                    {/* Tags join the chip row only when there are some. "None" and
-                        "hidden from you" are stated by the Tags card below; here
-                        they rendered as a lone dash trailing the badges. */}
+                    {/* The client's tags live HERE — the Tags card went (owner,
+                        29 Sep 2026): two or three chips do not need a card. Only
+                        when there are some; "Manage tags" is in the menu. */}
                     {profile.tags && profile.tags.length > 0 && (
                       <ClientTagChips tags={profile.tags} />
                     )}
@@ -412,9 +441,16 @@ export default function ClientProfilePage() {
             </div>
 
             <TabPanel value={TAB_OVERVIEW} activeValue={tab} idPrefix="client-profile">
-              <div className="grid gap-6 lg:grid-cols-2">
+              {/*
+                THE IDENTITY CARD ALONE (owner, 29 Sep 2026). The cards beside it
+                went: trading accounts and documents have their own tabs now, tags
+                ride the chip row in the header (a client carries two or three, not
+                a card's worth), and verification is a field here — with "View KYC"
+                in the actions menu, where the other ways off this page live.
+              */}
+              <div>
                 <ProfileCard title={t('clientProfile.sectionIdentity')}>
-                  <dl className="grid grid-cols-2 gap-4">
+                  <dl className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
                     <Field
                       label={t('clientProfile.fieldClientId')}
                       field="client.id"
@@ -485,6 +521,35 @@ export default function ClientProfilePage() {
                         ? t('clients.levelVerified')
                         : t('clients.levelUnverified')}
                     </Field>
+                    {/* Where the verification STANDS, beside the level it gave.
+                        `profile.kyc` is absent without kyc.view — then the field
+                        is too, rather than a dash that reads as "never applied". */}
+                    {canViewKyc && (
+                      <div>
+                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {t('clientProfile.fieldKycStatus')}
+                        </dt>
+                        <dd className="mt-1">
+                          {profile.kyc ? (
+                            <KycStatusBadge status={profile.kyc.status} />
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              {t('clientProfile.noKyc')}
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                    {canViewKyc && profile.kyc?.submittedAt && (
+                      <div>
+                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {t('clientProfile.fieldKycSubmitted')}
+                        </dt>
+                        <dd className="mt-0.5 text-sm">
+                          {new Date(profile.kyc.submittedAt).toLocaleDateString()}
+                        </dd>
+                      </div>
+                    )}
                     <Field
                       label={t('clients.colCreated')}
                       field="client.createdAt"
@@ -494,81 +559,6 @@ export default function ClientProfilePage() {
                     </Field>
                   </dl>
                 </ProfileCard>
-
-                <ProfileCard title={t('clientProfile.sectionTags')}>
-                  <ClientTagChips tags={profile.tags} />
-                </ProfileCard>
-
-                <ProfileCard
-                  title={t('clientProfile.sectionTrading')}
-                  hiddenReason={canViewTrading ? undefined : t('clientProfile.tradingHidden')}
-                >
-                  {profile.tradingAccounts && profile.tradingAccounts.length > 0 ? (
-                    <ul className="space-y-2">
-                      {profile.tradingAccounts.map((account) => (
-                        <li key={account.id} className="flex items-center justify-between gap-3">
-                          <span className="font-mono text-xs">
-                            {account.mt5Login ?? t('clientProfile.loginPending')}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {account.mt5Group ?? '—'} · {account.environment}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <EmptySection message={t('clientProfile.noTradingAccounts')} />
-                  )}
-                </ProfileCard>
-
-                <ProfileCard
-                  title={t('clientProfile.sectionKyc')}
-                  hiddenReason={canViewKyc ? undefined : t('clientProfile.kycHidden')}
-                >
-                  {profile.kyc ? (
-                    <dl className="grid grid-cols-2 gap-4">
-                      <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {t('clientProfile.kycStatus')}
-                        </dt>
-                        <dd className="mt-1">
-                          <KycStatusBadge status={profile.kyc.status} />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {t('clientProfile.kycSubmitted')}
-                        </dt>
-                        <dd className="mt-0.5 text-sm">
-                          {profile.kyc.submittedAt
-                            ? new Date(profile.kyc.submittedAt).toLocaleDateString()
-                            : '—'}
-                        </dd>
-                      </div>
-                      {hasPermission(admin, 'kyc.review') && (
-                        <div className="col-span-2">
-                          <PermittedLink
-                            href={`/kyc/${profile.portalId}`}
-                            className="text-xs font-semibold text-link hover:underline focus-outline"
-                          >
-                            {t('clientProfile.openKycReview')}
-                          </PermittedLink>
-                        </div>
-                      )}
-                    </dl>
-                  ) : (
-                    <EmptySection message={t('clientProfile.noKyc')} />
-                  )}
-                </ProfileCard>
-
-                <div id="documents">
-                  <ProfileCard
-                    title={t('clientProfile.sectionIdentityRecord')}
-                    hiddenReason={canViewDocs ? undefined : t('clientProfile.documentsHidden')}
-                  >
-                    <ClientIdentityPanel clientId={profile.id} />
-                  </ProfileCard>
-                </div>
               </div>
             </TabPanel>
 
@@ -638,21 +628,37 @@ export default function ClientProfilePage() {
               </TabPanel>
             )}
 
-            {canViewWallets && (
+            {canViewTrading && (
               <TabPanel
-                value={TAB_HISTORY}
+                value={TAB_ACCOUNTS}
                 activeValue={tab}
                 idPrefix="client-profile"
                 className="flex min-h-0 flex-1 flex-col"
               >
-                <section className="flex min-h-0 flex-1 flex-col gap-2">
-                  <h2 className="shrink-0 text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                    {t('clientProfile.txTitle')}
-                  </h2>
-                  <ClientTransactionsPanel userId={profile.id} />
-                </section>
+                <ClientAccountsPanel userId={profile.id} clientName={displayName} />
               </TabPanel>
             )}
+
+            {canViewTransactions && (
+              <TabPanel
+                value={TAB_TRANSACTIONS}
+                activeValue={tab}
+                idPrefix="client-profile"
+                className="flex min-h-0 flex-1 flex-col"
+              >
+                {/* Mounted only while open: three lists nobody asked for yet. */}
+                {tab === TAB_TRANSACTIONS && <ClientTransactionsTab userId={profile.id} />}
+              </TabPanel>
+            )}
+
+            <TabPanel
+              value={TAB_DOCUMENTS}
+              activeValue={tab}
+              idPrefix="client-profile"
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              {tab === TAB_DOCUMENTS && <ClientDocumentsPanel userId={profile.id} />}
+            </TabPanel>
 
             <TabPanel value={TAB_NETWORK} activeValue={tab} idPrefix="client-profile">
               {/* FULL WIDTH: a tree indents as it descends, so a half-page
