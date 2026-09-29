@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { LimitInput, plainAmount } from '@/components/currencies/limit-input';
+import { formatDecimal } from '@/lib/money';
 
 export interface PaymentMethodFormValues {
   /** What the DESK calls the method — shown in place of the key, and renamable. */
@@ -32,6 +34,12 @@ export interface PaymentMethodFormValues {
   enabled: boolean;
   /** OFFLINE: the client pays outside the platform and uploads a receipt. */
   requiresProof: boolean;
+  /**
+   * The method's OWN deposit range (0162) — optional, and only ever narrower
+   * than its currency's. `null` follows the currency.
+   */
+  ownMinAmount: string | null;
+  ownMaxAmount: string | null;
 }
 
 /**
@@ -72,6 +80,7 @@ export function PaymentMethodFormModal({
   method,
   saving,
   error,
+  fieldErrors = {},
   onClose,
   onSubmit,
 }: {
@@ -80,6 +89,8 @@ export function PaymentMethodFormModal({
   method?: PaymentMethod;
   saving: boolean;
   error?: string;
+  /** The API's per-field sentences, under the box each is about. */
+  fieldErrors?: Record<string, string>;
   onClose: () => void;
   onSubmit: (values: PaymentMethodFormValues) => void;
 }) {
@@ -103,6 +114,7 @@ export function PaymentMethodFormModal({
         method={method}
         saving={saving}
         error={error}
+        fieldErrors={fieldErrors}
         onClose={onClose}
         onSubmit={onSubmit}
       />
@@ -114,12 +126,14 @@ function PaymentMethodForm({
   method,
   saving,
   error,
+  fieldErrors,
   onClose,
   onSubmit,
 }: {
   method?: PaymentMethod;
   saving: boolean;
   error?: string;
+  fieldErrors: Record<string, string>;
   onClose: () => void;
   onSubmit: (values: PaymentMethodFormValues) => void;
 }) {
@@ -133,7 +147,17 @@ function PaymentMethodForm({
   const enabled = method?.enabled ?? true;
 
   const [requiresProof, setRequiresProof] = React.useState(method?.requiresProof ?? false);
+  const [ownMin, setOwnMin] = React.useState(plainAmount(method?.ownMinAmount));
+  const [ownMax, setOwnMax] = React.useState(plainAmount(method?.ownMaxAmount));
   const fieldId = React.useId();
+  /*
+   * The chosen currency's deposit range, for the hint under each box. The same
+   * query `CurrencyField` holds, so it is one request, served from the cache.
+   */
+  const currencies = useResource<Currency[]>(keys.currencies.all(), (signal) =>
+    api.admin.getCurrencies(signal),
+  );
+  const chosen = currencies.data?.find((c) => c.code === currency);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,12 +168,21 @@ function PaymentMethodForm({
       logoUrl: logoUrl.trim(),
       enabled,
       requiresProof,
+      // An emptied box is "follow the currency" — sent as null so it clears.
+      ownMinAmount: ownMin.trim() === '' ? null : ownMin.trim(),
+      ownMaxAmount: ownMax.trim() === '' ? null : ownMax.trim(),
     });
   };
 
+  // The banner repeats nothing a box already says — see `CurrencyForm`.
+  const fieldKeys = Object.keys(fieldErrors);
+  const allInline =
+    fieldKeys.length > 0 &&
+    fieldKeys.every((key) => key === 'ownMinAmount' || key === 'ownMaxAmount');
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
+      {error && !allInline && (
         <div
           role="alert"
           className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
@@ -199,6 +232,46 @@ function PaymentMethodForm({
       <CurrencyField value={currency} onChange={setCurrency} />
 
       <LogoField value={logoUrl} onChange={setLogoUrl} />
+
+      {/*
+        The method's own range (0162). Optional, and it can only NARROW the
+        currency's — for a channel with its own cap. Empty follows the currency,
+        and the hint says what that currently is.
+      */}
+      <fieldset className="space-y-2 rounded-lg border border-border p-3">
+        <legend className="px-1 text-xs font-semibold text-foreground">
+          {t('paymentMethods.rangeTitle')}
+        </legend>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {chosen
+            ? t('paymentMethods.rangeHint', {
+                min: formatDecimal(chosen.minDeposit),
+                max: formatDecimal(chosen.maxDeposit),
+                currency: chosen.code,
+              })
+            : t('paymentMethods.rangeHintNoCurrency')}
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <LimitInput
+            id={`${fieldId}-own-min`}
+            label={t('paymentMethods.ownMin')}
+            value={ownMin}
+            onChange={setOwnMin}
+            currency={currency || '—'}
+            error={fieldErrors.ownMinAmount}
+            placeholder={chosen ? plainAmount(chosen.minDeposit) : ''}
+          />
+          <LimitInput
+            id={`${fieldId}-own-max`}
+            label={t('paymentMethods.ownMax')}
+            value={ownMax}
+            onChange={setOwnMax}
+            currency={currency || '—'}
+            error={fieldErrors.ownMaxAmount}
+            placeholder={chosen ? plainAmount(chosen.maxDeposit) : ''}
+          />
+        </div>
+      </fieldset>
 
       {/*
         OFFLINE — the switch that makes a method usable at all for money paid

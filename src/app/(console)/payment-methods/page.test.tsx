@@ -61,6 +61,9 @@ const method = (over: Partial<PaymentMethod> = {}): PaymentMethod => ({
   requiresProof: false,
   minAmount: '10.00000000',
   maxAmount: '250000.00000000',
+  // The method's own range (0162) — none: it follows the currency's.
+  ownMinAmount: null,
+  ownMaxAmount: null,
   builtIn: false,
   inUse: false,
   ...over,
