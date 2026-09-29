@@ -109,6 +109,12 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
                 person={detail.parent}
                 className="text-link hover:underline focus-outline"
               />
+            ) : detail.parentOutsideTerritory ? (
+              /* They HAVE a parent, whom this reader may not see — never the
+                 false "deals with the broker directly". */
+              <span className="text-muted-foreground">
+                {t('clientProfile.partnerParentOutsideTerritory')}
+              </span>
             ) : (
               /* Not an absence to apologise for: no parent means they deal with
                  the broker directly, which is the top of a chain. */

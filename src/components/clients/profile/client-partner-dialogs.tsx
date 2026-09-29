@@ -171,6 +171,9 @@ function describeShares(entry: IbLevel): string {
   });
 }
 
+/** The current parent when the reader may not see who it is — never sent. */
+const KEEP_OUTSIDE_PARENT = 'keep-outside-parent';
+
 /** Put a partner under a different parent, or none at all. */
 export function ReassignParentDialog({
   open,
@@ -184,7 +187,18 @@ export function ReassignParentDialog({
   name: string;
 }) {
   const queryClient = useQueryClient();
-  const [parentId, setParentId] = React.useState<string | null>(partner.parent?.userId ?? null);
+  /*
+   * A parent OUTSIDE the reader's territory arrives as `parent: null` beside
+   * `parentOutsideTerritory: true`. Opening on `null` pre-selected "No parent",
+   * so the dialog told the reader something false about the partner — and one
+   * click away from saving it, detaching them from a real parent and moving
+   * who earns on their sub-tree. The current parent is its own choice instead,
+   * and choosing it changes nothing.
+   */
+  const initial = partner.parentOutsideTerritory
+    ? KEEP_OUTSIDE_PARENT
+    : (partner.parent?.userId ?? null);
+  const [parentId, setParentId] = React.useState<string | null>(initial);
 
   const partners = useResource(
     keys.ibPartners.forReassign(),
@@ -193,7 +207,10 @@ export function ReassignParentDialog({
   );
 
   const save = useMutation({
-    mutationFn: () => api.admin.reassignIbPartnerParent(partner.userId, parentId),
+    mutationFn: () => {
+      if (parentId === KEEP_OUTSIDE_PARENT) throw new Error('Nothing to change.');
+      return api.admin.reassignIbPartnerParent(partner.userId, parentId);
+    },
     onSuccess: async () => {
       await invalidatePartnerViews(queryClient);
       toastSuccess(t('clientProfile.parentChanged'));
@@ -229,6 +246,24 @@ export function ReassignParentDialog({
         </p>
 
         <div className="max-h-64 space-y-1.5 overflow-y-auto">
+          {partner.parentOutsideTerritory && (
+            <label
+              className={`flex cursor-pointer items-center gap-2.5 rounded-lg border p-3 ${
+                parentId === KEEP_OUTSIDE_PARENT ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+            >
+              <input
+                type="radio"
+                name="ib-parent"
+                checked={parentId === KEEP_OUTSIDE_PARENT}
+                onChange={() => setParentId(KEEP_OUTSIDE_PARENT)}
+                className="h-3.5 w-3.5"
+              />
+              <span className="text-sm font-medium">
+                {t('clientProfile.reassignParentKeepOutside')}
+              </span>
+            </label>
+          )}
           {/* `null` is a REAL value here, not an omission — it means "deals with
               the broker directly", which is the top of a chain. */}
           <label
@@ -302,7 +337,7 @@ export function ReassignParentDialog({
         <Footer
           onClose={onClose}
           saving={save.isPending}
-          disabled={parentId === (partner.parent?.userId ?? null)}
+          disabled={parentId === initial}
           label={t('clientProfile.reassignParentSave')}
         />
       </form>

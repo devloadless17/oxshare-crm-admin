@@ -1012,6 +1012,7 @@ export const messages = {
   'clientProfile.partnerSince': 'Partner since',
   'clientProfile.partnerParent': 'Placed under',
   'clientProfile.partnerNoParent': 'Deals with the broker directly',
+  'clientProfile.partnerParentOutsideTerritory': 'A partner outside your territory',
 
   'clientProfile.partnerEarnings': 'Earnings',
   'clientProfile.partnerConfirmed': 'Confirmed',
@@ -1194,6 +1195,7 @@ export const messages = {
   'clientProfile.reassignParentBody':
     'Who they sit under. The API refuses a choice that would close a loop, and a partner’s own level is not changed by moving them.',
   'clientProfile.reassignParentNone': 'No parent — deals with the broker directly',
+  'clientProfile.reassignParentKeepOutside': 'Keep current — a partner outside your territory',
   'clientProfile.reassignParentSave': 'Reassign',
   'clientProfile.parentChanged': 'Parent reassigned',
   'clientProfile.parentFailed': 'Their parent could not be reassigned.',
