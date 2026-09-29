@@ -1143,6 +1143,11 @@ export const messages = {
     'They keep their balances and history and cannot sign in. Reversible at any time.',
   'clientProfile.confirmReactivateTitle': 'Reactivate {name}?',
   'clientProfile.confirmReactivate': 'They can sign in again immediately.',
+  // ONE suspension for a partner too (owner, 29 Sep 2026): a partner IS the client.
+  'clientProfile.confirmSuspendPartnerToo':
+    'They are also a partner: they stop earning commission, and nobody above them earns through them, until they are reactivated. Their referral code and everyone beneath them stay.',
+  'clientProfile.confirmReactivatePartnerToo':
+    'Their partnership resumes too: they earn again on the next closed trade.',
   'clientProfile.statusChanged': 'Client is now {status}',
   'clientProfile.statusFailed': 'The client’s status could not be changed.',
 

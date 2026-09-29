@@ -186,9 +186,10 @@ export function partnerColumns({
     ...(canSuspendPartners
       ? [
           {
+            // One suspension for the person: the client and their partnership.
             label: row.account.active
-              ? t('clientProfile.actionSuspendPartner')
-              : t('clientProfile.actionReactivatePartner'),
+              ? t('clientProfile.actionSuspend')
+              : t('clientProfile.actionReactivate'),
             icon: row.account.active ? Ban : CheckCircle2,
             destructive: row.account.active,
             separatorBefore: !canEditPartners,
