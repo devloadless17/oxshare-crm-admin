@@ -3195,6 +3195,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/clients/{id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every document a client has handed the platform, each with where it stands
+         * @description KYC document versions (with their review status) and offline-deposit receipts (with their deposit's state — a receipt on a refused deposit reads rejected), newest first. KYC needs kyc.documents.view or kyc.review; receipts need deposits.proofs.view or deposits.approve — a half the reader may not see is named in `hidden`.
+         */
+        get: operations["AdminClientIdentityController_documentsFor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tags": {
         parameters: {
             query?: never;
@@ -7687,6 +7707,59 @@ export interface components {
             /** @description Newest first. Absent without kyc.view. */
             verifications?: components["schemas"]["ClientVerificationDto"][];
         };
+        ClientDocumentFileDto: {
+            /** @example Identity document — first page */
+            label: string;
+            /**
+             * @description Opened through GET /v1/<path>, which checks the reader against the file and audits it.
+             * @example uploads/kyc/2f0c….jpg
+             */
+            path: string;
+        };
+        ClientDocumentDto: {
+            /** @description The KYC version id, or the deposit transaction id. */
+            id: string;
+            /** @enum {string} */
+            category: "identity" | "address" | "selfie" | "kyc_other" | "deposit_receipt";
+            /**
+             * @description What the document is.
+             * @example Identity document
+             */
+            title: string;
+            /**
+             * @description The document type, or for a receipt the deposit it proves.
+             * @example Passport
+             */
+            detail?: string | null;
+            /**
+             * @description KYC: draft (not presented) · pending (awaiting review) · approved (verified) · rejected (returned) · reverification_requested. Receipt: its DEPOSIT — pending, approved (credited) or rejected (refused or failed).
+             * @enum {string}
+             */
+            status: "draft" | "pending" | "approved" | "rejected" | "reverification_requested";
+            /** @description False for an older KYC version the client has since replaced; always true for a receipt. */
+            current: boolean;
+            files: components["schemas"]["ClientDocumentFileDto"][];
+            /** @description Why it was rejected, when the source recorded one (a refused deposit). */
+            reason?: string | null;
+            /** @description For a receipt: the deposit transaction it belongs to. */
+            transactionId?: string | null;
+            /**
+             * Format: date-time
+             * @description When it was uploaded (a KYC version) or filed (a deposit).
+             */
+            uploadedAt: string;
+        };
+        ClientDocumentListDto: {
+            /** @description Newest first. */
+            items: components["schemas"]["ClientDocumentDto"][];
+            /**
+             * @description Categories left OUT because the reader lacks the permission that guards those files (KYC: kyc.documents.view or kyc.review; receipts: deposits.proofs.view or deposits.approve), so an empty list is never mistaken for "has none".
+             * @example [
+             *       "deposit_receipt"
+             *     ]
+             */
+            hidden: string[];
+        };
         ClientTagWithCountDto: {
             id: string;
             /** @description Stable machine name. Filter with ?tag=<slug>; a rename does not change it. */
@@ -8561,6 +8634,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             settledAt?: string | null;
+            /** Format: date-time */
+            reviewedAt?: string | null;
             /** @description A person must reconcile this payment. False on transfers. */
             needsAttention: boolean;
             /** @description WHY it needs attention, in words the operator can act on. Null when not flagged. */
@@ -13319,6 +13394,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientIdentityRecordDto"];
+                };
+            };
+        };
+    };
+    AdminClientIdentityController_documentsFor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientDocumentListDto"];
                 };
             };
         };

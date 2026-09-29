@@ -1,8 +1,6 @@
 'use client';
 
-import * as React from 'react';
 import { CandlestickChart, Eye, Users } from 'lucide-react';
-import { SearchField } from '@/components/ui/search-field';
 import api from '@/lib/api';
 import type {
   ClientListResponse,
@@ -15,8 +13,6 @@ import { CLIENT_SORT_KEYS, TRADING_ACCOUNT_SORT_KEYS } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { useDebounced } from '@/hooks/use-debounced';
-import { DEFAULT_PAGE_SIZE, PAGE_SIZES, type PageSize } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { PermittedLink } from '@/components/permitted-link';
@@ -28,6 +24,7 @@ import { useAccountFunding } from '@/components/trading/use-account-funding';
 import { TabPanel } from '@/components/ui/tabs';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { TableSearch, useTableState } from './table-state';
 
 /**
  * A PARTNER'S BOOK, as two tables on their profile (owner, 26 Sep 2026): the
@@ -81,62 +78,6 @@ export function ReferredTabPanels({
       )}
     </>
   );
-}
-
-/** The tables' own search box — the page's filters live in the URL; these are local. */
-function TableSearch({
-  value,
-  onChange,
-  label,
-  placeholder,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  label: string;
-  placeholder: string;
-}) {
-  return (
-    <SearchField
-      value={value}
-      onChange={onChange}
-      label={label}
-      placeholder={placeholder}
-      className="w-full sm:w-80"
-    />
-  );
-}
-
-/** Page, size, sort and search for one table — reset to page one on any change. */
-function useTableState<K extends string>(allowed: readonly K[]) {
-  const [page, setPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState<PageSize>(DEFAULT_PAGE_SIZE);
-  const [search, setSearch] = React.useState('');
-  const [sort, setSort] = React.useState<{ key?: K; order: 'asc' | 'desc' }>({ order: 'desc' });
-  const q = useDebounced(search.trim());
-
-  return {
-    page,
-    pageSize,
-    search,
-    q,
-    sort,
-    setPage,
-    setSearch: (next: string) => {
-      setSearch(next);
-      setPage(1);
-    },
-    // One of the pager's four sizes, whatever the control hands back.
-    setPageSize: (size: number) => {
-      setPageSize(PAGE_SIZES.find((allowed) => allowed === size) ?? DEFAULT_PAGE_SIZE);
-      setPage(1);
-    },
-    // The page is dropped with the sort: reordering renumbers every page.
-    setSort: (key: string | null, order: 'asc' | 'desc' | null) => {
-      const known = allowed.find((candidate) => candidate === key);
-      setSort({ key: known, order: order ?? 'desc' });
-      setPage(1);
-    },
-  };
 }
 
 /* ── Clients ─────────────────────────────────────────────────────────────── */

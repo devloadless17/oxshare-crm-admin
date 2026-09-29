@@ -77,8 +77,8 @@ export const keys = {
     detail: (userId: ClientRef) => ['clients', 'detail', userId] as const,
     partner: (userId: ClientRef) => ['clients', 'detail', userId, 'partner'] as const,
     identity: (userId: ClientRef) => ['clients', 'detail', userId, 'identity'] as const,
-    transactions: (userId: ClientRef, page: number) =>
-      ['clients', 'detail', userId, 'transactions', page] as const,
+    /* The Documents tab: KYC versions and deposit receipts, in one list. */
+    documents: (userId: ClientRef) => ['clients', 'detail', userId, 'documents'] as const,
     closedPositions: (userId: ClientRef, page: number) =>
       ['clients', 'detail', userId, 'closed-positions', page] as const,
   },

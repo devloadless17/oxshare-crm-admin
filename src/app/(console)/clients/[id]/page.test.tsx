@@ -194,85 +194,58 @@ async function openTab(name: RegExp): Promise<void> {
   await user.click(await screen.findByRole('tab', { name }));
 }
 
-describe('the documents section — the sharpest of the three absences', () => {
-  it('says HIDDEN when the viewer lacks kyc.documents.view', async () => {
-    /*
-     * The failure this guards against: a section that simply vanishes. A
-     * compliance reviewer looking at a client with no visible documents will
-     * conclude none were uploaded — a statement about the client, when the
-     * truth is a statement about the reviewer's permissions.
-     */
+describe('the Overview — the identity card alone (owner, 29 Sep 2026)', () => {
+  /*
+   * The cards beside Identity went: trading accounts and documents have their
+   * own tabs, tags ride the header's chip row, and verification is a field of
+   * the identity card — with "View KYC" in the actions menu.
+   */
+  it('has no Tags, Trading accounts, KYC or documents card any more', async () => {
+    renderWithProviders(<ClientProfilePage />);
+    await screen.findByText('John Doe');
+    for (const heading of [/^tags$/i, /^trading accounts$/i, /identity record/i]) {
+      expect(screen.queryByRole('heading', { name: heading })).toBeNull();
+    }
+    expect(screen.queryByText(/trading accounts are hidden/i)).toBeNull();
+  });
+
+  it('states where the verification stands, as a field of the identity card', async () => {
+    renderWithProviders(<ClientProfilePage />);
+    await screen.findByText('John Doe');
+    expect(screen.getByText('Verification')).toBeInTheDocument();
+  });
+
+  it('leaves the verification field out for a reader without kyc.view', async () => {
     permissions.current = ['clients.view'];
-    getClient.mockResolvedValue(profile()); // API omits `documents` entirely
     renderWithProviders(<ClientProfilePage />);
-
     await screen.findByText('John Doe');
-    expect(screen.getByText(/documents are hidden by your permissions/i)).toBeInTheDocument();
+    expect(screen.queryByText('Verification')).toBeNull();
+  });
+});
+
+describe('the Accounts, Transactions and Documents tabs', () => {
+  it('are offered to a reader holding their keys', async () => {
+    renderWithProviders(<ClientProfilePage />);
+    await screen.findByText('John Doe');
+    expect(screen.getByRole('tab', { name: /^accounts$/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^transactions$/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^documents$/i })).toBeInTheDocument();
+    // History was replaced by Transactions.
+    expect(screen.queryByRole('tab', { name: /^history$/i })).toBeNull();
   });
 
-  it('says NONE UPLOADED when the viewer can see them and there are none', async () => {
-    // The other half. These two must never render the same way.
-    getClientIdentity.mockResolvedValue({ documents: [], verifications: [] });
+  it('drop Accounts without trading.view and Transactions without transactions.view', async () => {
+    permissions.current = ['clients.view'];
     renderWithProviders(<ClientProfilePage />);
-
     await screen.findByText('John Doe');
-    expect(await screen.findByText(/no documents uploaded/i)).toBeInTheDocument();
-    expect(screen.queryByText(/documents are hidden/i)).not.toBeInTheDocument();
-  });
-
-  it('links to each document rather than embedding it', async () => {
-    /*
-     * A LINK, never an inline image. Every fetch goes through
-     * `GET /uploads/kyc/:file`, which applies the client scope, checks the
-     * reader and writes the R-6.6 audit row. Embedding the bytes would route an
-     * audited PII read around its own audit: "which admin viewed this passport"
-     * would answer "nobody", because opening a profile is not viewing a
-     * document.
-     */
-    getClientIdentity.mockResolvedValue({
-      documents: [
-        {
-          slot: 'identity',
-          label: 'Identity document',
-          versions: [
-            {
-              id: 'v1',
-              docType: 'passport',
-              docLabel: 'Passport',
-              status: 'verified',
-              returnedPages: [],
-              createdAt: '2026-09-01T10:00:00Z',
-              presentedAt: '2026-09-01T10:00:00Z',
-              pages: [
-                {
-                  part: 0,
-                  label: 'Photo Page',
-                  path: 'uploads/kyc/passport.png',
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-    renderWithProviders(<ClientProfilePage />);
-
-    await screen.findByText('John Doe');
-    const link = await screen.findByRole('link', { name: /photo page/i });
-    expect(link).toHaveAttribute('href', expect.stringContaining('passport.png'));
-    expect(screen.queryByRole('img', { name: /passport/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^accounts$/i })).toBeNull();
+    expect(screen.queryByRole('tab', { name: /^transactions$/i })).toBeNull();
+    // Documents stays: its endpoint names what this reader may not see.
+    expect(screen.getByRole('tab', { name: /^documents$/i })).toBeInTheDocument();
   });
 });
 
 describe('the other permission-gated sections', () => {
-  it('hides trading accounts without trading.view', async () => {
-    permissions.current = ['clients.view'];
-    renderWithProviders(<ClientProfilePage />);
-
-    await screen.findByText('John Doe');
-    expect(screen.getByText(/trading accounts are hidden/i)).toBeInTheDocument();
-  });
-
   it('hides referrals without ib.view', async () => {
     permissions.current = ['clients.view'];
     renderWithProviders(<ClientProfilePage />);
@@ -280,15 +253,6 @@ describe('the other permission-gated sections', () => {
     await screen.findByText('John Doe');
     await openTab(/network/i);
     expect(screen.getByText(/referral relationships are hidden/i)).toBeInTheDocument();
-  });
-
-  it('shows an empty section rather than a hidden one when permitted', async () => {
-    getClient.mockResolvedValue(profile({ tradingAccounts: [], referredClients: [] }));
-    renderWithProviders(<ClientProfilePage />);
-
-    await screen.findByText('John Doe');
-    expect(screen.getByText(/no trading accounts yet/i)).toBeInTheDocument();
-    expect(screen.queryByText(/trading accounts are hidden/i)).not.toBeInTheDocument();
   });
 });
 
@@ -562,8 +526,8 @@ describe('the actions menu, trimmed (owner, 26 Sep 2026)', () => {
     expect(screen.queryByRole('menuitem', { name: /commission level/i })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /reassign parent/i })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /view documents/i })).toBeNull();
-    // The KYC review stays, by Portal ID.
-    expect(screen.getByRole('menuitem', { name: /open kyc review/i })).toHaveAttribute(
+    // "View KYC" — moved here from the Overview's KYC card — by Portal ID.
+    expect(screen.getByRole('menuitem', { name: /view kyc/i })).toHaveAttribute(
       'href',
       '/kyc/1000245',
     );
