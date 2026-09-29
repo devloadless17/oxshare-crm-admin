@@ -58,19 +58,26 @@ export function LinkAccountDialog({
   open,
   onClose,
   client: fixedClient,
+  login: knownLogin,
 }: {
   open: boolean;
   onClose: () => void;
   /** Pre-filled from a client's profile or row; absent from the accounts desk. */
   client?: LinkTarget;
+  /**
+   * Pre-filled — and looked up at once — from a "No client" row, the MT5 sync's
+   * record of an account nobody owns yet: only the client is left to choose.
+   */
+  login?: string;
 }) {
   return (
     <Modal open={open} onClose={onClose} title={t('linkAccount.title')} size="lg">
       {/* Keyed: reopening starts clean rather than on the last attempt's state. */}
       {open && (
         <LinkAccountForm
-          key={fixedClient?.id ?? 'new'}
+          key={`${fixedClient?.id ?? 'new'}:${knownLogin ?? ''}`}
           fixedClient={fixedClient}
+          knownLogin={knownLogin}
           onClose={onClose}
         />
       )}
@@ -80,14 +87,16 @@ export function LinkAccountDialog({
 
 function LinkAccountForm({
   fixedClient,
+  knownLogin,
   onClose,
 }: {
   fixedClient?: LinkTarget;
+  knownLogin?: string;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const [client, setClient] = React.useState<LinkTarget | null>(fixedClient ?? null);
-  const [login, setLogin] = React.useState('');
+  const [login, setLogin] = React.useState(knownLogin ?? '');
   const [lookup, setLookup] = React.useState<Mt5AccountLookup | null>(null);
   const [lookupError, setLookupError] = React.useState<string | null>(null);
   const [looking, setLooking] = React.useState(false);
@@ -98,7 +107,11 @@ function LinkAccountForm({
 
   const find = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = login.trim();
+    await lookUp(login);
+  };
+
+  const lookUp = async (value: string) => {
+    const trimmed = value.trim();
     if (!trimmed) return;
     setLooking(true);
     setLookup(null);
@@ -115,6 +128,14 @@ function LinkAccountForm({
       setLooking(false);
     }
   };
+
+  // A login handed over from a "No client" row is looked up straight away.
+  const lookedUpKnown = React.useRef(false);
+  React.useEffect(() => {
+    if (!knownLogin || lookedUpKnown.current) return;
+    lookedUpKnown.current = true;
+    void lookUp(knownLogin);
+  }, [knownLogin]);
 
   const blocked = lookup !== null && (lookup.owner !== null || !lookup.currencyKnown);
   const needsProduct = lookup !== null && lookup.products.length > 1 && !productId;

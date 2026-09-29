@@ -2289,6 +2289,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/trading-accounts/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync MT5's accounts into the CRM
+         * @description Records every MT5 login the CRM has no account for, with no client; they list under GET /admin/trading-accounts?client=unassigned. 409 while another sync runs.
+         */
+        post: operations["Mt5AccountsController_syncAccounts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/trading-accounts/{id}/product": {
         parameters: {
             query?: never;
@@ -6882,6 +6902,22 @@ export interface components {
             /** @description Deals now waiting to accrue on the next run. */
             waitingDeals: number;
         };
+        Mt5AccountsSyncRunDto: {
+            /** @description Logins MT5 reported, in every group the bridge watches. */
+            onServer: number;
+            /** @description Of those, logins the CRM had no account for before this run. */
+            newOnServer: number;
+            /** @description Accounts this run recorded, with no client, ready to assign. */
+            added: number;
+            /** @description New logins left for the scheduled runs, every ten minutes. */
+            remaining: number;
+            /** @description Currencies MT5 holds accounts in that this platform does not; those are skipped. */
+            unknownCurrency: string[];
+            /** @description Unowned accounts MT5 confirmed it no longer has, removed. */
+            removed: number;
+            /** @description Why the run stopped early, when it did. */
+            stoppedEarly?: string;
+        };
         SetTradingAccountProductDto: {
             /**
              * Format: uuid
@@ -9083,6 +9119,10 @@ export interface components {
             limit: number;
             maskedFields?: string[];
         };
+        Mt5HolderDto: {
+            name?: string | null;
+            email?: string | null;
+        };
         TradingAccountRowDto: {
             id: string;
             /** @description The MT5 login, once there is an MT5 to issue one. NULL until assigned, and a STRING rather than a number because leading zeros are significant to the bridge. */
@@ -9107,7 +9147,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
-            user: components["schemas"]["HoldingOwnerDto"];
+            user: components["schemas"]["HoldingOwnerDto"] | null;
+            mt5Holder?: components["schemas"]["Mt5HolderDto"] | null;
         };
         TradingAccountListResponseDto: {
             items: components["schemas"]["TradingAccountRowDto"][];
@@ -12297,6 +12338,8 @@ export interface operations {
                 q?: string;
                 environment?: "live" | "demo";
                 status?: "active" | "suspended" | "closed";
+                /** @description `unassigned`: accounts the MT5 sync found that no client owns yet (shown only to a reader who sees every client); `assigned`: the rest. */
+                client?: "assigned" | "unassigned";
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;
@@ -12387,6 +12430,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinkedMt5AccountDto"];
+                };
+            };
+        };
+    };
+    Mt5AccountsController_syncAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5AccountsSyncRunDto"];
                 };
             };
         };
@@ -15574,6 +15636,8 @@ export interface operations {
                 userId?: number;
                 environment?: "live" | "demo";
                 status?: "active" | "suspended" | "closed";
+                /** @description `unassigned`: accounts the MT5 sync found that no client owns yet (shown only to a reader who sees every client); `assigned`: the rest. */
+                client?: "assigned" | "unassigned";
             };
             header?: never;
             path?: never;

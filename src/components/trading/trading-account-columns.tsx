@@ -58,13 +58,16 @@ export function tradingAccountColumns(): Column<TradingAccountRow>[] {
       // always-present field. Grouping by it puts one client's accounts
       // together, which is the reason to sort this column.
       ...sortableBy('userEmail'),
-      cell: (a) => (
-        <ClientIdentity
-          name={clientName(a.user.firstName, a.user.lastName)}
-          email={a.user.email}
-          portalId={a.user.portalId}
-        />
-      ),
+      cell: (a) =>
+        a.user ? (
+          <ClientIdentity
+            name={clientName(a.user.firstName, a.user.lastName)}
+            email={a.user.email}
+            portalId={a.user.portalId}
+          />
+        ) : (
+          <NoClient holder={a.mt5Holder} />
+        ),
     },
     {
       header: t('tradingAccounts.colLogin'),
@@ -72,7 +75,10 @@ export function tradingAccountColumns(): Column<TradingAccountRow>[] {
       // note at the top of this file.
       ...sortableBy('login'),
       cell: (a) =>
-        a.login ? (
+        a.login && !a.user ? (
+          // No client to open yet (found on MT5 by the account sync).
+          <span className="font-mono font-semibold">{a.login}</span>
+        ) : a.login && a.user ? (
           // Left-aligned and monospaced: it is an identifier, not a quantity.
           // It opens the owner's profile, whose overview lists their accounts.
           <PermittedLink
@@ -199,4 +205,25 @@ export function tradingAccountColumns(): Column<TradingAccountRow>[] {
 function formatDate(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+}
+
+/**
+ * An account the MT5 account sync found that no client owns yet (29 Sep 2026):
+ * said in words, with MT5's own holder beneath so the operator can tell whose
+ * it is before assigning it.
+ */
+function NoClient({ holder }: { holder?: TradingAccountRow['mt5Holder'] }) {
+  const who = [holder?.name, holder?.email].filter(Boolean).join(' · ');
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5" title={t('tradingAccounts.noClientHint')}>
+      <span className="inline-flex w-fit items-center rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning">
+        {t('tradingAccounts.noClient')}
+      </span>
+      {who && (
+        <span className="truncate text-xs text-muted-foreground">
+          {t('tradingAccounts.mt5Holder', { holder: who })}
+        </span>
+      )}
+    </div>
+  );
 }

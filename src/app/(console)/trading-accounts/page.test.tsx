@@ -23,13 +23,14 @@ import type { TradingAccountListResponse, TradingAccountRow } from '@/lib/api/ad
  * its own catch turns that into a generic "failed to load", which reads as a
  * broken query rather than a broken mock.
  */
-const { getTradingAccounts, fundTradingAccount } = vi.hoisted(() => ({
+const { getTradingAccounts, fundTradingAccount, syncMt5Accounts } = vi.hoisted(() => ({
   getTradingAccounts: vi.fn(),
   fundTradingAccount: vi.fn(),
+  syncMt5Accounts: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getTradingAccounts, fundTradingAccount } };
+  const api = { admin: { getTradingAccounts, fundTradingAccount, syncMt5Accounts } };
   return { api, default: api };
 });
 
@@ -40,7 +41,7 @@ vi.mock('@/lib/api', () => {
  * which is how the old "no write actions" assertion passed against a screen that
  * had them.
  */
-const identity = { permissions: [] as string[] };
+const identity = { permissions: [] as string[], seesAllClients: false };
 
 vi.mock('@/context/AdminAuthContext', () => ({
   useAdmin: () => ({
@@ -51,6 +52,9 @@ vi.mock('@/context/AdminAuthContext', () => ({
       role: 'sub_admin',
       get permissions() {
         return identity.permissions;
+      },
+      get seesAllClients() {
+        return identity.seesAllClients;
       },
     },
   }),
@@ -126,6 +130,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Read-only by default: the money controls are opt-in per test.
   identity.permissions = ['trading.view'];
+  identity.seesAllClients = false;
   searchParams.current = new URLSearchParams();
   snapshot += 1;
   listeners.clear();
@@ -628,5 +633,88 @@ describe('moving money on a trading account', () => {
     // quoted rather than replaced by a generic failure.
     expect(await screen.findByText(/in the client wallet/i)).toBeInTheDocument();
     expect(screen.getByText(/bridge is not reachable/i)).toBeInTheDocument();
+  });
+});
+
+/*
+ * EVERY MT5 ACCOUNT IN THE CRM (owner, 29 Sep 2026): the sync records accounts
+ * no client owns with `user: null`; the list says "No client", names MT5's
+ * holder, and offers to assign it.
+ */
+describe('trading accounts — accounts with no client', () => {
+  const unowned = () =>
+    account({
+      id: 'ta-9',
+      login: '5000777',
+      user: null,
+      mt5Holder: { name: 'Legacy Holder', email: 'legacy@old-platform.test' },
+    });
+
+  it('says "No client" and names MT5’s holder — the login opens no profile', async () => {
+    getTradingAccounts.mockResolvedValue(page([unowned()]));
+    renderWithProviders(<TradingAccountsPage />);
+    expect(await screen.findByText('No client')).toBeInTheDocument();
+    expect(
+      screen.getByText('On MT5: Legacy Holder · legacy@old-platform.test'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('5000777').closest('a')).toBeNull();
+  });
+
+  it('offers to assign it, and no money action — it has no wallet', async () => {
+    identity.permissions = [
+      'trading.view',
+      'trading.create',
+      'trading.deposit',
+      'trading.withdraw',
+      'wallets.credit',
+    ];
+    getTradingAccounts.mockResolvedValue(page([unowned()]));
+    const user = userEvent.setup();
+    renderWithProviders(<TradingAccountsPage />);
+    await user.click(await screen.findByRole('button', { name: /actions for account 5000777/i }));
+    expect(
+      await screen.findByRole('menuitem', { name: /assign to a client/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: /deposit|withdraw|move money|fund/i }),
+    ).toBeNull();
+  });
+
+  it('shows the Client filter and "Sync from MT5" only to an admin who sees every client', async () => {
+    identity.permissions = ['trading.view', 'trading.create'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+    expect(screen.queryByRole('button', { name: /sync from mt5/i })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Client' })).toBeNull();
+  });
+
+  it('syncs, says what it found, and shows the new accounts', async () => {
+    identity.permissions = ['trading.view', 'trading.create'];
+    identity.seesAllClients = true;
+    syncMt5Accounts.mockResolvedValue({
+      onServer: 1200,
+      newOnServer: 90,
+      added: 50,
+      remaining: 40,
+      unknownCurrency: ['USC'],
+      removed: 0,
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<TradingAccountsPage />);
+    await user.click(await screen.findByRole('button', { name: /sync from mt5/i }));
+
+    expect(
+      await screen.findByText('MT5 has 1200 accounts. 50 new ones were added with no client.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/40 more are still being read/)).toBeInTheDocument();
+    expect(screen.getByText(/Skipped the accounts in USC/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /show accounts with no client/i }));
+    await waitFor(() =>
+      expect(getTradingAccounts).toHaveBeenLastCalledWith(
+        expect.objectContaining({ client: 'unassigned' }),
+        expect.anything(),
+      ),
+    );
   });
 });

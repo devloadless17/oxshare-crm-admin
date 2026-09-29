@@ -3,13 +3,16 @@
 import { clientLabel } from '@/components/clients/client-identity';
 import * as React from 'react';
 import { Suspense } from 'react';
-import { Boxes, CandlestickChart, Link2, Plus } from 'lucide-react';
+import { Boxes, CandlestickChart, Link2, Plus, RefreshCw, UserPlus } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import type {
+  Mt5AccountsSyncRun,
   TradingAccountListResponse,
   TradingAccountRow,
   TradingAccountSortKey,
 } from '@/lib/api/admin';
+import { apiErrorMessage } from '@/lib/api/errors';
 import type { ClientRef } from '@/lib/api/admin';
 import { TRADING_ACCOUNT_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
@@ -103,6 +106,8 @@ function TradingAccountsPageContent() {
    */
   const environment = (['live', 'demo'] as const).find((e) => e === url.get('environment'));
   const status = (['active', 'suspended', 'closed'] as const).find((s) => s === url.get('status'));
+  // Accounts found on MT5 that no client owns yet (the account sync, 29 Sep 2026).
+  const client = (['assigned', 'unassigned'] as const).find((c) => c === url.get('client'));
   // Debounced for the same reason as the wallets screen's: it is a free-text
   // box, and the API matches the id exactly rather than searching.
   /*
@@ -125,6 +130,7 @@ function TradingAccountsPageContent() {
     q: q || undefined,
     environment,
     status,
+    client,
     sort: sortKey,
     // Withheld when nothing is sorted — `order` alone describes an ordering of
     // no column, and sending it would cache one result set under two keys.
@@ -142,6 +148,30 @@ function TradingAccountsPageContent() {
    */
   const { admin } = useAdmin();
   const canCreate = hasPermission(admin, 'trading.create');
+  /*
+   * An account with no client is outside every territory, so only an admin who
+   * sees every client is shown one (the server enforces it; this hides the
+   * filter and the sync that would only ever answer "none").
+   */
+  const seesUnassigned = Boolean(admin?.seesAllClients);
+  const queryClient = useQueryClient();
+  const [assignLogin, setAssignLogin] = React.useState<string | null>(null);
+  const [syncing, setSyncing] = React.useState(false);
+  const [syncRun, setSyncRun] = React.useState<Mt5AccountsSyncRun | null>(null);
+  const [syncError, setSyncError] = React.useState<string | null>(null);
+  const syncNow = async () => {
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      setSyncRun(await api.admin.syncMt5Accounts());
+      await queryClient.invalidateQueries({ queryKey: keys.tradingAccounts.all() });
+    } catch (err) {
+      setSyncRun(null);
+      setSyncError(apiErrorMessage(err, t('tradingAccounts.syncFailed')));
+    } finally {
+      setSyncing(false);
+    }
+  };
   // Link an MT5 account the server already has; set an account's product (29 Sep 2026).
   const [linkOpen, setLinkOpen] = React.useState(false);
   const [productFor, setProductFor] = React.useState<TradingAccountRow | null>(null);
@@ -196,11 +226,12 @@ function TradingAccountsPageContent() {
     ...(q ? { q } : {}),
     ...(environment ? { environment } : {}),
     ...(status ? { status } : {}),
+    ...(client ? { client } : {}),
   });
 
   const columns: Column<TradingAccountRow>[] = tradingAccountColumns();
 
-  const isFiltered = Boolean(userId || environment || status);
+  const isFiltered = Boolean(userId || environment || status || client);
 
   /*
    * Appended rather than written into the array literal above, so the column
@@ -242,6 +273,16 @@ function TradingAccountsPageContent() {
            * account from the portal.
            */
           items={[
+            // No client yet: the first thing to do with it is give it one.
+            ...(canCreate && !a.user && a.login
+              ? [
+                  {
+                    label: t('tradingAccounts.assignAction'),
+                    icon: UserPlus,
+                    onSelect: () => setAssignLogin(a.login ?? null),
+                  },
+                ]
+              : []),
             ...(funding.canMoveMoney && funding.canFund(a) ? [funding.action(a)] : []),
             // The product decides the commission its trades pay (29 Sep 2026).
             ...(canCreate
@@ -261,6 +302,23 @@ function TradingAccountsPageContent() {
           <p className="mt-1 text-sm text-muted-foreground">{t('tradingAccounts.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Bring every MT5 account the CRM lacks in, with no client. */}
+          {canCreate && seesUnassigned && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void syncNow()}
+              disabled={syncing}
+              title={t('tradingAccounts.syncHint')}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`}
+                aria-hidden="true"
+              />
+              {syncing ? t('tradingAccounts.syncing') : t('tradingAccounts.syncButton')}
+            </Button>
+          )}
           {/* Attach an MT5 account the server already has to a client. */}
           {canCreate && (
             <Button type="button" size="sm" variant="outline" onClick={() => setLinkOpen(true)}>
@@ -275,6 +333,24 @@ function TradingAccountsPageContent() {
           />
         </div>
       </div>
+
+      {(syncRun || syncError) && (
+        <div
+          role="status"
+          className={`shrink-0 rounded-lg border px-4 py-3 text-sm ${
+            syncError
+              ? 'border-destructive/30 bg-destructive/5 text-destructive'
+              : 'border-border bg-muted/40'
+          }`}
+        >
+          {syncError ?? (
+            <SyncSummary
+              run={syncRun as Mt5AccountsSyncRun}
+              onShow={() => url.set({ client: 'unassigned', page: undefined })}
+            />
+          )}
+        </div>
+      )}
 
       <div className="flex shrink-0 flex-wrap items-center gap-3">
         <UrlSearchInput
@@ -323,6 +399,26 @@ function TradingAccountsPageContent() {
           </SelectContent>
         </Select>
 
+        {seesUnassigned && (
+          <Select
+            value={client ?? 'all'}
+            onValueChange={(value) =>
+              url.set({ client: value === 'all' ? undefined : value, page: undefined })
+            }
+          >
+            <SelectTrigger className="h-9 w-40" aria-label={t('tradingAccounts.filterOwner')}>
+              <SelectValue placeholder={t('tradingAccounts.filterOwnerAll')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('tradingAccounts.filterOwnerAll')}</SelectItem>
+              <SelectItem value="assigned">{t('tradingAccounts.filterOwnerAssigned')}</SelectItem>
+              <SelectItem value="unassigned">
+                {t('tradingAccounts.filterOwnerUnassigned')}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
         {canCreate && userId && (
           <Button
             type="button"
@@ -334,7 +430,7 @@ function TradingAccountsPageContent() {
                 // Was falling through to `userId` — the uuid, which is never
                 // shown in this console. Portal ID is the identifier that
                 // survives every mask.
-                label: rows[0] ? clientLabel(rows[0].user) : userId,
+                label: rows[0]?.user ? clientLabel(rows[0].user) : userId,
               })
             }
           >
@@ -438,7 +534,47 @@ function TradingAccountsPageContent() {
 
       {funding.dialog}
       <LinkAccountDialog open={linkOpen} onClose={() => setLinkOpen(false)} />
+      {/* "Assign to a client" on a No client row: the login is known, the client is chosen. */}
+      <LinkAccountDialog
+        open={assignLogin !== null}
+        login={assignLogin ?? undefined}
+        onClose={() => setAssignLogin(null)}
+      />
       <SetProductDialog account={productFor} onClose={() => setProductFor(null)} />
+    </div>
+  );
+}
+
+/** What "Sync from MT5" did, in sentences — and the way to the accounts it added. */
+function SyncSummary({ run, onShow }: { run: Mt5AccountsSyncRun; onShow: () => void }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="space-y-0.5">
+        <p className="font-medium">
+          {t('tradingAccounts.syncDone', { onServer: run.onServer, added: run.added })}
+        </p>
+        {run.remaining > 0 && (
+          <p className="text-muted-foreground">
+            {t('tradingAccounts.syncRemaining', { remaining: run.remaining })}
+          </p>
+        )}
+        {run.unknownCurrency.length > 0 && (
+          <p className="text-warning">
+            {t('tradingAccounts.syncUnknownCurrency', {
+              currencies: run.unknownCurrency.join(', '),
+            })}
+          </p>
+        )}
+        {run.removed > 0 && (
+          <p className="text-muted-foreground">
+            {t('tradingAccounts.syncRemoved', { removed: run.removed })}
+          </p>
+        )}
+        {run.stoppedEarly && <p className="text-muted-foreground">{run.stoppedEarly}</p>}
+      </div>
+      <Button type="button" size="sm" variant="outline" onClick={onShow}>
+        {t('tradingAccounts.showUnassigned')}
+      </Button>
     </div>
   );
 }

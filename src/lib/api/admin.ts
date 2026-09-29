@@ -674,6 +674,8 @@ export const MANUAL_ADMIN_PROVIDER = 'manual_admin';
 export type WalletListResponse = components['schemas']['WalletListResponseDto'];
 export type TradingAccountRow = components['schemas']['TradingAccountRowDto'];
 export type TradingAccountListResponse = components['schemas']['TradingAccountListResponseDto'];
+/** What "Sync from MT5" did — accounts recorded with no client, and what is left. */
+export type Mt5AccountsSyncRun = components['schemas']['Mt5AccountsSyncRunDto'];
 /**
  * live | demo, and active | suspended | closed — read off the ROW rather than
  * written out, so an environment or status added on the backend arrives as a
@@ -870,6 +872,12 @@ export interface TradingAccountListParams {
   q?: string;
   environment?: TradingAccountEnvironment;
   status?: TradingAccountStatus;
+  /**
+   * `unassigned`: accounts the MT5 sync found that no client owns yet (`user`
+   * null); `assigned`: the rest. The server shows unassigned ones only to an
+   * admin who sees every client.
+   */
+  client?: 'assigned' | 'unassigned';
   sort?: TradingAccountSortKey;
   order?: 'asc' | 'desc';
 }
@@ -883,6 +891,7 @@ export function tradingAccountListSearchParams(params: TradingAccountListParams)
   if (params.q) query.set('q', params.q);
   if (params.environment) query.set('environment', params.environment);
   if (params.status) query.set('status', params.status);
+  if (params.client) query.set('client', params.client);
   if (params.sort) {
     query.set('sort', params.sort);
     if (params.order) query.set('order', params.order);
@@ -2797,6 +2806,15 @@ export const adminApi = {
     productId?: string;
   }): Promise<LinkedMt5Account> {
     const { data } = await apiClient.post<LinkedMt5Account>('/admin/trading-accounts/link', body);
+    return data;
+  },
+
+  /**
+   * Bring MT5's accounts into the CRM now: each login the CRM lacks is recorded
+   * with no client. A batch; the scheduled sync (every ten minutes) takes the rest.
+   */
+  async syncMt5Accounts(): Promise<Mt5AccountsSyncRun> {
+    const { data } = await apiClient.post<Mt5AccountsSyncRun>('/admin/trading-accounts/sync');
     return data;
   },
 

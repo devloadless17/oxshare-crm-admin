@@ -603,6 +603,29 @@ export const messages = {
   'tradingAccounts.nounPlural': 'accounts',
   // `leverage` is nullable — it is unset until MT5 assigns a group.
   'tradingAccounts.noLeverage': 'Not set',
+  // ── Accounts on MT5 that no client owns yet (the MT5 account sync, 29 Sep 2026) ──
+  'tradingAccounts.noClient': 'No client',
+  'tradingAccounts.noClientHint':
+    'Found on MT5 by the account sync. No client owns it yet, so its trades pay no commission until it is assigned.',
+  'tradingAccounts.mt5Holder': 'On MT5: {holder}',
+  'tradingAccounts.filterOwner': 'Client',
+  'tradingAccounts.filterOwnerAll': 'All accounts',
+  'tradingAccounts.filterOwnerAssigned': 'With a client',
+  'tradingAccounts.filterOwnerUnassigned': 'No client',
+  'tradingAccounts.assignAction': 'Assign to a client',
+  'tradingAccounts.syncButton': 'Sync from MT5',
+  'tradingAccounts.syncing': 'Syncing…',
+  'tradingAccounts.syncHint':
+    'Adds every MT5 account the CRM does not have yet, with no client. It also runs by itself every ten minutes.',
+  'tradingAccounts.syncDone':
+    'MT5 has {onServer} accounts. {added} new ones were added with no client.',
+  'tradingAccounts.syncRemaining':
+    '{remaining} more are still being read and will appear over the next minutes.',
+  'tradingAccounts.syncUnknownCurrency':
+    'Skipped the accounts in {currencies}: this platform does not hold that currency. Add it, and the next sync takes them.',
+  'tradingAccounts.syncRemoved': '{removed} accounts no longer on MT5 were removed.',
+  'tradingAccounts.syncFailed': 'Could not sync from MT5.',
+  'tradingAccounts.showUnassigned': 'Show accounts with no client',
 
   // ── Audit log (D-21) ──────────────────────────────────────────────────────
   'audit.title': 'Audit Log',
