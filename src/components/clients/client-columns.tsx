@@ -1,4 +1,4 @@
-import { Eye, PauseCircle, PlayCircle, Wallet } from 'lucide-react';
+import { Eye, Link2, PauseCircle, PlayCircle, Wallet } from 'lucide-react';
 import type { ClientRow, ClientSortKey } from '@/lib/api/admin';
 import type { ClientRef } from '@/lib/api/admin';
 import { kycStatusLabel, kycStatusVariant } from '@/lib/kyc-status';
@@ -73,6 +73,7 @@ export function clientColumns({
   onToggleStatus,
   onChangeProgram,
   showReferrer = false,
+  onLinkAccount,
 }: {
   canSuspend: boolean;
   canViewTags: boolean;
@@ -88,6 +89,11 @@ export function clientColumns({
    * a column of dashes would say nobody introduced anyone.
    */
   showReferrer?: boolean;
+  /**
+   * "Link MT5 account" on each row, the client filled in (owner, 29 Sep 2026).
+   * Pass it only for a reader holding `trading.create`.
+   */
+  onLinkAccount?: (client: ClientRow) => void;
 }): Column<ClientRow>[] {
   const hidden = (field: string) => isMasked(field, maskedFields);
 
@@ -308,7 +314,7 @@ export function clientColumns({
    * `clients.suspend` — a commission operator, which is exactly the role that
    * needs it most.
    */
-  if (canSuspend || canEditPartners) {
+  if (canSuspend || canEditPartners || onLinkAccount) {
     /*
      * `actionsColumn` rather than a hand-written column, so this table gets the
      * same pinned, unsortable, right-aligned Actions affordance as every other
@@ -336,6 +342,15 @@ export function clientColumns({
                 // By Portal ID, as the name link beside it — never the uuid.
                 href: `/clients/${c.portalId}`,
               },
+              ...(onLinkAccount
+                ? [
+                    {
+                      label: t('linkAccount.action'),
+                      icon: Link2,
+                      onSelect: () => onLinkAccount(c),
+                    },
+                  ]
+                : []),
               /*
                * PARTNERS ONLY, and `type` is what says so — an individual or a
                * referral client has no `ib_accounts` row, so the PATCH behind

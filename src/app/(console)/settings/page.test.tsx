@@ -144,7 +144,7 @@ describe('which tabs an admin is offered', () => {
      * same way; see the header of src/test/permissions.ts for why it has to
      * be kept in step by hand.
      */
-    expect(tabs).toEqual(['Trading', 'Email', 'Payments', 'Platforms']);
+    expect(tabs).toEqual(['Trading', 'Email', 'Payments', 'Platforms', 'Scheduled jobs']);
   });
 
   it('hides the Email tab from a non-master admin', () => {
@@ -155,7 +155,7 @@ describe('which tabs an admin is offered', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['Trading', 'Platforms']);
+    expect(tabs).toEqual(['Trading', 'Platforms', 'Scheduled jobs']);
   });
 
   it('defaults to Trading when no tab is in the URL', async () => {

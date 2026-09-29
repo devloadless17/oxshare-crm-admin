@@ -119,8 +119,9 @@ export function useAccountFunding() {
    * account trades practice money against no wallet, and one awaiting its
    * login has nothing to fund yet.
    */
+  // An account with no client (found on MT5 by the sync) has no wallet to fund from or to.
   const canFund = (a: TradingAccountRow) =>
-    Boolean(a.login && a.status === 'active' && a.environment === 'live');
+    Boolean(a.user && a.login && a.status === 'active' && a.environment === 'live');
 
   const action = (a: TradingAccountRow): RowAction => ({
     label: t('tradingAccounts.fundAction'),

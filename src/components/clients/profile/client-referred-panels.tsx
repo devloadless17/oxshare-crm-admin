@@ -205,11 +205,16 @@ export function ReferredAccountsPanel({ partnerPortalId }: { partnerPortalId: nu
     ...tradingAccountColumns(),
     actionsColumn<TradingAccountRow>((account) => {
       const items: RowAction[] = [
-        {
-          label: t('clientProfile.referredAccountsViewOwner'),
-          icon: Eye,
-          href: `/clients/${account.user.portalId}`,
-        },
+        // Always a client here (a partner's referrals), but the row type allows none.
+        ...(account.user
+          ? [
+              {
+                label: t('clientProfile.referredAccountsViewOwner'),
+                icon: Eye,
+                href: `/clients/${account.user.portalId}`,
+              },
+            ]
+          : []),
         ...(funding.canMoveMoney && funding.canFund(account)
           ? [{ ...funding.action(account), separatorBefore: true }]
           : []),

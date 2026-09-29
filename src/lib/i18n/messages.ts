@@ -603,6 +603,29 @@ export const messages = {
   'tradingAccounts.nounPlural': 'accounts',
   // `leverage` is nullable — it is unset until MT5 assigns a group.
   'tradingAccounts.noLeverage': 'Not set',
+  // ── Accounts on MT5 that no client owns yet (the MT5 account sync, 29 Sep 2026) ──
+  'tradingAccounts.noClient': 'No client',
+  'tradingAccounts.noClientHint':
+    'Found on MT5 by the account sync. No client owns it yet, so its trades pay no commission until it is assigned.',
+  'tradingAccounts.mt5Holder': 'On MT5: {holder}',
+  'tradingAccounts.filterOwner': 'Client',
+  'tradingAccounts.filterOwnerAll': 'All accounts',
+  'tradingAccounts.filterOwnerAssigned': 'With a client',
+  'tradingAccounts.filterOwnerUnassigned': 'No client',
+  'tradingAccounts.assignAction': 'Assign to a client',
+  'tradingAccounts.syncButton': 'Sync from MT5',
+  'tradingAccounts.syncing': 'Syncing…',
+  'tradingAccounts.syncHint':
+    'Adds every MT5 account the CRM does not have yet, with no client. It also runs by itself every ten minutes.',
+  'tradingAccounts.syncDone':
+    'MT5 has {onServer} accounts. {added} new ones were added with no client.',
+  'tradingAccounts.syncRemaining':
+    '{remaining} more are still being read and will appear over the next minutes.',
+  'tradingAccounts.syncUnknownCurrency':
+    'Skipped the accounts in {currencies}: this platform does not hold that currency. Add it, and the next sync takes them.',
+  'tradingAccounts.syncRemoved': '{removed} accounts no longer on MT5 were removed.',
+  'tradingAccounts.syncFailed': 'Could not sync from MT5.',
+  'tradingAccounts.showUnassigned': 'Show accounts with no client',
 
   // ── Audit log (D-21) ──────────────────────────────────────────────────────
   'audit.title': 'Audit Log',
@@ -1326,6 +1349,7 @@ export const messages = {
   'clientProfile.accountsSearch': "Search this client's accounts",
   'clientProfile.accountsSearchPlaceholder': 'MT5 login',
   'clientProfile.accountsOpen': 'Open account',
+  'clientProfile.accountsLinkExisting': 'Link existing',
   'clientProfile.accountsLoading': 'Loading trading accounts',
   'clientProfile.accountsLoadFailed': "This client's trading accounts could not be loaded.",
   'clientProfile.accountsNoMatch': 'No accounts match these filters.',
@@ -1890,6 +1914,81 @@ export const messages = {
   'settings.tabEmail': 'Email',
   'settings.tabTrading': 'Trading',
   'settings.tabPlatforms': 'Platforms',
+  'settings.tabJobs': 'Scheduled jobs',
+
+  // ── Settings → Scheduled jobs (29 Sep 2026): every background job's timing ──
+  'jobs.title': 'Scheduled jobs',
+  'jobs.subtitle':
+    'How often each background job runs. A change applies within 15 seconds (within a minute for the MT5 bridge), with no restart.',
+  'jobs.readOnly': 'You can see these timings but not change them.',
+  'jobs.loading': 'Loading scheduled jobs',
+  'jobs.loadFailed': 'Could not load the scheduled jobs.',
+  'jobs.groupMt5': 'MT5',
+  'jobs.groupCommission': 'Commission',
+  'jobs.groupMoney': 'Money',
+  'jobs.groupSystem': 'System',
+  'jobs.colJob': 'Job',
+  'jobs.colEvery': 'Runs every',
+  'jobs.colLastRun': 'Last run',
+  'jobs.runsOnBridge': 'On the MT5 bridge',
+  'jobs.unitSeconds': 'seconds',
+  'jobs.unitMinutes': 'minutes',
+  'jobs.unitHours': 'hours',
+  'jobs.unitDays': 'days',
+  'jobs.unitSecond': 'second',
+  'jobs.unitMinute': 'minute',
+  'jobs.unitHour': 'hour',
+  'jobs.unitDay': 'day',
+  'jobs.unit': 'Unit',
+  'jobs.interval': 'How often {job} runs',
+  'jobs.save': 'Save',
+  'jobs.saved': '{job} now runs every {every}.',
+  'jobs.saveFailed': 'Could not change the interval.',
+  'jobs.bounds': 'Between {min} and {max}.',
+  'jobs.outOfBounds': 'Choose between {min} and {max}.',
+  'jobs.default': 'Default {every}',
+  'jobs.runNow': 'Run now',
+  'jobs.runRequested': '{job} will start within 15 seconds.',
+  'jobs.runFailed': 'Could not start the job.',
+  'jobs.never': 'Not run yet',
+  'jobs.running': 'Running…',
+  'jobs.ok': 'OK',
+  'jobs.failed': 'Failed',
+  'jobs.lastRun': '{when} · took {duration}',
+  'jobs.bridgeRead': 'Bridge read this {when}',
+  'jobs.bridgeNeverRead': 'The bridge has not read this yet',
+  'jobs.sharedCommission':
+    'One interval for both commission jobs, and also how long a commission is held before it is paid — the same value as Trading → commission interval.',
+  'jobs.label.bridge.sweep': 'MT5 deal & balance sweep',
+  'jobs.desc.bridge.sweep':
+    'The bridge re-reads recent deals from MT5 and refreshes account balances.',
+  'jobs.label.mt5.syncAccounts': 'MT5 account sync',
+  'jobs.desc.mt5.syncAccounts':
+    'Adds MT5 accounts the CRM does not have yet, with no client, to be assigned.',
+  'jobs.label.mt5.syncGroups': 'MT5 group sync',
+  'jobs.desc.mt5.syncGroups':
+    'Re-reads the MT5 group catalogue and flags groups that changed or vanished.',
+  'jobs.label.ib.accrueDeals': 'Commission — calculate from trades',
+  'jobs.desc.ib.accrueDeals': 'Turns closed MT5 trades into commission owed to partners.',
+  'jobs.label.ib.confirmAccruals': 'Commission — pay partners',
+  'jobs.desc.ib.confirmAccruals': 'Credits matured commission to partners’ commission wallets.',
+  'jobs.label.payments.resumeTransfers': 'Resume stuck transfers',
+  'jobs.desc.payments.resumeTransfers':
+    'Retries wallet ↔ MT5 transfers that stopped halfway, e.g. while the bridge was down.',
+  'jobs.label.rival.reconcile': 'Payment gateway check',
+  'jobs.desc.rival.reconcile':
+    'Asks the payment gateway about payments still waiting for an answer.',
+  'jobs.label.payments.foldMovementTotals': 'Financial totals',
+  'jobs.desc.payments.foldMovementTotals': 'Keeps the Financial list totals and counts up to date.',
+  'jobs.label.wallet.reconcile': 'Wallet reconciliation',
+  'jobs.desc.wallet.reconcile':
+    'Checks every wallet balance against its ledger and alerts on a mismatch.',
+  'jobs.label.security.sweep': 'Security sweep',
+  'jobs.desc.security.sweep':
+    'Clears expired sessions, old request keys and login-attempt counters.',
+  'jobs.label.notifications.prune': 'Notification clean-up',
+  'jobs.desc.notifications.prune':
+    'Deletes old notifications (clients after 90 days, admins after a year).',
 
   'settings.masterOnly': 'Master admin only',
 
@@ -2580,6 +2679,69 @@ export const messages = {
    */
   'common.copyFailed': 'Could not copy — select the value and copy it manually.',
   'common.copied': 'Copied',
+  // ── Link an existing MT5 account to a client (owner, 29 Sep 2026) ────────
+  'linkAccount.title': 'Link an existing MT5 account',
+  'linkAccount.action': 'Link MT5 account',
+  'linkAccount.headerButton': 'Link account',
+  'linkAccount.stepClient': '1 · Client',
+  'linkAccount.stepAccount': '2 · MT5 account',
+  'linkAccount.stepCompare': '3 · Check they match',
+  'linkAccount.stepProduct': '4 · Product',
+  'linkAccount.changeClient': 'Change',
+  'linkAccount.clientSearch': 'Search clients',
+  'linkAccount.clientSearchPlaceholder': 'Name, email or Portal ID',
+  'linkAccount.searching': 'Searching…',
+  'linkAccount.noClients': 'No client matches.',
+  'linkAccount.loginLabel': 'MT5 login',
+  'linkAccount.find': 'Find',
+  'linkAccount.lookupFailed': 'That login could not be looked up.',
+  'linkAccount.sideClient': 'Client in the CRM',
+  'linkAccount.sideMt5': 'MT5 account {login}',
+  'linkAccount.pickClientFirst': 'Choose the client above.',
+  'linkAccount.name': 'Name',
+  'linkAccount.email': 'Email',
+  'linkAccount.portalId': 'Portal ID',
+  'linkAccount.country': 'Country',
+  'linkAccount.group': 'Group',
+  'linkAccount.balance': 'Balance',
+  'linkAccount.leverage': 'Leverage',
+  'linkAccount.environment': 'Type',
+  'linkAccount.namesDiffer':
+    'The names do not look alike — make sure this is the right client before linking.',
+  'linkAccount.ownedBy':
+    'This account is already linked to {who}. Moving an account between clients is not done here.',
+  'linkAccount.ownedOutside': 'This account is already linked to a client outside your territory.',
+  'linkAccount.currencyUnknown':
+    'This account is in {currency}, which the platform does not hold. Add the currency first.',
+  'linkAccount.waitingDeals':
+    '{count} of its trades are waiting for an owner — they earn commission on the next run once linked.',
+  'linkAccount.noProduct':
+    'No product sells the group {group}. You can link it now and set the product once the group is attached to one — until then its trades pay no commission.',
+  'linkAccount.productLabel': 'Product',
+  'linkAccount.productPlaceholder': 'Choose the product',
+  'linkAccount.productHint':
+    "The product decides the commission its trades pay. Only products that sell this account's group are offered.",
+  'linkAccount.link': 'Link account',
+  'linkAccount.failed': 'The account could not be linked.',
+  'linkAccount.succeeded': 'MT5 account {login} linked',
+  'linkAccount.doneTitle': "Account {login} is now this client's.",
+  'linkAccount.doneWaiting': '{count} waiting trades will earn commission on the next run.',
+  'linkAccount.doneNoWaiting': 'Its trades will earn commission from now on.',
+  // ── Set an account's product ─────────────────────────────────────────────
+  'setProduct.action': 'Set product',
+  'setProduct.title': "Set the account's product",
+  'setProduct.intro':
+    'Account {login}, in the MT5 group {group}. The product decides the commission its trades pay.',
+  'setProduct.noSellers':
+    'No product sells the group {group}. Attach the group to a product first.',
+  'setProduct.label': 'Product',
+  'setProduct.placeholder': 'Choose the product',
+  'setProduct.none': 'No product',
+  'setProduct.hint':
+    'Applies to trades not yet paid on; commission already calculated keeps its terms.',
+  'setProduct.save': 'Save',
+  'setProduct.saved': 'Product set on {login}',
+  'setProduct.failed': 'The product could not be set.',
   'common.cancel': 'Cancel',
   'common.saving': 'Saving…',
   'common.saveChanges': 'Save Changes',

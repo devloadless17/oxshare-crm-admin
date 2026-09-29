@@ -161,6 +161,9 @@ export type IbLevelLimits = components['schemas']['IbLevelLimitsDto'];
  * `lastSeenAt` is how recently the server confirmed it.
  */
 export type Mt5GroupRow = components['schemas']['Mt5GroupDto'];
+/** An MT5 login as the link screen reads it — MT5's account, holder, options. */
+export type Mt5AccountLookup = components['schemas']['Mt5AccountLookupDto'];
+export type LinkedMt5Account = components['schemas']['LinkedMt5AccountDto'];
 
 export type IbCommissionType = components['schemas']['IbCommissionTypeDto'];
 export type CreateIbCommissionType = components['schemas']['CreateIbCommissionTypeDto'];
@@ -671,6 +674,11 @@ export const MANUAL_ADMIN_PROVIDER = 'manual_admin';
 export type WalletListResponse = components['schemas']['WalletListResponseDto'];
 export type TradingAccountRow = components['schemas']['TradingAccountRowDto'];
 export type TradingAccountListResponse = components['schemas']['TradingAccountListResponseDto'];
+/** One background job's timing and last run — Settings → Scheduled jobs. */
+export type ScheduledJob = components['schemas']['ScheduledJobDto'];
+export type ScheduledJobList = components['schemas']['ScheduledJobListDto'];
+/** What "Sync from MT5" did — accounts recorded with no client, and what is left. */
+export type Mt5AccountsSyncRun = components['schemas']['Mt5AccountsSyncRunDto'];
 /**
  * live | demo, and active | suspended | closed — read off the ROW rather than
  * written out, so an environment or status added on the backend arrives as a
@@ -867,6 +875,12 @@ export interface TradingAccountListParams {
   q?: string;
   environment?: TradingAccountEnvironment;
   status?: TradingAccountStatus;
+  /**
+   * `unassigned`: accounts the MT5 sync found that no client owns yet (`user`
+   * null); `assigned`: the rest. The server shows unassigned ones only to an
+   * admin who sees every client.
+   */
+  client?: 'assigned' | 'unassigned';
   sort?: TradingAccountSortKey;
   order?: 'asc' | 'desc';
 }
@@ -880,6 +894,7 @@ export function tradingAccountListSearchParams(params: TradingAccountListParams)
   if (params.q) query.set('q', params.q);
   if (params.environment) query.set('environment', params.environment);
   if (params.status) query.set('status', params.status);
+  if (params.client) query.set('client', params.client);
   if (params.sort) {
     query.set('sort', params.sort);
     if (params.order) query.set('order', params.order);
@@ -1615,6 +1630,32 @@ export const adminApi = {
 
   async updateTradingSettings(body: UpdateTradingSettings): Promise<TradingSettings> {
     const { data } = await apiClient.put<TradingSettings>('/admin/settings/trading', body);
+    return data;
+  },
+
+  // ── Scheduled jobs (Settings → Scheduled jobs, 29 Sep 2026) ───────────────
+
+  async getScheduledJobs(signal?: AbortSignal): Promise<ScheduledJobList> {
+    const { data } = await apiClient.get<ScheduledJobList>('/admin/settings/scheduled-jobs', {
+      signal,
+    });
+    return data;
+  },
+
+  /** Change how often a job runs; the answer is the whole list again. */
+  async updateScheduledJob(key: string, intervalSeconds: number): Promise<ScheduledJobList> {
+    const { data } = await apiClient.put<ScheduledJobList>(
+      `/admin/settings/scheduled-jobs/${encodeURIComponent(key)}`,
+      { intervalSeconds },
+    );
+    return data;
+  },
+
+  /** Start a CRM job at the runner's next tick (within 15 seconds). */
+  async runScheduledJob(key: string): Promise<ScheduledJobList> {
+    const { data } = await apiClient.post<ScheduledJobList>(
+      `/admin/settings/scheduled-jobs/${encodeURIComponent(key)}/run`,
+    );
     return data;
   },
 
@@ -2778,6 +2819,39 @@ export const adminApi = {
    * once and stored nowhere, so whatever calls this must show them before it
    * navigates away.
    */
+  /** One MT5 login, for linking it to a client — read-only. */
+  async lookupMt5Account(login: string, signal?: AbortSignal): Promise<Mt5AccountLookup> {
+    const { data } = await apiClient.get<Mt5AccountLookup>(
+      `/admin/mt5/accounts/${encodeURIComponent(login)}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /** Link a login MT5 already has to a client, with its product. */
+  async linkMt5Account(body: {
+    userId: number;
+    login: string;
+    productId?: string;
+  }): Promise<LinkedMt5Account> {
+    const { data } = await apiClient.post<LinkedMt5Account>('/admin/trading-accounts/link', body);
+    return data;
+  },
+
+  /**
+   * Bring MT5's accounts into the CRM now: each login the CRM lacks is recorded
+   * with no client. A batch; the scheduled sync (every ten minutes) takes the rest.
+   */
+  async syncMt5Accounts(): Promise<Mt5AccountsSyncRun> {
+    const { data } = await apiClient.post<Mt5AccountsSyncRun>('/admin/trading-accounts/sync');
+    return data;
+  },
+
+  /** Set, change or clear (null) the product an account's trades pay under. */
+  async setTradingAccountProduct(accountId: string, productId: string | null): Promise<void> {
+    await apiClient.patch(`/admin/trading-accounts/${accountId}/product`, { productId });
+  },
+
   async createTradingAccount(dto: CreateMt5AccountDto): Promise<CreatedMt5Account> {
     const { data } = await apiClient.post<CreatedMt5Account>('/admin/trading-accounts', dto);
     return data;

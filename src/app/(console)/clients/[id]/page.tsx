@@ -40,6 +40,7 @@ import { useClientTagToggle } from '@/components/clients/profile/use-client-tag-
 import { ClientClosedPositionsPanel } from '@/components/clients/profile/client-activity-panels';
 import { ClientAccountsPanel } from '@/components/clients/profile/client-accounts-panel';
 import { ClientOverview } from '@/components/clients/profile/client-overview';
+import { LinkAccountDialog } from '@/components/trading/link-account-dialog';
 import { ClientTransactionsTab } from '@/components/clients/profile/client-transactions-tab';
 import { ClientDocumentsPanel } from '@/components/clients/profile/client-documents-panel';
 import { ClientNetworkTree } from '@/components/clients/profile/client-network-tree';
@@ -130,6 +131,7 @@ export default function ClientProfilePage() {
 
   const [tab, setTab] = React.useState(TAB_OVERVIEW);
   const [tagsOpen, setTagsOpen] = React.useState(false);
+  const [linkOpen, setLinkOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [emailOpen, setEmailOpen] = React.useState(false);
   const [showRecordReferrer, setShowRecordReferrer] = React.useState(false);
@@ -424,10 +426,7 @@ export default function ClientProfilePage() {
                   onManageTags={() => setTagsOpen(true)}
                   onEditProfile={() => setEditOpen(true)}
                   onChangeEmail={() => setEmailOpen(true)}
-                  // A tab move, not a link — the menu sits above every tab.
-                  onShowReferred={
-                    partner && canViewClients ? () => setTab(TAB_REFERRED_CLIENTS) : undefined
-                  }
+                  onLinkAccount={() => setLinkOpen(true)}
                 />
               </div>
             </header>
@@ -435,6 +434,20 @@ export default function ClientProfilePage() {
             <div className="shrink-0">
               <Tabs tabs={tabs} value={tab} onValueChange={setTab} idPrefix="client-profile" />
             </div>
+
+            {/* The client is known here, so the dialog only asks for the login. */}
+            <LinkAccountDialog
+              open={linkOpen}
+              onClose={() => setLinkOpen(false)}
+              client={{
+                id: profile.id,
+                portalId: profile.portalId,
+                firstName: profile.firstName,
+                lastName: profile.lastName,
+                email: profile.email,
+                country: profile.country,
+              }}
+            />
 
             <TabPanel value={TAB_OVERVIEW} activeValue={tab} idPrefix="client-profile">
               {/*
@@ -519,7 +532,18 @@ export default function ClientProfilePage() {
                 idPrefix="client-profile"
                 className="flex min-h-0 flex-1 flex-col"
               >
-                <ClientAccountsPanel userId={profile.id} clientName={displayName} />
+                <ClientAccountsPanel
+                  userId={profile.id}
+                  clientName={displayName}
+                  client={{
+                    id: profile.id,
+                    portalId: profile.portalId,
+                    firstName: profile.firstName,
+                    lastName: profile.lastName,
+                    email: profile.email,
+                    country: profile.country,
+                  }}
+                />
               </TabPanel>
             )}
 

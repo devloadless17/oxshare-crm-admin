@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { CandlestickChart, Plus } from 'lucide-react';
+import { Boxes, CandlestickChart, Link2, Plus } from 'lucide-react';
 import api from '@/lib/api';
 import type {
   ClientRef,
@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/button';
 import { tradingAccountColumns } from '@/components/trading/trading-account-columns';
 import { useAccountFunding } from '@/components/trading/use-account-funding';
 import { OpenAccountModal } from '@/components/trading/open-account-modal';
+import { LinkAccountDialog, type LinkTarget } from '@/components/trading/link-account-dialog';
+import { SetProductDialog } from '@/components/trading/set-product-dialog';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 import { ChoiceFilter, TableSearch, useTableState } from './table-state';
@@ -37,10 +39,13 @@ import { ChoiceFilter, TableSearch, useTableState } from './table-state';
 export function ClientAccountsPanel({
   userId,
   clientName,
+  client,
 }: {
   userId: ClientRef;
   /** For the Open account dialog's title. */
   clientName: string;
+  /** For "Link existing account" — the client is filled in, only the login is asked. */
+  client: LinkTarget;
 }) {
   const { admin } = useAdmin();
   const canCreate = hasPermission(admin, 'trading.create');
@@ -49,6 +54,8 @@ export function ClientAccountsPanel({
   const [environment, setEnvironment] = React.useState('');
   const [status, setStatus] = React.useState('');
   const [opening, setOpening] = React.useState(false);
+  const [linking, setLinking] = React.useState(false);
+  const [productFor, setProductFor] = React.useState<TradingAccountRow | null>(null);
 
   const params = {
     limit: table.pageSize,
@@ -69,16 +76,27 @@ export function ClientAccountsPanel({
   const columns: Column<TradingAccountRow>[] = [
     // Every row is this client — the Client column would repeat their name.
     ...tradingAccountColumns().filter((column) => column.header !== t('tradingAccounts.colOwner')),
-    ...(funding.canMoveMoney
+    ...(funding.canMoveMoney || canCreate
       ? [
-          actionsColumn<TradingAccountRow>((account) =>
-            funding.canFund(account) ? (
-              <RowActions
-                label={t('tradingAccounts.rowActions', { login: account.login ?? account.id })}
-                items={[funding.action(account)]}
-              />
-            ) : null,
-          ),
+          actionsColumn<TradingAccountRow>((account) => (
+            <RowActions
+              label={t('tradingAccounts.rowActions', { login: account.login ?? account.id })}
+              items={[
+                ...(funding.canMoveMoney && funding.canFund(account)
+                  ? [funding.action(account)]
+                  : []),
+                ...(canCreate
+                  ? [
+                      {
+                        label: t('setProduct.action'),
+                        icon: Boxes,
+                        onSelect: () => setProductFor(account),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          )),
         ]
       : []),
   ];
@@ -122,10 +140,16 @@ export function ClientAccountsPanel({
           }}
         />
         {canCreate && (
-          <Button type="button" size="sm" className="sm:ms-auto" onClick={() => setOpening(true)}>
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            {t('clientProfile.accountsOpen')}
-          </Button>
+          <div className="flex gap-2 sm:ms-auto">
+            <Button type="button" size="sm" variant="outline" onClick={() => setLinking(true)}>
+              <Link2 className="h-4 w-4" aria-hidden="true" />
+              {t('clientProfile.accountsLinkExisting')}
+            </Button>
+            <Button type="button" size="sm" onClick={() => setOpening(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {t('clientProfile.accountsOpen')}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -167,6 +191,8 @@ export function ClientAccountsPanel({
         />
       </AsyncBoundary>
       {funding.dialog}
+      <LinkAccountDialog open={linking} onClose={() => setLinking(false)} client={client} />
+      <SetProductDialog account={productFor} onClose={() => setProductFor(null)} />
       {opening && (
         <OpenAccountModal
           open

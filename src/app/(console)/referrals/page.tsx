@@ -23,6 +23,7 @@ import { ChangeLevelFromList } from '@/components/clients/change-level-from-list
 import { clientColumns } from '@/components/clients/client-columns';
 import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
 import { ExportButton } from '@/components/export-button';
+import { LinkAccountDialog } from '@/components/trading/link-account-dialog';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -103,6 +104,9 @@ function ReferralsPageContent() {
   });
   const status = useClientStatusToggle();
   const [programTarget, setProgramTarget] = useState<ClientRow | null>(null);
+  // "Link MT5 account" from a row, the client filled in (29 Sep 2026).
+  const canLinkAccounts = hasPermission(admin, 'trading.create');
+  const [linkFor, setLinkFor] = useState<ClientRow | null>(null);
 
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
@@ -132,11 +136,28 @@ function ReferralsPageContent() {
     actingId: status.actingId,
     onToggleStatus: (client: ClientRow) => void status.toggle(client),
     onChangeProgram: setProgramTarget,
+    onLinkAccount: canLinkAccounts ? setLinkFor : undefined,
     showReferrer: canViewPartners,
   });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <LinkAccountDialog
+        open={linkFor !== null}
+        onClose={() => setLinkFor(null)}
+        client={
+          linkFor
+            ? {
+                id: linkFor.id,
+                portalId: linkFor.portalId,
+                firstName: linkFor.firstName,
+                lastName: linkFor.lastName,
+                email: linkFor.email,
+                country: linkFor.country,
+              }
+            : undefined
+        }
+      />
       {programTarget && (
         <ChangeLevelFromList
           open
