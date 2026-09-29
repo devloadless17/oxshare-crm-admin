@@ -257,6 +257,7 @@ export const keys = {
    *  refetch under an operator's half-finished edit destroys their work. */
   settings: {
     trading: () => ['settings', 'trading'] as const,
+    scheduledJobs: () => ['settings', 'scheduled-jobs'] as const,
     smtp: () => ['settings', 'smtp'] as const,
     rival: () => ['settings', 'rival'] as const,
     platformLinks: () => ['settings', 'platform-links'] as const,

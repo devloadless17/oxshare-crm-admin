@@ -3,9 +3,10 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { LineChart, Mail, MonitorDown, Wallet } from 'lucide-react';
+import { Clock, LineChart, Mail, MonitorDown, Wallet } from 'lucide-react';
 import { PageLoader } from '@/components/ui/loader';
 import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
+import { ScheduledJobsPanel } from '@/components/rbac/scheduled-jobs-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
 
 import { TradingSettingsPanel } from '@/components/rbac/trading-settings-panel';
@@ -142,6 +143,16 @@ function AdminSettingsContent() {
         label: t('settings.tabPlatforms'),
         icon: <MonitorDown className="h-4 w-4" aria-hidden="true" />,
       },
+      /*
+       * Every background job's timing (owner, 29 Sep 2026), edited here rather
+       * than in the server's environment file. Visible to every admin like
+       * Trading; the controls need `settings.edit`.
+       */
+      {
+        value: 'jobs',
+        label: t('settings.tabJobs'),
+        icon: <Clock className="h-4 w-4" aria-hidden="true" />,
+      },
     ];
     return all.filter((tab): tab is TabDefinition => tab !== null);
   }, [canViewSmtp, canViewRival]);
@@ -207,6 +218,10 @@ function AdminSettingsContent() {
 
         <TabPanel value="payments" activeValue={active} idPrefix="settings">
           <RivalSettingsPanel canManage={canEditRival} />
+        </TabPanel>
+
+        <TabPanel value="jobs" activeValue={active} idPrefix="settings">
+          <ScheduledJobsPanel canManage={canManageSettings} />
         </TabPanel>
 
         <TabPanel value="platforms" activeValue={active} idPrefix="settings">

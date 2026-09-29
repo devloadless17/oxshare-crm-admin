@@ -2577,6 +2577,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/settings/scheduled-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Background jobs: how often each runs, and its last run
+         * @description The CRM jobs are started by ScheduledJobsRunner at these intervals; `bridge.sweep` is read by the MT5 bridge once a minute. The commission pair share the Trading settings interval.
+         */
+        get: operations["AdminSettingsController_listJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settings/scheduled-jobs/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change how often a background job runs
+         * @description Within the job’s bounds (a 400 names them). Applies within 15 seconds (a minute for the bridge). For the commission jobs this is the Trading settings interval — also the hold.
+         */
+        put: operations["AdminSettingsController_setJobInterval"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settings/scheduled-jobs/{key}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a background job now
+         * @description Started at the runner’s next tick (within 15 seconds). Not for the commission jobs or a bridge job (400).
+         */
+        post: operations["AdminSettingsController_runJobNow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/settings/smtp": {
         parameters: {
             query?: never;
@@ -7242,6 +7302,55 @@ export interface components {
              * @example 3600
              */
             ibCommissionIntervalSeconds: number;
+        };
+        ScheduledJobDto: {
+            /** @example mt5.syncAccounts */
+            key: string;
+            /** @enum {string} */
+            group: "mt5" | "commission" | "money" | "system";
+            /**
+             * @description `bridge`: the MT5 bridge runs it and picks up a change within a minute.
+             * @enum {string}
+             */
+            runsOn: "crm" | "bridge";
+            /** @example 600 */
+            intervalSeconds: number;
+            /** @example 600 */
+            defaultSeconds: number;
+            /** @example 60 */
+            minSeconds: number;
+            /** @example 86400 */
+            maxSeconds: number;
+            /**
+             * @description `commission`: one interval for accruing and paying commission, which is also how long a commission is held before it is paid (the Trading settings value).
+             * @enum {string|null}
+             */
+            sharedInterval?: "commission" | null;
+            /** Format: date-time */
+            lastStartedAt?: string | null;
+            /** Format: date-time */
+            lastFinishedAt?: string | null;
+            lastDurationMs?: number | null;
+            lastError?: string | null;
+            /** Format: date-time */
+            lastErrorAt?: string | null;
+            /**
+             * Format: date-time
+             * @description For a bridge job: when the bridge last read its interval.
+             */
+            externalReadAt?: string | null;
+            /** @description Started and not yet finished. */
+            running: boolean;
+        };
+        ScheduledJobListDto: {
+            items: components["schemas"]["ScheduledJobDto"][];
+        };
+        UpdateScheduledJobDto: {
+            /**
+             * @description Seconds between runs, within the job’s bounds.
+             * @example 600
+             */
+            intervalSeconds: number;
         };
         SmtpSettingsDto: {
             /** @example smtp.postmarkapp.com */
@@ -12774,6 +12883,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TradingSettingsDto"];
+                };
+            };
+        };
+    };
+    AdminSettingsController_listJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledJobListDto"];
+                };
+            };
+        };
+    };
+    AdminSettingsController_setJobInterval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateScheduledJobDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledJobListDto"];
+                };
+            };
+        };
+    };
+    AdminSettingsController_runJobNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledJobListDto"];
                 };
             };
         };

@@ -674,6 +674,9 @@ export const MANUAL_ADMIN_PROVIDER = 'manual_admin';
 export type WalletListResponse = components['schemas']['WalletListResponseDto'];
 export type TradingAccountRow = components['schemas']['TradingAccountRowDto'];
 export type TradingAccountListResponse = components['schemas']['TradingAccountListResponseDto'];
+/** One background job's timing and last run — Settings → Scheduled jobs. */
+export type ScheduledJob = components['schemas']['ScheduledJobDto'];
+export type ScheduledJobList = components['schemas']['ScheduledJobListDto'];
 /** What "Sync from MT5" did — accounts recorded with no client, and what is left. */
 export type Mt5AccountsSyncRun = components['schemas']['Mt5AccountsSyncRunDto'];
 /**
@@ -1627,6 +1630,32 @@ export const adminApi = {
 
   async updateTradingSettings(body: UpdateTradingSettings): Promise<TradingSettings> {
     const { data } = await apiClient.put<TradingSettings>('/admin/settings/trading', body);
+    return data;
+  },
+
+  // ── Scheduled jobs (Settings → Scheduled jobs, 29 Sep 2026) ───────────────
+
+  async getScheduledJobs(signal?: AbortSignal): Promise<ScheduledJobList> {
+    const { data } = await apiClient.get<ScheduledJobList>('/admin/settings/scheduled-jobs', {
+      signal,
+    });
+    return data;
+  },
+
+  /** Change how often a job runs; the answer is the whole list again. */
+  async updateScheduledJob(key: string, intervalSeconds: number): Promise<ScheduledJobList> {
+    const { data } = await apiClient.put<ScheduledJobList>(
+      `/admin/settings/scheduled-jobs/${encodeURIComponent(key)}`,
+      { intervalSeconds },
+    );
+    return data;
+  },
+
+  /** Start a CRM job at the runner's next tick (within 15 seconds). */
+  async runScheduledJob(key: string): Promise<ScheduledJobList> {
+    const { data } = await apiClient.post<ScheduledJobList>(
+      `/admin/settings/scheduled-jobs/${encodeURIComponent(key)}/run`,
+    );
     return data;
   },
 
