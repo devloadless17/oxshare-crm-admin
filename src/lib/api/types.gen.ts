@@ -7098,7 +7098,8 @@ export interface components {
             createdAt: string;
         };
         ClientRowReferrerDto: {
-            ibUserId: string;
+            /** @description Absent when the introducer is outside your territory. */
+            ibUserId?: string;
             /** @description The introducer’s Portal ID. Absent, with their name, when they are outside your territory. */
             portalId?: number;
             /** @description Absent when the introducer is outside your territory. */
@@ -7176,7 +7177,8 @@ export interface components {
             createdAt: string;
         };
         ProfileReferrerDto: {
-            ibUserId: string;
+            /** @description Absent when the introducer is outside your territory. */
+            ibUserId?: string;
             /** @description The introducer’s Portal ID — what the profile links by. Absent, with the rest of their identity, when the introducer is outside your territory. */
             portalId?: number;
             /** @description Absent when the introducer is outside your territory. */
@@ -7187,8 +7189,8 @@ export interface components {
             lastName?: string;
             /** @description True when this client WAS introduced by a partner the reader may not see. Keeps “introduced, by someone outside your territory” distinct from “not introduced”. */
             outsideTerritory: boolean;
-            /** @description False when the attribution was switched off. */
-            active: boolean;
+            /** @description False when the attribution was switched off. Absent when the introducer is outside your territory: whether a partner you may not see is suspended is not yours to learn. */
+            active?: boolean;
             /** Format: date-time */
             since: string;
         };

@@ -581,7 +581,8 @@ export interface IbAccrual {
      */
     termsName: string | null;
     sourceType: string;
-    sourceId: string;
+    /** Null when the client is outside the reader's territory — it is their trade. */
+    sourceId: string | null;
     createdAt: string;
     confirmedAt: string | null;
   };
@@ -617,7 +618,8 @@ export interface IbAccrual {
  * number every other screen's search takes, so it goes with the name.
  */
 export interface IbAccrualPerson {
-  id: string;
+  /** Null, like every identifier here, when the person is outside the reader's territory. */
+  id: string | null;
   portalId: number | null;
   email: string | null;
   firstName: string | null;

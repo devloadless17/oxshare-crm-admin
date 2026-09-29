@@ -682,11 +682,6 @@ export default function ClientProfilePage() {
                         */
                         <p className="text-sm text-muted-foreground">
                           {t('clientProfile.parentIbOutsideTerritory')}
-                          {!profile.referrer.active && (
-                            <Badge variant="warning" className="ms-2">
-                              {t('clientProfile.attributionInactive')}
-                            </Badge>
-                          )}
                         </p>
                       ) : profile.referrer ? (
                         <p className="text-sm">
@@ -705,7 +700,7 @@ export default function ClientProfilePage() {
                             */}
                             {clientLabel(profile.referrer)}
                           </PermittedLink>
-                          {!profile.referrer.active && (
+                          {profile.referrer.active === false && (
                             <Badge variant="warning" className="ms-2">
                               {t('clientProfile.attributionInactive')}
                             </Badge>
