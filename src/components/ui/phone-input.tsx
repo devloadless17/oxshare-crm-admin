@@ -153,8 +153,36 @@ export function PhoneInput({
     onChange?.(country.dialCode + (nationalNumber ? ` ${nationalNumber}` : ''));
   };
 
+  /*
+   * A WHOLE international number — pasted from a contact card or typed with its
+   * `+` (or `00`) — is read as one: its country is chosen from it and the rest
+   * kept as the national part. Stripped to digits behind the chosen dial code
+   * instead, `+961 70 123 456` became `+961 96170123456`, which the server
+   * rightly refuses (found by the admin e2e, 29 Sep 2026). While the `+` is
+   * still being typed and no dial code fits yet, it is kept on screen.
+   */
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleaned = e.target.value.replace(/[^\d\s-]/g, '');
+    const raw = e.target.value;
+    const typed = raw.trimStart();
+    const international = typed.startsWith('+')
+      ? typed
+      : typed.startsWith('00')
+        ? `+${typed.slice(2)}`
+        : undefined;
+    if (international !== undefined) {
+      const compact = `+${international.replace(/\D/g, '')}`;
+      const country = compact.length > 1 ? countryFor(compact, selectedCountry) : undefined;
+      if (!country) {
+        setNationalNumber(compact);
+        return;
+      }
+      const national = nationalPartOf(compact, country).replace(/[^\d\s-]/g, '');
+      setSelectedCountry(country);
+      setNationalNumber(national);
+      onChange?.(country.dialCode + (national ? ` ${national}` : ''));
+      return;
+    }
+    const cleaned = raw.replace(/[^\d\s-]/g, '');
     setNationalNumber(cleaned);
     onChange?.(selectedCountry.dialCode + (cleaned ? ` ${cleaned}` : ''));
   };

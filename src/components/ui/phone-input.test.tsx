@@ -9,6 +9,32 @@ import { PhoneInput, formatPhone } from './phone-input';
  * profile shows.
  */
 describe('PhoneInput', () => {
+  it('reads a WHOLE international number pasted into the box — country and all', async () => {
+    // Stripped to digits behind the chosen code, `+961 70 123 456` became
+    // `+961 96170123456` and every save was refused (admin e2e, 29 Sep 2026).
+    const onChange = vi.fn();
+    render(<PhoneInput aria-label="Phone" value="" onChange={onChange} defaultCountryCode="+1" />);
+    const input = screen.getByLabelText('Phone');
+    await userEvent.click(input);
+    await userEvent.paste('+961 70 123 456');
+
+    expect(onChange).toHaveBeenLastCalledWith('+961 70 123 456');
+    expect(screen.getByRole('button', { name: /\+961/ })).toBeInTheDocument();
+    expect(input).toHaveValue('70 123 456');
+  });
+
+  it('keeps a typed + on screen until a dial code fits, then carries on in the number', async () => {
+    const onChange = vi.fn();
+    render(<PhoneInput aria-label="Phone" value="" onChange={onChange} defaultCountryCode="+1" />);
+    const input = screen.getByLabelText('Phone');
+    await userEvent.type(input, '+96');
+    expect(input).toHaveValue('+96');
+    await userEvent.type(input, '1');
+    expect(screen.getByRole('button', { name: /\+961/ })).toBeInTheDocument();
+    await userEvent.type(input, '70123456');
+    expect(onChange).toHaveBeenLastCalledWith('+961 70123456');
+  });
+
   it('shows a saved number that arrives after it mounted', () => {
     const { rerender } = render(<PhoneInput aria-label="Phone" value="" onChange={vi.fn()} />);
     expect(screen.getByLabelText('Phone')).toHaveValue('');
