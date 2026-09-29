@@ -73,6 +73,12 @@ export default function KycBuilderPage() {
   const confirm = useConfirm();
 
   const [draft, setDraft] = React.useState<KycStepConfig[] | null>(null);
+  /*
+   * The version the draft was READ at. `query.data.version` is the LATEST read,
+   * and a focus refetch replaces it while the draft is open — saving with that
+   * would name a colleague's newer form as the one edited, and overwrite it.
+   */
+  const [draftVersion, setDraftVersion] = React.useState<string | undefined>(undefined);
   const [saving, setSaving] = React.useState(false);
   const [refusals, setRefusals] = React.useState<Refusals | null>(null);
   const [stale, setStale] = React.useState(false);
@@ -85,6 +91,11 @@ export default function KycBuilderPage() {
   });
   // Served rather than duplicated: "a passport is one photo page" is a fact the
   // portal renders from too, and two copies would drift.
+  const identityQuery = useResource<KycFieldConfig[]>(
+    keys.kyc.identityCatalogue(),
+    async (signal) =>
+      (await api.get<KycFieldConfig[]>('/admin/kyc-config/identity-catalogue', { signal })).data,
+  );
   const catalogueQuery = useResource<KycDocumentType[]>(
     keys.kyc.documentCatalogue(),
     async (signal) =>
@@ -97,6 +108,7 @@ export default function KycBuilderPage() {
   const setSteps = (next: KycStepConfig[] | ((prev: KycStepConfig[]) => KycStepConfig[])) => {
     // An edit answers the last refusal — it is about a form that no longer exists.
     setRefusals(null);
+    if (draft === null) setDraftVersion(query.data?.version);
     setDraft((prev) => {
       const base = prev ?? query.data?.steps ?? [];
       return (typeof next === 'function' ? next(base) : next).map((step, index) => ({
@@ -112,8 +124,23 @@ export default function KycBuilderPage() {
       prev.map((step) => (step.id === id ? { ...step, fields: change(step.fields) } : step)),
     );
 
+  /** A question moves with its answers: keys are unique across the form (Phase 2). */
+  const moveField = (fromId: string, fieldId: string, toId: string) =>
+    setSteps((prev) => {
+      const field = prev.find((step) => step.id === fromId)?.fields.find((f) => f.id === fieldId);
+      if (!field) return prev;
+      return prev.map((step) =>
+        step.id === fromId
+          ? { ...step, fields: step.fields.filter((f) => f.id !== fieldId) }
+          : step.id === toId
+            ? { ...step, fields: [...step.fields, field] }
+            : step,
+      );
+    });
+
   const reload = async () => {
     setDraft(null);
+    setDraftVersion(undefined);
     setRefusals(null);
     setStale(false);
     await query.refetch();
@@ -123,15 +150,21 @@ export default function KycBuilderPage() {
     setSaving(true);
     setRefusals(null);
     try {
-      const version = query.data?.version;
-      const body = { steps: savePayload(steps) };
+      const version = draftVersion ?? query.data?.version;
+      // `format: 2`: this console knows identity placements and optional evidence;
+      // an older one is refused (409 KYC_BUILDER_OUTDATED) rather than erase them.
+      const body = { format: 2, steps: savePayload(steps) };
       if (version) await api.put('/admin/kyc-config', body, { headers: { 'If-Match': version } });
       else await api.put('/admin/kyc-config', body);
       setDraft(null);
+      setDraftVersion(undefined);
       await query.refetch();
       toastSuccess(t('builder.saved'));
     } catch (error) {
-      if (apiErrorCode(error) === 'KYC_CONFIG_STALE') {
+      if (
+        apiErrorCode(error) === 'KYC_CONFIG_STALE' ||
+        apiErrorCode(error) === 'KYC_BUILDER_OUTDATED'
+      ) {
         setStale(true);
         return;
       }
@@ -332,6 +365,11 @@ export default function KycBuilderPage() {
                 )
               }
               onReorderFields={(fields) => patchFields(activeStep.id, () => fields)}
+              onMoveField={(fieldId, toId) => moveField(activeStep.id, fieldId, toId)}
+              moveTargets={steps
+                .filter((candidate) => candidate.id !== activeStep.id)
+                .map((candidate) => ({ id: candidate.id, title: candidate.title }))}
+              identityCatalogue={identityQuery.data ?? []}
             />
           </TabPanel>
         )}

@@ -290,13 +290,24 @@ page with no route requirement renders the "no access" panel rather than itself.
 The rules are in `../CLAUDE.md` ("The identity core is the PLATFORM's"). Here they are SHAPES the
 screens take, so nothing on them can do what the server refuses:
 
-- **Builder** (`app/(console)/kyc/builder/page.tsx` + `components/kyc-builder/`). The identity is
-  `identity-block.tsx`: locked rows, not editor rows. There is no control that could remove First Name.
-  Identity Document and Proof of Address are a `document-checklist.tsx`, and the last ticked document
-  cannot be unticked. Built-in steps have no delete and no title field. Upload field types are offered
-  on the broker's own steps only (`field-types.ts`). `builder-save.ts` sends `If-Match` and turns a
-  refusal's `steps.i.fields.j` keys into the step and field they name, so each sentence appears under
-  its field. A 409 `KYC_CONFIG_STALE` shows the Reload banner and never retries over a colleague's save.
+- **Builder** (`app/(console)/kyc/builder/page.tsx` + `components/kyc-builder/`). Since Phase 2
+  (29 Sep 2026, the owner's "everything customizable") the whole form is the broker's to arrange:
+  - An identity detail on Personal Information is an `IdentityRow` (`identity-block.tsx`). It can be
+    placed anywhere in the step's list, made required or optional, or taken off ("Stop asking for …").
+    It is asked for again from "Ask for an identity detail…", whose list comes from
+    `GET /admin/kyc-config/identity-catalogue`. It has no label or type to edit, so re-adding First
+    Name gives back the client's name, never a lookalike box.
+  - Every built-in step can be retitled, moved and switched off, never deleted. Identity Document,
+    Proof of Address and Selfie each have a Required box (`evidenceRequired`); unticked, the client
+    may skip that step.
+  - Questions of every type, uploads included, go on any step. "Move to…" sends one to another step,
+    and the answers clients already gave follow it.
+  - The document steps keep `document-checklist.tsx`; the last ticked document cannot be unticked.
+  - Every save sends `format: 2` and the `If-Match` of the version the draft was STARTED from
+    (`draftVersion`). Sending the latest refetch's version instead would overwrite a colleague's save
+    without a word. A 409 `KYC_CONFIG_STALE` or `KYC_BUILDER_OUTDATED` shows the Reload banner and
+    never retries. `builder-save.ts` turns a refusal's `steps.i.fields.j` keys into the step and field
+    they name, so each sentence appears under its field.
 - **Review** (`app/(console)/kyc/[userId]/page.tsx` + `components/kyc-review/`). It renders the SERVER's
   `layout` through `review-sections.ts` and never reads the builder config. Dates of birth are UTC-safe
   (`formatCalendarDate`). Documents are named by the one on file, never a guessed passport. The reject
@@ -311,7 +322,8 @@ screens take, so nothing on them can do what the server refuses:
   line). **A reason may be any length, just not blank** — the server trims it and refuses only an
   empty one. Both dialogs demanded ten characters until 28 Sep 2026, and a reviewer had to pad
   "Expired" before the button worked, with nothing on screen saying why.
-- E2E: `kyc-builder.spec.ts` (the reported scenario, crafted saves, the stale 409) and
+- E2E: `kyc-builder.spec.ts` (the reported scenario, crafted saves, the outdated-builder and stale
+  409s, built-in steps switched off, any step moved) and
   `kyc-correct-and-reverify.spec.ts` (both actions, through to the money gate and the inbox). Never
   delete a step a spec did not create — see the warning at the top of `kyc-builder.spec.ts`.
 

@@ -3,12 +3,19 @@
 import { Camera, Lock, Plus, Trash2 } from 'lucide-react';
 import type { components } from '@/lib/api/types.gen';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FieldEditor, type KycDocumentType, type KycFieldConfig } from './field-editor';
-import { IdentityBlock } from './identity-block';
+import { AddIdentityDetail, IdentityRow } from './identity-block';
 import { DocumentChecklist } from './document-checklist';
-import { isAlwaysOn, isCoreStep, isSystemField, ownFields, takesOwnFields } from './field-types';
+import {
+  isCoreStep,
+  isDocumentField,
+  isIdentityField,
+  isSystemField,
+  takesEvidence,
+} from './field-types';
 import { SortableList, SortableRow } from './sortable-row';
 import { t } from '@/lib/i18n';
 
@@ -21,19 +28,21 @@ export interface StepRefusal {
 }
 
 /**
- * One step of the onboarding flow, shown as what it IS (26 Sep 2026).
+ * One step of the onboarding flow (Phase 2, 29 Sep 2026 — the owner's "everything
+ * customizable").
  *
- * The four BUILT-IN steps are the platform's: their names are fixed, none can
- * be deleted, and Personal Information and Identity Document are always on —
- * Selfie and Proof of Address can be switched off. Each shows what it holds:
+ * Every step is the broker's to title, describe, switch off and fill with
+ * questions of any kind, uploads included. The four BUILT-IN steps cannot be
+ * deleted — they are where the platform files the client's identity and
+ * evidence — and each keeps its part:
  *
- *   Personal Information   the client's identity (fixed), then YOUR questions
+ *   Personal Information   the identity details, placed, ordered, required or
+ *                          not, or not asked — beside your questions
  *   Identity Document      the documents it accepts — a checklist
  *   Proof of Address       the same, for address documents
- *   Selfie                 one live selfie — nothing to configure
+ *   Selfie                 one live selfie
  *
- * A step of the broker's own is theirs entirely: name, description, questions
- * and uploads, on or off, kept or deleted.
+ * The evidence steps can be made OPTIONAL: the client may skip them.
  */
 export function StepCard({
   step,
@@ -45,11 +54,13 @@ export function StepCard({
   onPatchField,
   onRemoveField,
   onReorderFields,
+  onMoveField,
+  moveTargets = [],
+  identityCatalogue = [],
   catalogue = [],
   refusal,
 }: {
   step: KycStepConfig;
-  /** Holds `kyc.delete` — deleting a step is its own power. */
   canDelete: boolean;
   onToggleEnabled: () => void;
   onDelete: () => void;
@@ -57,19 +68,25 @@ export function StepCard({
   onAddField: () => void;
   onPatchField: (fieldId: string, patch: Partial<KycFieldConfig>) => void;
   onRemoveField: (fieldId: string) => void;
-  /** The step's whole field list — its own fields reordered, or the documents re-ticked. */
   onReorderFields: (fields: KycFieldConfig[]) => void;
+  onMoveField?: (fieldId: string, stepId: string) => void;
+  moveTargets?: readonly { id: string; title: string }[];
+  /** Every identity detail the platform offers — for asking one the form does not. */
+  identityCatalogue?: readonly KycFieldConfig[];
   catalogue?: KycDocumentType[];
   refusal?: StepRefusal;
 }) {
   const core = isCoreStep(step);
-  const alwaysOn = isAlwaysOn(step);
-  const own = ownFields(step.fields);
-  const platform = step.fields.filter(isSystemField);
-
-  /** The platform's fields stay where they are; only the broker's own move. */
-  const reorderOwn = (next: KycFieldConfig[]) =>
-    onReorderFields([...step.fields.filter((field) => !own.includes(field)), ...next]);
+  // The rows the broker arranges: identity details and questions — never a
+  // document (the checklist) or the selfie camera (fixed).
+  const rows = step.fields.filter(
+    (field) => !isDocumentField(field) && (isIdentityField(step, field) || !isSystemField(field)),
+  );
+  const reorderRows = (next: KycFieldConfig[]) =>
+    onReorderFields([...step.fields.filter((field) => !rows.includes(field)), ...next]);
+  const placed = new Set(rows.map((field) => field.name));
+  const missingIdentity =
+    step.slug === 'personal' ? identityCatalogue.filter((field) => !placed.has(field.name)) : [];
 
   return (
     <div
@@ -96,11 +113,7 @@ export function StepCard({
                   step.enabled ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
                 }`}
               >
-                {alwaysOn
-                  ? t('builder.alwaysOn')
-                  : step.enabled
-                    ? t('builder.active')
-                    : t('builder.disabled')}
+                {step.enabled ? t('builder.active') : t('builder.disabled')}
               </span>
             </div>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">{step.description}</p>
@@ -108,16 +121,14 @@ export function StepCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          {!alwaysOn && (
-            <Button
-              variant={step.enabled ? 'outline' : 'default'}
-              size="sm"
-              onClick={onToggleEnabled}
-              className="h-8 px-2.5 text-xs"
-            >
-              {step.enabled ? t('builder.disable') : t('builder.enable')}
-            </Button>
-          )}
+          <Button
+            variant={step.enabled ? 'outline' : 'default'}
+            size="sm"
+            onClick={onToggleEnabled}
+            className="h-8 px-2.5 text-xs"
+          >
+            {step.enabled ? t('builder.disable') : t('builder.enable')}
+          </Button>
           {!core && canDelete && (
             <button
               type="button"
@@ -143,20 +154,17 @@ export function StepCard({
         )}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* A built-in step keeps its name — every client and every reviewer knows it by it. */}
-          {!core && (
-            <div className="space-y-1.5">
-              <Label className="text-xs" htmlFor={`title-${step.id}`}>
-                {t('builder.stepTitle')}
-              </Label>
-              <Input
-                id={`title-${step.id}`}
-                value={step.title}
-                onChange={(e) => onPatch({ title: e.target.value })}
-              />
-            </div>
-          )}
-          <div className={`space-y-1.5 ${core ? 'md:col-span-2' : ''}`}>
+          <div className="space-y-1.5">
+            <Label className="text-xs" htmlFor={`title-${step.id}`}>
+              {t('builder.stepTitle')}
+            </Label>
+            <Input
+              id={`title-${step.id}`}
+              value={step.title}
+              onChange={(e) => onPatch({ title: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
             <Label className="text-xs" htmlFor={`desc-${step.id}`}>
               {t('builder.stepDescription')}
             </Label>
@@ -168,7 +176,26 @@ export function StepCard({
           </div>
         </div>
 
-        {step.slug === 'personal' && <IdentityBlock fields={platform} />}
+        {takesEvidence(step.slug) && (
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-card/60 p-3.5">
+            <Checkbox
+              checked={step.evidenceRequired !== false}
+              onCheckedChange={(checked) => onPatch({ evidenceRequired: checked === true })}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block text-xs font-semibold text-foreground">
+                {t('builder.evidenceRequired')}
+              </span>
+              <span className="block text-[11px] text-muted-foreground">
+                {step.evidenceRequired !== false
+                  ? t('builder.evidenceRequiredHint')
+                  : t('builder.evidenceOptionalHint')}
+              </span>
+            </span>
+          </label>
+        )}
+
         {(step.slug === 'document' || step.slug === 'address') && (
           <DocumentChecklist
             category={step.slug === 'document' ? 'identity' : 'address'}
@@ -177,6 +204,7 @@ export function StepCard({
             onChange={onReorderFields}
           />
         )}
+
         {step.slug === 'selfie' && (
           <p className="flex items-start gap-2 rounded-xl border border-border bg-card/60 p-3.5 text-xs text-muted-foreground">
             <Camera className="mt-px h-4 w-4 shrink-0" aria-hidden="true" />
@@ -184,17 +212,23 @@ export function StepCard({
           </p>
         )}
 
-        {takesOwnFields(step.slug) && (
-          <div className="space-y-4 border-t border-border pt-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                  {step.slug === 'personal' ? t('builder.yourQuestions') : t('builder.fieldsTitle')}
-                </h4>
-                <p className="mt-1 max-w-prose text-[11px] text-muted-foreground">
-                  {step.slug === 'personal' ? t('builder.holdsPersonal') : t('builder.holdsAdded')}
-                </p>
-              </div>
+        <div className="space-y-4 border-t border-border pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                {step.slug === 'personal'
+                  ? t('builder.personalRowsTitle')
+                  : t('builder.fieldsTitle')}
+              </h4>
+              <p className="mt-1 max-w-prose text-[11px] text-muted-foreground">
+                {step.slug === 'personal' ? t('builder.personalRowsBody') : t('builder.holdsAdded')}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <AddIdentityDetail
+                missing={missingIdentity}
+                onAdd={(field) => onReorderFields([...step.fields, { ...field, system: true }])}
+              />
               <Button
                 variant="outline"
                 size="sm"
@@ -202,39 +236,47 @@ export function StepCard({
                 className="h-8 gap-1.5 border-primary/30 text-xs text-link hover:bg-primary/10"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>
-                  {step.slug === 'personal' ? t('builder.addQuestion') : t('builder.addField')}
-                </span>
+                <span>{t('builder.addField')}</span>
               </Button>
             </div>
+          </div>
 
-            {own.length === 0 ? (
-              <div className="rounded-xl border border-dashed py-6 text-center text-xs text-muted-foreground">
-                {step.slug === 'personal' ? t('builder.noQuestions') : t('builder.noFieldsHint')}
-              </div>
-            ) : (
-              <SortableList items={own} onReorder={reorderOwn}>
-                <div className="space-y-3">
-                  {own.map((field) => (
-                    <SortableRow
-                      key={field.id}
-                      id={field.id}
-                      handleLabel={t('builder.reorderField', { label: field.label })}
-                    >
+          {rows.length === 0 ? (
+            <div className="rounded-xl border border-dashed py-6 text-center text-xs text-muted-foreground">
+              {t('builder.noFieldsHint')}
+            </div>
+          ) : (
+            <SortableList items={rows} onReorder={reorderRows}>
+              <div className="space-y-3">
+                {rows.map((field) => (
+                  <SortableRow
+                    key={field.id}
+                    id={field.id}
+                    handleLabel={t('builder.reorderField', { label: field.label })}
+                  >
+                    {isIdentityField(step, field) ? (
+                      <IdentityRow
+                        field={field}
+                        onRequiredChange={(required) => onPatchField(field.id, { required })}
+                        onRemove={() => onRemoveField(field.id)}
+                      />
+                    ) : (
                       <FieldEditor
                         field={field}
                         slug={step.slug}
                         error={refusal?.fields[field.id]}
                         onChange={(patch) => onPatchField(field.id, patch)}
                         onRemove={() => onRemoveField(field.id)}
+                        moveTargets={moveTargets}
+                        onMove={onMoveField ? (stepId) => onMoveField(field.id, stepId) : undefined}
                       />
-                    </SortableRow>
-                  ))}
-                </div>
-              </SortableList>
-            )}
-          </div>
-        )}
+                    )}
+                  </SortableRow>
+                ))}
+              </div>
+            </SortableList>
+          )}
+        </div>
       </div>
     </div>
   );

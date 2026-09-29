@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { StepCard, type KycStepConfig } from './step-card';
@@ -72,34 +72,36 @@ const handlers = () => ({
 });
 
 describe('Personal Information', () => {
-  it('shows the client’s identity locked — no control can remove or rename it', () => {
-    renderWithProviders(
-      <StepCard step={PERSONAL} canDelete catalogue={CATALOGUE} {...handlers()} />,
-    );
-    const block = screen.getByRole('region', { name: /client's identity/i });
-    expect(within(block).getByText('First Name')).toBeInTheDocument();
-    expect(within(block).getAllByText('Required to verify')).toHaveLength(2);
-    expect(within(block).getByText('Optional')).toBeInTheDocument();
-    expect(within(block).queryByRole('textbox')).toBeNull();
-    expect(within(block).queryByRole('button')).toBeNull();
+  it('gives each identity detail a required switch and a remove — never a name box (Phase 2)', async () => {
+    const on = handlers();
+    renderWithProviders(<StepCard step={PERSONAL} canDelete catalogue={CATALOGUE} {...on} />);
+    expect(screen.getByRole('checkbox', { name: /first name is required/i })).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: /postal \/ zip code is required/i }),
+    ).not.toBeChecked();
+    expect(screen.queryByDisplayValue('First Name')).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('checkbox', { name: /first name is required/i }));
+    expect(on.onPatchField).toHaveBeenCalledWith('f-firstName', { required: false });
+    await user.click(screen.getByRole('button', { name: /stop asking for city/i }));
+    expect(on.onRemoveField).toHaveBeenCalledWith('f-city');
   });
 
-  it('is always on, keeps its name, and cannot be deleted', () => {
+  it('can be switched off and retitled, and still not deleted', () => {
     renderWithProviders(
       <StepCard step={PERSONAL} canDelete catalogue={CATALOGUE} {...handlers()} />,
     );
-    expect(screen.getByText('Always on')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^disable$/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /^disable$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/step title/i)).toHaveValue('Personal Information');
     expect(screen.queryByRole('button', { name: /delete step/i })).toBeNull();
-    expect(screen.queryByLabelText(/step title/i)).toBeNull();
   });
 
-  it('edits only the broker’s own questions, and adds one', async () => {
+  it('edits the broker’s own questions beside the details, and adds one', async () => {
     const on = handlers();
     renderWithProviders(<StepCard step={PERSONAL} canDelete catalogue={CATALOGUE} {...on} />);
     expect(screen.getByDisplayValue('Occupation')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('First Name')).toBeNull();
-    await userEvent.setup().click(screen.getByRole('button', { name: /add question/i }));
+    await userEvent.setup().click(screen.getByRole('button', { name: /add field/i }));
     expect(on.onAddField).toHaveBeenCalled();
   });
 
@@ -166,20 +168,24 @@ describe('Identity Document', () => {
 });
 
 describe('the selfie and the broker’s own steps', () => {
-  it('lets the selfie be switched off, and nothing else configured', () => {
+  it('lets the selfie be switched off, made optional, and hold questions (Phase 2)', async () => {
     const selfie: KycStepConfig = {
       ...PERSONAL,
       id: 'step-3',
       slug: 'selfie',
       title: 'Selfie Verification',
       alwaysOn: false,
+      evidenceRequired: true,
       fields: [{ ...identity('selfie', 'Selfie Photo'), type: 'camera' }],
     };
-    renderWithProviders(<StepCard step={selfie} canDelete catalogue={CATALOGUE} {...handlers()} />);
+    const on = handlers();
+    renderWithProviders(<StepCard step={selfie} canDelete catalogue={CATALOGUE} {...on} />);
     expect(screen.getByRole('button', { name: /^disable$/i })).toBeInTheDocument();
     expect(screen.getByText(/one live selfie/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /add field/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /add field/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /delete step/i })).toBeNull();
+    await userEvent.setup().click(screen.getByRole('checkbox', { name: /required/i }));
+    expect(on.onPatch).toHaveBeenCalledWith({ evidenceRequired: false });
   });
 
   it('gives a step of the broker’s own a name box, and a delete only to kyc.delete', () => {

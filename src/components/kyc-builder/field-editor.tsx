@@ -21,14 +21,16 @@ export type KycFieldConfig = components['schemas']['KycFieldConfigDto'];
 export type KycDocumentType = components['schemas']['KycDocumentTypeDto'];
 
 /**
- * One of the BROKER's own fields — a question on Personal Information, or a
- * question or upload on a step of their own.
+ * One of the BROKER's own fields — a question or an upload, on any step
+ * (Phase 2, 29 Sep 2026). "Move to…" sends it to another step, and the answers
+ * clients already gave follow it: an answer is found by its key wherever the
+ * question sits now.
  *
- * The platform's fields never come here: the client's identity is the
- * `IdentityBlock`, the documents are the `DocumentChecklist`, the selfie camera
- * is a fixed line. Each of those used to be an ordinary editable row, which is
- * how deleting First Name and adding it back produced a custom box instead of
- * the client's name (26 Sep 2026).
+ * The platform's fields never come here: an identity detail is an `IdentityRow`
+ * (placed and required or not, never relabelled), the documents are the
+ * `DocumentChecklist`, the selfie camera is a fixed line. Each of those used to
+ * be an ordinary editable row, which is how deleting First Name and adding it
+ * back produced a custom box instead of the client's name (26 Sep 2026).
  *
  * The KEY is not shown at all: it is a storage identifier the builder generates
  * (`customField_<timestamp>`), and a box for it taught operators it was theirs
@@ -41,6 +43,8 @@ export function FieldEditor({
   error,
   onChange,
   onRemove,
+  moveTargets = [],
+  onMove,
 }: {
   field: KycFieldConfig;
   /** The step's slug — it decides which types a field there may be. */
@@ -49,6 +53,9 @@ export function FieldEditor({
   error?: string;
   onChange: (patch: Partial<KycFieldConfig>) => void;
   onRemove: () => void;
+  /** The other steps this question may move to — its answers follow it (Phase 2). */
+  moveTargets?: readonly { id: string; title: string }[];
+  onMove?: (stepId: string) => void;
 }) {
   /*
    * THE RAW TEXT IS LOCAL STATE. Deriving it from the array deletes the comma
@@ -175,16 +182,35 @@ export function FieldEditor({
           <span className="text-[11px] font-medium">{t('builder.requiredField')}</span>
         </label>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRemove}
-          aria-label={t('builder.removeFieldNamed', { label: field.label })}
-          className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>{t('builder.removeField')}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          {onMove && moveTargets.length > 0 && (
+            <Select value="" onValueChange={onMove}>
+              <SelectTrigger
+                className="h-7 w-auto gap-1.5 text-xs"
+                aria-label={t('builder.moveFieldNamed', { label: field.label })}
+              >
+                <SelectValue placeholder={t('builder.moveTo')} />
+              </SelectTrigger>
+              <SelectContent>
+                {moveTargets.map((target) => (
+                  <SelectItem key={target.id} value={target.id}>
+                    {target.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            aria-label={t('builder.removeFieldNamed', { label: field.label })}
+            className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{t('builder.removeField')}</span>
+          </Button>
+        </div>
       </div>
     </div>
   );

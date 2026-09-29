@@ -1543,6 +1543,19 @@ export const messages = {
     'e.g., Provide details about your employment status and source of funds.',
   'builder.newField': 'New Field',
   // ── The identity core (26 Sep 2026): what is the platform's, and what is yours ──
+  'builder.identityBadge': 'Identity',
+  'builder.identityRequiredNamed': '{label} is required',
+  'builder.removeIdentity': 'Stop asking for this detail',
+  'builder.removeIdentityNamed': 'Stop asking for {label}',
+  'builder.addIdentity': 'Ask for an identity detail…',
+  'builder.personalRowsTitle': 'Identity details and questions',
+  'builder.personalRowsBody':
+    'Arrange the client’s identity details and your own questions in any order. A detail you remove is not asked here — the client’s answer from sign-up stays on their profile.',
+  'builder.evidenceRequired': 'Required',
+  'builder.evidenceRequiredHint': 'The client must provide this before they can submit.',
+  'builder.evidenceOptionalHint': 'Optional: the client may skip this step’s evidence.',
+  'builder.moveTo': 'Move to…',
+  'builder.moveFieldNamed': 'Move {label} to another step',
   'builder.identityTitle': "The client's identity",
   'builder.identityBody':
     'Fixed by the platform, as in any regulated CRM: these fields, their labels and which are required cannot be changed, removed or asked twice. The client fills them in at sign-up and confirms them here.',
@@ -1550,7 +1563,7 @@ export const messages = {
   'builder.identityRequired': 'Required to verify',
   'builder.identityOptional': 'Optional',
   'builder.identitySummary':
-    "Personal Information always asks for the client's identity — {count} fields, fixed by the platform. Below are the fields you added.",
+    "Personal Information asks for {count} of the client's identity details — arrange them on its tab. Below are the fields you added.",
   'builder.acceptedIdentityBody':
     'The client chooses ONE of the documents ticked here and uploads its pages. Each is collected once, only on this step.',
   'builder.acceptedAddressBody':

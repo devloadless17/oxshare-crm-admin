@@ -158,41 +158,41 @@ const saveButton = () => screen.getByRole('button', { name: /save all changes/i 
 const sentSteps = () => (put.mock.calls[0]?.[1] as { steps: KycStepConfig[] }).steps;
 
 describe('the client’s identity is the platform’s', () => {
-  it('THE REPORTED CASE: First Name has no control that could remove or rename it', async () => {
+  it('THE REPORTED CASE: First Name keeps its name — no name box — and is placed like any row', async () => {
     renderWithProviders(<KycBuilderPage />);
     await openStepTab('Personal Information');
-    const block = screen.getByRole('region', { name: /client's identity/i });
-    expect(within(block).getByText('First Name')).toBeInTheDocument();
-    expect(within(block).queryByRole('textbox')).toBeNull();
-    expect(within(block).queryByRole('button')).toBeNull();
+    expect(screen.getByRole('checkbox', { name: /first name is required/i })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('First Name')).toBeNull();
     // The broker's own question is editable, beside it.
     expect(screen.getByDisplayValue('Occupation')).toBeEnabled();
   });
 
-  it('adds a QUESTION of the broker’s own — never an upload — under a generated key', async () => {
+  it('adds a field under a generated key, and saves in the current builder format', async () => {
     renderWithProviders(<KycBuilderPage />);
     const user = await openStepTab('Personal Information');
-    await user.click(screen.getByRole('button', { name: /add question/i }));
+    await user.click(screen.getByRole('button', { name: /add field/i }));
     await user.click(saveButton());
     await waitFor(() => expect(put).toHaveBeenCalled());
+    expect((put.mock.calls[0]?.[1] as { format?: number }).format).toBe(2);
     const added = sentSteps()[0]?.fields.at(-1);
     expect(added).toMatchObject({ type: 'text', required: false });
     expect(added?.name).toMatch(/^customField_\d+$/);
   });
 
-  it('keeps Personal Information first — its row does not move, and nothing moves above it', async () => {
+  it('moves Personal Information like any step (Phase 2)', async () => {
     renderWithProviders(<KycBuilderPage />);
     const handle = await screen.findByRole('button', {
       name: /reorder step personal information/i,
     });
-    expect(handle).toBeDisabled();
-    expect(screen.getByRole('button', { name: /move identity document up/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /move selfie verification up/i })).toBeEnabled();
+    expect(handle).toBeEnabled();
+    expect(screen.getByRole('button', { name: /move identity document up/i })).toBeEnabled();
   });
 
   it('lists only the broker’s own fields, summarising the identity in one line', async () => {
     renderWithProviders(<KycBuilderPage />);
-    expect(await screen.findByText(/3 fields, fixed by the platform/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/asks for 3 of the client's identity details/i),
+    ).toBeInTheDocument();
     const table = screen.getByRole('table');
     expect(within(table).getByText('Occupation')).toBeInTheDocument();
     expect(within(table).queryByText('First Name')).toBeNull();
@@ -207,7 +207,8 @@ describe('the built-in steps', () => {
     await openStepTab('Identity Document');
     expect(screen.getByRole('checkbox', { name: 'Passport' })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: 'National ID' })).not.toBeChecked();
-    expect(screen.queryByRole('button', { name: /^disable$/i })).toBeNull();
+    // Phase 2: it can be switched off, like every step.
+    expect(screen.getByRole('button', { name: /^disable$/i })).toBeInTheDocument();
   });
 
   it('Selfie can be switched off, and no built-in step can be deleted', async () => {

@@ -67,6 +67,7 @@ export const keys = {
      */
     builder: () => ['kyc', 'config', 'builder'] as const,
     documentCatalogue: () => ['kyc', 'document-catalogue'] as const,
+    identityCatalogue: () => ['kyc', 'identity-catalogue'] as const,
   },
 
   clients: {

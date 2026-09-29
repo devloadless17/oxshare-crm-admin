@@ -3538,6 +3538,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/kyc-config/identity-catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The identity details Personal Information may ask for
+         * @description The platform owns their names, kinds and meaning; the builder decides which are asked, where, and whether each is required. `required` here is the default tier.
+         */
+        get: operations["AdminComplianceController_getIdentityCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/kyc-config/steps": {
         parameters: {
             query?: never;
@@ -6592,8 +6612,10 @@ export interface components {
             fields: components["schemas"]["KycFieldConfigDto"][];
             /** @description One of the four built-in steps. */
             core?: boolean;
-            /** @description A built-in step that cannot be switched off. */
+            /** @description Always false: every step can be switched off. */
             alwaysOn?: boolean;
+            /** @description Identity document, selfie and proof of address steps: whether the client must provide it, or may skip it. Absent on other steps. */
+            evidenceRequired?: boolean;
         };
         KycDocumentStateDto: {
             /** @example passport */
@@ -7786,6 +7808,8 @@ export interface components {
              */
             icon?: string;
             enabled?: boolean;
+            /** @description Identity document, selfie and proof of address steps: whether the client must provide it (default true) or may skip it. */
+            evidenceRequired?: boolean;
             fields: components["schemas"]["KycFieldDto"][];
             /** @description Served on read. Accepted on write and ignored. */
             core?: boolean;
@@ -7794,6 +7818,11 @@ export interface components {
         };
         KycConfigDto: {
             steps: components["schemas"]["KycStepDto"][];
+            /**
+             * @description The builder format this save was made in. Since Phase 2 (identity placements, evidence required, every step editable) it must be 2; an older console answers 409 `KYC_BUILDER_OUTDATED` rather than saving a form it cannot represent.
+             * @example 2
+             */
+            format?: number;
         };
         PermissionItemDto: {
             key: string;
@@ -13600,6 +13629,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KycDocumentTypeDto"][];
+                };
+            };
+        };
+    };
+    AdminComplianceController_getIdentityCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycFieldConfigDto"][];
                 };
             };
         };
