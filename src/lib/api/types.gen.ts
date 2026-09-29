@@ -8496,9 +8496,9 @@ export interface components {
         KycTrendPointDto: {
             /** @example 2026-08-01 */
             date: string;
-            /** @description Submissions whose submitted_at falls on this day. */
+            /** @description Submissions made on this day — every one, including those since decided, replaced or reset: the archived attempts plus the submissions still waiting. */
             submitted: number;
-            /** @description Submissions REVIEWED on this day whose status is approved. A rejection reviewed the same day is not counted here. */
+            /** @description Approvals decided on this day by a review, from the decision log. An approval later reversed stays on its day; a rejection is never counted. */
             approved: number;
         };
         KycTrendSeriesDto: {
