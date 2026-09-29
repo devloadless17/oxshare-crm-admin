@@ -104,3 +104,20 @@ export function maskedFieldLabels(
   }
   return [...seen];
 }
+
+/**
+ * The fields a role or an administrator can actually be asked to hide — what
+ * the field-visibility pickers list.
+ *
+ * Unmaskable fields (the Portal ID, client type, account status, verification
+ * level, payout destination…) are LEFT OUT rather than shown disabled (the
+ * owner, 29 Sep 2026): a list of boxes nobody can tick is noise between the
+ * ones that matter. The server still refuses them (`assertMaskable`).
+ */
+export function maskableFields<F extends { maskable: boolean }>(
+  catalog: Record<string, { fields: F[] }>,
+): F[] {
+  return Object.values(catalog)
+    .flatMap((group) => group.fields)
+    .filter((field) => field.maskable);
+}

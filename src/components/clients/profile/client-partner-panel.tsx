@@ -1,11 +1,13 @@
 'use client';
 
 import { Coins, Network, Users } from 'lucide-react';
-import type { IbPartnerDetail, IbPartnerEarnings } from '@/lib/api/admin';
+import { ClientIdentity, clientName } from '@/components/clients/client-identity';
+import { DataTable, EmptyState, type Column } from '@/components/data-table';
+import type { IbPartnerDetail, IbPartnerEarnings, IbSubPartnerRow } from '@/lib/api/admin';
 import type { ClientRef } from '@/lib/api/admin';
 import { Badge } from '@/components/ui/badge';
 import { PermittedLink } from '@/components/permitted-link';
-import { EmptySection, ProfileCard } from '@/components/clients/profile/profile-cards';
+import { ProfileCard } from '@/components/clients/profile/profile-cards';
 import { formatDecimal, formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { PortalIdTag } from '@/components/clients/client-identity';
@@ -122,6 +124,40 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
               <span className="text-muted-foreground">{t('clientProfile.partnerNoParent')}</span>
             )}
           </Cell>
+
+          {/*
+            THE AGENCY, as a field of their standing (owner, 29 Sep 2026) — it
+            was a card of its own for one name. It decides what their clients
+            may trade, so the products ride with it.
+          */}
+          <div className="col-span-2">
+            <Cell label={t('clientProfile.partnerAgency')}>
+              {detail.agencyName ? (
+                <div className="space-y-1.5">
+                  <span className="font-semibold">{detail.agencyName}</span>
+                  {detail.products.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {detail.products.map((product) => (
+                        <Badge key={product} variant="tag">
+                          {product}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="block text-xs text-muted-foreground">
+                      {t('clientProfile.partnerAgencyNoProducts')}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                /* No agency is not "nothing configured" — their clients are
+                   offered the FULL catalogue. */
+                <span className="text-xs text-muted-foreground">
+                  {t('clientProfile.partnerNoAgency')}
+                </span>
+              )}
+            </Cell>
+          </div>
         </dl>
       </ProfileCard>
 
@@ -171,80 +207,123 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
         </div>
       </ProfileCard>
 
-      <ProfileCard title={t('clientProfile.partnerAgency')}>
-        {detail.agencyName ? (
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">{detail.agencyName}</p>
-            {detail.products.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {detail.products.map((product) => (
-                  <Badge key={product} variant="tag">
-                    {product}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {t('clientProfile.partnerAgencyNoProducts')}
-              </p>
-            )}
-          </div>
-        ) : (
-          /*
-           * No agency is not "nothing configured" — their clients are offered
-           * the FULL catalogue. Saying "none" would read as the opposite, which
-           * is the note the backend DTO carries for the same field.
-           */
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            {t('clientProfile.partnerNoAgency')}
+      {/*
+        THE PARTNERS BENEATH THEM, full width (owner, 29 Sep 2026): a table with
+        each one's own line — level, agency, how many clients and partners they
+        brought in — where it was a half-width list of names.
+      */}
+      <section className="space-y-2 lg:col-span-2" aria-labelledby="partner-sub-partners">
+        {/* The table alone, no card around it (owner, 29 Sep 2026). */}
+        <h2
+          id="partner-sub-partners"
+          className="text-xs font-bold tracking-wider text-muted-foreground uppercase"
+        >
+          {t('clientProfile.partnerSubPartners')}
+        </h2>
+        <DataTable
+          caption={t('clientProfile.partnerSubPartners')}
+          columns={SUB_PARTNER_COLUMNS}
+          rows={detail.directPartners}
+          rowKey={(sub) => String(sub.userId)}
+          empty={
+            <EmptyState
+              icon={Network}
+              message={
+                detail.directPartnersOutsideScope > 0
+                  ? t('clientProfile.networkPartnersOutsideScope', {
+                      count: String(detail.directPartnersOutsideScope),
+                    })
+                  : t('clientProfile.partnerNoSubPartners')
+              }
+            />
+          }
+        />
+        {detail.directPartners.length > 0 && detail.directPartnersOutsideScope > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {t('clientProfile.networkPartnersOutsideScope', {
+              count: String(detail.directPartnersOutsideScope),
+            })}
           </p>
         )}
-      </ProfileCard>
-
-      <ProfileCard title={t('clientProfile.partnerSubPartners')}>
-        {detail.directPartners.length > 0 ? (
-          <ul className="space-y-2">
-            {detail.directPartners.map((sub) => (
-              <li
-                key={sub.userId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 p-2.5"
-              >
-                <div className="min-w-0">
-                  <PersonLink
-                    person={sub}
-                    className="truncate text-sm font-medium text-link hover:underline focus-outline"
-                  />
-                  <p className="truncate text-[11px] text-muted-foreground">{sub.email}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {sub.referralCode}
-                  </span>
-                  <Badge variant="tag">
-                    {t('clientProfile.levelBadge', { level: String(sub.level) })}
-                  </Badge>
-                  {!sub.active && (
-                    <Badge variant="warning">{t('clientProfile.partnerSuspended')}</Badge>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptySection
-            message={
-              detail.directPartnersOutsideScope > 0
-                ? t('clientProfile.networkPartnersOutsideScope', {
-                    count: String(detail.directPartnersOutsideScope),
-                  })
-                : t('clientProfile.partnerNoSubPartners')
-            }
-          />
-        )}
-      </ProfileCard>
+      </section>
     </div>
   );
 }
+
+/** The sub-partner table: the person, then their own line. Small list, sorted here. */
+const SUB_PARTNER_COLUMNS: Column<IbSubPartnerRow>[] = [
+  {
+    header: t('clientProfile.subColPartner'),
+    sortable: false,
+    cell: (sub) => (
+      <ClientIdentity
+        name={clientName(sub.firstName, sub.lastName)}
+        email={sub.email}
+        portalId={sub.portalId}
+      />
+    ),
+  },
+  {
+    header: t('clientProfile.subColLevel'),
+    sortable: true,
+    sortKey: 'level',
+    sortType: 'number',
+    cell: (sub) =>
+      sub.levelName
+        ? t('clientProfile.levelOption', { level: String(sub.level), name: sub.levelName })
+        : t('clientProfile.levelBadge', { level: String(sub.level) }),
+    cellClassName: 'whitespace-nowrap',
+  },
+  {
+    header: t('clientProfile.subColAgency'),
+    sortable: true,
+    sortKey: 'agencyName',
+    cell: (sub) =>
+      sub.agencyName ?? (
+        <span className="text-muted-foreground">{t('clientProfile.subNoAgency')}</span>
+      ),
+  },
+  {
+    header: t('clientProfile.subColClients'),
+    align: 'right',
+    sortable: true,
+    sortKey: 'clientCount',
+    sortType: 'number',
+    cell: (sub) => <span className="tabular">{sub.clientCount}</span>,
+  },
+  {
+    header: t('clientProfile.subColPartners'),
+    align: 'right',
+    sortable: true,
+    sortKey: 'subPartnerCount',
+    sortType: 'number',
+    cell: (sub) => <span className="tabular">{sub.subPartnerCount}</span>,
+  },
+  {
+    header: t('clientProfile.subColCode'),
+    sortable: false,
+    cell: (sub) => <span className="font-mono text-xs">{sub.referralCode}</span>,
+  },
+  {
+    header: t('clientProfile.subColStatus'),
+    sortable: true,
+    sortKey: 'active',
+    cell: (sub) =>
+      sub.active ? (
+        <Badge variant="success">{t('clientProfile.partnerActive')}</Badge>
+      ) : (
+        <Badge variant="warning">{t('clientProfile.partnerSuspended')}</Badge>
+      ),
+  },
+  {
+    header: t('clientProfile.subColSince'),
+    sortable: true,
+    sortKey: 'approvedAt',
+    sortType: 'date',
+    cell: (sub) => new Date(sub.approvedAt).toLocaleDateString(),
+    cellClassName: 'whitespace-nowrap text-muted-foreground',
+  },
+];
 
 /** A label over a value, matching the identity grid's shape. */
 function Cell({ label, children }: { label: string; children: React.ReactNode }) {

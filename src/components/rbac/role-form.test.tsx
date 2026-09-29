@@ -186,12 +186,11 @@ describe('the role editor — field masking (RBAC-03)', () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ maskedFields: [] }));
   });
 
-  it('shows an unmaskable field disabled, with its reason', () => {
+  it('offers only what can be hidden — an unmaskable field is left out (owner, 29 Sep 2026)', () => {
     renderForm();
 
-    const status = screen.getByRole('button', { name: /account status/i });
-    expect(status).toBeDisabled();
-    expect(screen.getByText(/cannot render without it/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /account status/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /phone number/i })).toBeEnabled();
   });
 
   it('locks the submitter’s own masked fields in, and includes them in the save', async () => {

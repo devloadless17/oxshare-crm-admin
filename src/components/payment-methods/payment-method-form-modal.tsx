@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Image as ImageIcon, Upload } from 'lucide-react';
 import api from '@/lib/api';
-import type { Currency, PaymentMethod } from '@/lib/api/admin';
+import type { Currency, PaymentMethod, PaymentMethodProofField } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { assetUrl } from '@/lib/asset-url';
 import { useResource } from '@/hooks/use-resource';
@@ -23,6 +23,7 @@ import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 import { LimitInput, plainAmount } from '@/components/currencies/limit-input';
 import { formatDecimal } from '@/lib/money';
+import { ProofFieldsEditor } from './proof-fields-editor';
 
 export interface PaymentMethodFormValues {
   /** What the DESK calls the method — shown in place of the key, and renamable. */
@@ -40,6 +41,8 @@ export interface PaymentMethodFormValues {
    */
   ownMinAmount: string | null;
   ownMaxAmount: string | null;
+  /** What an offline method asks the client for with the receipt (backend 0163). */
+  proofFields: PaymentMethodProofField[];
 }
 
 /**
@@ -149,6 +152,11 @@ function PaymentMethodForm({
   const [requiresProof, setRequiresProof] = React.useState(method?.requiresProof ?? false);
   const [ownMin, setOwnMin] = React.useState(plainAmount(method?.ownMinAmount));
   const [ownMax, setOwnMax] = React.useState(plainAmount(method?.ownMaxAmount));
+  // Kept while "paid outside the platform" is unticked, so re-ticking restores
+  // them; the API asks a client for them only while it is ticked.
+  const [proofFields, setProofFields] = React.useState<PaymentMethodProofField[]>(
+    method?.proofFields ?? [],
+  );
   const fieldId = React.useId();
   /*
    * The chosen currency's deposit range, for the hint under each box. The same
@@ -171,6 +179,7 @@ function PaymentMethodForm({
       // An emptied box is "follow the currency" — sent as null so it clears.
       ownMinAmount: ownMin.trim() === '' ? null : ownMin.trim(),
       ownMaxAmount: ownMax.trim() === '' ? null : ownMax.trim(),
+      proofFields,
     });
   };
 
@@ -178,7 +187,10 @@ function PaymentMethodForm({
   const fieldKeys = Object.keys(fieldErrors);
   const allInline =
     fieldKeys.length > 0 &&
-    fieldKeys.every((key) => key === 'ownMinAmount' || key === 'ownMaxAmount');
+    fieldKeys.every(
+      // The details editor shows its own refusals under each row (`proofFields.*`).
+      (key) => key === 'ownMinAmount' || key === 'ownMaxAmount' || key.startsWith('proofFields'),
+    );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -306,6 +318,10 @@ function PaymentMethodForm({
           </p>
         </div>
       </div>
+
+      {requiresProof && (
+        <ProofFieldsEditor fields={proofFields} onChange={setProofFields} errors={fieldErrors} />
+      )}
 
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="outline" size="sm" onClick={onClose}>

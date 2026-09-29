@@ -146,6 +146,30 @@ describe('the offline deposit queue', () => {
     expect(screen.queryByRole('link', { name: /open receipt/i })).not.toBeInTheDocument();
   });
 
+  it('shows what the client gave to identify the payment, under the question as asked', async () => {
+    getTransactions.mockResolvedValue(
+      page([
+        row({
+          proofDetails: [
+            {
+              fieldId: 'f_phone00001',
+              label: 'Phone number you sent from',
+              type: 'phone',
+              value: '+96170123456',
+            },
+            { fieldId: 'f_code000001', label: 'Transfer code', type: 'text', value: 'ZX-9981' },
+          ],
+        }),
+      ]),
+    );
+    renderWithProviders(<DepositApprovalsPage />);
+
+    expect(await screen.findByText('Phone number you sent from')).toBeInTheDocument();
+    expect(screen.getByText('+96170123456')).toBeInTheDocument();
+    expect(screen.getByText('ZX-9981')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy Transfer code' })).toBeInTheDocument();
+  });
+
   it('asks before crediting, and sends an idempotency key derived from the row', async () => {
     const user = userEvent.setup();
     renderWithProviders(<DepositApprovalsPage />);

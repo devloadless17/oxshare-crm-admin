@@ -219,9 +219,9 @@ describe('EditClientProfileDialog — the whole profile (0139)', () => {
         status: 400,
         data: {
           code: 'VALIDATION_FAILED',
-          message: 'Enter a complete phone number…',
+          message: 'This phone number is too short. Enter all the digits after +961.',
           fields: {
-            phone: 'Enter a complete phone number, including the country code.',
+            phone: 'This phone number is too short. Enter all the digits after +961.',
           },
         },
       },
@@ -235,7 +235,7 @@ describe('EditClientProfileDialog — the whole profile (0139)', () => {
     await user.click(screen.getByRole('button', { name: /save/i }));
 
     expect(
-      await screen.findByText(/including the country code/i, { selector: '[role="alert"]' }),
+      await screen.findByText(/too short/i, { selector: '[role="alert"]' }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/^phone/i)).toHaveAttribute('aria-invalid', 'true');
   });

@@ -24,7 +24,6 @@ import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorCode, apiErrorMessage } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
-import { CopyableId } from '@/components/copyable-id';
 import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
@@ -40,6 +39,7 @@ import { ClientPartnerPanel } from '@/components/clients/profile/client-partner-
 import { useClientTagToggle } from '@/components/clients/profile/use-client-tag-toggle';
 import { ClientClosedPositionsPanel } from '@/components/clients/profile/client-activity-panels';
 import { ClientAccountsPanel } from '@/components/clients/profile/client-accounts-panel';
+import { ClientOverview } from '@/components/clients/profile/client-overview';
 import { ClientTransactionsTab } from '@/components/clients/profile/client-transactions-tab';
 import { ClientDocumentsPanel } from '@/components/clients/profile/client-documents-panel';
 import { ClientNetworkTree } from '@/components/clients/profile/client-network-tree';
@@ -52,7 +52,6 @@ import {
   ClientNotFound,
   EmptySection,
   Field,
-  KycStatusBadge,
   ProfileCard,
 } from '@/components/clients/profile/profile-cards';
 import { toastSuccess } from '@/lib/toast';
@@ -61,8 +60,6 @@ import { clientLabel } from '@/components/clients/client-identity';
 import { PermittedLink } from '@/components/permitted-link';
 import { keys } from '@/lib/query-keys';
 import { isMasked } from '@/lib/masking';
-import { formatDateOfBirth } from '@/lib/profile';
-import { formatPhone } from '@/components/ui/phone-input';
 
 /**
  * FR-ADM-01's full client profile.
@@ -117,7 +114,6 @@ export default function ClientProfilePage() {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
 
-  const canViewKyc = hasPermission(admin, 'kyc.view') || hasPermission(admin, 'kyc.review');
   const canViewTrading = hasPermission(admin, 'trading.view');
   const canViewPartners = hasPermission(admin, 'ib.view');
   /*
@@ -442,124 +438,12 @@ export default function ClientProfilePage() {
 
             <TabPanel value={TAB_OVERVIEW} activeValue={tab} idPrefix="client-profile">
               {/*
-                THE IDENTITY CARD ALONE (owner, 29 Sep 2026). The cards beside it
-                went: trading accounts and documents have their own tabs now, tags
-                ride the chip row in the header (a client carries two or three, not
-                a card's worth), and verification is a field here — with "View KYC"
-                in the actions menu, where the other ways off this page live.
+                EVERYTHING AT A GLANCE (owner, 29 Sep 2026) — who they are, their
+                account and verification, their money and trading, their partner
+                standing and what moved last. Each card is left out for a reader
+                who may not see its data. Detail lives on the tabs.
               */}
-              <div>
-                <ProfileCard title={t('clientProfile.sectionIdentity')}>
-                  <dl className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-                    <Field
-                      label={t('clientProfile.fieldClientId')}
-                      field="client.id"
-                      profile={profile}
-                    >
-                      {/* The FULL Portal ID — this is the screen an operator
-                          quotes it from, so no truncation here. */}
-                      <CopyableId
-                        value={String(profile.portalId)}
-                        full
-                        copyLabel={t('common.copyPortalId')}
-                      />
-                    </Field>
-                    <Field
-                      label={t('clients.colCountry')}
-                      field="client.country"
-                      profile={profile}
-                    />
-                    <Field
-                      label={t('clientProfile.fieldPhone')}
-                      field="client.phone"
-                      profile={profile}
-                    >
-                      {/* Grouped for reading — `+961 70 123 456`, not an unbroken run. */}
-                      {formatPhone(profile.phone) || '—'}
-                    </Field>
-                    {/* The rest of the ONE profile (0139) — the same record the
-                        client's KYC form shows them. One row per field, so each
-                        is masked on its own key. */}
-                    <Field
-                      label={t('clientProfile.fieldDateOfBirth')}
-                      field="client.dateOfBirth"
-                      profile={profile}
-                    >
-                      {formatDateOfBirth(profile.dateOfBirth)}
-                    </Field>
-                    <Field
-                      label={t('clientProfile.fieldNationality')}
-                      field="client.nationality"
-                      profile={profile}
-                    />
-                    <Field
-                      label={t('clientProfile.fieldAddress')}
-                      field="client.address"
-                      profile={profile}
-                    />
-                    <Field
-                      label={t('clientProfile.fieldCity')}
-                      field="client.city"
-                      profile={profile}
-                    />
-                    <Field
-                      label={t('clientProfile.fieldStateProvince')}
-                      field="client.stateProvince"
-                      profile={profile}
-                    />
-                    <Field
-                      label={t('clientProfile.fieldPostalCode')}
-                      field="client.postalCode"
-                      profile={profile}
-                    />
-                    <Field
-                      label={t('clients.colKycLevel')}
-                      field="client.verificationLevel"
-                      profile={profile}
-                    >
-                      {profile.verificationLevel >= 1
-                        ? t('clients.levelVerified')
-                        : t('clients.levelUnverified')}
-                    </Field>
-                    {/* Where the verification STANDS, beside the level it gave.
-                        `profile.kyc` is absent without kyc.view — then the field
-                        is too, rather than a dash that reads as "never applied". */}
-                    {canViewKyc && (
-                      <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {t('clientProfile.fieldKycStatus')}
-                        </dt>
-                        <dd className="mt-1">
-                          {profile.kyc ? (
-                            <KycStatusBadge status={profile.kyc.status} />
-                          ) : (
-                            <span className="text-sm text-muted-foreground">
-                              {t('clientProfile.noKyc')}
-                            </span>
-                          )}
-                        </dd>
-                      </div>
-                    )}
-                    {canViewKyc && profile.kyc?.submittedAt && (
-                      <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {t('clientProfile.fieldKycSubmitted')}
-                        </dt>
-                        <dd className="mt-0.5 text-sm">
-                          {new Date(profile.kyc.submittedAt).toLocaleDateString()}
-                        </dd>
-                      </div>
-                    )}
-                    <Field
-                      label={t('clients.colCreated')}
-                      field="client.createdAt"
-                      profile={profile}
-                    >
-                      {profile.createdAt ? new Date(profile.createdAt).toLocaleDateString() : '—'}
-                    </Field>
-                  </dl>
-                </ProfileCard>
-              </div>
+              <ClientOverview profile={profile} partner={partner} onOpen={setTab} />
             </TabPanel>
 
             <TabPanel
