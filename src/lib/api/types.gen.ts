@@ -6470,8 +6470,8 @@ export interface components {
              */
             environment: "live" | "demo";
             /**
-             * @description Defaults to the client's own name.
-             * @example Swing trading
+             * @deprecated
+             * @description Ignored. The account is named after the client: "First Last", then "First Last-2", "-3"…
              */
             name?: string;
             /**
@@ -6885,6 +6885,8 @@ export interface components {
             leverage: number;
             /** @enum {string} */
             environment: "live" | "demo";
+            /** @example Rana Haddad-2 */
+            name?: string;
             credentialsSentTo?: string;
             maskedFields?: string[];
         };
