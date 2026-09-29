@@ -7,6 +7,7 @@ import {
   E2E_DOMAIN,
   E2E_TAGS,
   RESTRICTED_STATE,
+  searchClientsFor,
   searchOwnClients,
 } from './helpers';
 
@@ -86,12 +87,18 @@ const hasClientRow = (csv: string, key: keyof typeof E2E_CLIENTS) =>
     .some((line) => line.split(',').includes(String(portalIds[E2E_CLIENTS[key].email])));
 
 /** The restricted admin's view of one seeded client, from the API. */
+/**
+ * Does the restricted admin see this client? Asked by PORTAL ID — an exact
+ * match no mask hides. The seeded restricted role masks `client.email`, so an
+ * email-domain search finds nobody for it (D-82), and "found nobody" would
+ * pass every "is hidden" assertion vacuously.
+ */
 async function restrictedSees(
   restricted: BrowserContext,
   key: keyof typeof E2E_CLIENTS,
 ): Promise<boolean> {
   const api = await adminApi(restricted);
-  const res = await api.get(`/admin/clients?q=${encodeURIComponent(E2E_DOMAIN)}&limit=100`);
+  const res = await api.get(`/admin/clients?q=${portalIds[E2E_CLIENTS[key].email]}&limit=5`);
   expect(res.ok()).toBe(true);
   return ((await res.json()) as { items: { id: string }[] }).items.some((c) => c.id === id(key));
 }
@@ -99,9 +106,13 @@ async function restrictedSees(
 test.describe('what the scoped admin SEES', () => {
   test.use({ storageState: RESTRICTED_STATE });
 
-  test('their tagged client is theirs — on the screen and on the wire', async ({ page }) => {
+  test('their tagged client is theirs — on the screen and on the wire', async ({
+    page,
+    context,
+  }) => {
+    expect(await restrictedSees(context, 'alpha')).toBe(true);
     await page.goto('/clients');
-    await searchOwnClients(page);
+    await searchClientsFor(page, E2E_CLIENTS.alpha.name);
     await expect(page.getByRole('link', { name: E2E_CLIENTS.alpha.name })).toBeVisible();
 
     // …and the profile opens.
@@ -116,12 +127,17 @@ test.describe('what the scoped admin SEES', () => {
      * A scoped page of one row under a badge of six is the leak this closes:
      * the count must be computed under the same WHERE as the rows.
      */
+    // The whole territory (no search — a fragment of a masked email finds
+    // nobody, D-82), which is a handful of rows for this fixture.
     const api = await adminApi(context);
-    const res = await api.get(
-      `/admin/clients?q=${encodeURIComponent(E2E_DOMAIN)}&limit=100&withTotal=1`,
-    );
+    const res = await api.get('/admin/clients?limit=100&withTotal=1');
     const body = (await res.json()) as { items: unknown[]; total?: number };
-    if (body.total !== undefined) expect(body.total).toBe(body.items.length);
+    expect(
+      body.items.length,
+      'the territory came back empty — the case is vacuous',
+    ).toBeGreaterThan(0);
+    expect(body.total).toBeLessThan(100);
+    expect(body.total).toBe(body.items.length);
   });
 
   test('a client with ONLY a foreign tag does not exist for them — list, deep link, export', async ({
@@ -151,7 +167,7 @@ test.describe('what the scoped admin SEES', () => {
 
       // The screen agrees with the wire.
       await page.goto('/clients');
-      await searchOwnClients(page);
+      await searchClientsFor(page, E2E_CLIENTS.bravo.name);
       await expect(page.getByRole('link', { name: E2E_CLIENTS.bravo.name })).toHaveCount(0);
     } finally {
       await master.del(`/admin/clients/${id('bravo')}/tags/${tags[E2E_TAGS.beta.slug]}`);

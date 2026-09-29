@@ -5,6 +5,7 @@ import {
   RESTRICTED_STATE,
   adminApi,
   adminApiSession,
+  searchClientsFor,
   searchOwnClients,
 } from './helpers';
 
@@ -229,7 +230,10 @@ test.describe('what a RESTRICTED sub-admin cannot reach', () => {
      */
     const bodies = collectBodies(page);
     await page.goto('/clients');
-    await searchOwnClients(page);
+    // By NAME: this role hides email, and a fragment of a hidden field finds
+    // nobody (D-82) — searching the email domain would make this vacuous.
+    await searchClientsFor(page, E2E_CLIENTS.alpha.name);
+    await expect(page.getByRole('link', { name: E2E_CLIENTS.alpha.name })).toBeVisible();
 
     expect(await bodies.all()).not.toContain(E2E_CLIENTS.alpha.email);
     await expect(page.getByText(E2E_CLIENTS.alpha.email)).toHaveCount(0);
@@ -247,11 +251,12 @@ test.describe('what a RESTRICTED sub-admin cannot reach', () => {
      */
     test.setTimeout(180_000);
     await page.goto('/clients');
-    await searchOwnClients(page);
 
-    // In scope…
+    // In scope… (searched by name — this role hides email, D-82)
+    await searchClientsFor(page, E2E_CLIENTS.alpha.name);
     await expect(page.getByRole('link', { name: E2E_CLIENTS.alpha.name })).toBeVisible();
-    // …and not.
+    // …and not, searched for by their own name.
+    await searchClientsFor(page, E2E_CLIENTS.zulu.name);
     await expect(page.getByRole('link', { name: E2E_CLIENTS.zulu.name })).toHaveCount(0);
 
     /*

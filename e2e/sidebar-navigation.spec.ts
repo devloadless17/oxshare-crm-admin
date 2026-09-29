@@ -276,9 +276,12 @@ test.describe('the sidebar for a restricted administrator', () => {
     // `clients.view`, `kyc.review` and `tags.view` — see E2E_RESTRICTED.
     await page.goto('/dashboard');
     const headers = nav(page).getByRole('button');
-    await expect(headers).toHaveCount(2);
+    // Introducing brokers holds the Referrals page (0974b17), which is a list of
+    // referred CLIENTS and asks for `clients.view` alone — so it is theirs too.
+    await expect(headers).toHaveCount(3);
     await expect(headers.nth(0)).toHaveAccessibleName(/^clients/i);
-    await expect(headers.nth(1)).toHaveAccessibleName(/^system/i);
+    await expect(headers.nth(1)).toHaveAccessibleName(/^introducing brokers/i);
+    await expect(headers.nth(2)).toHaveAccessibleName(/^system/i);
     await expect(nav(page).getByRole('link', { name: /^dashboard$/i })).toBeVisible();
     // A main item's name opens the first page in it THIS admin may open —
     // Client tags, not Settings, for someone holding `tags.view` alone there.

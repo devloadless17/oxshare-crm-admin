@@ -400,8 +400,10 @@ test('the invite MODAL grants exactly the territory it shows', async ({ page }) 
       .getByRole('option', { name: /e2e restricted/i })
       .first()
       .click();
-    // Territory: pick the e2e-beta tag, and require the CHIP to appear before
-    // submitting — the proof the choice registered.
+    // Territory: "All clients" is the default since 0154 (D-80), so restricting
+    // is a choice made first; then pick the e2e-beta tag, and require the CHIP
+    // to appear before submitting — the proof the choice registered.
+    await dialog.getByRole('radio', { name: /^only these tags$/i }).click();
     await dialog.getByRole('combobox', { name: /add a tag/i }).click();
     await page.getByRole('option', { name: /e2e beta/i }).click();
     await expect(dialog.getByText('E2E Beta').first()).toBeVisible();

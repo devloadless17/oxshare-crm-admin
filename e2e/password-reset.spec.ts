@@ -30,7 +30,9 @@ test.describe('sending a reset link', () => {
      * it appears rather than assuming page one.
      */
     const row = page.getByRole('row', { name: /e2e-restricted/i }).first();
-    for (let hops = 0; hops < 15 && (await row.count()) === 0; hops += 1) {
+    // Bounded, not by what one day's runs mint: 515 administrators (21 pages)
+    // accumulated on the dev database by 29 Sep 2026 and 15 hops stopped short.
+    for (let hops = 0; hops < 80 && (await row.count()) === 0; hops += 1) {
       const next = page.getByRole('button', { name: /^next$/i });
       if ((await next.count()) === 0 || (await next.isDisabled())) break;
       await next.click();

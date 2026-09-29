@@ -637,6 +637,27 @@ export async function searchOwnClients(page: Page): Promise<void> {
   await page.getByRole('link', { name: E2E_CLIENTS.alpha.name }).waitFor({ timeout: 15_000 });
 }
 
+/**
+ * Search the client list for `term` and wait for THAT response — for a reader
+ * whose role hides client email.
+ *
+ * `searchOwnClients` types the cohort's email DOMAIN, and since D-82 a search
+ * fragment never matches a field the reader's role hides: to a reader masking
+ * `client.email` the domain finds nobody, which is correct and made every
+ * scoped-reader check either time out or pass vacuously ("not found" read as
+ * "hidden"). Such a reader searches by a NAME, which the role shows.
+ */
+export async function searchClientsFor(page: Page, term: string): Promise<void> {
+  const box = clientSearchBox(page);
+  const settled = page.waitForResponse(
+    (res) =>
+      res.url().includes('/admin/clients') && new URL(res.url()).searchParams.get('q') === term,
+    { timeout: 20_000 },
+  );
+  await box.fill(term);
+  await settled;
+}
+
 /** The client list's own search box, distinguished from the header's. */
 export function clientSearchBox(page: Page) {
   return page.getByRole('searchbox', { name: /search clients/i });
