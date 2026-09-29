@@ -5092,7 +5092,10 @@ export interface components {
         IbAccountDto: {
             userId: string;
             level: number;
+            /** @description Null at the top of a chain — or, on an admin response, when the parent is outside your territory (`parentOutsideTerritory`). */
             parentIbUserId: string | null;
+            /** @description Admin responses only: true when a parent exists that the reader may not see. The fact, never the id (R1). */
+            parentOutsideTerritory?: boolean;
             /** @description What a client types at registration to be attributed here. */
             referralCode: string;
             active: boolean;
