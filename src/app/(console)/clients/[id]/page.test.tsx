@@ -572,18 +572,6 @@ describe("a partner's book — Referred clients and Referred accounts (owner, 26
     );
   });
 
-  it('a partner has ONE Suspend, which says it stops the partnership too (owner, 29 Sep 2026)', async () => {
-    const user = userEvent.setup();
-    getPartnerDetail.mockResolvedValue(partnerDetail());
-    renderWithProviders(<ClientProfilePage />);
-    await screen.findByRole('tab', { name: /referred clients/i });
-    await user.click(screen.getByRole('button', { name: /actions for/i }));
-    const suspend = await screen.findAllByRole('menuitem', { name: /suspend/i });
-    expect(suspend.map((item) => item.textContent)).toEqual(['Suspend client']);
-    await user.click(suspend[0]);
-    expect(await screen.findByText(/they stop earning commission/i)).toBeInTheDocument();
-  });
-
   it('the menu no longer offers "View clients they introduced" (owner, 29 Sep 2026)', async () => {
     // The Referred clients TAB is one click away on the same page.
     const user = userEvent.setup();

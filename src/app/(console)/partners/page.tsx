@@ -133,23 +133,19 @@ function PartnersPageContent() {
   const [levelTarget, setLevelTarget] = useState<IbPartnerRow | null>(null);
   const [parentTarget, setParentTarget] = useState<IbPartnerRow | null>(null);
 
-  /*
-   * ONE suspension (owner, 29 Sep 2026): a partner IS the client, so this
-   * suspends the CLIENT — and with them the partnership — exactly as the
-   * profile's "Suspend client" does. Reactivating restores both.
-   */
   const setActive = useMutation({
     mutationFn: ({ row, active }: { row: IbPartnerRow; active: boolean }) =>
-      api.admin.setClientStatus(row.account.userId, active ? 'active' : 'suspended'),
+      api.admin.setIbPartnerActive(row.account.userId, active),
     onSuccess: async (_data, { active }) => {
-      // The profile and its partner tab read the same person under these roots.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: keys.ibPartners.all() }),
-        queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
-      ]);
-      toastSuccess(t('clientProfile.statusChanged', { status: active ? 'active' : 'suspended' }));
+      // The profile's partner tab reads the same partner under this root.
+      await queryClient.invalidateQueries({ queryKey: keys.ibPartners.all() });
+      toastSuccess(
+        t('clientProfile.partnerStateChanged', {
+          state: active ? t('clientProfile.partnerActive') : t('clientProfile.partnerSuspended'),
+        }),
+      );
     },
-    onError: (error) => toastError(error, t('clientProfile.statusFailed')),
+    onError: (error) => toastError(error, t('clientProfile.partnerStateFailed')),
   });
 
   /*
@@ -162,12 +158,14 @@ function PartnersPageContent() {
     const name = clientLabel(row.user);
     const ok = await confirm({
       title: next
-        ? t('clientProfile.confirmReactivateTitle', { name })
-        : t('clientProfile.confirmSuspendTitle', { name }),
+        ? t('clientProfile.confirmReactivatePartnerTitle', { name })
+        : t('clientProfile.confirmSuspendPartnerTitle', { name }),
       description: next
-        ? `${t('clientProfile.confirmReactivate')} ${t('clientProfile.confirmReactivatePartnerToo')}`
-        : `${t('clientProfile.confirmSuspend')} ${t('clientProfile.confirmSuspendPartnerToo')}`,
-      confirmLabel: next ? t('clientProfile.actionReactivate') : t('clientProfile.actionSuspend'),
+        ? t('clientProfile.confirmReactivatePartner')
+        : t('clientProfile.confirmSuspendPartner'),
+      confirmLabel: next
+        ? t('clientProfile.actionReactivatePartner')
+        : t('clientProfile.actionSuspendPartner'),
       destructive: !next,
     });
     if (ok) setActive.mutate({ row, active: next });
@@ -182,8 +180,7 @@ function PartnersPageContent() {
     canViewClients: canAccess(admin, '/clients'),
     canViewCommissions: canAccess(admin, '/commissions'),
     canEditPartners: hasPermission(admin, 'ib.partners.edit'),
-    // The client's own suspension key — see `setActive` above.
-    canSuspendPartners: hasPermission(admin, 'clients.suspend'),
+    canSuspendPartners: hasPermission(admin, 'ib.partners.suspend'),
     actingId: setActive.isPending ? setActive.variables?.row.account.userId : null,
     onChangeLevel: setLevelTarget,
     onReassignParent: setParentTarget,

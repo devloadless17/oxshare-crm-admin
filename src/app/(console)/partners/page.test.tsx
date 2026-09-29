@@ -20,16 +20,15 @@ import type { IbPartnerPage, IbPartnerRow } from '@/lib/api/admin';
  *  - every write is offered only on the key its API enforces;
  *  - a refusal renders as a refusal, never as "no partners".
  */
-const { getIbPartners, setIbPartnerActive, getPartnerDetail, setClientStatus } = vi.hoisted(() => ({
+const { getIbPartners, setIbPartnerActive, getPartnerDetail } = vi.hoisted(() => ({
   getIbPartners: vi.fn(),
   setIbPartnerActive: vi.fn(),
-  setClientStatus: vi.fn(),
   getPartnerDetail: vi.fn(),
 }));
 
 // BOTH the named export and the default — see admin/CLAUDE.md.
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getIbPartners, setIbPartnerActive, getPartnerDetail, setClientStatus } };
+  const api = { admin: { getIbPartners, setIbPartnerActive, getPartnerDetail } };
   return { api, default: api };
 });
 
@@ -122,7 +121,6 @@ beforeEach(() => {
   listeners.clear();
   getIbPartners.mockResolvedValue(page([partner()]));
   setIbPartnerActive.mockResolvedValue({});
-  setClientStatus.mockResolvedValue({});
 });
 
 async function openRowMenu(user: ReturnType<typeof userEvent.setup>) {
@@ -277,7 +275,7 @@ describe('the partner directory — what an operator may do', () => {
     );
     expect(menu.getByRole('menuitem', { name: /change commission level/i })).toBeInTheDocument();
     expect(menu.getByRole('menuitem', { name: /reassign parent/i })).toBeInTheDocument();
-    expect(menu.getByRole('menuitem', { name: /^suspend client$/i })).toBeInTheDocument();
+    expect(menu.getByRole('menuitem', { name: /suspend partner/i })).toBeInTheDocument();
   });
 
   it('offers no write to an operator who may only read partners', async () => {
@@ -291,26 +289,20 @@ describe('the partner directory — what an operator may do', () => {
     expect(menu.queryByRole('menuitem', { name: /view profile/i })).toBeNull();
     expect(menu.queryByRole('menuitem', { name: /change commission level/i })).toBeNull();
     expect(menu.queryByRole('menuitem', { name: /reassign parent/i })).toBeNull();
-    expect(menu.queryByRole('menuitem', { name: /suspend/i })).toBeNull();
+    expect(menu.queryByRole('menuitem', { name: /suspend partner/i })).toBeNull();
   });
 
-  /*
-   * ONE suspension (owner, 29 Sep 2026): a partner IS the client, so this
-   * suspends the client — the server stops the partnership with it.
-   */
-  it('asks before suspending, then suspends the client and with them the partnership', async () => {
+  it('asks before suspending, then suspends that partner', async () => {
     const user = userEvent.setup();
     renderWithProviders(<PartnersPage />);
 
     const menu = await openRowMenu(user);
-    await user.click(menu.getByRole('menuitem', { name: /^suspend client$/i }));
+    await user.click(menu.getByRole('menuitem', { name: /suspend partner/i }));
     const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText(/they stop earning commission/i)).toBeInTheDocument();
-    expect(setClientStatus).not.toHaveBeenCalled();
-
-    await user.click(within(dialog).getByRole('button', { name: /^suspend client$/i }));
-    await waitFor(() => expect(setClientStatus).toHaveBeenCalledWith(TOP_UUID, 'suspended'));
     expect(setIbPartnerActive).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole('button', { name: /suspend partner/i }));
+    await waitFor(() => expect(setIbPartnerActive).toHaveBeenCalledWith(TOP_UUID, false));
   });
 });
 

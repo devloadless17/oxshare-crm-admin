@@ -85,12 +85,8 @@ export function ClientActionsMenu({
    * as a bug rather than as the boundary it is.
    */
   const canChangeEmail = hasPermission(admin, 'clients.email');
-  /*
-   * ONE "Suspend" (owner, 29 Sep 2026). A partner IS the client, so suspending
-   * the client suspends their partnership and reactivating restores both — the
-   * server does it in one transaction. There is no separate "Suspend partner".
-   */
   const canSuspendClient = hasPermission(admin, 'clients.suspend');
+  const canSuspendPartner = hasPermission(admin, 'ib.partners.suspend');
   const canAssignTags = hasPermission(admin, 'clients.tag');
   // The KYC page opens with either key (its route requirement), so the item does.
   const canViewKyc = hasPermission(admin, 'kyc.view') || hasPermission(admin, 'kyc.review');
@@ -118,8 +114,6 @@ export function ClientActionsMenu({
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
       queryClient.invalidateQueries({ queryKey: keys.stats.all() }),
-      // The partnership moves with the client — the Partner tab and the Partners desk.
-      queryClient.invalidateQueries({ queryKey: keys.ibPartners.all() }),
     ]);
   };
 
@@ -132,6 +126,19 @@ export function ClientActionsMenu({
     onError: (error) => toastError(error, t('clientProfile.statusFailed')),
   });
 
+  const setPartnerActive = useMutation({
+    mutationFn: (active: boolean) => api.admin.setIbPartnerActive(profile.id, active),
+    onSuccess: async (_data, active) => {
+      await invalidate();
+      toastSuccess(
+        t('clientProfile.partnerStateChanged', {
+          state: active ? t('clientProfile.partnerActive') : t('clientProfile.partnerSuspended'),
+        }),
+      );
+    },
+    onError: (error) => toastError(error, t('clientProfile.partnerStateFailed')),
+  });
+
   const suspended = profile.status === 'suspended';
 
   const confirmClientStatus = async () => {
@@ -140,22 +147,33 @@ export function ClientActionsMenu({
       title: suspended
         ? t('clientProfile.confirmReactivateTitle', { name })
         : t('clientProfile.confirmSuspendTitle', { name }),
-      description: [
-        suspended ? t('clientProfile.confirmReactivate') : t('clientProfile.confirmSuspend'),
-        ...(partner
-          ? [
-              suspended
-                ? t('clientProfile.confirmReactivatePartnerToo')
-                : t('clientProfile.confirmSuspendPartnerToo'),
-            ]
-          : []),
-      ].join(' '),
+      description: suspended
+        ? t('clientProfile.confirmReactivate')
+        : t('clientProfile.confirmSuspend'),
       confirmLabel: suspended
         ? t('clientProfile.actionReactivate')
         : t('clientProfile.actionSuspend'),
       destructive: !suspended,
     });
     if (ok) setStatus.mutate(next);
+  };
+
+  const confirmPartnerActive = async () => {
+    if (!partner) return;
+    const next = !partner.active;
+    const ok = await confirm({
+      title: next
+        ? t('clientProfile.confirmReactivatePartnerTitle', { name })
+        : t('clientProfile.confirmSuspendPartnerTitle', { name }),
+      description: next
+        ? t('clientProfile.confirmReactivatePartner')
+        : t('clientProfile.confirmSuspendPartner'),
+      confirmLabel: next
+        ? t('clientProfile.actionReactivatePartner')
+        : t('clientProfile.actionSuspendPartner'),
+      destructive: !next,
+    });
+    if (ok) setPartnerActive.mutate(next);
   };
 
   const items: RowAction[] = [
@@ -221,6 +239,20 @@ export function ClientActionsMenu({
         ]
       : []),
 
+    // ── Partner, only when they are one ────────────────────────────────────
+    ...(partner && canSuspendPartner
+      ? [
+          {
+            label: partner.active
+              ? t('clientProfile.actionSuspendPartner')
+              : t('clientProfile.actionReactivatePartner'),
+            icon: partner.active ? Ban : CheckCircle2,
+            destructive: partner.active,
+            separatorBefore: true,
+            onSelect: () => void confirmPartnerActive(),
+          },
+        ]
+      : []),
     /*
      * NO "Change commission level" and NO "Reassign parent" here (owner, 26 Sep
      * 2026). Both re-price or re-place a partner; they are the Partners desk's
@@ -271,7 +303,7 @@ export function ClientActionsMenu({
   return (
     <RowActions
       items={items}
-      busy={setStatus.isPending}
+      busy={setStatus.isPending || setPartnerActive.isPending}
       label={t('clientProfile.actionsFor', { name })}
     />
   );
