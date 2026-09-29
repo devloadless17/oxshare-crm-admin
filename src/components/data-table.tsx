@@ -22,6 +22,8 @@ export { compareValues, type SortType };
 import { Pagination } from './pagination';
 import { CursorPagination } from './cursor-pagination';
 import { t } from '@/lib/i18n';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { isMasked } from '@/lib/masking';
 
 export interface Column<T> {
   header: string;
@@ -214,6 +216,17 @@ export interface DataTableProps<T> {
   };
 }
 
+/**
+ * Sort keys that order by the CLIENT joined onto a row, on every list that
+ * offers them, by the field that hides them. The API refuses such a sort for a
+ * role that hides the field (D-82: a sort spells the column out), so the
+ * header is not offered. The clients list's own columns guard themselves.
+ */
+const CLIENT_IDENTITY_SORTS: Readonly<Record<string, string>> = {
+  userEmail: 'client.email',
+  userFirstName: 'client.firstName',
+};
+
 export function DataTable<T>({
   caption,
   columns,
@@ -239,6 +252,8 @@ export function DataTable<T>({
   clientPagination,
   cursorPagination,
 }: DataTableProps<T>) {
+  // The reader's own mask — null outside a signed-in console (tests, sign-in).
+  const readerMask = useAdmin().admin?.maskedFields;
   // Local states for uncontrolled usage
   const [localSelectedKeys, setLocalSelectedKeys] = React.useState<string[]>([]);
   const [localExpandedKeys, setLocalExpandedKeys] = React.useState<string[]>([]);
@@ -647,7 +662,11 @@ export function DataTable<T>({
                 {/* Columns */}
                 {columns.map((c, idx) => {
                   const sortKey = c.sortKey;
-                  const isSortable = c.sortable !== false && Boolean(sortKey);
+                  const hiddenField = sortKey ? CLIENT_IDENTITY_SORTS[sortKey] : undefined;
+                  const isSortable =
+                    c.sortable !== false &&
+                    Boolean(sortKey) &&
+                    !(hiddenField && isMasked(hiddenField, readerMask));
                   const isActiveSort = isSortable && sortCol === sortKey;
 
                   return (

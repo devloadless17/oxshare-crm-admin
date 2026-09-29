@@ -1,5 +1,6 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import { useRef, useState } from 'react';
 import type { components } from '@/lib/api/types.gen';
 import { useQueryClient } from '@tanstack/react-query';
@@ -384,7 +385,8 @@ export default function KycDetailPage() {
   // One derived list, shared by the grid and the lightbox, so the two cannot
   // disagree about which documents exist — named from the server's layout.
   const documents = reviewDocuments(data);
-  const clientName = `${data.user?.firstName ?? ''} ${data.user?.lastName ?? ''}`.trim();
+  // Name, else email, else the Portal ID — a masked name must not blank the heading.
+  const clientName = data.user ? clientLabel(data.user, '') : '';
 
   return (
     <div className="detail-page">
@@ -407,9 +409,7 @@ export default function KycDetailPage() {
               {(data.user?.firstName?.[0] ?? '?').toUpperCase()}
             </span>
             <div className="min-w-0">
-              <h1 className="truncate">
-                {data.user?.firstName} {data.user?.lastName}
-              </h1>
+              <h1 className="truncate">{clientName}</h1>
               <p className="truncate">{data.user?.email}</p>
               {/*
                 The PORTAL ID — the number staff and the client use, and what

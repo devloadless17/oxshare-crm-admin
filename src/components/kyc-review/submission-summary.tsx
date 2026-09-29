@@ -3,6 +3,7 @@
 import type { components } from '@/lib/api/types.gen';
 import { AttemptHistory } from './attempt-history';
 import { Paperclip } from 'lucide-react';
+import { MaskedValue } from '@/components/masked-value';
 import {
   additionalSections,
   flagLabels,
@@ -52,6 +53,8 @@ export function SubmissionSummary({
   onOpenFile?: (filePath: string) => void;
 }) {
   const identity = identitySection(data);
+  // The account fields with the response's mask beside them, for MaskedValue.
+  const userRow = { ...(data.user ?? {}), maskedFields: data.maskedFields ?? [] };
   const additional = additionalSections(data);
   const flagged = flagLabels(data);
   const layout = data.layout;
@@ -157,16 +160,21 @@ export function SubmissionSummary({
               : t('kycReview.emailUnverified')}
           </strong>
         </div>
-        {data.user?.country && (
-          <div className="info-row">
-            <span>{t('kycReview.country')}</span>
-            <strong>{data.user.country}</strong>
-          </div>
-        )}
+        {/* HIDDEN is not NONE: a masked country used to make the row vanish and a
+            masked date read "—", both telling the reviewer there was nothing on
+            file. MaskedValue says "hidden" instead (RBAC-03). */}
+        <div className="info-row">
+          <span>{t('kycReview.country')}</span>
+          <strong>
+            <MaskedValue field="client.country" row={userRow} />
+          </strong>
+        </div>
         <div className="info-row">
           <span>{t('kycReview.accountAge')}</span>
           <strong>
-            {data.user?.createdAt ? new Date(data.user.createdAt).toLocaleDateString() : '—'}
+            <MaskedValue field="client.createdAt" row={userRow}>
+              {data.user?.createdAt ? new Date(data.user.createdAt).toLocaleDateString() : null}
+            </MaskedValue>
           </strong>
         </div>
       </div>

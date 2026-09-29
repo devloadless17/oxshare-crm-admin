@@ -1,5 +1,6 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import * as React from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { AlertTriangle, Clock3, RefreshCw, Send } from 'lucide-react';
@@ -225,7 +226,8 @@ export function CancelWithdrawalDialog({
       description={
         target
           ? t('withdrawals.cancelIntro', {
-              email: target.user.email,
+              // Never "{email}" for a role that hides it: the label falls back to the Portal ID.
+              email: clientLabel(target.user),
               amount: target.amount,
               currency: target.currency,
             })

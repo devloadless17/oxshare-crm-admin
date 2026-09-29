@@ -49,6 +49,15 @@ function sources(dir: string): string[] {
 const HAND_ROLLED =
   /\[[^\]]{0,120}\bfirstName\b[^\]]{0,120}\blastName\b[^\]]{0,120}\]\s*\n?\s*\.?\s*filter\(/g;
 
+/*
+ * The other hand-rolled shape: a TEMPLATE LITERAL or JSX pair,
+ * `${x.firstName} ${x.lastName}` / `{x.firstName} {x.lastName}`. Masked, it
+ * printed "undefined undefined" on the IB approvals desk and fed "{name}" into
+ * the withdrawal dialogs (29 Sep 2026). There is no Portal ID to excuse it in
+ * the same breath, so any occurrence is an offender.
+ */
+const TEMPLATE_NAME = /\$?\{\s*[\w?.]*firstName[^}]{0,20}\}\s*\$?\{\s*[\w?.]*lastName[^}]{0,20}\}/g;
+
 describe('every client is named by something a mask cannot remove', () => {
   it('no screen joins firstName and lastName by hand', () => {
     const offenders: string[] = [];
@@ -74,6 +83,13 @@ describe('every client is named by something a mask cannot remove', () => {
        * only looked at whichever came first, which is precisely the shape of
        * bug this rule exists to find.
        */
+      for (const m of text.matchAll(TEMPLATE_NAME)) {
+        offenders.push(
+          `${file.replace(join(__dirname, '..'), 'src')}:${
+            text.slice(0, m.index).split('\n').length
+          } (template name)`,
+        );
+      }
       for (const m of text.matchAll(HAND_ROLLED)) {
         const window = text.slice(m.index ?? 0, (m.index ?? 0) + 600);
         // CASE-INSENSITIVE: the field is `clientPortalId` in the network tree

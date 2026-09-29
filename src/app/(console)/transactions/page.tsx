@@ -54,7 +54,7 @@ import { t, type MessageKey } from '@/lib/i18n';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
-import { ClientIdentity, clientName } from '@/components/clients/client-identity';
+import { ClientIdentity, clientLabel, clientName } from '@/components/clients/client-identity';
 import { ResolveAttentionDialog } from '@/components/financial/resolve-attention-dialog';
 
 /**
@@ -278,7 +278,8 @@ function TransactionsPageContent() {
    * cancel.
    */
   const confirmApprove = async (row: WithdrawalRow) => {
-    const name = `${row.user.firstName ?? ''} ${row.user.lastName ?? ''}`.trim() || row.user.email;
+    // Name, else email, else the Portal ID — never "{name}" when both are masked.
+    const name = clientLabel(row.user);
     const ok = await confirm({
       title: t('withdrawals.confirmApproveTitle', {
         amount: formatMoney(row.amount, row.currency),
@@ -725,7 +726,7 @@ function TransactionsPageContent() {
               // "button" to a screen reader with nothing to say which payout
               // each one acts on.
               label={t('withdrawals.actionsFor', {
-                name: `${w.user.firstName ?? ''} ${w.user.lastName ?? ''}`.trim() || w.user.email,
+                name: clientLabel(w.user),
               })}
             />
           </div>
@@ -909,7 +910,8 @@ function TransactionsPageContent() {
         description={
           rejectTarget
             ? t('withdrawals.rejectIntro', {
-                email: rejectTarget.user.email,
+                // A masked email reads "{email}" in the sentence; the label never does.
+                email: clientLabel(rejectTarget.user),
                 // Verbatim here too: the operator is confirming an amount, and
                 // this sentence is the last thing they read before doing it.
                 amount: rejectTarget.amount,

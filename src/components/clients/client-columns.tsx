@@ -291,7 +291,8 @@ export function clientColumns({
 
   columns.push({
     header: t('clients.colCreated'),
-    ...sortableBy('createdAt'),
+    // The API refuses a sort on a hidden field (D-82), so none is offered.
+    ...(hidden('client.createdAt') ? { sortable: false as const } : sortableBy('createdAt')),
     cell: (c) => (
       <MaskedValue field="client.createdAt" row={c}>
         {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'}

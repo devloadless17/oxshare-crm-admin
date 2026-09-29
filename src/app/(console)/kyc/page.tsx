@@ -436,7 +436,7 @@ function KycQueue() {
         <PermittedLink
           href={`/kyc/${row.user?.portalId ?? row.userId}`}
           className="inline-flex items-center gap-1 font-semibold text-xs text-link hover:underline focus-outline rounded-sm"
-          aria-label={`Review KYC submission of ${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim()}
+          aria-label={`Review KYC submission of ${clientLabel(row.user ?? {})}`}
         >
           <span>{t('kycReview.review')}</span>
           <ChevronRight className="h-4 w-4" />
