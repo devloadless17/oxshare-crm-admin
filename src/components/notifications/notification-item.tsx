@@ -91,6 +91,8 @@ export function NotificationItem({
             name={clientName(item.client.firstName, item.client.lastName)}
             portalId={item.client.portalId}
             strong={false}
+            /* The item itself is the link, to the task. */
+            link={false}
           />
         </span>
         <span className="block text-xs leading-relaxed text-muted-foreground">

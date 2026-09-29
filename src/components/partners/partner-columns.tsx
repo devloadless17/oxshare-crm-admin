@@ -3,7 +3,6 @@ import type { Column } from '@/components/data-table';
 import { RowActions, actionsColumn, type RowAction } from '@/components/row-actions';
 import { Badge } from '@/components/ui/badge';
 import { CopyableId } from '@/components/copyable-id';
-import { PermittedLink } from '@/components/permitted-link';
 import {
   ClientIdentity,
   PortalIdTag,
@@ -75,16 +74,11 @@ export function partnerColumns({
       ...(nameHidden ? { sortable: false as const } : sortableBy('userFirstName')),
       cell: (row) => (
         <div className="flex min-w-0 items-center gap-2">
-          <PermittedLink
-            href={`/clients/${row.user.portalId}`}
-            className="min-w-0 rounded-sm hover:underline focus-outline"
-          >
-            <ClientIdentity
-              name={clientName(row.user.firstName, row.user.lastName)}
-              email={row.user.email}
-              portalId={row.user.portalId}
-            />
-          </PermittedLink>
+          <ClientIdentity
+            name={clientName(row.user.firstName, row.user.lastName)}
+            email={row.user.email}
+            portalId={row.user.portalId}
+          />
           {!row.account.active && <Badge variant="warning">{t('partners.suspended')}</Badge>}
         </div>
       ),
@@ -134,14 +128,7 @@ export function partnerColumns({
       header: t('partners.colParent'),
       cell: (row) => {
         if (row.parentPortalId !== null) {
-          return (
-            <PermittedLink
-              href={`/clients/${row.parentPortalId}`}
-              className="rounded-sm hover:underline focus-outline"
-            >
-              <PortalIdTag id={row.parentPortalId} />
-            </PermittedLink>
-          );
+          return <PortalIdTag id={row.parentPortalId} linked />;
         }
         // "Direct" and "hidden" decide different terms; one blank would say both.
         return row.parentOutsideTerritory ? (

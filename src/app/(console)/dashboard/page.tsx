@@ -547,6 +547,8 @@ export default function AdminDashboardPage() {
                             name={clientName(submission.user?.firstName, submission.user?.lastName)}
                             email={submission.user?.email}
                             portalId={submission.user?.portalId}
+                            /* The row is already a link to the review. */
+                            link={false}
                           />
                         </div>
                         <span className="text-xs text-muted-foreground shrink-0">

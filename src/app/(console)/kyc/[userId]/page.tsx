@@ -1,6 +1,7 @@
 'use client';
 
-import { clientLabel } from '@/components/clients/client-identity';
+import { clientLabel, clientProfileHref } from '@/components/clients/client-identity';
+import { PermittedLink } from '@/components/permitted-link';
 import { useRef, useState } from 'react';
 import type { components } from '@/lib/api/types.gen';
 import { useQueryClient } from '@tanstack/react-query';
@@ -413,7 +414,18 @@ export default function KycDetailPage() {
               {(data.user?.firstName?.[0] ?? '?').toUpperCase()}
             </span>
             <div className="min-w-0">
-              <h1 className="truncate">{clientName}</h1>
+              <h1 className="truncate">
+                {data.user?.portalId !== undefined ? (
+                  <PermittedLink
+                    href={clientProfileHref(data.user.portalId)}
+                    className="hover:underline focus-outline rounded-sm"
+                  >
+                    {clientName}
+                  </PermittedLink>
+                ) : (
+                  clientName
+                )}
+              </h1>
               <p className="truncate">{data.user?.email}</p>
               {/*
                 The PORTAL ID — the number staff and the client use, and what
