@@ -40,7 +40,9 @@ type SortKeysOf<Op extends keyof operations> = operations[Op] extends {
 // becomes a compile error (docs/API-CONTRACTS.md Part C).
 /**
  * A client, by Portal ID — their one id since backend 0159. A number from the
- * API, or its digits from a URL (`/clients/1000245`); the API takes either.
+ * API, or its digits from a URL (`/clients/1000245`). A URL or query string
+ * takes either; a JSON body takes a NUMBER (the DTOs validate `@IsInt()`), so
+ * every function below that puts a client into a body sends `Number(ref)`.
  */
 export type ClientRef = number | string;
 
@@ -1313,7 +1315,11 @@ export const adminApi = {
     id: string,
     body: { level?: number; parentIbUserId?: ClientRef; agencyId?: string } = {},
   ): Promise<IbAccount> {
-    const { data } = await apiClient.patch<IbAccount>(`/admin/ib/applications/${id}/approve`, body);
+    const { parentIbUserId, ...rest } = body;
+    const { data } = await apiClient.patch<IbAccount>(`/admin/ib/applications/${id}/approve`, {
+      ...rest,
+      ...(parentIbUserId === undefined ? {} : { parentIbUserId: Number(parentIbUserId) }),
+    });
     return data;
   },
 
@@ -1420,7 +1426,7 @@ export const adminApi = {
     parentIbUserId: ClientRef | null,
   ): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/parent`, {
-      parentIbUserId,
+      parentIbUserId: parentIbUserId === null ? null : Number(parentIbUserId),
     });
     return data;
   },
@@ -1936,7 +1942,7 @@ export const adminApi = {
   ): Promise<WalletCreditResult> {
     const { data } = await apiClient.post<WalletCreditResult>(
       '/admin/wallets/credit',
-      body,
+      { ...body, userId: Number(body.userId) },
       idempotent(key),
     );
     return data;
@@ -1984,7 +1990,10 @@ export const adminApi = {
   },
 
   async openWallet(body: { userId: ClientRef; currency: string }): Promise<WalletRow> {
-    const { data } = await apiClient.post<WalletRow>('/admin/wallets', body);
+    const { data } = await apiClient.post<WalletRow>('/admin/wallets', {
+      ...body,
+      userId: Number(body.userId),
+    });
     return data;
   },
 
