@@ -7588,20 +7588,13 @@ export interface components {
             label: string;
             required: boolean;
         };
-        KycReviewDocumentDto: {
-            /** @example national_id */
-            type: string | null;
-            /** @example National ID */
-            label: string;
-            pages: components["schemas"]["KycReviewPageDto"][];
-        };
         KycReviewAddressDto: {
             /** @example national_id */
             type: string | null;
             /** @example National ID */
             label: string;
             pages: components["schemas"]["KycReviewPageDto"][];
-            /** @description Whether the form asks for a proof of address at all. */
+            /** @description Whether the form asks for this document now. When it does not, its pages on file are shown but cannot be returned: the client has no step to replace them on. */
             asked: boolean;
         };
         KycReviewSelfieDto: {
@@ -7640,7 +7633,7 @@ export interface components {
         };
         KycReviewLayoutDto: {
             identity: components["schemas"]["KycReviewIdentityFieldDto"][];
-            identityDocument: components["schemas"]["KycReviewDocumentDto"];
+            identityDocument: components["schemas"]["KycReviewAddressDto"];
             proofOfAddress: components["schemas"]["KycReviewAddressDto"];
             selfie: components["schemas"]["KycReviewSelfieDto"];
             additional: components["schemas"]["KycReviewSectionDto"][];
