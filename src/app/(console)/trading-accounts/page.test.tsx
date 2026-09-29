@@ -384,7 +384,18 @@ describe('trading accounts — the write actions are permission-gated', () => {
     await screen.findByText('client@example.com');
 
     expect(screen.getByRole('button', { name: /open a trading account/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /actions for account/i })).toBeNull();
+    // The row menu offers "Set product" (29 Sep 2026) — and still no money action.
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole('button', { name: /actions for account/i })[0]!);
+    expect(await screen.findByRole('menuitem', { name: /set product/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /add funds|withdraw/i })).toBeNull();
+  });
+
+  it('offers "Link account" in the header on trading.create', async () => {
+    identity.permissions = ['trading.view', 'trading.create'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+    expect(screen.getByRole('button', { name: /^link account$/i })).toBeInTheDocument();
   });
 
   /*

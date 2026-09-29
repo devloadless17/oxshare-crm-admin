@@ -161,6 +161,9 @@ export type IbLevelLimits = components['schemas']['IbLevelLimitsDto'];
  * `lastSeenAt` is how recently the server confirmed it.
  */
 export type Mt5GroupRow = components['schemas']['Mt5GroupDto'];
+/** An MT5 login as the link screen reads it — MT5's account, holder, options. */
+export type Mt5AccountLookup = components['schemas']['Mt5AccountLookupDto'];
+export type LinkedMt5Account = components['schemas']['LinkedMt5AccountDto'];
 
 export type IbCommissionType = components['schemas']['IbCommissionTypeDto'];
 export type CreateIbCommissionType = components['schemas']['CreateIbCommissionTypeDto'];
@@ -2778,6 +2781,30 @@ export const adminApi = {
    * once and stored nowhere, so whatever calls this must show them before it
    * navigates away.
    */
+  /** One MT5 login, for linking it to a client — read-only. */
+  async lookupMt5Account(login: string, signal?: AbortSignal): Promise<Mt5AccountLookup> {
+    const { data } = await apiClient.get<Mt5AccountLookup>(
+      `/admin/mt5/accounts/${encodeURIComponent(login)}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /** Link a login MT5 already has to a client, with its product. */
+  async linkMt5Account(body: {
+    userId: number;
+    login: string;
+    productId?: string;
+  }): Promise<LinkedMt5Account> {
+    const { data } = await apiClient.post<LinkedMt5Account>('/admin/trading-accounts/link', body);
+    return data;
+  },
+
+  /** Set, change or clear (null) the product an account's trades pay under. */
+  async setTradingAccountProduct(accountId: string, productId: string | null): Promise<void> {
+    await apiClient.patch(`/admin/trading-accounts/${accountId}/product`, { productId });
+  },
+
   async createTradingAccount(dto: CreateMt5AccountDto): Promise<CreatedMt5Account> {
     const { data } = await apiClient.post<CreatedMt5Account>('/admin/trading-accounts', dto);
     return data;

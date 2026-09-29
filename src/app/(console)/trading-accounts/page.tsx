@@ -3,7 +3,7 @@
 import { clientLabel } from '@/components/clients/client-identity';
 import * as React from 'react';
 import { Suspense } from 'react';
-import { CandlestickChart, Plus } from 'lucide-react';
+import { Boxes, CandlestickChart, Link2, Plus } from 'lucide-react';
 import api from '@/lib/api';
 import type {
   TradingAccountListResponse,
@@ -34,6 +34,8 @@ import { hasPermission } from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
 import { RowActions } from '@/components/row-actions';
 import { OpenAccountModal } from '@/components/trading/open-account-modal';
+import { LinkAccountDialog } from '@/components/trading/link-account-dialog';
+import { SetProductDialog } from '@/components/trading/set-product-dialog';
 import { tradingAccountColumns } from '@/components/trading/trading-account-columns';
 import { useAccountFunding } from '@/components/trading/use-account-funding';
 import { keys } from '@/lib/query-keys';
@@ -140,6 +142,9 @@ function TradingAccountsPageContent() {
    */
   const { admin } = useAdmin();
   const canCreate = hasPermission(admin, 'trading.create');
+  // Link an MT5 account the server already has; set an account's product (29 Sep 2026).
+  const [linkOpen, setLinkOpen] = React.useState(false);
+  const [productFor, setProductFor] = React.useState<TradingAccountRow | null>(null);
   // The money control — see `useAccountFunding`.
   const funding = useAccountFunding();
 
@@ -202,7 +207,7 @@ function TradingAccountsPageContent() {
    * only exists for an operator who can act. A row menu that renders empty is
    * a control that looks broken rather than absent.
    */
-  if (funding.canMoveMoney) {
+  if (funding.canMoveMoney || canCreate) {
     columns.push({
       header: '',
       cell: (a) => (
@@ -236,7 +241,13 @@ function TradingAccountsPageContent() {
            * record — the server refuses it, and a client tops up their own demo
            * account from the portal.
            */
-          items={funding.canFund(a) ? [funding.action(a)] : []}
+          items={[
+            ...(funding.canMoveMoney && funding.canFund(a) ? [funding.action(a)] : []),
+            // The product decides the commission its trades pay (29 Sep 2026).
+            ...(canCreate
+              ? [{ label: t('setProduct.action'), icon: Boxes, onSelect: () => setProductFor(a) }]
+              : []),
+          ]}
         />
       ),
     });
@@ -249,7 +260,20 @@ function TradingAccountsPageContent() {
           <h1 className="text-2xl font-bold tracking-tight">{t('tradingAccounts.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('tradingAccounts.subtitle')}</p>
         </div>
-        <ExportButton resource="trading-accounts" filters={exportFilters} disabled={total === 0} />
+        <div className="flex items-center gap-2">
+          {/* Attach an MT5 account the server already has to a client. */}
+          {canCreate && (
+            <Button type="button" size="sm" variant="outline" onClick={() => setLinkOpen(true)}>
+              <Link2 className="h-4 w-4" aria-hidden="true" />
+              {t('linkAccount.headerButton')}
+            </Button>
+          )}
+          <ExportButton
+            resource="trading-accounts"
+            filters={exportFilters}
+            disabled={total === 0}
+          />
+        </div>
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-3">
@@ -413,6 +437,8 @@ function TradingAccountsPageContent() {
       )}
 
       {funding.dialog}
+      <LinkAccountDialog open={linkOpen} onClose={() => setLinkOpen(false)} />
+      <SetProductDialog account={productFor} onClose={() => setProductFor(null)} />
     </div>
   );
 }

@@ -6,12 +6,12 @@ import {
   AtSign,
   Ban,
   CheckCircle2,
+  Link2,
   Pencil,
   Coins,
   ScrollText,
   ShieldCheck,
   Tags,
-  Users,
 } from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
@@ -59,7 +59,7 @@ export function ClientActionsMenu({
   onManageTags,
   onEditProfile,
   onChangeEmail,
-  onShowReferred,
+  onLinkAccount,
 }: {
   profile: ClientProfile;
   /** Null when this client is not a partner — the partner block is then absent. */
@@ -67,12 +67,8 @@ export function ClientActionsMenu({
   onManageTags: () => void;
   onEditProfile: () => void;
   onChangeEmail: () => void;
-  /**
-   * Moves the page to the partner's "Referred clients" TAB — a callback, not a
-   * link, because the menu sits above every tab and a `TabPanel` renders
-   * nothing while it is not active. Absent when that tab is not offered.
-   */
-  onShowReferred?: () => void;
+  /** Opens "Link an existing MT5 account" with this client filled in. */
+  onLinkAccount?: () => void;
 }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
@@ -218,6 +214,18 @@ export function ClientActionsMenu({
       ? [{ label: t('clientProfile.actionManageTags'), icon: Tags, onSelect: onManageTags }]
       : []),
 
+    // ── Trading: attach an MT5 account the server already has (29 Sep 2026) ─
+    ...(onLinkAccount && hasPermission(admin, 'trading.create')
+      ? [
+          {
+            label: t('linkAccount.action'),
+            icon: Link2,
+            onSelect: onLinkAccount,
+            separatorBefore: canEditClient || canChangeEmail || canSuspendClient || canAssignTags,
+          },
+        ]
+      : []),
+
     // ── Compliance, as navigation rather than mutation ─────────────────────
     ...(canViewKyc
       ? [
@@ -287,21 +295,6 @@ export function ClientActionsMenu({
             label: t('clientProfile.actionViewCommissions'),
             icon: Coins,
             href: `/commissions?ibUserId=${profile.portalId}`,
-          },
-        ]
-      : []),
-    ...(partner && onShowReferred
-      ? [
-          {
-            label: t('clientProfile.actionViewReferred'),
-            icon: Users,
-            /*
-             * The REFERRED CLIENTS tab — THIS partner's clients, in full. It
-             * once linked to `/clients?type=referral`, and `type` is derived
-             * as "referred by ANY partner", so a menu titled "Actions for
-             * {this partner}" opened a platform-wide list.
-             */
-            onSelect: onShowReferred,
           },
         ]
       : []),

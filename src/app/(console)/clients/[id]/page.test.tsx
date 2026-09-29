@@ -572,21 +572,15 @@ describe("a partner's book — Referred clients and Referred accounts (owner, 26
     );
   });
 
-  it('the menu takes "View clients they introduced" to the Referred clients tab', async () => {
+  it('the menu no longer offers "View clients they introduced" (owner, 29 Sep 2026)', async () => {
+    // The Referred clients TAB is one click away on the same page.
     const user = userEvent.setup();
     getPartnerDetail.mockResolvedValue(partnerDetail());
     renderWithProviders(<ClientProfilePage />);
     await screen.findByRole('tab', { name: /referred clients/i });
-
     await user.click(screen.getByRole('button', { name: /actions for/i }));
-    await user.click(
-      await screen.findByRole('menuitem', { name: /view clients they introduced/i }),
-    );
-
-    expect(screen.getByRole('tab', { name: /referred clients/i })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    await screen.findByRole('menuitem', { name: /edit profile/i });
+    expect(screen.queryByRole('menuitem', { name: /clients they introduced/i })).toBeNull();
   });
 });
 

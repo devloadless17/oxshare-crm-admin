@@ -270,7 +270,13 @@ describe('the Accounts tab', () => {
       limit: 25,
       nextCursor: null,
     });
-    renderWithProviders(<ClientAccountsPanel userId={1000245} clientName="Rana Docs" />);
+    renderWithProviders(
+      <ClientAccountsPanel
+        userId={1000245}
+        clientName="Rana Docs"
+        client={{ id: 1000245, portalId: 1000245, firstName: 'Rana', lastName: 'Docs' }}
+      />,
+    );
     expect(await screen.findByText('5000123')).toBeInTheDocument();
     expect(getTradingAccounts.mock.calls[0]?.[0]).toMatchObject({ userId: 1000245 });
     expect(screen.queryByRole('columnheader', { name: /^client/i })).not.toBeInTheDocument();
