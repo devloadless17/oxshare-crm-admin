@@ -78,7 +78,7 @@ function row(
   return {
     application: {
       id: 'app-1',
-      userId: 'u-1',
+      userId: 1000001,
       motivation: 'I introduce clients in Beirut.',
       website: null,
       status: 'pending',

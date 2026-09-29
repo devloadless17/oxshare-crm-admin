@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Wallet } from 'lucide-react';
 import api from '@/lib/api';
 import type { Currency, WalletListResponse, WalletRow } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -46,7 +47,7 @@ import { keys } from '@/lib/query-keys';
  * with either. A control that appears and then 403s is worse than one that never
  * appeared.
  */
-export function ClientWalletsPanel({ userId }: { userId: string }) {
+export function ClientWalletsPanel({ userId }: { userId: ClientRef }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
 

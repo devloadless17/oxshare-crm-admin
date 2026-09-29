@@ -1,5 +1,7 @@
 'use client';
 
+import type { ClientRef } from '@/lib/api/admin';
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -37,7 +39,7 @@ export function useClientTagToggle({
   onHandedOver,
 }: {
   /** The id the page was opened with — a Portal ID. */
-  clientId: string;
+  clientId: ClientRef;
   /** The client as operators name them in the question and the toast. */
   portalId: number | undefined;
   labelOf: (tagId: string) => string;

@@ -38,6 +38,12 @@ type SortKeysOf<Op extends keyof operations> = operations[Op] extends {
 // (npm run gen:api-types, with the backend running). Never hand-write an
 // interface for an API request OR response — regenerate instead; drift then
 // becomes a compile error (docs/API-CONTRACTS.md Part C).
+/**
+ * A client, by Portal ID — their one id since backend 0159. A number from the
+ * API, or its digits from a URL (`/clients/1000245`); the API takes either.
+ */
+export type ClientRef = number | string;
+
 export type PermissionItem = components['schemas']['PermissionItemDto'];
 export type PermissionModule = components['schemas']['PermissionModuleDto'];
 export type Role = components['schemas']['RoleResponseDto'];
@@ -500,8 +506,8 @@ export interface TransactionListParams {
   direction?: TransactionDirection;
   kind?: TransactionKind;
   state?: TransactionState;
-  /** Narrow to one client (UUID). */
-  userId?: string;
+  /** Narrow to one client, by Portal ID. */
+  userId?: ClientRef;
   currency?: string;
   /** Client email or name. Server-side, same columns as every other queue. */
   q?: string;
@@ -692,7 +698,7 @@ export type WalletSortKey = (typeof WALLET_SORT_KEYS)[number];
 export interface WalletListParams {
   limit: number;
   page?: number;
-  userId?: string;
+  userId?: ClientRef;
   /**
    * Free text over the OWNER's email and name — what the Client column shows.
    *
@@ -832,7 +838,7 @@ export type TradingAccountSortKey = (typeof TRADING_ACCOUNT_SORT_KEYS)[number];
 export function walletListSearchParams(params: WalletListParams): URLSearchParams {
   const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
   if (params.page !== undefined) query.set('page', String(params.page));
-  if (params.userId) query.set('userId', params.userId);
+  if (params.userId) query.set('userId', String(params.userId));
   if (params.q) query.set('q', params.q);
   if (params.currency) query.set('currency', params.currency);
   // Both halves or neither. `order` alone describes an ordering of no column.
@@ -846,8 +852,8 @@ export function walletListSearchParams(params: WalletListParams): URLSearchParam
 export interface TradingAccountListParams {
   limit: number;
   page?: number;
-  userId?: string;
-  /** Accounts of every client this partner introduced — their Portal ID or uuid. */
+  userId?: ClientRef;
+  /** Accounts of every client this partner introduced — by the partner's Portal ID. */
   referredBy?: string;
   /** Free text over the owner's email and name — see `WalletListParams.q`. */
   q?: string;
@@ -861,7 +867,7 @@ export interface TradingAccountListParams {
 export function tradingAccountListSearchParams(params: TradingAccountListParams): URLSearchParams {
   const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
   if (params.page !== undefined) query.set('page', String(params.page));
-  if (params.userId) query.set('userId', params.userId);
+  if (params.userId) query.set('userId', String(params.userId));
   if (params.referredBy) query.set('referredBy', params.referredBy);
   if (params.q) query.set('q', params.q);
   if (params.environment) query.set('environment', params.environment);
@@ -1305,7 +1311,7 @@ export const adminApi = {
    */
   async approveIbApplication(
     id: string,
-    body: { level?: number; parentIbUserId?: string; agencyId?: string } = {},
+    body: { level?: number; parentIbUserId?: ClientRef; agencyId?: string } = {},
   ): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/applications/${id}/approve`, body);
     return data;
@@ -1376,7 +1382,7 @@ export const adminApi = {
    * remember. Most clients are not partners; a caller that skipped the check
    * would read `.level` off null on the majority of profiles.
    */
-  async getPartnerDetail(userId: string, signal?: AbortSignal): Promise<IbPartnerDetail | null> {
+  async getPartnerDetail(userId: ClientRef, signal?: AbortSignal): Promise<IbPartnerDetail | null> {
     const { data } = await apiClient.get<IbPartnerDetail | null>(`/admin/ib/partners/${userId}`, {
       signal,
     });
@@ -1401,7 +1407,7 @@ export const adminApi = {
    * Partners BENEATH them are NOT moved. Cascading would re-price an unbounded
    * number of people from one edit of somebody else's row.
    */
-  async changeIbPartnerLevel(userId: string, level: number): Promise<IbAccount> {
+  async changeIbPartnerLevel(userId: ClientRef, level: number): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/level`, {
       level,
     });
@@ -1409,14 +1415,17 @@ export const adminApi = {
   },
 
   /** `null` makes them a direct partner — it is a value, not an omission. */
-  async reassignIbPartnerParent(userId: string, parentIbUserId: string | null): Promise<IbAccount> {
+  async reassignIbPartnerParent(
+    userId: ClientRef,
+    parentIbUserId: ClientRef | null,
+  ): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/parent`, {
       parentIbUserId,
     });
     return data;
   },
 
-  async setIbPartnerActive(userId: string, active: boolean): Promise<IbAccount> {
+  async setIbPartnerActive(userId: ClientRef, active: boolean): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/active`, {
       active,
     });
@@ -1849,7 +1858,7 @@ export const adminApi = {
     if (params.direction) query.set('direction', params.direction);
     if (params.kind) query.set('kind', params.kind);
     if (params.state) query.set('state', params.state);
-    if (params.userId) query.set('userId', params.userId);
+    if (params.userId) query.set('userId', String(params.userId));
     if (params.currency) query.set('currency', params.currency);
     if (params.q) query.set('q', params.q);
     if (params.from) query.set('from', params.from);
@@ -1882,7 +1891,7 @@ export const adminApi = {
     if (params.direction) query.set('direction', params.direction);
     if (params.kind) query.set('kind', params.kind);
     if (params.state) query.set('state', params.state);
-    if (params.userId) query.set('userId', params.userId);
+    if (params.userId) query.set('userId', String(params.userId));
     if (params.currency) query.set('currency', params.currency);
     if (params.q) query.set('q', params.q);
     if (params.from) query.set('from', params.from);
@@ -1922,7 +1931,7 @@ export const adminApi = {
    * database. Pass a value that identifies the INTENT, not the attempt.
    */
   async creditWallet(
-    body: { userId: string; amount: string; currency: string; reason: string },
+    body: { userId: ClientRef; amount: string; currency: string; reason: string },
     key: string,
   ): Promise<WalletCreditResult> {
     const { data } = await apiClient.post<WalletCreditResult>(
@@ -1956,8 +1965,8 @@ export const adminApi = {
     params: {
       page?: number;
       limit?: number;
-      ibUserId?: string;
-      clientUserId?: string;
+      ibUserId?: ClientRef;
+      clientUserId?: ClientRef;
       /**
        * Free text over the PARTNER's email and name — never the client's. The
        * store masks an out-of-scope client's identity, and a filter that
@@ -1974,7 +1983,7 @@ export const adminApi = {
     return data;
   },
 
-  async openWallet(body: { userId: string; currency: string }): Promise<WalletRow> {
+  async openWallet(body: { userId: ClientRef; currency: string }): Promise<WalletRow> {
     const { data } = await apiClient.post<WalletRow>('/admin/wallets', body);
     return data;
   },
@@ -2186,7 +2195,7 @@ export const adminApi = {
        * prints nowhere.
        */
       q?: string;
-      userId?: string;
+      userId?: ClientRef;
       walletId?: string;
       entryType?: string;
       page?: number;
@@ -2483,7 +2492,7 @@ export const adminApi = {
    * are not listed on the profile (owner, 26 Sep 2026).
    */
   async getClientClosedPositions(
-    id: string,
+    id: ClientRef,
     params: { page?: number; limit?: number } = {},
     signal?: AbortSignal,
   ): Promise<ClientClosedPositionsPage> {
@@ -2499,7 +2508,7 @@ export const adminApi = {
 
   /** One client's money movements, all directions in one history. */
   async getClientTransactions(
-    id: string,
+    id: ClientRef,
     params: { page?: number; limit?: number } = {},
     signal?: AbortSignal,
   ): Promise<ClientTransactionsPage> {
@@ -2513,19 +2522,19 @@ export const adminApi = {
     return data;
   },
 
-  async getClientIdentity(id: string, signal?: AbortSignal): Promise<ClientIdentityRecord> {
+  async getClientIdentity(id: ClientRef, signal?: AbortSignal): Promise<ClientIdentityRecord> {
     const { data } = await apiClient.get<ClientIdentityRecord>(`/admin/clients/${id}/identity`, {
       signal,
     });
     return data;
   },
 
-  async getClient(id: string, signal?: AbortSignal): Promise<ClientProfile> {
+  async getClient(id: ClientRef, signal?: AbortSignal): Promise<ClientProfile> {
     const { data } = await apiClient.get<ClientProfile>(`/admin/clients/${id}`, { signal });
     return data;
   },
 
-  async setClientStatus(id: string, status: 'active' | 'suspended') {
+  async setClientStatus(id: ClientRef, status: 'active' | 'suspended') {
     const { data } = await apiClient.patch<ClientRow>(`/admin/clients/${id}/status`, { status });
     return data;
   },
@@ -2542,7 +2551,7 @@ export const adminApi = {
    * one the client's verification has locked.
    */
   async updateClientProfile(
-    id: string,
+    id: ClientRef,
     dto: components['schemas']['UpdateClientProfileDto'],
   ): Promise<ClientAccount> {
     const { data } = await apiClient.patch<ClientAccount>(`/admin/clients/${id}`, dto);
@@ -2578,7 +2587,7 @@ export const adminApi = {
    * unverified until they click the new link, so anything showing
    * `emailVerified` has to be refetched.
    */
-  async changeClientEmail(id: string, email: string): Promise<ClientAccount> {
+  async changeClientEmail(id: ClientRef, email: string): Promise<ClientAccount> {
     const { data } = await apiClient.patch<ClientAccount>(`/admin/clients/${id}/email`, { email });
     return data;
   },
@@ -2605,7 +2614,7 @@ export const adminApi = {
     return data;
   },
 
-  async getClientTags(clientId: string, signal?: AbortSignal): Promise<ClientTag[]> {
+  async getClientTags(clientId: ClientRef, signal?: AbortSignal): Promise<ClientTag[]> {
     const { data } = await apiClient.get<ClientTag[]>(`/admin/clients/${clientId}/tags`, {
       signal,
     });
@@ -2626,7 +2635,7 @@ export const adminApi = {
    * `confirmLeavesScope` — see `useClientTagToggle`.
    */
   async assignTag(
-    clientId: string,
+    clientId: ClientRef,
     tagId: string,
     options: { confirmLeavesScope?: boolean } = {},
   ): Promise<ClientTagChangeResult> {
@@ -2639,7 +2648,7 @@ export const adminApi = {
   },
 
   async unassignTag(
-    clientId: string,
+    clientId: ClientRef,
     tagId: string,
     options: { confirmLeavesScope?: boolean } = {},
   ): Promise<ClientTagChangeResult> {

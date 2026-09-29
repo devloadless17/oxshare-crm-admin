@@ -11,6 +11,7 @@ import {
   clientName,
 } from '@/components/clients/client-identity';
 import type { IbPartnerRow, IbPartnerSortKey } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { isMasked } from '@/lib/masking';
 import { formatMoney, isZeroMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
@@ -61,7 +62,7 @@ export function partnerColumns({
   /** `ib.partners.suspend` — the key the active PATCH enforces. */
   canSuspendPartners: boolean;
   /** The partner whose state is being changed, so their menu shows it working. */
-  actingId: string | null | undefined;
+  actingId: ClientRef | null | undefined;
   onChangeLevel: (row: IbPartnerRow) => void;
   onReassignParent: (row: IbPartnerRow) => void;
   onToggleActive: (row: IbPartnerRow) => void;

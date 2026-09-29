@@ -72,7 +72,7 @@ export default function ReconciliationPage() {
             name={clientName(row.userFirstName, row.userLastName)}
             email={row.userEmail}
             portalId={row.userPortalId}
-            removedId={row.userId}
+            removedId={String(row.userId)}
           />
         ),
       },

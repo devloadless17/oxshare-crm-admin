@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MailCheck } from 'lucide-react';
 import { adminApi, type CreatedMt5Account, type Mt5Group, type Mt5GroupRow } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -57,7 +58,7 @@ export function OpenAccountModal({
 }: {
   open: boolean;
   onClose: () => void;
-  userId: string;
+  userId: ClientRef;
   clientLabel: string;
 }) {
   const queryClient = useQueryClient();
@@ -98,7 +99,7 @@ export function OpenAccountModal({
   const create = useMutation({
     mutationFn: () =>
       adminApi.createTradingAccount({
-        userId,
+        userId: Number(userId),
         group,
         ...(mustChooseProduct && productId ? { productId } : {}),
         environment,

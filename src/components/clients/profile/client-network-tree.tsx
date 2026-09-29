@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Network, User, Users } from 'lucide-react';
 import { Spinner } from '@/components/ui/loader';
 import api from '@/lib/api';
 import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { Badge } from '@/components/ui/badge';
 import { PermittedLink } from '@/components/permitted-link';
@@ -58,7 +59,7 @@ export function ClientNetworkTree({
   referredTotal,
   referredOutsideScope,
 }: {
-  rootUserId: string;
+  rootUserId: ClientRef;
   /** The root's Portal ID — what every link out of this tree carries. */
   rootPortalId: number;
   rootName: string;
@@ -204,7 +205,7 @@ function Branch({
   hiddenAtRoot = false,
   enabled = true,
 }: {
-  userId: string;
+  userId: ClientRef;
   depth: number;
   preloadedPartner?: IbPartnerDetail | null;
   preloadedClients?: NonNullable<ClientProfile['referredClients']>;

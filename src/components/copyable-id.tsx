@@ -9,8 +9,8 @@ import { t } from '@/lib/i18n';
  *
  * `full` prints the whole value; without it only the first 8 characters show,
  * with the full value on the copy button and in the title, for the long
- * identifiers that would otherwise dominate a cell. A client's uuid is no
- * longer passed here at all: the Portal ID replaced it on every screen.
+ * identifiers that would otherwise dominate a cell. A client is named by their
+ * Portal ID, which since backend 0159 is their only identifier.
  */
 export function CopyableId({
   value,

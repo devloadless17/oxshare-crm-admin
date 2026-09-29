@@ -213,7 +213,7 @@ export function ReferredClientsPanel({ partnerPortalId }: { partnerPortalId: num
           caption={t('clientProfile.referredClientsTitle')}
           columns={columns}
           rows={query.data?.items ?? []}
-          rowKey={(client) => client.id}
+          rowKey={(client) => String(client.id)}
           dimmed={query.isFetching}
           empty={
             <EmptyState

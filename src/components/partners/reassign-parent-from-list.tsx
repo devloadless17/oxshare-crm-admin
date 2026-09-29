@@ -1,5 +1,7 @@
 'use client';
 
+import type { ClientRef } from '@/lib/api/admin';
+
 import api from '@/lib/api';
 import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
@@ -24,7 +26,7 @@ export function ReassignParentFromList({
 }: {
   open: boolean;
   onClose: () => void;
-  userId: string;
+  userId: ClientRef;
   name: string;
 }) {
   const detail = useResource(

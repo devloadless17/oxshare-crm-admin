@@ -117,8 +117,8 @@ back into `money.ts` and confirming lint complains.
 The socket (`hooks/use-realtime.ts`, a twin) carries three events into
 `components/notifications/notification-bell.tsx`:
 
-| event                  | means                                              | maps through                |
-| ---------------------- | -------------------------------------------------- | --------------------------- |
+| event                  | means                                               | maps through                |
+| ---------------------- | --------------------------------------------------- | --------------------------- |
 | `notification.created` | a client did something that needs handling (a TASK) | `queryKeysFor(kind)`        |
 | `notification.changed` | one of YOUR tasks was read elsewhere or HANDLED     | `keys.notifications.all()`  |
 | `resource.changed`     | another OPERATOR decided something                  | `resourceKeysFor(resource)` |
@@ -159,9 +159,9 @@ Three things outside the folder make that true, and each is easy to break withou
   `hooks/use-url-seeded-state.ts` — and RE-seed it on the next link: following a second task while
   already on the desk is the same route, nothing remounts, and a once-only seed keeps the first
   client's filter while the address bar names the second. A new desk a task links to needs the same.
-- **Looking at the item reads its task.** The KYC review calls `useMarkSubjectRead('kyc', uuid)`
-  once the submission has LOADED — never on a 403/404 — with the response's uuid, since the URL may
-  carry the Portal ID.
+- **Looking at the item reads its task.** The KYC review calls `useMarkSubjectRead('kyc', id)`
+  once the submission has LOADED — never on a 403/404 — with the response's id (the client's Portal
+  ID, their only identifier since backend 0159), not the URL's, which may carry `#` or spaces.
 - **An attention task has a finish line**: `components/financial/resolve-attention-dialog.tsx`
   ("Mark resolved", a note of 10–500 characters, the DTO's bounds), opened from the Financial row
   menu (key by direction: `deposits.approve` / `withdrawals.settle`) and the withdrawal desk.
@@ -316,9 +316,9 @@ screens take, so nothing on them can do what the server refuses:
   reviewer returned reads **Returned** in red: an answer, a document page (`doc_back`), the selfie and
   a broker's upload, in the summary AND on its tile (`reviewDocumentGroups` sets `returned`). Until
   28 Sep 2026 only answers turned red, and a returned passport or bill still said "Uploaded".
-- **An approved submission** offers *Correct details* (`correct-identity-dialog.tsx`: every identity field
+- **An approved submission** offers _Correct details_ (`correct-identity-dialog.tsx`: every identity field
   but the phone, pre-filled, sends only what changed, a reason required, each refusal under its field)
-  and *Request re-verification* (`reverify-dialog.tsx`: items, a reason, and the plain money-pause
+  and _Request re-verification_ (`reverify-dialog.tsx`: items, a reason, and the plain money-pause
   line). **A reason may be any length, just not blank** — the server trims it and refuses only an
   empty one. Both dialogs demanded ten characters until 28 Sep 2026, and a reviewer had to pad
   "Expired" before the button worked, with nothing on screen saying why.
@@ -333,11 +333,11 @@ The owner asked for his old CRM's shape: a short list of MAIN items that each op
 pages. Dashboard sits alone on top; then **Clients · Introducing brokers · Finance · Trading ·
 System · Security**. Three files in `components/layout/`, and the layout only places them:
 
-| file | owns |
-|---|---|
-| `navigation.ts` | the tree (`NAV`) and the pure rules over it: `activeNavHref` (longest match, over the WHOLE tree), `visibleNav(admin)` (the one permission filter — the command palette reads it too), `groupBadgeTotal` |
-| `sidebar-nav.tsx` | drawing it: groups that open, the collapsed rail's per-group menus |
-| `use-nav-badges.ts` | the four queue counts, keyed by the href that opens each queue |
+| file                | owns                                                                                                                                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `navigation.ts`     | the tree (`NAV`) and the pure rules over it: `activeNavHref` (longest match, over the WHOLE tree), `visibleNav(admin)` (the one permission filter — the command palette reads it too), `groupBadgeTotal` |
+| `sidebar-nav.tsx`   | drawing it: groups that open, the collapsed rail's per-group menus                                                                                                                                       |
+| `use-nav-badges.ts` | the four queue counts, keyed by the href that opens each queue                                                                                                                                           |
 
 Rules the code relies on:
 

@@ -420,8 +420,8 @@ export default function ClientProfilePage() {
                       field="client.id"
                       profile={profile}
                     >
-                      {/* The FULL uuid — this is the screen an operator quotes
-                          it from, so no truncation here. */}
+                      {/* The FULL Portal ID — this is the screen an operator
+                          quotes it from, so no truncation here. */}
                       <CopyableId
                         value={String(profile.portalId)}
                         full

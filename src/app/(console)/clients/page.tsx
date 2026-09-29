@@ -339,7 +339,7 @@ function ClientsPageContent() {
           caption={t('clients.caption')}
           columns={columns}
           rows={rows}
-          rowKey={(c) => c.id}
+          rowKey={(c) => String(c.id)}
           dimmed={query.isFetching}
           empty={<EmptyState icon={Users} message={t('clients.empty')} />}
           sortColumn={sortKey}

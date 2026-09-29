@@ -198,7 +198,7 @@ function ReferralsPageContent() {
           caption={t('referrals.caption')}
           columns={columns}
           rows={rows}
-          rowKey={(c) => c.id}
+          rowKey={(c) => String(c.id)}
           dimmed={query.isFetching}
           empty={
             <EmptyState

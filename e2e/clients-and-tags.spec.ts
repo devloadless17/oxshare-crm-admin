@@ -116,8 +116,7 @@ test.describe('the client index', () => {
     // client base and opens a full client profile."
     await page.getByRole('link', { name: E2E_CLIENTS.alpha.name }).click();
 
-    // By Portal ID: the address bar is on screen too, and a client's uuid is
-    // shown nowhere — the owner's rule, 24 Sep 2026.
+    // By Portal ID — the client's only identifier since backend 0159.
     await expect(page).toHaveURL(/\/clients\/\d+$/);
     await expect(page.getByRole('heading', { name: E2E_CLIENTS.alpha.name })).toBeVisible();
   });
@@ -147,7 +146,8 @@ test.describe('the client profile', () => {
      * not undo that by explaining which happened — the difference is an oracle
      * for enumerating the client base a restricted admin was denied.
      */
-    await page.goto('/clients/00000000-0000-4000-8000-000000000000');
+    // A well-formed Portal ID nobody holds (the sequence starts at 1,000,000).
+    await page.goto('/clients/999999999');
     await expect(page.getByText(/not available/i)).toBeVisible();
     await expect(page.getByText(/may not exist, or it may be outside/i)).toBeVisible();
   });

@@ -76,7 +76,7 @@ type Referred = NonNullable<ClientProfile['referredClients']>;
 
 const someClients = (n: number): Referred =>
   Array.from({ length: n }, (_, i) => ({
-    clientUserId: `client-${i}`,
+    clientUserId: 1000100 + i,
     clientPortalId: 1000100 + i,
     firstName: 'Ada',
     lastName: `Number${i}`,
@@ -220,7 +220,7 @@ describe('one row per person (owner, 26 Sep 2026)', () => {
       level: 2,
       directPartners: [
         {
-          userId: 'client-1',
+          userId: 1000101,
           portalId: 1000101,
           firstName: 'Ada',
           lastName: 'Number1',

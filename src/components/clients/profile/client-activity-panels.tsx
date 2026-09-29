@@ -8,6 +8,7 @@ import {
   type ClientClosedPositionRow,
   type ClientTransactionRow,
 } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
@@ -62,7 +63,7 @@ function Signed({ value, currency }: { value: string | null; currency: string })
  * on top of the trade's result, and "why is my balance $3 short" is answered
  * by the commission column, not by the P/L.
  */
-export function ClientClosedPositionsPanel({ userId }: { userId: string }) {
+export function ClientClosedPositionsPanel({ userId }: { userId: ClientRef }) {
   const [page, setPage] = React.useState(1);
 
   const query = useResource(
@@ -220,7 +221,7 @@ export function transactionMethodLabel(
   }
 }
 
-export function ClientTransactionsPanel({ userId }: { userId: string }) {
+export function ClientTransactionsPanel({ userId }: { userId: ClientRef }) {
   const [page, setPage] = React.useState(1);
 
   const query = useResource(

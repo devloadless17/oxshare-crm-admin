@@ -173,7 +173,7 @@ function LedgerPageContent() {
           name={clientName(r.userFirstName, r.userLastName)}
           email={r.userEmail}
           portalId={r.userPortalId}
-          removedId={r.userId}
+          removedId={String(r.userId)}
         />
       ),
     },

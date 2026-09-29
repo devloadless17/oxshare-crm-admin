@@ -10,6 +10,7 @@ import type {
   TradingAccountRow,
   TradingAccountSortKey,
 } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { TRADING_ACCOUNT_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
@@ -142,7 +143,7 @@ function TradingAccountsPageContent() {
   // The money control — see `useAccountFunding`.
   const funding = useAccountFunding();
 
-  const [openFor, setOpenFor] = React.useState<{ userId: string; label: string } | null>(null);
+  const [openFor, setOpenFor] = React.useState<{ userId: ClientRef; label: string } | null>(null);
 
   const query = useResource<TradingAccountListResponse>(
     keys.tradingAccounts.list(params),

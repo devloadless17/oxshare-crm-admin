@@ -4696,7 +4696,7 @@ export interface components {
         AdminNotificationsReadSubjectDto: {
             /** @enum {string} */
             subjectKind: "transaction" | "kyc" | "ib_application" | "transfer" | "ib_accrual";
-            /** @description The item's id — for a KYC task, the client's id. */
+            /** @description The item's id — for a KYC task the client's Portal ID, for any other item the record's uuid. */
             subjectId: string;
         };
         AdminNotificationMarkResponseDto: {
@@ -5110,10 +5110,10 @@ export interface components {
             sortOrder?: number;
         };
         IbAccountDto: {
-            userId: string;
+            userId: number;
             level: number;
             /** @description Null at the top of a chain — or, on an admin response, when the parent is outside your territory (`parentOutsideTerritory`). */
-            parentIbUserId: string | null;
+            parentIbUserId: number | null;
             /** @description Admin responses only: true when a parent exists that the reader may not see. The fact, never the id (R1). */
             parentOutsideTerritory?: boolean;
             /** @description What a client types at registration to be attributed here. */
@@ -5127,7 +5127,7 @@ export interface components {
         };
         IbApplicationDto: {
             id: string;
-            userId: string;
+            userId: number;
             motivation: string | null;
             website: string | null;
             /** @enum {string} */
@@ -5184,7 +5184,7 @@ export interface components {
              * @example 4f7kq2nm8xcb
              */
             walletNumber: string;
-            userId: string;
+            userId: number;
             /**
              * @description The wallet name — "<CURRENCY> Wallet" for a main wallet, "Commission Wallet" for a partner's earnings wallet. Server-generated from `currency` and `kind`; never writable. English and canonical — a localised UI should build its own label from `currency` and `kind` rather than translating this string.
              * @example USD Wallet
@@ -5219,7 +5219,7 @@ export interface components {
             createdAt: string;
         };
         IbReferredClientDto: {
-            userId: string;
+            userId: number;
             /** @description The client's display name. Their EMAIL is deliberately absent — a partner is owed attribution, not their referrals' contact details. */
             name: string;
             /** @description Whether this client has completed identity verification. */
@@ -5231,7 +5231,7 @@ export interface components {
             since: string;
         };
         IbSubPartnerDto: {
-            userId: string;
+            userId: number;
             name: string;
             /** @description A suspended sub-partner keeps their tree and stops earning. */
             active: boolean;
@@ -5357,7 +5357,7 @@ export interface components {
         };
         ApproveIbApplicationDto: {
             /** @description The parent to nest the new partner under. OMITTED means "the reviewer did not say" — the introducer recorded at registration becomes the parent, which is the ordinary case. An explicit NULL roots them: they deal with the broker directly at level 1, whoever introduced them. */
-            parentIbUserId?: string | null;
+            parentIbUserId?: number | null;
             /**
              * Format: uuid
              * @description Omitted grants the agency the applicant chose. Required when the application carries none — a partner cannot be approved without an agency.
@@ -5378,7 +5378,7 @@ export interface components {
             reason: string;
         };
         IbPartnerListAccountDto: {
-            userId: string;
+            userId: number;
             /**
              * @description The rung, which decides their terms (0112).
              * @example 1
@@ -5393,7 +5393,11 @@ export interface components {
             approvedAt: string;
         };
         IbPartnerListPersonDto: {
-            id: string;
+            /**
+             * @description The client’s Portal ID (0159).
+             * @example 1000245
+             */
+            id: number;
             /**
              * @description Their Portal ID.
              * @example 1000245
@@ -5433,7 +5437,7 @@ export interface components {
             maskedFields: string[];
         };
         IbPartnerPersonDto: {
-            userId: string;
+            userId: number;
             /**
              * @description Their Portal ID.
              * @example 1000245
@@ -5444,7 +5448,7 @@ export interface components {
             lastName: string | null;
         };
         IbSubPartnerRowDto: {
-            userId: string;
+            userId: number;
             /**
              * @description Their Portal ID.
              * @example 1000245
@@ -5469,7 +5473,7 @@ export interface components {
             approvedAt: string;
         };
         IbPartnerDetailDto: {
-            userId: string;
+            userId: number;
             /**
              * @description The rung, and what decides their terms. 1 is a partner dealing with the broker directly.
              * @example 1
@@ -5516,7 +5520,7 @@ export interface components {
         };
         ReassignIbParentDto: {
             /** @description The new parent partner, or null to make them a direct partner. */
-            parentIbUserId: string | null;
+            parentIbUserId: number | null;
         };
         SetIbActiveDto: {
             /** @description False suspends: the referral code and the tree are kept, the earning stops. There is no delete — removing the row would orphan every partner beneath them. */
@@ -5747,7 +5751,7 @@ export interface components {
         };
         TransactionDto: {
             id: string;
-            userId: string;
+            userId: number;
             walletId: string;
             /** @enum {string} */
             direction: "deposit" | "withdrawal";
@@ -5827,7 +5831,7 @@ export interface components {
         };
         TransferDto: {
             id: string;
-            userId: string;
+            userId: number;
             walletId: string;
             tradingAccountId: string;
             /** @enum {string} */
@@ -5980,7 +5984,7 @@ export interface components {
              * @example 4f7kq2nm8xcb
              */
             walletNumber: string;
-            userId: string;
+            userId: number;
             /** @example 1000001 */
             userPortalId: number | null;
             userFirstName: string | null;
@@ -6411,11 +6415,8 @@ export interface components {
             stats: components["schemas"]["DashboardStatsDto"];
         };
         CreateMt5AccountDto: {
-            /**
-             * Format: uuid
-             * @description The client this account belongs to.
-             */
-            userId: string;
+            /** @description The client this account belongs to. */
+            userId: number;
             /** @example real\Standard */
             group: string;
             /**
@@ -6661,7 +6662,7 @@ export interface components {
             returned: components["schemas"]["KycOwedDto"][];
         };
         KycStatusDto: {
-            userId: string;
+            userId: number;
             /** @enum {string} */
             status: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
             /** @description Free-form key/value bag whose keys come from the step configuration. */
@@ -7128,7 +7129,7 @@ export interface components {
         };
         ClientRowReferrerDto: {
             /** @description Absent when the introducer is outside your territory. */
-            ibUserId?: string;
+            ibUserId?: number;
             /** @description The introducer’s Portal ID. Absent, with their name, when they are outside your territory. */
             portalId?: number;
             /** @description Absent when the introducer is outside your territory. */
@@ -7141,7 +7142,11 @@ export interface components {
             outsideTerritory: boolean;
         };
         ClientRowDto: {
-            id: string;
+            /**
+             * @description The client’s Portal ID — their one id (0159).
+             * @example 1000245
+             */
+            id: number;
             /** @example 1000001 */
             portalId: number;
             email?: string;
@@ -7207,7 +7212,7 @@ export interface components {
         };
         ProfileReferrerDto: {
             /** @description Absent when the introducer is outside your territory. */
-            ibUserId?: string;
+            ibUserId?: number;
             /** @description The introducer’s Portal ID — what the profile links by. Absent, with the rest of their identity, when the introducer is outside your territory. */
             portalId?: number;
             /** @description Absent when the introducer is outside your territory. */
@@ -7224,7 +7229,7 @@ export interface components {
             since: string;
         };
         ProfileReferredClientDto: {
-            clientUserId: string;
+            clientUserId: number;
             /**
              * @description Their Portal ID.
              * @example 1000245
@@ -7238,7 +7243,11 @@ export interface components {
             since: string;
         };
         ClientProfileDto: {
-            id: string;
+            /**
+             * @description The client’s Portal ID — their one id (0159).
+             * @example 1000245
+             */
+            id: number;
             /** @example 1000001 */
             portalId: number;
             email?: string;
@@ -7335,8 +7344,11 @@ export interface components {
             reason?: string;
         };
         ClientAccountDto: {
-            /** Format: uuid */
-            id: string;
+            /**
+             * @description The client’s Portal ID — their one id (0159).
+             * @example 1000245
+             */
+            id: number;
             /**
              * @description The client’s Portal ID.
              * @example 1000245
@@ -7630,7 +7642,7 @@ export interface components {
             flags: components["schemas"]["KycReviewFlagDto"][];
         };
         KycSubmissionDto: {
-            userId: string;
+            userId: number;
             /** @enum {string} */
             status: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
             /** Format: date-time */
@@ -8091,7 +8103,7 @@ export interface components {
             /** @description WHY the row needs attention, in words the operator can act on. Written whenever rivalNeedsAttention flips true; null once a retry lands or the flag was never raised. */
             rivalAttentionReason?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
-            userId?: string;
+            userId?: number;
             walletId?: string;
             direction?: string;
             methodKey?: string | null;
@@ -8115,11 +8127,8 @@ export interface components {
             maskedFields?: string[];
         };
         CreditWalletDto: {
-            /**
-             * Format: uuid
-             * @description The client to credit.
-             */
-            userId: string;
+            /** @description The client to credit. */
+            userId: number;
             /** @example 250.00000000 */
             amount: string;
             /**
@@ -8158,8 +8167,7 @@ export interface components {
             destination?: "wallet";
         };
         OpenWalletDto: {
-            /** Format: uuid */
-            userId: string;
+            userId: number;
             /**
              * @description Must be a currency the platform holds and has enabled.
              * @example USD
@@ -8175,7 +8183,7 @@ export interface components {
         DepositDecisionDto: {
             id: string;
             /** @description The client this deposit belongs to. */
-            userId: string;
+            userId: number;
             /**
              * @description Monetary value — always a string, never a number
              * @example 250.00000000
@@ -8214,7 +8222,7 @@ export interface components {
              * @example 4f7kq2nm8xcb
              */
             walletNumber: string;
-            userId: string;
+            userId: number;
             /** @example 1000001 */
             userPortalId: number | null;
             userFirstName: string | null;
@@ -10452,9 +10460,9 @@ export interface operations {
                 page?: string;
                 limit?: string;
                 /** @description Restrict to one partner. */
-                ibUserId?: string;
+                ibUserId?: number;
                 /** @description Restrict to one client. */
-                clientUserId?: string;
+                clientUserId?: number;
                 /** @description The PARTNER's Portal ID (digits, matched exactly) or free text over their email and name — the identifiers the list displays. It deliberately does not search the client on the row: an out-of-scope client's identity is masked, and a filter that matched it would answer "does this person exist in another territory" from the row count. */
                 q?: string;
                 status?: "pending" | "confirmed" | "reversed";
@@ -10556,7 +10564,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -10577,7 +10585,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -10602,7 +10610,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -10627,7 +10635,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -11731,9 +11739,9 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Accounts of one client. */
-                userId?: string;
+                userId?: number;
                 /** @description Accounts of every client this partner introduced, by the partner’s Portal ID (users.referred_by_ib_user_id). Scoped like every other filter. */
-                referredBy?: string;
+                referredBy?: number;
                 /** @description A number matches the MT5 login OR the owner’s Portal ID — both exact, because an operator holding one cannot tell which it is. Anything else searches the OWNER by email or name — the identifiers the Owner column displays. */
                 q?: string;
                 environment?: "live" | "demo";
@@ -12872,7 +12880,7 @@ export interface operations {
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
                 /** @description Clients introduced by this partner, by the partner’s Portal ID (users.referred_by_ib_user_id). Scoped like every other filter — a reader still only sees their own territory. A value that is not a Portal ID is a 400, never a silently unfiltered list. */
-                referredBy?: string;
+                referredBy?: number;
                 /** @description `true`: only clients a partner introduced (the Referrals page); `false`: only clients nobody introduced. On users.referred_by_ib_user_id, so a referred client who later became a partner still counts. Any other value is a 400. */
                 referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
@@ -12912,7 +12920,7 @@ export interface operations {
                 /** @description Tag SLUG, not id (ADM-14). */
                 tag?: string;
                 /** @description Clients introduced by this partner, by Portal ID — the same filter as the list, so the file matches the screen it was exported from. */
-                referredBy?: string;
+                referredBy?: number;
                 /** @description `true`: only clients a partner introduced (the Referrals page); `false`: only clients nobody introduced. On users.referred_by_ib_user_id, so a referred client who later became a partner still counts. Any other value is a 400. */
                 referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
@@ -12940,7 +12948,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -12961,7 +12969,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -12986,7 +12994,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -13011,7 +13019,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -13036,7 +13044,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -13061,7 +13069,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -13190,7 +13198,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -13214,7 +13222,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                id: string;
+                id: number;
                 tagId: string;
             };
             cookie?: never;
@@ -13239,7 +13247,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                id: string;
+                id: number;
                 tagId: string;
             };
             cookie?: never;
@@ -13313,7 +13321,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13334,7 +13342,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13355,7 +13363,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13376,7 +13384,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13397,7 +13405,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13422,7 +13430,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13443,7 +13451,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -13468,7 +13476,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                userId: string;
+                userId: number;
             };
             cookie?: never;
         };
@@ -14311,7 +14319,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Wallets of one client. */
-                userId?: string;
+                userId?: number;
                 /** @description Exact match on the wallet code. */
                 currency?: string;
                 /** @description A wallet number or the OWNER’s Portal ID (both matched exactly), or free text over the owner’s email and name — the identifiers this screen actually displays. Before this existed the only client filter was `userId`, a uuid shown nowhere on the page, so an operator had to fetch it from /clients first. */
@@ -14591,7 +14599,7 @@ export interface operations {
     AdminMoneyController_listLedger: {
         parameters: {
             query: {
-                userId: string;
+                userId: number;
                 /** @description A Portal ID (digits, matched exactly) or the client’s email or name — the identifiers the Client column shows. Scope still applies: this cannot reach a client outside the actor’s territory. */
                 q?: string;
                 walletId: string;
@@ -14697,7 +14705,7 @@ export interface operations {
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description Narrow to one client (UUID). */
-                userId?: string;
+                userId?: number;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
@@ -14734,7 +14742,7 @@ export interface operations {
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description Narrow to one client (UUID). */
-                userId?: string;
+                userId?: number;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
@@ -14770,7 +14778,7 @@ export interface operations {
                 kind?: "payment" | "transfer" | "commission_transfer";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description Narrow to one client (UUID). */
-                userId?: string;
+                userId?: number;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
@@ -14896,7 +14904,7 @@ export interface operations {
             query?: {
                 format?: "csv";
                 /** @description Wallets of one client. */
-                userId?: string;
+                userId?: number;
                 /** @description Exact match on the wallet code. */
                 currency?: string;
             };
@@ -14922,7 +14930,7 @@ export interface operations {
             query?: {
                 format?: "csv";
                 /** @description Accounts of one client. */
-                userId?: string;
+                userId?: number;
                 environment?: "live" | "demo";
                 status?: "active" | "suspended" | "closed";
             };
@@ -14951,7 +14959,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };
@@ -14975,7 +14983,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                id: string;
+                id: number;
             };
             cookie?: never;
         };

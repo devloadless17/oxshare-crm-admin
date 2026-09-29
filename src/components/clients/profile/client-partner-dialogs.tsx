@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import type { IbLevel, IbPartnerDetail } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -198,7 +199,7 @@ export function ReassignParentDialog({
   const initial = partner.parentOutsideTerritory
     ? KEEP_OUTSIDE_PARENT
     : (partner.parent?.userId ?? null);
-  const [parentId, setParentId] = React.useState<string | null>(initial);
+  const [parentId, setParentId] = React.useState<ClientRef | null>(initial);
 
   const partners = useResource(
     keys.ibPartners.forReassign(),

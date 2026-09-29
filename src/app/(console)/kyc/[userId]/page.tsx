@@ -101,9 +101,13 @@ export default function KycDetailPage() {
     keys.kyc.detail(userId),
     async (signal) => (await api.get<KycDetail>(`/admin/kyc/${userId}`, { signal })).data,
   );
-  // Reading the submission reads its "Review KYC" task. The response's uuid,
-  // not the URL's: the URL may carry the Portal ID.
-  useMarkSubjectRead('kyc', query.status === 'ready' ? query.data?.userId : undefined);
+  // Reading the submission reads its "Review KYC" task, whose subject is the
+  // client by Portal ID. The response's id, not the URL's: the URL may carry
+  // `#1000245` or a leading space that the API tolerates and the marker must not.
+  useMarkSubjectRead(
+    'kyc',
+    query.status === 'ready' && query.data ? String(query.data.userId) : undefined,
+  );
 
   /*
    * Previously decided attempts.

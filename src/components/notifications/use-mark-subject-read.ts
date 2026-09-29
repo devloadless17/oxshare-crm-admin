@@ -13,7 +13,7 @@ import { keys } from '@/lib/query-keys';
  * disappears once the admin has LOOKED at the thing it is about, however they
  * got there: the bell, the sidebar queue, a link pasted into a ticket.
  *
- * Pass the subject's uuid only once the screen has actually loaded it, never
+ * Pass the subject's id only once the screen has actually loaded it, never
  * on a 403 or 404 where the reader saw nothing. Fires once per id. A failed
  * request is swallowed: the task stays in the inbox, which is the safe side of
  * a lost write — and the server scopes the marker anyway, so nothing here

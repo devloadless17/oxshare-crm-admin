@@ -2,6 +2,7 @@
 
 import { Coins, Network, Users } from 'lucide-react';
 import type { IbPartnerDetail, IbPartnerEarnings } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { Badge } from '@/components/ui/badge';
 import { PermittedLink } from '@/components/permitted-link';
 import { EmptySection, ProfileCard } from '@/components/clients/profile/profile-cards';
@@ -339,7 +340,7 @@ function PersonLink({
   className,
 }: {
   person: {
-    userId: string;
+    userId: ClientRef;
     firstName: string | null;
     lastName: string | null;
     email?: string;

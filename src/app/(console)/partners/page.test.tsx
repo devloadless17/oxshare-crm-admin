@@ -82,7 +82,7 @@ vi.mock('@/context/AdminAuthContext', () => ({
   }),
 }));
 
-const TOP_UUID = '0b7d3c9e-4f21-48a6-9c05-2d8e11aa3f47';
+const TOP_UUID = 1000009;
 
 function partner(over: Partial<IbPartnerRow> = {}): IbPartnerRow {
   return {
@@ -177,13 +177,13 @@ describe('the partner directory — what a row says', () => {
       page([
         partner(),
         partner({
-          account: { ...partner().account, userId: 'u-2', referralCode: 'CHILD002', level: 2 },
-          user: { id: 'u-2', portalId: 1000031, firstName: 'Basil', lastName: 'Branch' },
+          account: { ...partner().account, userId: 1000031, referralCode: 'CHILD002', level: 2 },
+          user: { id: 1000031, portalId: 1000031, firstName: 'Basil', lastName: 'Branch' },
           parentPortalId: 1000009,
         }),
         partner({
-          account: { ...partner().account, userId: 'u-3', referralCode: 'CHILD003', level: 2 },
-          user: { id: 'u-3', portalId: 1000032, firstName: 'Celia', lastName: 'Hidden' },
+          account: { ...partner().account, userId: 1000032, referralCode: 'CHILD003', level: 2 },
+          user: { id: 1000032, portalId: 1000032, firstName: 'Celia', lastName: 'Hidden' },
           parentOutsideTerritory: true,
         }),
       ]),

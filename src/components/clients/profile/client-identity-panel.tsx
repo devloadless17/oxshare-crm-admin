@@ -3,6 +3,7 @@
 import { FileText } from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientIdentityRecord } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +40,7 @@ const STATUS: Record<
  * Each half is present only for a reader the API lets see it; an absent half
  * says so rather than showing an empty list that reads as "none".
  */
-export function ClientIdentityPanel({ clientId }: { clientId: string }) {
+export function ClientIdentityPanel({ clientId }: { clientId: ClientRef }) {
   const query = useResource<ClientIdentityRecord>(keys.clients.identity(clientId), (signal) =>
     api.admin.getClientIdentity(clientId, signal),
   );

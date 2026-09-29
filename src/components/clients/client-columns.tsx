@@ -1,5 +1,6 @@
 import { Eye, PauseCircle, PlayCircle, Wallet } from 'lucide-react';
 import type { ClientRow, ClientSortKey } from '@/lib/api/admin';
+import type { ClientRef } from '@/lib/api/admin';
 import { kycStatusLabel, kycStatusVariant } from '@/lib/kyc-status';
 import { CLIENT_SORT_KEYS } from '@/lib/api/admin';
 import type { Column } from '@/components/data-table';
@@ -78,7 +79,7 @@ export function clientColumns({
   /** `ib.partners.edit` — the same permission the API enforces on the PATCH. */
   canEditPartners: boolean;
   maskedFields: readonly string[];
-  actingId: string | null | undefined;
+  actingId: ClientRef | null | undefined;
   onToggleStatus: (client: ClientRow) => void;
   onChangeProgram: (client: ClientRow) => void;
   /**
@@ -165,9 +166,8 @@ export function clientColumns({
   columns.push({
     /*
      * The Portal ID — the number staff and clients know an account by — with a
-     * copy button. Never the uuid: it still keys the row inside the system and
-     * is shown to no one — URLs carry the Portal ID too (owner's decision, 24
-     * Sep 2026).
+     * copy button. It is the client's primary key too since backend 0159
+     * (D-83), so the URL, the copy and the row key are all the same number.
      * NO mask gate: the Portal ID identifies the record rather than describing
      * the person, so on a fully masked row it is the one identifier an operator
      * can still quote to support.
