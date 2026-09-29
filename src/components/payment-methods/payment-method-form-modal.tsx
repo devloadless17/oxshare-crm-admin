@@ -3,7 +3,12 @@
 import * as React from 'react';
 import { Image as ImageIcon, Upload } from 'lucide-react';
 import api from '@/lib/api';
-import type { Currency, PaymentMethod, PaymentMethodProofField } from '@/lib/api/admin';
+import type {
+  Currency,
+  PaymentMethod,
+  PaymentMethodProofField,
+  PaymentProvider,
+} from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { assetUrl } from '@/lib/asset-url';
 import { useResource } from '@/hooks/use-resource';
@@ -24,6 +29,12 @@ import { keys } from '@/lib/query-keys';
 import { LimitInput, plainAmount } from '@/components/currencies/limit-input';
 import { formatDecimal } from '@/lib/money';
 import { ProofFieldsEditor } from './proof-fields-editor';
+import {
+  DEFAULT_ROUTE,
+  RoutePicker,
+  routeAcceptsReceipt,
+  type MethodRoute,
+} from '@/components/payment-providers/route-picker';
 
 export interface PaymentMethodFormValues {
   /** What the DESK calls the method — shown in place of the key, and renamable. */
@@ -43,6 +54,8 @@ export interface PaymentMethodFormValues {
   ownMaxAmount: string | null;
   /** What an offline method asks the client for with the receipt (backend 0163). */
   proofFields: PaymentMethodProofField[];
+  /** The provider and channel it runs on — sent on create only, fixed after (backend 0168). */
+  route: MethodRoute;
 }
 
 /**
@@ -70,17 +83,18 @@ export interface PaymentMethodFormValues {
  * sees. On a new method the internal name follows the display name until the
  * operator edits it, so the common case is one field.
  *
- * ## The key still decides the deposit FLOW, and nobody is asked about it
+ * ## "How clients pay" is the ROUTE, chosen once (backend 0168)
  *
- * A key the backend has a gateway implementation for redirects the client to a
- * hosted payment page; anything else files a declaration an operator confirms.
- * That used to be a `kind` dropdown on this form, which asked an operator to
- * restate something the code already knew — and a wrong answer sent clients down
- * the wrong path entirely.
+ * A method runs on one payment provider's channel: Rival's hosted Whish page,
+ * or the desk's "paid outside the platform". It used to be decided by the KEY
+ * (`whish` meant Rival); now it is picked here when the method is created and
+ * fixed after, so history never changes its meaning. A receipt can be asked
+ * only on a channel paid outside the platform.
  */
 export function PaymentMethodFormModal({
   open,
   method,
+  providers,
   saving,
   error,
   fieldErrors = {},
@@ -90,6 +104,8 @@ export function PaymentMethodFormModal({
   open: boolean;
   /** Present when editing; absent when creating. */
   method?: PaymentMethod;
+  /** Every payment provider, when this admin may view them — the routes offered. */
+  providers?: readonly PaymentProvider[];
   saving: boolean;
   error?: string;
   /** The API's per-field sentences, under the box each is about. */
@@ -115,6 +131,7 @@ export function PaymentMethodFormModal({
       <PaymentMethodForm
         key={`${method?.key ?? 'new'}-${String(open)}`}
         method={method}
+        providers={providers}
         saving={saving}
         error={error}
         fieldErrors={fieldErrors}
@@ -127,6 +144,7 @@ export function PaymentMethodFormModal({
 
 function PaymentMethodForm({
   method,
+  providers,
   saving,
   error,
   fieldErrors,
@@ -134,6 +152,7 @@ function PaymentMethodForm({
   onSubmit,
 }: {
   method?: PaymentMethod;
+  providers?: readonly PaymentProvider[];
   saving: boolean;
   error?: string;
   fieldErrors: Record<string, string>;
@@ -149,6 +168,12 @@ function PaymentMethodForm({
   // A new method starts enabled; changing it is the row action, not this form.
   const enabled = method?.enabled ?? true;
 
+  const [route, setRoute] = React.useState<MethodRoute>(
+    method
+      ? { providerCode: method.providerCode, channelCode: method.channelCode }
+      : DEFAULT_ROUTE.deposit,
+  );
+  const acceptsReceipt = routeAcceptsReceipt(providers, route);
   const [requiresProof, setRequiresProof] = React.useState(method?.requiresProof ?? false);
   const [ownMin, setOwnMin] = React.useState(plainAmount(method?.ownMinAmount));
   const [ownMax, setOwnMax] = React.useState(plainAmount(method?.ownMaxAmount));
@@ -175,7 +200,9 @@ function PaymentMethodForm({
       currency,
       logoUrl: logoUrl.trim(),
       enabled,
-      requiresProof,
+      // Only a channel paid outside the platform takes a receipt.
+      requiresProof: acceptsReceipt && requiresProof,
+      route,
       // An emptied box is "follow the currency" — sent as null so it clears.
       ownMinAmount: ownMin.trim() === '' ? null : ownMin.trim(),
       ownMaxAmount: ownMax.trim() === '' ? null : ownMax.trim(),
@@ -234,12 +261,21 @@ function PaymentMethodForm({
             }}
             required
             maxLength={80}
-            placeholder="Whish Money"
+            placeholder="OMT"
             className="text-xs"
           />
           <p className="text-[11px] text-muted-foreground">{t('paymentMethods.nameHint')}</p>
         </div>
       </div>
+
+      <RoutePicker
+        id={`${fieldId}-route`}
+        direction="deposit"
+        value={route}
+        onChange={setRoute}
+        fixed={method !== undefined}
+        providers={providers}
+      />
 
       <CurrencyField value={currency} onChange={setCurrency} />
 
@@ -298,28 +334,30 @@ function PaymentMethodForm({
         one. The API refuses it on a gateway method, which is the contradiction
         that cannot be resolved by guessing.
       */}
-      <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
-        <Checkbox
-          id={`${fieldId}-proof`}
-          checked={requiresProof}
-          onCheckedChange={(value) => setRequiresProof(value === true)}
-          aria-describedby={`${fieldId}-proof-hint`}
-          className="mt-0.5"
-        />
-        <div className="space-y-1">
-          <Label htmlFor={`${fieldId}-proof`} className="cursor-pointer">
-            {t('paymentMethods.requiresProof')}
-          </Label>
-          <p
-            id={`${fieldId}-proof-hint`}
-            className="text-[11px] leading-relaxed text-muted-foreground"
-          >
-            {t('paymentMethods.requiresProofHint')}
-          </p>
+      {acceptsReceipt && (
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+          <Checkbox
+            id={`${fieldId}-proof`}
+            checked={requiresProof}
+            onCheckedChange={(value) => setRequiresProof(value === true)}
+            aria-describedby={`${fieldId}-proof-hint`}
+            className="mt-0.5"
+          />
+          <div className="space-y-1">
+            <Label htmlFor={`${fieldId}-proof`} className="cursor-pointer">
+              {t('paymentMethods.requiresProof')}
+            </Label>
+            <p
+              id={`${fieldId}-proof-hint`}
+              className="text-[11px] leading-relaxed text-muted-foreground"
+            >
+              {t('paymentMethods.requiresProofHint')}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
-      {requiresProof && (
+      {acceptsReceipt && requiresProof && (
         <ProofFieldsEditor fields={proofFields} onChange={setProofFields} errors={fieldErrors} />
       )}
 

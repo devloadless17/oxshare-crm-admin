@@ -310,6 +310,20 @@ export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'
  */
 export type WithdrawalMethod = components['schemas']['AdminWithdrawalMethodDto'];
 export type CreateWithdrawalMethod = components['schemas']['CreateWithdrawalMethodDto'];
+/**
+ * A payment provider (backend 0168): the desk (`manual`, built in), Rival, and
+ * each one after them — its state, declared settings, channels and the methods
+ * on them. Secrets never come back; a setting says only `isSet`.
+ */
+export type PaymentProvider = components['schemas']['PaymentProviderDto'];
+export type PaymentProviderSetting = components['schemas']['ProviderSettingDto'];
+export type PaymentProviderChannel = components['schemas']['ProviderChannelDto'];
+export type PaymentProviderMethod = components['schemas']['ProviderMethodDto'];
+export type UpdatePaymentProvider = components['schemas']['UpdatePaymentProviderDto'];
+export type PaymentProviderEvent = components['schemas']['ProviderEventDto'];
+export type PaymentProviderTestResult = components['schemas']['ProviderTestResultDto'];
+/** The one response that carries a generated secret in plaintext. */
+export type RotatedProviderSecret = components['schemas']['RotatedProviderSecretDto'];
 export type UpdateWithdrawalMethod = components['schemas']['UpdateWithdrawalMethodDto'];
 /*
  * `PaymentMethodKind` is GONE, with the column behind it (migration 0043).
@@ -527,6 +541,11 @@ export interface TransactionListParams {
   to?: string;
   /** Only payments flagged for a person to reconcile — the API's one value. */
   attention?: 'true';
+  /**
+   * Only movements a person decides (backend 0168): deposits paid outside the
+   * platform, and every withdrawal. The deposits desk's list.
+   */
+  decidedBy?: 'desk';
   limit: number;
   page?: number;
   sort?: TransactionSortKey;
@@ -1126,10 +1145,6 @@ export type UpdateTradingSettings = components['schemas']['UpdateTradingSettings
  */
 export type SmtpSettings = components['schemas']['SmtpSettingsDto'];
 export type UpdateSmtpSettings = components['schemas']['UpdateSmtpSettingsDto'];
-export type RivalSettings = components['schemas']['RivalSettingsDto'];
-export type UpdateRivalSettings = components['schemas']['UpdateRivalSettingsDto'];
-export type RivalWebhookKey = components['schemas']['RivalWebhookKeyDto'];
-export type RivalTestResult = components['schemas']['RivalTestResultDto'];
 export type SmtpTestResult = components['schemas']['SmtpTestResultDto'];
 
 // ── Notifications — the bell ───────────────────────────────────────────────
@@ -1690,49 +1705,6 @@ export const adminApi = {
     return data;
   },
 
-  /* ── The Rival connection (Settings → Payments) ─────────────────────────── */
-  /*
-   * Rival is Loadless's own payments platform; Whish lives inside it, once.
-   * Neither stored secret is ever returned — `apiKeySet` and
-   * `webhookKeyFingerprint` are the only shadows a screen sees.
-   */
-
-  async getRivalSettings(): Promise<RivalSettings> {
-    const { data } = await apiClient.get<RivalSettings>('/admin/settings/rival');
-    return data;
-  },
-
-  /**
-   * `apiKey` is three-state, the SMTP password's contract: omit/null keeps the
-   * stored key, a string replaces it, an empty string removes it.
-   */
-  async updateRivalSettings(body: UpdateRivalSettings): Promise<RivalSettings> {
-    const { data } = await apiClient.put<RivalSettings>('/admin/settings/rival', body);
-    return data;
-  },
-
-  /**
-   * Mint (or rotate) the webhook signing key. THE ONE RESPONSE that carries
-   * the plaintext — shown once for pasting into Rival's dashboard, never
-   * retrievable again. Rotation cuts over immediately; deliveries signed with
-   * the old key are refused until the dashboard is updated, and the poll
-   * backstop makes that gap lossless.
-   */
-  async mintRivalWebhookKey(): Promise<RivalWebhookKey> {
-    const { data } = await apiClient.post<RivalWebhookKey>('/admin/settings/rival/webhook-key');
-    return data;
-  },
-
-  /**
-   * Validate the stored key against Rival and see what Rival believes our
-   * webhook config is — rendered beside what we minted, so a mismatch between
-   * the two sides is visible on one screen.
-   */
-  async testRivalConnection(): Promise<RivalTestResult> {
-    const { data } = await apiClient.post<RivalTestResult>('/admin/settings/rival/test');
-    return data;
-  },
-
   async getPermissions(): Promise<Record<string, PermissionModule>> {
     const { data } = await apiClient.get<Record<string, PermissionModule>>('/admin/permissions');
     return data;
@@ -1917,6 +1889,7 @@ export const adminApi = {
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
     if (params.attention) query.set('attention', params.attention);
+    if (params.decidedBy) query.set('decidedBy', params.decidedBy);
     if (params.page !== undefined) query.set('page', String(params.page));
     // Both halves or neither — `order` alone orders no column.
     if (params.sort) {
@@ -2427,6 +2400,57 @@ export const adminApi = {
    * offered to clients — the screen flags that, because it is otherwise
    * invisible until somebody asks why nobody is depositing.
    */
+  async getPaymentProviders(signal?: AbortSignal): Promise<PaymentProvider[]> {
+    const { data } = await apiClient.get<PaymentProvider[]>('/admin/payment-providers', { signal });
+    return data;
+  },
+
+  async getPaymentProvider(code: string, signal?: AbortSignal): Promise<PaymentProvider> {
+    const { data } = await apiClient.get<PaymentProvider>(
+      `/admin/payment-providers/${encodeURIComponent(code)}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /**
+   * Merged: an absent key is left alone, `null` removes it. Secrets are
+   * write-only; a generated one (a webhook key) is rotated, never sent here.
+   */
+  async updatePaymentProvider(code: string, body: UpdatePaymentProvider): Promise<PaymentProvider> {
+    const { data } = await apiClient.put<PaymentProvider>(
+      `/admin/payment-providers/${encodeURIComponent(code)}`,
+      body,
+    );
+    return data;
+  },
+
+  async testPaymentProvider(code: string): Promise<PaymentProviderTestResult> {
+    const { data } = await apiClient.post<PaymentProviderTestResult>(
+      `/admin/payment-providers/${encodeURIComponent(code)}/test`,
+    );
+    return data;
+  },
+
+  /** THE ONE RESPONSE carrying the new secret in plaintext — show it once. */
+  async rotatePaymentProviderSecret(code: string, name: string): Promise<RotatedProviderSecret> {
+    const { data } = await apiClient.post<RotatedProviderSecret>(
+      `/admin/payment-providers/${encodeURIComponent(code)}/secrets/${encodeURIComponent(name)}/rotate`,
+    );
+    return data;
+  },
+
+  async getPaymentProviderEvents(
+    code: string,
+    signal?: AbortSignal,
+  ): Promise<PaymentProviderEvent[]> {
+    const { data } = await apiClient.get<PaymentProviderEvent[]>(
+      `/admin/payment-providers/${encodeURIComponent(code)}/events?limit=50`,
+      { signal },
+    );
+    return data;
+  },
+
   async getPaymentMethods(signal?: AbortSignal): Promise<PaymentMethod[]> {
     const { data } = await apiClient.get<PaymentMethod[]>('/admin/payment-methods', { signal });
     return data;

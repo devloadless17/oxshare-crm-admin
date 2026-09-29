@@ -26,6 +26,7 @@ import {
   LineChart,
   Link2,
   Network,
+  PlugZap,
   Receipt,
   Scale,
   Server,
@@ -242,6 +243,11 @@ export const NAV: readonly NavEntry[] = [
       /* Who operates the console, and what each of them may do. */
       { label: 'nav.adminUsers', href: '/admin-users', icon: UserCog },
       { label: 'nav.roles', href: '/roles', icon: ShieldCheck },
+      /*
+       * The systems that move the money (Rival, the desk, each provider after
+       * them), right above the methods that run on them — the owner's choice.
+       */
+      { label: 'nav.paymentProviders', href: '/payment-providers', icon: PlugZap },
       /* The deposit methods the portal offers — configuration, not a desk. */
       { label: 'nav.paymentMethods', href: '/payment-methods', icon: CreditCard },
       /*

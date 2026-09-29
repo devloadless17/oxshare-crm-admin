@@ -282,7 +282,7 @@ export const messages = {
 
   'withdrawals.heading': 'Withdrawal Requests',
   'withdrawals.subtitle':
-    'Review client withdrawals — approve, reject with a reason, or mark paid once the provider confirms',
+    'Review client withdrawals: approve or reject with a reason. Approved on an automated method, the provider pays it and the request settles when the provider confirms.',
   'withdrawals.moneyNote': 'Every money movement is recorded in the audit log.',
   'withdrawals.required': '*',
   'withdrawals.colActions': 'Actions',
@@ -296,7 +296,7 @@ export const messages = {
   'withdrawals.selectReason': 'Select a reason…',
   'withdrawals.reasonPlaceholder': 'e.g. Beneficiary name does not match the account holder…',
   'withdrawals.providerRef': 'Provider reference',
-  'withdrawals.providerRefPlaceholder': 'e.g. whish-payout-9911',
+  'withdrawals.providerRefPlaceholder': 'e.g. the transfer or receipt number',
   'withdrawals.tabPending': 'Pending Review',
   'withdrawals.tabRejected': 'Rejected / Failed',
   'withdrawals.loading': 'Loading withdrawal requests',
@@ -1317,7 +1317,7 @@ export const messages = {
   'clientProfile.txHasReceipt': 'Has a receipt',
   'clientProfile.txDestination': 'Paid to',
   'clientProfile.txReference': 'Provider reference',
-  'clientProfile.txProviderId': 'Gateway ID',
+  'clientProfile.txProviderId': 'Provider reference',
   'clientProfile.txTradingAccount': 'Trading account',
   'clientProfile.txCreated': 'Requested',
   'clientProfile.txReviewed': 'Decided',
@@ -2283,59 +2283,6 @@ export const messages = {
   'smtp.updateFailed': 'Could not save the mail settings.',
 
   // ── Payments (Rival) tab ──────────────────────────────────────────────────
-  'settings.tabPayments': 'Payments',
-  'rival.title': 'Payments platform (Rival)',
-  'rival.subtitle':
-    'Deposits and payouts route through Rival, our payments platform. Whish is integrated ' +
-    'there, once — this system holds only a Rival company key.',
-  'rival.loading': 'Loading the Rival connection',
-  'rival.loadFailed': 'Could not load the Rival connection.',
-  'rival.baseUrl': 'API base URL',
-  'rival.baseUrlHint':
-    'Including /v1. Staging and production are different hosts — this must be a deliberate choice.',
-  'rival.apiKey': 'Company API key',
-  'rival.apiKeySetHint':
-    'A key is stored. Leave empty to keep it, or paste a new one to replace it.',
-  'rival.apiKeyNoneHint': 'No key is stored. Paste the tsk_… key issued by Rival.',
-  'rival.enabled': 'Route deposits and payouts through Rival',
-  'rival.webhookTitle': 'Event webhook',
-  'rival.webhookExplainer':
-    'Rival announces deposits and payout decisions by signed deliveries to the endpoint below. ' +
-    'Generate a signing key here, then paste the key and the endpoint into Rival’s dashboard ' +
-    '(CRM configuration — it only accepts them from a signed-in owner, on purpose).',
-  'rival.webhookEndpoint': 'Endpoint to paste into Rival',
-  'rival.webhookEndpointUnset': 'API_PUBLIC_URL is not set on the server',
-  'rival.webhookFingerprint': 'Current key fingerprint',
-  'rival.webhookKeyNone': 'No key generated yet',
-  'rival.lastEvent': 'Last event received',
-  'rival.lastEventNever': 'Never — the pipe has not delivered yet',
-  'rival.generateWebhookKey': 'Generate webhook key',
-  'rival.rotateWebhookKey': 'Rotate webhook key',
-  'rival.rotateWarning':
-    'Rotating cuts over immediately: deliveries signed with the old key are refused until ' +
-    'Rival’s dashboard is updated. The background sweep catches anything refused in the gap.',
-  'rival.mintFailed': 'Could not generate a webhook key.',
-  'rival.mintedTitle': 'Webhook key — shown once',
-  'rival.mintedDescription':
-    'Copy it now. It is stored encrypted and cannot be shown again; only its fingerprint will.',
-  'rival.mintedKey': 'Signing key',
-  'rival.mintedWarning':
-    'Paste both values into Rival’s dashboard before closing this. Closing is the last time ' +
-    'the key is visible.',
-  'rival.mintedDone': 'I have pasted it into Rival',
-  'rival.copy': 'Copy',
-  'rival.save': 'Save connection',
-  'rival.saving': 'Saving...',
-  'rival.savedShort': 'Saved',
-  'rival.saved': 'Rival connection saved.',
-  'rival.updateFailed': 'Could not save the Rival connection.',
-  'rival.test': 'Test connection',
-  'rival.testFailed': 'The connection test failed.',
-  'rival.testNotSet': '(not set)',
-  'rival.testOkMatch': 'Key accepted. Rival delivers events to {url} — both sides agree.',
-  'rival.testOkMismatch':
-    'Key accepted, but the two sides disagree about the webhook:\nRival delivers to: {theirs}\n' +
-    'It should be: {ours}\nUpdate Rival’s CRM configuration.',
 
   // ── The withdrawal desk's Rival leg ───────────────────────────────────────
   'withdrawals.rivalNeedsAttention': 'Needs attention',
@@ -3184,12 +3131,145 @@ export const messages = {
   // The Finance section's other entries. "Transactions" rather than
   // "Withdrawals" because that is what an operator calls the queue they work
   // down; the domain underneath is still withdrawals.
-  'paymentMethods.colFlow': 'Flow',
-  'paymentMethods.flowOffline': 'Receipt required',
-  'paymentMethods.flowGateway': 'Payment page',
-  'paymentMethods.requiresProof': 'Paid outside the platform (needs a receipt)',
+  'paymentMethods.colFlow': 'Runs on',
+  'paymentMethods.requiresProof': 'Ask for a receipt',
   'paymentMethods.requiresProofHint':
-    'The client transfers the money however they like — OMT, a bank transfer, cash — and uploads a photo of the receipt. The deposit waits in Approvals → Deposits until somebody credits it. Leave this off for a method that takes payment through a hosted page.',
+    'The client uploads a photo of the receipt with the deposit, and answers the details below. The deposit waits in Finance → Deposits until somebody credits it.',
+  'paymentMethods.route': 'How clients pay',
+  'paymentMethods.routeHint':
+    'Which payment provider this method runs on, and how. Fixed once the method exists — to change it, add a new method, so past deposits keep saying how they were paid.',
+  'paymentMethods.routeFixed': 'Fixed when the method was created.',
+  'paymentMethods.routeLoading': 'Loading payment providers…',
+  'paymentMethods.routeDeskOnly':
+    'Paid outside the platform and confirmed by the desk. (Other providers appear here for admins who can view Payment providers.)',
+  'withdrawalMethods.colRoute': 'Paid through',
+  'withdrawalMethods.route': 'How it is paid',
+  'withdrawalMethods.routeHint':
+    'Who pays a withdrawal on this method, and what the client must give. Fixed once the method exists.',
+  'withdrawalMethods.routeDeskOnly':
+    'Paid by the desk. (Other providers appear here for admins who can view Payment providers.)',
+
+  // ── Payment providers (backend 0168) ──────────────────────────────────────
+  'providers.title': 'Payment providers',
+  'providers.subtitle':
+    'The systems that move the money behind your deposit and withdrawal methods. Every method runs on exactly one of them.',
+  'providers.loading': 'Loading payment providers',
+  'providers.loadFailed': 'Could not load the payment providers.',
+  'providers.caption': 'Payment providers',
+  'providers.back': 'All payment providers',
+  'providers.manage': 'Manage',
+  'providers.builtIn': 'Built in',
+  'providers.builtInNote': 'The desk itself: always on, nothing to set up.',
+  'providers.readOnly': 'You can view payment providers but not change them.',
+  'providers.sandbox': 'Sandbox',
+  'providers.configuredFromEnv':
+    'Running on the server’s environment settings. Save a connection here to manage it from the console instead.',
+  'providers.status.connected': 'Connected',
+  'providers.status.unverified': 'On, not tested yet',
+  'providers.status.failing': 'Failing',
+  'providers.status.off': 'Off',
+  'providers.status.not_configured': 'Not set up',
+  'providers.status.sandbox_refused': 'Sandbox refused',
+  'providers.lastEvent': 'Last event',
+  'providers.never': 'Never',
+  'providers.lastCheck': 'Last test',
+  'providers.checkOk': 'passed',
+  'providers.checkFailed': 'failed',
+  'providers.channels': 'Channels',
+  'providers.channelsHint': 'The ways this provider moves money. Each method uses one of them.',
+  'providers.direction.deposit': 'Deposit',
+  'providers.direction.payout': 'Withdrawal',
+  'providers.flow.redirect': 'The client pays on the provider’s page; the provider confirms it',
+  'providers.flow.offline': 'The client pays outside the platform; the desk confirms it',
+  'providers.flow.adjustment': 'The desk’s own credit, never offered to clients',
+  'providers.flow.automated': 'The provider pays once the desk approves',
+  'providers.flow.desk': 'The desk pays by hand',
+  'providers.flow.cash': 'The client collects it in cash',
+  'providers.destination.none': 'The client enters nothing',
+  'providers.destination.phone': 'The client gives a phone number',
+  'providers.destination.crypto_address': 'The client gives a wallet address',
+  'providers.destination.cryptoNetwork': 'The client gives a {network} wallet address',
+  'providers.destination.iban': 'The client gives an IBAN',
+  'providers.destination.text': 'The client says where to send it',
+  'providers.methods': 'Methods using it',
+  'providers.methodsNone': 'No method runs on this provider yet.',
+  'providers.methodDeposit': 'Deposit',
+  'providers.methodPayout': 'Withdrawal',
+  'providers.availability.offered': 'Offered to clients',
+  'providers.availability.disabled': 'Switched off',
+  'providers.availability.provider_off': 'Hidden: provider is off',
+  'providers.availability.provider_not_configured': 'Hidden: provider not set up',
+  'providers.paidBy.provider': 'Paid by {provider}',
+  'providers.paidBy.desk': 'Paid by the desk',
+  'providers.last24h': 'Last 24 hours',
+  'providers.stat.total': 'Filed',
+  'providers.stat.succeeded': 'Succeeded',
+  'providers.stat.failed': 'Failed',
+  'providers.stat.pending': 'Pending',
+  'providers.connection': 'Connection',
+  'providers.enabled': 'Switched on',
+  'providers.enabledHint':
+    'Off: no new payment starts on its methods, and its deposit methods are hidden from clients. Payments already in flight still settle.',
+  'providers.environment': 'Environment',
+  'providers.env.live': 'Live',
+  'providers.env.sandbox': 'Sandbox (testing only)',
+  'providers.envHint':
+    'A production server refuses a sandbox connection, so test money never becomes real money.',
+  'providers.secretSet': 'A value is saved. Leave blank to keep it; type to replace it.',
+  'providers.secretNone': 'Nothing saved yet.',
+  'providers.secretRemove': 'Remove it',
+  'providers.secretRemoving': 'Will be removed when you save.',
+  'providers.save': 'Save',
+  'providers.saving': 'Saving…',
+  'providers.saved': '{provider} saved',
+  'providers.saveFailed': 'Could not save the payment provider.',
+  'providers.test': 'Test connection',
+  'providers.testFailed': 'Could not test the connection.',
+  'providers.webhook': 'Webhook',
+  'providers.webhookHint':
+    'Paste the address and the key into {provider}’s dashboard. {provider} signs every event with the key, and anything unsigned is refused.',
+  'providers.webhookEndpoint': 'Webhook address',
+  'providers.webhookEndpointUnset':
+    'Unavailable: the server has no public address (API_PUBLIC_URL).',
+  'providers.fingerprint': 'Key fingerprint',
+  'providers.keyNone': 'No key yet',
+  'providers.generate': 'Generate key',
+  'providers.rotate': 'Rotate key',
+  'providers.rotateWarning':
+    'Rotating refuses events signed with the old key until the new one is in the provider’s dashboard. The regular check catches up on anything missed.',
+  'providers.rotateFailed': 'Could not generate the key.',
+  'providers.mintedTitle': 'Your new key',
+  'providers.mintedDescription': 'Copy it now. It is shown once and never again.',
+  'providers.mintedKey': 'Key',
+  'providers.mintedDone': 'I have copied it',
+  'providers.copy': 'Copy',
+  'providers.events': 'Recent events',
+  'providers.eventsHint': 'What the provider reported, and what the platform did about it.',
+  'providers.eventsEmpty': 'Nothing reported yet.',
+  'providers.eventsLoading': 'Loading events',
+  'providers.eventsLoadFailed': 'Could not load the events.',
+  'providers.eventsCaption': 'Recent provider events',
+  'providers.col.when': 'When',
+  'providers.col.event': 'Event',
+  'providers.col.source': 'From',
+  'providers.col.outcome': 'Result',
+  'providers.col.details': 'Details',
+  'providers.source.webhook': 'Webhook',
+  'providers.source.poll': 'Check',
+  'providers.source.desk': 'Desk',
+  'providers.outcome.applied': 'Applied',
+  'providers.outcome.ignored': 'Ignored',
+  'providers.outcome.rejected': 'Needs a person',
+  'providers.outcome.failed': 'Will retry',
+  'providers.event.payment.pending': 'Payment pending',
+  'providers.event.payment.succeeded': 'Payment succeeded',
+  'providers.event.payment.failed': 'Payment failed',
+  'providers.event.payment.reversed': 'Payment reversed',
+  'providers.event.payout.submitted': 'Payout received',
+  'providers.event.payout.completed': 'Payout completed',
+  'providers.event.payout.rejected': 'Payout rejected',
+  'providers.event.payout.cancelled': 'Payout cancelled',
+  'providers.settingsMoved': 'The Rival connection moved to System → Payment providers.',
   'nav.deposits': 'Deposits',
 
   // ── The offline deposit desk ──────────────────────────────────────────────
@@ -3245,6 +3325,7 @@ export const messages = {
   // it now, and "payment" alone does not say which direction.
   'nav.paymentMethods': 'Deposit methods',
   'nav.withdrawalMethods': 'Withdrawal methods',
+  'nav.paymentProviders': 'Payment providers',
   'nav.wallets': 'Wallets',
   'nav.tradingAccounts': 'Trading accounts',
   // ── The leverage ladder ───────────────────────────────────────────────────
@@ -3692,10 +3773,14 @@ export const messages = {
   'withdrawals.confirmApproveTitle': 'Pay out {amount}?',
   'withdrawals.confirmApprove':
     'This pays {name} immediately — one step, straight to settled. The money leaves now and there is no undo.',
+  // Backend 0168: an approved withdrawal on an automated method goes to its
+  // provider, which pays it; the row waits in "Awaiting payout" until it does.
+  'withdrawals.confirmApproveProvider':
+    '{provider} pays {name} once you approve. The request waits in Awaiting payout until {provider} confirms it; until then it can still be cancelled.',
   'withdrawals.detailsTitle': 'Withdrawal details',
   'withdrawals.detailsProviderRef': 'Provider reference',
-  'withdrawals.detailsRivalRef': 'Payment platform reference',
-  'financial.rivalRefTitle': 'Payment platform reference',
+  'withdrawals.detailsRivalRef': 'Provider reference',
+  'financial.rivalRefTitle': 'Provider reference',
   'withdrawals.detailsReviewed': 'Reviewed',
   'withdrawals.detailsSettled': 'Settled',
   /*

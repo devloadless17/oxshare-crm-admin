@@ -33,7 +33,14 @@ const { getPaymentMethods, createPaymentMethod, updatePaymentMethod, getCurrenci
 // BOTH exports: `@/lib/api` exports `api` as named AND default.
 vi.mock('@/lib/api', () => {
   const api = {
-    admin: { getPaymentMethods, createPaymentMethod, updatePaymentMethod, getCurrencies },
+    admin: {
+      getPaymentMethods,
+      createPaymentMethod,
+      updatePaymentMethod,
+      getCurrencies,
+      // No providers loaded: routes read by their codes (backend 0168).
+      getPaymentProviders: () => Promise.resolve([]),
+    },
   };
   return { api, default: api };
 });
@@ -67,6 +74,10 @@ const method = (over: Partial<PaymentMethod> = {}): PaymentMethod => ({
   builtIn: false,
   inUse: false,
   proofFields: [],
+  // The desk's own route (backend 0168) unless a case says otherwise.
+  providerCode: 'manual',
+  channelCode: 'offline',
+  availability: 'offered',
   ...over,
   // A row's internal name starts as its display name, as the API's does.
   internalLabel: over.internalLabel ?? over.name ?? 'External',
@@ -89,7 +100,7 @@ describe('marking a payment method as paid outside the platform', () => {
     await user.click(screen.getByRole('button', { name: /external/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
-    const box = await screen.findByRole('checkbox', { name: /paid outside the platform/i });
+    const box = await screen.findByRole('checkbox', { name: /ask for a receipt/i });
     await user.click(box);
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
@@ -211,7 +222,25 @@ describe('the details an offline method asks for (backend 0163)', () => {
     await screen.findByText('External');
     await user.click(screen.getByRole('button', { name: /external/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
-    await screen.findByRole('checkbox', { name: /paid outside the platform/i });
+    await screen.findByRole('checkbox', { name: /ask for a receipt/i });
     expect(screen.queryByRole('button', { name: /add a detail/i })).toBeNull();
+  });
+
+  /*
+   * A receipt belongs to a deposit paid OUTSIDE the platform (backend 0168). A
+   * method on Rival's hosted page is settled by Rival, so the dialog does not
+   * offer the box at all — the API would refuse it anyway.
+   */
+  it('offers no receipt on a method Rival settles', async () => {
+    getPaymentMethods.mockResolvedValue([
+      method({ providerCode: 'rival', channelCode: 'whish', name: 'Whish' }),
+    ]);
+    const user = userEvent.setup();
+    renderWithProviders(<PaymentMethodsPage />);
+    await screen.findByText('Whish');
+    await user.click(screen.getByRole('button', { name: /whish/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+    await screen.findByText(/fixed when the method was created/i);
+    expect(screen.queryByRole('checkbox', { name: /ask for a receipt/i })).toBeNull();
   });
 });

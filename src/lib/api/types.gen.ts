@@ -1728,7 +1728,7 @@ export interface paths {
         };
         /**
          * Every payment method, enabled or not
-         * @description Includes disabled methods — turning them on and off is the point of the screen. Clients see a narrower list: GET /payments/methods returns only what is enabled AND, for a gateway, reachable from this deployment.
+         * @description Includes disabled methods — turning them on and off is the point of the screen. Clients see a narrower list: GET /payments/methods returns only what is enabled AND whose payment provider can take money — `availability` on each row says which.
          */
         get: operations["AdminPaymentMethodsController_list"];
         put?: never;
@@ -1772,7 +1772,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a payment method that was never used
-         * @description Only a method NO transaction references (a typo, a test row) — 409 otherwise: its deposits must keep naming it, so disable it instead. A gateway method is never deleted.
+         * @description Only a method NO transaction references (a typo, a test row) — 409 otherwise: its deposits must keep naming it, so disable it instead.
          */
         delete: operations["AdminPaymentMethodsController_remove"];
         options?: never;
@@ -1837,7 +1837,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a withdrawal method that was never used
-         * @description Only a method NO withdrawal references — 409 otherwise; disable it instead. `whish` is never deleted.
+         * @description Only a method NO withdrawal references — 409 otherwise; disable it instead.
          */
         delete: operations["AdminWithdrawalMethodsController_remove"];
         options?: never;
@@ -1847,6 +1847,104 @@ export interface paths {
          * @description PATCH. `key` is permanent (0161); the desk renames a rail with `internalLabel`, shown on every admin screen instead of `name`. Disabling hides the method from new requests and leaves existing ones for the desk to settle.
          */
         patch: operations["AdminWithdrawalMethodsController_update"];
+        trace?: never;
+    };
+    "/v1/admin/payment-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every payment provider, with its state, channels and methods */
+        get: operations["AdminPaymentProvidersController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One payment provider */
+        get: operations["AdminPaymentProvidersController_get"];
+        /**
+         * Change a provider’s settings, secrets, environment or switch
+         * @description Merged: an absent key is left as it is; `null` or an empty string removes one. Secrets are write-only. A generated secret (a webhook key) is rotated, never typed. Switching on needs every required setting; sandbox is refused on a production deployment.
+         */
+        put: operations["AdminPaymentProvidersController_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the provider last reported, and what was done about it
+         * @description Newest first, at most 200 (`limit`, default 50).
+         */
+        get: operations["AdminPaymentProvidersController_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test the connection with the saved settings
+         * @description Changes no setting; the result becomes the provider’s health line.
+         */
+        post: operations["AdminPaymentProvidersController_test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}/secrets/{name}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate a new value for a generated secret (a webhook key)
+         * @description Returned in plaintext THIS ONCE, to paste into the provider’s dashboard. Deliveries signed with the old one are refused from now until the dashboard is updated; the poller catches up on anything refused in between.
+         */
+        post: operations["AdminPaymentProvidersController_rotate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/wallet": {
@@ -6020,6 +6118,16 @@ export interface components {
              */
             name: string;
             logoUrl?: string | null;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            destinationKind: "none" | "phone" | "crypto_address" | "iban" | "text";
+            /**
+             * @description A crypto rail’s network: an address is valid on one only.
+             * @example TRC20
+             */
+            destinationNetwork: string | null;
         };
         RequestWithdrawalDto: {
             /** @example 300.00000000 */
@@ -6030,7 +6138,7 @@ export interface components {
              */
             currency: string;
             /** @description Where the money goes, in the form the chosen method requires. For Whish Money this is the recipient's phone number, validated against Whish's own rules at request time. */
-            destination: string;
+            destination?: string;
             /**
              * @description A `withdrawal_payment_methods.key` from GET /payments/withdrawal-methods. Rejected if unknown or disabled.
              * @example whish
@@ -6217,10 +6325,25 @@ export interface components {
              * @example OMT – Hamra branch
              */
             internalLabel: string;
-            /** @description The platform’s code depends on this method (a payment gateway), so it cannot be deleted. */
+            /** @description Deprecated: always false. No method is built in since payment providers (0168); any method no transaction references can be deleted. */
             builtIn: boolean;
             /** @description A transaction references this method. Such a method cannot be deleted — disable it. */
             inUse: boolean;
+            /**
+             * @description The payment provider the method runs on (0168). Fixed at creation.
+             * @example rival
+             */
+            providerCode: string;
+            /**
+             * @description The provider’s deposit channel the method uses. Fixed at creation.
+             * @example whish
+             */
+            channelCode: string;
+            /**
+             * @description Whether clients are offered it: `offered`; `disabled` (switched off here); `provider_off` or `provider_not_configured` (enabled, but its provider cannot take money, so clients do not see it).
+             * @enum {string}
+             */
+            availability: "offered" | "disabled" | "provider_off" | "provider_not_configured";
         };
         ProofFieldInputDto: {
             /**
@@ -6238,8 +6361,12 @@ export interface components {
             hint?: string | null;
         };
         CreatePaymentMethodDto: {
+            /** @example rival */
+            providerCode?: string;
+            /** @example whish */
+            channelCode?: string;
             /**
-             * @description The permanent ID. Omit it — the platform generates one (`pm_…`) and the console never shows it. Given only to create a row the CODE dispatches on (a gateway such as whish).
+             * @description The permanent ID. Omit it — the platform generates one (`pm_…`) and the console never shows it.
              * @example whish
              */
             key?: string;
@@ -6337,18 +6464,37 @@ export interface components {
              * @example Whish payouts
              */
             internalLabel: string;
-            /** @description The platform’s code depends on this rail (`whish`, the Rival payouts). */
+            /** @description Deprecated: always false. No rail is built in since payment providers (0168); any rail no withdrawal references can be deleted. */
             builtIn: boolean;
             /** @description A withdrawal references this method. Such a method cannot be deleted. */
             inUse: boolean;
+            /**
+             * @description The payment provider behind the rail (0168). Fixed at creation.
+             * @example rival
+             */
+            providerCode: string;
+            /**
+             * @description The provider’s payout channel the rail uses. Fixed at creation.
+             * @example whish
+             */
+            channelCode: string;
+            /**
+             * @description Who pays a request on it now: the provider (an automated payout it is switched on for), or the desk by hand — always for a desk or cash rail, and for an automated one while its provider is off or not set up.
+             * @enum {string}
+             */
+            paidBy: "provider" | "desk";
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
         };
         CreateWithdrawalMethodDto: {
+            /** @example rival */
+            providerCode?: string;
+            /** @example whish */
+            channelCode?: string;
             /**
-             * @description The permanent ID. Omit it — the platform generates one (`wm_…`) and the console never shows it. Given only to create a rail the CODE matches on (whish).
+             * @description The permanent ID. Omit it — the platform generates one (`wm_…`) and the console never shows it.
              * @example whish
              */
             key?: string;
@@ -6377,6 +6523,180 @@ export interface components {
             logoUrl?: string;
             enabled?: boolean;
             sortOrder?: number;
+        };
+        ProviderCheckDto: {
+            at: string;
+            ok: boolean;
+            message: string | null;
+        };
+        ProviderSettingDto: {
+            /** @example baseUrl */
+            name: string;
+            /** @example API base URL */
+            label: string;
+            /** @enum {string} */
+            kind: "url" | "text" | "secret";
+            /** @description The provider cannot be switched on without it. */
+            required: boolean;
+            hint: string | null;
+            /** @description Minted by the platform (a webhook key): rotated with POST …/secrets/:name/rotate, never typed. */
+            generated: boolean;
+            /** @description The stored value of a URL or text setting. Always null for a secret. */
+            value: string | null;
+            /** @description Whether a value is stored. A secret is never returned. */
+            isSet: boolean;
+            /**
+             * @description sha256[:8] of a generated secret: which one, without carrying it.
+             * @example 3fa1b2c4
+             */
+            fingerprint: string | null;
+        };
+        ProviderChannelDto: {
+            /** @example whish */
+            code: string;
+            /** @enum {string} */
+            direction: "deposit" | "payout";
+            /** @example Whish */
+            label: string;
+            /** @enum {string} */
+            flow: "redirect" | "offline" | "adjustment" | "automated" | "desk" | "cash";
+            /** @description May a method bind it? False for the desk’s own adjustments. */
+            bindable: boolean;
+            /** @description The currencies it carries; null when the provider judges that itself. */
+            currencies: string[] | null;
+            /**
+             * @description Payouts: what the client must give. Null on a deposit channel.
+             * @enum {string|null}
+             */
+            destinationKind: "none" | "phone" | "crypto_address" | "iban" | "text" | null;
+            /** @example TRC20 */
+            destinationNetwork: string | null;
+            /** @example Whish phone number */
+            destinationLabel: string | null;
+            /** @description Deposits paid outside the platform may ask for a receipt. */
+            acceptsReceipt: boolean;
+        };
+        ProviderMethodDto: {
+            /** @description The method’s permanent id; the console never shows it. */
+            key: string;
+            /**
+             * @description What the desk calls it.
+             * @example Whish (Rival)
+             */
+            internalLabel: string;
+            /**
+             * @description What clients see.
+             * @example Whish Money
+             */
+            name: string;
+            /** @enum {string} */
+            direction: "deposit" | "payout";
+            /** @example whish */
+            channelCode: string;
+            enabled: boolean;
+            /**
+             * @description Deposit methods: whether clients are offered it, and if not, why. A payout method is offered whenever it is enabled — see `paidBy`.
+             * @enum {string}
+             */
+            availability: "offered" | "disabled" | "provider_off" | "provider_not_configured";
+            /**
+             * @description Payout methods: who pays a request now. Null on a deposit method.
+             * @enum {string|null}
+             */
+            paidBy: "provider" | "desk" | null;
+        };
+        ProviderActivityDto: {
+            /** @description Deposits and withdrawals filed on this provider in the last 24h. */
+            total: number;
+            succeeded: number;
+            /** @description Failed or rejected. */
+            failed: number;
+            /** @description Still pending, or approved and awaiting the payout. */
+            pending: number;
+        };
+        PaymentProviderDto: {
+            /** @example rival */
+            code: string;
+            /** @example Rival */
+            name: string;
+            /** @description Built into the platform (the desk): always on, no settings. */
+            builtIn: boolean;
+            enabled: boolean;
+            /** @enum {string} */
+            environment: "live" | "sandbox";
+            /** @enum {string} */
+            status: "connected" | "unverified" | "failing" | "off" | "not_configured" | "sandbox_refused";
+            /** @description One sentence explaining the status. */
+            statusMessage: string | null;
+            /** @description Can its methods take money right now? */
+            usable: boolean;
+            /**
+             * @description `environment`: nothing is saved here and the deployment’s variables configure it (a development floor). Null for a built-in provider or one not set up.
+             * @enum {string|null}
+             */
+            configuredFrom: "console" | "environment" | null;
+            /** @description The last verified inbound event. */
+            lastEventAt: string | null;
+            lastCheck?: components["schemas"]["ProviderCheckDto"] | null;
+            /** @description Where the provider must deliver its events. Null without API_PUBLIC_URL. */
+            webhookEndpoint: string | null;
+            settings: components["schemas"]["ProviderSettingDto"][];
+            channels: components["schemas"]["ProviderChannelDto"][];
+            methods: components["schemas"]["ProviderMethodDto"][];
+            last24h: components["schemas"]["ProviderActivityDto"];
+            updatedAt: string | null;
+        };
+        ProviderEventDto: {
+            id: string;
+            /**
+             * @description payment.pending|succeeded|failed|reversed, payout.submitted|completed|rejected|cancelled
+             * @example payment.succeeded
+             */
+            eventType: string;
+            /** @example transaction.completed */
+            providerType: string | null;
+            /** @enum {string} */
+            source: "webhook" | "poll" | "desk";
+            /** @enum {string} */
+            outcome: "applied" | "ignored" | "rejected" | "failed";
+            reason: string | null;
+            transactionId: string | null;
+            receivedAt: string;
+        };
+        UpdatePaymentProviderDto: {
+            enabled?: boolean;
+            /** @enum {string} */
+            environment?: "live" | "sandbox";
+            /**
+             * @example {
+             *       "baseUrl": "https://portal.rivalpayments.com/v1"
+             *     }
+             */
+            settings?: {
+                [key: string]: string | null;
+            };
+            /**
+             * @example {
+             *       "apiKey": "tsk_…"
+             *     }
+             */
+            secrets?: {
+                [key: string]: string | null;
+            };
+        };
+        ProviderTestResultDto: {
+            ok: boolean;
+            message: string;
+            checkedAt: string;
+        };
+        RotatedProviderSecretDto: {
+            /** @example webhookKey */
+            name: string;
+            /** @description The new secret, in plaintext, THIS ONCE — paste it into the provider’s dashboard. It is never retrievable again. */
+            secret: string;
+            /** @example 3fa1b2c4 */
+            fingerprint: string;
+            webhookEndpoint: string | null;
         };
         StatementLineDto: {
             id: string;
@@ -8727,6 +9047,23 @@ export interface components {
             /** @enum {string} */
             state: "pending" | "approved" | "success" | "failure" | "rejected";
             provider: string;
+            /**
+             * @description The payment provider that pays it.
+             * @example rival
+             */
+            providerCode: string;
+            /**
+             * @description The provider’s payout channel.
+             * @example whish
+             */
+            channelCode: string;
+            /**
+             * @example live
+             * @enum {string}
+             */
+            providerEnvironment: "live" | "sandbox";
+            /** @enum {string} */
+            paidBy?: "provider" | "desk";
             /** @example Whish Money */
             methodName: string;
             providerRef?: string | null;
@@ -11524,9 +11861,7 @@ export interface operations {
     };
     PaymentsController_depositStatus: {
         parameters: {
-            query: {
-                method: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 reference: string;
@@ -11545,9 +11880,7 @@ export interface operations {
     };
     PaymentsController_settleDeposit: {
         parameters: {
-            query: {
-                method: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 reference: string;
@@ -12005,6 +12338,137 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminWithdrawalMethodDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentProviderDto"][];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentProviderDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePaymentProviderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentProviderDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_events: {
+        parameters: {
+            query: {
+                limit: number;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderEventDto"][];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_test: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderTestResultDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_rotate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RotatedProviderSecretDto"];
                 };
             };
         };
@@ -15595,6 +16059,8 @@ export interface operations {
                 to?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
+                /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
+                decidedBy?: "desk";
             };
             header?: never;
             path?: never;
@@ -15632,6 +16098,8 @@ export interface operations {
                 to?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
+                /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
+                decidedBy?: "desk";
             };
             header?: never;
             path?: never;
@@ -15668,6 +16136,8 @@ export interface operations {
                 to?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
+                /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
+                decidedBy?: "desk";
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;

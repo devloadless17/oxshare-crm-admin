@@ -205,6 +205,13 @@ export const keys = {
     all: () => ['withdrawal-methods'] as const,
   },
 
+  /** Payment providers (backend 0168). A method change moves a provider's list too. */
+  paymentProviders: {
+    all: () => ['payment-providers'] as const,
+    detail: (code: string) => ['payment-providers', code] as const,
+    events: (code: string) => ['payment-providers', code, 'events'] as const,
+  },
+
   externalLinks: {
     all: () => ['external-links'] as const,
   },
@@ -259,7 +266,6 @@ export const keys = {
     trading: () => ['settings', 'trading'] as const,
     scheduledJobs: () => ['settings', 'scheduled-jobs'] as const,
     smtp: () => ['settings', 'smtp'] as const,
-    rival: () => ['settings', 'rival'] as const,
     platformLinks: () => ['settings', 'platform-links'] as const,
     ipAllowlist: () => ['settings', 'ip-allowlist'] as const,
   },

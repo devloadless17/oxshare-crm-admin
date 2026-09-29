@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CreditCard, Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
-import type { PaymentMethod } from '@/lib/api/admin';
+import type { PaymentMethod, PaymentProvider } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
@@ -15,12 +15,12 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ExportButton } from '@/components/export-button';
-import { Badge } from '@/components/ui/badge';
 import { MethodNameCell } from '@/components/payment-methods/method-name-cell';
 import {
   PaymentMethodFormModal,
   type PaymentMethodFormValues,
 } from '@/components/payment-methods/payment-method-form-modal';
+import { AvailabilityBadge, routeLabel } from '@/components/payment-providers/provider-labels';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -45,8 +45,24 @@ export default function PaymentMethodsPage() {
   const query = useResource<PaymentMethod[]>(keys.paymentMethods.all(), (signal) =>
     api.admin.getPaymentMethods(signal),
   );
+  /*
+   * The providers, for "Runs on" and the dialog's routes (backend 0168). Their
+   * own key: an admin without it still manages methods, on the desk's route,
+   * and reads a route by its codes.
+   */
+  const canViewProviders = hasPermission(admin, 'payments.providers.view');
+  const providers = useResource<PaymentProvider[]>(
+    keys.paymentProviders.all(),
+    (signal) => api.admin.getPaymentProviders(signal),
+    { enabled: canViewProviders },
+  );
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.paymentMethods.all() });
+  // A provider's page lists its methods, so a method change moves it too.
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: keys.paymentMethods.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.paymentProviders.all() }),
+    ]);
 
   const saveMethod = useMutation({
     mutationFn: (values: PaymentMethodFormValues) => {
@@ -95,7 +111,12 @@ export default function PaymentMethodsPage() {
       // No key is ever sent: the API generates a new method's permanent ID, and
       // an existing one is addressed by it, never changes it (backend 0161).
       if (editing) return api.admin.updatePaymentMethod(editing.key, body);
-      return api.admin.createPaymentMethod(body);
+      // The route is chosen once, at creation, and fixed after (backend 0168).
+      return api.admin.createPaymentMethod({
+        ...body,
+        providerCode: values.route.providerCode,
+        channelCode: values.route.channelCode,
+      });
     },
     onSuccess: async (_data, values) => {
       const name = values.internalLabel;
@@ -197,29 +218,24 @@ export default function PaymentMethodsPage() {
        * offering no receipt field and nobody could tell why.
        */
       header: t('paymentMethods.colFlow'),
-      /*
-       * BOTH flows are badges, through the shared `Badge` so the tint and the
-       * text come from one place. The offline one hand-built its pill with
-       * `text-warning-foreground` — the colour for text ON a SOLID warning
-       * fill, which is white in the light theme — over a 10% warning tint, so
-       * the label all but vanished. The gateway flow was bare grey text beside
-       * it, so the column read as one badge and one stray word.
-       */
-      cell: (m) =>
-        m.requiresProof ? (
-          <Badge variant="warning">{t('paymentMethods.flowOffline')}</Badge>
-        ) : (
-          <Badge variant="default">{t('paymentMethods.flowGateway')}</Badge>
-        ),
+      // "Rival · Whish", or "Manual · Paid outside the platform" (backend 0168).
+      cell: (m) => (
+        <span className="text-xs">
+          {routeLabel(providers.data, m, 'deposit')}
+          {m.requiresProof && (
+            <span className="block text-muted-foreground">{t('paymentMethods.requiresProof')}</span>
+          )}
+        </span>
+      ),
     },
     {
       header: t('paymentMethods.colStatus'),
-      cell: (m) =>
-        m.enabled ? (
-          <span className="text-success">{t('paymentMethods.statusEnabled')}</span>
-        ) : (
-          <span className="text-muted-foreground">{t('paymentMethods.statusDisabled')}</span>
-        ),
+      /*
+       * Whether clients SEE it — not just the switch. Enabled on a provider that
+       * is off or not set up is hidden from every client, and says so here
+       * rather than only in a server log (backend 0168).
+       */
+      cell: (m) => <AvailabilityBadge availability={m.availability} />,
     },
     ...(canManage
       ? [
@@ -236,9 +252,8 @@ export default function PaymentMethodsPage() {
                     separatorBefore: true,
                     onSelect: () => toggleEnabled.mutate(m),
                   },
-                  // A gateway is never deleted, so it is not offered. A used
-                  // method is shown disabled with the reason, not hidden.
-                  ...(canEdit && !m.builtIn
+                  // A used method is shown disabled with the reason, not hidden.
+                  ...(canEdit
                     ? [
                         {
                           label: m.inUse
@@ -308,6 +323,7 @@ export default function PaymentMethodsPage() {
       <PaymentMethodFormModal
         open={formOpen}
         method={editing}
+        providers={providers.data}
         saving={saveMethod.isPending}
         error={
           saveMethod.isError
