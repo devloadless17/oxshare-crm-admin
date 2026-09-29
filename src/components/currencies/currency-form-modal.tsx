@@ -5,8 +5,19 @@ import type { Currency } from '@/lib/api/admin';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
+import { LimitInput, plainAmount } from './limit-input';
 
-export interface CurrencyFormValues {
+/** The six money limits, in the currency's own units (0162). Decimal strings. */
+export interface CurrencyLimitValues {
+  minDeposit: string;
+  maxDeposit: string;
+  minWithdrawal: string;
+  maxWithdrawal: string;
+  maxWithdrawalDaily: string;
+  maxAdminCredit: string;
+}
+
+export interface CurrencyFormValues extends CurrencyLimitValues {
   code: string;
   name: string;
   symbol: string;
@@ -14,6 +25,15 @@ export interface CurrencyFormValues {
   enabled: boolean;
   isDefault: boolean;
 }
+
+const LIMIT_KEYS = [
+  'minDeposit',
+  'maxDeposit',
+  'minWithdrawal',
+  'maxWithdrawal',
+  'maxWithdrawalDaily',
+  'maxAdminCredit',
+] as const satisfies readonly (keyof CurrencyLimitValues)[];
 
 /**
  * Add a currency, or edit one that exists.
@@ -33,12 +53,20 @@ export interface CurrencyFormValues {
  * to 2 for USD is choosing how balances are FORMATTED, not truncating what the
  * ledger holds — and a form that did not say that invites the reading where
  * lowering it destroys money.
+ *
+ * ## The limits are this currency's, in its own units (0162)
+ *
+ * Six amounts: what a client may deposit, withdraw (once and per day), and what
+ * an operator may credit in one action. They were one set of numbers for every
+ * currency, so an LBP withdrawal stopped at 50,000 — about fifty cents. They are
+ * REQUIRED on a new currency: a default would be another currency's numbers.
  */
 export function CurrencyFormModal({
   open,
   currency,
   saving,
   error,
+  fieldErrors = {},
   onClose,
   onSubmit,
 }: {
@@ -47,6 +75,8 @@ export function CurrencyFormModal({
   currency?: Currency;
   saving: boolean;
   error?: string;
+  /** The API's per-field sentences, shown under the box each one is about. */
+  fieldErrors?: Record<string, string>;
   onClose: () => void;
   onSubmit: (values: CurrencyFormValues) => void;
 }) {
@@ -73,6 +103,7 @@ export function CurrencyFormModal({
         currency={currency}
         saving={saving}
         error={error}
+        fieldErrors={fieldErrors}
         onClose={onClose}
         onSubmit={onSubmit}
       />
@@ -84,12 +115,14 @@ function CurrencyForm({
   currency,
   saving,
   error,
+  fieldErrors,
   onClose,
   onSubmit,
 }: {
   currency?: Currency;
   saving: boolean;
   error?: string;
+  fieldErrors: Record<string, string>;
   onClose: () => void;
   onSubmit: (values: CurrencyFormValues) => void;
 }) {
@@ -101,6 +134,19 @@ function CurrencyForm({
   const [decimals, setDecimals] = React.useState(currency?.decimals ?? 2);
   const [enabled, setEnabled] = React.useState(currency?.enabled ?? true);
   const [isDefault, setIsDefault] = React.useState(currency?.isDefault ?? false);
+  // Empty on a new currency — REQUIRED, never pre-filled with another's numbers.
+  const [limits, setLimits] = React.useState<CurrencyLimitValues>(() => ({
+    minDeposit: plainAmount(currency?.minDeposit),
+    maxDeposit: plainAmount(currency?.maxDeposit),
+    minWithdrawal: plainAmount(currency?.minWithdrawal),
+    maxWithdrawal: plainAmount(currency?.maxWithdrawal),
+    maxWithdrawalDaily: plainAmount(currency?.maxWithdrawalDaily),
+    maxAdminCredit: plainAmount(currency?.maxAdminCredit),
+  }));
+  const setLimit = (key: keyof CurrencyLimitValues) => (value: string) =>
+    setLimits((current) => ({ ...current, [key]: value }));
+  // The read-back under each box names the currency being typed.
+  const unit = code.trim().toUpperCase() || '—';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,12 +159,39 @@ function CurrencyForm({
       decimals,
       enabled,
       isDefault,
+      ...(Object.fromEntries(
+        LIMIT_KEYS.map((key) => [key, limits[key].trim()]),
+      ) as unknown as CurrencyLimitValues),
     });
   };
 
+  const limitField = (key: keyof CurrencyLimitValues, placeholder: string, hint?: string) => (
+    <LimitInput
+      id={`currency-${key}`}
+      label={t(`currencies.limit.${key}`)}
+      value={limits[key]}
+      onChange={setLimit(key)}
+      currency={unit}
+      error={fieldErrors[key]}
+      hint={hint}
+      placeholder={placeholder}
+      required
+    />
+  );
+
+  /*
+   * The banner repeats nothing a box already says: when every sentence the API
+   * sent has a box of its own, the boxes carry them. Anything else — a field
+   * this form does not draw, or no field at all — still shows up here.
+   */
+  const fieldKeys = Object.keys(fieldErrors);
+  const allInline =
+    fieldKeys.length > 0 &&
+    fieldKeys.every((key) => (LIMIT_KEYS as readonly string[]).includes(key));
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
+      {error && !allInline && (
         <div
           role="alert"
           className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
@@ -184,6 +257,27 @@ function CurrencyForm({
           {t('currencies.decimalsHint')}
         </span>
       </label>
+
+      {/*
+        THE LIMITS, grouped by what they bound. In this currency's own units:
+        for LBP that is millions, for USD tens — the reason they live here.
+      */}
+      <fieldset className="space-y-3 rounded-lg border border-border p-3">
+        <legend className="px-1 text-xs font-semibold text-foreground">
+          {t('currencies.limitsTitle')}
+        </legend>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t('currencies.limitsHint')}
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {limitField('minDeposit', '10')}
+          {limitField('maxDeposit', '250000')}
+          {limitField('minWithdrawal', '10')}
+          {limitField('maxWithdrawal', '50000')}
+          {limitField('maxWithdrawalDaily', '100000', t('currencies.limitDailyHint'))}
+          {limitField('maxAdminCredit', '50000', t('currencies.limitAdminCreditHint'))}
+        </div>
+      </fieldset>
 
       <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
         {/* `htmlFor` rather than wrapping: the Radix checkbox is a button, and

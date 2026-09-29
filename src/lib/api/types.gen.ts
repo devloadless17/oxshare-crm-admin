@@ -5004,6 +5004,36 @@ export interface components {
             /** @description The currency a new client's first wallet opens in. */
             isDefault: boolean;
             sortOrder: number;
+            /**
+             * @description The smallest deposit a client may make. In this currency's own units.
+             * @example 10.00000000
+             */
+            minDeposit: string;
+            /**
+             * @description The largest single deposit. In this currency's own units.
+             * @example 250000.00000000
+             */
+            maxDeposit: string;
+            /**
+             * @description The smallest withdrawal a client may request. In this currency's own units.
+             * @example 10.00000000
+             */
+            minWithdrawal: string;
+            /**
+             * @description The largest single withdrawal. In this currency's own units.
+             * @example 50000.00000000
+             */
+            maxWithdrawal: string;
+            /**
+             * @description The most one client may withdraw in any rolling 24 hours. In this currency's own units.
+             * @example 100000.00000000
+             */
+            maxWithdrawalDaily: string;
+            /**
+             * @description The most an operator may credit or fund in one action. In this currency's own units.
+             * @example 50000.00000000
+             */
+            maxAdminCredit: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -5024,6 +5054,36 @@ export interface components {
             sortOrder?: number;
             /** @default false */
             isDefault: boolean;
+            /**
+             * @description The smallest deposit a client may make. In this currency's own units.
+             * @example 10
+             */
+            minDeposit: string;
+            /**
+             * @description The largest single deposit. In this currency's own units.
+             * @example 250000
+             */
+            maxDeposit: string;
+            /**
+             * @description The smallest withdrawal a client may request. In this currency's own units.
+             * @example 10
+             */
+            minWithdrawal: string;
+            /**
+             * @description The largest single withdrawal. In this currency's own units.
+             * @example 50000
+             */
+            maxWithdrawal: string;
+            /**
+             * @description The most one client may withdraw in any rolling 24 hours. In this currency's own units.
+             * @example 100000
+             */
+            maxWithdrawalDaily: string;
+            /**
+             * @description The most an operator may credit or fund in one action. In this currency's own units.
+             * @example 50000
+             */
+            maxAdminCredit: string;
         };
         UpdateCurrencyDto: {
             /** @example Euro */
@@ -5034,6 +5094,36 @@ export interface components {
             enabled?: boolean;
             sortOrder?: number;
             isDefault?: boolean;
+            /**
+             * @description The smallest deposit a client may make. In this currency's own units.
+             * @example 10
+             */
+            minDeposit?: string;
+            /**
+             * @description The largest single deposit. In this currency's own units.
+             * @example 250000
+             */
+            maxDeposit?: string;
+            /**
+             * @description The smallest withdrawal a client may request. In this currency's own units.
+             * @example 10
+             */
+            minWithdrawal?: string;
+            /**
+             * @description The largest single withdrawal. In this currency's own units.
+             * @example 50000
+             */
+            maxWithdrawal?: string;
+            /**
+             * @description The most one client may withdraw in any rolling 24 hours. In this currency's own units.
+             * @example 100000
+             */
+            maxWithdrawalDaily?: string;
+            /**
+             * @description The most an operator may credit or fund in one action. In this currency's own units.
+             * @example 50000
+             */
+            maxAdminCredit?: string;
         };
         LeverageDto: {
             /**
@@ -5671,7 +5761,7 @@ export interface components {
             currency: string;
             logoUrl: string | null;
             /**
-             * @description The smallest deposit this method accepts, RESOLVED SERVER-SIDE from the platform limits (§12.4). The same figure `POST /payments/deposits` enforces, so a client showing it cannot promise a floor the validator disagrees with. A decimal string, never a number (§6.1).
+             * @description The smallest deposit this method accepts, RESOLVED SERVER-SIDE: the tighter of the currency's minimum deposit and the method's own (0162). The same figure `POST /payments/deposits` enforces, so a client showing it cannot promise a floor the validator disagrees with. A decimal string, never a number (§6.1).
              * @example 10.00000000
              */
             minAmount: string;
@@ -5879,7 +5969,7 @@ export interface components {
             currency: string;
             logoUrl: string | null;
             /**
-             * @description The smallest deposit this method accepts, RESOLVED SERVER-SIDE from the platform limits (§12.4). The same figure `POST /payments/deposits` enforces, so a client showing it cannot promise a floor the validator disagrees with. A decimal string, never a number (§6.1).
+             * @description The smallest deposit this method accepts, RESOLVED SERVER-SIDE: the tighter of the currency's minimum deposit and the method's own (0162). The same figure `POST /payments/deposits` enforces, so a client showing it cannot promise a floor the validator disagrees with. A decimal string, never a number (§6.1).
              * @example 10.00000000
              */
             minAmount: string;
@@ -5892,6 +5982,10 @@ export interface components {
             sortOrder: number;
             /** @description The client must attach a receipt: this method is paid outside the platform and an operator approves it by hand. The portal reads this to decide whether to ask for one, rather than branching on the method key. */
             requiresProof: boolean;
+            /** @description The method's own minimum as the operator set it — null means the currency's. `minAmount` is what clients are actually held to. */
+            ownMinAmount: string | null;
+            /** @description The method's own maximum as the operator set it — null means the currency's. `maxAmount` is what clients are actually held to. */
+            ownMaxAmount: string | null;
             /**
              * @description What the desk calls the method (admin-only, unique). The console shows it in place of the key.
              * @example OMT – Hamra branch
@@ -5919,6 +6013,16 @@ export interface components {
             currency: string;
             /** @example /v1/uploads/payment-logos/8f2c….png */
             logoUrl?: string;
+            /**
+             * @description Optional minimum for this method, tighter than the currency's minimum deposit. Null or omitted: the currency's.
+             * @example 100
+             */
+            ownMinAmount?: string | null;
+            /**
+             * @description Optional maximum for this method, tighter than the currency's maximum deposit. Null or omitted: the currency's.
+             * @example 5000
+             */
+            ownMaxAmount?: string | null;
             /** @default true */
             enabled: boolean;
             /** @description Omitted puts it after the last one. */
@@ -5940,6 +6044,16 @@ export interface components {
             sortOrder?: number;
             /** @description OFFLINE: the client pays outside the platform and must attach a receipt. Such a deposit is filed through POST /payments/deposits/offline and settles when an operator approves it — the JSON deposit route refuses the method. Cannot be combined with a gateway key. */
             requiresProof?: boolean;
+            /**
+             * @description Optional minimum for this method, tighter than the currency's minimum deposit. Null or omitted: the currency's.
+             * @example 100
+             */
+            ownMinAmount?: string | null;
+            /**
+             * @description Optional maximum for this method, tighter than the currency's maximum deposit. Null or omitted: the currency's.
+             * @example 5000
+             */
+            ownMaxAmount?: string | null;
         };
         DeletedMethodDto: {
             /** @example typo_method */

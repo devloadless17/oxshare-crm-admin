@@ -8,7 +8,8 @@ import type { Currency } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage } from '@/lib/api/errors';
+import { apiErrorMessage, apiFieldErrors } from '@/lib/api/errors';
+import { formatDecimal } from '@/lib/money';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -222,6 +223,32 @@ export default function CurrenciesPage() {
       cell: (c) => c.decimals,
       cellClassName: 'tabular text-muted-foreground',
     },
+    /*
+     * The limits, read at a glance — in the row's own currency, grouped so an
+     * LBP billion and a USD fifty thousand are both legible (0162).
+     */
+    {
+      header: t('currencies.colDepositLimits'),
+      cell: (c) => <LimitRange min={c.minDeposit} max={c.maxDeposit} />,
+      cellClassName: 'tabular whitespace-nowrap text-muted-foreground',
+    },
+    {
+      header: t('currencies.colWithdrawalLimits'),
+      cell: (c) => (
+        <span className="flex flex-col">
+          <LimitRange min={c.minWithdrawal} max={c.maxWithdrawal} />
+          <span className="text-[11px]">
+            {t('currencies.perDay', { amount: formatDecimal(c.maxWithdrawalDaily) })}
+          </span>
+        </span>
+      ),
+      cellClassName: 'tabular whitespace-nowrap text-muted-foreground',
+    },
+    {
+      header: t('currencies.colAdminCredit'),
+      cell: (c) => formatDecimal(c.maxAdminCredit),
+      cellClassName: 'tabular whitespace-nowrap text-muted-foreground',
+    },
     {
       header: t('currencies.colStatus'),
       cell: (c) =>
@@ -361,9 +388,19 @@ export default function CurrenciesPage() {
             ? apiErrorMessage(saveCurrency.error, t('currencies.saveFailed'))
             : undefined
         }
+        fieldErrors={saveCurrency.isError ? apiFieldErrors(saveCurrency.error) : {}}
         onClose={() => setFormOpen(false)}
         onSubmit={(values) => saveCurrency.mutate(values)}
       />
     </div>
+  );
+}
+
+/** `10 – 250,000`: a limit pair, grouped, never coerced (§6.1). */
+function LimitRange({ min, max }: { min: string; max: string }) {
+  return (
+    <span>
+      {formatDecimal(min)} – {formatDecimal(max)}
+    </span>
   );
 }

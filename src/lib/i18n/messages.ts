@@ -443,6 +443,14 @@ export const messages = {
   'paymentMethods.currencyLoadFailed':
     'Could not load the platform currencies. Reopen this dialog to try again.',
   'paymentMethods.save': 'Save',
+  // A method's own deposit range (0162) — optional, narrower than the currency's.
+  'paymentMethods.rangeTitle': 'Deposit range (optional)',
+  'paymentMethods.rangeHint':
+    "Leave empty to use {currency}'s range, {min} – {max}. A value here can only narrow it.",
+  'paymentMethods.rangeHintNoCurrency':
+    "Choose a currency first — the range narrows that currency's.",
+  'paymentMethods.ownMin': 'Minimum for this method',
+  'paymentMethods.ownMax': 'Maximum for this method',
   'paymentMethods.saveFailed': 'Could not save the payment method.',
   'paymentMethods.saveSucceeded': '{name} saved',
   'paymentMethods.enabledSucceeded': '{name} enabled',
@@ -3085,6 +3093,23 @@ export const messages = {
   'currencies.colSymbol': 'Symbol',
   'currencies.colDecimals': 'Decimals',
   'currencies.colStatus': 'Status',
+  'currencies.colDepositLimits': 'Deposit',
+  'currencies.colWithdrawalLimits': 'Withdrawal',
+  'currencies.colAdminCredit': 'Admin credit',
+  'currencies.perDay': '{amount} a day',
+  // The money limits (0162) — in the currency's own units.
+  'currencies.limitsTitle': 'Limits',
+  'currencies.limitsHint':
+    "In this currency's own units — for LBP that means millions. Deposit methods in this currency can narrow the deposit range, never widen it.",
+  'currencies.limit.minDeposit': 'Minimum deposit',
+  'currencies.limit.maxDeposit': 'Maximum deposit',
+  'currencies.limit.minWithdrawal': 'Minimum withdrawal',
+  'currencies.limit.maxWithdrawal': 'Maximum withdrawal',
+  'currencies.limit.maxWithdrawalDaily': 'Daily withdrawal limit',
+  'currencies.limit.maxAdminCredit': 'Maximum admin credit',
+  'currencies.limitDailyHint': 'per client, rolling 24 hours',
+  'currencies.limitAdminCreditHint': 'per credit or funding',
+  'currencies.limitMalformed': 'An amount, e.g. 10 or 5000000 — up to 8 decimals.',
   'currencies.colActions': 'Actions',
   'currencies.statusEnabled': 'Enabled',
   'currencies.statusDisabled': 'Disabled',

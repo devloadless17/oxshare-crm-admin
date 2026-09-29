@@ -8,7 +8,7 @@ import type { PaymentMethod } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage } from '@/lib/api/errors';
+import { apiErrorMessage, apiFieldErrors } from '@/lib/api/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -78,6 +78,9 @@ export default function PaymentMethodsPage() {
          * production.
          */
         requiresProof: values.requiresProof,
+        // The method's own range (0162) — null clears it back to the currency's.
+        ownMinAmount: values.ownMinAmount,
+        ownMaxAmount: values.ownMaxAmount,
       };
 
       // No key is ever sent: the API generates a new method's permanent ID, and
@@ -302,6 +305,7 @@ export default function PaymentMethodsPage() {
             ? apiErrorMessage(saveMethod.error, t('paymentMethods.saveFailed'))
             : undefined
         }
+        fieldErrors={saveMethod.isError ? apiFieldErrors(saveMethod.error) : {}}
         onClose={() => setFormOpen(false)}
         onSubmit={(values) => saveMethod.mutate(values)}
       />
