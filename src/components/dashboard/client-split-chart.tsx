@@ -1,6 +1,7 @@
 'use client';
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { CHART_RESIZE_DEBOUNCE_MS } from './chart-resize';
 import type { ClientStats } from '@/lib/api/admin';
 import { useChartTokens } from './chart-theme';
 import { ChartTooltip } from './chart-tooltip';
@@ -106,7 +107,7 @@ export function ClientSplitChart({ stats }: { stats: ClientStats }) {
   return (
     <div className="flex h-full items-center gap-4">
       <div className="relative h-full flex-1 min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" debounce={CHART_RESIZE_DEBOUNCE_MS}>
           <PieChart>
             <Tooltip
               content={({ active, payload }) => {

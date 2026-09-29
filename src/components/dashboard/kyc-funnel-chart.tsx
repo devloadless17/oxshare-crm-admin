@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { CHART_RESIZE_DEBOUNCE_MS } from './chart-resize';
 import type { KycStats } from '@/lib/api/admin';
 import { useChartTokens } from './chart-theme';
 import { ChartTooltip } from './chart-tooltip';
@@ -83,7 +84,7 @@ export function KycFunnelChart({ stats }: { stats: KycStats }) {
   ];
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" debounce={CHART_RESIZE_DEBOUNCE_MS}>
       <BarChart
         data={rows}
         layout="vertical"

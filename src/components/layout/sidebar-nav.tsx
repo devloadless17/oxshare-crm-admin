@@ -373,8 +373,21 @@ function NavGroupPanel({
       >
         <Link
           href={leafHref(home)}
+          /*
+           * OPEN, the name folds it — the same as its arrow (the owner's call,
+           * 30 Sep 2026: "pressing Clients when it is expanded should close
+           * it"). CLOSED, it opens the section's main page, which opens the
+           * list. `preventDefault` in onClick is how next/link is told not to
+           * navigate.
+           */
+          onClick={(event) => {
+            if (!open) return;
+            event.preventDefault();
+            onToggle();
+          }}
+          aria-expanded={open}
           onNavigate={() => onNavigate(home.href)}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-2.5 ps-3 pe-1 focus-outline"
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg py-2.5 ps-3 pe-1 focus-outline"
         >
           <Icon
             className={`h-5 w-5 shrink-0 transition-colors duration-150 ${
@@ -487,11 +500,18 @@ function NavGroupPanel({
  * can read, which is the complaint this whole change answers. A menu keeps the rail
  * at seven rows and puts every page's NAME one click away.
  *
- * Click, not hover — a touch screen has no hover, and a menu that opens as the
- * pointer crosses the rail on its way somewhere else is a menu in the way. The
- * content is portalled (see `dropdown-menu.tsx`), so the sidebar's overflow
+ * It opens on HOVER with a mouse (the owner's call, 30 Sep 2026 — having to
+ * click to see a section's pages was reported as a bad experience), and still on
+ * click, tap and keyboard. Hover waits a moment before opening (`OPEN_DELAY_MS`)
+ * so a pointer merely crossing the rail opens nothing, and a moment before
+ * closing (`CLOSE_DELAY_MS`) so the pointer can travel from the icon across the
+ * gap into the menu. `modal={false}`: a hover menu must never lock the page.
+ * The content is portalled (see `dropdown-menu.tsx`), so the sidebar's overflow
  * cannot clip it.
  */
+const OPEN_DELAY_MS = 80;
+const CLOSE_DELAY_MS = 180;
+
 function RailGroupMenu({
   group,
   selected,
@@ -525,9 +545,38 @@ function RailGroupMenu({
   const rtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
   const side = rtl ? 'left' : 'right';
 
+  const [open, setOpen] = React.useState(false);
+  const timer = React.useRef<number | undefined>(undefined);
+  const byHover = React.useRef(false);
+  const later = (next: boolean, ms: number) => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setOpen(next), ms);
+  };
+  React.useEffect(() => () => window.clearTimeout(timer.current), []);
+  // Mouse only: a touch "hover" is the tap itself, which Radix already handles.
+  const hover = {
+    onPointerEnter: (e: React.PointerEvent) => {
+      if (e.pointerType !== 'mouse') return;
+      if (!open) byHover.current = true;
+      later(true, open ? 0 : OPEN_DELAY_MS);
+    },
+    onPointerLeave: (e: React.PointerEvent) => {
+      if (e.pointerType === 'mouse') later(false, CLOSE_DELAY_MS);
+    },
+  };
+
   return (
-    <DropdownMenu dir={rtl ? 'rtl' : 'ltr'}>
-      <DropdownMenuTrigger asChild>
+    <DropdownMenu
+      dir={rtl ? 'rtl' : 'ltr'}
+      modal={false}
+      open={open}
+      onOpenChange={(next) => {
+        window.clearTimeout(timer.current);
+        if (next) byHover.current = false;
+        setOpen(next);
+      }}
+    >
+      <DropdownMenuTrigger asChild {...hover}>
         <button
           type="button"
           aria-label={name}
@@ -553,7 +602,18 @@ function RailGroupMenu({
           ) : null}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side={side} align="start" sideOffset={12} className="min-w-56">
+      <DropdownMenuContent
+        side={side}
+        align="start"
+        sideOffset={8}
+        className="min-w-56"
+        {...hover}
+        // Opened by hover, closing must not pull focus onto the rail; opened by
+        // click or keyboard, focus returns to the icon as usual.
+        onCloseAutoFocus={(e) => {
+          if (byHover.current) e.preventDefault();
+        }}
+      >
         <DropdownMenuLabel>{label}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {group.items.map((item) => {

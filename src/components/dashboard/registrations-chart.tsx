@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { CHART_RESIZE_DEBOUNCE_MS } from './chart-resize';
 import type { RegistrationPoint } from '@/lib/api/admin';
 import { useChartTokens } from './chart-theme';
 import { ChartTooltip } from './chart-tooltip';
@@ -37,7 +38,7 @@ export function RegistrationsChart({ points }: { points: RegistrationPoint[] }) 
   const gradientId = React.useId();
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" debounce={CHART_RESIZE_DEBOUNCE_MS}>
       <AreaChart data={points} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
