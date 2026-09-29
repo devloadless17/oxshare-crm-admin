@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -528,6 +529,9 @@ function RailGroupMenu({
 }) {
   const Icon = group.icon;
   const label = t(group.label);
+  const router = useRouter();
+  /* Where a click goes: the section's first page this admin can open, as when expanded. */
+  const home = group.items[0];
   const waiting = groupBadgeTotal(group, badges);
   /*
    * The dot is `aria-hidden`, so the count it stands for is SAID in the name —
@@ -576,7 +580,29 @@ function RailGroupMenu({
         setOpen(next);
       }}
     >
-      <DropdownMenuTrigger asChild {...hover}>
+      <DropdownMenuTrigger
+        asChild
+        {...hover}
+        /*
+         * A CLICK goes to the section's first page, as the name does when the
+         * sidebar is expanded (the owner's report, 30 Sep 2026: clicking a
+         * collapsed item "does nothing" — hover had opened the menu and the
+         * click toggled it shut). Hover shows the pages; Enter, Space and the
+         * arrow keys still open the menu, which is how a keyboard reaches them.
+         * `preventDefault` on pointerdown stops Radix toggling the menu.
+         */
+        onPointerDown={(e) => {
+          if (e.pointerType === 'mouse' && e.button === 0) e.preventDefault();
+        }}
+        onClick={(e) => {
+          // Keyboard activation also fires click (detail 0) — leave that to Radix.
+          if (e.detail === 0 || !home) return;
+          window.clearTimeout(timer.current);
+          setOpen(false);
+          onNavigate(home.href);
+          router.push(leafHref(home));
+        }}
+      >
         <button
           type="button"
           aria-label={name}
