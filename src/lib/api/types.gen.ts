@@ -7573,7 +7573,10 @@ export interface components {
             key: "firstName" | "lastName" | "dateOfBirth" | "nationality" | "phone" | "country" | "address" | "city" | "stateProvince" | "postalCode";
             /** @example Date of Birth */
             label: string;
+            /** @description Required by the form as it stands; false when not asked. */
             required: boolean;
+            /** @description The form asks it now, so the client can answer it — only these can be returned. The others are shown for comparison with the document. */
+            asked: boolean;
         };
         KycReviewPageDto: {
             /**
