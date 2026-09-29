@@ -33,7 +33,14 @@ const {
   getClients,
   getTradingAccounts,
   getClientIdentity,
+  getWallets,
+  getTransactions,
+  getTransactionsSummary,
 } = vi.hoisted(() => ({
+  // The Overview's glance row: counts and single rows from the tabs' lists.
+  getWallets: vi.fn(),
+  getTransactions: vi.fn(),
+  getTransactionsSummary: vi.fn(),
   getClient: vi.fn(),
   // The identity record panel (documents and decisions) — its own request.
   getClientIdentity: vi.fn().mockResolvedValue({}),
@@ -58,6 +65,9 @@ const {
 vi.mock('@/lib/api', () => {
   const api = {
     admin: {
+      getWallets,
+      getTransactions,
+      getTransactionsSummary,
       getClient,
       getTags,
       assignTag,
@@ -122,6 +132,49 @@ beforeEach(() => {
   vi.clearAllMocks();
   permissions.current = ALL_PERMISSIONS;
   getClient.mockResolvedValue(profile());
+  getWallets.mockResolvedValue({
+    items: [
+      {
+        id: 'w-1',
+        walletNumber: 'W-000001',
+        name: 'USD Wallet',
+        balance: '286.69000000',
+        onHold: '0.00000000',
+        currency: 'USD',
+        kind: 'main',
+      },
+    ],
+    total: 1,
+  });
+  getTradingAccounts.mockResolvedValue({
+    items: [],
+    total: 0,
+    page: 1,
+    limit: 1,
+    nextCursor: null,
+  });
+  getTransactions.mockResolvedValue({ items: [], total: 0, counts: {}, directionCounts: {} });
+  getTransactionsSummary.mockResolvedValue({
+    rows: [
+      {
+        direction: 'deposit',
+        kind: 'payment',
+        state: 'success',
+        currency: 'USD',
+        count: 3,
+        total: '900.00000000',
+      },
+      {
+        direction: 'withdrawal',
+        kind: 'payment',
+        state: 'pending',
+        currency: 'USD',
+        count: 2,
+        total: '50.00000000',
+      },
+    ],
+    directions: [],
+  });
   getTags.mockResolvedValue([]);
   // Not a partner — the ordinary answer, and the one that keeps the partner tab
   // absent so these cases exercise the individual-client shape.
@@ -194,32 +247,57 @@ async function openTab(name: RegExp): Promise<void> {
   await user.click(await screen.findByRole('tab', { name }));
 }
 
-describe('the Overview — the identity card alone (owner, 29 Sep 2026)', () => {
+describe('the Overview — figures at a glance, then who they are (owner, 29 Sep 2026)', () => {
   /*
-   * The cards beside Identity went: trading accounts and documents have their
-   * own tabs, tags ride the header's chip row, and verification is a field of
-   * the identity card — with "View KYC" in the actions menu.
+   * It summarises; it does not repeat the tabs. One row of figures, each from a
+   * count or a single row and each opening its tab; beneath, the three cards no
+   * tab shows. No wallet list, no account list, no movement list here.
    */
-  it('has no Tags, Trading accounts, KYC or documents card any more', async () => {
+  it('shows the glance figures and the three profile cards — and no tab’s list', async () => {
     renderWithProviders(<ClientProfilePage />);
     await screen.findByText('John Doe');
-    for (const heading of [/^tags$/i, /^trading accounts$/i, /identity record/i]) {
+
+    for (const heading of [/personal details/i, /^account$/i, /^verification$/i]) {
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    }
+    for (const heading of [/^wallets$/i, /recent activity/i, /^tags$/i, /identity record/i]) {
       expect(screen.queryByRole('heading', { name: heading })).toBeNull();
     }
-    expect(screen.queryByText(/trading accounts are hidden/i)).toBeNull();
+    // The server's own totals, one line per currency — never added here.
+    const deposited = await screen.findByRole('button', { name: /deposited/i });
+    expect(deposited).toHaveTextContent('$900.00');
+    expect(screen.getByRole('button', { name: /pending/i })).toHaveTextContent('2');
+    expect(await screen.findByRole('button', { name: /balance/i })).toHaveTextContent('$286.69');
   });
 
-  it('states where the verification stands, as a field of the identity card', async () => {
+  it('asks for COUNTS, never a list — one row at most', async () => {
     renderWithProviders(<ClientProfilePage />);
-    await screen.findByText('John Doe');
-    expect(screen.getByText('Verification')).toBeInTheDocument();
+    await screen.findByRole('button', { name: /last activity/i });
+    for (const call of getTradingAccounts.mock.calls) {
+      expect((call[0] as { limit: number }).limit).toBe(1);
+    }
+    for (const call of getTransactions.mock.calls) {
+      expect((call[0] as { limit: number }).limit).toBe(1);
+    }
   });
 
-  it('leaves the verification field out for a reader without kyc.view', async () => {
+  it('opens the tab a figure summarises', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ClientProfilePage />);
+    await user.click(await screen.findByRole('button', { name: /trading accounts/i }));
+    expect(screen.getByRole('tab', { name: /^accounts$/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('leaves out the Verification card, and the figures, a reader may not see', async () => {
     permissions.current = ['clients.view'];
     renderWithProviders(<ClientProfilePage />);
     await screen.findByText('John Doe');
-    expect(screen.queryByText('Verification')).toBeNull();
+    expect(screen.queryByRole('heading', { name: /^verification$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /deposited/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /balance/i })).toBeNull();
   });
 });
 

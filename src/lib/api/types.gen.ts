@@ -5589,6 +5589,12 @@ export interface components {
             active: boolean;
             /** Format: date-time */
             approvedAt: string;
+            /** @description How many clients THIS sub-partner introduced — a count, never who (R2), so it spans territories, unlike the partner's own referredClientCount, which is scoped. */
+            clientCount: number;
+            /** @description How many partners sit directly beneath THIS sub-partner. */
+            subPartnerCount: number;
+            /** @description The agency they sell under; null offers their clients the full catalogue. */
+            agencyName: string | null;
         };
         IbPartnerDetailDto: {
             userId: number;
