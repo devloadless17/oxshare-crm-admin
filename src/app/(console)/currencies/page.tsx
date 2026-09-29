@@ -226,6 +226,11 @@ export default function CurrenciesPage() {
     /*
      * The limits, read at a glance — in the row's own currency, grouped so an
      * LBP billion and a USD fifty thousand are both legible (0162).
+     *
+     * FOUR limits and no more (owner, 29 Sep 2026): the deposit and withdrawal
+     * ranges. The admin credit ceiling (column dropped) and the rolling 24-hour
+     * withdrawal cap (column dead, not enforced) were both removed — backend 0168
+     * and 0169/0170; `admin-credit-unbounded.spec.ts` pins the first.
      */
     {
       header: t('currencies.colDepositLimits'),
