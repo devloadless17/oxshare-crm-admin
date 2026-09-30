@@ -255,6 +255,7 @@ function TransactionsPageContent() {
         title: t('withdrawals.cannotPayTitle'),
         description: plan.reason ?? t('withdrawals.cannotPayGeneric'),
         confirmLabel: t('common.close'),
+        notice: true,
       });
       return;
     }
