@@ -1987,6 +1987,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/payment-providers/{code}/exchanges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the provider was asked and answered, and what it sent us (0175)
+         * @description Every call and every delivery, bodies as sent and received, kept 90 days — for a provider that keeps an exchange log. Newest first, at most 200 (`limit`, default 50); `before` pages to older ones; `reference` narrows to one deposit reference, withdrawal or provider id. Never a credential and never a webhook signature.
+         */
+        get: operations["AdminPaymentProvidersController_exchanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}/books/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restart the provider’s books (after a top-up or a move its records do not show)
+         * @description Clears where the books start; the next reading taken while nothing is travelling starts them again. A note is required. Moves no money.
+         */
+        post: operations["AdminPaymentProvidersController_resetBooks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/payment-providers/{code}/unmatched-records/{id}/acknowledge": {
         parameters: {
             query?: never;
@@ -6769,6 +6809,36 @@ export interface components {
             /** @description Still pending, or approved and awaiting the payout. */
             pending: number;
         };
+        ProviderBooksDto: {
+            /**
+             * @description `starting`: waiting for a reading taken while nothing is travelling. `matches` / `differs`: the last comparison. `incomplete`: a movement has no figure from the provider, so the last reading was not compared.
+             * @enum {string}
+             */
+            status: "starting" | "matches" | "differs" | "incomplete";
+            /** @example USDT */
+            asset: string | null;
+            /**
+             * @description What the provider held at the last check.
+             * @example 80342.55000000
+             */
+            available: string | null;
+            /**
+             * @description What our books say it should hold.
+             * @example 80342.55000000
+             */
+            expected: string | null;
+            /**
+             * @description Held minus expected: positive, the provider holds more than our books say.
+             * @example 0.00000000
+             */
+            difference: string | null;
+            /** @description The last check (ISO). */
+            checkedAt: string | null;
+            /** @description Where the books start (ISO). */
+            startedAt: string | null;
+            /** @description Since when the difference stands (ISO); a person is paged after two hours. */
+            differsSince: string | null;
+        };
         PaymentProviderDto: {
             /** @example rival */
             code: string;
@@ -6807,6 +6877,10 @@ export interface components {
              * @example 0
              */
             unexplainedRecords: number;
+            /** @description Its balance against our books — null for a provider with no balance of ours. */
+            books: components["schemas"]["ProviderBooksDto"] | null;
+            /** @description Does it keep an exchange log (every call and delivery, kept 90 days)? */
+            exchangeLog: boolean;
         };
         ProviderEventDto: {
             id: string;
@@ -6893,6 +6967,39 @@ export interface components {
             acknowledgedAt: string | null;
             /** @description Why it is a company movement. */
             acknowledgement: string | null;
+        };
+        ProviderExchangeDto: {
+            /** @description Ever-increasing; pass the last one as `before` for older ones. */
+            id: number;
+            /**
+             * @description We called it, or it called us.
+             * @enum {string}
+             */
+            direction: "outbound" | "inbound";
+            /** @example POST */
+            method: string;
+            /**
+             * @description With its query, when it had one.
+             * @example /withdrawal-request
+             */
+            path: string;
+            requestBody: string | null;
+            /** @description The provider’s answer (outbound) or ours (inbound); null when none came. */
+            status: number | null;
+            responseBody: string | null;
+            /** @description What went wrong, when it did. */
+            error: string | null;
+            durationMs: number | null;
+            /** @description Ours or the provider’s id for what it was about: an OX- reference, a withdrawal. */
+            reference: string | null;
+            occurredAt: string;
+        };
+        ResetProviderBooksDto: {
+            /**
+             * @description Why the books restart — required, kept in the audit log.
+             * @example Topped up 5,000 USDT from the treasury wallet.
+             */
+            note: string;
         };
         AcknowledgeProviderRecordDto: {
             /**
@@ -12808,6 +12915,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnmatchedProviderRecordDto"][];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_exchanges: {
+        parameters: {
+            query: {
+                limit: number;
+                before: number;
+                reference: string;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderExchangeDto"][];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_resetBooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetProviderBooksDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentProviderDto"];
                 };
             };
         };
