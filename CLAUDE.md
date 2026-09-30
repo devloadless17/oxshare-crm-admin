@@ -190,6 +190,33 @@ Three things outside the folder make that true, and each is easy to break withou
 - **Money is refetched, never patched.** No `setQueryData` computing a balance — §6.1 bans
   client-side money arithmetic, and an optimistic balance is a plausible invented number.
 
+## Payments: the console of the backend's payments CORE (0173, 30 Sep 2026)
+
+The backend decides every provider's money once (`modules/payments/core/`). Here is its
+provider-neutral console:
+
+- **Withdrawal desk** (`components/transactions/withdrawal-payout.tsx`, Rival's `withdrawal-rival.tsx`
+  before). It reads the NEUTRAL fields (`providerPayoutId`, `providerSubmittedAt`,
+  `needsAttention`, `attentionReason`), never `rival*`, which stay populated for one release only.
+  - **Resend** (`provider-submit`) only on `isRetryableSubmission`.
+  - Each open row carries a `payoutPlan`:
+    - `provider`: the approve dialog shows the quote ("sends 102.00: 100.00 to the client, 2.00 fee
+      paid by the company").
+    - `paused`: the reason is shown up front, never a confirm that can only fail.
+    - `desk`: approval pays in one step.
+- **Flagged hosted deposits** (`financial/resolve-attention-dialog.tsx`). An open one with a
+  `providerPaymentId` offers _Credit what arrived_ (`deposits.approve`) and _Close without credit_
+  (`deposits.reject`), beside _Mark resolved_, which moves no money. `finish-deposit`, a reason
+  required.
+- **Channel switches** (`payment-providers/channel-switch.tsx`, on the provider page): a network
+  on or off per direction.
+  - Switching off states the consequence and requires a reason.
+  - Methods show `channel_off`.
+  - The desk shows Paused, with the reason.
+- The notification catalogue has the neutral payout kinds (`withdrawal.payout_*`) and the 0173
+  deposit reasons (`wrong_asset`, `over_limit`, `unconfirmed_funds`). Rival's old kinds stay for the
+  rows already raised.
+
 ## API types are generated, never hand-written
 
 `npm run gen:api-types` (with the backend running) regenerates `src/lib/api/types.gen.ts` from

@@ -453,6 +453,8 @@ function FinancialPageContent() {
             currency: resolveTarget.currency,
             reason: resolveTarget.attentionReason,
             portalId: resolveTarget.user.portalId,
+            state: resolveTarget.state,
+            providerPaymentId: resolveTarget.providerPaymentId,
           }
         }
         onClose={() => setResolveTarget(null)}

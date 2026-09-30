@@ -41,20 +41,18 @@ import { Modal } from '@/components/ui/modal';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { RowActions, type RowAction } from '@/components/row-actions';
 /*
- * `withdrawal-rival.tsx` is wired again — the day this file's earlier note
- * anticipated ("the day that state needs a console path again") arrived with
- * the two-lifecycle split (DECISIONS D-66): a whish-rail approval no longer
- * pays, it SUBMITS to Rival and parks the row in `approved` until Rival's
- * operator decides. That makes `approved` a live working state, and these
- * three components are its console path: where the payout is (badge), pulling
- * it back (cancel), and re-submitting a refused submission (retry).
+ * `withdrawal-payout.tsx` is the console path of an automated payout — any
+ * provider's since backend 0173 (Rival's alone before): where the payout is
+ * (badge), pulling it back (cancel), and resending one a person decided should
+ * go again (resend). An approval on an automated route SENDS the payout and
+ * parks the row in `approved` until the provider decides (DECISIONS D-66).
  */
 import {
   CancelWithdrawalDialog,
   isRetryableSubmission,
-  RetryRivalButton,
-  RivalStatusBadge,
-} from '@/components/transactions/withdrawal-rival';
+  PayoutStatusBadge,
+  ResendPayoutButton,
+} from '@/components/transactions/withdrawal-payout';
 import { providerDisplayName } from '@/components/payment-providers/provider-labels';
 import { t, type MessageKey } from '@/lib/i18n';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -245,18 +243,42 @@ function TransactionsPageContent() {
   const confirmApprove = async (row: WithdrawalRow) => {
     // Name, else email, else the Portal ID — never "{name}" when both are masked.
     const name = clientLabel(row.user);
+    const plan = row.payoutPlan;
+    /*
+     * NOBODY CAN PAY IT RIGHT NOW (backend 0173): its network is switched off,
+     * or its provider is off and waits rather than letting the desk pay. The
+     * API refuses the approval with this same sentence; saying it here, before
+     * the click, spares the operator a confirm that can only fail.
+     */
+    if (plan?.payer === 'paused') {
+      await confirm({
+        title: t('withdrawals.cannotPayTitle'),
+        description: plan.reason ?? t('withdrawals.cannotPayGeneric'),
+        confirmLabel: t('common.close'),
+      });
+      return;
+    }
+    const provider = plan?.provider ?? providerDisplayName(row.providerCode);
     const ok = await confirm({
       title: t('withdrawals.confirmApproveTitle', {
         amount: formatMoney(row.amount, row.currency),
       }),
-      // Who pays it if approved now (backend 0168): the provider for an
-      // automated payout it can take, else the desk, in one step.
+      /*
+       * Who pays it if approved now: the provider for an automated payout it
+       * can take — with what it will be asked to move and its fee, when the
+       * provider deducts one (backend 0173) — else the desk, in one step.
+       */
       description:
-        row.paidBy === 'provider'
-          ? t('withdrawals.confirmApproveProvider', {
-              name,
-              provider: providerDisplayName(row.providerCode),
-            })
+        plan?.payer === 'provider'
+          ? plan.fee && plan.gross
+            ? t('withdrawals.confirmApproveQuote', {
+                name,
+                provider,
+                gross: formatMoney(plan.gross, row.currency),
+                net: formatMoney(plan.net ?? row.amount, row.currency),
+                fee: formatMoney(plan.fee, row.currency),
+              })
+            : t('withdrawals.confirmApproveProvider', { name, provider })
           : t('withdrawals.confirmApprove', { name }),
       confirmLabel: t('withdrawals.approve'),
     });
@@ -488,7 +510,7 @@ function TransactionsPageContent() {
      * only a person reading both can settle. Never on the retryable case:
      * clearing that flag would hide a payout that was never sent.
      */
-    if (w.rivalNeedsAttention && canSettle && !isRetryableSubmission(w)) {
+    if (w.needsAttention && canSettle && !isRetryableSubmission(w)) {
       items.push({
         label: t('attention.resolve'),
         icon: CheckCircle2,
@@ -638,7 +660,7 @@ function TransactionsPageContent() {
           {/* Where the payout is INSIDE the awaiting state: submitted to Rival,
               outcome-unknown, or refused-needs-a-human. Renders nothing on any
               other row. */}
-          <RivalStatusBadge w={w} />
+          <PayoutStatusBadge w={w} />
         </>
       ),
     },
@@ -681,7 +703,7 @@ function TransactionsPageContent() {
        * webhook/reconciler, and a manual settle button beside an in-flight
        * payout is an invitation to double-record it.
        *
-       * `RetryRivalButton` renders OUTSIDE the menu and only on the narrow
+       * `ResendPayoutButton` renders OUTSIDE the menu and only on the narrow
        * needs-attention case where the first submission definitively failed —
        * an inline button, because a row needing a human is the one row where
        * the action should not hide behind a menu.
@@ -703,7 +725,7 @@ function TransactionsPageContent() {
 
         return (
           <div className="flex items-center justify-end gap-2">
-            <RetryRivalButton w={w} disabled={busy} onDone={invalidate} />
+            <ResendPayoutButton w={w} disabled={busy} onDone={invalidate} />
             <RowActions
               items={items}
               busy={busy}
@@ -763,7 +785,7 @@ function TransactionsPageContent() {
         open={opened}
         columns={columns}
         actions={actionsFor}
-        extraActions={(w) => <RetryRivalButton w={w} disabled={busy} onDone={invalidate} />}
+        extraActions={(w) => <ResendPayoutButton w={w} disabled={busy} onDone={invalidate} />}
       />
 
       <div className="shrink-0">
@@ -888,7 +910,7 @@ function TransactionsPageContent() {
             direction: 'withdrawal',
             amount: resolveTarget.amount,
             currency: resolveTarget.currency,
-            reason: resolveTarget.rivalAttentionReason,
+            reason: resolveTarget.attentionReason,
             portalId: resolveTarget.user.portalId,
           }
         }

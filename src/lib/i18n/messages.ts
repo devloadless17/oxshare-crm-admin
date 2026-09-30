@@ -1975,9 +1975,9 @@ export const messages = {
   'jobs.label.payments.resumeTransfers': 'Resume stuck transfers',
   'jobs.desc.payments.resumeTransfers':
     'Retries wallet ↔ MT5 transfers that stopped halfway, e.g. while the bridge was down.',
-  'jobs.label.rival.reconcile': 'Payment gateway check',
-  'jobs.desc.rival.reconcile':
-    'Asks the payment gateway about payments still waiting for an answer.',
+  'jobs.label.payments.reconcileProviders': 'Payment provider check',
+  'jobs.desc.payments.reconcileProviders':
+    'Asks every payment provider about deposits and payouts still waiting for an answer, and sends payouts that were paused once they can go.',
   'jobs.label.payments.foldMovementTotals': 'Financial totals',
   'jobs.desc.payments.foldMovementTotals': 'Keeps the Financial list totals and counts up to date.',
   'jobs.label.wallet.reconcile': 'Wallet reconciliation',
@@ -2285,21 +2285,27 @@ export const messages = {
   // ── Payments (Rival) tab ──────────────────────────────────────────────────
 
   // ── The withdrawal desk's Rival leg ───────────────────────────────────────
-  'withdrawals.rivalNeedsAttention': 'Needs attention',
-  'withdrawals.rivalAwaiting': 'Awaiting Rival',
-  'withdrawals.rivalReconciling': 'Submission reconciling — do not resubmit',
-  'withdrawals.retrySubmission': 'Retry submission',
-  'withdrawals.retrySucceeded': 'Submission retried — watch the row for the outcome.',
-  'withdrawals.retryFailed': 'Could not retry the submission.',
+  'withdrawals.payoutNeedsAttention': 'Needs attention',
+  'withdrawals.payoutAwaiting': 'Awaiting the provider',
+  'withdrawals.payoutReconciling': 'Outcome being checked — do not resend',
+  'withdrawals.payoutPaused': 'Paused',
+  'withdrawals.resendPayout': 'Resend payout',
+  'withdrawals.resendSucceeded': 'Payout resent — watch the row for the outcome.',
+  'withdrawals.resendFailed': 'Could not resend the payout.',
+  'withdrawals.cannotPayTitle': 'This payout cannot be sent right now',
+  'withdrawals.cannotPayGeneric':
+    'Its provider cannot pay it at the moment. Cancel it, or approve it once the provider is back.',
+  'withdrawals.detailsProviderFee': 'Sent by the provider',
+  'withdrawals.detailsProviderFeeValue': '{sent} (its fee {fee}, paid by the company)',
   'withdrawals.cancelAction': 'Cancel',
   'withdrawals.cancelTitle': 'Cancel this approved withdrawal?',
   'withdrawals.cancelIntro':
     'This pulls back {amount} {currency} approved for {email} and refunds their wallet. They ' +
     'were told "approved", so the reason below is emailed to them.',
   'withdrawals.cancelSubmittedNote':
-    'This payout was already submitted to Rival. It will be cancelled there first — if Rival ' +
-    'is already paying it, cancellation is refused and nothing changes; act on the outcome ' +
-    'instead.',
+    'This payout was already sent to its provider. Where the provider can recall it, it is ' +
+    'cancelled there first; if it is already being paid, or cannot be recalled, cancellation ' +
+    'is refused and nothing changes — act on the outcome instead.',
   'withdrawals.cancelNote': 'Note (optional if a reason is selected)',
   'withdrawals.cancelling': 'Cancelling…',
   'withdrawals.confirmCancellation': 'Cancel the withdrawal',
@@ -2838,6 +2844,16 @@ export const messages = {
   'attention.noteHint':
     'Saved to the audit log with your name. This moves no money — make any correction first.',
   'attention.noteTooShort': '{count} more {count:character|characters}',
+  'attention.finishLegend': 'What should happen to this deposit?',
+  'attention.creditReceived': 'Credit what arrived',
+  'attention.creditReceivedHint':
+    'Credits the amount the provider reported as received, rounded down to the wallet’s cents. The reason is kept with the credit.',
+  'attention.closeNoCredit': 'Close without credit',
+  'attention.closeNoCreditHint':
+    'Nothing is credited and the deposit is closed. Use it when the money was returned or never belonged to this deposit.',
+  'attention.resolveOnlyHint': 'Records what you found and clears the flag. No money moves.',
+  'attention.creditedReceived': '{amount} credited to the client.',
+  'attention.closedNoCredit': 'Deposit closed without credit.',
   'attention.confirm': 'Mark resolved',
   'attention.resolving': 'Resolving…',
   'attention.resolved': 'Marked as resolved — the task is cleared for every admin',
@@ -3199,6 +3215,26 @@ export const messages = {
   'providers.availability.disabled': 'Switched off',
   'providers.availability.provider_off': 'Hidden: provider is off',
   'providers.availability.provider_not_configured': 'Hidden: provider not set up',
+  'providers.availability.channel_off': 'Hidden: network switched off',
+  'providers.channelOn': 'On',
+  'providers.channelOff': 'Off',
+  'providers.channelOffSince': 'Switched off {date}: {reason}',
+  'providers.channelSwitchOff': 'Switch off',
+  'providers.channelSwitchOn': 'Switch on',
+  'providers.channelOffTitle': 'Switch off {channel} · {direction}?',
+  'providers.channelOffBody':
+    'Its methods ({count}) are hidden from clients, new requests on it are refused, and approving payouts on it pauses. Money already moving on it still finishes.',
+  'providers.channelOnTitle': 'Switch {channel} · {direction} back on?',
+  'providers.channelOnBody':
+    'Its methods ({count}) are offered to clients again, and payouts paused by the switch are sent.',
+  'providers.channelOffReason': 'Why — shown on the desk beside every paused payout',
+  'providers.channelOffReasonPlaceholder': 'e.g. Tron network congested; fees spiking',
+  'providers.channelOffDone': '{channel} · {direction} switched off.',
+  'providers.channelOnDone': '{channel} · {direction} switched back on.',
+  'providers.channelSwitchFailed': 'Could not change the channel.',
+  'providers.assetAtPar': 'Moves {asset}, credited and paid 1:1',
+  'providers.creditPolicy.exact': 'Credits the amount the link was made for',
+  'providers.creditPolicy.received': 'Credits what arrived, rounded down',
   'providers.paidBy.provider': 'Paid by {provider}',
   'providers.paidBy.desk': 'Paid by the desk',
   'providers.last24h': 'Last 24 hours',
@@ -3790,10 +3826,14 @@ export const messages = {
   // provider, which pays it; the row waits in "Awaiting payout" until it does.
   'withdrawals.confirmApproveProvider':
     '{provider} pays {name} once you approve. The request waits in Awaiting payout until {provider} confirms it; until then it can still be cancelled.',
+  // Backend 0173: a provider that takes its fee OUT of the amount is asked for
+  // more, so the client receives exactly what they withdrew.
+  'withdrawals.confirmApproveQuote':
+    '{provider} sends {gross} once you approve: {net} to {name}, and its {fee} fee is paid by the company. It is sent at once and cannot be recalled.',
   'withdrawals.detailsTitle': 'Withdrawal details',
   'withdrawals.detailsProviderRef': 'Provider reference',
-  'withdrawals.detailsRivalRef': 'Provider reference',
-  'financial.rivalRefTitle': 'Provider reference',
+  'withdrawals.detailsProviderPayoutRef': 'Provider payout id',
+  'financial.providerRefTitle': 'Provider reference',
   'withdrawals.detailsReviewed': 'Reviewed',
   'withdrawals.detailsSettled': 'Settled',
   /*
@@ -4037,13 +4077,22 @@ export const messages = {
   'notifications.taskDepositAnomalyPaidAfterFailure':
     'The payment platform reports {amount} paid on a deposit already marked failed. No wallet was credited.',
   'notifications.taskDepositAnomalyGeneric': 'A deposit of {amount} needs reconciling.',
+  'notifications.taskDepositAnomalyWrongAsset':
+    'The provider reports a different network or asset for this {amount} deposit. Nothing was credited.',
+  'notifications.taskDepositAnomalyOverLimit':
+    '{amount} was credited above the method’s maximum — review it for compliance.',
+  'notifications.taskDepositAnomalyUnconfirmed':
+    'Money arrived on this {amount} deposit’s link, but the provider has not confirmed it. Nothing was credited.',
   'notifications.taskApproveWithdrawal': 'Approve withdrawal',
   'notifications.taskApproveWithdrawalBody': '{amount} requested',
   'notifications.taskPayoutRefused': 'Payout refused — retry or cancel',
   'notifications.taskPayoutRefusedBody': '{amount} · {reason}',
+  'notifications.taskPayoutRefusedProviderBody': '{amount} · {provider}: {reason}',
   'notifications.taskPayoutReconcile': 'Reconcile payout',
   'notifications.taskPayoutReconcileBody':
     'The payment platform and the CRM disagree about whether this payout moved.',
+  'notifications.taskPayoutReconcileProviderBody':
+    '{provider} and the CRM disagree about whether this payout moved.',
   'notifications.taskReviewKyc': 'Review KYC',
   'notifications.taskReviewKycBody': 'A new identity submission is waiting for review.',
   'notifications.taskReviewKycAgain': 'Review KYC resubmission',

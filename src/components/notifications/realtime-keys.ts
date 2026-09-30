@@ -49,6 +49,9 @@ const TASK_DATA: Record<AdminNotificationKind, readonly AdminQueryKey[]> = {
   // The anomaly flag shows on Financial's row; the deposit desk lists the row.
   'admin.deposit.attention': DEPOSIT_DATA,
   'admin.withdrawal.requested': WITHDRAWAL_DATA,
+  'withdrawal.payout_submit_failed': WITHDRAWAL_DATA,
+  'withdrawal.payout_attention': WITHDRAWAL_DATA,
+  // Rival's names for the two above, on rows raised before backend 0173.
   'withdrawal.rival_submit_failed': WITHDRAWAL_DATA,
   'withdrawal.rival_attention': WITHDRAWAL_DATA,
   'admin.kyc.submitted': KYC_DATA,

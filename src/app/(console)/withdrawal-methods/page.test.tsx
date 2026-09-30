@@ -68,6 +68,7 @@ function method(over: Partial<WithdrawalMethod> = {}): WithdrawalMethod {
     providerCode: 'rival',
     channelCode: 'whish',
     paidBy: 'provider',
+    availability: 'offered',
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
     ...over,

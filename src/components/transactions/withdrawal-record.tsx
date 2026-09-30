@@ -9,7 +9,7 @@ import type { OpenedRecordState } from '@/hooks/use-open-record';
 import type { WithdrawalRow, WithdrawalState } from '@/lib/api/admin';
 import { t, type MessageKey } from '@/lib/i18n';
 import { formatMoney } from '@/lib/money';
-import { RivalBadge } from './withdrawal-rival';
+import { PayoutBadge } from './withdrawal-payout';
 
 /**
  * A withdrawal's state in the desk's words and colours — ONE map, shared by the
@@ -122,9 +122,14 @@ export function WithdrawalRecordSheet({
               {w.providerNote}
             </RecordCallout>
           )}
-          {w.rivalNeedsAttention && w.rivalAttentionReason && (
-            <RecordCallout tone="warning" label={t('withdrawals.rivalNeedsAttention')}>
-              {w.rivalAttentionReason}
+          {w.needsAttention && w.attentionReason && (
+            <RecordCallout tone="warning" label={t('withdrawals.payoutNeedsAttention')}>
+              {w.attentionReason}
+            </RecordCallout>
+          )}
+          {w.state === 'pending' && w.payoutPlan?.payer === 'paused' && w.payoutPlan.reason && (
+            <RecordCallout tone="warning" label={t('withdrawals.payoutPaused')}>
+              {w.payoutPlan.reason}
             </RecordCallout>
           )}
         </>
@@ -140,14 +145,26 @@ export function WithdrawalRecordSheet({
           ) : null,
         },
         {
-          label: t('withdrawals.detailsRivalRef'),
-          value: w.rivalWithdrawalId ? (
-            <span className="break-all font-mono">{w.rivalWithdrawalId}</span>
+          label: t('withdrawals.detailsProviderPayoutRef'),
+          value: w.providerPayoutId ? (
+            <span className="break-all font-mono">{w.providerPayoutId}</span>
           ) : null,
         },
         {
           label: t('withdrawals.detailsPayout'),
-          value: w.state === 'approved' && !w.rivalNeedsAttention ? <RivalBadge w={w} /> : null,
+          value: w.state === 'approved' && !w.needsAttention ? <PayoutBadge w={w} /> : null,
+        },
+        {
+          // What the provider was asked to move and kept (0173) — the company's
+          // cost of the payout, beside what the client received.
+          label: t('withdrawals.detailsProviderFee'),
+          value:
+            w.providerRequestAmount && w.providerFee
+              ? t('withdrawals.detailsProviderFeeValue', {
+                  sent: formatMoney(w.providerRequestAmount, w.currency),
+                  fee: formatMoney(w.providerFee, w.currency),
+                })
+              : null,
         },
         {
           // WHO, then when — the id is on every decision; the name is left out

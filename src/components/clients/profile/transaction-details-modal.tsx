@@ -69,9 +69,9 @@ export function TransactionDetailsModal({
               <span className="break-all font-mono">{row.providerRef}</span>
             </Detail>
           )}
-          {row.rivalExternalId && (
+          {row.providerPaymentId && (
             <Detail label={t('clientProfile.txProviderId')}>
-              <span className="break-all font-mono">{row.rivalExternalId}</span>
+              <span className="break-all font-mono">{row.providerPaymentId}</span>
             </Detail>
           )}
           {row.tradingAccountId && (

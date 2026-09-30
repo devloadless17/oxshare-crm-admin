@@ -268,6 +268,8 @@ export type DepositDecision = components['schemas']['DepositDecisionDto'];
 export type TransferRow = components['schemas']['TransferDto'];
 /** "Mark resolved" on a payment only a person could settle — the flag, cleared. */
 export type AttentionResolved = components['schemas']['AttentionResolvedDto'];
+export type FlaggedDepositFinished = components['schemas']['FlaggedDepositFinishedDto'];
+export type PayoutPlan = components['schemas']['PayoutPlanDto'];
 export type StuckTransfers = components['schemas']['StuckTransfersDto'];
 export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
 export type TransactionsSummary = components['schemas']['AdminTransactionsSummaryDto'];
@@ -2217,15 +2219,34 @@ export const adminApi = {
   },
 
   /**
-   * Retry a payout submission whose first attempt definitively failed (the
-   * row shows "needs attention"). A submission whose outcome is still UNKNOWN
-   * is deliberately not retried by the API — Rival's payout create has no
-   * idempotency key, so a blind retry is a double payment.
+   * RESEND a payout a person must decide (backend 0173, every provider): the
+   * provider refused it outright, or was proven to hold nothing for it after
+   * the adoption window. A payout whose outcome is still UNKNOWN is
+   * deliberately not resent by the API — no provider takes an idempotency key
+   * on payouts, so a blind resend is a double payment.
    */
-  async retryRivalSubmission(id: string, key: string): Promise<WithdrawalRow> {
+  async resendPayout(id: string, key: string): Promise<WithdrawalRow> {
     const { data } = await apiClient.post<WithdrawalRow>(
-      `/admin/withdrawals/${id}/rival-submit`,
+      `/admin/withdrawals/${id}/provider-submit`,
       {},
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * FINISH A FLAGGED HOSTED DEPOSIT (backend 0173): `credit` credits what the
+   * provider reported arrived (rounded down to the wallet's places); `close`
+   * credits nothing. The reason is the audit record of the decision.
+   */
+  async finishFlaggedDeposit(
+    id: string,
+    body: { decision: 'credit' | 'close'; reason: string },
+    key: string,
+  ): Promise<FlaggedDepositFinished> {
+    const { data } = await apiClient.patch<FlaggedDepositFinished>(
+      `/admin/transactions/${id}/attention/finish-deposit`,
+      body,
       idempotent(key),
     );
     return data;
@@ -2443,6 +2464,23 @@ export const adminApi = {
   async updatePaymentProvider(code: string, body: UpdatePaymentProvider): Promise<PaymentProvider> {
     const { data } = await apiClient.put<PaymentProvider>(
       `/admin/payment-providers/${encodeURIComponent(code)}`,
+      body,
+    );
+    return data;
+  },
+
+  /**
+   * Switch one of a provider's channels on or off in one direction (backend
+   * 0173). Off needs a reason; money already moving on it still finishes.
+   */
+  async setProviderChannel(
+    code: string,
+    direction: 'deposit' | 'payout',
+    channel: string,
+    body: { enabled: boolean; reason?: string },
+  ): Promise<PaymentProvider> {
+    const { data } = await apiClient.put<PaymentProvider>(
+      `/admin/payment-providers/${encodeURIComponent(code)}/channels/${direction}/${encodeURIComponent(channel)}`,
       body,
     );
     return data;

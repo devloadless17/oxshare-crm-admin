@@ -58,6 +58,8 @@ const AVAILABILITY_VARIANT: Record<
   disabled: 'default',
   provider_off: 'warning',
   provider_not_configured: 'warning',
+  // Backend 0173: its network is switched off in this direction.
+  channel_off: 'warning',
 };
 
 export function AvailabilityBadge({

@@ -192,22 +192,23 @@ export function transactionColumns({
             </span>
           )}
           {/*
-            The payment platform's OWN id, under ours.
+            The payment provider's OWN id, under ours (`providerPaymentId`,
+            backend 0173 — every provider, Rival's `rivalExternalId` before).
             A support ticket about a payment needs BOTH: theirs is the one
-            Rival looks up directly, ours is what confirms it is the right
-            row. It was stored from day one of the integration and rendered
+            the provider looks up directly, ours is what confirms it is the
+            right row. It was stored from day one of the integration and rendered
             nowhere, so an operator had half the pair and an engineer had to
             run SQL for the other half.
             `title` carries a prefix because two bare monospace strings
             stacked are indistinguishable at 11px.
           */}
-          {row.rivalExternalId && (
+          {row.providerPaymentId && (
             <span
               className="block max-w-full truncate font-mono text-[11px] text-muted-foreground/70"
-              title={`${t('financial.rivalRefTitle')}: ${row.rivalExternalId}`}
+              title={`${t('financial.providerRefTitle')}: ${row.providerPaymentId}`}
               data-external-ref=""
             >
-              {row.rivalExternalId}
+              {row.providerPaymentId}
             </span>
           )}
           {/*

@@ -5,6 +5,8 @@ import { useMutation } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { adminApi } from '@/lib/api/admin';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { formatMoney } from '@/lib/money';
 import { toastSuccess } from '@/lib/toast';
@@ -23,7 +25,13 @@ export interface AttentionTarget {
   /** WHY it was flagged, as the system wrote it. */
   reason?: string | null;
   portalId: number;
+  /** The row's state and the provider's id — a hosted deposit can be FINISHED here (0173). */
+  state?: string;
+  providerPaymentId?: string | null;
 }
+
+/** What the dialog does: record a finding, or finish a flagged hosted deposit (backend 0173). */
+type Choice = 'resolve' | 'credit' | 'close';
 
 /*
  * ⚠️ THE SAME BOUNDS THE API ENFORCES — `ResolveAttentionDto` is
@@ -33,6 +41,8 @@ export interface AttentionTarget {
  */
 const NOTE_MIN = 10;
 const NOTE_MAX = 500;
+/** Finishing a deposit needs a reason, any length (`FinishFlaggedDepositDto`). */
+const FINISH_MIN = 1;
 
 /**
  * "Mark resolved" — the finish line of a payment only a person could settle.
@@ -51,6 +61,17 @@ const NOTE_MAX = 500;
  * A refusal stays INLINE with the dialog open: the likeliest one is "somebody
  * resolved it while you were looking", which is a sentence to read, not a toast
  * to miss.
+ *
+ * ## A flagged HOSTED deposit can also be FINISHED here (backend 0173)
+ *
+ * A deposit paid on a provider's page that only a person can settle — an
+ * amount a fixed link did not expect, money the provider did not confirm, a
+ * payment reported after the row failed — could never be finished before:
+ * the deposit desk refuses hosted deposits, and "Mark resolved" moves no
+ * money. So for one still open (pending, or failed as expired) the dialog
+ * offers the two decisions that DO: credit what the provider reported arrived
+ * (`deposits.approve`), or close it with no credit (`deposits.reject`) — each
+ * with the reason as its audit record.
  */
 export function ResolveAttentionDialog({
   target,
@@ -62,8 +83,23 @@ export function ResolveAttentionDialog({
   onClose: () => void;
   onDone: () => unknown;
 }) {
+  const { admin } = useAdmin();
   const [note, setNote] = React.useState('');
+  const [choice, setChoice] = React.useState<Choice>('resolve');
   const [error, setError] = React.useState<string | null>(null);
+
+  const finishable =
+    target !== null &&
+    target.direction === 'deposit' &&
+    Boolean(target.providerPaymentId) &&
+    (target.state === 'pending' || target.state === 'failure');
+  const choices: Choice[] = finishable
+    ? [
+        ...(hasPermission(admin, 'deposits.approve') ? (['credit'] as const) : []),
+        ...(hasPermission(admin, 'deposits.reject') ? (['close'] as const) : []),
+        'resolve',
+      ]
+    : ['resolve'];
 
   // Cleared when the target changes — a note written about one client's
   // payment must never carry over to the next row opened.
@@ -73,19 +109,39 @@ export function ResolveAttentionDialog({
     lastId.current = targetId;
     if (note !== '') setNote('');
     if (error !== null) setError(null);
+    if (choice !== 'resolve') setChoice('resolve');
   }
 
   const resolve = useMutation({
-    mutationFn: (payment: AttentionTarget) => adminApi.resolveAttention(payment.id, note.trim()),
-    onSuccess: async () => {
+    mutationFn: async (payment: AttentionTarget) => {
+      if (choice === 'resolve') {
+        await adminApi.resolveAttention(payment.id, note.trim());
+        return null;
+      }
+      return adminApi.finishFlaggedDeposit(
+        payment.id,
+        { decision: choice, reason: note.trim() },
+        `finish-deposit:${payment.id}`,
+      );
+    },
+    onSuccess: async (finished) => {
       onClose();
       await onDone();
-      toastSuccess(t('attention.resolved'));
+      toastSuccess(
+        finished === null
+          ? t('attention.resolved')
+          : finished.state === 'success'
+            ? t('attention.creditedReceived', {
+                amount: formatMoney(finished.amount, finished.currency),
+              })
+            : t('attention.closedNoCredit'),
+      );
     },
     onError: (e: unknown) => setError(apiErrorMessage(e, t('attention.resolveFailed'))),
   });
 
   const trimmed = note.trim().length;
+  const minimum = choice === 'resolve' ? NOTE_MIN : FINISH_MIN;
 
   return (
     <Modal
@@ -117,10 +173,16 @@ export function ResolveAttentionDialog({
             type="button"
             onClick={() => target && resolve.mutate(target)}
             aria-busy={resolve.isPending}
-            disabled={resolve.isPending || trimmed < NOTE_MIN}
+            disabled={resolve.isPending || trimmed < minimum}
             className="h-9 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
           >
-            {resolve.isPending ? t('attention.resolving') : t('attention.confirm')}
+            {resolve.isPending
+              ? t('attention.resolving')
+              : choice === 'credit'
+                ? t('attention.creditReceived')
+                : choice === 'close'
+                  ? t('attention.closeNoCredit')
+                  : t('attention.confirm')}
           </button>
         </>
       }
@@ -138,6 +200,43 @@ export function ResolveAttentionDialog({
             </p>
           </div>
         </div>
+
+        {choices.length > 1 && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-xs font-semibold">{t('attention.finishLegend')}</legend>
+            {choices.map((option) => (
+              <label key={option} className="flex items-start gap-2 text-xs">
+                <input
+                  type="radio"
+                  name="attention-choice"
+                  value={option}
+                  checked={choice === option}
+                  onChange={() => {
+                    setChoice(option);
+                    setError(null);
+                  }}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="font-semibold text-foreground">
+                    {option === 'credit'
+                      ? t('attention.creditReceived')
+                      : option === 'close'
+                        ? t('attention.closeNoCredit')
+                        : t('attention.confirm')}
+                  </span>
+                  <span className="block text-muted-foreground">
+                    {option === 'credit'
+                      ? t('attention.creditReceivedHint')
+                      : option === 'close'
+                        ? t('attention.closeNoCreditHint')
+                        : t('attention.resolveOnlyHint')}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
 
         <div>
           <label htmlFor="resolve-attention-note" className="text-xs font-semibold">
@@ -158,9 +257,9 @@ export function ResolveAttentionDialog({
           <div className="mt-1 flex items-start justify-between gap-3">
             <p className="text-[11px] text-muted-foreground">{t('attention.noteHint')}</p>
             {/* The shortfall, only while it is why the button will not press. */}
-            {trimmed > 0 && trimmed < NOTE_MIN && (
+            {trimmed > 0 && trimmed < minimum && (
               <p className="shrink-0 text-[11px] font-medium text-muted-foreground">
-                {t('attention.noteTooShort', { count: NOTE_MIN - trimmed })}
+                {t('attention.noteTooShort', { count: minimum - trimmed })}
               </p>
             )}
           </div>

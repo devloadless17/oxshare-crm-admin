@@ -20,6 +20,7 @@ import {
 import { ProviderConnectionForm } from '@/components/payment-providers/provider-connection-form';
 import { ProviderWebhookCard } from '@/components/payment-providers/provider-webhook-card';
 import { ProviderEvents } from '@/components/payment-providers/provider-events';
+import { ChannelSwitch } from '@/components/payment-providers/channel-switch';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -136,6 +137,23 @@ function ProviderDetail({
                 {destinationLabel(channel) && (
                   <p className="text-muted-foreground">{destinationLabel(channel)}</p>
                 )}
+                {/* What moves at the provider when it is not the wallet
+                    currency, and what a hosted deposit credits (backend 0173). */}
+                {channel.assetLabel && (
+                  <p className="text-muted-foreground">
+                    {t('providers.assetAtPar', { asset: channel.assetLabel })}
+                  </p>
+                )}
+                {channel.creditPolicy && (
+                  <p className="text-muted-foreground">
+                    {t(
+                      channel.creditPolicy === 'received'
+                        ? 'providers.creditPolicy.received'
+                        : 'providers.creditPolicy.exact',
+                    )}
+                  </p>
+                )}
+                <ChannelSwitch provider={provider} channel={channel} canManage={canManage} />
               </li>
             ))}
           </ul>

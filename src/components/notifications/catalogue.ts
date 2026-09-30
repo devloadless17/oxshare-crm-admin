@@ -130,6 +130,14 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
           return { key: 'notifications.taskDepositAnomalyReversed', vars };
         case 'paid_after_failure':
           return { key: 'notifications.taskDepositAnomalyPaidAfterFailure', vars };
+        // Backend 0173 — providers that move another asset, credit what
+        // arrived, or confirm late.
+        case 'wrong_asset':
+          return { key: 'notifications.taskDepositAnomalyWrongAsset', vars };
+        case 'over_limit':
+          return { key: 'notifications.taskDepositAnomalyOverLimit', vars };
+        case 'unconfirmed_funds':
+          return { key: 'notifications.taskDepositAnomalyUnconfirmed', vars };
         default:
           return { key: 'notifications.taskDepositAnomalyGeneric', vars };
       }
@@ -145,6 +153,33 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
     }),
     href: (n) => opened('/transactions', n, 'transactionId'),
   },
+  /*
+   * A provider refused a payout, or provably never received it (backend 0173,
+   * every provider): resend or cancel. The provider is NAMED in the body.
+   */
+  'withdrawal.payout_submit_failed': {
+    titleKey: 'notifications.taskPayoutRefused',
+    alert: true,
+    body: (n) => ({
+      key: 'notifications.taskPayoutRefusedProviderBody',
+      vars: {
+        amount: amountOf(n),
+        provider: str(n.params['provider']) || '—',
+        reason: str(n.params['reason']) || '—',
+      },
+    }),
+    href: (n) => opened('/transactions', n, 'transactionId'),
+  },
+  'withdrawal.payout_attention': {
+    titleKey: 'notifications.taskPayoutReconcile',
+    alert: true,
+    body: (n) => ({
+      key: 'notifications.taskPayoutReconcileProviderBody',
+      vars: { provider: str(n.params['provider']) || '—' },
+    }),
+    href: (n) => opened('/transactions', n, 'transactionId'),
+  },
+  // Rival's names for the two above — the rows raised before backend 0173.
   'withdrawal.rival_submit_failed': {
     titleKey: 'notifications.taskPayoutRefused',
     alert: true,

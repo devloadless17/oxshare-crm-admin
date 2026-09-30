@@ -28,6 +28,12 @@ export function provider(over: Partial<PaymentProvider> = {}): PaymentProvider {
         destinationNetwork: null,
         destinationLabel: null,
         acceptsReceipt: false,
+        assetLabel: null,
+        creditPolicy: 'exact',
+        // On until an admin switches it off (backend 0173).
+        enabled: true,
+        offReason: null,
+        offSince: null,
       },
     ],
     methods: [
