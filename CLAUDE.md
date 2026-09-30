@@ -154,16 +154,23 @@ need your action" under one toast id when not), and no toast while the panel is 
 
 Three things outside the folder make that true, and each is easy to break without noticing:
 
-- **A task's link OPENS ITS RECORD** (`?open=<record id>`, 30 Sep 2026), never a search typed
-  into the desk's box on the reader's behalf — that filtered by CLIENT (every row of theirs), read
-  as something the reader had typed, and stayed on the queue after they moved on. Each desk calls
-  `useOpenedRecord(keys.<desk>.list, fetch)` and renders `<OpenedRecord>` above its normal,
-  unfiltered queue: the desk's own list endpoint asked for that one `id` (backend: every desk list
-  takes `?id=`, scoped and masked like any filter), drawn with the desk's own columns and actions,
-  in ANY state — so a colleague's decision shows as the outcome. It shows only the record the URL
-  names (the cache's previous record would put a live Approve on the wrong row), an empty page reads
-  "not available to you", and closing drops only `open` via `history.replaceState`. KYC keeps its
-  own page (`/kyc/<portalId>`). A new desk a task links to needs the same two lines.
+- **Every record has a detail panel, and a task's link opens it** (`?open=<record id>`, 30 Sep
+  2026). The world-class rule: a notification is just a link to the record's detail view. So a task
+  link, a click on a row and a pasted URL all open `components/record-sheet.tsx` over the desk's
+  normal, unfiltered queue, with the open row marked (`DataTable`'s `onRowClick` / `activeRowKey`).
+  It is BUILT from what the desk already defines: the body is the desk's own `columns` (label and
+  cell; the actions column is left out), the footer is the desk's own actions as real buttons — each
+  desk keeps ONE `actionsFor(row)` list that feeds both its row menu and the panel — so the panel
+  cannot lack a field or an action the table has. `status`, `callout` (a refusal reason, a provider
+  note, why it needs attention), `omit` and `extraFields` (what has no room in a cell) shape the
+  rest. Integrity: it shows ONLY the record the URL names (the cache's previous one would put a live
+  Approve on the wrong record), a missing / out-of-territory / malformed id reads "not available",
+  and the record's task is read once the record is on screen. The data is the desk's own list
+  endpoint asked for one `id` (backend: every desk list takes `?id=`, scoped and masked like any
+  filter). **Never deep-link by typing into a search box** (`?q=<client>`): it filtered by client,
+  read as the reader's own search and outlived the visit — the reported defect, retired on every
+  desk and on Financial's "Open in desk". A new desk a task links to needs `useOpenedRecord`, an
+  `actionsFor`, and `<RecordSheet>`. KYC keeps its own page (`/kyc/<portalId>`).
 - **Looking at the item reads its task.** The KYC review calls `useMarkSubjectRead('kyc', id)`
   once the submission has LOADED — never on a 403/404 — with the response's id (the client's Portal
   ID, their only identifier since backend 0159), not the URL's, which may carry `#` or spaces.

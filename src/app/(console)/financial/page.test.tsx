@@ -474,10 +474,9 @@ describe('the page never offers to move money', () => {
     renderWithProviders(<FinancialPage />);
 
     const link = await screen.findByRole('link', { name: /review on the desk/i });
-    expect(link).toHaveAttribute(
-      'href',
-      expect.stringContaining('/transactions?state=all&q=jane%40client.test'),
-    );
+    // It opens THIS withdrawal on the desk — never a search for the client's
+    // email, which listed every request of theirs and put the address in a URL.
+    expect(link).toHaveAttribute('href', '/transactions?open=tx-p');
   });
 
   it('melts the desk link into text for an operator without withdrawals.view', async () => {

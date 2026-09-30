@@ -460,9 +460,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
          * redraws once (`dashboard/chart-resize.ts`), while the sidebar still
          * slides over the space it leaves or takes.
          */
-        className={`flex min-w-0 flex-1 flex-col ${
-          collapsed ? 'lg:ps-20' : 'lg:ps-64'
-        }`}
+        className={`flex min-w-0 flex-1 flex-col ${collapsed ? 'lg:ps-20' : 'lg:ps-64'}`}
       >
         {/* Top Header */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur-md px-4 lg:px-8">

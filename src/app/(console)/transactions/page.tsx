@@ -22,7 +22,12 @@ import { ExportButton } from '@/components/export-button';
 import { PageLoader } from '@/components/ui/loader';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { useUrlSearch } from '@/hooks/use-url-search';
-import { OpenedRecord, useOpenedRecord } from '@/components/notifications/opened-record';
+import { useOpenedRecord } from '@/components/record-sheet';
+import {
+  WITHDRAWAL_STATE_META,
+  WithdrawalRecordSheet,
+  withdrawalRowLabel,
+} from '@/components/transactions/withdrawal-record';
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import {
@@ -65,46 +70,6 @@ import { ResolveAttentionDialog } from '@/components/financial/resolve-attention
  * verbatim. Never Number(), never parseFloat, never arithmetic — a float looks
  * right until the eighth decimal place.
  */
-
-const STATE_META: Record<WithdrawalState, { labelKey: MessageKey; classes: string }> = {
-  pending: {
-    labelKey: 'withdrawals.statePending',
-    classes: 'bg-warning/10 text-warning border-warning/20',
-  },
-  /*
-   * `approved` and `success` are DIFFERENT facts again, and the badge colour
-   * is the distinction that matters most on this screen.
-   *
-   * The two were collapsed into one green "Approved" when approval paid in one
-   * step — at that time `approved` was a state nothing new entered. The
-   * two-lifecycle split (D-66) reversed that: on the whish rail, approval
-   * submits the payout to Rival and the row WAITS here until Rival's operator
-   * pays or refuses. Money has left the client's wallet (debit is at request
-   * time) but has NOT reached the client — rendering that in the same green as
-   * "paid" is exactly the hesitation-free misread this queue cannot afford.
-   *
-   * So: amber "Awaiting payout" while Rival holds it, green "Approved" once
-   * settled. Historical desk rows stranded in `approved` (pre-split) render
-   * amber too — for them it is still the honest colour, because nothing on
-   * this console has confirmed the payout.
-   */
-  approved: {
-    labelKey: 'withdrawals.stateAwaitingPayout',
-    classes: 'bg-warning/10 text-warning border-warning/20',
-  },
-  success: {
-    labelKey: 'withdrawals.stateApproved',
-    classes: 'bg-success/10 text-success border-success/20',
-  },
-  rejected: {
-    labelKey: 'withdrawals.stateRejected',
-    classes: 'bg-destructive/10 text-destructive border-destructive/20',
-  },
-  failure: {
-    labelKey: 'withdrawals.stateFailed',
-    classes: 'bg-destructive/10 text-destructive border-destructive/20',
-  },
-};
 
 /**
  * The URL value that means "no state filter".
@@ -253,7 +218,6 @@ function TransactionsPageContent() {
 
   const [rejectTarget, setRejectTarget] = React.useState<WithdrawalRow | null>(null);
   /* The row whose details are open — always reachable. */
-  const [detailsTarget, setDetailsTarget] = React.useState<WithdrawalRow | null>(null);
   /* The `approved` row being cancelled — the rail lifecycle's "thought better
      of it" path (D-66). The dialog owns its own reason state. */
   const [cancelTarget, setCancelTarget] = React.useState<WithdrawalRow | null>(null);
@@ -474,6 +438,67 @@ function TransactionsPageContent() {
     [filter, debouncedSearch],
   );
 
+  /** What may be done to a withdrawal — the row menu and the detail panel alike. */
+  const actionsFor = (w: WithdrawalRow): RowAction[] => {
+    const items: RowAction[] = [];
+
+    if (w.state === 'approved' && canApprove) {
+      items.push({
+        label: t('withdrawals.cancelAction'),
+        icon: X,
+        destructive: true,
+        disabled: busy,
+        onSelect: () => setCancelTarget(w),
+      });
+    }
+
+    if (w.state === 'pending') {
+      /*
+       * Approving now PAYS — one step, straight to `success` — so it is
+       * gated on `withdrawals.settle`, the key that has always meant "may
+       * complete a payout". Rejecting returns the money and releases
+       * nothing, so it stays on `withdrawals.approve`. A holder of one key
+       * and not the other sees one item, which is a legitimate
+       * configuration rather than a missing grant.
+       */
+      if (canSettle) {
+        items.push({
+          label: t('withdrawals.approve'),
+          icon: Check,
+          disabled: busy,
+          onSelect: () => void confirmApprove(w),
+        });
+      }
+      if (canApprove) {
+        items.push({
+          label: t('withdrawals.reject'),
+          icon: X,
+          destructive: true,
+          disabled: busy,
+          onSelect: () => {
+            reject.reset();
+            setRejectTarget(w);
+          },
+        });
+      }
+    }
+
+    /*
+     * Mark resolved — a payout the two platforms disagree about, which
+     * only a person reading both can settle. Never on the retryable case:
+     * clearing that flag would hide a payout that was never sent.
+     */
+    if (w.rivalNeedsAttention && canSettle && !isRetryableSubmission(w)) {
+      items.push({
+        label: t('attention.resolve'),
+        icon: CheckCircle2,
+        disabled: busy,
+        onSelect: () => setResolveTarget(w),
+      });
+    }
+    return items;
+  };
+
   const columns: Column<WithdrawalRow>[] = [
     {
       header: t('withdrawals.colClient'),
@@ -586,9 +611,9 @@ function TransactionsPageContent() {
       cell: (w) => (
         <>
           <span
-            className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATE_META[w.state].classes}`}
+            className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${WITHDRAWAL_STATE_META[w.state].classes}`}
           >
-            {t(STATE_META[w.state].labelKey)}
+            {t(WITHDRAWAL_STATE_META[w.state].labelKey)}
           </span>
           {/* The reason and the provider reference are shown ON the row, not
               behind a click: "why was this refused" and "what payment was
@@ -662,68 +687,13 @@ function TransactionsPageContent() {
        * which writes `rejectionReason` on a failure too.
        */
       cell: (w) => {
-        const items: RowAction[] = [];
-
-        if (w.state === 'approved' && canApprove) {
-          items.push({
-            label: t('withdrawals.cancelAction'),
-            icon: X,
-            destructive: true,
-            disabled: busy,
-            onSelect: () => setCancelTarget(w),
-          });
-        }
-
-        if (w.state === 'pending') {
-          /*
-           * Approving now PAYS — one step, straight to `success` — so it is
-           * gated on `withdrawals.settle`, the key that has always meant "may
-           * complete a payout". Rejecting returns the money and releases
-           * nothing, so it stays on `withdrawals.approve`. A holder of one key
-           * and not the other sees one item, which is a legitimate
-           * configuration rather than a missing grant.
-           */
-          if (canSettle) {
-            items.push({
-              label: t('withdrawals.approve'),
-              icon: Check,
-              disabled: busy,
-              onSelect: () => void confirmApprove(w),
-            });
-          }
-          if (canApprove) {
-            items.push({
-              label: t('withdrawals.reject'),
-              icon: X,
-              destructive: true,
-              disabled: busy,
-              onSelect: () => {
-                reject.reset();
-                setRejectTarget(w);
-              },
-            });
-          }
-        }
-
-        /*
-         * Mark resolved — a payout the two platforms disagree about, which
-         * only a person reading both can settle. Never on the retryable case:
-         * clearing that flag would hide a payout that was never sent.
-         */
-        if (w.rivalNeedsAttention && canSettle && !isRetryableSubmission(w)) {
-          items.push({
-            label: t('attention.resolve'),
-            icon: CheckCircle2,
-            disabled: busy,
-            onSelect: () => setResolveTarget(w),
-          });
-        }
+        const items = actionsFor(w);
 
         items.push({
           label: t('withdrawals.detailsAction'),
           icon: Info,
           separatorBefore: items.length > 0,
-          onSelect: () => setDetailsTarget(w),
+          onSelect: () => opened.open(w.id),
         });
 
         return (
@@ -784,12 +754,11 @@ function TransactionsPageContent() {
         leaves behind — so a reader could not narrow the query that had just
         failed. Counts are simply absent until they arrive.
       */}
-      <OpenedRecord
+      <WithdrawalRecordSheet
         open={opened}
-        row={opened.query.data?.items[0]}
         columns={columns}
-        rowKey={(w) => w.id}
-        subjectKind="transaction"
+        actions={actionsFor}
+        extraActions={(w) => <RetryRivalButton w={w} disabled={busy} onDone={invalidate} />}
       />
 
       <div className="shrink-0">
@@ -844,6 +813,9 @@ function TransactionsPageContent() {
           columns={columns}
           rows={rows}
           rowKey={(w) => w.id}
+          onRowClick={(w) => opened.open(w.id)}
+          activeRowKey={opened.openId}
+          rowLabel={withdrawalRowLabel}
           dimmed={query.isFetching}
           empty={
             <EmptyState
@@ -1010,137 +982,6 @@ function TransactionsPageContent() {
           </p>
         )}
       </Modal>
-
-      {/*
-        DETAILS — the only way to read why a payout failed or was refused.
-
-        `rejectionReason` is one column serving both outcomes: `transactions
-        .service.ts` writes it when a reviewer rejects AND when a payout fails,
-        so the LABEL is chosen from `state` rather than from which field is set.
-        Calling it "rejection reason" on a failed row would attribute a provider
-        error to a person.
-      */}
-      <Modal
-        open={detailsTarget !== null}
-        onClose={() => setDetailsTarget(null)}
-        labelledBy="withdrawal-details-title"
-        title={t('withdrawals.detailsTitle')}
-      >
-        {detailsTarget && (
-          <dl className="space-y-3 text-xs">
-            <Detail label={t('withdrawals.colClient')}>
-              <ClientIdentity
-                name={clientName(detailsTarget.user.firstName, detailsTarget.user.lastName)}
-                email={detailsTarget.user.email}
-                portalId={detailsTarget.user.portalId}
-              />
-            </Detail>
-            <Detail label={t('withdrawals.colAmount')}>
-              {/* A STRING to the DOM — §6.1. Nothing here parses it. */}
-              <span className="tabular font-semibold">
-                {formatMoney(detailsTarget.amount, detailsTarget.currency)}
-              </span>
-            </Detail>
-            <Detail label={t('withdrawals.colState')}>
-              {/* Same pill the table cell renders, from the same map — two
-                  spellings of one state is how they drift apart. */}
-              <span
-                className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATE_META[detailsTarget.state].classes}`}
-              >
-                {t(STATE_META[detailsTarget.state].labelKey)}
-              </span>
-            </Detail>
-            <Detail label={t('withdrawals.colMethod')}>{detailsTarget.methodName}</Detail>
-            <Detail label={t('withdrawals.colDestination')}>
-              <span className="break-all font-mono">{detailsTarget.destination ?? '—'}</span>
-            </Detail>
-            <Detail label={t('withdrawals.detailsProviderRef')}>
-              <span className="break-all font-mono" data-external-ref="">
-                {detailsTarget.providerRef ?? '—'}
-              </span>
-            </Detail>
-            {/*
-              The payment platform's OWN id, beside ours.
-              A support ticket needs BOTH: theirs is what Rival looks up
-              directly, ours is what confirms it is the right row. Until this
-              existed the id was stored and shown nowhere, so an operator
-              chasing a payment had half the pair and had to ask an engineer
-              for the other half.
-              Rendered only when there is one — a manual desk credit went
-              through no rail, and an em dash there would imply something is
-              missing rather than absent by nature.
-            */}
-            {detailsTarget.rivalWithdrawalId && (
-              <Detail label={t('withdrawals.detailsRivalRef')}>
-                <span className="break-all font-mono">{detailsTarget.rivalWithdrawalId}</span>
-              </Detail>
-            )}
-            <Detail label={t('withdrawals.colRequested')}>
-              {formatDateTime(detailsTarget.requestedAt)}
-            </Detail>
-            {detailsTarget.reviewedAt && (
-              <Detail label={t('withdrawals.detailsReviewed')}>
-                {/*
-                  WHO, then when. The id has been recorded on every decision
-                  since this lifecycle existed and this screen showed only the
-                  timestamp — on a console that splits approve from settle so
-                  two people can be required, "Reviewed 12 Aug 14:32" named
-                  neither of them. The name is omitted rather than guessed when
-                  the administrator has since been deleted.
-                */}
-                {detailsTarget.reviewedByName
-                  ? `${detailsTarget.reviewedByName} · ${formatDateTime(detailsTarget.reviewedAt)}`
-                  : formatDateTime(detailsTarget.reviewedAt)}
-              </Detail>
-            )}
-            {detailsTarget.settledAt && (
-              <Detail label={t('withdrawals.detailsSettled')}>
-                {formatDateTime(detailsTarget.settledAt)}
-              </Detail>
-            )}
-
-            {/*
-              The reason, when there is one. Absent is not the same as empty:
-              a failure the provider gave no message for says so, rather than
-              rendering a blank row that reads as an unset field.
-            */}
-            {(detailsTarget.state === 'rejected' || detailsTarget.state === 'failure') && (
-              <div
-                className={`rounded-lg border p-3 ${
-                  detailsTarget.state === 'failure'
-                    ? 'border-destructive/30 bg-destructive/10'
-                    : 'border-warning/30 bg-warning/10'
-                }`}
-              >
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {detailsTarget.state === 'failure'
-                    ? t('withdrawals.detailsFailureReason')
-                    : t('withdrawals.detailsRejectionReason')}
-                </dt>
-                <dd className="mt-1 leading-relaxed">
-                  {detailsTarget.rejectionReason ?? (
-                    <span className="text-muted-foreground">
-                      {t('withdrawals.detailsNoReason')}
-                    </span>
-                  )}
-                </dd>
-              </div>
-            )}
-          </dl>
-        )}
-      </Modal>
-    </div>
-  );
-}
-
-/** One labelled row in the details modal. */
-function Detail({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-0.5">{children}</dd>
     </div>
   );
 }

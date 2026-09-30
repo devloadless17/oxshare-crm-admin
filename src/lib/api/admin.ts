@@ -2175,6 +2175,18 @@ export const adminApi = {
    * they found, and clearing the flag ends the admin task about it for every
    * admin (backend 0140). Refused once the payment is no longer flagged.
    */
+  /**
+   * Reverse a commission or rebate — the finish line of a clawback task.
+   *
+   * A pending accrual reverses for free; a confirmed one posts a compensating
+   * ledger entry against the wallet it credited. Reversing twice is a no-op.
+   * If the beneficiary has already spent the money the API REFUSES, with a
+   * sentence to show as it is: wallets cannot go negative.
+   */
+  async reverseIbAccrual(id: string, reason: string): Promise<void> {
+    await apiClient.post(`/admin/ib/accruals/${id}/reverse`, { reason });
+  },
+
   async resolveAttention(id: string, note: string): Promise<AttentionResolved> {
     const { data } = await apiClient.patch<AttentionResolved>(
       `/admin/transactions/${id}/attention/resolve`,

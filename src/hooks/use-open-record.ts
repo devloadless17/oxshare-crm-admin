@@ -12,34 +12,42 @@ export const OPEN_PARAM = 'open';
 const RECORD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * The record a deep link asked this desk to open, and how to put it away.
+ * The record open on this desk — named by the URL, so a notification, a row
+ * click, a pasted link and a refresh all open the same thing.
  *
  * A notification names a RECORD, so its link names the record — never a search
  * typed into the box on the reader's behalf, which filtered by client (showing
  * every row of theirs), looked like something the reader had typed, and stayed
  * on the queue after they moved on. The desk opens normally, unfiltered, with
- * this one record held above it.
+ * the record's detail panel over it.
  *
- * Closing drops only `open`: any filter the reader set since stays. A REPLACE,
- * not a push, so Back leaves the desk instead of re-opening what was just
- * closed — through the History API, which the App Router syncs into
- * `useSearchParams`, so this needs no router (a page rendered without one, as
- * in a unit test, still opens and closes).
+ * Opening and closing touch only `open`: any filter the reader set stays. Both
+ * REPLACE rather than push, so Back leaves the desk rather than stepping through
+ * every record looked at — through the History API, which the App Router syncs
+ * into `useSearchParams`, so this needs no router (a page rendered without one,
+ * as in a unit test, still opens and closes).
  */
-export function useOpenRecord(): { openId: string | undefined; close: () => void } {
+export function useOpenRecord(): {
+  openId: string | undefined;
+  open: (id: string) => void;
+  close: () => void;
+} {
   // Null outside the App Router — an absent URL opens nothing.
   const openId = useSearchParams()?.get(OPEN_PARAM) || undefined;
 
-  const close = useCallback(() => {
+  const write = useCallback((id: string | undefined) => {
     const url = new URL(window.location.href);
-    url.searchParams.delete(OPEN_PARAM);
+    if (id) url.searchParams.set(OPEN_PARAM, id);
+    else url.searchParams.delete(OPEN_PARAM);
     window.history.replaceState(null, '', url);
   }, []);
+  const open = useCallback((id: string) => write(id), [write]);
+  const close = useCallback(() => write(undefined), [write]);
 
-  return { openId, close };
+  return { openId, open, close };
 }
 
-/** The opened record's fetch, and what `OpenedRecord` needs to draw it. */
+/** The opened record's fetch, and what `RecordSheet` needs to draw it. */
 export interface OpenedRecordState<D> {
   openId: string | undefined;
   /**
@@ -48,6 +56,7 @@ export interface OpenedRecordState<D> {
    * holding "Opening the record…" on screen for seconds before failing.
    */
   malformed: boolean;
+  open: (id: string) => void;
   close: () => void;
   query: Resource<D>;
 }
@@ -62,11 +71,11 @@ export function useOpenedRecord<D>(
   listKey: (params: { id: string | undefined; limit: number }) => QueryKey,
   fetchList: (params: { id?: string; limit: number }, signal: AbortSignal) => Promise<D>,
 ): OpenedRecordState<D> {
-  const { openId, close } = useOpenRecord();
+  const { openId, open, close } = useOpenRecord();
   const malformed = openId !== undefined && !RECORD_ID.test(openId);
   const params = { id: openId, limit: 1 };
   const query = useResource(listKey(params), (signal) => fetchList(params, signal), {
     enabled: Boolean(openId) && !malformed,
   });
-  return { openId, malformed, close, query };
+  return { openId, malformed, open, close, query };
 }

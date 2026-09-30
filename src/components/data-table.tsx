@@ -135,6 +135,16 @@ export interface DataTableProps<T> {
    * it twice and then navigate away from the row it just opened.
    */
   onRowDoubleClick?: (row: T) => void;
+  /**
+   * Open the row's record — its detail panel. A single click anywhere on the
+   * row that did not land on a control inside it, or Enter/Space on the
+   * focused row; the row is then a keyboard stop, labelled by `rowLabel`.
+   */
+  onRowClick?: (row: T) => void;
+  /** Names a clickable row for assistive tech ("Open deposit of $11.11 from …"). */
+  rowLabel?: (row: T) => string;
+  /** The row whose record is open — marked so the reader keeps their place. */
+  activeRowKey?: string;
 
   // --- Row Selection Props ---
   selectable?: boolean;
@@ -238,6 +248,9 @@ export function DataTable<T>({
   loadingText = 'Loading table data...',
   fill = false,
   onRowDoubleClick,
+  onRowClick,
+  rowLabel,
+  activeRowKey,
   selectable = false,
   selectedRowKeys: controlledSelectedKeys,
   onSelectionChange,
@@ -760,13 +773,50 @@ export function DataTable<T>({
                 const key = rowKey(row);
                 const isSelected = selectedKeys.includes(key);
                 const isExpanded = expandedKeys.includes(key);
+                const isActive = activeRowKey === key;
+                // A click that landed on a control inside the row is the
+                // control's, never the row's.
+                const onControl = (target: EventTarget) =>
+                  (target as HTMLElement).closest(
+                    'a, button, input, select, textarea, label, [role="button"], [role="menuitem"]',
+                  ) !== null;
 
                 return (
                   <React.Fragment key={key}>
                     <tr
                       className={`group transition-colors ${
-                        isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/40'
-                      }`}
+                        isActive
+                          ? 'bg-primary/10 shadow-[inset_3px_0_0_var(--color-primary)]'
+                          : isSelected
+                            ? 'bg-primary/5 hover:bg-primary/10'
+                            : 'hover:bg-muted/40'
+                      } ${onRowClick ? 'cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring' : ''}`}
+                      data-active={isActive || undefined}
+                      data-row-key={onRowClick ? key : undefined}
+                      aria-current={isActive || undefined}
+                      tabIndex={onRowClick ? 0 : undefined}
+                      aria-label={onRowClick && rowLabel ? rowLabel(row) : undefined}
+                      onClick={
+                        onRowClick
+                          ? (event) => {
+                              if (onControl(event.target)) return;
+                              // A drag that selected text is a copy, not a click.
+                              if (window.getSelection()?.toString()) return;
+                              onRowClick(row);
+                            }
+                          : undefined
+                      }
+                      onKeyDown={
+                        onRowClick
+                          ? (event) => {
+                              if (event.target !== event.currentTarget) return;
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                onRowClick(row);
+                              }
+                            }
+                          : undefined
+                      }
                       onDoubleClick={
                         onRowDoubleClick
                           ? (event) => {

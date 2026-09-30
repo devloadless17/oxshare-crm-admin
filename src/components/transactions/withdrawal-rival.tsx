@@ -56,7 +56,8 @@ export function RivalStatusBadge({ w }: { w: WithdrawalRow }) {
   );
 }
 
-function RivalBadge({ w }: { w: WithdrawalRow }) {
+/** The payout platform's status alone — without the provider note beside it. */
+export function RivalBadge({ w }: { w: WithdrawalRow }) {
   if (w.state !== 'approved' && !w.rivalNeedsAttention) return null;
 
   if (w.rivalNeedsAttention) {
