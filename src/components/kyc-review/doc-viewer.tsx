@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { buildKycDocUrl } from '@/lib/kyc-doc-url';
 import { t } from '@/lib/i18n';
 
@@ -56,6 +56,15 @@ export function DocViewer({
    * browser ask again; the route ignores it.
    */
   const [retried, setRetried] = useState(false);
+  // Held so an unmount (the reviewer moved on) cancels the pending retry
+  // rather than setting state on a tile that is gone.
+  const retryTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
+    },
+    [],
+  );
   const [quarterTurns, setQuarterTurns] = useState(0);
   const isPdf = filePath?.toLowerCase().endsWith('.pdf');
   const url = buildKycDocUrl(filePath);
@@ -123,7 +132,7 @@ export function DocViewer({
               alt={label}
               onError={() => {
                 if (retried) setImgFailed(true);
-                else window.setTimeout(() => setRetried(true), 1500);
+                else retryTimer.current ??= window.setTimeout(() => setRetried(true), 1500);
               }}
               style={{ transform: `rotate(${quarterTurns * 90}deg)` }}
               className={`${turned ? 'max-h-full w-auto max-w-[14rem]' : 'max-h-full max-w-full'} object-contain transition-transform duration-200 hover:opacity-90`}
