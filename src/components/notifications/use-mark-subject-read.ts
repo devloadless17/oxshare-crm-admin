@@ -27,7 +27,14 @@ export function useMarkSubjectRead(
   const marked = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!subjectId || marked.current === subjectId) return;
+    // Put away (the record closed, another loading): the next showing of the
+    // same record is a new look and reads its task again — it may have been
+    // marked unread in the meantime.
+    if (!subjectId) {
+      marked.current = null;
+      return;
+    }
+    if (marked.current === subjectId) return;
     marked.current = subjectId;
     adminNotificationsApi
       .markSubjectRead(subjectKind, subjectId)

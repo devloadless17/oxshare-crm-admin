@@ -4872,6 +4872,11 @@ export interface components {
              * @example 2026-09-25T10:15:00.000Z
              */
             upTo?: string;
+            /**
+             * @description The `createdAt` of the oldest notification the reader was shown.
+             * @example 2026-09-20T08:00:00.000Z
+             */
+            from?: string;
         };
         NotificationsMarkAllReadResponseDto: {
             /** @description Rows marked read by this call. 0 when everything already was. */
@@ -9057,6 +9062,8 @@ export interface components {
             rivalNeedsAttention: boolean;
             /** @description WHY the row needs attention, in words the operator can act on. Written whenever rivalNeedsAttention flips true; null once a retry lands or the flag was never raised. */
             rivalAttentionReason?: string | null;
+            /** @description The payment provider OPERATOR’s own note on a refused payout (Rival adminNotes). Admin-only: the client is told a fixed sentence in rejectionReason. Null when none. */
+            providerNote?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
             userId?: number;
             walletId?: string;
@@ -9328,6 +9335,8 @@ export interface components {
             needsAttention: boolean;
             /** @description WHY it needs attention, in words the operator can act on. Null when not flagged. */
             attentionReason?: string | null;
+            /** @description The payment provider operator’s own note on a refused payout. Admin-only; the client sees a fixed sentence. Null on every other row. */
+            providerNote?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
         };
         AdminTransactionListResponseDto: {
@@ -11330,6 +11339,8 @@ export interface operations {
                 limit?: string;
                 sort?: "submittedAt" | "status" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
+                /** @description One application by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No status is implied. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -11434,6 +11445,8 @@ export interface operations {
                 kind?: "commission" | "rebate";
                 sort?: "createdAt" | "amount" | "status" | "depth";
                 order?: "asc" | "desc";
+                /** @description One accrual by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No status is implied. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -15557,6 +15570,8 @@ export interface operations {
                 /** @description amount sorts on the NUMERIC column in SQL — never cast, never in JS (§6). */
                 sort?: "createdAt" | "amount" | "state" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
+                /** @description One record by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No state is implied: a handled record is still returned. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -16031,6 +16046,8 @@ export interface operations {
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -16070,6 +16087,8 @@ export interface operations {
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -16108,6 +16127,8 @@ export interface operations {
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
+                id?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;

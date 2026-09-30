@@ -139,7 +139,7 @@ re-syncs every `BROADCAST_RESOURCES` entry. Do not narrow that back to the bell.
 ### The notification centre (`components/notifications/`)
 
 An admin notification is a TASK — "you must handle something" — and the files are cut by that:
-`catalogue.ts` (task-phrased copy, the deep link filtered to the client by Portal ID, outcome
+`catalogue.ts` (task-phrased copy, the deep link that opens the task's record, outcome
 labels; keyed by the backend's enum, so a new kind is a compile error), `notification-bell.tsx`
 (badge = inbox count, the socket), `notification-center.tsx` (Inbox / History and nothing else —
 **no category chips or status filters, on the owner's call**: a handful of tasks is read, not sorted
@@ -154,11 +154,16 @@ need your action" under one toast id when not), and no toast while the panel is 
 
 Three things outside the folder make that true, and each is easy to break without noticing:
 
-- **A task's link lands FILTERED**, by Portal ID. The deposit and IB desks keep their search box in
-  local state (typing through the router drops characters), so they SEED it from `?q=` through
-  `hooks/use-url-seeded-state.ts` — and RE-seed it on the next link: following a second task while
-  already on the desk is the same route, nothing remounts, and a once-only seed keeps the first
-  client's filter while the address bar names the second. A new desk a task links to needs the same.
+- **A task's link OPENS ITS RECORD** (`?open=<record id>`, 30 Sep 2026), never a search typed
+  into the desk's box on the reader's behalf — that filtered by CLIENT (every row of theirs), read
+  as something the reader had typed, and stayed on the queue after they moved on. Each desk calls
+  `useOpenedRecord(keys.<desk>.list, fetch)` and renders `<OpenedRecord>` above its normal,
+  unfiltered queue: the desk's own list endpoint asked for that one `id` (backend: every desk list
+  takes `?id=`, scoped and masked like any filter), drawn with the desk's own columns and actions,
+  in ANY state — so a colleague's decision shows as the outcome. It shows only the record the URL
+  names (the cache's previous record would put a live Approve on the wrong row), an empty page reads
+  "not available to you", and closing drops only `open` via `history.replaceState`. KYC keeps its
+  own page (`/kyc/<portalId>`). A new desk a task links to needs the same two lines.
 - **Looking at the item reads its task.** The KYC review calls `useMarkSubjectRead('kyc', id)`
   once the submission has LOADED — never on a 403/404 — with the response's id (the client's Portal
   ID, their only identifier since backend 0159), not the URL's, which may carry `#` or spaces.
@@ -166,8 +171,8 @@ Three things outside the folder make that true, and each is easy to break withou
   ("Mark resolved", a note of 10–500 characters, the DTO's bounds), opened from the Financial row
   menu (key by direction: `deposits.approve` / `withdrawals.settle`) and the withdrawal desk.
   Never on the desk's retryable case (`isRetryableSubmission`): clearing that flag would hide an
-  approved payout that was never sent. The Financial `attention=true` filter is where the deposit
-  task's link lands.
+  approved payout that was never sent. The deposit task opens its payment on Financial
+  (`?open=`); the `attention=true` filter lists every flagged one.
 
 **Deliberately not live**, and covered by tests that assert it stays that way:
 

@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { ProviderNote } from './provider-note';
 
 /**
  * The Rival leg of the withdrawal desk — badge, cancel, and retry.
@@ -47,6 +48,15 @@ import { keys } from '@/lib/query-keys';
  *                                  two platforms disagree about the outcome.
  */
 export function RivalStatusBadge({ w }: { w: WithdrawalRow }) {
+  return (
+    <>
+      <ProviderNote note={w.providerNote} />
+      <RivalBadge w={w} />
+    </>
+  );
+}
+
+function RivalBadge({ w }: { w: WithdrawalRow }) {
   if (w.state !== 'approved' && !w.rivalNeedsAttention) return null;
 
   if (w.rivalNeedsAttention) {

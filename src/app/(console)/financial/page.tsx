@@ -21,6 +21,7 @@ import {
 } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { useUrlSearch } from '@/hooks/use-url-search';
+import { OpenedRecord, useOpenedRecord } from '@/components/notifications/opened-record';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -181,6 +182,13 @@ function FinancialPageContent() {
     api.admin.getCurrencies(signal),
   );
 
+  // The one movement a notification opened (`?open=`): a flagged payment or a
+  // stuck transfer, in any state, whatever the page's own filters say.
+  const opened = useOpenedRecord(keys.transactions.list, (p, signal) =>
+    api.admin.getTransactions(p, signal),
+  );
+  const openedRow = opened.query.data?.items[0];
+
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
   // `counts` (per state) is in the response too; this page filters state via
@@ -232,6 +240,18 @@ function FinancialPageContent() {
   );
   const stuck = stuckQuery.data;
 
+  const columns = transactionColumns({
+    maskedFields,
+    /*
+     * Undefined without the permission, which is what HIDES the control rather
+     * than showing one that 403s. UX only — `PermissionsGuard` is the
+     * enforcement (R-4.1).
+     */
+    onAbandon: canAbandon ? setAbandonTarget : undefined,
+    onResolve: canResolveDeposit || canResolveWithdrawal ? setResolveTarget : undefined,
+    canResolve: (row) => (row.direction === 'deposit' ? canResolveDeposit : canResolveWithdrawal),
+  });
+
   const isFiltered = Boolean(
     direction || kind || state || currency || from || to || userId || attention || url.get('q'),
   );
@@ -273,6 +293,14 @@ function FinancialPageContent() {
           })}
         />
       )}
+
+      <OpenedRecord
+        open={opened}
+        row={openedRow}
+        columns={columns}
+        rowKey={(row) => row.id}
+        subjectKind={openedRow?.kind === 'payment' ? 'transaction' : 'transfer'}
+      />
 
       <MaskedFieldsNotice labels={maskedFieldLabels(maskedFields, FIELD_LABELS)} />
 
@@ -336,18 +364,7 @@ function FinancialPageContent() {
         <DataTable
           fill
           caption={t('financial.caption')}
-          columns={transactionColumns({
-            maskedFields,
-            /*
-             * Undefined without the permission, which is what HIDES the
-             * control rather than showing one that 403s. UX only —
-             * `PermissionsGuard` is the enforcement (R-4.1).
-             */
-            onAbandon: canAbandon ? setAbandonTarget : undefined,
-            onResolve: canResolveDeposit || canResolveWithdrawal ? setResolveTarget : undefined,
-            canResolve: (row) =>
-              row.direction === 'deposit' ? canResolveDeposit : canResolveWithdrawal,
-          })}
+          columns={columns}
           rows={rows}
           rowKey={(row) => row.id}
           dimmed={query.isFetching}

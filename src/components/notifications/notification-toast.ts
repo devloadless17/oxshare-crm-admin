@@ -27,7 +27,11 @@ export function toastNotification(
   if (!kind) return;
   if (!Object.hasOwn(KIND_DISPLAY, kind)) {
     // A kind this build does not know — the title alone, and the refresh hint.
-    toast(t('notifications.fallbackTitle'), { description: t('notifications.fallbackBody') });
+    toast(t('notifications.fallbackTitle'), {
+      description: t('notifications.fallbackBody'),
+      // The copy says refreshing fixes it — so offer exactly that.
+      action: { label: t('notifications.refresh'), onClick: () => window.location.reload() },
+    });
     return;
   }
   const display = displayOf(kind);

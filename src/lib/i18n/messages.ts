@@ -3992,6 +3992,16 @@ export const messages = {
   'notifications.burstTitle':
     '{count:1 new task needs your action|{count} new tasks need your action}',
   'notifications.openInbox': 'Open inbox',
+  // The one record a notification opened, held above the desk's queue.
+  // A payment provider operator's own note — admin eyes only (backend 0172).
+  'transactions.providerNoteLabel': 'Provider note',
+  'notifications.openedTitle': 'Opened from a notification',
+  'notifications.openedHint': 'The full queue is below.',
+  'notifications.openedClose': 'Close the opened record',
+  'notifications.openedLoading': 'Opening the record…',
+  'notifications.openedUnavailable':
+    'This record is not available to you. It may have been removed, or be outside your territory.',
+  'notifications.openedFailed': 'The record could not be loaded.',
   'notifications.taskApproveDeposit': 'Approve deposit',
   'notifications.taskApproveDepositBody': '{amount} · Ref {reference}',
   'notifications.taskDepositAnomaly': 'Resolve deposit anomaly',
@@ -4052,6 +4062,9 @@ export const messages = {
     'Deposits, withdrawals, KYC and IB tasks for the clients in your territory.',
   'notifications.markAllRead': 'Mark all as read',
   'notifications.markAllReadFailed': 'Could not mark notifications as read.',
+  'notifications.markAllReadConfirm': 'Clear every task from your inbox?',
+  'notifications.markAllReadYes': 'Mark all read',
+  'notifications.refresh': 'Refresh',
   'notifications.itemUnread': 'Unread',
   'notifications.fallbackTitle': 'Notification',
   // A kind the backend knows and this build of the console does not — yet.

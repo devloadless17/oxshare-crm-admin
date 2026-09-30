@@ -12,6 +12,7 @@ import {
   type IbAccrualSortKey,
 } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
+import { OpenedRecord, useOpenedRecord } from '@/components/notifications/opened-record';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
@@ -179,6 +180,11 @@ function CommissionsPageContent() {
     api.admin.getIbAccruals(params, signal),
   );
 
+  // The one accrual a notification opened (`?open=`), in any status.
+  const opened = useOpenedRecord(keys.ibAccruals.list, (p, signal) =>
+    api.admin.getIbAccruals(p, signal),
+  );
+
   const rows = query.data?.rows ?? [];
   const total = query.data?.total ?? 0;
   const totals = query.data?.totals ?? [];
@@ -303,6 +309,14 @@ function CommissionsPageContent() {
         <h1 className="text-2xl font-bold tracking-tight">{t('commissions.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('commissions.subtitle')}</p>
       </div>
+
+      <OpenedRecord
+        open={opened}
+        row={opened.query.data?.rows[0]}
+        columns={columns}
+        rowKey={(r) => r.accrual.id}
+        subjectKind="ib_accrual"
+      />
 
       {/*
         The totals, by status, over the WHOLE filtered set. Pending and confirmed

@@ -14,6 +14,7 @@ import { isMasked } from '@/lib/masking';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { ClientIdentity } from '@/components/clients/client-identity';
+import { ProviderNote } from '@/components/transactions/provider-note';
 
 /**
  * The Financial table's columns, extracted so the page stays a composition.
@@ -180,6 +181,7 @@ export function transactionColumns({
               )}
             </>
           )}
+          <ProviderNote note={row.providerNote} />
           {row.providerRef && (
             <span
               className="block max-w-full truncate font-mono text-[11px] text-muted-foreground"

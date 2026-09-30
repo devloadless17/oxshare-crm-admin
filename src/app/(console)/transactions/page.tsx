@@ -1,18 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { Suspense } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, Check, CheckCircle2, Info, X } from 'lucide-react';
 import api from '@/lib/api';
-import type {
-  RejectionReason,
-  WithdrawalListResponse,
-  WithdrawalRow,
-  WithdrawalSortKey,
-  WithdrawalState,
+import {
+  WITHDRAWAL_SORT_KEYS,
+  type RejectionReason,
+  type WithdrawalListResponse,
+  type WithdrawalRow,
+  type WithdrawalSortKey,
+  type WithdrawalState,
 } from '@/lib/api/admin';
-import { WITHDRAWAL_SORT_KEYS } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
@@ -23,6 +22,7 @@ import { ExportButton } from '@/components/export-button';
 import { PageLoader } from '@/components/ui/loader';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { useUrlSearch } from '@/hooks/use-url-search';
+import { OpenedRecord, useOpenedRecord } from '@/components/notifications/opened-record';
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import {
@@ -151,9 +151,9 @@ const sortableBy = (key: WithdrawalSortKey) => ({
  */
 export default function TransactionsPage() {
   return (
-    <Suspense fallback={<PageLoader label={t('withdrawals.loading')} />}>
+    <React.Suspense fallback={<PageLoader label={t('withdrawals.loading')} />}>
       <TransactionsPageContent />
-    </Suspense>
+    </React.Suspense>
   );
 }
 
@@ -318,6 +318,8 @@ function TransactionsPageContent() {
   const query = useResource<WithdrawalListResponse>(keys.withdrawals.list(params), (signal) =>
     api.admin.getWithdrawals(params, signal),
   );
+  // The one withdrawal a notification opened (`?open=`), in any state.
+  const opened = useOpenedRecord(keys.withdrawals.list, (p, s) => api.admin.getWithdrawals(p, s));
 
   /*
    * The configured reasons, fetched when the dialog OPENS rather than with the
@@ -425,8 +427,7 @@ function TransactionsPageContent() {
 
   const closeReject = () => {
     setRejectTarget(null);
-    setReasonId('');
-    setReasonNote('');
+    [setReasonId, setReasonNote].forEach((clear) => clear(''));
   };
 
   const busy = approve.isPending || reject.isPending;
@@ -783,6 +784,14 @@ function TransactionsPageContent() {
         leaves behind — so a reader could not narrow the query that had just
         failed. Counts are simply absent until they arrive.
       */}
+      <OpenedRecord
+        open={opened}
+        row={opened.query.data?.items[0]}
+        columns={columns}
+        rowKey={(w) => w.id}
+        subjectKind="transaction"
+      />
+
       <div className="shrink-0">
         <QueueToolbar
           filters={FILTERS.map((f) => ({

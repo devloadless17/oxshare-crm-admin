@@ -21,6 +21,7 @@ import { PartnerApproveDialog } from '@/components/ib/partner-approve-dialog';
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
+import { OpenedRecord, useOpenedRecord } from '@/components/notifications/opened-record';
 import { PageLoader } from '@/components/ui/loader';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
@@ -90,7 +91,7 @@ function PartnerApprovalsContent() {
    * keystroke and races their responses.
    */
   const [page, setPage] = React.useState(1);
-  // Seeded from `?q=` — a notification's link lands on this client's application.
+  // Seeded from `?q=`, so a shared link keeps its search.
   const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
   const debouncedSearch = useDebounced(search, 300);
   const [pageSize, setPageSize] = React.useState(25);
@@ -128,6 +129,11 @@ function PartnerApprovalsContent() {
         },
         signal,
       ),
+  );
+
+  // The one application a notification opened (`?open=`), in any status.
+  const opened = useOpenedRecord(keys.ibApplications.list, (p, signal) =>
+    api.admin.getIbApplications(p, signal),
   );
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.ibApplications.all() });
@@ -431,6 +437,14 @@ function PartnerApprovalsContent() {
         are the same screen with different nouns, and they had three different
         filter controls between them.
       */}
+      <OpenedRecord
+        open={opened}
+        row={opened.query.data?.rows[0]}
+        columns={columns}
+        rowKey={(row) => row.application.id}
+        subjectKind="ib_application"
+      />
+
       <div className="shrink-0">
         <QueueToolbar
           filters={TABS.map((tab) => ({

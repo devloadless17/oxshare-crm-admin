@@ -16,6 +16,8 @@ import { keys } from '@/lib/query-keys';
 import { toastError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { groupByDay } from './day-groups';
+import { refreshNotifications } from './refresh';
+import { useMinuteTick } from './use-minute-tick';
 import { NotificationItem } from './notification-item';
 
 type FeedQuery = Pick<AdminNotificationQuery, 'view' | 'q'>;
@@ -73,13 +75,15 @@ export function NotificationFeed({
       else next.delete(id);
       return next;
     });
-  const refresh = () => queryClient.invalidateQueries({ queryKey: keys.notifications.all() });
+  const refresh = () => refreshNotifications(queryClient);
+  // Relative times and day groups move on with the clock while the list is open.
+  useMinuteTick();
 
   const markUnread = useMutation({
     mutationFn: (item: AdminNotification) => adminNotificationsApi.markUnread(item.id),
     onSuccess: (_data, item) => hide(item.id, false),
     onError: (error) => toastError(error, t('notifications.markUnreadFailed')),
-    onSettled: () => void refresh(),
+    onSettled: refresh,
   });
 
   const markRead = useMutation({
@@ -100,18 +104,26 @@ export function NotificationFeed({
       hide(item.id, false);
       if (undoable) toastError(error, t('notifications.markReadFailed'));
     },
-    onSettled: () => void refresh(),
+    onSettled: refresh,
   });
 
   const visible = feed.items.filter((item) => !hidden.has(item.id));
 
   const markAll = useMutation({
     mutationFn: () => adminNotificationsApi.markAllRead({ upTo: visible[0]?.createdAt }),
+    onSuccess: () => setConfirmingAll(false),
     onError: (error) => toastError(error, t('notifications.markAllReadFailed')),
-    onSettled: () => void refresh(),
+    onSettled: refresh,
   });
+  /*
+   * One click would empty the whole inbox with no way back — every waiting task
+   * the reader holds, not only the rows on screen. So it asks, inline, once.
+   * And never under a search: the endpoint marks by time, not by the search,
+   * so the button would clear far more than the rows it appears to be about.
+   */
+  const [confirmingAll, setConfirmingAll] = React.useState(false);
 
-  const hasUnread = visible.some((item) => !item.readAt);
+  const hasUnread = !filtered && visible.some((item) => !item.readAt);
   const groups = groupByDay(visible);
 
   return (
@@ -136,15 +148,37 @@ export function NotificationFeed({
               >
                 {feed.refreshFailed ? t('notifications.refreshFailed') : ''}
               </p>
-              {hasUnread && (
+              {hasUnread && !confirmingAll && (
                 <button
                   type="button"
-                  onClick={() => markAll.mutate()}
-                  disabled={markAll.isPending}
-                  className="cursor-pointer text-xs font-medium text-primary hover:underline disabled:opacity-50 focus-outline"
+                  onClick={() => setConfirmingAll(true)}
+                  className="cursor-pointer text-xs font-medium text-primary hover:underline focus-outline"
                 >
                   {t('notifications.markAllRead')}
                 </button>
+              )}
+              {hasUnread && confirmingAll && (
+                <span role="group" className="flex items-center gap-3 text-xs">
+                  <span className="text-muted-foreground">
+                    {t('notifications.markAllReadConfirm')}
+                  </span>
+                  <button
+                    type="button"
+                    autoFocus
+                    onClick={() => markAll.mutate()}
+                    disabled={markAll.isPending}
+                    className="cursor-pointer font-medium text-primary hover:underline disabled:opacity-50 focus-outline"
+                  >
+                    {t('notifications.markAllReadYes')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingAll(false)}
+                    className="cursor-pointer text-muted-foreground hover:underline focus-outline"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                </span>
               )}
             </div>
           )}

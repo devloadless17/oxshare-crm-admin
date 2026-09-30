@@ -21,6 +21,7 @@ import { DepositDetailsCell } from '@/components/deposits/deposit-details-cell';
 import { DepositRejectDialog } from '@/components/deposits/deposit-reject-dialog';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
+import { OpenedRecord, useOpenedRecord } from '@/components/notifications/opened-record';
 import { PageLoader } from '@/components/ui/loader';
 import { formatMoney } from '@/lib/money';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -79,7 +80,7 @@ function DepositApprovalsContent() {
    */
   const [state, setState] = React.useState<'pending' | 'success' | 'rejected'>('pending');
   const [page, setPage] = React.useState(1);
-  // Seeded from `?q=` — a notification's link lands on this client's deposits.
+  // Seeded from `?q=`, so a shared link keeps its search.
   const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
   const [rejectTarget, setRejectTarget] = React.useState<TransactionRow | null>(null);
   const debouncedSearch = useDebounced(search, 300);
@@ -98,6 +99,12 @@ function DepositApprovalsContent() {
 
   const query = useResource(keys.deposits.list(params), (signal) =>
     api.admin.getTransactions(params, signal),
+  );
+
+  // The one deposit a notification opened (`?open=`), in ANY state — so a
+  // colleague's decision shows as the outcome rather than an empty result.
+  const opened = useOpenedRecord(keys.deposits.list, (p, signal) =>
+    api.admin.getTransactions({ ...p, direction: 'deposit' }, signal),
   );
 
   const rows = query.data?.items ?? [];
@@ -292,6 +299,14 @@ function DepositApprovalsContent() {
         <h1 className="text-2xl font-bold tracking-tight">{t('deposits.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('deposits.subtitle')}</p>
       </div>
+
+      <OpenedRecord
+        open={opened}
+        row={opened.query.data?.items[0]}
+        columns={columns}
+        rowKey={(row) => row.id}
+        subjectKind="transaction"
+      />
 
       <div className="shrink-0">
         <QueueToolbar

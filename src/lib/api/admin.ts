@@ -474,6 +474,8 @@ export const WITHDRAWAL_SORT_KEYS = [
 export type WithdrawalSortKey = (typeof WITHDRAWAL_SORT_KEYS)[number];
 
 export interface WithdrawalListParams {
+  /** One withdrawal, in any state — what a notification opens. */
+  id?: string;
   state?: string;
   /** Client email or name. Server-side — see `listForAdmin`'s note on scope. */
   q?: string;
@@ -528,6 +530,8 @@ export const TRANSACTION_SORT_KEYS = [
 export type TransactionSortKey = (typeof TRANSACTION_SORT_KEYS)[number];
 
 export interface TransactionListParams {
+  /** One movement (a transaction's or a transfer's id), in any state — what a notification opens. */
+  id?: string;
   direction?: TransactionDirection;
   kind?: TransactionKind;
   state?: TransactionState;
@@ -1315,6 +1319,8 @@ export const adminApi = {
       status?: IbApplicationStatus;
       /** Applicant email or name. Server-side — see the store's note. */
       q?: string;
+      /** One application, in any status — what a notification opens. */
+      id?: string;
       page?: number;
       limit?: number;
       sort?: IbApplicationSortKey;
@@ -1325,6 +1331,7 @@ export const adminApi = {
     const query = new URLSearchParams();
     if (params.status) query.set('status', params.status);
     if (params.q) query.set('q', params.q);
+    if (params.id) query.set('id', params.id);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
     // Both halves or neither. `order` alone describes an ordering of no column,
@@ -1847,6 +1854,7 @@ export const adminApi = {
     // state at all, and the API reads the empty string as a filter.
     if (params.state) query.set('state', params.state);
     if (params.q) query.set('q', params.q);
+    if (params.id) query.set('id', params.id);
     if (params.page !== undefined) query.set('page', String(params.page));
     // Both halves or neither. `order` alone describes an ordering of no column,
     // and the API is entitled to reject it.
@@ -1890,6 +1898,7 @@ export const adminApi = {
     if (params.to) query.set('to', params.to);
     if (params.attention) query.set('attention', params.attention);
     if (params.decidedBy) query.set('decidedBy', params.decidedBy);
+    if (params.id) query.set('id', params.id);
     if (params.page !== undefined) query.set('page', String(params.page));
     // Both halves or neither — `order` alone orders no column.
     if (params.sort) {
@@ -2000,6 +2009,8 @@ export const adminApi = {
        */
       q?: string;
       status?: string;
+      /** One accrual, in any status — what a notification opens. */
+      id?: string;
       sort?: IbAccrualSortKey;
       order?: 'asc' | 'desc';
     },

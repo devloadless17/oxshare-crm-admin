@@ -27,6 +27,7 @@ import {
 import { canAccess } from '@/lib/permissions';
 import { keys } from '@/lib/query-keys';
 import { NotificationCenter } from './notification-center';
+import { refreshNotifications } from './refresh';
 import { toastBurst, toastNotification } from './notification-toast';
 import { BROADCAST_RESOURCES, queryKeysFor, resourceKeysFor } from './realtime-keys';
 
@@ -85,6 +86,11 @@ export function NotificationBell() {
   const router = useRouter();
   const { admin } = useAdmin();
   const [open, setOpen] = React.useState(false);
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    // Fresh on open, so the badge and the list the reader is about to see agree.
+    if (next) void queryClient.invalidateQueries({ queryKey: ROOT });
+  };
 
   /*
    * Build the AudioContext on the operator's first click or keypress, rather
@@ -126,7 +132,9 @@ export function NotificationBell() {
       playNotificationSound();
     }
     // The open panel already shows them arriving; a toast would say it twice.
-    if (panelOpen.current) return;
+    // Nor into a hidden tab: it would expire unseen, and the badge already
+    // carries the arrival to whenever the reader comes back.
+    if (panelOpen.current || document.hidden) return;
 
     const burstShowing = now - lastBurst.current.at <= BURST_TOAST_MS;
     const [only] = arrived;
@@ -139,7 +147,7 @@ export function NotificationBell() {
           // click on its row does.
           if (id) {
             void adminNotificationsApi.markRead(id).then(
-              () => queryClient.invalidateQueries({ queryKey: ROOT }),
+              () => refreshNotifications(queryClient),
               () => undefined,
             );
           }
@@ -151,7 +159,8 @@ export function NotificationBell() {
     }
     const count = arrived.length + (burstShowing ? lastBurst.current.count : 0);
     lastBurst.current = { count, at: now };
-    toastBurst(count, () => setOpen(true));
+    // Through the same path as a click on the bell, so the panel opens fresh.
+    toastBurst(count, () => onOpenChange(true));
   };
 
   const { connected } = useRealtime({
@@ -159,9 +168,7 @@ export function NotificationBell() {
       arrivals.current.push(payload);
       flushTimer.current ??= setTimeout(announce, BURST_MS);
     },
-    'notification.changed': () => {
-      void queryClient.invalidateQueries({ queryKey: ROOT });
-    },
+    'notification.changed': () => refreshNotifications(queryClient),
     'resource.changed': (payload) => {
       const resource =
         payload && typeof payload === 'object' && typeof payload.resource === 'string'
@@ -197,14 +204,7 @@ export function NotificationBell() {
   const count = summary.data?.count;
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        // Fresh on open, so the badge and the list the reader is about to see agree.
-        if (next) void queryClient.invalidateQueries({ queryKey: ROOT });
-      }}
-    >
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger
         aria-label={
           count
