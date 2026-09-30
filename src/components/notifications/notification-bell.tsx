@@ -26,6 +26,7 @@ import {
 } from '@/lib/notification-sound';
 import { canAccess } from '@/lib/permissions';
 import { keys } from '@/lib/query-keys';
+import { clientName } from '@/components/clients/client-identity';
 import { NotificationCenter } from './notification-center';
 import { refreshNotifications } from './refresh';
 import { toastBurst, toastNotification } from './notification-toast';
@@ -140,20 +141,41 @@ export function NotificationBell() {
     const [only] = arrived;
     if (arrived.length === 1 && !burstShowing && only !== undefined) {
       const id = typeof only['id'] === 'string' ? only['id'] : undefined;
-      toastNotification(
-        only,
-        (href) => {
-          // Following the toast IS opening the task — it leaves the inbox, as a
-          // click on its row does.
-          if (id) {
-            void adminNotificationsApi.markRead(id).then(
-              () => refreshNotifications(queryClient),
-              () => undefined,
-            );
-          }
-          router.push(href);
+      const show = (name?: string) =>
+        toastNotification(
+          only,
+          (href) => {
+            // Following the toast IS opening the task — it leaves the inbox, as a
+            // click on its row does.
+            if (id) {
+              void adminNotificationsApi.markRead(id).then(
+                () => refreshNotifications(queryClient),
+                () => undefined,
+              );
+            }
+            router.push(href);
+          },
+          (path) => canAccess(admin, path),
+          name,
+        );
+      /*
+       * The client BY NAME. The socket carries a Portal ID and never a name —
+       * names are masked per reader, and only the scoped HTTP read applies that
+       * mask — so the toast asks for its own row first, the same read the inbox
+       * makes, and prints whatever this reader may see: "John Doe · #1000245",
+       * or the Portal ID alone for a role that hides names. A failed read still
+       * announces the task, by Portal ID, rather than dropping it.
+       */
+      if (!id) {
+        show();
+        return;
+      }
+      void adminNotificationsApi.list({ view: 'inbox', limit: 20 }).then(
+        (page) => {
+          const row = page.items.find((item) => item.id === id);
+          show(row ? clientName(row.client.firstName, row.client.lastName) : undefined);
         },
-        (path) => canAccess(admin, path),
+        () => show(),
       );
       return;
     }

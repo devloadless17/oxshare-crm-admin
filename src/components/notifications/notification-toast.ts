@@ -9,9 +9,11 @@ import { displayOf, KIND_DISPLAY, pathOf, type TaskFacts } from './catalogue';
  * 1,250.00 USD", with a Review action.
  *
  * The socket carries the row's `params` and the client's Portal ID, never a
- * name: names are masked per reader, which only the HTTP read can do, so the
- * toast names the client the way every table can — by Portal ID. The badge
- * behind it is the durable signal; the toast is the announcement.
+ * name: names are masked per reader, which only the HTTP read can do. So the
+ * bell reads the task's row first and passes the name in when this reader may
+ * see it ("John Doe · #1000245"); otherwise the toast names the client the way
+ * every table can — by Portal ID. The badge behind it is the durable signal;
+ * the toast is the announcement.
  *
  * A kind this build does not know gets the generic title and no action, never
  * a raw slug. A payload that lost its params (a long reason bursts pg_notify's
@@ -21,6 +23,8 @@ export function toastNotification(
   payload: RealtimePayload,
   onView?: (href: string) => void,
   canOpen: (path: string) => boolean = () => true,
+  /** The client's name, when this reader may see it (read through the scoped API). */
+  clientName?: string,
 ): void {
   if (!payload) return;
   const kind = typeof payload['kind'] === 'string' ? payload['kind'] : undefined;
@@ -47,9 +51,13 @@ export function toastNotification(
     client: { portalId },
   };
   const body = display.body(facts);
-  const detail = [portalId === null ? null : `#${portalId}`, t(body.key, body.vars)]
-    .filter(Boolean)
-    .join(' · ');
+  const who =
+    portalId === null
+      ? (clientName ?? null)
+      : clientName
+        ? `${clientName} · #${portalId}`
+        : `#${portalId}`;
+  const detail = [who, t(body.key, body.vars)].filter(Boolean).join(' · ');
   const href = display.href(facts);
 
   toast(t(display.titleKey), {
