@@ -662,6 +662,11 @@ function TransactionsPageContent() {
       header: t('withdrawals.colActions'),
       sortable: false,
       align: 'right',
+      // The actions column, marked as every desk's is: pinned to the edge, and
+      // left out of the record's detail panel, whose footer already holds these
+      // actions as buttons (it listed this menu as a field, "View details" and
+      // all, opening the panel it was in).
+      sticky: 'end',
       /*
        * ── ONE MENU, plus one self-hiding button ────────────────────────────
        *
