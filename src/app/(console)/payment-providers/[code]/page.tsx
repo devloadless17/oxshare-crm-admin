@@ -20,6 +20,7 @@ import {
 import { ProviderConnectionForm } from '@/components/payment-providers/provider-connection-form';
 import { ProviderWebhookCard } from '@/components/payment-providers/provider-webhook-card';
 import { ProviderEvents } from '@/components/payment-providers/provider-events';
+import { ProviderUnmatchedRecords } from '@/components/payment-providers/provider-unmatched-records';
 import { ChannelSwitch } from '@/components/payment-providers/channel-switch';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -208,6 +209,15 @@ function ProviderDetail({
           </dl>
         </Section>
       </div>
+
+      {provider.auditsRecords && (
+        <Section
+          title={t('providers.unmatched')}
+          hint={t('providers.unmatchedHint', { provider: provider.name })}
+        >
+          <ProviderUnmatchedRecords code={provider.code} canManage={canManage} />
+        </Section>
+      )}
 
       {!provider.builtIn && (
         <Section title={t('providers.events')} hint={t('providers.eventsHint')}>

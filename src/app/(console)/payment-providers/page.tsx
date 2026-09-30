@@ -65,7 +65,14 @@ function ProviderCard({ provider }: { provider: PaymentProvider }) {
             {provider.name}
             {provider.builtIn && <Badge variant="outline">{t('providers.builtIn')}</Badge>}
           </h2>
-          <ProviderStatusBadge provider={provider} />
+          <div className="flex flex-wrap items-center gap-2">
+            <ProviderStatusBadge provider={provider} />
+            {provider.unexplainedRecords > 0 && (
+              <Badge variant="destructive">
+                {t('providers.unmatchedCount', { count: provider.unexplainedRecords })}
+              </Badge>
+            )}
+          </div>
         </div>
         <Link
           href={`/payment-providers/${encodeURIComponent(provider.code)}`}

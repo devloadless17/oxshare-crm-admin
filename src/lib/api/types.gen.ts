@@ -1967,6 +1967,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/payment-providers/{code}/unmatched-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Movements at the provider that no transaction here explains (0174)
+         * @description Filed by the unmatched-records audit: a payout made by hand in the provider’s dashboard, a deposit on a link this platform never made. `open=false` lists every one filed, explained or not.
+         */
+        get: operations["AdminPaymentProvidersController_unmatched"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}/unmatched-records/{id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explain a provider record as a company movement
+         * @description A note is required. It moves no money and changes no transaction.
+         */
+        post: operations["AdminPaymentProvidersController_acknowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/wallet": {
         parameters: {
             query?: never;
@@ -6719,6 +6759,13 @@ export interface components {
             methods: components["schemas"]["ProviderMethodDto"][];
             last24h: components["schemas"]["ProviderActivityDto"];
             updatedAt: string | null;
+            /** @description Are this provider’s own records audited for movements no transaction here explains (0174)? */
+            auditsRecords: boolean;
+            /**
+             * @description Movements at the provider no transaction here explains, not yet acknowledged.
+             * @example 0
+             */
+            unexplainedRecords: number;
         };
         ProviderEventDto: {
             id: string;
@@ -6776,6 +6823,42 @@ export interface components {
             enabled: boolean;
             /** @description Required to switch a channel off — shown on the desk and the methods. */
             reason?: string;
+        };
+        UnmatchedProviderRecordDto: {
+            id: string;
+            /** @enum {string} */
+            subject: "payment" | "payout";
+            /**
+             * @description The provider’s id for it.
+             * @example WD-1788182251668-6a47bbcf
+             */
+            providerId: string;
+            /** @example completed */
+            rawStatus: string;
+            /** @example 500.00000000 */
+            amount: string | null;
+            /** @example USDT-TRC20 */
+            asset: string | null;
+            /** @description The address paid, or the deposit address, as the provider reported it. */
+            counterparty: string | null;
+            /** @description Our reference, when echoed. */
+            reference: string | null;
+            /** @description When the provider recorded it (ISO). */
+            occurredAt: string;
+            /** @description When the audit filed it (ISO). */
+            foundAt: string;
+            /** @description A transaction that holds it since. */
+            matchedTransactionId: string | null;
+            acknowledgedAt: string | null;
+            /** @description Why it is a company movement. */
+            acknowledgement: string | null;
+        };
+        AcknowledgeProviderRecordDto: {
+            /**
+             * @description What this movement was — required, shown on the record and in the audit log.
+             * @example Treasury sweep to the cold wallet, approved by finance.
+             */
+            note: string;
         };
         StatementLineDto: {
             id: string;
@@ -12638,6 +12721,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentProviderDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_unmatched: {
+        parameters: {
+            query: {
+                open: string;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnmatchedProviderRecordDto"][];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_acknowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcknowledgeProviderRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnmatchedProviderRecordDto"];
                 };
             };
         };

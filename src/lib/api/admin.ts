@@ -326,6 +326,12 @@ export type PaymentProviderEvent = components['schemas']['ProviderEventDto'];
 export type PaymentProviderTestResult = components['schemas']['ProviderTestResultDto'];
 /** The one response that carries a generated secret in plaintext. */
 export type RotatedProviderSecret = components['schemas']['RotatedProviderSecretDto'];
+/**
+ * A movement the provider holds that no transaction here explains (backend
+ * 0174): a payout made by hand in its dashboard, a deposit on a link the
+ * platform never made. A person acknowledges it as a company movement.
+ */
+export type UnmatchedProviderRecord = components['schemas']['UnmatchedProviderRecordDto'];
 export type UpdateWithdrawalMethod = components['schemas']['UpdateWithdrawalMethodDto'];
 /*
  * `PaymentMethodKind` is GONE, with the column behind it (migration 0043).
@@ -2508,6 +2514,31 @@ export const adminApi = {
     const { data } = await apiClient.get<PaymentProviderEvent[]>(
       `/admin/payment-providers/${encodeURIComponent(code)}/events?limit=50`,
       { signal },
+    );
+    return data;
+  },
+
+  /** The provider's records nobody has explained yet, newest first (backend 0174). */
+  async getUnmatchedProviderRecords(
+    code: string,
+    signal?: AbortSignal,
+  ): Promise<UnmatchedProviderRecord[]> {
+    const { data } = await apiClient.get<UnmatchedProviderRecord[]>(
+      `/admin/payment-providers/${encodeURIComponent(code)}/unmatched-records`,
+      { signal },
+    );
+    return data;
+  },
+
+  /** Explain one as a company movement — a note is required; audited. */
+  async acknowledgeProviderRecord(
+    code: string,
+    id: string,
+    note: string,
+  ): Promise<UnmatchedProviderRecord> {
+    const { data } = await apiClient.post<UnmatchedProviderRecord>(
+      `/admin/payment-providers/${encodeURIComponent(code)}/unmatched-records/${encodeURIComponent(id)}/acknowledge`,
+      { note },
     );
     return data;
   },
