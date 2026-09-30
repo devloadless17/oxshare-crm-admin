@@ -60,6 +60,7 @@ import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
 import { ClientIdentity, clientLabel, clientName } from '@/components/clients/client-identity';
 import { ResolveAttentionDialog } from '@/components/financial/resolve-attention-dialog';
+import { FinishPayoutDialog } from '@/components/transactions/finish-payout-dialog';
 
 /**
  * ADM-03 / §8.4 — the withdrawal approval queue.
@@ -220,6 +221,7 @@ function TransactionsPageContent() {
      of it" path (D-66). The dialog owns its own reason state. */
   const [cancelTarget, setCancelTarget] = React.useState<WithdrawalRow | null>(null);
   const [resolveTarget, setResolveTarget] = React.useState<WithdrawalRow | null>(null);
+  const [finishTarget, setFinishTarget] = React.useState<WithdrawalRow | null>(null);
 
   const confirm = useConfirm();
 
@@ -266,8 +268,9 @@ function TransactionsPageContent() {
       }),
       /*
        * Who pays it if approved now: the provider for an automated payout it
-       * can take — with what it will be asked to move and its fee, when the
-       * provider deducts one (backend 0173) — else the desk, in one step.
+       * can take, else the desk, in one step. The provider's FEE is never shown
+       * on a transaction (the owner, 30 Sep 2026): what the company pays its
+       * providers is not every approver's business.
        */
       description:
         plan?.payer === 'provider'
@@ -275,9 +278,7 @@ function TransactionsPageContent() {
             ? t('withdrawals.confirmApproveQuote', {
                 name,
                 provider,
-                gross: formatMoney(plan.gross, row.currency),
                 net: formatMoney(plan.net ?? row.amount, row.currency),
-                fee: formatMoney(plan.fee, row.currency),
               })
             : t('withdrawals.confirmApproveProvider', { name, provider })
           : t('withdrawals.confirmApprove', { name }),
@@ -511,7 +512,23 @@ function TransactionsPageContent() {
      * only a person reading both can settle. Never on the retryable case:
      * clearing that flag would hide a payout that was never sent.
      */
-    if (w.needsAttention && canSettle && !isRetryableSubmission(w)) {
+    /*
+     * FINISH a flagged payout the provider already holds (0174) — reported
+     * paid elsewhere, or matched by several of its records. "Mark resolved"
+     * would only be flagged again on the next sweep, so it gives way here.
+     */
+    const heldByProvider =
+      w.state === 'approved' &&
+      w.needsAttention &&
+      Boolean(w.providerPayoutId || w.providerSubmittedAt);
+    if (heldByProvider && canSettle) {
+      items.push({
+        label: t('withdrawals.finishAction'),
+        icon: CheckCircle2,
+        disabled: busy,
+        onSelect: () => setFinishTarget(w),
+      });
+    } else if (w.needsAttention && canSettle && !isRetryableSubmission(w)) {
       items.push({
         label: t('attention.resolve'),
         icon: CheckCircle2,
@@ -901,6 +918,12 @@ function TransactionsPageContent() {
       <CancelWithdrawalDialog
         target={cancelTarget}
         onClose={() => setCancelTarget(null)}
+        onDone={invalidate}
+      />
+
+      <FinishPayoutDialog
+        target={finishTarget}
+        onClose={() => setFinishTarget(null)}
         onDone={invalidate}
       />
 

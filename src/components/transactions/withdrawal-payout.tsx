@@ -258,8 +258,8 @@ export function CancelWithdrawalDialog({
           ? t('withdrawals.cancelIntro', {
               // Never "{email}" for a role that hides it: the label falls back to the Portal ID.
               email: clientLabel(target.user),
-              amount: target.amount,
-              currency: target.currency,
+              // Formatted: the raw column read "30.00000000 USD" in the sentence.
+              amount: formatMoney(target.amount, target.currency),
             })
           : undefined
       }

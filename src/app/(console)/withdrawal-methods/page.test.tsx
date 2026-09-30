@@ -84,7 +84,15 @@ beforeEach(() => {
   permissions.current = ALL_PERMISSIONS;
   getWithdrawalMethods.mockResolvedValue([
     method(),
-    method({ key: 'bank', name: 'Bank transfer', enabled: false, sortOrder: 1 }),
+    method({
+      key: 'bank',
+      name: 'Bank transfer',
+      enabled: false,
+      availability: 'disabled',
+      sortOrder: 1,
+    }),
+    // Enabled, but its network is switched off: hidden from every client.
+    method({ key: 'usdt', name: 'USDT (ERC20)', availability: 'channel_off', sortOrder: 2 }),
   ]);
   createWithdrawalMethod.mockResolvedValue(method({ key: 'omt', name: 'OMT' }));
   updateWithdrawalMethod.mockResolvedValue(method());
@@ -96,7 +104,9 @@ describe('the withdrawal methods page', () => {
 
     expect(await screen.findByText('Whish Money')).toBeInTheDocument();
     expect(screen.getByText('Bank transfer')).toBeInTheDocument();
-    expect(screen.getByText('Disabled')).toBeInTheDocument();
+    expect(screen.getByText('Switched off')).toBeInTheDocument();
+    // Reported 30 Sep 2026: "Enabled" here while clients could not see it.
+    expect(screen.getByText('Hidden: network switched off')).toBeInTheDocument();
   });
 
   it('adds a method named once: the internal name follows the display name', async () => {

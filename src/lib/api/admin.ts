@@ -269,6 +269,8 @@ export type TransferRow = components['schemas']['TransferDto'];
 /** "Mark resolved" on a payment only a person could settle — the flag, cleared. */
 export type AttentionResolved = components['schemas']['AttentionResolvedDto'];
 export type FlaggedDepositFinished = components['schemas']['FlaggedDepositFinishedDto'];
+/** A flagged provider payout, finished by a person (backend 0174). */
+export type FlaggedPayoutFinished = components['schemas']['FlaggedPayoutFinishedDto'];
 export type PayoutPlan = components['schemas']['PayoutPlanDto'];
 export type StuckTransfers = components['schemas']['StuckTransfersDto'];
 export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
@@ -2245,6 +2247,23 @@ export const adminApi = {
    * provider reported arrived (rounded down to the wallet's places); `close`
    * credits nothing. The reason is the audit record of the decision.
    */
+  /**
+   * Finish a flagged payout the provider holds (backend 0174): `paid` with the
+   * reference of what reached the client, or `refund` to their wallet.
+   */
+  async finishFlaggedPayout(
+    id: string,
+    body: { decision: 'paid' | 'refund'; reason: string; reference?: string },
+    key: string,
+  ): Promise<FlaggedPayoutFinished> {
+    const { data } = await apiClient.patch<FlaggedPayoutFinished>(
+      `/admin/transactions/${id}/attention/finish-payout`,
+      body,
+      idempotent(key),
+    );
+    return data;
+  },
+
   async finishFlaggedDeposit(
     id: string,
     body: { decision: 'credit' | 'close'; reason: string },

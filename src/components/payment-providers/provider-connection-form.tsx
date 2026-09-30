@@ -39,6 +39,8 @@ export function ProviderConnectionForm({
   );
   const [removed, setRemoved] = React.useState<Set<string>>(() => new Set());
   const [enabled, setEnabled] = React.useState(provider.enabled);
+  // The server's environment configures it: on, with no console switch.
+  const fromEnvironment = provider.configuredFrom === 'environment';
   const [environment, setEnvironment] = React.useState(provider.environment);
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
@@ -69,12 +71,21 @@ export function ProviderConnectionForm({
         settings[field.name] = value === '' ? null : value;
       }
     }
-    return {
-      ...(enabled !== provider.enabled ? { enabled } : {}),
+    const changes = {
       ...(environment !== provider.environment ? { environment } : {}),
       ...(Object.keys(settings).length > 0 ? { settings } : {}),
       ...(Object.keys(secrets).length > 0 ? { secrets } : {}),
     };
+    /*
+     * Running on the ENVIRONMENT, it is on and has no switch here. Saving a
+     * connection moves it to the console, where the row wins whole — so that
+     * save carries "on" with it, or the provider would stop the moment its
+     * settings were entered.
+     */
+    if (fromEnvironment) {
+      return Object.keys(changes).length > 0 ? { ...changes, enabled: true } : {};
+    }
+    return { ...(enabled !== provider.enabled ? { enabled } : {}), ...changes };
   };
   const dirty = Object.keys(body()).length > 0;
 
@@ -162,12 +173,12 @@ export function ProviderConnectionForm({
         <div className="flex items-center gap-2">
           <Checkbox
             id={`${provider.code}-enabled`}
-            checked={enabled}
+            checked={fromEnvironment || enabled}
             onCheckedChange={(value) => {
               setEnabled(value === true);
               setError(null);
             }}
-            disabled={busy}
+            disabled={busy || fromEnvironment}
           />
           <label
             htmlFor={`${provider.code}-enabled`}
@@ -176,7 +187,9 @@ export function ProviderConnectionForm({
             {t('providers.enabled')}
           </label>
         </div>
-        <p className="text-xs text-muted-foreground">{t('providers.enabledHint')}</p>
+        <p className="text-xs text-muted-foreground">
+          {fromEnvironment ? t('providers.enabledEnvHint') : t('providers.enabledHint')}
+        </p>
       </div>
 
       {error && (

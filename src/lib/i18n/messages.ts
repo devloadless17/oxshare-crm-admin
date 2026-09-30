@@ -2295,12 +2295,10 @@ export const messages = {
   'withdrawals.cannotPayTitle': 'This payout cannot be sent right now',
   'withdrawals.cannotPayGeneric':
     'Its provider cannot pay it at the moment. Cancel it, or approve it once the provider is back.',
-  'withdrawals.detailsProviderFee': 'Sent by the provider',
-  'withdrawals.detailsProviderFeeValue': '{sent} (its fee {fee}, paid by the company)',
   'withdrawals.cancelAction': 'Cancel',
   'withdrawals.cancelTitle': 'Cancel this approved withdrawal?',
   'withdrawals.cancelIntro':
-    'This pulls back {amount} {currency} approved for {email} and refunds their wallet. They ' +
+    'This pulls back {amount} approved for {email} and refunds their wallet. They ' +
     'were told "approved", so the reason below is emailed to them.',
   'withdrawals.cancelSubmittedNote':
     'This payout was already sent to its provider. Where the provider can recall it, it is ' +
@@ -2852,6 +2850,28 @@ export const messages = {
   'attention.closeNoCreditHint':
     'Nothing is credited and the deposit is closed. Use it when the money was returned or never belonged to this deposit.',
   'attention.resolveOnlyHint': 'Records what you found and clears the flag. No money moves.',
+  'attention.resolveOnlyHostedHint':
+    'Clears the flag and leaves the deposit open: if the provider confirms it later, it is credited; if not, it is flagged again. No money moves now.',
+  'attention.finishTitle': 'Finish this deposit',
+  'withdrawals.finishAction': 'Finish payout…',
+  'withdrawals.finishTitle': 'Finish this payout',
+  'withdrawals.finishIntro':
+    'A payout of {amount} for client #{portalId} that the provider holds. Check the provider’s dashboard before you decide.',
+  'withdrawals.finishLegend': 'What happened to this payout?',
+  'withdrawals.finishPaid': 'Mark paid',
+  'withdrawals.finishPaidHint':
+    'The client received it — another way, or after all. The client is told it was paid.',
+  'withdrawals.finishRefund': 'Refund the client',
+  'withdrawals.finishRefundHint':
+    'Nothing reached the client: the amount returns to their wallet. Only when the provider shows it never arrived, or the money came back — a refund for a payout that still arrives pays the client twice.',
+  'withdrawals.finishReference': 'Reference of the payment that reached the client',
+  'withdrawals.finishReferencePlaceholder': 'A transaction hash or the provider’s id',
+  'withdrawals.finishNoteHint': 'Kept in the audit log with your name. The client never sees it.',
+  'withdrawals.finishPaidDone': '{amount} marked paid.',
+  'withdrawals.finishRefundDone': '{amount} refunded to the client’s wallet.',
+  'withdrawals.finishFailed': 'Could not finish the payout.',
+  'attention.finishDeposit': 'Finish deposit…',
+  'attention.chooseFirst': 'Choose what should happen',
   'attention.creditedReceived': '{amount} credited to the client.',
   'attention.closedNoCredit': 'Deposit closed without credit.',
   'attention.confirm': 'Mark resolved',
@@ -3178,6 +3198,8 @@ export const messages = {
   'providers.builtInNote': 'The desk itself: always on, nothing to set up.',
   'providers.readOnly': 'You can view payment providers but not change them.',
   'providers.sandbox': 'Sandbox',
+  'providers.enabledEnvHint':
+    'On: it runs on the server’s environment settings, which have no switch. To switch it off here, save its connection on this page first; the console then decides.',
   'providers.configuredFromEnv':
     'Running on the server’s environment settings. Save a connection here to manage it from the console instead.',
   'providers.status.connected': 'Connected',
@@ -3849,10 +3871,10 @@ export const messages = {
   // provider, which pays it; the row waits in "Awaiting payout" until it does.
   'withdrawals.confirmApproveProvider':
     '{provider} pays {name} once you approve. The request waits in Awaiting payout until {provider} confirms it; until then it can still be cancelled.',
-  // Backend 0173: a provider that takes its fee OUT of the amount is asked for
-  // more, so the client receives exactly what they withdrew.
+  // A provider that sends at once (3pay). Its fee is never shown here: the owner,
+  // 30 Sep 2026 — what the company pays its providers is not on transactions.
   'withdrawals.confirmApproveQuote':
-    '{provider} sends {gross} once you approve: {net} to {name}, and its {fee} fee is paid by the company. It is sent at once and cannot be recalled.',
+    '{provider} sends {net} to {name} once you approve. It is sent at once and cannot be recalled.',
   'withdrawals.detailsTitle': 'Withdrawal details',
   'withdrawals.detailsProviderRef': 'Provider reference',
   'withdrawals.detailsProviderPayoutRef': 'Provider payout id',

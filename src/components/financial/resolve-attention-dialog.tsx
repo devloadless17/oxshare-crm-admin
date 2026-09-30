@@ -85,7 +85,9 @@ export function ResolveAttentionDialog({
 }) {
   const { admin } = useAdmin();
   const [note, setNote] = React.useState('');
-  const [choice, setChoice] = React.useState<Choice>('resolve');
+  // A money decision is never preselected: on an open hosted deposit the
+  // reader picks one; elsewhere "Mark resolved" is the only choice there is.
+  const [choice, setChoice] = React.useState<Choice | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const finishable =
@@ -109,18 +111,20 @@ export function ResolveAttentionDialog({
     lastId.current = targetId;
     if (note !== '') setNote('');
     if (error !== null) setError(null);
-    if (choice !== 'resolve') setChoice('resolve');
+    if (choice !== null) setChoice(null);
   }
+  const chosen: Choice | null = finishable ? choice : 'resolve';
 
   const resolve = useMutation({
     mutationFn: async (payment: AttentionTarget) => {
-      if (choice === 'resolve') {
+      if (chosen === null) throw new Error(t('attention.chooseFirst'));
+      if (chosen === 'resolve') {
         await adminApi.resolveAttention(payment.id, note.trim());
         return null;
       }
       return adminApi.finishFlaggedDeposit(
         payment.id,
-        { decision: choice, reason: note.trim() },
+        { decision: chosen, reason: note.trim() },
         `finish-deposit:${payment.id}`,
       );
     },
@@ -141,14 +145,14 @@ export function ResolveAttentionDialog({
   });
 
   const trimmed = note.trim().length;
-  const minimum = choice === 'resolve' ? NOTE_MIN : FINISH_MIN;
+  const minimum = chosen === 'resolve' ? NOTE_MIN : FINISH_MIN;
 
   return (
     <Modal
       open={target !== null}
       onClose={onClose}
       labelledBy="resolve-attention-title"
-      title={t('attention.resolveTitle')}
+      title={finishable ? t('attention.finishTitle') : t('attention.resolveTitle')}
       description={
         target
           ? t(
@@ -173,16 +177,18 @@ export function ResolveAttentionDialog({
             type="button"
             onClick={() => target && resolve.mutate(target)}
             aria-busy={resolve.isPending}
-            disabled={resolve.isPending || trimmed < minimum}
+            disabled={resolve.isPending || chosen === null || trimmed < minimum}
             className="h-9 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
           >
             {resolve.isPending
               ? t('attention.resolving')
-              : choice === 'credit'
+              : chosen === 'credit'
                 ? t('attention.creditReceived')
-                : choice === 'close'
+                : chosen === 'close'
                   ? t('attention.closeNoCredit')
-                  : t('attention.confirm')}
+                  : chosen === 'resolve'
+                    ? t('attention.confirm')
+                    : t('attention.chooseFirst')}
           </button>
         </>
       }
@@ -230,7 +236,9 @@ export function ResolveAttentionDialog({
                       ? t('attention.creditReceivedHint')
                       : option === 'close'
                         ? t('attention.closeNoCreditHint')
-                        : t('attention.resolveOnlyHint')}
+                        : finishable
+                          ? t('attention.resolveOnlyHostedHint')
+                          : t('attention.resolveOnlyHint')}
                   </span>
                 </span>
               </label>

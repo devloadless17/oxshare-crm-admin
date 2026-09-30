@@ -306,8 +306,13 @@ export function transactionActions(
   // Mark resolved — on a flagged PAYMENT, for a viewer holding the key its
   // direction needs. Transfers carry no flag, so they never qualify.
   if (onResolve && row.kind === 'payment' && row.needsAttention && canResolve?.(row)) {
+    // An open HOSTED deposit is FINISHED there (credit what arrived, or close).
+    const hostedOpen =
+      row.direction === 'deposit' &&
+      Boolean(row.providerPaymentId) &&
+      (row.state === 'pending' || row.state === 'failure');
     items.push({
-      label: t('attention.resolve'),
+      label: hostedOpen ? t('attention.finishDeposit') : t('attention.resolve'),
       icon: CheckCircle2,
       onSelect: () => onResolve(row),
     });

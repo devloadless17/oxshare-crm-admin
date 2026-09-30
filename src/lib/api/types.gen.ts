@@ -4621,6 +4621,26 @@ export interface paths {
         patch: operations["AdminMoneyController_finishFlaggedDeposit"];
         trace?: never;
     };
+    "/v1/admin/transactions/{id}/attention/finish-payout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark a flagged provider payout paid, or refund the client
+         * @description For an approved payout the provider holds and the engine flagged for a person. `paid` settles it with the reference of the payment that reached the client; `refund` fails it and returns the amount to their wallet. Refuses a payout that is no longer flagged, or one that never reached the provider (resend or cancel that instead).
+         */
+        patch: operations["AdminMoneyController_finishFlaggedPayout"];
+        trace?: never;
+    };
     "/v1/admin/transactions/export": {
         parameters: {
             query?: never;
@@ -6132,6 +6152,27 @@ export interface components {
             requiresProof: boolean;
             /** @description What the client must also give with the receipt, in order — only the fields shown to clients, and only for a method paid outside the platform. Answer them as `details[<id>]` parts of POST /payments/deposits/offline. */
             proofFields: components["schemas"]["AskedProofFieldDto"][];
+        };
+        DepositStateDto: {
+            /**
+             * @example success
+             * @enum {string}
+             */
+            state: "pending" | "success" | "failure" | "rejected";
+            /**
+             * @description Credited, once it settled; until then, what was asked.
+             * @example 25.50000000
+             */
+            amount: string;
+            /**
+             * @description What the link asked for, when the credited amount differs from it.
+             * @example 30.00000000
+             */
+            requestedAmount: string | null;
+            /** @example USD */
+            currency: string;
+            /** @description Still open because a PERSON is checking it (money arrived the provider did not confirm, a figure it disputes) — not because nothing has arrived. */
+            underReview: boolean;
         };
         RequestDepositDto: {
             /** @example 500.00000000 */
@@ -9498,6 +9539,25 @@ export interface components {
             amount: string;
             currency: string;
         };
+        FinishFlaggedPayoutDto: {
+            /** @enum {string} */
+            decision: "paid" | "refund";
+            /** @example The provider force-routed it to our cold wallet; paid the client from it. */
+            reason: string;
+            /**
+             * @description Required to mark it paid: the reference of the payment that reached the client.
+             * @example 4839cb944414ae2559c327…
+             */
+            reference?: string;
+        };
+        FlaggedPayoutFinishedDto: {
+            id: string;
+            /** @enum {string} */
+            state: "success" | "failure";
+            /** @example 100.00000000 */
+            amount: string;
+            currency: string;
+        };
         AdminTransactionSummaryRowDto: {
             /** @enum {string} */
             direction: "deposit" | "withdrawal";
@@ -12099,7 +12159,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DepositStateDto"];
+                };
             };
         };
     };
@@ -12118,7 +12180,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DepositStateDto"];
+                };
             };
         };
     };
@@ -16390,6 +16454,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FlaggedDepositFinishedDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_finishFlaggedPayout: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended action (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinishFlaggedPayoutDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlaggedPayoutFinishedDto"];
                 };
             };
         };

@@ -19,7 +19,7 @@ import {
   WithdrawalMethodFormModal,
   type WithdrawalMethodFormValues,
 } from '@/components/withdrawal-methods/withdrawal-method-form-modal';
-import { routeLabel } from '@/components/payment-providers/provider-labels';
+import { AvailabilityBadge, routeLabel } from '@/components/payment-providers/provider-labels';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -176,12 +176,13 @@ export default function WithdrawalMethodsPage() {
     },
     {
       header: t('withdrawalMethods.colStatus'),
-      cell: (m) =>
-        m.enabled ? (
-          <span className="text-success">{t('withdrawalMethods.statusEnabled')}</span>
-        ) : (
-          <span className="text-muted-foreground">{t('withdrawalMethods.statusDisabled')}</span>
-        ),
+      /*
+       * Whether clients SEE it — not just the method's own switch. "Enabled"
+       * alone read as offered while its network was switched off (reported
+       * 30 Sep 2026: Whish Money "Enabled" here, missing from the portal). The
+       * same badge as the deposit methods page and the provider page.
+       */
+      cell: (m) => <AvailabilityBadge availability={m.availability} />,
     },
     ...(canEdit
       ? [

@@ -155,18 +155,6 @@ export function WithdrawalRecordSheet({
           value: w.state === 'approved' && !w.needsAttention ? <PayoutBadge w={w} /> : null,
         },
         {
-          // What the provider was asked to move and kept (0173) — the company's
-          // cost of the payout, beside what the client received.
-          label: t('withdrawals.detailsProviderFee'),
-          value:
-            w.providerRequestAmount && w.providerFee
-              ? t('withdrawals.detailsProviderFeeValue', {
-                  sent: formatMoney(w.providerRequestAmount, w.currency),
-                  fee: formatMoney(w.providerFee, w.currency),
-                })
-              : null,
-        },
-        {
           // WHO, then when — the id is on every decision; the name is left out
           // rather than guessed when that administrator has since been deleted.
           label: t('withdrawals.detailsReviewed'),
