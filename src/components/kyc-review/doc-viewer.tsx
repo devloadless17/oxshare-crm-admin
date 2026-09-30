@@ -48,6 +48,14 @@ export function DocViewer({
   onOpen?: () => void;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
+  /*
+   * ONE retry before "Could not load". An image cannot refresh a session or wait
+   * out a limit the way the page's own requests do, so a blip — the API
+   * restarting, a burst of reads — used to leave the tile failed until a reload
+   * (reported from local testing, 30 Sep 2026). The query string only makes the
+   * browser ask again; the route ignores it.
+   */
+  const [retried, setRetried] = useState(false);
   const [quarterTurns, setQuarterTurns] = useState(0);
   const isPdf = filePath?.toLowerCase().endsWith('.pdf');
   const url = buildKycDocUrl(filePath);
@@ -111,9 +119,12 @@ export function DocViewer({
                 served from the API origin behind auth; next/image would proxy them
                 through the optimizer and cache identity documents on disk. */}
             <img
-              src={url}
+              src={retried ? `${url}${url.includes('?') ? '&' : '?'}retry=1` : url}
               alt={label}
-              onError={() => setImgFailed(true)}
+              onError={() => {
+                if (retried) setImgFailed(true);
+                else window.setTimeout(() => setRetried(true), 1500);
+              }}
               style={{ transform: `rotate(${quarterTurns * 90}deg)` }}
               className={`${turned ? 'max-h-full w-auto max-w-[14rem]' : 'max-h-full max-w-full'} object-contain transition-transform duration-200 hover:opacity-90`}
             />
