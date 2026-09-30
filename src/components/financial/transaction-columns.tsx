@@ -2,7 +2,7 @@
 
 import { AlertTriangle, CheckCircle2, ExternalLink, Unlock } from 'lucide-react';
 import type { Column } from '@/components/data-table';
-import { RowActions, actionsColumn } from '@/components/row-actions';
+import { RowActions, actionsColumn, type RowAction } from '@/components/row-actions';
 import { PermittedLink } from '@/components/permitted-link';
 import { MovementBadge, TxStateBadge } from '@/components/financial/transaction-badges';
 import {
@@ -14,6 +14,7 @@ import { isMasked } from '@/lib/masking';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { ClientIdentity } from '@/components/clients/client-identity';
+import { ProviderNote } from '@/components/transactions/provider-note';
 
 /**
  * The Financial table's columns, extracted so the page stays a composition.
@@ -180,6 +181,7 @@ export function transactionColumns({
               )}
             </>
           )}
+          <ProviderNote note={row.providerNote} />
           {row.providerRef && (
             <span
               className="block max-w-full truncate font-mono text-[11px] text-muted-foreground"
@@ -190,39 +192,35 @@ export function transactionColumns({
             </span>
           )}
           {/*
-            The payment platform's OWN id, under ours.
+            The payment provider's OWN id, under ours (`providerPaymentId`,
+            backend 0173 — every provider, Rival's `rivalExternalId` before).
             A support ticket about a payment needs BOTH: theirs is the one
-            Rival looks up directly, ours is what confirms it is the right
-            row. It was stored from day one of the integration and rendered
+            the provider looks up directly, ours is what confirms it is the
+            right row. It was stored from day one of the integration and rendered
             nowhere, so an operator had half the pair and an engineer had to
             run SQL for the other half.
             `title` carries a prefix because two bare monospace strings
             stacked are indistinguishable at 11px.
           */}
-          {row.rivalExternalId && (
+          {row.providerPaymentId && (
             <span
               className="block max-w-full truncate font-mono text-[11px] text-muted-foreground/70"
-              title={`${t('financial.rivalRefTitle')}: ${row.rivalExternalId}`}
+              title={`${t('financial.providerRefTitle')}: ${row.providerPaymentId}`}
               data-external-ref=""
             >
-              {row.rivalExternalId}
+              {row.providerPaymentId}
             </span>
           )}
           {/*
             The desk link, only where the desk can actually act: a PENDING
-            payment withdrawal. The desk's q-filter lands on this client's
-            requests (state=all so an already-actioned row still resolves) —
-            unless the email is masked for this viewer, in which case the link
-            goes to the whole desk rather than smuggling the hidden value into
-            a URL.
+            payment withdrawal. It opens THIS withdrawal's detail panel on the
+            desk (`?open=`, its id is the desk's id) — never a search for the
+            client's email, which listed every request of theirs and put an
+            address a role may hide into a URL.
           */}
           {row.kind === 'payment' && row.direction === 'withdrawal' && row.state === 'pending' && (
             <PermittedLink
-              href={
-                row.user.email && !emailHidden
-                  ? `/transactions?state=all&q=${encodeURIComponent(row.user.email)}`
-                  : '/transactions?state=all'
-              }
+              href={`/transactions?open=${row.id}`}
               className="focus-outline inline-flex items-center gap-1 text-xs text-link underline-offset-2 hover:underline"
             >
               {t('financial.openInDesk')}
@@ -254,43 +252,70 @@ export function transactionColumns({
      * here: the column is quiet on a settled payment and grows a trigger only
      * on the rows that can actually be acted on.
      */
-    actionsColumn<TransactionRow>((row) => {
-      const items = [];
-
-      /*
-       * Release-hold, on a PENDING transfer only.
-       *
-       * Both transfer kinds qualify: a commission transfer moves money to a
-       * trading account through the same bridge call and wedges the same way.
-       *
-       * Deliberately NOT offered on a pending PAYMENT — that one is waiting on a
-       * person at the withdrawal desk, which is a queue working normally, not a
-       * movement nobody will ever answer for.
-       */
-      if (
-        onAbandon &&
-        (row.kind === 'transfer' || row.kind === 'commission_transfer') &&
-        row.state === 'pending'
-      ) {
-        items.push({
-          label: t('financial.abandon'),
-          icon: Unlock,
-          onSelect: () => onAbandon(row),
-          destructive: true,
-        });
-      }
-
-      // Mark resolved — on a flagged PAYMENT, for a viewer holding the key its
-      // direction needs. Transfers carry no flag, so they never qualify.
-      if (onResolve && row.kind === 'payment' && row.needsAttention && canResolve?.(row)) {
-        items.push({
-          label: t('attention.resolve'),
-          icon: CheckCircle2,
-          onSelect: () => onResolve(row),
-        });
-      }
-
-      return <RowActions items={items} label={t('financial.rowActionsLabel')} />;
-    }),
+    actionsColumn<TransactionRow>((row) => (
+      <RowActions
+        items={transactionActions(row, { onAbandon, onResolve, canResolve })}
+        label={t('financial.rowActionsLabel')}
+      />
+    )),
   ];
+}
+
+/**
+ * What may be done to a movement — the row menu and the detail panel alike.
+ * Each action is offered only where it can succeed for THIS viewer; the API
+ * enforces the same rules (R-4.1).
+ */
+export function transactionActions(
+  row: TransactionRow,
+  {
+    onAbandon,
+    onResolve,
+    canResolve,
+  }: {
+    onAbandon?: (row: TransactionRow) => void;
+    onResolve?: (row: TransactionRow) => void;
+    canResolve?: (row: TransactionRow) => boolean;
+  },
+): RowAction[] {
+  const items: RowAction[] = [];
+
+  /*
+   * Release-hold, on a PENDING transfer only.
+   *
+   * Both transfer kinds qualify: a commission transfer moves money to a
+   * trading account through the same bridge call and wedges the same way.
+   *
+   * Deliberately NOT offered on a pending PAYMENT — that one is waiting on a
+   * person at the withdrawal desk, which is a queue working normally, not a
+   * movement nobody will ever answer for.
+   */
+  if (
+    onAbandon &&
+    (row.kind === 'transfer' || row.kind === 'commission_transfer') &&
+    row.state === 'pending'
+  ) {
+    items.push({
+      label: t('financial.abandon'),
+      icon: Unlock,
+      onSelect: () => onAbandon(row),
+      destructive: true,
+    });
+  }
+
+  // Mark resolved — on a flagged PAYMENT, for a viewer holding the key its
+  // direction needs. Transfers carry no flag, so they never qualify.
+  if (onResolve && row.kind === 'payment' && row.needsAttention && canResolve?.(row)) {
+    // An open HOSTED deposit is FINISHED there (credit what arrived, or close).
+    const hostedOpen =
+      row.direction === 'deposit' &&
+      Boolean(row.providerPaymentId) &&
+      (row.state === 'pending' || row.state === 'failure');
+    items.push({
+      label: hostedOpen ? t('attention.finishDeposit') : t('attention.resolve'),
+      icon: CheckCircle2,
+      onSelect: () => onResolve(row),
+    });
+  }
+  return items;
 }

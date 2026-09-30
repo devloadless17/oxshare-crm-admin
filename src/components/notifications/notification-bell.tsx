@@ -26,7 +26,9 @@ import {
 } from '@/lib/notification-sound';
 import { canAccess } from '@/lib/permissions';
 import { keys } from '@/lib/query-keys';
+import { clientName } from '@/components/clients/client-identity';
 import { NotificationCenter } from './notification-center';
+import { refreshNotifications } from './refresh';
 import { toastBurst, toastNotification } from './notification-toast';
 import { BROADCAST_RESOURCES, queryKeysFor, resourceKeysFor } from './realtime-keys';
 
@@ -85,6 +87,11 @@ export function NotificationBell() {
   const router = useRouter();
   const { admin } = useAdmin();
   const [open, setOpen] = React.useState(false);
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    // Fresh on open, so the badge and the list the reader is about to see agree.
+    if (next) void queryClient.invalidateQueries({ queryKey: ROOT });
+  };
 
   /*
    * Build the AudioContext on the operator's first click or keypress, rather
@@ -126,32 +133,56 @@ export function NotificationBell() {
       playNotificationSound();
     }
     // The open panel already shows them arriving; a toast would say it twice.
-    if (panelOpen.current) return;
+    // Nor into a hidden tab: it would expire unseen, and the badge already
+    // carries the arrival to whenever the reader comes back.
+    if (panelOpen.current || document.hidden) return;
 
     const burstShowing = now - lastBurst.current.at <= BURST_TOAST_MS;
     const [only] = arrived;
     if (arrived.length === 1 && !burstShowing && only !== undefined) {
       const id = typeof only['id'] === 'string' ? only['id'] : undefined;
-      toastNotification(
-        only,
-        (href) => {
-          // Following the toast IS opening the task — it leaves the inbox, as a
-          // click on its row does.
-          if (id) {
-            void adminNotificationsApi.markRead(id).then(
-              () => queryClient.invalidateQueries({ queryKey: ROOT }),
-              () => undefined,
-            );
-          }
-          router.push(href);
+      const show = (name?: string) =>
+        toastNotification(
+          only,
+          (href) => {
+            // Following the toast IS opening the task — it leaves the inbox, as a
+            // click on its row does.
+            if (id) {
+              void adminNotificationsApi.markRead(id).then(
+                () => refreshNotifications(queryClient),
+                () => undefined,
+              );
+            }
+            router.push(href);
+          },
+          (path) => canAccess(admin, path),
+          name,
+        );
+      /*
+       * The client BY NAME. The socket carries a Portal ID and never a name —
+       * names are masked per reader, and only the scoped HTTP read applies that
+       * mask — so the toast asks for its own row first, the same read the inbox
+       * makes, and prints whatever this reader may see: "John Doe · #1000245",
+       * or the Portal ID alone for a role that hides names. A failed read still
+       * announces the task, by Portal ID, rather than dropping it.
+       */
+      if (!id) {
+        show();
+        return;
+      }
+      void adminNotificationsApi.list({ view: 'inbox', limit: 20 }).then(
+        (page) => {
+          const row = page.items.find((item) => item.id === id);
+          show(row ? clientName(row.client.firstName, row.client.lastName) : undefined);
         },
-        (path) => canAccess(admin, path),
+        () => show(),
       );
       return;
     }
     const count = arrived.length + (burstShowing ? lastBurst.current.count : 0);
     lastBurst.current = { count, at: now };
-    toastBurst(count, () => setOpen(true));
+    // Through the same path as a click on the bell, so the panel opens fresh.
+    toastBurst(count, () => onOpenChange(true));
   };
 
   const { connected } = useRealtime({
@@ -159,9 +190,7 @@ export function NotificationBell() {
       arrivals.current.push(payload);
       flushTimer.current ??= setTimeout(announce, BURST_MS);
     },
-    'notification.changed': () => {
-      void queryClient.invalidateQueries({ queryKey: ROOT });
-    },
+    'notification.changed': () => refreshNotifications(queryClient),
     'resource.changed': (payload) => {
       const resource =
         payload && typeof payload === 'object' && typeof payload.resource === 'string'
@@ -197,14 +226,7 @@ export function NotificationBell() {
   const count = summary.data?.count;
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        // Fresh on open, so the badge and the list the reader is about to see agree.
-        if (next) void queryClient.invalidateQueries({ queryKey: ROOT });
-      }}
-    >
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger
         aria-label={
           count

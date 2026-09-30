@@ -100,9 +100,12 @@ const row = (over: Record<string, unknown> = {}) => ({
   reviewedAt: null,
   reviewedByName: null,
   settledAt: null,
-  rivalWithdrawalId: null,
-  rivalSubmittedAt: null,
-  rivalNeedsAttention: false,
+  // The payout at its provider (backend 0173's neutral fields).
+  providerPayoutId: null,
+  providerSubmittedAt: null,
+  needsAttention: false,
+  attentionReason: null,
+  payoutPlan: null,
   user: { id: 'c-1', email: 'client@oxshare.com', firstName: 'Ada', lastName: 'Client' },
   ...over,
 });
@@ -218,9 +221,9 @@ describe('a payout only a person can settle', () => {
         items: [
           row({
             state: 'success',
-            rivalWithdrawalId: 'rw-1',
-            rivalNeedsAttention: true,
-            rivalAttentionReason: 'The platform reports this payout rejected; it settled here.',
+            providerPayoutId: 'rw-1',
+            needsAttention: true,
+            attentionReason: 'The platform reports this payout rejected; it settled here.',
           }),
         ],
       }),
@@ -231,7 +234,7 @@ describe('a payout only a person can settle', () => {
     expect(await screen.findByRole('menuitem', { name: 'Mark resolved' })).toBeInTheDocument();
   });
 
-  it('never offers it on a refused submission — a RETRY answers that one', async () => {
+  it('never offers it on a refused payout — a RESEND answers that one', async () => {
     // Clearing this flag would hide an approved payout that was never sent.
     const user = userEvent.setup();
     getWithdrawals.mockResolvedValue(
@@ -239,15 +242,15 @@ describe('a payout only a person can settle', () => {
         items: [
           row({
             state: 'approved',
-            rivalNeedsAttention: true,
-            rivalAttentionReason: 'Refused: insufficient balance on the payout account.',
+            needsAttention: true,
+            attentionReason: 'Refused: insufficient balance on the payout account.',
           }),
         ],
       }),
     );
     renderWithProviders(<TransactionsPage />);
 
-    expect(await screen.findByRole('button', { name: /retry submission/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /resend payout/i })).toBeInTheDocument();
     await user.click(await menuFor());
     await screen.findByRole('menuitem', { name: 'View details' });
     expect(screen.queryByRole('menuitem', { name: 'Mark resolved' })).toBeNull();

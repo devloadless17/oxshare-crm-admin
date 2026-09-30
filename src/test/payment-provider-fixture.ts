@@ -15,6 +15,12 @@ export function provider(over: Partial<PaymentProvider> = {}): PaymentProvider {
     lastEventAt: null,
     lastCheck: null,
     webhookEndpoint: 'https://api.example/v1/payments/rival/webhook',
+    // Rival cannot list its records; 3pay can (backend 0174).
+    auditsRecords: false,
+    unexplainedRecords: 0,
+    // Rival holds no balance of ours and keeps no exchange log; 3pay does both (backend 0175).
+    books: null,
+    exchangeLog: false,
     settings: [],
     channels: [
       {
@@ -28,6 +34,12 @@ export function provider(over: Partial<PaymentProvider> = {}): PaymentProvider {
         destinationNetwork: null,
         destinationLabel: null,
         acceptsReceipt: false,
+        assetLabel: null,
+        creditPolicy: 'exact',
+        // On until an admin switches it off (backend 0173).
+        enabled: true,
+        offReason: null,
+        offSince: null,
       },
     ],
     methods: [

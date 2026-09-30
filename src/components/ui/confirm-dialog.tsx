@@ -67,6 +67,12 @@ export type ConfirmOptions = {
    * confirmation is a deletion.
    */
   destructive?: boolean;
+  /**
+   * A NOTICE, not a question: one button, which dismisses. For saying why an
+   * action cannot happen, where Cancel beside Close would be two buttons that
+   * do the same thing.
+   */
+  notice?: boolean;
 };
 
 const ConfirmContext = React.createContext<((options: ConfirmOptions) => Promise<boolean>) | null>(
@@ -131,9 +137,11 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               )}
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => settle(false)}>
-                {options.cancelLabel ?? t('common.cancel')}
-              </AlertDialogCancel>
+              {!options.notice && (
+                <AlertDialogCancel onClick={() => settle(false)}>
+                  {options.cancelLabel ?? t('common.cancel')}
+                </AlertDialogCancel>
+              )}
               <AlertDialogAction
                 onClick={() => settle(true)}
                 className={

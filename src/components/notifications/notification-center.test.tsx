@@ -178,14 +178,13 @@ describe('a task', () => {
     expect(screen.queryByText('Sara Ahmed')).not.toBeInTheDocument();
   });
 
-  it('links to the desk filtered to this client — by Portal ID, never the uuid', async () => {
+  it('links to the desk opened on the task’s own record, never a search', async () => {
     list.mockResolvedValue(page([task()]));
     renderWithProviders(<NotificationBell />);
     await openBell();
 
     const link = await screen.findByRole('link', { name: /approve withdrawal/i });
-    expect(link).toHaveAttribute('href', '/transactions?state=pending&q=1000245');
-    expect(link.getAttribute('href')).not.toContain('t-1');
+    expect(link).toHaveAttribute('href', '/transactions?open=t-1');
   });
 
   it('renders no link for a reader who may not open that screen', async () => {
@@ -240,6 +239,9 @@ describe('what makes a task disappear', () => {
     await openBell();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Mark all as read' }));
+    // Emptying the whole inbox asks once, inline — nothing is sent before that.
+    expect(markAllRead).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
     expect(markAllRead).toHaveBeenCalledWith({ upTo: newest });
   });
 

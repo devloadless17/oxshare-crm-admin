@@ -21,6 +21,7 @@ import { PartnerApproveDialog } from '@/components/ib/partner-approve-dialog';
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
+import { RecordCallout, RecordSheet, useOpenedRecord } from '@/components/record-sheet';
 import { PageLoader } from '@/components/ui/loader';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
@@ -90,7 +91,7 @@ function PartnerApprovalsContent() {
    * keystroke and races their responses.
    */
   const [page, setPage] = React.useState(1);
-  // Seeded from `?q=` — a notification's link lands on this client's application.
+  // Seeded from `?q=`, so a shared link keeps its search.
   const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
   const debouncedSearch = useDebounced(search, 300);
   const [pageSize, setPageSize] = React.useState(25);
@@ -128,6 +129,11 @@ function PartnerApprovalsContent() {
         },
         signal,
       ),
+  );
+
+  // The application open in the detail panel (`?open=`), in any status.
+  const opened = useOpenedRecord(keys.ibApplications.list, (p, signal) =>
+    api.admin.getIbApplications(p, signal),
   );
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.ibApplications.all() });
@@ -238,6 +244,50 @@ function PartnerApprovalsContent() {
    * longest-waiting application" now means the longest-waiting of all of them
    * rather than of the twenty-five on screen.
    */
+  /** What may be done to an application — the row menu and the detail panel alike. */
+  const actionsFor = (row: Row): RowAction[] => {
+    if (row.application.status !== 'pending') return [];
+    return [
+      ...(canApprove
+        ? [
+            {
+              label: t('partnerReview.approve'),
+              icon: Check,
+              /*
+               * CONFIRMED, like reject already was.
+               *
+               * Approving is not a reversible tick: it creates the partner
+               * account, mints a referral code that is never reissued, and
+               * places them on a rung of the ladder — and `approve` refuses a
+               * second decision on the same application, so there is no
+               * "undo" to reach for afterwards. A menu item one row away from
+               * "Reject" that fires on a single click is the one place in this
+               * screen a slip is unrecoverable.
+               *
+               * Not `destructive` — it paints the button red, and this
+               * creates rather than destroys. The dialog is here for
+               * irreversibility, not for danger.
+               */
+              onSelect: () => void confirmApprove(row),
+            },
+          ]
+        : []),
+      ...(canReject
+        ? [
+            {
+              label: t('partnerReview.reject'),
+              icon: X,
+              destructive: true,
+              separatorBefore: true,
+              // Opens the page's dialog rather than rejecting outright: a
+              // rejection carries a reason the client reads.
+              onSelect: () => setRejecting(row),
+            },
+          ]
+        : []),
+    ];
+  };
+
   const columns: Column<Row>[] = [
     {
       header: t('partnerReview.colApplicant'),
@@ -348,45 +398,7 @@ function PartnerApprovalsContent() {
        * an empty array, and `RowActions` renders nothing at all rather than a
        * trigger whose menu is empty.
        */
-      const items: RowAction[] = [
-        ...(canApprove
-          ? [
-              {
-                label: t('partnerReview.approve'),
-                icon: Check,
-                /*
-                 * CONFIRMED, like reject already was.
-                 *
-                 * Approving is not a reversible tick: it creates the partner
-                 * account, mints a referral code that is never reissued, and
-                 * places them on a rung of the ladder — and `approve` refuses a
-                 * second decision on the same application, so there is no
-                 * "undo" to reach for afterwards. A menu item one row away from
-                 * "Reject" that fires on a single click is the one place in this
-                 * screen a slip is unrecoverable.
-                 *
-                 * Not `destructive` — it paints the button red, and this
-                 * creates rather than destroys. The dialog is here for
-                 * irreversibility, not for danger.
-                 */
-                onSelect: () => void confirmApprove(row),
-              },
-            ]
-          : []),
-        ...(canReject
-          ? [
-              {
-                label: t('partnerReview.reject'),
-                icon: X,
-                destructive: true,
-                separatorBefore: true,
-                // Opens the page's dialog rather than rejecting outright: a
-                // rejection carries a reason the client reads.
-                onSelect: () => setRejecting(row),
-              },
-            ]
-          : []),
-      ];
+      const items = actionsFor(row);
 
       // Said once, where the buttons used to be. A reviewer with neither
       // permission would otherwise see a blank cell and no reason for it.
@@ -431,6 +443,33 @@ function PartnerApprovalsContent() {
         are the same screen with different nouns, and they had three different
         filter controls between them.
       */}
+      <RecordSheet
+        open={opened}
+        row={opened.query.data?.rows[0]}
+        rowKey={(row) => row.application.id}
+        subjectKind="ib_application"
+        title={(row) => t('records.ibApplication', { name: clientLabel(row.user) })}
+        status={(row) => <StatusBadge status={row.application.status} />}
+        callout={(row) =>
+          row.application.rejectionReason ? (
+            <RecordCallout tone="destructive" label={t('partnerReview.rejectedBecause')}>
+              {row.application.rejectionReason}
+            </RecordCallout>
+          ) : null
+        }
+        omit={[t('partnerReview.colStatus')]}
+        extraFields={(row) => [
+          { label: t('partnerReview.fieldMotivation'), value: row.application.motivation },
+          { label: t('partnerReview.fieldWebsite'), value: row.application.website },
+          {
+            label: t('partnerReview.fieldDecided'),
+            value: row.application.reviewedAt ? formatDate(row.application.reviewedAt) : null,
+          },
+        ]}
+        columns={columns}
+        actions={actionsFor}
+      />
+
       <div className="shrink-0">
         <QueueToolbar
           filters={TABS.map((tab) => ({
@@ -481,6 +520,13 @@ function PartnerApprovalsContent() {
           columns={columns}
           rows={rows}
           rowKey={(row) => row.application.id}
+          onRowClick={(row) => opened.open(row.application.id)}
+          activeRowKey={opened.openId}
+          rowLabel={(row) =>
+            t('records.openRow', {
+              name: t('records.ibApplication', { name: clientLabel(row.user) }),
+            })
+          }
           /*
            * NO SELECTION COLUMN, on request.
            *

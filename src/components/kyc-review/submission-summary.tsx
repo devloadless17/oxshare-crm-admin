@@ -286,8 +286,9 @@ function SectionCard({
                 className="inline-flex max-w-full items-center gap-1 text-link hover:underline focus-outline"
               >
                 <Paperclip className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {/* The value IS "View" since D-84 keeps no original file name —
+                    a "· View" suffix beside it read "View · View". */}
                 <span className="truncate">{row.value}</span>
-                <span className="shrink-0 font-normal">· {t('kycReview.viewFile')}</span>
               </button>
             ) : (
               row.value

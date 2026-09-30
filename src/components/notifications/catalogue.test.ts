@@ -10,9 +10,10 @@ import { CATEGORIES, displayOf, KIND_DISPLAY, lookOf, outcomeOf, pathOf } from '
  *
  * `KIND_DISPLAY` is keyed by the backend's enum, so a missing kind is a compile
  * error already; what these add is what the types cannot see: that every link
- * lands on a screen that exists and names the client by Portal ID (never the
- * uuid — 0133), that a missing Portal ID degrades to the unfiltered list rather
- * than `?q=`, and that the outcome words follow the category.
+ * lands on a screen that exists and OPENS the task's own record there — never a
+ * search typed into the desk's box on the reader's behalf — that a KYC task
+ * names the client by Portal ID (0159), and that the outcome words follow the
+ * category.
  */
 
 const SUBJECT_UUID = '6f1c0000-0000-4000-8000-00000000abcd';
@@ -27,8 +28,11 @@ const admin = {
 
 const facts = (portalId: number | null, params: Record<string, unknown> = {}) => ({
   params: {
+    // Each kind's record id, as the backend's emitters write them.
     transactionId: SUBJECT_UUID,
-    userId: SUBJECT_UUID,
+    applicationId: SUBJECT_UUID,
+    accrualId: SUBJECT_UUID,
+    transferId: SUBJECT_UUID,
     amount: '10.00000000',
     currency: 'USD',
     ...params,
@@ -49,19 +53,24 @@ const row = (over: Partial<AdminNotification>): AdminNotification => ({
   ...over,
 });
 
-describe('every task links somewhere real, by Portal ID', () => {
+describe('every task opens its own record, on a screen that exists', () => {
   for (const [kind, display] of Object.entries(KIND_DISPLAY)) {
-    it(`${kind} lands on a screen that exists, filtered to #1000245`, () => {
+    it(`${kind} lands on a screen that exists, opened on its record`, () => {
       const href = display.href(facts(1000245));
       expect(href.startsWith('/')).toBe(true);
       expect(canAccess(admin, pathOf(href)), `${href} is no route`).toBe(true);
-      expect(href).toContain('1000245');
-      expect(href, 'a uuid in a link the operator can see').not.toContain(SUBJECT_UUID);
+      if (kind.startsWith('admin.kyc.')) {
+        expect(href).toBe('/kyc/1000245');
+      } else {
+        expect(href).toBe(`${pathOf(href)}?open=${SUBJECT_UUID}`);
+      }
+      // Never a search on the reader's behalf — it filtered by CLIENT, not record.
+      expect(href).not.toMatch(/[?&](q|userId)=/);
     });
 
-    it(`${kind} degrades to the unfiltered list without a Portal ID`, () => {
-      const href = display.href(facts(null));
-      expect(href).not.toMatch(/[?&](q|userId)=(&|$)/);
+    it(`${kind} degrades to the plain desk without an id`, () => {
+      const href = display.href({ params: {}, client: { portalId: null } });
+      expect(href).not.toMatch(/[?&][a-z]+=(&|$)/i);
       expect(href).not.toContain('null');
     });
 

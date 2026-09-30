@@ -1947,6 +1947,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/payment-providers/{code}/channels/{direction}/{channel}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Switch one of the provider’s channels on or off, in one direction
+         * @description E.g. ERC20 payouts off while TRC20 stays on. Off: its methods leave the client’s lists, new movements on it are refused and approving payouts on it pauses; movements already under way still finish. A reason is required to switch one off.
+         */
+        put: operations["AdminPaymentProvidersController_setChannel"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}/unmatched-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Movements at the provider that no transaction here explains (0174)
+         * @description Filed by the unmatched-records audit: a payout made by hand in the provider’s dashboard, a deposit on a link this platform never made. `open=false` lists every one filed, explained or not.
+         */
+        get: operations["AdminPaymentProvidersController_unmatched"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}/exchanges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the provider was asked and answered, and what it sent us (0175)
+         * @description Every call and every delivery, bodies as sent and received, kept 90 days — for a provider that keeps an exchange log. Newest first, at most 200 (`limit`, default 50); `before` pages to older ones; `reference` narrows to one deposit reference, withdrawal or provider id. Never a credential and never a webhook signature.
+         */
+        get: operations["AdminPaymentProvidersController_exchanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}/books/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restart the provider’s books (after a top-up or a move its records do not show)
+         * @description Clears where the books start; the next reading taken while nothing is travelling starts them again. A note is required. Moves no money.
+         */
+        post: operations["AdminPaymentProvidersController_resetBooks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-providers/{code}/unmatched-records/{id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explain a provider record as a company movement
+         * @description A note is required. It moves no money and changes no transaction.
+         */
+        post: operations["AdminPaymentProvidersController_acknowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/wallet": {
         parameters: {
             query?: never;
@@ -4402,6 +4502,26 @@ export interface paths {
         patch: operations["AdminMoneyController_cancelWithdrawal"];
         trace?: never;
     };
+    "/v1/admin/withdrawals/{id}/provider-submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend an approved withdrawal to its payment provider
+         * @description For rows the provider refused, or held nothing for after the adoption window (the desk shows "needs attention"). Safe under double-click: the claim admits one in-flight create, and a submission whose outcome is still unknown is left for reconciliation rather than resent — no provider takes an idempotency key on payouts, so a blind resend pays twice.
+         */
+        post: operations["AdminMoneyController_resendPayout[0]"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/withdrawals/{id}/rival-submit": {
         parameters: {
             query?: never;
@@ -4412,10 +4532,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Retry submitting an approved withdrawal to the payment platform
-         * @description For rows whose submission definitively failed (the desk shows "needs attention"). Safe under double-click: the claim column admits one in-flight create, and a submission whose outcome is still unknown is left for reconciliation rather than retried — a blind retry against a platform with no idempotency key on payouts is a double payment.
+         * Resend an approved withdrawal to its payment provider
+         * @description For rows the provider refused, or held nothing for after the adoption window (the desk shows "needs attention"). Safe under double-click: the claim admits one in-flight create, and a submission whose outcome is still unknown is left for reconciliation rather than resent — no provider takes an idempotency key on payouts, so a blind resend pays twice.
          */
-        post: operations["AdminMoneyController_retryRivalSubmission"];
+        post: operations["AdminMoneyController_resendPayout[1]"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4519,6 +4639,46 @@ export interface paths {
          * @description For a deposit or withdrawal flagged as needing a person: reconcile it first (the platform dashboard, the ledger), then record what you found. Refuses a payment that is no longer flagged. Deposits need deposits.approve; withdrawals need withdrawals.settle.
          */
         patch: operations["AdminMoneyController_resolveAttention"];
+        trace?: never;
+    };
+    "/v1/admin/transactions/{id}/attention/finish-deposit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Credit what arrived on a flagged hosted deposit, or close it without credit
+         * @description For a deposit paid on a provider’s page and flagged for a person. `credit` credits the amount the provider reported (rounded down to the wallet’s places); `close` credits nothing. Refuses a deposit that is no longer flagged or already finished.
+         */
+        patch: operations["AdminMoneyController_finishFlaggedDeposit"];
+        trace?: never;
+    };
+    "/v1/admin/transactions/{id}/attention/finish-payout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark a flagged provider payout paid, or refund the client
+         * @description For an approved payout the provider holds and the engine flagged for a person. `paid` settles it with the reference of the payment that reached the client; `refund` fails it and returns the amount to their wallet. Refuses a payout that is no longer flagged, or one that never reached the provider (resend or cancel that instead).
+         */
+        patch: operations["AdminMoneyController_finishFlaggedPayout"];
         trace?: never;
     };
     "/v1/admin/transactions/export": {
@@ -4872,6 +5032,11 @@ export interface components {
              * @example 2026-09-25T10:15:00.000Z
              */
             upTo?: string;
+            /**
+             * @description The `createdAt` of the oldest notification the reader was shown.
+             * @example 2026-09-20T08:00:00.000Z
+             */
+            from?: string;
         };
         NotificationsMarkAllReadResponseDto: {
             /** @description Rows marked read by this call. 0 when everything already was. */
@@ -4906,7 +5071,7 @@ export interface components {
         AdminNotificationDto: {
             id: string;
             /** @enum {string} */
-            kind: "admin.deposit.submitted" | "admin.deposit.attention" | "admin.withdrawal.requested" | "withdrawal.rival_submit_failed" | "withdrawal.rival_attention" | "admin.kyc.submitted" | "admin.kyc.resubmitted" | "admin.partner.applied" | "admin.commission.clawback" | "admin.transfer.stuck";
+            kind: "admin.deposit.submitted" | "admin.deposit.attention" | "admin.withdrawal.requested" | "withdrawal.payout_submit_failed" | "withdrawal.payout_attention" | "withdrawal.rival_submit_failed" | "withdrawal.rival_attention" | "admin.kyc.submitted" | "admin.kyc.resubmitted" | "admin.partner.applied" | "admin.commission.clawback" | "admin.transfer.stuck";
             /** @enum {string} */
             category: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
             /**
@@ -6028,6 +6193,27 @@ export interface components {
             /** @description What the client must also give with the receipt, in order — only the fields shown to clients, and only for a method paid outside the platform. Answer them as `details[<id>]` parts of POST /payments/deposits/offline. */
             proofFields: components["schemas"]["AskedProofFieldDto"][];
         };
+        DepositStateDto: {
+            /**
+             * @example success
+             * @enum {string}
+             */
+            state: "pending" | "success" | "failure" | "rejected";
+            /**
+             * @description Credited, once it settled; until then, what was asked.
+             * @example 25.50000000
+             */
+            amount: string;
+            /**
+             * @description What the link asked for, when the credited amount differs from it.
+             * @example 30.00000000
+             */
+            requestedAmount: string | null;
+            /** @example USD */
+            currency: string;
+            /** @description Still open because a PERSON is checking it (money arrived the provider did not confirm, a figure it disputes) — not because nothing has arrived. */
+            underReview: boolean;
+        };
         RequestDepositDto: {
             /** @example 500.00000000 */
             amount: string;
@@ -6075,6 +6261,15 @@ export interface components {
              * @example https://whish.money/pay/8nQS2mL
              */
             paymentUrl: string | null;
+            /** @description When the hosted page stops accepting money (ISO), when the provider says — the waiting card’s countdown (0173). Null when unknown or for a manual method. */
+            paymentExpiresAt: string | null;
+            /** @description Whether the provider sends the payer back here after paying (0173). False (3pay) means: open `paymentUrl` in a new tab and keep the client on a live waiting card. */
+            returnsAfterPayment: boolean;
+            /**
+             * @description What to send when it is not the wallet currency — credited at par. Null when the client pays in the wallet currency itself.
+             * @example USDT on Tron (TRC20)
+             */
+            payWith: string | null;
         };
         WithdrawalMethodDto: {
             /**
@@ -6098,6 +6293,13 @@ export interface components {
              * @example TRC20
              */
             destinationNetwork: string | null;
+            /**
+             * @description The wallet currencies it pays out (0173); null for any. A withdrawal from another currency’s wallet is refused.
+             * @example [
+             *       "USD"
+             *     ]
+             */
+            currencies: string[] | null;
         };
         RequestWithdrawalDto: {
             /** @example 300.00000000 */
@@ -6160,6 +6362,8 @@ export interface components {
             providerRef?: string | null;
             /** @description The payment platform's OWN id for this movement — what Rival shows as its reference, and the identifier its team can look up directly. Null for anything that never went through a rail (a manual desk credit) and for a row whose create is still in flight. */
             rivalExternalId?: string | null;
+            /** @description The payment provider’s own id for this movement (its invoice, its payment id) — what a ticket quotes beside our `providerRef`. */
+            providerPaymentId?: string | null;
             destination?: string | null;
             proofFilename?: string | null;
             proofDetails?: components["schemas"]["ProofDetailDto"][] | null;
@@ -6313,7 +6517,7 @@ export interface components {
              * @description Whether clients are offered it: `offered`; `disabled` (switched off here); `provider_off` or `provider_not_configured` (enabled, but its provider cannot take money, so clients do not see it).
              * @enum {string}
              */
-            availability: "offered" | "disabled" | "provider_off" | "provider_not_configured";
+            availability: "offered" | "disabled" | "provider_off" | "provider_not_configured" | "channel_off";
         };
         ProofFieldInputDto: {
             /**
@@ -6453,6 +6657,11 @@ export interface components {
              * @enum {string}
              */
             paidBy: "provider" | "desk";
+            /**
+             * @description Whether clients are offered it, and if not, why (0173): its network switched off for payouts, or a provider that waits rather than letting the desk pay it by hand.
+             * @enum {string}
+             */
+            availability: "offered" | "disabled" | "provider_off" | "provider_not_configured" | "channel_off";
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -6545,6 +6754,22 @@ export interface components {
             destinationLabel: string | null;
             /** @description Deposits paid outside the platform may ask for a receipt. */
             acceptsReceipt: boolean;
+            /**
+             * @description What moves at the provider when it is not the wallet currency — credited and paid at par (0173). Null when the provider moves the wallet currency itself.
+             * @example USDT on Tron (TRC20)
+             */
+            assetLabel: string | null;
+            /**
+             * @description Hosted deposits: `exact` credits the link’s amount (any other figure is a person’s decision); `received` credits what arrived, rounded down. Null on other channels.
+             * @enum {string|null}
+             */
+            creditPolicy: "exact" | "received" | null;
+            /** @description The admin’s switch for this channel in this direction (0173). Off: its methods are hidden and new movements refused; movements already under way still finish. */
+            enabled: boolean;
+            /** @description Why it was switched off. */
+            offReason: string | null;
+            /** @description When it was switched off (ISO). */
+            offSince: string | null;
         };
         ProviderMethodDto: {
             /** @description The method’s permanent id; the console never shows it. */
@@ -6568,7 +6793,7 @@ export interface components {
              * @description Deposit methods: whether clients are offered it, and if not, why. A payout method is offered whenever it is enabled — see `paidBy`.
              * @enum {string}
              */
-            availability: "offered" | "disabled" | "provider_off" | "provider_not_configured";
+            availability: "offered" | "disabled" | "provider_off" | "provider_not_configured" | "channel_off";
             /**
              * @description Payout methods: who pays a request now. Null on a deposit method.
              * @enum {string|null}
@@ -6583,6 +6808,36 @@ export interface components {
             failed: number;
             /** @description Still pending, or approved and awaiting the payout. */
             pending: number;
+        };
+        ProviderBooksDto: {
+            /**
+             * @description `starting`: waiting for a reading taken while nothing is travelling. `matches` / `differs`: the last comparison. `incomplete`: a movement has no figure from the provider, so the last reading was not compared.
+             * @enum {string}
+             */
+            status: "starting" | "matches" | "differs" | "incomplete";
+            /** @example USDT */
+            asset: string | null;
+            /**
+             * @description What the provider held at the last check.
+             * @example 80342.55000000
+             */
+            available: string | null;
+            /**
+             * @description What our books say it should hold.
+             * @example 80342.55000000
+             */
+            expected: string | null;
+            /**
+             * @description Held minus expected: positive, the provider holds more than our books say.
+             * @example 0.00000000
+             */
+            difference: string | null;
+            /** @description The last check (ISO). */
+            checkedAt: string | null;
+            /** @description Where the books start (ISO). */
+            startedAt: string | null;
+            /** @description Since when the difference stands (ISO); a person is paged after two hours. */
+            differsSince: string | null;
         };
         PaymentProviderDto: {
             /** @example rival */
@@ -6615,6 +6870,17 @@ export interface components {
             methods: components["schemas"]["ProviderMethodDto"][];
             last24h: components["schemas"]["ProviderActivityDto"];
             updatedAt: string | null;
+            /** @description Are this provider’s own records audited for movements no transaction here explains (0174)? */
+            auditsRecords: boolean;
+            /**
+             * @description Movements at the provider no transaction here explains, not yet acknowledged.
+             * @example 0
+             */
+            unexplainedRecords: number;
+            /** @description Its balance against our books — null for a provider with no balance of ours. */
+            books: components["schemas"]["ProviderBooksDto"] | null;
+            /** @description Does it keep an exchange log (every call and delivery, kept 90 days)? */
+            exchangeLog: boolean;
         };
         ProviderEventDto: {
             id: string;
@@ -6667,6 +6933,80 @@ export interface components {
             /** @example 3fa1b2c4 */
             fingerprint: string;
             webhookEndpoint: string | null;
+        };
+        SetProviderChannelDto: {
+            enabled: boolean;
+            /** @description Required to switch a channel off — shown on the desk and the methods. */
+            reason?: string;
+        };
+        UnmatchedProviderRecordDto: {
+            id: string;
+            /** @enum {string} */
+            subject: "payment" | "payout";
+            /**
+             * @description The provider’s id for it.
+             * @example WD-1788182251668-6a47bbcf
+             */
+            providerId: string;
+            /** @example completed */
+            rawStatus: string;
+            /** @example 500.00000000 */
+            amount: string | null;
+            /** @example USDT-TRC20 */
+            asset: string | null;
+            /** @description The address paid, or the deposit address, as the provider reported it. */
+            counterparty: string | null;
+            /** @description Our reference, when echoed. */
+            reference: string | null;
+            /** @description When the provider recorded it (ISO). */
+            occurredAt: string;
+            /** @description When the audit filed it (ISO). */
+            foundAt: string;
+            /** @description A transaction that holds it since. */
+            matchedTransactionId: string | null;
+            acknowledgedAt: string | null;
+            /** @description Why it is a company movement. */
+            acknowledgement: string | null;
+        };
+        ProviderExchangeDto: {
+            /** @description Ever-increasing; pass the last one as `before` for older ones. */
+            id: number;
+            /**
+             * @description We called it, or it called us.
+             * @enum {string}
+             */
+            direction: "outbound" | "inbound";
+            /** @example POST */
+            method: string;
+            /**
+             * @description With its query, when it had one.
+             * @example /withdrawal-request
+             */
+            path: string;
+            requestBody: string | null;
+            /** @description The provider’s answer (outbound) or ours (inbound); null when none came. */
+            status: number | null;
+            responseBody: string | null;
+            /** @description What went wrong, when it did. */
+            error: string | null;
+            durationMs: number | null;
+            /** @description Ours or the provider’s id for what it was about: an OX- reference, a withdrawal. */
+            reference: string | null;
+            occurredAt: string;
+        };
+        ResetProviderBooksDto: {
+            /**
+             * @description Why the books restart — required, kept in the audit log.
+             * @example Topped up 5,000 USDT from the treasury wallet.
+             */
+            note: string;
+        };
+        AcknowledgeProviderRecordDto: {
+            /**
+             * @description What this movement was — required, shown on the record and in the audit log.
+             * @example Treasury sweep to the cold wallet, approved by finance.
+             */
+            note: string;
         };
         StatementLineDto: {
             id: string;
@@ -8997,6 +9337,20 @@ export interface components {
              */
             label: string;
         };
+        PayoutPlanDto: {
+            /** @enum {string} */
+            payer: "provider" | "desk" | "paused";
+            /** @description The provider’s name. */
+            provider?: string | null;
+            /** @description Why nobody can pay it right now — the sentence approval would refuse with. */
+            reason?: string | null;
+            /** @description What the provider will be asked to move (a fee it deducts added on top). */
+            gross?: string | null;
+            /** @description Its fee, when known. */
+            fee?: string | null;
+            /** @description What arrives. */
+            net?: string | null;
+        };
         WithdrawalUserDto: {
             id: string;
             /** @example 1000001 */
@@ -9057,6 +9411,29 @@ export interface components {
             rivalNeedsAttention: boolean;
             /** @description WHY the row needs attention, in words the operator can act on. Written whenever rivalNeedsAttention flips true; null once a retry lands or the flag was never raised. */
             rivalAttentionReason?: string | null;
+            /** @description The provider’s id for the payout, once it holds it. Null before. */
+            providerPayoutId?: string | null;
+            /**
+             * Format: date-time
+             * @description When the payout was sent. Set with no provider id = its outcome is being reconciled.
+             */
+            providerSubmittedAt?: string | null;
+            /** @description What the provider was asked to move (the amount grossed up by its fee). */
+            providerRequestAmount?: string | null;
+            /** @description The fee the provider reported. */
+            providerFee?: string | null;
+            /** @description What the provider reported delivering to the destination. */
+            providerNetAmount?: string | null;
+            /** @description The provider’s own last word on the payout, raw ("executing", "COMPLETED"). */
+            providerStatus?: string | null;
+            /** @description A person must look at this payout (every provider). */
+            needsAttention: boolean;
+            /** @description WHY it needs attention, in words the operator can act on. */
+            attentionReason?: string | null;
+            /** @description Who will pay an open withdrawal and what it costs; null once it is decided. */
+            payoutPlan?: components["schemas"]["PayoutPlanDto"] | null;
+            /** @description The payment provider OPERATOR’s own note on a refused payout (Rival adminNotes). Admin-only: the client is told a fixed sentence in rejectionReason. Null when none. */
+            providerNote?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
             userId?: number;
             walletId?: string;
@@ -9066,6 +9443,8 @@ export interface components {
             destinationTradingAccountId?: string | null;
             reviewedBy?: string | null;
             rivalExternalId?: string | null;
+            /** @description The provider’s own id for the movement (0173); `rivalExternalId` is its old name. */
+            providerPaymentId?: string | null;
             /** Format: date-time */
             createdAt?: string | null;
             maskedFields?: string[];
@@ -9253,6 +9632,39 @@ export interface components {
             /** @description Always false after a successful resolve. */
             needsAttention: boolean;
         };
+        FinishFlaggedDepositDto: {
+            /** @enum {string} */
+            decision: "credit" | "close";
+            /** @example Confirmed on the provider dashboard: 90 USDT arrived on the 100 link. */
+            reason: string;
+        };
+        FlaggedDepositFinishedDto: {
+            id: string;
+            /** @enum {string} */
+            state: "success" | "failure";
+            /** @description The credited amount (decimal string) — or the asked one when closed. */
+            amount: string;
+            currency: string;
+        };
+        FinishFlaggedPayoutDto: {
+            /** @enum {string} */
+            decision: "paid" | "refund";
+            /** @example The provider force-routed it to our cold wallet; paid the client from it. */
+            reason: string;
+            /**
+             * @description Required to mark it paid: the reference of the payment that reached the client.
+             * @example 4839cb944414ae2559c327…
+             */
+            reference?: string;
+        };
+        FlaggedPayoutFinishedDto: {
+            id: string;
+            /** @enum {string} */
+            state: "success" | "failure";
+            /** @example 100.00000000 */
+            amount: string;
+            currency: string;
+        };
         AdminTransactionSummaryRowDto: {
             /** @enum {string} */
             direction: "deposit" | "withdrawal";
@@ -9309,6 +9721,8 @@ export interface components {
             providerRef?: string | null;
             /** @description The payment platform's OWN id for this movement — what Rival shows as its reference and what its team can look up directly. Null for a manual desk credit, which went through no rail. */
             rivalExternalId?: string | null;
+            /** @description The provider’s own id for the movement (0173); `rivalExternalId` is its old name. */
+            providerPaymentId?: string | null;
             destination?: string | null;
             rejectionReason?: string | null;
             /** @description The trading account a TRANSFER moved money to or from. Null on other kinds. */
@@ -9328,6 +9742,8 @@ export interface components {
             needsAttention: boolean;
             /** @description WHY it needs attention, in words the operator can act on. Null when not flagged. */
             attentionReason?: string | null;
+            /** @description The payment provider operator’s own note on a refused payout. Admin-only; the client sees a fixed sentence. Null on every other row. */
+            providerNote?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
         };
         AdminTransactionListResponseDto: {
@@ -9823,6 +10239,8 @@ export interface operations {
                 cursor?: string;
                 /** @description Pass 'true' to see only unread. */
                 unread?: string;
+                /** @description Pass 'true' to see only what was already seen — the portal's Earlier tab, paged on its own so it never mixes with New. */
+                read?: string;
             };
             header?: never;
             path?: never;
@@ -11330,6 +11748,8 @@ export interface operations {
                 limit?: string;
                 sort?: "submittedAt" | "status" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
+                /** @description One application by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No status is implied. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -11434,6 +11854,8 @@ export interface operations {
                 kind?: "commission" | "rebate";
                 sort?: "createdAt" | "amount" | "status" | "depth";
                 order?: "asc" | "desc";
+                /** @description One accrual by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No status is implied. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -11844,7 +12266,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DepositStateDto"];
+                };
             };
         };
     };
@@ -11863,7 +12287,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DepositStateDto"];
+                };
             };
         };
     };
@@ -12439,6 +12865,132 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RotatedProviderSecretDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_setChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                direction: string;
+                channel: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetProviderChannelDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentProviderDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_unmatched: {
+        parameters: {
+            query: {
+                open: string;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnmatchedProviderRecordDto"][];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_exchanges: {
+        parameters: {
+            query: {
+                limit: number;
+                before: number;
+                reference: string;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderExchangeDto"][];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_resetBooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetProviderBooksDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentProviderDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentProvidersController_acknowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcknowledgeProviderRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnmatchedProviderRecordDto"];
                 };
             };
         };
@@ -15557,6 +16109,8 @@ export interface operations {
                 /** @description amount sorts on the NUMERIC column in SQL — never cast, never in JS (§6). */
                 sort?: "createdAt" | "amount" | "state" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
+                /** @description One record by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No state is implied: a handled record is still returned. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -15866,7 +16420,31 @@ export interface operations {
             };
         };
     };
-    AdminMoneyController_retryRivalSubmission: {
+    "AdminMoneyController_resendPayout[0]": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended action (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WithdrawalRowDto"];
+                };
+            };
+        };
+    };
+    "AdminMoneyController_resendPayout[1]": {
         parameters: {
             query?: never;
             header: {
@@ -16009,6 +16587,62 @@ export interface operations {
             };
         };
     };
+    AdminMoneyController_finishFlaggedDeposit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended action (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinishFlaggedDepositDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlaggedDepositFinishedDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_finishFlaggedPayout: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended action (PLATFORM-CONVENTIONS R-5.2). */
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinishFlaggedPayoutDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlaggedPayoutFinishedDto"];
+                };
+            };
+        };
+    };
     AdminFinancialController_exportTransactions: {
         parameters: {
             query?: {
@@ -16031,6 +16665,8 @@ export interface operations {
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -16070,6 +16706,8 @@ export interface operations {
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
+                id?: string;
             };
             header?: never;
             path?: never;
@@ -16108,6 +16746,8 @@ export interface operations {
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
+                id?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;

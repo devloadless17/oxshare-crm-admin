@@ -210,6 +210,7 @@ export const keys = {
     all: () => ['payment-providers'] as const,
     detail: (code: string) => ['payment-providers', code] as const,
     events: (code: string) => ['payment-providers', code, 'events'] as const,
+    unmatched: (code: string) => ['payment-providers', code, 'unmatched'] as const,
   },
 
   externalLinks: {

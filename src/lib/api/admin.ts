@@ -268,6 +268,10 @@ export type DepositDecision = components['schemas']['DepositDecisionDto'];
 export type TransferRow = components['schemas']['TransferDto'];
 /** "Mark resolved" on a payment only a person could settle — the flag, cleared. */
 export type AttentionResolved = components['schemas']['AttentionResolvedDto'];
+export type FlaggedDepositFinished = components['schemas']['FlaggedDepositFinishedDto'];
+/** A flagged provider payout, finished by a person (backend 0174). */
+export type FlaggedPayoutFinished = components['schemas']['FlaggedPayoutFinishedDto'];
+export type PayoutPlan = components['schemas']['PayoutPlanDto'];
 export type StuckTransfers = components['schemas']['StuckTransfersDto'];
 export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
 export type TransactionsSummary = components['schemas']['AdminTransactionsSummaryDto'];
@@ -324,6 +328,12 @@ export type PaymentProviderEvent = components['schemas']['ProviderEventDto'];
 export type PaymentProviderTestResult = components['schemas']['ProviderTestResultDto'];
 /** The one response that carries a generated secret in plaintext. */
 export type RotatedProviderSecret = components['schemas']['RotatedProviderSecretDto'];
+/**
+ * A movement the provider holds that no transaction here explains (backend
+ * 0174): a payout made by hand in its dashboard, a deposit on a link the
+ * platform never made. A person acknowledges it as a company movement.
+ */
+export type UnmatchedProviderRecord = components['schemas']['UnmatchedProviderRecordDto'];
 export type UpdateWithdrawalMethod = components['schemas']['UpdateWithdrawalMethodDto'];
 /*
  * `PaymentMethodKind` is GONE, with the column behind it (migration 0043).
@@ -474,6 +484,8 @@ export const WITHDRAWAL_SORT_KEYS = [
 export type WithdrawalSortKey = (typeof WITHDRAWAL_SORT_KEYS)[number];
 
 export interface WithdrawalListParams {
+  /** One withdrawal, in any state — what a notification opens. */
+  id?: string;
   state?: string;
   /** Client email or name. Server-side — see `listForAdmin`'s note on scope. */
   q?: string;
@@ -528,6 +540,8 @@ export const TRANSACTION_SORT_KEYS = [
 export type TransactionSortKey = (typeof TRANSACTION_SORT_KEYS)[number];
 
 export interface TransactionListParams {
+  /** One movement (a transaction's or a transfer's id), in any state — what a notification opens. */
+  id?: string;
   direction?: TransactionDirection;
   kind?: TransactionKind;
   state?: TransactionState;
@@ -1315,6 +1329,8 @@ export const adminApi = {
       status?: IbApplicationStatus;
       /** Applicant email or name. Server-side — see the store's note. */
       q?: string;
+      /** One application, in any status — what a notification opens. */
+      id?: string;
       page?: number;
       limit?: number;
       sort?: IbApplicationSortKey;
@@ -1325,6 +1341,7 @@ export const adminApi = {
     const query = new URLSearchParams();
     if (params.status) query.set('status', params.status);
     if (params.q) query.set('q', params.q);
+    if (params.id) query.set('id', params.id);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
     // Both halves or neither. `order` alone describes an ordering of no column,
@@ -1847,6 +1864,7 @@ export const adminApi = {
     // state at all, and the API reads the empty string as a filter.
     if (params.state) query.set('state', params.state);
     if (params.q) query.set('q', params.q);
+    if (params.id) query.set('id', params.id);
     if (params.page !== undefined) query.set('page', String(params.page));
     // Both halves or neither. `order` alone describes an ordering of no column,
     // and the API is entitled to reject it.
@@ -1890,6 +1908,7 @@ export const adminApi = {
     if (params.to) query.set('to', params.to);
     if (params.attention) query.set('attention', params.attention);
     if (params.decidedBy) query.set('decidedBy', params.decidedBy);
+    if (params.id) query.set('id', params.id);
     if (params.page !== undefined) query.set('page', String(params.page));
     // Both halves or neither — `order` alone orders no column.
     if (params.sort) {
@@ -2000,6 +2019,8 @@ export const adminApi = {
        */
       q?: string;
       status?: string;
+      /** One accrual, in any status — what a notification opens. */
+      id?: string;
       sort?: IbAccrualSortKey;
       order?: 'asc' | 'desc';
     },
@@ -2164,6 +2185,18 @@ export const adminApi = {
    * they found, and clearing the flag ends the admin task about it for every
    * admin (backend 0140). Refused once the payment is no longer flagged.
    */
+  /**
+   * Reverse a commission or rebate — the finish line of a clawback task.
+   *
+   * A pending accrual reverses for free; a confirmed one posts a compensating
+   * ledger entry against the wallet it credited. Reversing twice is a no-op.
+   * If the beneficiary has already spent the money the API REFUSES, with a
+   * sentence to show as it is: wallets cannot go negative.
+   */
+  async reverseIbAccrual(id: string, reason: string): Promise<void> {
+    await apiClient.post(`/admin/ib/accruals/${id}/reverse`, { reason });
+  },
+
   async resolveAttention(id: string, note: string): Promise<AttentionResolved> {
     const { data } = await apiClient.patch<AttentionResolved>(
       `/admin/transactions/${id}/attention/resolve`,
@@ -2194,15 +2227,51 @@ export const adminApi = {
   },
 
   /**
-   * Retry a payout submission whose first attempt definitively failed (the
-   * row shows "needs attention"). A submission whose outcome is still UNKNOWN
-   * is deliberately not retried by the API — Rival's payout create has no
-   * idempotency key, so a blind retry is a double payment.
+   * RESEND a payout a person must decide (backend 0173, every provider): the
+   * provider refused it outright, or was proven to hold nothing for it after
+   * the adoption window. A payout whose outcome is still UNKNOWN is
+   * deliberately not resent by the API — no provider takes an idempotency key
+   * on payouts, so a blind resend is a double payment.
    */
-  async retryRivalSubmission(id: string, key: string): Promise<WithdrawalRow> {
+  async resendPayout(id: string, key: string): Promise<WithdrawalRow> {
     const { data } = await apiClient.post<WithdrawalRow>(
-      `/admin/withdrawals/${id}/rival-submit`,
+      `/admin/withdrawals/${id}/provider-submit`,
       {},
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * FINISH A FLAGGED HOSTED DEPOSIT (backend 0173): `credit` credits what the
+   * provider reported arrived (rounded down to the wallet's places); `close`
+   * credits nothing. The reason is the audit record of the decision.
+   */
+  /**
+   * Finish a flagged payout the provider holds (backend 0174): `paid` with the
+   * reference of what reached the client, or `refund` to their wallet.
+   */
+  async finishFlaggedPayout(
+    id: string,
+    body: { decision: 'paid' | 'refund'; reason: string; reference?: string },
+    key: string,
+  ): Promise<FlaggedPayoutFinished> {
+    const { data } = await apiClient.patch<FlaggedPayoutFinished>(
+      `/admin/transactions/${id}/attention/finish-payout`,
+      body,
+      idempotent(key),
+    );
+    return data;
+  },
+
+  async finishFlaggedDeposit(
+    id: string,
+    body: { decision: 'credit' | 'close'; reason: string },
+    key: string,
+  ): Promise<FlaggedDepositFinished> {
+    const { data } = await apiClient.patch<FlaggedDepositFinished>(
+      `/admin/transactions/${id}/attention/finish-deposit`,
+      body,
       idempotent(key),
     );
     return data;
@@ -2425,6 +2494,23 @@ export const adminApi = {
     return data;
   },
 
+  /**
+   * Switch one of a provider's channels on or off in one direction (backend
+   * 0173). Off needs a reason; money already moving on it still finishes.
+   */
+  async setProviderChannel(
+    code: string,
+    direction: 'deposit' | 'payout',
+    channel: string,
+    body: { enabled: boolean; reason?: string },
+  ): Promise<PaymentProvider> {
+    const { data } = await apiClient.put<PaymentProvider>(
+      `/admin/payment-providers/${encodeURIComponent(code)}/channels/${direction}/${encodeURIComponent(channel)}`,
+      body,
+    );
+    return data;
+  },
+
   async testPaymentProvider(code: string): Promise<PaymentProviderTestResult> {
     const { data } = await apiClient.post<PaymentProviderTestResult>(
       `/admin/payment-providers/${encodeURIComponent(code)}/test`,
@@ -2447,6 +2533,31 @@ export const adminApi = {
     const { data } = await apiClient.get<PaymentProviderEvent[]>(
       `/admin/payment-providers/${encodeURIComponent(code)}/events?limit=50`,
       { signal },
+    );
+    return data;
+  },
+
+  /** The provider's records nobody has explained yet, newest first (backend 0174). */
+  async getUnmatchedProviderRecords(
+    code: string,
+    signal?: AbortSignal,
+  ): Promise<UnmatchedProviderRecord[]> {
+    const { data } = await apiClient.get<UnmatchedProviderRecord[]>(
+      `/admin/payment-providers/${encodeURIComponent(code)}/unmatched-records`,
+      { signal },
+    );
+    return data;
+  },
+
+  /** Explain one as a company movement — a note is required; audited. */
+  async acknowledgeProviderRecord(
+    code: string,
+    id: string,
+    note: string,
+  ): Promise<UnmatchedProviderRecord> {
+    const { data } = await apiClient.post<UnmatchedProviderRecord>(
+      `/admin/payment-providers/${encodeURIComponent(code)}/unmatched-records/${encodeURIComponent(id)}/acknowledge`,
+      { note },
     );
     return data;
   },

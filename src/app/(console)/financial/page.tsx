@@ -21,6 +21,9 @@ import {
 } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { useUrlSearch } from '@/hooks/use-url-search';
+import { RecordCallout, RecordSheet, useOpenedRecord } from '@/components/record-sheet';
+import { transactionActions, transactionColumns } from '@/components/financial/transaction-columns';
+import { directionLabel, kindLabel, TxStateBadge } from '@/components/financial/transaction-badges';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -32,13 +35,13 @@ import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
 import { TransactionFilters } from '@/components/financial/transaction-filters';
 import { TransactionSummary } from '@/components/financial/transaction-summary';
-import { transactionColumns } from '@/components/financial/transaction-columns';
 import { AbandonTransferDialog } from '@/components/financial/abandon-transfer-dialog';
 import { ResolveAttentionDialog } from '@/components/financial/resolve-attention-dialog';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { StatusBanner } from '@/app/(console)/bridge/page';
 import { t } from '@/lib/i18n';
+import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
 
 /**
@@ -181,6 +184,13 @@ function FinancialPageContent() {
     api.admin.getCurrencies(signal),
   );
 
+  // The one movement a notification opened (`?open=`): a flagged payment or a
+  // stuck transfer, in any state, whatever the page's own filters say.
+  const opened = useOpenedRecord(keys.transactions.list, (p, signal) =>
+    api.admin.getTransactions(p, signal),
+  );
+  const openedRow = opened.query.data?.items[0];
+
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
   // `counts` (per state) is in the response too; this page filters state via
@@ -232,6 +242,25 @@ function FinancialPageContent() {
   );
   const stuck = stuckQuery.data;
 
+  // "Deposit · $50.00", "Transfer · $20.00" — what the movement IS.
+  const movementTitle = (row: TransactionRow) =>
+    t('records.movement', {
+      kind: row.kind === 'payment' ? directionLabel(row.direction) : kindLabel(row.kind),
+      amount: formatMoney(row.amount, row.currency),
+    });
+
+  const columns = transactionColumns({
+    maskedFields,
+    /*
+     * Undefined without the permission, which is what HIDES the control rather
+     * than showing one that 403s. UX only — `PermissionsGuard` is the
+     * enforcement (R-4.1).
+     */
+    onAbandon: canAbandon ? setAbandonTarget : undefined,
+    onResolve: canResolveDeposit || canResolveWithdrawal ? setResolveTarget : undefined,
+    canResolve: (row) => (row.direction === 'deposit' ? canResolveDeposit : canResolveWithdrawal),
+  });
+
   const isFiltered = Boolean(
     direction || kind || state || currency || from || to || userId || attention || url.get('q'),
   );
@@ -273,6 +302,39 @@ function FinancialPageContent() {
           })}
         />
       )}
+
+      <RecordSheet
+        open={opened}
+        row={openedRow}
+        rowKey={(row) => row.id}
+        subjectKind={(row) => (row.kind === 'payment' ? 'transaction' : 'transfer')}
+        title={movementTitle}
+        status={(row) => <TxStateBadge state={row.state} />}
+        callout={(row) => (
+          <>
+            {row.needsAttention && (
+              <RecordCallout tone="warning" label={t('attention.badge')}>
+                {row.attentionReason || t('attention.noReason')}
+              </RecordCallout>
+            )}
+            {row.providerNote && (
+              <RecordCallout tone="info" label={t('transactions.providerNoteLabel')}>
+                {row.providerNote}
+              </RecordCallout>
+            )}
+          </>
+        )}
+        omit={[t('financial.colAmount')]}
+        columns={columns}
+        actions={(row) =>
+          transactionActions(row, {
+            onAbandon: canAbandon ? setAbandonTarget : undefined,
+            onResolve: canResolveDeposit || canResolveWithdrawal ? setResolveTarget : undefined,
+            canResolve: (target) =>
+              target.direction === 'deposit' ? canResolveDeposit : canResolveWithdrawal,
+          })
+        }
+      />
 
       <MaskedFieldsNotice labels={maskedFieldLabels(maskedFields, FIELD_LABELS)} />
 
@@ -336,20 +398,12 @@ function FinancialPageContent() {
         <DataTable
           fill
           caption={t('financial.caption')}
-          columns={transactionColumns({
-            maskedFields,
-            /*
-             * Undefined without the permission, which is what HIDES the
-             * control rather than showing one that 403s. UX only —
-             * `PermissionsGuard` is the enforcement (R-4.1).
-             */
-            onAbandon: canAbandon ? setAbandonTarget : undefined,
-            onResolve: canResolveDeposit || canResolveWithdrawal ? setResolveTarget : undefined,
-            canResolve: (row) =>
-              row.direction === 'deposit' ? canResolveDeposit : canResolveWithdrawal,
-          })}
+          columns={columns}
           rows={rows}
           rowKey={(row) => row.id}
+          onRowClick={(row) => opened.open(row.id)}
+          activeRowKey={opened.openId}
+          rowLabel={(row) => t('records.openRow', { name: movementTitle(row) })}
           dimmed={query.isFetching}
           empty={
             <EmptyState
@@ -399,6 +453,8 @@ function FinancialPageContent() {
             currency: resolveTarget.currency,
             reason: resolveTarget.attentionReason,
             portalId: resolveTarget.user.portalId,
+            state: resolveTarget.state,
+            providerPaymentId: resolveTarget.providerPaymentId,
           }
         }
         onClose={() => setResolveTarget(null)}

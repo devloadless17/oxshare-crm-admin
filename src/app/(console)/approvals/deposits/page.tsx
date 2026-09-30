@@ -21,6 +21,7 @@ import { DepositDetailsCell } from '@/components/deposits/deposit-details-cell';
 import { DepositRejectDialog } from '@/components/deposits/deposit-reject-dialog';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
+import { RecordCallout, RecordSheet, useOpenedRecord } from '@/components/record-sheet';
 import { PageLoader } from '@/components/ui/loader';
 import { formatMoney } from '@/lib/money';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -56,6 +57,18 @@ const TABS = [
 
 const PAGE_SIZE = 25;
 
+/** A deposit's state in the desk's own words — Waiting, Credited, Refused. */
+function DepositStateBadge({ state }: { state: string }) {
+  const tab = TABS.find((entry) => entry.value === state);
+  return (
+    <Badge
+      variant={state === 'success' ? 'success' : state === 'rejected' ? 'destructive' : 'warning'}
+    >
+      {tab ? t(tab.labelKey) : state}
+    </Badge>
+  );
+}
+
 export default function DepositApprovalsPage() {
   // `useSearchParams()` needs a Suspense boundary at prerender, or the build fails.
   return (
@@ -79,7 +92,7 @@ function DepositApprovalsContent() {
    */
   const [state, setState] = React.useState<'pending' | 'success' | 'rejected'>('pending');
   const [page, setPage] = React.useState(1);
-  // Seeded from `?q=` — a notification's link lands on this client's deposits.
+  // Seeded from `?q=`, so a shared link keeps its search.
   const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
   const [rejectTarget, setRejectTarget] = React.useState<TransactionRow | null>(null);
   const debouncedSearch = useDebounced(search, 300);
@@ -98,6 +111,12 @@ function DepositApprovalsContent() {
 
   const query = useResource(keys.deposits.list(params), (signal) =>
     api.admin.getTransactions(params, signal),
+  );
+
+  // The deposit open in the detail panel (`?open=` — a notification, a row
+  // click), in ANY state, so a colleague's decision reads as the outcome.
+  const opened = useOpenedRecord(keys.deposits.list, (p, signal) =>
+    api.admin.getTransactions({ ...p, direction: 'deposit' }, signal),
   );
 
   const rows = query.data?.items ?? [];
@@ -185,6 +204,28 @@ function DepositApprovalsContent() {
     if (ok) approve.mutate(row);
   };
 
+  /** What may be done to a deposit — the row menu and the detail panel's buttons alike. */
+  const actionsFor = (row: TransactionRow): RowAction[] => {
+    if (row.state !== 'pending') return [];
+    const actions: RowAction[] = [];
+    if (canApprove) {
+      actions.push({
+        label: t('deposits.approve'),
+        icon: Check,
+        onSelect: () => void askApprove(row),
+      });
+    }
+    if (canReject) {
+      actions.push({
+        label: t('deposits.reject'),
+        icon: X,
+        destructive: true,
+        onSelect: () => setRejectTarget(row),
+      });
+    }
+    return actions;
+  };
+
   const columns: Column<TransactionRow>[] = [
     {
       header: t('deposits.colClient'),
@@ -240,17 +281,7 @@ function DepositApprovalsContent() {
       sortable: false,
       cell: (row) => (
         <div className="space-y-1">
-          <Badge
-            variant={
-              row.state === 'success'
-                ? 'success'
-                : row.state === 'rejected'
-                  ? 'destructive'
-                  : 'warning'
-            }
-          >
-            {row.state}
-          </Badge>
+          <DepositStateBadge state={row.state} />
           {row.rejectionReason && (
             <div className="max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
               {row.rejectionReason}
@@ -261,22 +292,7 @@ function DepositApprovalsContent() {
     },
     actionsColumn<TransactionRow>((row) => {
       if (row.state !== 'pending') return null;
-      const actions: RowAction[] = [];
-      if (canApprove) {
-        actions.push({
-          label: t('deposits.approve'),
-          icon: Check,
-          onSelect: () => void askApprove(row),
-        });
-      }
-      if (canReject) {
-        actions.push({
-          label: t('deposits.reject'),
-          icon: X,
-          destructive: true,
-          onSelect: () => setRejectTarget(row),
-        });
-      }
+      const actions = actionsFor(row);
       // Neither permission: say so, rather than render an empty menu that reads
       // as a broken control.
       if (actions.length === 0) {
@@ -292,6 +308,25 @@ function DepositApprovalsContent() {
         <h1 className="text-2xl font-bold tracking-tight">{t('deposits.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('deposits.subtitle')}</p>
       </div>
+
+      <RecordSheet
+        open={opened}
+        row={opened.query.data?.items[0]}
+        rowKey={(row) => row.id}
+        subjectKind="transaction"
+        title={(row) => t('records.deposit', { amount: formatMoney(row.amount, row.currency) })}
+        status={(row) => <DepositStateBadge state={row.state} />}
+        callout={(row) =>
+          row.rejectionReason ? (
+            <RecordCallout tone="destructive" label={t('deposits.refusedBecause')}>
+              {row.rejectionReason}
+            </RecordCallout>
+          ) : null
+        }
+        omit={[t('deposits.colAmount'), t('deposits.colState')]}
+        columns={columns}
+        actions={actionsFor}
+      />
 
       <div className="shrink-0">
         <QueueToolbar
@@ -330,6 +365,13 @@ function DepositApprovalsContent() {
           rows={rows}
           columns={columns}
           rowKey={(row) => row.id}
+          onRowClick={(row) => opened.open(row.id)}
+          activeRowKey={opened.openId}
+          rowLabel={(row) =>
+            t('records.openRow', {
+              name: t('records.deposit', { amount: formatMoney(row.amount, row.currency) }),
+            })
+          }
           fill
           empty={<EmptyState icon={Inbox} message={t('deposits.empty')} />}
           pagination={{

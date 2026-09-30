@@ -139,7 +139,7 @@ re-syncs every `BROADCAST_RESOURCES` entry. Do not narrow that back to the bell.
 ### The notification centre (`components/notifications/`)
 
 An admin notification is a TASK — "you must handle something" — and the files are cut by that:
-`catalogue.ts` (task-phrased copy, the deep link filtered to the client by Portal ID, outcome
+`catalogue.ts` (task-phrased copy, the deep link that opens the task's record, outcome
 labels; keyed by the backend's enum, so a new kind is a compile error), `notification-bell.tsx`
 (badge = inbox count, the socket), `notification-center.tsx` (Inbox / History and nothing else —
 **no category chips or status filters, on the owner's call**: a handful of tasks is read, not sorted
@@ -154,11 +154,23 @@ need your action" under one toast id when not), and no toast while the panel is 
 
 Three things outside the folder make that true, and each is easy to break without noticing:
 
-- **A task's link lands FILTERED**, by Portal ID. The deposit and IB desks keep their search box in
-  local state (typing through the router drops characters), so they SEED it from `?q=` through
-  `hooks/use-url-seeded-state.ts` — and RE-seed it on the next link: following a second task while
-  already on the desk is the same route, nothing remounts, and a once-only seed keeps the first
-  client's filter while the address bar names the second. A new desk a task links to needs the same.
+- **Every record has a detail panel, and a task's link opens it** (`?open=<record id>`, 30 Sep
+  2026). The world-class rule: a notification is just a link to the record's detail view. So a task
+  link, a click on a row and a pasted URL all open `components/record-sheet.tsx` over the desk's
+  normal, unfiltered queue, with the open row marked (`DataTable`'s `onRowClick` / `activeRowKey`).
+  It is BUILT from what the desk already defines: the body is the desk's own `columns` (label and
+  cell; the actions column is left out), the footer is the desk's own actions as real buttons — each
+  desk keeps ONE `actionsFor(row)` list that feeds both its row menu and the panel — so the panel
+  cannot lack a field or an action the table has. `status`, `callout` (a refusal reason, a provider
+  note, why it needs attention), `omit` and `extraFields` (what has no room in a cell) shape the
+  rest. Integrity: it shows ONLY the record the URL names (the cache's previous one would put a live
+  Approve on the wrong record), a missing / out-of-territory / malformed id reads "not available",
+  and the record's task is read once the record is on screen. The data is the desk's own list
+  endpoint asked for one `id` (backend: every desk list takes `?id=`, scoped and masked like any
+  filter). **Never deep-link by typing into a search box** (`?q=<client>`): it filtered by client,
+  read as the reader's own search and outlived the visit — the reported defect, retired on every
+  desk and on Financial's "Open in desk". A new desk a task links to needs `useOpenedRecord`, an
+  `actionsFor`, and `<RecordSheet>`. KYC keeps its own page (`/kyc/<portalId>`).
 - **Looking at the item reads its task.** The KYC review calls `useMarkSubjectRead('kyc', id)`
   once the submission has LOADED — never on a 403/404 — with the response's id (the client's Portal
   ID, their only identifier since backend 0159), not the URL's, which may carry `#` or spaces.
@@ -166,8 +178,8 @@ Three things outside the folder make that true, and each is easy to break withou
   ("Mark resolved", a note of 10–500 characters, the DTO's bounds), opened from the Financial row
   menu (key by direction: `deposits.approve` / `withdrawals.settle`) and the withdrawal desk.
   Never on the desk's retryable case (`isRetryableSubmission`): clearing that flag would hide an
-  approved payout that was never sent. The Financial `attention=true` filter is where the deposit
-  task's link lands.
+  approved payout that was never sent. The deposit task opens its payment on Financial
+  (`?open=`); the `attention=true` filter lists every flagged one.
 
 **Deliberately not live**, and covered by tests that assert it stays that way:
 
@@ -177,6 +189,33 @@ Three things outside the folder make that true, and each is easy to break withou
   invalidated by their own mutation only.
 - **Money is refetched, never patched.** No `setQueryData` computing a balance — §6.1 bans
   client-side money arithmetic, and an optimistic balance is a plausible invented number.
+
+## Payments: the console of the backend's payments CORE (0173, 30 Sep 2026)
+
+The backend decides every provider's money once (`modules/payments/core/`). Here is its
+provider-neutral console:
+
+- **Withdrawal desk** (`components/transactions/withdrawal-payout.tsx`, Rival's `withdrawal-rival.tsx`
+  before). It reads the NEUTRAL fields (`providerPayoutId`, `providerSubmittedAt`,
+  `needsAttention`, `attentionReason`), never `rival*`, which stay populated for one release only.
+  - **Resend** (`provider-submit`) only on `isRetryableSubmission`.
+  - Each open row carries a `payoutPlan`:
+    - `provider`: the approve dialog shows the quote ("sends 102.00: 100.00 to the client, 2.00 fee
+      paid by the company").
+    - `paused`: the reason is shown up front, never a confirm that can only fail.
+    - `desk`: approval pays in one step.
+- **Flagged hosted deposits** (`financial/resolve-attention-dialog.tsx`). An open one with a
+  `providerPaymentId` offers _Credit what arrived_ (`deposits.approve`) and _Close without credit_
+  (`deposits.reject`), beside _Mark resolved_, which moves no money. `finish-deposit`, a reason
+  required.
+- **Channel switches** (`payment-providers/channel-switch.tsx`, on the provider page): a network
+  on or off per direction.
+  - Switching off states the consequence and requires a reason.
+  - Methods show `channel_off`.
+  - The desk shows Paused, with the reason.
+- The notification catalogue has the neutral payout kinds (`withdrawal.payout_*`) and the 0173
+  deposit reasons (`wrong_asset`, `over_limit`, `unconfirmed_funds`). Rival's old kinds stay for the
+  rows already raised.
 
 ## API types are generated, never hand-written
 

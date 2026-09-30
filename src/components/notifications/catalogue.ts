@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { MessageKey, MessageVars } from '@/lib/i18n';
 import { formatMoney } from '@/lib/money';
+import { OPEN_PARAM } from '@/hooks/use-open-record';
 import type {
   AdminNotification,
   AdminNotificationCategory,
@@ -66,7 +67,7 @@ export interface KindDisplay {
   titleKey: MessageKey;
   /** The detail line — interpolated from `params`, money through `formatMoney`. */
   body: (n: TaskFacts) => { key: MessageKey; vars?: MessageVars };
-  /** Where the task is handled — landing FILTERED to this client where the screen allows. */
+  /** Where the task is handled — the desk, opened on this task's own record. */
   href: (n: TaskFacts) => string;
   /** Rendered with the alert icon and tone instead of the category's. */
   alert?: boolean;
@@ -93,6 +94,16 @@ function link(path: string, params: Record<string, string>): string {
   return query ? `${path}?${query}` : path;
 }
 
+/**
+ * The desk, opened on the ONE record the task is about (`?open=<id>`), not
+ * filtered to a search typed on the reader's behalf. Every task's params carry
+ * its record's id, so the toast — which has params but no feed row — builds the
+ * same link. A row without one (never expected) lands on the desk unfiltered.
+ */
+function opened(path: string, n: TaskFacts, idParam: string): string {
+  return link(path, { [OPEN_PARAM]: str(n.params[idParam]) });
+}
+
 /** The route a deep link opens — what `canAccess` judges; the query only filters it. */
 export function pathOf(href: string): string {
   return href.split('?')[0] ?? href;
@@ -105,7 +116,7 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
       key: 'notifications.taskApproveDepositBody',
       vars: { amount: amountOf(n), reference: str(n.params['reference']) || '—' },
     }),
-    href: (n) => link('/approvals/deposits', { q: pid(n) }),
+    href: (n) => opened('/approvals/deposits', n, 'transactionId'),
   },
   'admin.deposit.attention': {
     titleKey: 'notifications.taskDepositAnomaly',
@@ -119,12 +130,20 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
           return { key: 'notifications.taskDepositAnomalyReversed', vars };
         case 'paid_after_failure':
           return { key: 'notifications.taskDepositAnomalyPaidAfterFailure', vars };
+        // Backend 0173 — providers that move another asset, credit what
+        // arrived, or confirm late.
+        case 'wrong_asset':
+          return { key: 'notifications.taskDepositAnomalyWrongAsset', vars };
+        case 'over_limit':
+          return { key: 'notifications.taskDepositAnomalyOverLimit', vars };
+        case 'unconfirmed_funds':
+          return { key: 'notifications.taskDepositAnomalyUnconfirmed', vars };
         default:
           return { key: 'notifications.taskDepositAnomalyGeneric', vars };
       }
     },
-    // Narrowed to the flagged payment itself, where "Mark resolved" ends this.
-    href: (n) => link('/financial', { userId: pid(n), attention: 'true' }),
+    // The flagged payment itself, where "Mark resolved" ends this.
+    href: (n) => opened('/financial', n, 'transactionId'),
   },
   'admin.withdrawal.requested': {
     titleKey: 'notifications.taskApproveWithdrawal',
@@ -132,8 +151,35 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
       key: 'notifications.taskApproveWithdrawalBody',
       vars: { amount: amountOf(n) },
     }),
-    href: (n) => link('/transactions', { state: 'pending', q: pid(n) }),
+    href: (n) => opened('/transactions', n, 'transactionId'),
   },
+  /*
+   * A provider refused a payout, or provably never received it (backend 0173,
+   * every provider): resend or cancel. The provider is NAMED in the body.
+   */
+  'withdrawal.payout_submit_failed': {
+    titleKey: 'notifications.taskPayoutRefused',
+    alert: true,
+    body: (n) => ({
+      key: 'notifications.taskPayoutRefusedProviderBody',
+      vars: {
+        amount: amountOf(n),
+        provider: str(n.params['provider']) || '—',
+        reason: str(n.params['reason']) || '—',
+      },
+    }),
+    href: (n) => opened('/transactions', n, 'transactionId'),
+  },
+  'withdrawal.payout_attention': {
+    titleKey: 'notifications.taskPayoutReconcile',
+    alert: true,
+    body: (n) => ({
+      key: 'notifications.taskPayoutReconcileProviderBody',
+      vars: { provider: str(n.params['provider']) || '—' },
+    }),
+    href: (n) => opened('/transactions', n, 'transactionId'),
+  },
+  // Rival's names for the two above — the rows raised before backend 0173.
   'withdrawal.rival_submit_failed': {
     titleKey: 'notifications.taskPayoutRefused',
     alert: true,
@@ -141,13 +187,13 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
       key: 'notifications.taskPayoutRefusedBody',
       vars: { amount: amountOf(n), reason: str(n.params['reason']) || '—' },
     }),
-    href: (n) => link('/transactions', { state: 'approved', q: pid(n) }),
+    href: (n) => opened('/transactions', n, 'transactionId'),
   },
   'withdrawal.rival_attention': {
     titleKey: 'notifications.taskPayoutReconcile',
     alert: true,
     body: () => ({ key: 'notifications.taskPayoutReconcileBody' }),
-    href: (n) => link('/transactions', { state: 'all', q: pid(n) }),
+    href: (n) => opened('/transactions', n, 'transactionId'),
   },
   'admin.kyc.submitted': {
     titleKey: 'notifications.taskReviewKyc',
@@ -162,7 +208,7 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
   'admin.partner.applied': {
     titleKey: 'notifications.taskReviewIb',
     body: () => ({ key: 'notifications.taskReviewIbBody' }),
-    href: (n) => link('/approvals/ib', { q: pid(n) }),
+    href: (n) => opened('/approvals/ib', n, 'applicationId'),
   },
   'admin.commission.clawback': {
     titleKey: 'notifications.taskClawback',
@@ -174,7 +220,7 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
           : 'notifications.taskClawbackPending',
       vars: { amount: amountOf(n) },
     }),
-    href: (n) => link('/commissions', { q: pid(n) }),
+    href: (n) => opened('/commissions', n, 'accrualId'),
   },
   'admin.transfer.stuck': {
     titleKey: 'notifications.taskStuckTransfer',
@@ -186,7 +232,7 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
           : 'notifications.taskStuckTransferToAccount',
       vars: { amount: amountOf(n) },
     }),
-    href: (n) => link('/financial', { userId: pid(n), kind: 'transfer', state: 'pending' }),
+    href: (n) => opened('/financial', n, 'transferId'),
   },
 };
 

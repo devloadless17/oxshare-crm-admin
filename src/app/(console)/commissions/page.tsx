@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { Suspense } from 'react';
 import Decimal from 'decimal.js';
 import { Coins } from 'lucide-react';
@@ -12,6 +13,16 @@ import {
   type IbAccrualSortKey,
 } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
+import { RecordSheet, useOpenedRecord } from '@/components/record-sheet';
+import { actionsColumn, RowActions, type RowAction } from '@/components/row-actions';
+import {
+  ReverseAccrualDialog,
+  type ReverseTarget,
+} from '@/components/commissions/reverse-accrual-dialog';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
+import { useQueryClient } from '@tanstack/react-query';
+import { Undo2 } from 'lucide-react';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
@@ -116,6 +127,10 @@ export default function CommissionsPage() {
 
 function CommissionsPageContent() {
   const url = useTableQueryState();
+  const { admin } = useAdmin();
+  const queryClient = useQueryClient();
+  const canReverse = hasPermission(admin, 'ib.commissions.reverse');
+  const [reverseTarget, setReverseTarget] = React.useState<ReverseTarget | null>(null);
   const page = pageParam(url.get('page'));
   const pageSize = limitParam(url.get('limit'));
   const status = url.get('status');
@@ -179,9 +194,40 @@ function CommissionsPageContent() {
     api.admin.getIbAccruals(params, signal),
   );
 
+  // The accrual open in the detail panel (`?open=`), in any status.
+  const opened = useOpenedRecord(keys.ibAccruals.list, (p, signal) =>
+    api.admin.getIbAccruals(p, signal),
+  );
+
   const rows = query.data?.rows ?? [];
   const total = query.data?.total ?? 0;
   const totals = query.data?.totals ?? [];
+
+  const accrualTitle = (r: IbAccrual) =>
+    t('records.accrual', { amount: formatMoney(r.accrual.amount, r.accrual.currency) });
+
+  /**
+   * Reverse — the finish line of a clawback task (a dealer cancelled the trade
+   * that paid it). The API refuses a second reversal and one whose money was
+   * already spent; this only hides the button where it could never succeed.
+   */
+  const actionsFor = (r: IbAccrual): RowAction[] =>
+    canReverse && r.accrual.status !== 'reversed'
+      ? [
+          {
+            label: t('commissions.reverse'),
+            icon: Undo2,
+            destructive: true,
+            onSelect: () =>
+              setReverseTarget({
+                id: r.accrual.id,
+                amount: r.accrual.amount,
+                currency: r.accrual.currency,
+                confirmed: r.accrual.status === 'confirmed',
+              }),
+          },
+        ]
+      : [];
 
   const columns: Column<IbAccrual>[] = [
     {
@@ -295,6 +341,12 @@ function CommissionsPageContent() {
       ...sortableBy('status'),
       cell: (r) => <AccrualStatus status={r.accrual.status} />,
     },
+    actionsColumn<IbAccrual>((r) => {
+      const items = actionsFor(r);
+      return items.length ? (
+        <RowActions items={items} label={t('records.openRow', { name: accrualTitle(r) })} />
+      ) : null;
+    }),
   ];
 
   return (
@@ -303,6 +355,36 @@ function CommissionsPageContent() {
         <h1 className="text-2xl font-bold tracking-tight">{t('commissions.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('commissions.subtitle')}</p>
       </div>
+
+      <RecordSheet
+        open={opened}
+        row={opened.query.data?.rows[0]}
+        rowKey={(r) => r.accrual.id}
+        subjectKind="ib_accrual"
+        title={accrualTitle}
+        status={(r) => <AccrualStatus status={r.accrual.status} />}
+        omit={[t('commissions.colAmount'), t('commissions.colStatus')]}
+        extraFields={(r) => [
+          {
+            label: t('commissions.fieldConfirmed'),
+            value: r.accrual.confirmedAt ? new Date(r.accrual.confirmedAt).toLocaleString() : null,
+          },
+        ]}
+        columns={columns}
+        actions={actionsFor}
+      />
+      <ReverseAccrualDialog
+        target={reverseTarget}
+        onClose={() => setReverseTarget(null)}
+        // A confirmed reversal debits a wallet: the balances and ledger move too.
+        onDone={() =>
+          Promise.all(
+            [keys.ibAccruals.all(), keys.wallets.all(), keys.ledger.all()].map((queryKey) =>
+              queryClient.invalidateQueries({ queryKey }),
+            ),
+          )
+        }
+      />
 
       {/*
         The totals, by status, over the WHOLE filtered set. Pending and confirmed
@@ -398,6 +480,9 @@ function CommissionsPageContent() {
           columns={columns}
           rows={rows}
           rowKey={(r) => r.accrual.id}
+          onRowClick={(r) => opened.open(r.accrual.id)}
+          activeRowKey={opened.openId}
+          rowLabel={(r) => t('records.openRow', { name: accrualTitle(r) })}
           dimmed={query.isFetching}
           empty={<EmptyState icon={Coins} message={t('commissions.empty')} />}
           sortColumn={sortKey}
