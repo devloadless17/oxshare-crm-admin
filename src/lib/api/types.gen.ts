@@ -4515,27 +4515,7 @@ export interface paths {
          * Resend an approved withdrawal to its payment provider
          * @description For rows the provider refused, or held nothing for after the adoption window (the desk shows "needs attention"). Safe under double-click: the claim admits one in-flight create, and a submission whose outcome is still unknown is left for reconciliation rather than resent — no provider takes an idempotency key on payouts, so a blind resend pays twice.
          */
-        post: operations["AdminMoneyController_resendPayout[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/withdrawals/{id}/rival-submit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resend an approved withdrawal to its payment provider
-         * @description For rows the provider refused, or held nothing for after the adoption window (the desk shows "needs attention"). Safe under double-click: the claim admits one in-flight create, and a submission whose outcome is still unknown is left for reconciliation rather than resent — no provider takes an idempotency key on payouts, so a blind resend pays twice.
-         */
-        post: operations["AdminMoneyController_resendPayout[1]"];
+        post: operations["AdminMoneyController_resendPayout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6360,8 +6340,6 @@ export interface components {
             methodName?: string | null;
             /** @description The provider's own reference. Backs UNIQUE(provider, provider_ref), which is what makes settlement idempotent in the database (§6.3). */
             providerRef?: string | null;
-            /** @description The payment platform's OWN id for this movement — what Rival shows as its reference, and the identifier its team can look up directly. Null for anything that never went through a rail (a manual desk credit) and for a row whose create is still in flight. */
-            rivalExternalId?: string | null;
             /** @description The payment provider’s own id for this movement (its invoice, its payment id) — what a ticket quotes beside our `providerRef`. */
             providerPaymentId?: string | null;
             destination?: string | null;
@@ -9400,17 +9378,6 @@ export interface components {
             reviewedByName?: string | null;
             /** Format: date-time */
             settledAt?: string | null;
-            /** @description The payment platform’s withdrawal id, once submitted. Null before. */
-            rivalWithdrawalId?: string | null;
-            /**
-             * Format: date-time
-             * @description When the submission claim was taken. Set with no id = outcome being reconciled.
-             */
-            rivalSubmittedAt?: string | null;
-            /** @description A human must reconcile this row against the payment platform. */
-            rivalNeedsAttention: boolean;
-            /** @description WHY the row needs attention, in words the operator can act on. Written whenever rivalNeedsAttention flips true; null once a retry lands or the flag was never raised. */
-            rivalAttentionReason?: string | null;
             /** @description The provider’s id for the payout, once it holds it. Null before. */
             providerPayoutId?: string | null;
             /**
@@ -9442,8 +9409,7 @@ export interface components {
             withdrawalMethodKey?: string | null;
             destinationTradingAccountId?: string | null;
             reviewedBy?: string | null;
-            rivalExternalId?: string | null;
-            /** @description The provider’s own id for the movement (0173); `rivalExternalId` is its old name. */
+            /** @description The provider’s own id for the movement: its invoice, its payment id. */
             providerPaymentId?: string | null;
             /** Format: date-time */
             createdAt?: string | null;
@@ -9719,9 +9685,7 @@ export interface components {
             methodName: string;
             provider: string;
             providerRef?: string | null;
-            /** @description The payment platform's OWN id for this movement — what Rival shows as its reference and what its team can look up directly. Null for a manual desk credit, which went through no rail. */
-            rivalExternalId?: string | null;
-            /** @description The provider’s own id for the movement (0173); `rivalExternalId` is its old name. */
+            /** @description The provider’s own id for the movement: its invoice, its payment id. */
             providerPaymentId?: string | null;
             destination?: string | null;
             rejectionReason?: string | null;
@@ -16420,31 +16384,7 @@ export interface operations {
             };
         };
     };
-    "AdminMoneyController_resendPayout[0]": {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value per intended action (PLATFORM-CONVENTIONS R-5.2). */
-                "idempotency-key": string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WithdrawalRowDto"];
-                };
-            };
-        };
-    };
-    "AdminMoneyController_resendPayout[1]": {
+    AdminMoneyController_resendPayout: {
         parameters: {
             query?: never;
             header: {
