@@ -52,8 +52,6 @@ const TASK_DATA: Record<AdminNotificationKind, readonly AdminQueryKey[]> = {
   'withdrawal.payout_submit_failed': WITHDRAWAL_DATA,
   'withdrawal.payout_attention': WITHDRAWAL_DATA,
   // Rival's names for the two above, on rows raised before backend 0173.
-  'withdrawal.rival_submit_failed': WITHDRAWAL_DATA,
-  'withdrawal.rival_attention': WITHDRAWAL_DATA,
   'admin.kyc.submitted': KYC_DATA,
   'admin.kyc.resubmitted': KYC_DATA,
   'admin.partner.applied': [keys.ibApplications.all(), keys.stats.all()],

@@ -57,7 +57,7 @@ function movement(over: Partial<TransactionRow> = {}): TransactionRow {
     methodName: 'OMT – Hamra',
     provider: 'manual_omt',
     providerRef: null,
-    rivalExternalId: null,
+    providerPaymentId: null,
     destination: null,
     rejectionReason: 'The receipt is for a different amount.',
     tradingAccountId: null,

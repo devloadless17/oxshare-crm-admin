@@ -51,14 +51,18 @@ test.use({ storageState: STORAGE_STATE });
  * payout is visible to the desk. See the twin in `rival-integration.spec.ts`.
  */
 async function railIsLive(admin: Awaited<ReturnType<typeof adminApiSession>>): Promise<boolean> {
-  const res = await admin.get('/admin/settings/rival');
+  const res = await admin.get('/admin/payment-providers/rival');
   if (res.status() === 429) {
     throw new Error('Rate limited while checking the Rival rail — inconclusive, not "off".');
   }
-  if (!res.ok()) throw new Error(`Could not read the Rival settings: HTTP ${res.status()}`);
-  const cfg = (await res.json()) as { enabled?: boolean; apiKeySet?: boolean };
-  if (!cfg.enabled || !cfg.apiKeySet) return false;
-  const probe = await admin.post('/admin/settings/rival/test', {});
+  if (!res.ok()) throw new Error(`Could not read Rival's provider settings: HTTP ${res.status()}`);
+  const cfg = (await res.json()) as {
+    enabled?: boolean;
+    settings?: { name: string; isSet?: boolean }[];
+  };
+  const apiKeySet = cfg.settings?.find((setting) => setting.name === 'apiKey')?.isSet === true;
+  if (!cfg.enabled || !apiKeySet) return false;
+  const probe = await admin.post('/admin/payment-providers/rival/test', {});
   if (probe.status() === 429) {
     throw new Error('Rate limited while probing the Rival connection — inconclusive, not "off".');
   }
@@ -184,7 +188,7 @@ test.describe('a payout the platform refuses is visible on the desk', () => {
         async () => {
           const res = await admin.get('/admin/withdrawals?limit=50');
           const items = ((await res.json()) as { items: Record<string, unknown>[] }).items;
-          return items.find((r) => r.id === txId)?.rivalNeedsAttention === true;
+          return items.find((r) => r.id === txId)?.needsAttention === true;
         },
         { timeout: 30_000, message: 'the refusal never flagged the row' },
       )
@@ -266,7 +270,8 @@ test.describe('a payout the platform refuses is visible on the desk', () => {
      * desk that cannot reach it has to escalate to an engineer for what is a
      * routine top-up-and-retry.
      */
-    await expect(row.first().getByRole('button', { name: /retry/i })).toBeVisible();
+    // "Resend payout" since the payments core (0173): one name for every provider.
+    await expect(row.first().getByRole('button', { name: /resend payout/i })).toBeVisible();
 
     /*
      * And it must still read as UNPAID. A refused payout showing "paid" would be

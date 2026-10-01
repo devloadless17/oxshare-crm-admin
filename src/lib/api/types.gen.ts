@@ -2007,26 +2007,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/payment-providers/{code}/books/reset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Restart the provider’s books (after a top-up or a move its records do not show)
-         * @description Clears where the books start; the next reading taken while nothing is travelling starts them again. A note is required. Moves no money.
-         */
-        post: operations["AdminPaymentProvidersController_resetBooks"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/payment-providers/{code}/unmatched-records/{id}/acknowledge": {
         parameters: {
             query?: never;
@@ -2873,70 +2853,6 @@ export interface paths {
          * @description Always sent to the signed-in administrator’s own address. A delivery failure is returned as an error carrying the mail server’s own message, because reporting success for a send that failed would defeat the purpose of the endpoint.
          */
         post: operations["AdminSettingsController_testSmtp"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/settings/rival": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The Rival payments-platform connection
-         * @description Neither stored secret is ever returned — `apiKeySet` and `webhookKeyFingerprint` report existence and identity only. `source` is "environment" until the first save.
-         */
-        get: operations["AdminSettingsController_getRival"];
-        /**
-         * Update the Rival connection
-         * @description Omit `apiKey` or send null to keep the stored one, a string to replace it, or an empty string to remove it. Encrypted at rest and never read back.
-         */
-        put: operations["AdminSettingsController_setRival"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/settings/rival/webhook-key": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Generate a new webhook signing key (shown exactly once)
-         * @description Replaces any previous key immediately. Copy it now — it is not retrievable; only its fingerprint is shown afterwards.
-         */
-        post: operations["AdminSettingsController_mintRivalWebhookKey"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/settings/rival/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Validate the stored Rival credentials
-         * @description Calls Rival with the stored key and returns what Rival believes our webhook configuration is, beside the URL it should be — a mismatch between the two sides is visible in one answer. A rejected key comes back as an error naming this screen.
-         */
-        post: operations["AdminSettingsController_testRival"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4515,27 +4431,7 @@ export interface paths {
          * Resend an approved withdrawal to its payment provider
          * @description For rows the provider refused, or held nothing for after the adoption window (the desk shows "needs attention"). Safe under double-click: the claim admits one in-flight create, and a submission whose outcome is still unknown is left for reconciliation rather than resent — no provider takes an idempotency key on payouts, so a blind resend pays twice.
          */
-        post: operations["AdminMoneyController_resendPayout[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/withdrawals/{id}/rival-submit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resend an approved withdrawal to its payment provider
-         * @description For rows the provider refused, or held nothing for after the adoption window (the desk shows "needs attention"). Safe under double-click: the claim admits one in-flight create, and a submission whose outcome is still unknown is left for reconciliation rather than resent — no provider takes an idempotency key on payouts, so a blind resend pays twice.
-         */
-        post: operations["AdminMoneyController_resendPayout[1]"];
+        post: operations["AdminMoneyController_resendPayout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5071,7 +4967,7 @@ export interface components {
         AdminNotificationDto: {
             id: string;
             /** @enum {string} */
-            kind: "admin.deposit.submitted" | "admin.deposit.attention" | "admin.withdrawal.requested" | "withdrawal.payout_submit_failed" | "withdrawal.payout_attention" | "withdrawal.rival_submit_failed" | "withdrawal.rival_attention" | "admin.kyc.submitted" | "admin.kyc.resubmitted" | "admin.partner.applied" | "admin.commission.clawback" | "admin.transfer.stuck";
+            kind: "admin.deposit.submitted" | "admin.deposit.attention" | "admin.withdrawal.requested" | "withdrawal.payout_submit_failed" | "withdrawal.payout_attention" | "admin.kyc.submitted" | "admin.kyc.resubmitted" | "admin.partner.applied" | "admin.commission.clawback" | "admin.transfer.stuck";
             /** @enum {string} */
             category: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
             /**
@@ -6360,8 +6256,6 @@ export interface components {
             methodName?: string | null;
             /** @description The provider's own reference. Backs UNIQUE(provider, provider_ref), which is what makes settlement idempotent in the database (§6.3). */
             providerRef?: string | null;
-            /** @description The payment platform's OWN id for this movement — what Rival shows as its reference, and the identifier its team can look up directly. Null for anything that never went through a rail (a manual desk credit) and for a row whose create is still in flight. */
-            rivalExternalId?: string | null;
             /** @description The payment provider’s own id for this movement (its invoice, its payment id) — what a ticket quotes beside our `providerRef`. */
             providerPaymentId?: string | null;
             destination?: string | null;
@@ -6809,36 +6703,6 @@ export interface components {
             /** @description Still pending, or approved and awaiting the payout. */
             pending: number;
         };
-        ProviderBooksDto: {
-            /**
-             * @description `starting`: waiting for a reading taken while nothing is travelling. `matches` / `differs`: the last comparison. `incomplete`: a movement has no figure from the provider, so the last reading was not compared.
-             * @enum {string}
-             */
-            status: "starting" | "matches" | "differs" | "incomplete";
-            /** @example USDT */
-            asset: string | null;
-            /**
-             * @description What the provider held at the last check.
-             * @example 80342.55000000
-             */
-            available: string | null;
-            /**
-             * @description What our books say it should hold.
-             * @example 80342.55000000
-             */
-            expected: string | null;
-            /**
-             * @description Held minus expected: positive, the provider holds more than our books say.
-             * @example 0.00000000
-             */
-            difference: string | null;
-            /** @description The last check (ISO). */
-            checkedAt: string | null;
-            /** @description Where the books start (ISO). */
-            startedAt: string | null;
-            /** @description Since when the difference stands (ISO); a person is paged after two hours. */
-            differsSince: string | null;
-        };
         PaymentProviderDto: {
             /** @example rival */
             code: string;
@@ -6877,8 +6741,6 @@ export interface components {
              * @example 0
              */
             unexplainedRecords: number;
-            /** @description Its balance against our books — null for a provider with no balance of ours. */
-            books: components["schemas"]["ProviderBooksDto"] | null;
             /** @description Does it keep an exchange log (every call and delivery, kept 90 days)? */
             exchangeLog: boolean;
         };
@@ -6993,13 +6855,6 @@ export interface components {
             /** @description Ours or the provider’s id for what it was about: an OX- reference, a withdrawal. */
             reference: string | null;
             occurredAt: string;
-        };
-        ResetProviderBooksDto: {
-            /**
-             * @description Why the books restart — required, kept in the audit log.
-             * @example Topped up 5,000 USDT from the treasury wallet.
-             */
-            note: string;
         };
         AcknowledgeProviderRecordDto: {
             /**
@@ -8037,72 +7892,6 @@ export interface components {
              * @enum {string}
              */
             source: "database" | "environment";
-        };
-        RivalSettingsDto: {
-            /**
-             * @description Rival API base, including the /v1 prefix. Null when unconfigured.
-             * @example https://portal.rivalpayments.com/v1
-             */
-            baseUrl?: string | null;
-            /** @description Whether an API key is stored. The key itself is never returned. */
-            apiKeySet: boolean;
-            /**
-             * @description sha256[:8] of the webhook key — identifies WHICH key without carrying it. Null until one is generated.
-             * @example 3fa1b2c4
-             */
-            webhookKeyFingerprint?: string | null;
-            /** @description Whether deposits and payouts route through Rival. */
-            enabled: boolean;
-            /**
-             * Format: date-time
-             * @description When the last VERIFIED webhook arrived — the pipe-liveness signal. Null when none ever has.
-             */
-            lastEventAt?: string | null;
-            /**
-             * @description "environment" until the first save; the values shown are then the boot configuration rather than a blank form.
-             * @enum {string}
-             */
-            source: "database" | "environment" | "unconfigured";
-            /**
-             * @description The URL to paste into Rival (dashboard → CRM config). Built from API_PUBLIC_URL; null when that is unset.
-             * @example https://api.oxshare.com/v1/payments/rival/webhook
-             */
-            webhookEndpoint?: string | null;
-            /** Format: date-time */
-            updatedAt?: string | null;
-        };
-        UpdateRivalSettingsDto: {
-            /**
-             * @description https:// required (http://localhost allowed for development). Null clears it.
-             * @example https://portal.rivalpayments.com/v1
-             */
-            baseUrl?: string | null;
-            /** @description Omit or null to keep the stored key, a string to replace it, an empty string to remove it. Encrypted at rest and never read back. */
-            apiKey?: string | null;
-            /** @description Whether deposits and payouts route through Rival. */
-            enabled: boolean;
-        };
-        RivalWebhookKeyDto: {
-            /** @description The freshly minted key, in plaintext, exactly once. Paste it into Rival (dashboard → CRM config) together with the endpoint below. */
-            webhookKey: string;
-            /**
-             * @description sha256[:8], for later identification.
-             * @example 3fa1b2c4
-             */
-            fingerprint: string;
-            /** @example https://api.oxshare.com/v1/payments/rival/webhook */
-            endpoint?: string | null;
-        };
-        RivalCrmConfigView: {
-            apiUrl?: string | null;
-            hasApiKey: boolean;
-            enabled: boolean;
-        };
-        RivalTestResultDto: {
-            ok: boolean;
-            rivalCrmConfig: components["schemas"]["RivalCrmConfigView"];
-            /** @description The webhook URL Rival SHOULD be configured with (from API_PUBLIC_URL). */
-            expectedApiUrl?: string | null;
         };
         ProductGroupDto: {
             /** Format: uuid */
@@ -9400,17 +9189,6 @@ export interface components {
             reviewedByName?: string | null;
             /** Format: date-time */
             settledAt?: string | null;
-            /** @description The payment platform’s withdrawal id, once submitted. Null before. */
-            rivalWithdrawalId?: string | null;
-            /**
-             * Format: date-time
-             * @description When the submission claim was taken. Set with no id = outcome being reconciled.
-             */
-            rivalSubmittedAt?: string | null;
-            /** @description A human must reconcile this row against the payment platform. */
-            rivalNeedsAttention: boolean;
-            /** @description WHY the row needs attention, in words the operator can act on. Written whenever rivalNeedsAttention flips true; null once a retry lands or the flag was never raised. */
-            rivalAttentionReason?: string | null;
             /** @description The provider’s id for the payout, once it holds it. Null before. */
             providerPayoutId?: string | null;
             /**
@@ -9442,8 +9220,7 @@ export interface components {
             withdrawalMethodKey?: string | null;
             destinationTradingAccountId?: string | null;
             reviewedBy?: string | null;
-            rivalExternalId?: string | null;
-            /** @description The provider’s own id for the movement (0173); `rivalExternalId` is its old name. */
+            /** @description The provider’s own id for the movement: its invoice, its payment id. */
             providerPaymentId?: string | null;
             /** Format: date-time */
             createdAt?: string | null;
@@ -9719,9 +9496,7 @@ export interface components {
             methodName: string;
             provider: string;
             providerRef?: string | null;
-            /** @description The payment platform's OWN id for this movement — what Rival shows as its reference and what its team can look up directly. Null for a manual desk credit, which went through no rail. */
-            rivalExternalId?: string | null;
-            /** @description The provider’s own id for the movement (0173); `rivalExternalId` is its old name. */
+            /** @description The provider’s own id for the movement: its invoice, its payment id. */
             providerPaymentId?: string | null;
             destination?: string | null;
             rejectionReason?: string | null;
@@ -12944,31 +12719,6 @@ export interface operations {
             };
         };
     };
-    AdminPaymentProvidersController_resetBooks: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                code: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResetProviderBooksDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentProviderDto"];
-                };
-            };
-        };
-    };
     AdminPaymentProvidersController_acknowledge: {
         parameters: {
             query?: never;
@@ -13997,86 +13747,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SmtpTestResultDto"];
-                };
-            };
-        };
-    };
-    AdminSettingsController_getRival: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RivalSettingsDto"];
-                };
-            };
-        };
-    };
-    AdminSettingsController_setRival: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateRivalSettingsDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RivalSettingsDto"];
-                };
-            };
-        };
-    };
-    AdminSettingsController_mintRivalWebhookKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RivalWebhookKeyDto"];
-                };
-            };
-        };
-    };
-    AdminSettingsController_testRival: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RivalTestResultDto"];
                 };
             };
         };
@@ -16420,31 +16090,7 @@ export interface operations {
             };
         };
     };
-    "AdminMoneyController_resendPayout[0]": {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description A unique value per intended action (PLATFORM-CONVENTIONS R-5.2). */
-                "idempotency-key": string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WithdrawalRowDto"];
-                };
-            };
-        };
-    };
-    "AdminMoneyController_resendPayout[1]": {
+    AdminMoneyController_resendPayout: {
         parameters: {
             query?: never;
             header: {

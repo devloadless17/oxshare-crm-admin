@@ -55,7 +55,7 @@ describe('queryKeysFor — a new task refreshes the data it is about', () => {
   });
 
   it('reaches the balances a payout exception may have moved', () => {
-    const invalidated = queryKeysFor('withdrawal.rival_submit_failed');
+    const invalidated = queryKeysFor('withdrawal.payout_submit_failed');
     for (const surface of [
       keys.withdrawals.pendingCount(),
       keys.wallets.list({}),

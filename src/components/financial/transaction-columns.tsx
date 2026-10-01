@@ -193,7 +193,7 @@ export function transactionColumns({
           )}
           {/*
             The payment provider's OWN id, under ours (`providerPaymentId`,
-            backend 0173 — every provider, Rival's `rivalExternalId` before).
+            backend 0173, every provider).
             A support ticket about a payment needs BOTH: theirs is the one
             the provider looks up directly, ours is what confirms it is the
             right row. It was stored from day one of the integration and rendered
