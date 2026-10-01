@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import ProductsPage from './page';
+import ProductPage from './[id]/page';
 import { ALL_PERMISSIONS } from '@/test/permissions';
 import type { Product } from '@/lib/api/admin';
 
@@ -44,6 +45,15 @@ const {
   getIbCommissionTypes: vi.fn(),
   attachProductGroup: vi.fn(),
   detachProductGroup: vi.fn(),
+}));
+
+// A product's settings are a page now (owner, 1 Oct 2026): the form tests render it.
+const route = vi.hoisted(() => ({ id: 'p-1', push: vi.fn() }));
+vi.mock('next/navigation', () => ({
+  useParams: () => ({ id: route.id }),
+  useRouter: () => ({ push: route.push, back: vi.fn(), replace: vi.fn() }),
+  usePathname: () => '/products',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/lib/api/admin', async () => {
@@ -212,10 +222,8 @@ describe('the product catalogue — real and demo', () => {
       product({ id: 'p-2', name: 'Practice', type: 'demo', groups: [] }),
     ]);
     const user = userEvent.setup();
-    renderWithProviders(<ProductsPage />);
-
-    await screen.findByText('Standard');
-    await user.click(screen.getByRole('button', { name: /add product/i }));
+    route.id = 'new';
+    renderWithProviders(<ProductPage />);
 
     /*
      * The type is a shadcn `Select` now, not two bare radios — so the options
@@ -234,10 +242,8 @@ describe('the product catalogue — real and demo', () => {
 
   it('offers the demo choice when none exists yet', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ProductsPage />);
-
-    await screen.findByText('Standard');
-    await user.click(screen.getByRole('button', { name: /add product/i }));
+    route.id = 'new';
+    renderWithProviders(<ProductPage />);
 
     await user.click(await screen.findByRole('combobox', { name: /^type$/i }));
 
@@ -274,9 +280,8 @@ describe('the commission type', () => {
     getProducts.mockResolvedValue([product({ commissionTypeId: null })]);
     updateProduct.mockResolvedValue(product());
 
-    renderWithProviders(<ProductsPage />);
-    await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
-    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+    route.id = 'p-1';
+    renderWithProviders(<ProductPage />);
 
     await user.click(await screen.findByRole('combobox', { name: /commission type/i }));
     await user.click(await screen.findByRole('option', { name: /standard terms/i }));
@@ -300,9 +305,8 @@ describe('the commission type', () => {
     const user = userEvent.setup();
     updateProduct.mockResolvedValue(product({ commissionTypeId: null }));
 
-    renderWithProviders(<ProductsPage />);
-    await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
-    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+    route.id = 'p-1';
+    renderWithProviders(<ProductPage />);
 
     await user.click(await screen.findByRole('combobox', { name: /commission type/i }));
     await user.click(await screen.findByRole('option', { name: /pays no partner commission/i }));
@@ -317,14 +321,12 @@ describe('the commission type', () => {
   });
 
   it('offers no type on the demo product, which never pays commission', async () => {
-    const user = userEvent.setup();
     getProducts.mockResolvedValue([
       product({ id: 'p-demo', name: 'Demo', type: 'demo', commissionTypeId: null, groups: [] }),
     ]);
 
-    renderWithProviders(<ProductsPage />);
-    await user.click(await screen.findByRole('button', { name: /actions for demo/i }));
-    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+    route.id = 'p-demo';
+    renderWithProviders(<ProductPage />);
 
     expect(await screen.findByText(/never pays commission/i)).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: /commission type/i })).toBeNull();
@@ -346,10 +348,10 @@ describe('attaching MT5 groups on the product form', () => {
     lastSeenAt: null,
   });
 
-  async function openEdit(user: ReturnType<typeof userEvent.setup>) {
-    renderWithProviders(<ProductsPage />);
-    await user.click(await screen.findByRole('button', { name: /actions for standard/i }));
-    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
+  async function openEdit(_user: ReturnType<typeof userEvent.setup>) {
+    route.id = 'p-1';
+    renderWithProviders(<ProductPage />);
+    await screen.findByRole('combobox', { name: /choose a group/i });
   }
 
   async function pick(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
@@ -425,7 +427,7 @@ describe('attaching MT5 groups on the product form', () => {
     );
   });
 
-  it('shows the API’s reason when an attach is refused, and keeps the dialog open', async () => {
+  it('shows the API’s reason when an attach is refused, and keeps the page open', async () => {
     const user = userEvent.setup();
     updateProduct.mockResolvedValue(product());
     attachProductGroup.mockRejectedValueOnce({

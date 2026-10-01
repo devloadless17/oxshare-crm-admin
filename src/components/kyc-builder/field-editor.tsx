@@ -1,11 +1,11 @@
 'use client';
 
-import * as React from 'react';
 import { Trash2 } from 'lucide-react';
 import type { components } from '@/lib/api/types.gen';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { ChipInput } from '@/components/ui/chip-input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -57,24 +57,7 @@ export function FieldEditor({
   moveTargets?: readonly { id: string; title: string }[];
   onMove?: (stepId: string) => void;
 }) {
-  /*
-   * THE RAW TEXT IS LOCAL STATE. Deriving it from the array deletes the comma
-   * the operator just typed ("Passport," parses to ['Passport'] and re-renders
-   * without the comma), so the string being edited lives here and the array is
-   * derived FROM it. The parent row's `key` remounts this for another field.
-   */
-  const [optionsText, setOptionsText] = React.useState(() => (field.options ?? []).join(', '));
   const offered = fieldTypesForStep(slug);
-
-  const setOptions = (raw: string) => {
-    setOptionsText(raw);
-    onChange({
-      options: raw
-        .split(',')
-        .map((option) => option.trim())
-        .filter((option) => option.length > 0),
-    });
-  };
 
   return (
     <div
@@ -140,16 +123,19 @@ export function FieldEditor({
           <Label className="text-[11px]" htmlFor={`options-${field.id}`}>
             {field.type === 'select' ? t('builder.fieldOptions') : t('builder.checkboxChoices')}
           </Label>
-          <Input
+          {/* Chips: type a choice and press Enter; pasting "A, B, C" adds each. */}
+          <ChipInput
             id={`options-${field.id}`}
-            value={optionsText}
-            onChange={(e) => setOptions(e.target.value)}
+            value={field.options ?? []}
+            onChange={(options) => onChange({ options })}
+            ariaLabel={
+              field.type === 'select' ? t('builder.fieldOptions') : t('builder.checkboxChoices')
+            }
             placeholder={
               field.type === 'select'
                 ? t('builder.fieldOptionsPlaceholder')
                 : t('builder.checkboxChoicesPlaceholder')
             }
-            className="h-8 text-xs"
           />
           <p className="text-[11px] text-muted-foreground">
             {field.type === 'select'

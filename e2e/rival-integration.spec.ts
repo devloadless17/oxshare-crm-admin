@@ -381,7 +381,7 @@ test.describe('the Rival payout rail', () => {
 
       // Both halves of the reference pair, on the screen an operator reads
       // before raising a ticket.
-      await expect(page.getByText('Payment platform reference')).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText('Provider reference')).toBeVisible({ timeout: 10_000 });
       await expect(page.getByText(String(rivalId), { exact: false }).first()).toBeVisible({
         timeout: 10_000,
       });

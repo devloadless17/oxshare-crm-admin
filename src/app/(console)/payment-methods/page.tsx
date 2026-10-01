@@ -1,6 +1,7 @@
 'use client';
 
-import * as React from 'react';
+import { countryRuleBadge } from '@/components/payment-methods/country-rule-section';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CreditCard, Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -8,7 +9,6 @@ import type { PaymentMethod, PaymentProvider } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage, apiFieldErrors } from '@/lib/api/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -16,10 +16,6 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ExportButton } from '@/components/export-button';
 import { MethodNameCell } from '@/components/payment-methods/method-name-cell';
-import {
-  PaymentMethodFormModal,
-  type PaymentMethodFormValues,
-} from '@/components/payment-methods/payment-method-form-modal';
 import { AvailabilityBadge, routeLabel } from '@/components/payment-providers/provider-labels';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -39,8 +35,7 @@ export default function PaymentMethodsPage() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
-  const [editing, setEditing] = React.useState<PaymentMethod | undefined>(undefined);
-  const [formOpen, setFormOpen] = React.useState(false);
+  const router = useRouter();
 
   const query = useResource<PaymentMethod[]>(keys.paymentMethods.all(), (signal) =>
     api.admin.getPaymentMethods(signal),
@@ -63,70 +58,6 @@ export default function PaymentMethodsPage() {
       queryClient.invalidateQueries({ queryKey: keys.paymentMethods.all() }),
       queryClient.invalidateQueries({ queryKey: keys.paymentProviders.all() }),
     ]);
-
-  const saveMethod = useMutation({
-    mutationFn: (values: PaymentMethodFormValues) => {
-      /*
-       * An empty logo is OMITTED rather than sent blank. The field is nullable
-       * on the wire and the API treats absent and empty differently — `''` would
-       * store an empty string where "no logo" means null.
-       *
-       * No `sortOrder` (owner, 26 Sep 2026): the API puts a new method last and
-       * leaves an edited one where it is.
-       */
-      const body = {
-        internalLabel: values.internalLabel,
-        name: values.name,
-        currency: values.currency,
-        logoUrl: values.logoUrl === '' ? undefined : values.logoUrl,
-        enabled: values.enabled,
-        /*
-         * ⚠️ EVERY FIELD ON THE FORM MUST BE LISTED HERE, and nothing checks it.
-         *
-         * This object is built field by field on purpose — a spread would ship
-         * whatever the form happens to hold — but the update DTO's fields are all
-         * OPTIONAL, so a field left out is not a type error. It is a save that
-         * returns 200 and changes nothing.
-         *
-         * That is exactly what happened to `requiresProof`: the checkbox ticked,
-         * the API accepted the shape, the toast said saved, and the flag stayed
-         * false — so the method never asked a client for a receipt. Reported from
-         * production.
-         */
-        requiresProof: values.requiresProof,
-        // The method's own range (0162) — null clears it back to the currency's.
-        ownMinAmount: values.ownMinAmount,
-        ownMaxAmount: values.ownMaxAmount,
-        // The details an offline method asks for — the whole list, in order.
-        proofFields: values.proofFields.map((field) => ({
-          id: field.id,
-          label: field.label,
-          type: field.type,
-          required: field.required,
-          enabled: field.enabled,
-          hint: field.hint,
-        })),
-      };
-
-      // No key is ever sent: the API generates a new method's permanent ID, and
-      // an existing one is addressed by it, never changes it (backend 0161).
-      if (editing) return api.admin.updatePaymentMethod(editing.key, body);
-      // The route is chosen once, at creation, and fixed after (backend 0168).
-      return api.admin.createPaymentMethod({
-        ...body,
-        providerCode: values.route.providerCode,
-        channelCode: values.route.channelCode,
-      });
-    },
-    onSuccess: async (_data, values) => {
-      const name = values.internalLabel;
-      setFormOpen(false);
-      setEditing(undefined);
-      await invalidate();
-      toastSuccess(t('paymentMethods.saveSucceeded', { name }));
-    },
-    // Inline in the form modal, which stays open on failure.
-  });
 
   const toggleEnabled = useMutation({
     mutationFn: (method: PaymentMethod) =>
@@ -177,17 +108,10 @@ export default function PaymentMethodsPage() {
       ? remove.variables?.key
       : undefined;
 
-  const openCreate = () => {
-    setEditing(undefined);
-    saveMethod.reset();
-    setFormOpen(true);
-  };
-
-  const openEdit = (method: PaymentMethod) => {
-    setEditing(method);
-    saveMethod.reset();
-    setFormOpen(true);
-  };
+  // Settings live on their own page (owner, 1 Oct 2026): too much for a dialog.
+  const openCreate = () => router.push('/payment-methods/new');
+  const openEdit = (method: PaymentMethod) =>
+    router.push(`/payment-methods/${encodeURIComponent(method.key)}`);
 
   const columns: Column<PaymentMethod>[] = [
     {
@@ -235,7 +159,20 @@ export default function PaymentMethodsPage() {
        * is off or not set up is hidden from every client, and says so here
        * rather than only in a server log (backend 0168).
        */
-      cell: (m) => <AvailabilityBadge availability={m.availability} />,
+      cell: (m) => {
+        // A country rule (backend 0178) narrows who sees it — said beside "Offered".
+        const rule = countryRuleBadge(m.countryRule, m.countryCodes);
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <AvailabilityBadge availability={m.availability} />
+            {rule && (
+              <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                {rule}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     ...(canManage
       ? [
@@ -319,21 +256,6 @@ export default function PaymentMethodsPage() {
           clientPagination={METHOD_PAGING}
         />
       </AsyncBoundary>
-
-      <PaymentMethodFormModal
-        open={formOpen}
-        method={editing}
-        providers={providers.data}
-        saving={saveMethod.isPending}
-        error={
-          saveMethod.isError
-            ? apiErrorMessage(saveMethod.error, t('paymentMethods.saveFailed'))
-            : undefined
-        }
-        fieldErrors={saveMethod.isError ? apiFieldErrors(saveMethod.error) : {}}
-        onClose={() => setFormOpen(false)}
-        onSubmit={(values) => saveMethod.mutate(values)}
-      />
     </div>
   );
 }

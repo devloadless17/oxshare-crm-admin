@@ -1,6 +1,7 @@
 'use client';
 
-import * as React from 'react';
+import { countryRuleBadge } from '@/components/payment-methods/country-rule-section';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -8,17 +9,12 @@ import type { PaymentProvider, WithdrawalMethod } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage } from '@/lib/api/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { MethodNameCell } from '@/components/payment-methods/method-name-cell';
-import {
-  WithdrawalMethodFormModal,
-  type WithdrawalMethodFormValues,
-} from '@/components/withdrawal-methods/withdrawal-method-form-modal';
 import { AvailabilityBadge, routeLabel } from '@/components/payment-providers/provider-labels';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -48,8 +44,7 @@ export default function WithdrawalMethodsPage() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
-  const [editing, setEditing] = React.useState<WithdrawalMethod | undefined>(undefined);
-  const [formOpen, setFormOpen] = React.useState(false);
+  const router = useRouter();
 
   const query = useResource<WithdrawalMethod[]>(keys.withdrawalMethods.all(), (signal) =>
     api.admin.getWithdrawalMethods(signal),
@@ -68,33 +63,6 @@ export default function WithdrawalMethodsPage() {
       queryClient.invalidateQueries({ queryKey: keys.withdrawalMethods.all() }),
       queryClient.invalidateQueries({ queryKey: keys.paymentProviders.all() }),
     ]);
-
-  const saveMethod = useMutation({
-    mutationFn: (values: WithdrawalMethodFormValues) => {
-      const body = {
-        internalLabel: values.internalLabel,
-        name: values.name,
-        logoUrl: values.logoUrl === '' ? undefined : values.logoUrl,
-        enabled: values.enabled,
-      };
-      // No key is ever sent: the API generates a new rail's permanent ID (0161).
-      // The route is chosen once, at creation, and fixed after (backend 0168).
-      return editing
-        ? api.admin.updateWithdrawalMethod(editing.key, body)
-        : api.admin.createWithdrawalMethod({
-            ...body,
-            providerCode: values.route.providerCode,
-            channelCode: values.route.channelCode,
-          });
-    },
-    onSuccess: async (_data, values) => {
-      setFormOpen(false);
-      setEditing(undefined);
-      await invalidate();
-      toastSuccess(t('withdrawalMethods.saveSucceeded', { name: values.internalLabel }));
-    },
-    // Failures render inline in the form, which stays open.
-  });
 
   const toggleEnabled = useMutation({
     mutationFn: (method: WithdrawalMethod) =>
@@ -135,17 +103,10 @@ export default function WithdrawalMethodsPage() {
       ? remove.variables?.key
       : undefined;
 
-  const openCreate = () => {
-    setEditing(undefined);
-    saveMethod.reset();
-    setFormOpen(true);
-  };
-
-  const openEdit = (method: WithdrawalMethod) => {
-    setEditing(method);
-    saveMethod.reset();
-    setFormOpen(true);
-  };
+  // Settings live on their own page (owner, 1 Oct 2026), like deposit methods.
+  const openCreate = () => router.push('/withdrawal-methods/new');
+  const openEdit = (method: WithdrawalMethod) =>
+    router.push(`/withdrawal-methods/${encodeURIComponent(method.key)}`);
 
   const columns: Column<WithdrawalMethod>[] = [
     {
@@ -182,7 +143,20 @@ export default function WithdrawalMethodsPage() {
        * 30 Sep 2026: Whish Money "Enabled" here, missing from the portal). The
        * same badge as the deposit methods page and the provider page.
        */
-      cell: (m) => <AvailabilityBadge availability={m.availability} />,
+      cell: (m) => {
+        // A country rule (backend 0178) narrows who sees it — said beside "Offered".
+        const rule = countryRuleBadge(m.countryRule, m.countryCodes);
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <AvailabilityBadge availability={m.availability} />
+            {rule && (
+              <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                {rule}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     ...(canEdit
       ? [
@@ -265,20 +239,6 @@ export default function WithdrawalMethodsPage() {
           clientPagination={METHOD_PAGING}
         />
       </AsyncBoundary>
-
-      <WithdrawalMethodFormModal
-        open={formOpen}
-        method={editing}
-        providers={providers.data}
-        saving={saveMethod.isPending}
-        error={
-          saveMethod.isError
-            ? apiErrorMessage(saveMethod.error, t('withdrawalMethods.saveFailed'))
-            : undefined
-        }
-        onClose={() => setFormOpen(false)}
-        onSubmit={(values) => saveMethod.mutate(values)}
-      />
     </div>
   );
 }

@@ -3033,6 +3033,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The countries offered, and every country that could be */
+        get: operations["AdminCountriesController_get"];
+        /**
+         * Choose the countries offered
+         * @description Sign-up, KYC, the desk and payment-method rules all follow this list. A client keeps a country they already hold; only new choices are limited to it.
+         */
+        put: operations["AdminCountriesController_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/auth/login": {
         parameters: {
             query?: never;
@@ -6386,6 +6407,17 @@ export interface components {
             proofFields: components["schemas"]["ProofFieldDto"][];
             /** @description The method's own minimum as the operator set it — null means the currency's. `minAmount` is what clients are actually held to. */
             ownMinAmount: string | null;
+            /**
+             * @description Country rule (0178): allow only / deny only `countryCodes`; null = none.
+             * @enum {string|null}
+             */
+            countryRule: "allow" | "deny" | null;
+            /**
+             * @example [
+             *       "EG"
+             *     ]
+             */
+            countryCodes: string[];
             /** @description The method's own maximum as the operator set it — null means the currency's. `maxAmount` is what clients are actually held to. */
             ownMaxAmount: string | null;
             /**
@@ -6461,6 +6493,18 @@ export interface components {
             ownMaxAmount?: string | null;
             /** @default true */
             enabled: boolean;
+            /**
+             * @description Country rule (0178): `allow` = only clients of `countryCodes`; `deny` = everyone but them; null = no rule. Judged by the client's country of residence.
+             * @enum {string|null}
+             */
+            countryRule?: "allow" | "deny" | null;
+            /**
+             * @description ISO alpha-2 codes.
+             * @example [
+             *       "EG"
+             *     ]
+             */
+            countryCodes?: string[];
             /** @description Omitted puts it after the last one. */
             sortOrder?: number;
             /** @description OFFLINE: the client pays outside the platform and must attach a receipt. Such a deposit is filed through POST /payments/deposits/offline and settles when an operator approves it — the JSON deposit route refuses the method. Cannot be combined with a gateway key. */
@@ -6479,6 +6523,18 @@ export interface components {
             /** @example /v1/uploads/payment-logos/8f2c….png */
             logoUrl?: string;
             enabled?: boolean;
+            /**
+             * @description Country rule (0178): `allow` = only clients of `countryCodes`; `deny` = everyone but them; null = no rule. Judged by the client's country of residence.
+             * @enum {string|null}
+             */
+            countryRule?: "allow" | "deny" | null;
+            /**
+             * @description ISO alpha-2 codes.
+             * @example [
+             *       "EG"
+             *     ]
+             */
+            countryCodes?: string[];
             sortOrder?: number;
             /** @description OFFLINE: the client pays outside the platform and must attach a receipt. Such a deposit is filed through POST /payments/deposits/offline and settles when an operator approves it — the JSON deposit route refuses the method. Cannot be combined with a gateway key. */
             requiresProof?: boolean;
@@ -6522,6 +6578,17 @@ export interface components {
             logoUrl: string | null;
             /** @description Whether clients are offered it on the withdraw form. Disabling leaves requests already made on it untouched — the desk still settles them. */
             enabled: boolean;
+            /**
+             * @description Country rule (0178): allow only / deny only `countryCodes`; null = none.
+             * @enum {string|null}
+             */
+            countryRule: "allow" | "deny" | null;
+            /**
+             * @example [
+             *       "EG"
+             *     ]
+             */
+            countryCodes: string[];
             /**
              * @description The order clients see the methods in.
              * @example 0
@@ -6582,6 +6649,18 @@ export interface components {
             logoUrl?: string;
             /** @default true */
             enabled: boolean;
+            /**
+             * @description Country rule (0178): `allow` = only clients of `countryCodes`; `deny` = everyone but them; null = no rule. Judged by the client's country of residence.
+             * @enum {string|null}
+             */
+            countryRule?: "allow" | "deny" | null;
+            /**
+             * @description ISO alpha-2 codes.
+             * @example [
+             *       "EG"
+             *     ]
+             */
+            countryCodes?: string[];
             /** @description Omitted puts it after the last one. */
             sortOrder?: number;
         };
@@ -6595,6 +6674,18 @@ export interface components {
             /** @example /v1/uploads/payment-logos/8f2c….png */
             logoUrl?: string;
             enabled?: boolean;
+            /**
+             * @description Country rule (0178): `allow` = only clients of `countryCodes`; `deny` = everyone but them; null = no rule. Judged by the client's country of residence.
+             * @enum {string|null}
+             */
+            countryRule?: "allow" | "deny" | null;
+            /**
+             * @description ISO alpha-2 codes.
+             * @example [
+             *       "EG"
+             *     ]
+             */
+            countryCodes?: string[];
             sortOrder?: number;
         };
         ProviderCheckDto: {
@@ -7994,6 +8085,37 @@ export interface components {
         };
         SetAgencyProductsDto: {
             productIds: string[];
+        };
+        CountryDto: {
+            /**
+             * @description ISO 3166 alpha-2.
+             * @example LB
+             */
+            code: string;
+            /** @example Lebanon */
+            name: string;
+        };
+        OfferedCountriesDto: {
+            /**
+             * @description The codes offered, in order; null = every country (nothing chosen yet).
+             * @example [
+             *       "LB",
+             *       "AE"
+             *     ]
+             */
+            offered: string[] | null;
+            /** @description Every country that can be offered. */
+            world: components["schemas"]["CountryDto"][];
+        };
+        SetOfferedCountriesDto: {
+            /**
+             * @description ISO alpha-2 codes.
+             * @example [
+             *       "LB",
+             *       "AE"
+             *     ]
+             */
+            codes: string[];
         };
         AdminLoginDto: {
             /** @example admin@oxshare.com */
@@ -14010,6 +14132,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgencyDto"];
+                };
+            };
+        };
+    };
+    AdminCountriesController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferedCountriesDto"];
+                };
+            };
+        };
+    };
+    AdminCountriesController_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOfferedCountriesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferedCountriesDto"];
                 };
             };
         };
