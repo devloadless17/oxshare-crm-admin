@@ -14,6 +14,7 @@ import { toastSuccess } from '@/lib/toast';
 import { StepCard, type KycStepConfig } from '@/components/kyc-builder/step-card';
 import { type KycDocumentType, type KycFieldConfig } from '@/components/kyc-builder/field-editor';
 import { BuilderOverview } from '@/components/kyc-builder/builder-overview';
+import { CountriesPanel } from '@/components/kyc-builder/countries-panel';
 import { AddStepDialog } from '@/components/kyc-builder/add-step-dialog';
 import { placeRefusals, savePayload, type Refusals } from '@/components/kyc-builder/builder-save';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -301,6 +302,8 @@ export default function KycBuilderPage() {
           </Button>
         </div>
       </div>
+
+      <CountriesPanel canEdit={hasPermission(admin, 'kyc.edit')} />
 
       {stale && (
         <div

@@ -323,12 +323,16 @@ describe('the save', () => {
   });
 });
 
-describe('the options box holds its own text', () => {
-  it('keeps a trailing comma and space visible while typing', async () => {
+describe('choices are chips', () => {
+  it('adds a typed choice on Enter or a comma, and removes it with its ×', async () => {
     renderWithProviders(<KycBuilderPage />);
     const user = await openStepTab('Source of funds');
-    const box = screen.getByLabelText(/dropdown choices/i);
-    await user.type(box, 'Salary, ');
-    expect(box).toHaveValue('Salary, ');
+    const box = screen.getByRole('combobox', { name: /dropdown choices/i });
+    await user.type(box, 'Salary{Enter}Gift,');
+    expect(screen.getByRole('button', { name: 'Remove Salary' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove Gift' })).toBeInTheDocument();
+    expect(box).toHaveValue('');
+    await user.click(screen.getByRole('button', { name: 'Remove Gift' }));
+    expect(screen.queryByRole('button', { name: 'Remove Gift' })).not.toBeInTheDocument();
   });
 });

@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Modal } from '@/components/ui/modal';
 import {
   Select,
   SelectContent,
@@ -28,7 +27,9 @@ import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 import { LimitInput, plainAmount } from '@/components/currencies/limit-input';
 import { formatDecimal } from '@/lib/money';
+import { FormSection, StickyActions } from '@/components/ui/form-section';
 import { ProofFieldsEditor } from './proof-fields-editor';
+import { CountryRuleSection, type CountryRuleValue } from './country-rule-section';
 import {
   DEFAULT_ROUTE,
   RoutePicker,
@@ -56,10 +57,14 @@ export interface PaymentMethodFormValues {
   proofFields: PaymentMethodProofField[];
   /** The provider and channel it runs on — sent on create only, fixed after (backend 0168). */
   route: MethodRoute;
+  /** Who can use it, by country of residence (backend 0178). */
+  countries: CountryRuleValue;
 }
 
 /**
- * Add a deposit method, or edit one.
+ * Add a deposit method, or edit one — the settings PAGE's form (it was a modal
+ * until the owner asked for a page, 1 Oct 2026: too many settings for a pop-up).
+ * Grouped into titled sections, with one Save at the foot that stays in view.
  *
  * ## Five fields, and only one of them is a decision
  *
@@ -91,58 +96,7 @@ export interface PaymentMethodFormValues {
  * fixed after, so history never changes its meaning. A receipt can be asked
  * only on a channel paid outside the platform.
  */
-export function PaymentMethodFormModal({
-  open,
-  method,
-  providers,
-  saving,
-  error,
-  fieldErrors = {},
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  /** Present when editing; absent when creating. */
-  method?: PaymentMethod;
-  /** Every payment provider, when this admin may view them — the routes offered. */
-  providers?: readonly PaymentProvider[];
-  saving: boolean;
-  error?: string;
-  /** The API's per-field sentences, under the box each is about. */
-  fieldErrors?: Record<string, string>;
-  onClose: () => void;
-  onSubmit: (values: PaymentMethodFormValues) => void;
-}) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="lg"
-      title={method ? t('paymentMethods.editTitle') : t('paymentMethods.createTitle')}
-    >
-      {/*
-        KEYED, so opening the modal on a different method REMOUNTS the form and
-        its state starts from that method's values. A `useEffect` re-seeding ten
-        useStates is what `react-hooks/set-state-in-effect` exists to catch: it
-        renders once with the PREVIOUS method's values before correcting itself,
-        and one of those values is a pay-to account somebody could read and act
-        on. Same pattern as `IbLevelFormModal` and `CurrencyFormModal`.
-      */}
-      <PaymentMethodForm
-        key={`${method?.key ?? 'new'}-${String(open)}`}
-        method={method}
-        providers={providers}
-        saving={saving}
-        error={error}
-        fieldErrors={fieldErrors}
-        onClose={onClose}
-        onSubmit={onSubmit}
-      />
-    </Modal>
-  );
-}
-
-function PaymentMethodForm({
+export function PaymentMethodForm({
   method,
   providers,
   saving,
@@ -177,6 +131,10 @@ function PaymentMethodForm({
   const [requiresProof, setRequiresProof] = React.useState(method?.requiresProof ?? false);
   const [ownMin, setOwnMin] = React.useState(plainAmount(method?.ownMinAmount));
   const [ownMax, setOwnMax] = React.useState(plainAmount(method?.ownMaxAmount));
+  const [countries, setCountries] = React.useState<CountryRuleValue>({
+    countryRule: method?.countryRule ?? null,
+    countryCodes: method?.countryCodes ?? [],
+  });
   // Kept while "paid outside the platform" is unticked, so re-ticking restores
   // them; the API asks a client for them only while it is ticked.
   const [proofFields, setProofFields] = React.useState<PaymentMethodProofField[]>(
@@ -207,6 +165,7 @@ function PaymentMethodForm({
       ownMinAmount: ownMin.trim() === '' ? null : ownMin.trim(),
       ownMaxAmount: ownMax.trim() === '' ? null : ownMax.trim(),
       proofFields,
+      countries,
     });
   };
 
@@ -216,11 +175,15 @@ function PaymentMethodForm({
     fieldKeys.length > 0 &&
     fieldKeys.every(
       // The details editor shows its own refusals under each row (`proofFields.*`).
-      (key) => key === 'ownMinAmount' || key === 'ownMaxAmount' || key.startsWith('proofFields'),
+      (key) =>
+        key === 'ownMinAmount' ||
+        key === 'ownMaxAmount' ||
+        key.startsWith('country') ||
+        key.startsWith('proofFields'),
     );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5 pb-20">
       {error && !allInline && (
         <div
           role="alert"
@@ -230,66 +193,65 @@ function PaymentMethodForm({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor={`${fieldId}-label`}>{t('paymentMethods.internalLabel')}</Label>
-          <Input
-            id={`${fieldId}-label`}
-            value={internalLabel}
-            onChange={(e) => {
-              setInternalLabel(e.target.value);
-              setLabelEdited(true);
-            }}
-            required
-            maxLength={80}
-            placeholder="OMT – Hamra branch"
-            className="text-xs"
-          />
-          <p className="text-[11px] text-muted-foreground">
-            {t('paymentMethods.internalLabelHint')}
-          </p>
+      <FormSection title={t('paymentMethods.sectionGeneral')}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor={`${fieldId}-label`}>{t('paymentMethods.internalLabel')}</Label>
+            <Input
+              id={`${fieldId}-label`}
+              value={internalLabel}
+              onChange={(e) => {
+                setInternalLabel(e.target.value);
+                setLabelEdited(true);
+              }}
+              required
+              maxLength={80}
+              placeholder="OMT – Hamra branch"
+              className="text-xs"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              {t('paymentMethods.internalLabelHint')}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor={`${fieldId}-name`}>{t('paymentMethods.name')}</Label>
+            <Input
+              id={`${fieldId}-name`}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (!labelEdited) setInternalLabel(e.target.value);
+              }}
+              required
+              maxLength={80}
+              placeholder="OMT"
+              className="text-xs"
+            />
+            <p className="text-[11px] text-muted-foreground">{t('paymentMethods.nameHint')}</p>
+          </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor={`${fieldId}-name`}>{t('paymentMethods.name')}</Label>
-          <Input
-            id={`${fieldId}-name`}
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (!labelEdited) setInternalLabel(e.target.value);
-            }}
-            required
-            maxLength={80}
-            placeholder="OMT"
-            className="text-xs"
-          />
-          <p className="text-[11px] text-muted-foreground">{t('paymentMethods.nameHint')}</p>
-        </div>
-      </div>
+        <RoutePicker
+          id={`${fieldId}-route`}
+          direction="deposit"
+          value={route}
+          onChange={setRoute}
+          fixed={method !== undefined}
+          providers={providers}
+        />
 
-      <RoutePicker
-        id={`${fieldId}-route`}
-        direction="deposit"
-        value={route}
-        onChange={setRoute}
-        fixed={method !== undefined}
-        providers={providers}
-      />
+        <CurrencyField value={currency} onChange={setCurrency} />
 
-      <CurrencyField value={currency} onChange={setCurrency} />
-
-      <LogoField value={logoUrl} onChange={setLogoUrl} />
+        <LogoField value={logoUrl} onChange={setLogoUrl} />
+      </FormSection>
 
       {/*
         The method's own range (0162). Optional, and it can only NARROW the
         currency's — for a channel with its own cap. Empty follows the currency,
         and the hint says what that currently is.
       */}
-      <fieldset className="space-y-2 rounded-lg border border-border p-3">
-        <legend className="px-1 text-xs font-semibold text-foreground">
-          {t('paymentMethods.rangeTitle')}
-        </legend>
+      <FormSection title={t('paymentMethods.rangeTitle')}>
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           {chosen
             ? t('paymentMethods.rangeHint', {
@@ -319,7 +281,7 @@ function PaymentMethodForm({
             placeholder={chosen ? plainAmount(chosen.maxDeposit) : ''}
           />
         </div>
-      </fieldset>
+      </FormSection>
 
       {/*
         OFFLINE — the switch that makes a method usable at all for money paid
@@ -335,33 +297,48 @@ function PaymentMethodForm({
         that cannot be resolved by guessing.
       */}
       {acceptsReceipt && (
-        <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
-          <Checkbox
-            id={`${fieldId}-proof`}
-            checked={requiresProof}
-            onCheckedChange={(value) => setRequiresProof(value === true)}
-            aria-describedby={`${fieldId}-proof-hint`}
-            className="mt-0.5"
-          />
-          <div className="space-y-1">
-            <Label htmlFor={`${fieldId}-proof`} className="cursor-pointer">
-              {t('paymentMethods.requiresProof')}
-            </Label>
-            <p
-              id={`${fieldId}-proof-hint`}
-              className="text-[11px] leading-relaxed text-muted-foreground"
-            >
-              {t('paymentMethods.requiresProofHint')}
-            </p>
+        <FormSection title={t('paymentMethods.sectionReceipt')}>
+          <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+            <Checkbox
+              id={`${fieldId}-proof`}
+              checked={requiresProof}
+              onCheckedChange={(value) => setRequiresProof(value === true)}
+              aria-describedby={`${fieldId}-proof-hint`}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor={`${fieldId}-proof`} className="cursor-pointer">
+                {t('paymentMethods.requiresProof')}
+              </Label>
+              <p
+                id={`${fieldId}-proof-hint`}
+                className="text-[11px] leading-relaxed text-muted-foreground"
+              >
+                {t('paymentMethods.requiresProofHint')}
+              </p>
+            </div>
           </div>
-        </div>
+
+          {requiresProof && (
+            <ProofFieldsEditor
+              fields={proofFields}
+              onChange={setProofFields}
+              errors={fieldErrors}
+            />
+          )}
+        </FormSection>
       )}
 
-      {acceptsReceipt && requiresProof && (
-        <ProofFieldsEditor fields={proofFields} onChange={setProofFields} errors={fieldErrors} />
-      )}
+      <FormSection title={t('paymentMethods.sectionWho')}>
+        <CountryRuleSection
+          bare
+          value={countries}
+          onChange={setCountries}
+          error={fieldErrors['countryCodes'] ?? fieldErrors['countryRule']}
+        />
+      </FormSection>
 
-      <div className="flex justify-end gap-2 pt-1">
+      <StickyActions>
         <Button type="button" variant="outline" size="sm" onClick={onClose}>
           {t('common.cancel')}
         </Button>
@@ -380,7 +357,7 @@ function PaymentMethodForm({
         >
           {t('paymentMethods.save')}
         </Button>
-      </div>
+      </StickyActions>
     </form>
   );
 }

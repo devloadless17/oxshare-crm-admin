@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { ALL_PERMISSIONS } from '@/test/permissions';
 import type { WithdrawalMethod } from '@/lib/api/admin';
-import WithdrawalMethodsPage from './page';
+import WithdrawalMethodPage from './page';
 
 /**
  * Withdrawal methods — the payout rails the withdraw form offers, managed here.
@@ -26,10 +26,11 @@ const {
 }));
 
 // Both exports — see the note in leverages/page.test.tsx.
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+const route = vi.hoisted(() => ({ key: 'new' }));
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push, back: vi.fn(), replace: vi.fn() }),
-  usePathname: () => '/withdrawal-methods',
+  useParams: () => ({ key: route.key }),
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
+  usePathname: () => `/withdrawal-methods/${route.key}`,
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -107,46 +108,51 @@ beforeEach(() => {
   updateWithdrawalMethod.mockResolvedValue(method());
 });
 
-describe('the withdrawal methods page', () => {
-  it('lists every method, disabled ones included', async () => {
-    renderWithProviders(<WithdrawalMethodsPage />);
-
-    expect(await screen.findByText('Whish Money')).toBeInTheDocument();
-    expect(screen.getByText('Bank transfer')).toBeInTheDocument();
-    expect(screen.getByText('Switched off')).toBeInTheDocument();
-    // Reported 30 Sep 2026: "Enabled" here while clients could not see it.
-    expect(screen.getByText('Hidden: network switched off')).toBeInTheDocument();
-  });
-
-  it('opens settings on their own page — adding and editing alike', async () => {
+describe('a withdrawal method’s settings page', () => {
+  it('adds a method named once: the internal name follows the display name', async () => {
+    route.key = 'new';
     const user = userEvent.setup();
-    renderWithProviders(<WithdrawalMethodsPage />);
-    await user.click(await screen.findByRole('button', { name: /add method/i }));
-    expect(push).toHaveBeenCalledWith('/withdrawal-methods/new');
-    await user.click(await screen.findByRole('button', { name: /actions for whish money/i }));
-    expect(screen.queryByText('whish')).toBeNull();
-    await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
-    expect(push).toHaveBeenCalledWith('/withdrawal-methods/whish');
-  });
+    renderWithProviders(<WithdrawalMethodPage />);
 
-  it('switches a method on or off with a single flag', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<WithdrawalMethodsPage />);
-
-    await user.click(await screen.findByRole('button', { name: /actions for bank transfer/i }));
-    await user.click(await screen.findByRole('menuitem', { name: /^enable$/i }));
+    await user.type(await screen.findByPlaceholderText('Bank transfer'), 'OMT');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() =>
-      expect(updateWithdrawalMethod).toHaveBeenCalledWith('bank', { enabled: true }),
+      expect(createWithdrawalMethod).toHaveBeenCalledWith(
+        expect.objectContaining({ internalLabel: 'OMT', name: 'OMT', enabled: true }),
+      ),
+    );
+    // No key (the API generates the permanent ID) and no order (it goes last).
+    expect(createWithdrawalMethod.mock.calls[0]?.[0]).not.toHaveProperty('key');
+    expect(createWithdrawalMethod.mock.calls[0]?.[0]).not.toHaveProperty('sortOrder');
+  });
+
+  it('adds a disabled method through the labelled enabled checkbox', async () => {
+    route.key = 'new';
+    const user = userEvent.setup();
+    renderWithProviders(<WithdrawalMethodPage />);
+
+    await user.type(await screen.findByLabelText(/^name$/i), 'OMT');
+    await user.clear(screen.getByLabelText(/internal name/i));
+    await user.type(screen.getByLabelText(/internal name/i), 'OMT payouts');
+    const enabled = screen.getByRole('checkbox', { name: /offer it to clients/i });
+    expect(enabled.tagName).toBe('BUTTON');
+    expect(enabled).toBeChecked();
+    await user.click(enabled);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(createWithdrawalMethod).toHaveBeenCalledWith(
+        expect.objectContaining({ internalLabel: 'OMT payouts', name: 'OMT', enabled: false }),
+      ),
     );
   });
 
-  it('offers no controls to an operator who may only read', async () => {
-    permissions.current = ['payments.view'];
-    renderWithProviders(<WithdrawalMethodsPage />);
+  it('never shows a method’s key on its settings page', async () => {
+    route.key = 'whish';
+    renderWithProviders(<WithdrawalMethodPage />);
 
-    await screen.findByText('Whish Money');
-    expect(screen.queryByRole('button', { name: /add method/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /actions for/i })).toBeNull();
+    expect(await screen.findByLabelText(/internal name/i)).toHaveValue('Whish Money');
+    expect(screen.queryByDisplayValue('whish')).toBeNull();
   });
 });

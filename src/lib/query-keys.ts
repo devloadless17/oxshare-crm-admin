@@ -205,6 +205,11 @@ export const keys = {
     all: () => ['withdrawal-methods'] as const,
   },
 
+  /** The countries offered (backend 0178): the KYC builder edits them, method rules read them. */
+  countries: {
+    all: () => ['countries'] as const,
+  },
+
   /** Payment providers (backend 0168). A method change moves a provider's list too. */
   paymentProviders: {
     all: () => ['payment-providers'] as const,

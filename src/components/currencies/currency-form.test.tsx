@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
-import { CurrencyFormModal, type CurrencyFormValues } from './currency-form-modal';
+import { CurrencyForm, type CurrencyFormValues } from './currency-form';
 import type { Currency } from '@/lib/api/admin';
 
 /**
@@ -32,10 +32,16 @@ const LBP: Currency = {
   updatedAt: '2026-09-29T00:00:00.000Z',
 };
 
-function open(props: Partial<Parameters<typeof CurrencyFormModal>[0]> = {}) {
+function open(props: Partial<Parameters<typeof CurrencyForm>[0]> = {}) {
   const onSubmit = vi.fn<(values: CurrencyFormValues) => void>();
   renderWithProviders(
-    <CurrencyFormModal open saving={false} onClose={vi.fn()} onSubmit={onSubmit} {...props} />,
+    <CurrencyForm
+      saving={false}
+      fieldErrors={{}}
+      onClose={vi.fn()}
+      onSubmit={onSubmit}
+      {...props}
+    />,
   );
   return { onSubmit, user: userEvent.setup() };
 }

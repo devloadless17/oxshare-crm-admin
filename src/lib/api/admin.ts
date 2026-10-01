@@ -320,6 +320,8 @@ export type CreateWithdrawalMethod = components['schemas']['CreateWithdrawalMeth
  * on them. Secrets never come back; a setting says only `isSet`.
  */
 export type PaymentProvider = components['schemas']['PaymentProviderDto'];
+/** The countries offered and every country that could be (backend 0178). */
+export type OfferedCountries = components['schemas']['OfferedCountriesDto'];
 export type PaymentProviderSetting = components['schemas']['ProviderSettingDto'];
 export type PaymentProviderChannel = components['schemas']['ProviderChannelDto'];
 export type PaymentProviderMethod = components['schemas']['ProviderMethodDto'];
@@ -2469,6 +2471,17 @@ export const adminApi = {
    * offered to clients — the screen flags that, because it is otherwise
    * invisible until somebody asks why nobody is depositing.
    */
+  /** The countries sign-up, KYC and payment rules offer (backend 0178). */
+  async getCountries(signal?: AbortSignal): Promise<OfferedCountries> {
+    const { data } = await apiClient.get<OfferedCountries>('/admin/countries', { signal });
+    return data;
+  },
+
+  async setCountries(codes: string[]): Promise<OfferedCountries> {
+    const { data } = await apiClient.put<OfferedCountries>('/admin/countries', { codes });
+    return data;
+  },
+
   async getPaymentProviders(signal?: AbortSignal): Promise<PaymentProvider[]> {
     const { data } = await apiClient.get<PaymentProvider[]>('/admin/payment-providers', { signal });
     return data;

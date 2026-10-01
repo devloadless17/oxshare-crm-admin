@@ -1,6 +1,6 @@
 'use client';
 
-import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Coins, Eye, EyeOff, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -8,7 +8,6 @@ import type { Currency } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage, apiFieldErrors } from '@/lib/api/errors';
 import { formatDecimal } from '@/lib/money';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -17,10 +16,6 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
-import {
-  CurrencyFormModal,
-  type CurrencyFormValues,
-} from '@/components/currencies/currency-form-modal';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -84,44 +79,13 @@ export default function CurrenciesPage() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
-  const [editing, setEditing] = React.useState<Currency | undefined>(undefined);
-  const [formOpen, setFormOpen] = React.useState(false);
+  const router = useRouter();
 
   const query = useResource<Currency[]>(keys.currencies.all(), (signal) =>
     api.admin.getCurrencies(signal),
   );
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.currencies.all() });
-
-  const saveCurrency = useMutation({
-    mutationFn: (values: CurrencyFormValues) => {
-      if (editing) {
-        /*
-         * `code` is deliberately not sent on update — it is the primary key and
-         * the API has no field for it. Sending `isDefault: false` is also
-         * withheld when it is already false, because the API refuses an
-         * explicit un-defaulting (a platform must always have one) and there is
-         * no reason to make an unchanged checkbox trigger that refusal.
-         */
-        const { code: _code, isDefault, ...rest } = values;
-        return api.admin.updateCurrency(editing.code, {
-          ...rest,
-          ...(isDefault ? { isDefault: true } : {}),
-        });
-      }
-      return api.admin.createCurrency(values);
-    },
-    onSuccess: async (_data, values) => {
-      // `editing` is cleared below, so the code is read BEFORE that — on an
-      // update the form has no `code` field at all (it is the primary key).
-      const code = editing?.code ?? values.code;
-      setFormOpen(false);
-      setEditing(undefined);
-      await invalidate();
-      toastSuccess(t('currencies.saveSucceeded', { code }));
-    },
-    // Inline in the modal, which stays open — see the note above `deleteCurrency`.
-  });
 
   const deleteCurrency = useMutation({
     mutationFn: (code: string) => api.admin.deleteCurrency(code),
@@ -178,17 +142,10 @@ export default function CurrenciesPage() {
         ? toggleEnabled.variables?.code
         : undefined;
 
-  const openCreate = () => {
-    setEditing(undefined);
-    saveCurrency.reset();
-    setFormOpen(true);
-  };
-
-  const openEdit = (currency: Currency) => {
-    setEditing(currency);
-    saveCurrency.reset();
-    setFormOpen(true);
-  };
+  // A currency's settings live on their own page (owner, 1 Oct 2026).
+  const openCreate = () => router.push('/currencies/new');
+  const openEdit = (currency: Currency) =>
+    router.push(`/currencies/${encodeURIComponent(currency.code)}`);
 
   const confirmDelete = async (currency: Currency) => {
     // Names the consequence and the alternative, rather than asking "are you
@@ -371,20 +328,6 @@ export default function CurrenciesPage() {
           clientPagination={CURRENCY_PAGING}
         />
       </AsyncBoundary>
-
-      <CurrencyFormModal
-        open={formOpen}
-        currency={editing}
-        saving={saveCurrency.isPending}
-        error={
-          saveCurrency.isError
-            ? apiErrorMessage(saveCurrency.error, t('currencies.saveFailed'))
-            : undefined
-        }
-        fieldErrors={saveCurrency.isError ? apiFieldErrors(saveCurrency.error) : {}}
-        onClose={() => setFormOpen(false)}
-        onSubmit={(values) => saveCurrency.mutate(values)}
-      />
     </div>
   );
 }
