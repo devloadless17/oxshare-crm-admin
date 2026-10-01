@@ -4131,11 +4131,8 @@ export const messages = {
   'notifications.taskApproveWithdrawal': 'Approve withdrawal',
   'notifications.taskApproveWithdrawalBody': '{amount} requested',
   'notifications.taskPayoutRefused': 'Payout refused — retry or cancel',
-  'notifications.taskPayoutRefusedBody': '{amount} · {reason}',
   'notifications.taskPayoutRefusedProviderBody': '{amount} · {provider}: {reason}',
   'notifications.taskPayoutReconcile': 'Reconcile payout',
-  'notifications.taskPayoutReconcileBody':
-    'The payment platform and the CRM disagree about whether this payout moved.',
   'notifications.taskPayoutReconcileProviderBody':
     '{provider} and the CRM disagree about whether this payout moved.',
   'notifications.taskReviewKyc': 'Review KYC',

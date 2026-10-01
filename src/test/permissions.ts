@@ -139,8 +139,6 @@ export const ALL_PERMISSIONS: string[] = [
   'settings.smtp.edit',
   'settings.security.view',
   'settings.security.edit',
-  'settings.rival.view',
-  'settings.rival.edit',
   'audit.view',
   'ledger.view',
   'reconciliation.view',

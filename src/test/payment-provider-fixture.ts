@@ -18,8 +18,7 @@ export function provider(over: Partial<PaymentProvider> = {}): PaymentProvider {
     // Rival cannot list its records; 3pay can (backend 0174).
     auditsRecords: false,
     unexplainedRecords: 0,
-    // Rival holds no balance of ours and keeps no exchange log; 3pay does both (backend 0175).
-    books: null,
+    // Rival keeps no exchange log; 3pay does (backend 0175).
     exchangeLog: false,
     settings: [],
     channels: [

@@ -179,22 +179,6 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
     }),
     href: (n) => opened('/transactions', n, 'transactionId'),
   },
-  // Rival's names for the two above — the rows raised before backend 0173.
-  'withdrawal.rival_submit_failed': {
-    titleKey: 'notifications.taskPayoutRefused',
-    alert: true,
-    body: (n) => ({
-      key: 'notifications.taskPayoutRefusedBody',
-      vars: { amount: amountOf(n), reason: str(n.params['reason']) || '—' },
-    }),
-    href: (n) => opened('/transactions', n, 'transactionId'),
-  },
-  'withdrawal.rival_attention': {
-    titleKey: 'notifications.taskPayoutReconcile',
-    alert: true,
-    body: () => ({ key: 'notifications.taskPayoutReconcileBody' }),
-    href: (n) => opened('/transactions', n, 'transactionId'),
-  },
   'admin.kyc.submitted': {
     titleKey: 'notifications.taskReviewKyc',
     body: () => ({ key: 'notifications.taskReviewKycBody' }),

@@ -60,22 +60,26 @@ import {
  * skip. Anything else is a broken probe and stops the run.
  */
 async function railIsLive(admin: Awaited<ReturnType<typeof adminApiSession>>): Promise<boolean> {
-  const res = await admin.get('/admin/settings/rival');
+  const res = await admin.get('/admin/payment-providers/rival');
   if (res.status() === 429) {
     throw new Error(
       'Rate limited while checking the Rival rail. This is a HARNESS problem, not a rail that is ' +
         'off — re-run with fewer concurrent admin logins rather than trusting a skip.',
     );
   }
-  if (!res.ok()) throw new Error(`Could not read the Rival settings: HTTP ${res.status()}`);
+  if (!res.ok()) throw new Error(`Could not read Rival's provider settings: HTTP ${res.status()}`);
 
-  const cfg = (await res.json()) as { enabled?: boolean; apiKeySet?: boolean };
+  const cfg = (await res.json()) as {
+    enabled?: boolean;
+    settings?: { name: string; isSet?: boolean }[];
+  };
+  const apiKeySet = cfg.settings?.find((setting) => setting.name === 'apiKey')?.isSet === true;
   // The one honest reason to skip: an operator has not switched it on here.
-  if (!cfg.enabled || !cfg.apiKeySet) return false;
+  if (!cfg.enabled || !apiKeySet) return false;
 
   // Configured is not the same as REACHABLE — the test-connection call is what
   // proves the key is accepted and Rival is answering right now.
-  const probe = await admin.post('/admin/settings/rival/test', {});
+  const probe = await admin.post('/admin/payment-providers/rival/test', {});
   if (probe.status() === 429) {
     throw new Error(
       'Rate limited while probing the Rival connection — inconclusive, not "off". See above.',
@@ -207,7 +211,7 @@ async function awaitRivalId(
     const row = await deskRow(admin, txId);
     // Narrowed rather than String()-ed: the desk row is typed as a bag of
     // `unknown`, and stringifying one would happily produce "[object Object]".
-    const id = row?.rivalWithdrawalId;
+    const id = row?.providerPayoutId;
     if (typeof id === 'string' && id.length > 0) return id;
     await new Promise((r) => setTimeout(r, 1000));
   }
@@ -256,8 +260,8 @@ test.describe('the Rival payout rail', () => {
         expect(row?.state).toBe('approved');
         // The identifier an operator quotes in a ticket. Stored from day one and
         // rendered nowhere until it was put on the desk.
-        expect(String(row?.rivalWithdrawalId)).toMatch(/[0-9a-f-]{36}/);
-        expect(row?.rivalNeedsAttention, 'a clean submission raises no flag').toBeFalsy();
+        expect(String(row?.providerPayoutId)).toMatch(/[0-9a-f-]{36}/);
+        expect(row?.needsAttention, 'a clean submission raises no flag').toBeFalsy();
       });
 
       await test.step('the money has NOT moved again', async () => {
@@ -314,7 +318,7 @@ test.describe('the Rival payout rail', () => {
       const row = await deskRow(admin, txId);
       expect(row?.state).toBe('rejected');
       // Refused before approval, so it never reached the rail at all.
-      expect(row?.rivalWithdrawalId ?? null, 'a refused request is never submitted').toBeNull();
+      expect(row?.providerPayoutId ?? null, 'a refused request is never submitted').toBeNull();
       expect(await usdBalance(admin, client.id), 'refunded in full').toBe('500.00000000');
     } finally {
       await client.dispose();
@@ -436,7 +440,7 @@ test.describe('the Rival payout rail', () => {
         // Narrowed rather than String()-ed: the desk row is a bag of `unknown`, and
         // stringifying one would happily produce "[object Object]".
         expect(typeof settled?.providerRef, 'a provider reference is recorded').toBe('string');
-        expect(settled?.rivalNeedsAttention, 'a clean settlement flags nobody').toBeFalsy();
+        expect(settled?.needsAttention, 'a clean settlement flags nobody').toBeFalsy();
       }
 
       await test.step('the money LEFT — there is no refund', async () => {
