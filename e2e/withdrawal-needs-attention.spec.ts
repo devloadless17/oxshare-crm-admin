@@ -266,7 +266,8 @@ test.describe('a payout the platform refuses is visible on the desk', () => {
      * desk that cannot reach it has to escalate to an engineer for what is a
      * routine top-up-and-retry.
      */
-    await expect(row.first().getByRole('button', { name: /retry/i })).toBeVisible();
+    // "Resend payout" since the payments core (0173): one name for every provider.
+    await expect(row.first().getByRole('button', { name: /resend payout/i })).toBeVisible();
 
     /*
      * And it must still read as UNPAID. A refused payout showing "paid" would be
