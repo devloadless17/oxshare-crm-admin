@@ -2172,6 +2172,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trading/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in client's positions — open by default
+         * @description IMPORTANT: this returns an EMPTY LIST for everyone today, and that is a real answer rather than a stub. Nothing writes to `positions` because there is no MT5 bridge, so the table exists and the query is genuine — "no open positions" is something the database said.
+         *
+         *     The table is created ahead of the feed deliberately: a screen rendering a hardcoded empty state is indistinguishable from one whose query found nothing, and that confusion has already told a client holding three live accounts that they had none.
+         *
+         *     Prices and volumes are decimal STRINGS (§6.1). `profit` is the REALISED result and is null while a position is open — floating P/L is deliberately absent, because it changes on every tick and a stored copy is stale the moment it is written.
+         */
+        get: operations["TradingController_myPositions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/trading/accounts/self-service": {
         parameters: {
             query?: never;
@@ -2345,11 +2369,13 @@ export interface paths {
         };
         /**
          * Everything the client's landing page renders, in one request
-         * @description Wallets, recent transactions, trading accounts and four counts. Open positions are live MT5 figures, read per account from `GET /trading/accounts/:id/positions`.
+         * @description Wallets, recent transactions, trading accounts, open positions and five counts.
          *
          *     ONE request rather than six because these are read in a single glance: a balance from one instant beside a transaction list from another is a screen that contradicts itself, and six requests give the portal six ways to half-fail.
          *
          *     Every figure is counted from a table. The screen this replaces carried hardcoded zeros for "trading accounts" and "pending transactions" with no endpoint behind either, so a client holding three accounts read 0.
+         *
+         *     `openPositions` is empty for everyone until an MT5 bridge writes to `positions` — but the query is real, so that emptiness is a database answer rather than a frontend assumption.
          */
         get: operations["DashboardController_myDashboard"];
         put?: never;
@@ -7053,6 +7079,44 @@ export interface components {
              */
             amount: string;
         };
+        PositionDto: {
+            id: string;
+            /** @description The trading account this was traded on. */
+            tradingAccountId: string;
+            /** @description The account's MT5 login, for display beside the trade. Null until assigned. */
+            login: string | null;
+            /** @description The broker's own identifier for this trade. */
+            ticket: string;
+            /** @example EURUSD */
+            symbol: string;
+            /** @enum {string} */
+            side: "buy" | "sell";
+            /**
+             * @description Lots, as a decimal string. Never a float — 0.01 is a valid size.
+             * @example 0.1000
+             */
+            volume: string;
+            /** @example 1.0854300000 */
+            openPrice: string;
+            /** @description Null while the position is open — it does not exist yet. */
+            closePrice: string | null;
+            stopLoss: string | null;
+            takeProfit: string | null;
+            /**
+             * @description REALISED result, signed, written only at close (§6.1 decimal string). Null while open — this is deliberately NOT floating P/L.
+             * @example 125.40000000
+             */
+            profit: string | null;
+            swap: string | null;
+            commission: string | null;
+            currency: string;
+            /** @enum {string} */
+            status: "open" | "closed";
+            /** Format: date-time */
+            openedAt: string;
+            /** Format: date-time */
+            closedAt: string | null;
+        };
         TradingAccountDto: {
             id: string;
             /** @description The MT5 login, once there is an MT5 to issue one. Null until a bridge assigns it — a string rather than a number because leading zeros are significant. */
@@ -7356,6 +7420,8 @@ export interface components {
             totalAccounts: number;
             /** @description Live accounts only — the ones trading real money. */
             liveAccounts: number;
+            /** @description Open positions. Zero for everyone today: nothing writes to `positions` until an MT5 bridge exists. See `openPositions` on the parent DTO. */
+            openPositions: number;
             /** @description Transactions awaiting review — the client is waiting on us. */
             pendingTransactions: number;
             /** @description Clients this partner introduced. Zero when not a partner. */
@@ -7368,6 +7434,8 @@ export interface components {
             recentTransactions: components["schemas"]["TransactionDto"][];
             /** @description Trading accounts, live before demo. */
             tradingAccounts: components["schemas"]["TradingAccountDto"][];
+            /** @description OPEN positions, newest first. Empty for everyone until an MT5 bridge writes to the table — a real query returning zero rows, not a placeholder. */
+            openPositions: components["schemas"]["PositionDto"][];
             stats: components["schemas"]["DashboardStatsDto"];
         };
         CreateMt5AccountDto: {
@@ -13008,6 +13076,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    TradingController_myPositions: {
+        parameters: {
+            query?: {
+                status?: "open" | "closed";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PositionDto"][];
+                };
             };
         };
     };

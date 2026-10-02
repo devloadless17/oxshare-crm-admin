@@ -111,6 +111,9 @@ function CountriesEditor({ data, canEdit }: { data: OfferedCountries; canEdit: b
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: keys.countries.all() }),
         queryClient.invalidateQueries({ queryKey: keys.kyc.all() }),
+        // And the client Edit dialog's lists: `GET /profile/options` serves
+        // the offered countries (backend 0178).
+        queryClient.invalidateQueries({ queryKey: keys.profileOptions.all() }),
       ]);
     },
     onError: (error) => toastError(error, t('countries.saveFailed')),

@@ -118,6 +118,8 @@ export function OpenAccountModal({
       // The client's profile lists their accounts, and the dashboard counts them.
       void queryClient.invalidateQueries({ queryKey: keys.clients.all() });
       void queryClient.invalidateQueries({ queryKey: keys.stats.all() });
+      // The MT5 groups mirror counts the accounts in each group.
+      void queryClient.invalidateQueries({ queryKey: keys.mt5Groups.all() });
       toastSuccess(t('tradingAccounts.opened', { login: account.login }));
     },
     onError: (e: unknown) => setError(apiErrorMessage(e, t('tradingAccounts.openFailed'))),

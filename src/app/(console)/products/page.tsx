@@ -78,7 +78,12 @@ export default function ProductsPage() {
     [commissionTypes.data],
   );
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.products.all() });
+  // The MT5 groups mirror names each group's products, so it moves with them.
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: keys.products.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.mt5Groups.all() }),
+    ]);
 
   const deleteProduct = useMutation({
     mutationFn: (product: Product) => adminApi.deleteProduct(product.id),

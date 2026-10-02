@@ -22,8 +22,13 @@ export { compareValues, type SortType };
 import { Pagination } from './pagination';
 import { CursorPagination } from './cursor-pagination';
 import { t } from '@/lib/i18n';
+/* twin:config:start */
+// The reader's field mask: sort headers that would spell out a hidden client
+// field are not offered. The portal's twin stubs these — a client never has a
+// field hidden from themselves.
 import { useAdmin } from '@/context/AdminAuthContext';
 import { isMasked } from '@/lib/masking';
+/* twin:config:end */
 
 export interface Column<T> {
   header: string;

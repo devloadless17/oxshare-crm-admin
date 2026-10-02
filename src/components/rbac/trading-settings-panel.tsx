@@ -162,6 +162,9 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
       setSaved(true);
       flashTimer.current = window.setTimeout(() => setSaved(false), 2000);
       void queryClient.invalidateQueries({ queryKey: keys.settings.trading() });
+      // The commission interval is ALSO a scheduled job's interval (the jobs
+      // panel invalidates this key on its side for the same reason).
+      void queryClient.invalidateQueries({ queryKey: keys.settings.scheduledJobs() });
       toastSuccess(t('tradingSettings.saved'));
     },
     // The API's own message. It names the offending leverage — "1OO is not a
