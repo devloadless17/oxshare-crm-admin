@@ -8132,6 +8132,8 @@ export interface components {
             id: string;
             email: string;
             name: string;
+            /** @enum {string} */
+            role: "master_admin" | "sub_admin";
             permissions: string[];
             roleId?: string;
             roleName?: string;
