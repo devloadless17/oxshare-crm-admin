@@ -505,3 +505,42 @@ describe('finding a client on the wallets desk', () => {
    * gap, so it is stated.
    */
 });
+
+describe('wallets — one idempotency key per credit intent', () => {
+  /*
+   * The key was `credit:<wallet>:<balance>`, so a second deliberate credit made
+   * once the balance was back at the same figure reused the first one's key:
+   * the server replayed the old answer and no money moved. A key is minted each
+   * time the dialog opens and reused only by retries inside it.
+   */
+  async function credit(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: /actions for/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /add funds/i }));
+    await user.type(await screen.findByLabelText(/amount to add/i), '50');
+    await user.type(screen.getByLabelText(/^reason/i), 'Goodwill credit');
+    await user.click(screen.getByRole('button', { name: /^add funds$/i }));
+  }
+
+  it('gives a second credit at the same balance a NEW key, and a retry the SAME one', async () => {
+    creditWallet
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { response: { status: 503 } }))
+      .mockResolvedValue({ transaction: {}, replayed: false });
+    const user = userEvent.setup();
+    renderWithProviders(<WalletsPage />);
+    await screen.findByText('client@example.com');
+
+    await credit(user);
+    await waitFor(() => expect(creditWallet).toHaveBeenCalledTimes(1));
+    await user.click(await screen.findByRole('button', { name: /^add funds$/i }));
+    await waitFor(() => expect(creditWallet).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // The mocked list still reports the same balance — exactly the collision.
+    await credit(user);
+    await waitFor(() => expect(creditWallet).toHaveBeenCalledTimes(3));
+
+    const [first, retry, second] = creditWallet.mock.calls.map((c) => c[1] as string);
+    expect(retry).toBe(first);
+    expect(second).not.toBe(first);
+  });
+});

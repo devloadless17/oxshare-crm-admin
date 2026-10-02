@@ -2697,6 +2697,7 @@ export const messages = {
   'setProduct.saved': 'Product set on {login}',
   'setProduct.failed': 'The product could not be set.',
   'common.cancel': 'Cancel',
+  'common.closeDialog': 'Close dialog',
   'currencies.notFound': 'There is no currency with this code.',
   'currencies.backToList': 'All currencies',
   'products.notFound': 'There is no product with this ID.',

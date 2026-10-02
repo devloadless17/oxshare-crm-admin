@@ -37,7 +37,6 @@ const admin = (over: Partial<AdminProfile> = {}): AdminProfile => ({
   id: 'a-1',
   email: 'ada@oxshare.com',
   name: 'Ada Lovelace',
-  role: 'sub_admin',
   seesUntriaged: false,
   seesAllClients: true,
   status: 'active',

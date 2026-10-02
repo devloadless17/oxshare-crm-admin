@@ -57,7 +57,7 @@ export function PartnerRejectDialog({
   onConfirm: (input: { reason?: string; note?: string }) => void;
 }) {
   return (
-    <Modal open={open} onClose={onCancel} title={t('partnerReview.rejectTitle')}>
+    <Modal busy={saving} open={open} onClose={onCancel} title={t('partnerReview.rejectTitle')}>
       {/* Keyed, so reopening on a different application starts from empty
           rather than carrying the previous applicant's note across. Same
           reason as IbLevelFormModal — an effect that re-seeds state renders the

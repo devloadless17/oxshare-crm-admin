@@ -944,6 +944,7 @@ function TransactionsPageContent() {
 
       {/* Reject — reason from the configurable list (FR-ADM-03) */}
       <Modal
+        busy={reject.isPending}
         open={rejectTarget !== null}
         onClose={closeReject}
         labelledBy="reject-withdrawal-title"

@@ -96,6 +96,7 @@ export function ProviderWebhookCard({
       {/* Closing this is the last time the key exists outside the provider's
           dashboard and the encrypted row. */}
       <Modal
+        busy={rotate.isPending}
         open={minted !== null}
         onClose={() => setMinted(null)}
         title={t('providers.mintedTitle')}

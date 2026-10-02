@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
+import { isMoneyReasonReady, isPositiveMoneyInput } from '@/lib/money-input';
 
 /**
  * Move money on a client's trading account — the console's ONLY money control
@@ -71,7 +72,7 @@ export function FundAccountModal({
   onSubmit: (values: { amount: string; reason: string; direction: 'deposit' | 'withdraw' }) => void;
 }) {
   return (
-    <Modal open={open} onClose={onClose} title={t('tradingAccounts.fundTitle')}>
+    <Modal open={open} onClose={onClose} busy={saving} title={t('tradingAccounts.fundTitle')}>
       {/*
         KEYED on the account, so opening this for a different row REMOUNTS the
         form and its fields start empty. Without it, an amount typed for one
@@ -130,8 +131,7 @@ function FundForm({
 
   // The same rule the API applies, so the button disables rather than inviting a
   // round trip that will fail. Positive decimals only, up to eight places.
-  const amountValid = /^\d+(\.\d{1,8})?$/.test(amount.trim()) && Number.parseFloat(amount) > 0;
-  const ready = amountValid && reason.trim().length >= 3;
+  const ready = isPositiveMoneyInput(amount) && isMoneyReasonReady(reason);
   const allowed = direction === 'deposit' ? canDeposit : canWithdraw;
 
   return (
@@ -163,6 +163,7 @@ function FundForm({
           type="button"
           size="sm"
           variant={direction === 'deposit' ? 'default' : 'outline'}
+          aria-pressed={direction === 'deposit'}
           disabled={!canDeposit}
           onClick={() => setDirection('deposit')}
         >
@@ -172,6 +173,7 @@ function FundForm({
           type="button"
           size="sm"
           variant={direction === 'withdraw' ? 'default' : 'outline'}
+          aria-pressed={direction === 'withdraw'}
           disabled={!canWithdraw}
           onClick={() => setDirection('withdraw')}
         >
@@ -261,7 +263,7 @@ function FundForm({
       )}
 
       <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" variant="outline" size="sm" onClick={onClose}>
+        <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={saving}>
           {t('common.cancel')}
         </Button>
         <Button type="submit" size="sm" loading={saving} disabled={!ready || !allowed}>

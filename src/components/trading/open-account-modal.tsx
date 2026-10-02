@@ -99,12 +99,16 @@ export function OpenAccountModal({
   const create = useMutation({
     mutationFn: () =>
       adminApi.createTradingAccount({
+        // A Portal ID (an int4), not money.
+        // eslint-disable-next-line no-restricted-syntax
         userId: Number(userId),
         group,
         ...(mustChooseProduct && productId ? { productId } : {}),
         environment,
         // Omitted means "the group's default", which is a real and common
         // choice — not the same as 0, which MT5 would reject.
+        // Leverage is a ratio, not money.
+        // eslint-disable-next-line no-restricted-syntax
         ...(leverage.trim() ? { leverage: Number.parseInt(leverage, 10) } : {}),
       }),
     onSuccess: (account) => {
@@ -142,7 +146,12 @@ export function OpenAccountModal({
   }
 
   return (
-    <Modal open={open} onClose={close} title={t('tradingAccounts.openTitle')}>
+    <Modal
+      busy={create.isPending}
+      open={open}
+      onClose={close}
+      title={t('tradingAccounts.openTitle')}
+    >
       <form
         className="space-y-4"
         onSubmit={(e) => {

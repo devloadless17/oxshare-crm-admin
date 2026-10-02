@@ -61,6 +61,7 @@ export function TagFormModal({
 }) {
   return (
     <Modal
+      busy={saving}
       open={open}
       onClose={onClose}
       title={tag ? t('tags.editTitle') : t('tags.createTitle')}

@@ -24,7 +24,6 @@ const as = (permissions: string[]) =>
       id: 'a-1',
       email: 'ops@oxshare.com',
       name: 'Ops',
-      role: 'sub_admin',
       status: 'active',
       seesUntriaged: false,
       seesAllClients: true,

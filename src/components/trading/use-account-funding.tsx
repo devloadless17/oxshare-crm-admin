@@ -10,6 +10,7 @@ import { hasPermission } from '@/lib/permissions';
 import type { RowAction } from '@/components/row-actions';
 import { FundAccountModal } from '@/components/trading/fund-account-modal';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { newIdempotencyKey } from '@/lib/api/client';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -46,6 +47,15 @@ export function useAccountFunding() {
 
   const [funding, setFunding] = React.useState<TradingAccountRow | null>(null);
   const [fundError, setFundError] = React.useState<string | undefined>(undefined);
+  /*
+   * The key of the funding being entered, minted when the dialog OPENS (per
+   * direction, below). It was derived from the account's cached balance, and
+   * that balance is a MIRROR the bridge updates later — so a second deliberate
+   * funding made before the mirror moved (or after the balance returned to the
+   * same figure) reused the first one's key, the server REPLAYED it, and no
+   * money moved while the toast said it had.
+   */
+  const [fundKey, setFundKey] = React.useState('');
 
   const queryClient = useQueryClient();
 
@@ -60,16 +70,16 @@ export function useAccountFunding() {
         funding!.id,
         values,
         /*
-         * ONE key per intended funding, minted from the row rather than per
-         * attempt — the account id plus its current cached balance, so a retry
-         * of the same submission reuses it while a second, deliberate funding
-         * gets a new one (the balance has moved).
+         * ONE key per intended funding: minted when the dialog opens, so a
+         * retry of the same submission reuses it while a second, deliberate
+         * funding gets a new one. The direction stays in it, so switching
+         * deposit/withdraw inside one dialog is a different intent.
          *
          * The server stores it as the deposit's `provider_ref`, so this is what
          * makes a double-click credit once in the DATABASE rather than only in
          * a cache.
          */
-        `fund:${funding!.id}:${values.direction}:${funding!.balance ?? '0'}`,
+        `fund:${values.direction}:${fundKey}`,
       ),
     onSuccess: (result, values) => {
       const account = funding;
@@ -128,6 +138,7 @@ export function useAccountFunding() {
     icon: Banknote,
     onSelect: () => {
       setFundError(undefined);
+      setFundKey(newIdempotencyKey());
       setFunding(a);
     },
   });

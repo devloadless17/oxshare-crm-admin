@@ -27,7 +27,6 @@ const admin = (permissions: string[]): { admin: AdminProfile } => ({
     id: 'a-1',
     email: 'sub@oxshare.com',
     name: 'Sub Admin',
-    role: 'sub_admin',
     status: 'active',
     seesUntriaged: false,
     seesAllClients: true,

@@ -249,6 +249,7 @@ export function CancelWithdrawalDialog({
 
   return (
     <Modal
+      busy={cancel.isPending}
       open={target !== null}
       onClose={close}
       labelledBy="cancel-withdrawal-title"

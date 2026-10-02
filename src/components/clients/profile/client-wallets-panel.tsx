@@ -9,6 +9,7 @@ import type { Currency, WalletListResponse, WalletRow } from '@/lib/api/admin';
 import type { ClientRef } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { newIdempotencyKey } from '@/lib/api/client';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -91,6 +92,8 @@ export function ClientWalletsPanel({ userId }: { userId: ClientRef }) {
    */
   const [creditError, setCreditError] = React.useState<string | undefined>();
   const [crediting, setCrediting] = React.useState<WalletRow | undefined>();
+  // Minted when the dialog opens — see `creditKey` on the wallets list page.
+  const [creditKey, setCreditKey] = React.useState('');
   const [newCurrency, setNewCurrency] = React.useState('');
 
   /*
@@ -143,9 +146,9 @@ export function ClientWalletsPanel({ userId }: { userId: ClientRef }) {
           currency: crediting!.currency,
           reason: values.reason,
         },
-        // One key per intended credit — see the wallets list page for why this
-        // is derived from the balance rather than minted per attempt.
-        `credit:${crediting!.id}:${crediting!.balance}`,
+        // One key per intended credit, minted when the dialog opens and reused
+        // by retries inside it — see `creditKey` on the wallets list page.
+        creditKey,
       ),
     onSuccess: (_data, values) => {
       const wallet = crediting;
@@ -211,6 +214,7 @@ export function ClientWalletsPanel({ userId }: { userId: ClientRef }) {
             icon: Plus,
             onSelect: () => {
               setCreditError(undefined);
+              setCreditKey(newIdempotencyKey());
               setCrediting(wallet);
             },
           },

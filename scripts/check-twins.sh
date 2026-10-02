@@ -91,6 +91,12 @@ fi
 #     names for clients; the console's readers own those endpoints.
 #   src/lib/money.test.ts — each app keeps its own suite. `money.ts` itself IS a
 #     twin, and both suites test `floorToScale`.
+# NOT a twin any more, deliberately (2 Oct 2026): src/components/data-table.tsx.
+# The admin copy reads the session (useAdmin) to honour field masking on sort
+# columns (CLIENT_IDENTITY_SORTS + isMasked) and carries row navigation
+# (onRowClick/rowLabel/activeRowKey) for the console's detail panels. Masking is
+# an admin-only concept that cannot live in a config block without pulling the
+# admin auth context into the portal. Port generic fixes by hand to both.
 TWINS=(
   src/lib/env.ts
   src/lib/env.test.ts
@@ -108,7 +114,6 @@ TWINS=(
   src/hooks/use-realtime.ts
   src/lib/asset-url.ts
   src/lib/table-sort.ts
-  src/components/data-table.tsx
   src/components/pagination.tsx
   src/components/cursor-pagination.tsx
   src/lib/asset-url.test.ts

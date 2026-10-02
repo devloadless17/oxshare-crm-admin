@@ -111,6 +111,7 @@ export function ChannelSwitch({
       )}
 
       <Modal
+        busy={save.isPending}
         open={offOpen}
         onClose={() => {
           setOffOpen(false);

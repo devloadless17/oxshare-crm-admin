@@ -48,7 +48,7 @@ export function DepositRejectDialog({
   onConfirm: (input: { reasonId?: string; reason?: string }) => void;
 }) {
   return (
-    <Modal open={open} onClose={onCancel} title={t('deposits.rejectTitle')}>
+    <Modal busy={saving} open={open} onClose={onCancel} title={t('deposits.rejectTitle')}>
       {/* Keyed, so reopening on a different row starts empty rather than
           carrying the previous client's note across. */}
       <RejectForm
