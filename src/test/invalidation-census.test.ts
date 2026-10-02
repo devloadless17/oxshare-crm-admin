@@ -118,10 +118,6 @@ const STATIC_READS = new Map([
     'invite.one',
     'validates a one-time invite token on a signed-out page; nothing in the console can change it',
   ],
-  [
-    'permissions.all',
-    'the permission CATALOGUE, read from config on the backend — operator data cannot alter it',
-  ],
 ]);
 
 describe('every cache a screen reads is refreshed by something', () => {
