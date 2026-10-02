@@ -139,12 +139,17 @@ function RejectForm({
       )}
 
       <label className="block space-y-1.5">
-        <span className="text-xs font-semibold text-foreground">{t('deposits.rejectReason')}</span>
+        <span id="deposit-reject-reason-label" className="text-xs font-semibold text-foreground">
+          {t('deposits.rejectReason')}
+        </span>
         <Select
           value={selected === '' ? NO_REASON : selected}
           onValueChange={(value) => setSelected(value === NO_REASON ? '' : value)}
         >
-          <SelectTrigger className="h-10 w-full text-xs">
+          <SelectTrigger
+            aria-labelledby="deposit-reject-reason-label"
+            className="h-10 w-full text-xs"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

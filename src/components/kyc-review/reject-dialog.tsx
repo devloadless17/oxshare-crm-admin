@@ -75,11 +75,11 @@ export function RejectDialog({
 
         {reasons.length > 0 && (
           <div className="space-y-1.5 mb-4">
-            <label className="text-xs font-bold text-foreground">
+            <label id="kyc-reject-reason-label" className="text-xs font-bold text-foreground">
               {t('kyc.rejectionReason')} <span className="text-destructive">*</span>
             </label>
             <Select value={selectedReasonId} onValueChange={(val) => onReasonChange(val)}>
-              <SelectTrigger className="h-9 w-full">
+              <SelectTrigger aria-labelledby="kyc-reject-reason-label" className="h-9 w-full">
                 <SelectValue placeholder={t('withdrawals.selectReason')} />
               </SelectTrigger>
               <SelectContent>

@@ -293,9 +293,11 @@ export function CancelWithdrawalDialog({
       )}
       {reasonList.length > 0 && (
         <div>
-          <label className="text-xs font-semibold">{t('withdrawals.rejectionReason')}</label>
+          <label id="cancel-reason-label" className="text-xs font-semibold">
+            {t('withdrawals.rejectionReason')}
+          </label>
           <Select value={reasonId} onValueChange={setReasonId}>
-            <SelectTrigger className="mt-1 h-9 w-full">
+            <SelectTrigger aria-labelledby="cancel-reason-label" className="mt-1 h-9 w-full">
               <SelectValue placeholder={t('withdrawals.selectReason')} />
             </SelectTrigger>
             <SelectContent>
