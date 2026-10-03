@@ -3,6 +3,7 @@
 import * as React from 'react';
 import api from '@/lib/api';
 import type { RejectionReason } from '@/lib/api/admin';
+import { ReasonOption } from '@/components/rejection-reasons/reason-option';
 import { Modal } from '@/components/ui/modal';
 import {
   Select,
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 
 /**
  * The value carried by the "no catalogued reason" option.
@@ -54,7 +56,7 @@ export function PartnerRejectDialog({
   saving: boolean;
   error?: string;
   onCancel: () => void;
-  onConfirm: (input: { reason?: string; note?: string }) => void;
+  onConfirm: (input: { reason?: string; note?: string; noteAr?: string }) => void;
 }) {
   return (
     <Modal open={open} onClose={onCancel} title={t('partnerReview.rejectTitle')}>
@@ -85,11 +87,12 @@ function RejectForm({
   saving: boolean;
   error?: string;
   onCancel: () => void;
-  onConfirm: (input: { reason?: string; note?: string }) => void;
+  onConfirm: (input: { reason?: string; note?: string; noteAr?: string }) => void;
 }) {
   const [reasons, setReasons] = React.useState<RejectionReason[]>([]);
   const [selected, setSelected] = React.useState('');
   const [note, setNote] = React.useState('');
+  const [noteAr, setNoteAr] = React.useState('');
 
   React.useEffect(() => {
     let cancelled = false;
@@ -114,7 +117,15 @@ function RejectForm({
 
   const confirm = () => {
     if (!canConfirm) return;
-    onConfirm({ reason: selected || undefined, note: note.trim() || undefined });
+    /*
+     * The label is always PICKED from the catalogue, which brings its own Arabic
+     * (the server copies it), so only the typed note has an Arabic box.
+     */
+    onConfirm({
+      reason: selected || undefined,
+      note: note.trim() || undefined,
+      noteAr: arabicOrNull(noteAr) ?? undefined,
+    });
   };
 
   return (
@@ -150,7 +161,10 @@ function RejectForm({
           onValueChange={(value) => setSelected(value === NO_REASON ? '' : value)}
         >
           <SelectTrigger className="h-10 w-full text-xs">
-            <SelectValue />
+            {/* The English alone in the box — the list below carries the Arabic too. */}
+            <SelectValue>
+              {selected === '' ? t('partnerReview.rejectReasonNone') : selected}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NO_REASON} className="text-xs">
@@ -158,7 +172,7 @@ function RejectForm({
             </SelectItem>
             {reasons.map((reason) => (
               <SelectItem key={reason.id} value={reason.label} className="text-xs">
-                {reason.label}
+                <ReasonOption reason={reason} />
               </SelectItem>
             ))}
           </SelectContent>
@@ -184,6 +198,17 @@ function RejectForm({
           {t('partnerReview.rejectNoteHint')}
         </span>
       </label>
+
+      <ArabicTextField
+        id="partner-reject-note-ar"
+        label={t('arabic.noteLabel')}
+        value={noteAr}
+        onChange={setNoteAr}
+        maxLength={1000}
+        multiline
+        rows={2}
+        className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-xs leading-relaxed focus-outline"
+      />
 
       <div className="flex justify-end gap-2 pt-1">
         <button

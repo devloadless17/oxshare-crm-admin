@@ -19,6 +19,7 @@ import {
   ExternalLinkFormModal,
   type ExternalLinkFormValues,
 } from '@/components/external-links/external-link-form-modal';
+import { ArabicSubline } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -80,12 +81,17 @@ export default function ExternalLinksPage() {
             description: values.description,
             url: values.url,
             enabled: values.enabled,
+            // `null` clears a stored translation; omitting would keep it.
+            titleAr: values.titleAr,
+            descriptionAr: values.descriptionAr,
           })
         : api.admin.createExternalLink({
             title: values.title,
             description: values.description || undefined,
             url: values.url,
             enabled: values.enabled,
+            titleAr: values.titleAr ?? undefined,
+            descriptionAr: values.descriptionAr ?? undefined,
             // No position (owner, 26 Sep 2026): the API puts a new link last.
           }),
     onSuccess: async () => {
@@ -137,7 +143,12 @@ export default function ExternalLinksPage() {
   const columns: Column<ExternalLink>[] = [
     {
       header: t('externalLinks.colTitle'),
-      cell: (row) => <span className="text-sm font-semibold">{row.title}</span>,
+      cell: (row) => (
+        <span className="flex flex-col">
+          <span className="text-sm font-semibold">{row.title}</span>
+          <ArabicSubline value={row.titleAr} />
+        </span>
+      ),
     },
     {
       header: t('externalLinks.colDescription'),
@@ -304,6 +315,8 @@ export default function ExternalLinksPage() {
                   description: editing.description ?? '',
                   url: editing.url,
                   enabled: editing.enabled,
+                  titleAr: editing.titleAr,
+                  descriptionAr: editing.descriptionAr,
                 }
               : null
           }

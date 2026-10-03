@@ -68,6 +68,7 @@ vi.mock('@/context/AdminAuthContext', () => ({
 const method = (over: Partial<PaymentMethod> = {}): PaymentMethod => ({
   key: 'external',
   name: 'External',
+  nameAr: null,
   currency: 'USD',
   logoUrl: null,
   enabled: true,

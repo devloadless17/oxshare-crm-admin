@@ -68,6 +68,7 @@ function method(over: Partial<WithdrawalMethod> = {}): WithdrawalMethod {
   return {
     key: 'whish',
     name: 'Whish Money',
+    nameAr: null,
     logoUrl: null,
     enabled: true,
     sortOrder: 0,
@@ -154,5 +155,43 @@ describe('a withdrawal method’s settings page', () => {
 
     expect(await screen.findByLabelText(/internal name/i)).toHaveValue('Whish Money');
     expect(screen.queryByDisplayValue('whish')).toBeNull();
+  });
+});
+
+describe('a withdrawal method’s Arabic name', () => {
+  it('SENDS the Arabic name typed, trimmed', async () => {
+    route.key = 'new';
+    const user = userEvent.setup();
+    renderWithProviders(<WithdrawalMethodPage />);
+
+    await user.type(await screen.findByLabelText(/^name$/i), 'OMT');
+    const nameAr = screen.getByLabelText('Name (Arabic)');
+    expect(nameAr).toHaveAttribute('dir', 'rtl');
+    expect(nameAr).toHaveAttribute('lang', 'ar');
+    expect(nameAr).toHaveAttribute('maxLength', '80');
+    expect(nameAr).not.toBeRequired();
+    await user.type(nameAr, ' أو إم تي ');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(createWithdrawalMethod).toHaveBeenCalled());
+    expect(createWithdrawalMethod.mock.calls[0]?.[0]).toMatchObject({
+      name: 'OMT',
+      nameAr: 'أو إم تي',
+    });
+  });
+
+  it('prefills the stored Arabic, and sends null once it is cleared', async () => {
+    route.key = 'whish';
+    getWithdrawalMethods.mockResolvedValue([method({ nameAr: 'ويش موني' })]);
+    const user = userEvent.setup();
+    renderWithProviders(<WithdrawalMethodPage />);
+
+    const nameAr = await screen.findByLabelText('Name (Arabic)');
+    expect(nameAr).toHaveValue('ويش موني');
+    await user.clear(nameAr);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(updateWithdrawalMethod).toHaveBeenCalled());
+    expect(updateWithdrawalMethod.mock.calls[0]?.[1]).toMatchObject({ nameAr: null });
   });
 });

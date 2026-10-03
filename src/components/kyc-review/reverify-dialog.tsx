@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { t } from '@/lib/i18n';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import type { ReviewFieldGroup } from './review-sections';
 
 /**
@@ -31,10 +32,11 @@ export function ReverifyDialog({
   loading: boolean;
   error: string;
   onCancel: () => void;
-  onConfirm: (request: { reason: string; items: string[] }) => Promise<void>;
+  onConfirm: (request: { reason: string; reasonAr?: string; items: string[] }) => Promise<void>;
 }) {
   const [items, setItems] = React.useState<string[]>([]);
   const [reason, setReason] = React.useState('');
+  const [reasonAr, setReasonAr] = React.useState('');
   const panel = React.useRef<HTMLDivElement>(null);
   useFocusTrap(panel, true, onCancel, !loading);
 
@@ -44,7 +46,10 @@ export function ReverifyDialog({
   const canConfirm = items.length > 0 && reason.trim() !== '' && !loading;
 
   return (
-    <div className="modal-overlay" onClick={() => !loading && !reason.trim() && onCancel()}>
+    <div
+      className="modal-overlay"
+      onClick={() => !loading && !reason.trim() && !reasonAr.trim() && onCancel()}
+    >
       <div
         ref={panel}
         className="modal"
@@ -99,6 +104,18 @@ export function ReverifyDialog({
           disabled={loading}
           placeholder={t('kycReview.reverifyReasonPlaceholder')}
         />
+        <ArabicTextField
+          id="reverify-reason-ar"
+          label={t('arabic.reasonLabel')}
+          value={reasonAr}
+          onChange={setReasonAr}
+          maxLength={500}
+          multiline
+          rows={2}
+          disabled={loading}
+          className="reject-textarea"
+          wrapperClassName="mt-3"
+        />
 
         <p className="my-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
           {t('kycReview.reverifyMoneyPause')}
@@ -118,7 +135,11 @@ export function ReverifyDialog({
             type="button"
             className="btn-reject-confirm"
             disabled={!canConfirm}
-            onClick={() => void onConfirm({ reason: reason.trim(), items })}
+            onClick={() => {
+              // A blank Arabic is left out: the client reading Arabic sees the English.
+              const ar = arabicOrNull(reasonAr);
+              void onConfirm({ reason: reason.trim(), ...(ar ? { reasonAr: ar } : {}), items });
+            }}
           >
             {loading ? t('common.saving') : t('kycReview.reverifyConfirm')}
           </button>

@@ -35,11 +35,17 @@ const SheetPortal = DialogPrimitive.Portal;
  *
  * Radix keeps the element mounted until the exit animation ends, so
  * `data-[state=closed]` is all this needs.
+ *
+ * `right` and `left` are the END and START edges: in a right-to-left page the
+ * panel sits on the mirrored side (`end-0` / `start-0`) and so must arrive from
+ * and leave towards THAT edge — hence the `rtl:` slide directions. Without them
+ * an Arabic drawer docked on the right slid in across the whole screen from the
+ * left.
  */
 const SIDES = {
   right:
-    'inset-y-0 right-0 h-full w-full max-w-sm border-l slide-in-from-right-full data-[state=closed]:slide-out-to-right-full',
-  left: 'inset-y-0 left-0 h-full w-full max-w-sm border-r slide-in-from-left-full data-[state=closed]:slide-out-to-left-full',
+    'inset-y-0 end-0 h-full w-full max-w-sm border-s slide-in-from-right-full data-[state=closed]:slide-out-to-right-full rtl:slide-in-from-left-full rtl:data-[state=closed]:slide-out-to-left-full',
+  left: 'inset-y-0 start-0 h-full w-full max-w-sm border-e slide-in-from-left-full data-[state=closed]:slide-out-to-left-full rtl:slide-in-from-right-full rtl:data-[state=closed]:slide-out-to-right-full',
   // The phone's own pattern for filters and actions: rises from the thumb's
   // edge, never taller than most of the screen, its body scrolling inside.
   bottom:
@@ -87,7 +93,7 @@ const SheetContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-outline">
+      <DialogPrimitive.Close className="absolute end-4 top-4 cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-outline">
         <X className="h-4 w-4" aria-hidden="true" />
         <span className="sr-only">{t('common.close')}</span>
       </DialogPrimitive.Close>
@@ -99,7 +105,7 @@ SheetContent.displayName = DialogPrimitive.Content.displayName;
 function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('flex flex-col gap-1 border-b border-border px-5 py-4 pr-14', className)}
+      className={cn('flex flex-col gap-1 border-b border-border px-5 py-4 pe-14', className)}
       {...props}
     />
   );

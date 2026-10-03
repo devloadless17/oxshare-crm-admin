@@ -94,7 +94,9 @@ function product(over: Partial<Product> = {}): Product {
   return {
     id: 'p-1',
     name: 'Standard',
+    nameAr: null,
     description: 'The default account.',
+    descriptionAr: null,
     enabled: true,
     type: 'real',
     // The rate card it pays partners on (0140) — the table shows its NAME,
@@ -465,5 +467,88 @@ describe('attaching MT5 groups on the product form', () => {
 
     await waitFor(() => expect(attachProductGroup).toHaveBeenCalledTimes(2));
     expect(detachProductGroup).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a product’s Arabic name', () => {
+  it('SENDS the Arabic name typed, trimmed', async () => {
+    const user = userEvent.setup();
+    updateProduct.mockResolvedValue(product());
+    route.id = 'p-1';
+    renderWithProviders(<ProductPage />);
+
+    const nameAr = await screen.findByLabelText('Name (Arabic)');
+    expect(nameAr).toHaveAttribute('dir', 'rtl');
+    expect(nameAr).toHaveAttribute('lang', 'ar');
+    expect(nameAr).toHaveAttribute('maxLength', '80');
+    expect(nameAr).not.toBeRequired();
+    await user.type(nameAr, ' قياسي ');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(updateProduct).toHaveBeenCalled());
+    expect(updateProduct.mock.calls[0]?.[1]).toMatchObject({ name: 'Standard', nameAr: 'قياسي' });
+  });
+
+  it('prefills the stored Arabic, and sends null once it is cleared', async () => {
+    const user = userEvent.setup();
+    getProducts.mockResolvedValue([product({ nameAr: 'قياسي' })]);
+    updateProduct.mockResolvedValue(product());
+    route.id = 'p-1';
+    renderWithProviders(<ProductPage />);
+
+    const nameAr = await screen.findByLabelText('Name (Arabic)');
+    expect(nameAr).toHaveValue('قياسي');
+    await user.clear(nameAr);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(updateProduct).toHaveBeenCalled());
+    expect(updateProduct.mock.calls[0]?.[1]).toMatchObject({ nameAr: null });
+  });
+
+  it('SENDS the Arabic description typed, trimmed', async () => {
+    const user = userEvent.setup();
+    updateProduct.mockResolvedValue(product());
+    route.id = 'p-1';
+    renderWithProviders(<ProductPage />);
+
+    const descriptionAr = await screen.findByLabelText('Description (Arabic)');
+    expect(descriptionAr.tagName).toBe('TEXTAREA');
+    expect(descriptionAr).toHaveAttribute('dir', 'rtl');
+    expect(descriptionAr).toHaveAttribute('maxLength', '2000');
+    await user.type(descriptionAr, ' الحساب الافتراضي ');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(updateProduct).toHaveBeenCalled());
+    expect(updateProduct.mock.calls[0]?.[1]).toMatchObject({
+      description: 'The default account.',
+      descriptionAr: 'الحساب الافتراضي',
+    });
+  });
+
+  it('prefills the stored Arabic description, and sends null once it is cleared', async () => {
+    const user = userEvent.setup();
+    getProducts.mockResolvedValue([product({ descriptionAr: 'الحساب الافتراضي' })]);
+    updateProduct.mockResolvedValue(product());
+    route.id = 'p-1';
+    renderWithProviders(<ProductPage />);
+
+    const descriptionAr = await screen.findByLabelText('Description (Arabic)');
+    expect(descriptionAr).toHaveValue('الحساب الافتراضي');
+    await user.clear(descriptionAr);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(updateProduct).toHaveBeenCalled());
+    expect(updateProduct.mock.calls[0]?.[1]).toMatchObject({ descriptionAr: null });
+  });
+
+  it('shows the Arabic under the English in the catalogue, or marks it missing', async () => {
+    getProducts.mockResolvedValue([
+      product({ nameAr: 'قياسي' }),
+      product({ id: 'p-2', name: 'Pro', groups: [] }),
+    ]);
+    renderWithProviders(<ProductsPage />);
+
+    expect(await screen.findByText('قياسي')).toBeInTheDocument();
+    expect(screen.getByText('No Arabic')).toBeInTheDocument();
   });
 });

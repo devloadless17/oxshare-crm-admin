@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import AgenciesPage from './page';
 import { ALL_PERMISSIONS } from '@/test/permissions';
@@ -63,7 +64,9 @@ function agency(over: Partial<Agency> = {}): Agency {
   return {
     id: 'ag-1',
     name: 'Gold Agency',
+    nameAr: null,
     description: 'The flagship package.',
+    descriptionAr: null,
     enabled: true,
     sortOrder: 0,
     // The products this agency sells. Required — the row renders their count,
@@ -77,7 +80,9 @@ function product(over: Partial<Product> = {}): Product {
   return {
     id: 'p-1',
     name: 'Standard',
+    nameAr: null,
     description: null,
+    descriptionAr: null,
     enabled: true,
     type: 'real',
     // Required on ProductDto, so a fixture without it stops compiling — which
@@ -139,5 +144,62 @@ describe('the agency list — who may change it', () => {
 
     await screen.findByText('Gold Agency');
     expect(screen.queryByRole('button', { name: /add agency/i })).toBeNull();
+  });
+});
+
+describe('the agency’s Arabic name and description', () => {
+  it('sends the Arabic typed, trimmed, beside the English', async () => {
+    createAgency.mockResolvedValue(agency({ id: 'ag-2', productIds: [] }));
+    const user = userEvent.setup();
+    renderWithProviders(<AgenciesPage />);
+    await screen.findByText('Gold Agency');
+
+    await user.click(screen.getByRole('button', { name: /add agency/i }));
+    await user.type(await screen.findByLabelText(/^name$/i), 'Silver Agency');
+    const nameAr = screen.getByLabelText('Name (Arabic)');
+    expect(nameAr).toHaveAttribute('dir', 'rtl');
+    expect(nameAr).toHaveAttribute('lang', 'ar');
+    expect(nameAr).toHaveAttribute('maxLength', '80');
+    expect(nameAr).not.toBeRequired();
+    await user.type(nameAr, ' الوكالة الفضية ');
+    await user.type(screen.getByLabelText('Description (Arabic)'), 'باقة للمبتدئين');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(createAgency).toHaveBeenCalled());
+    expect(createAgency.mock.calls[0]?.[0]).toMatchObject({
+      name: 'Silver Agency',
+      nameAr: 'الوكالة الفضية',
+      descriptionAr: 'باقة للمبتدئين',
+    });
+  });
+
+  it('prefills the stored Arabic on edit, and sends null once it is cleared', async () => {
+    getAgencies.mockResolvedValue([
+      agency({ nameAr: 'الوكالة الذهبية', descriptionAr: 'الباقة الرئيسية' }),
+    ]);
+    updateAgency.mockResolvedValue(agency());
+    const user = userEvent.setup();
+    renderWithProviders(<AgenciesPage />);
+    // The list shows the Arabic under the English.
+    expect(await screen.findByText('الوكالة الذهبية')).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole('button', { name: /actions for gold agency/i })[0]!);
+    await user.click(await screen.findByText(/^edit$/i));
+    const nameAr = await screen.findByLabelText('Name (Arabic)');
+    expect(nameAr).toHaveValue('الوكالة الذهبية');
+    await user.clear(nameAr);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(updateAgency).toHaveBeenCalled());
+    expect(updateAgency.mock.calls[0]?.[1]).toMatchObject({
+      nameAr: null,
+      descriptionAr: 'الباقة الرئيسية',
+    });
+  });
+
+  it('marks an agency that has no Arabic name yet', async () => {
+    renderWithProviders(<AgenciesPage />);
+    await screen.findByText('Gold Agency');
+    expect(screen.getByText('No Arabic')).toBeInTheDocument();
   });
 });

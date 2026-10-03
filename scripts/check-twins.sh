@@ -91,6 +91,11 @@ fi
 #     names for clients; the console's readers own those endpoints.
 #   src/lib/money.test.ts — each app keeps its own suite. `money.ts` itself IS a
 #     twin, and both suites test `floorToScale`.
+# NOT twins since Oct 2026: src/lib/i18n/{index,locale-storage}.ts and
+# src/components/locale-direction.tsx. The portal reads Arabic as well as
+# English, resolves the language per request from a cookie and renders it on the
+# server; the admin console is English-only and keeps its simpler copies. The
+# portal deleted locale-direction.tsx (the root layout sets <html lang dir>).
 TWINS=(
   src/lib/env.ts
   src/lib/env.test.ts
@@ -112,9 +117,6 @@ TWINS=(
   src/components/pagination.tsx
   src/components/cursor-pagination.tsx
   src/lib/asset-url.test.ts
-  src/lib/i18n/index.ts
-  src/lib/i18n/locale-storage.ts
-  src/components/locale-direction.tsx
   src/components/ui/input.tsx
   src/components/ui/label.tsx
   src/components/ui/select.tsx

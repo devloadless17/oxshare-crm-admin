@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Spinner } from '@/components/ui/loader';
 
 import type { Agency, Product } from '@/lib/api/admin';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Modal } from '@/components/ui/modal';
 import { apiErrorMessage } from '@/lib/api/errors';
@@ -12,6 +13,9 @@ import { t } from '@/lib/i18n';
 export interface AgencyFormValues {
   name: string;
   description: string | null;
+  /** Optional Arabic twins; `null` clears a stored translation. */
+  nameAr: string | null;
+  descriptionAr: string | null;
   enabled: boolean;
   /** The complete set the operator wants. The caller diffs it against the row. */
   productIds: string[];
@@ -97,6 +101,8 @@ function AgencyForm({
 }) {
   const [name, setName] = React.useState(agency?.name ?? '');
   const [description, setDescription] = React.useState(agency?.description ?? '');
+  const [nameAr, setNameAr] = React.useState(agency?.nameAr ?? '');
+  const [descriptionAr, setDescriptionAr] = React.useState(agency?.descriptionAr ?? '');
   /*
    * NOT a field, and never reset by this form.
    *
@@ -119,6 +125,8 @@ function AgencyForm({
     onSubmit({
       name: name.trim(),
       description: description.trim() || null,
+      nameAr: arabicOrNull(nameAr),
+      descriptionAr: arabicOrNull(descriptionAr),
       enabled,
       productIds,
     });
@@ -152,6 +160,27 @@ function AgencyForm({
           {t('agencies.descriptionHint')}
         </span>
       </label>
+
+      <ArabicTextField
+        id="agency-name-ar"
+        label={t('arabic.name')}
+        value={nameAr}
+        onChange={setNameAr}
+        maxLength={80}
+        className={INPUT_CLASS}
+        wrapperClassName="sm:col-span-2"
+      />
+
+      <ArabicTextField
+        id="agency-description-ar"
+        label={t('arabic.description')}
+        value={descriptionAr}
+        onChange={setDescriptionAr}
+        maxLength={2000}
+        multiline
+        className={`${INPUT_CLASS} h-auto py-2 leading-relaxed`}
+        wrapperClassName="sm:col-span-2"
+      />
 
       {/* ── What it sells ──────────────────────────────────────────────── */}
       <div className="space-y-2 border-t border-border pt-4 sm:col-span-2">

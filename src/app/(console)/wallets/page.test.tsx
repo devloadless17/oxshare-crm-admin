@@ -135,6 +135,7 @@ function currency(code: string): Currency {
   return {
     code,
     name: `${code} currency`,
+    nameAr: null,
     symbol: '$',
     decimals: 2,
     enabled: true,
@@ -453,6 +454,41 @@ describe('wallets — one write action, and only one', () => {
     await user.click(screen.getByRole('button', { name: /^close wallet$/i }));
 
     expect(await screen.findByText(/holds 1250\.00000000 USD/i)).toBeInTheDocument();
+  });
+});
+
+/*
+ * A credit's reason reaches the client's email and bell; its Arabic twin (0179)
+ * is what a client reading the portal in Arabic sees. Blank, it is not sent.
+ */
+describe('crediting a wallet, in Arabic too', () => {
+  const creditWith = async (arabic: string) => {
+    const user = userEvent.setup();
+    renderWithProviders(<WalletsPage />);
+    await screen.findByText('client@example.com');
+    await user.click(screen.getByRole('button', { name: /actions for/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /add funds/i }));
+    await user.type(await screen.findByLabelText(/amount to add/i), '25');
+    await user.type(
+      screen.getByPlaceholderText('Goodwill adjustment for the failed 4 August transfer.'),
+      'Goodwill adjustment',
+    );
+    const ar = screen.getByLabelText('Reason in Arabic (optional)');
+    expect(ar).toHaveAttribute('dir', 'rtl');
+    if (arabic) await user.type(ar, arabic);
+    await user.click(screen.getByRole('button', { name: /^add funds$/i }));
+    await waitFor(() => expect(creditWallet).toHaveBeenCalledTimes(1));
+    return creditWallet.mock.calls[0]![0] as Record<string, unknown>;
+  };
+
+  it('sends the Arabic typed, trimmed', async () => {
+    const body = await creditWith(' تسوية تعويضية ');
+    expect(body).toMatchObject({ reason: 'Goodwill adjustment', reasonAr: 'تسوية تعويضية' });
+  });
+
+  it('leaves it out when blank', async () => {
+    const body = await creditWith('');
+    expect(body.reasonAr).toBeUndefined();
   });
 });
 

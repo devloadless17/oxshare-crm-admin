@@ -7,6 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { t } from '@/lib/i18n';
+import { ArabicHelper, ArabicInput } from './arabic-input';
+
+/** What the dialog hands back: the English, and its optional Arabic twin (0179). */
+export interface NewStep {
+  title: string;
+  description: string;
+  titleAr?: string;
+  descriptionAr?: string;
+}
 
 /**
  * Adds a step of the broker's own: a NAME and what it is for.
@@ -21,11 +30,13 @@ export function AddStepDialog({
   onAdd,
   onClose,
 }: {
-  onAdd: (step: { title: string; description: string }) => void;
+  onAdd: (step: NewStep) => void;
   onClose: () => void;
 }) {
   const [title, setTitle] = React.useState('');
   const [description, setDescription] = React.useState('');
+  const [titleAr, setTitleAr] = React.useState('');
+  const [descriptionAr, setDescriptionAr] = React.useState('');
   const dialog = React.useRef<HTMLDivElement>(null);
   useFocusTrap(dialog, true, onClose);
 
@@ -50,7 +61,12 @@ export function AddStepDialog({
           onSubmit={(e) => {
             e.preventDefault();
             if (!title.trim()) return;
-            onAdd({ title: title.trim(), description: description.trim() });
+            onAdd({
+              title: title.trim(),
+              description: description.trim(),
+              titleAr: titleAr.trim() || undefined,
+              descriptionAr: descriptionAr.trim() || undefined,
+            });
           }}
           className="space-y-4"
         >
@@ -74,6 +90,23 @@ export function AddStepDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+          </div>
+          <div className="space-y-3">
+            <ArabicInput
+              id="new-step-title-ar"
+              label={t('arabic.title')}
+              value={titleAr}
+              onChange={setTitleAr}
+              maxLength={200}
+            />
+            <ArabicInput
+              id="new-step-desc-ar"
+              label={t('arabic.description')}
+              value={descriptionAr}
+              onChange={setDescriptionAr}
+              maxLength={2000}
+            />
+            <ArabicHelper />
           </div>
           <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
             <Button type="button" variant="outline" onClick={onClose}>

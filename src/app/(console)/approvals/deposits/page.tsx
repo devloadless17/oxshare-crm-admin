@@ -160,7 +160,7 @@ function DepositApprovalsContent() {
       body,
     }: {
       row: TransactionRow;
-      body: { reasonId?: string; reason?: string };
+      body: { reasonId?: string; reason?: string; reasonAr?: string };
     }) => api.admin.rejectDeposit(row.id, body, intentKey('reject', row)),
     onSuccess: () => {
       setRejectTarget(null);

@@ -14,6 +14,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
+import { ArabicSubline } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -144,11 +145,14 @@ export default function ProductsPage() {
     {
       header: t('products.colName'),
       cell: (product) => (
-        <span className="flex items-center gap-2">
-          <span className="font-semibold">{product.name}</span>
-          {/* Only the demo product is badged — it is the exception, and a
-              "real" badge on every other row would label the normal case. */}
-          {product.type === 'demo' && <Badge variant="tag">{t('products.typeDemo')}</Badge>}
+        <span className="flex flex-col">
+          <span className="flex items-center gap-2">
+            <span className="font-semibold">{product.name}</span>
+            {/* Only the demo product is badged — it is the exception, and a
+                "real" badge on every other row would label the normal case. */}
+            {product.type === 'demo' && <Badge variant="tag">{t('products.typeDemo')}</Badge>}
+          </span>
+          <ArabicSubline value={product.nameAr} />
         </span>
       ),
       sortable: true,

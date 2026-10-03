@@ -10,6 +10,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { RejectionReason } from '@/lib/api/admin';
+import { ReasonOption } from '@/components/rejection-reasons/reason-option';
+import { ArabicTextField } from '@/components/arabic-text-field';
 import type { ReviewFieldGroup as FieldGroup } from './review-sections';
 import { t } from '@/lib/i18n';
 
@@ -26,6 +28,7 @@ export function RejectDialog({
   reasons,
   selectedReasonId,
   note,
+  noteAr,
   selectedFields,
   fieldGroups,
   canConfirm,
@@ -33,6 +36,7 @@ export function RejectDialog({
   error,
   onReasonChange,
   onNoteChange,
+  onNoteArChange,
   onToggleField,
   onCancel,
   onConfirm,
@@ -41,6 +45,8 @@ export function RejectDialog({
   reasons: RejectionReason[];
   selectedReasonId: string;
   note: string;
+  /** The typed note in Arabic — a picked reason brings its own Arabic. */
+  noteAr: string;
   selectedFields: string[];
   /** Derived from the live KYC step config — see field-options.ts. */
   fieldGroups: FieldGroup[];
@@ -49,6 +55,7 @@ export function RejectDialog({
   error: string;
   onReasonChange: (id: string) => void;
   onNoteChange: (note: string) => void;
+  onNoteArChange: (noteAr: string) => void;
   onToggleField: (fieldId: string) => void;
   onCancel: () => void;
   onConfirm: () => Promise<void>;
@@ -58,7 +65,7 @@ export function RejectDialog({
       className="modal-overlay"
       onClick={() => {
         // Don't discard a typed reason on a stray backdrop click
-        if (!loading && !note.trim()) onCancel();
+        if (!loading && !note.trim() && !noteAr.trim()) onCancel();
       }}
     >
       <div
@@ -80,12 +87,14 @@ export function RejectDialog({
             </label>
             <Select value={selectedReasonId} onValueChange={(val) => onReasonChange(val)}>
               <SelectTrigger className="h-9 w-full">
-                <SelectValue placeholder={t('withdrawals.selectReason')} />
+                <SelectValue placeholder={t('withdrawals.selectReason')}>
+                  {reasons.find((r) => r.id === selectedReasonId)?.label}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {reasons.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
-                    {r.label}
+                    <ReasonOption reason={r} />
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -150,6 +159,19 @@ export function RejectDialog({
             aria-required={reasons.length === 0}
           />
         </div>
+
+        <ArabicTextField
+          id="reject-note-ar"
+          label={t(reasons.length > 0 ? 'arabic.noteLabel' : 'arabic.reasonLabel')}
+          value={noteAr}
+          onChange={onNoteArChange}
+          maxLength={500}
+          multiline
+          rows={2}
+          disabled={loading}
+          className="reject-textarea"
+          wrapperClassName="mt-3"
+        />
 
         {error && (
           <p className="mt-3 text-xs font-semibold text-destructive" role="alert">

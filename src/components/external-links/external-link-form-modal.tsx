@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Modal } from '@/components/ui/modal';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 
 export interface ExternalLinkFormValues {
@@ -10,6 +11,9 @@ export interface ExternalLinkFormValues {
   description: string;
   url: string;
   enabled: boolean;
+  /** Optional Arabic twins: `null` when blank, which clears a stored translation. */
+  titleAr: string | null;
+  descriptionAr: string | null;
 }
 
 const INPUT_CLASS =
@@ -98,6 +102,8 @@ export function ExternalLinkFormModal({
   const [description, setDescription] = React.useState(editing?.description ?? '');
   const [url, setUrl] = React.useState(editing?.url ?? '');
   const [enabled, setEnabled] = React.useState(editing?.enabled ?? true);
+  const [titleAr, setTitleAr] = React.useState(editing?.titleAr ?? '');
+  const [descriptionAr, setDescriptionAr] = React.useState(editing?.descriptionAr ?? '');
 
   const trimmedTitle = title.trim();
   const trimmedUrl = url.trim();
@@ -121,6 +127,8 @@ export function ExternalLinkFormModal({
             description: description.trim(),
             url: trimmedUrl,
             enabled,
+            titleAr: arabicOrNull(titleAr),
+            descriptionAr: arabicOrNull(descriptionAr),
           });
         }}
       >
@@ -141,6 +149,16 @@ export function ExternalLinkFormModal({
           />
           <p className="text-[11px] text-muted-foreground">{t('externalLinks.fieldTitleHint')}</p>
         </div>
+
+        <ArabicTextField
+          id="external-link-title-ar"
+          label={t('arabic.title')}
+          value={titleAr}
+          onChange={setTitleAr}
+          maxLength={80}
+          disabled={saving}
+          className={INPUT_CLASS}
+        />
 
         <div className="space-y-1.5">
           <label htmlFor="external-link-url" className="text-xs font-semibold">
@@ -194,6 +212,17 @@ export function ExternalLinkFormModal({
             {t('externalLinks.fieldDescriptionHint')}
           </p>
         </div>
+
+        <ArabicTextField
+          id="external-link-description-ar"
+          label={t('arabic.description')}
+          value={descriptionAr}
+          onChange={setDescriptionAr}
+          maxLength={300}
+          multiline
+          disabled={saving}
+          className="focus-outline w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
+        />
 
         {/*
           Paired by `id`/`htmlFor`, never by wrapping. Radix renders a

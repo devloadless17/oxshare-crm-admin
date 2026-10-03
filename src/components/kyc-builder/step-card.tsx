@@ -17,14 +17,23 @@ import {
   takesEvidence,
 } from './field-types';
 import { SortableList, SortableRow } from './sortable-row';
+import { ArabicHelper, ArabicInput, FieldError, FixedArabic } from './arabic-input';
 import { t } from '@/lib/i18n';
 
 export type KycStepConfig = components['schemas']['KycStepConfigDto'];
+
+/** The server's bounds for a step's Arabic (`KycStepDto`). */
+const TITLE_AR_MAX = 200;
+const DESCRIPTION_AR_MAX = 2000;
 
 /** What the server refused about this step and its fields, from the last save. */
 export interface StepRefusal {
   step?: string;
   fields: Record<string, string>;
+  /** A refusal of one of the step's own inputs, by property (`titleAr`). */
+  properties?: Record<string, string>;
+  /** A refusal of one input of a field, by field id then property (`labelAr`). */
+  fieldProperties?: Record<string, Record<string, string>>;
 }
 
 /**
@@ -162,7 +171,11 @@ export function StepCard({
               id={`title-${step.id}`}
               value={step.title}
               onChange={(e) => onPatch({ title: e.target.value })}
+              aria-invalid={refusal?.properties?.title ? true : undefined}
             />
+            {refusal?.properties?.title && (
+              <FieldError id={`title-${step.id}-error`}>{refusal.properties.title}</FieldError>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs" htmlFor={`desc-${step.id}`}>
@@ -172,7 +185,41 @@ export function StepCard({
               id={`desc-${step.id}`}
               value={step.description}
               onChange={(e) => onPatch({ description: e.target.value })}
+              aria-invalid={refusal?.properties?.description ? true : undefined}
             />
+            {refusal?.properties?.description && (
+              <FieldError id={`desc-${step.id}-error`}>{refusal.properties.description}</FieldError>
+            )}
+          </div>
+          <ArabicInput
+            id={`titleAr-${step.id}`}
+            label={t('arabic.title')}
+            labelClassName="text-xs"
+            value={step.titleAr ?? ''}
+            onChange={(titleAr) => onPatch({ titleAr })}
+            maxLength={TITLE_AR_MAX}
+            error={refusal?.properties?.titleAr}
+          />
+          <ArabicInput
+            id={`descAr-${step.id}`}
+            label={t('arabic.description')}
+            labelClassName="text-xs"
+            value={step.descriptionAr ?? ''}
+            onChange={(descriptionAr) => onPatch({ descriptionAr })}
+            maxLength={DESCRIPTION_AR_MAX}
+            error={refusal?.properties?.descriptionAr}
+          />
+          <div className="md:col-span-2">
+            <ArabicHelper />
+            {/*
+             * A built-in step arrives with the PLATFORM's Arabic while its
+             * English is the platform's; reworded, the server drops it (it
+             * would translate words no longer there). Saved from here, it is
+             * the broker's own and stays — so a rewording needs its Arabic too.
+             */}
+            {core && (
+              <p className="text-[11px] text-muted-foreground">{t('builder.coreArabicHint')}</p>
+            )}
           </div>
         </div>
 
@@ -208,7 +255,13 @@ export function StepCard({
         {step.slug === 'selfie' && (
           <p className="flex items-start gap-2 rounded-xl border border-border bg-card/60 p-3.5 text-xs text-muted-foreground">
             <Camera className="mt-px h-4 w-4 shrink-0" aria-hidden="true" />
-            {t('builder.selfieFixed')}
+            <span>
+              {t('builder.selfieFixed')}
+              <FixedArabic
+                className="mt-1 block"
+                value={step.fields.find((field) => field.type === 'camera')?.labelAr}
+              />
+            </span>
           </p>
         )}
 
@@ -265,6 +318,7 @@ export function StepCard({
                         field={field}
                         slug={step.slug}
                         error={refusal?.fields[field.id]}
+                        errors={refusal?.fieldProperties?.[field.id]}
                         onChange={(patch) => onPatchField(field.id, patch)}
                         onRemove={() => onRemoveField(field.id)}
                         moveTargets={moveTargets}

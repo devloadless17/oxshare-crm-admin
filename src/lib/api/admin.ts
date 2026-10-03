@@ -60,6 +60,8 @@ export type RejectionReason = components['schemas']['RejectionReasonResponseDto'
  * 'partner' arrived.
  */
 export type RejectionContext = RejectionReason['context'];
+export type CreateRejectionReasonBody = components['schemas']['RejectionReasonDto'];
+export type UpdateRejectionReasonBody = components['schemas']['UpdateRejectionReasonDto'];
 export type KycSubmission = components['schemas']['KycSubmissionDto'];
 export type KycListResponse = components['schemas']['KycListResponseDto'];
 export type ClientRow = components['schemas']['ClientRowDto'];
@@ -1388,7 +1390,7 @@ export const adminApi = {
    */
   async rejectIbApplication(
     id: string,
-    body: { reason?: string; note?: string },
+    body: { reason?: string; note?: string; reasonAr?: string | null; noteAr?: string | null },
   ): Promise<IbApplication> {
     const { data } = await apiClient.patch<IbApplication>(
       `/admin/ib/applications/${id}/reject`,
@@ -1978,7 +1980,13 @@ export const adminApi = {
    * database. Pass a value that identifies the INTENT, not the attempt.
    */
   async creditWallet(
-    body: { userId: ClientRef; amount: string; currency: string; reason: string },
+    body: {
+      userId: ClientRef;
+      amount: string;
+      currency: string;
+      reason: string;
+      reasonAr?: string | null;
+    },
     key: string,
   ): Promise<WalletCreditResult> {
     const { data } = await apiClient.post<WalletCreditResult>(
@@ -2080,7 +2088,7 @@ export const adminApi = {
    */
   async rejectDeposit(
     id: string,
-    body: { reason?: string; reasonId?: string },
+    body: { reason?: string; reasonId?: string; reasonAr?: string | null },
     key: string,
   ): Promise<DepositDecision> {
     const { data } = await apiClient.patch<DepositDecision>(
@@ -2109,7 +2117,7 @@ export const adminApi = {
    */
   async rejectWithdrawal(
     id: string,
-    body: { reasonId?: string; reason?: string },
+    body: { reasonId?: string; reason?: string; reasonAr?: string | null },
     key: string,
   ): Promise<WithdrawalRow> {
     const { data } = await apiClient.patch<WithdrawalRow>(
@@ -2168,10 +2176,16 @@ export const adminApi = {
    *
    * `reason` is required and reaches the client on the failed row.
    */
-  async abandonTransfer(id: string, reason: string, key: string): Promise<TransferRow> {
+  async abandonTransfer(
+    id: string,
+    reason: string,
+    key: string,
+    /** `reason` in Arabic for a client reading the portal in Arabic; left out when blank. */
+    reasonAr?: string | null,
+  ): Promise<TransferRow> {
     const { data } = await apiClient.post<TransferRow>(
       `/admin/transfers/${id}/abandon`,
-      { reason },
+      reasonAr ? { reason, reasonAr } : { reason },
       idempotent(key),
     );
     return data;
@@ -2217,7 +2231,7 @@ export const adminApi = {
    */
   async cancelWithdrawal(
     id: string,
-    body: { reasonId?: string; reason?: string },
+    body: { reasonId?: string; reason?: string; reasonAr?: string | null },
     key: string,
   ): Promise<WithdrawalRow> {
     const { data } = await apiClient.patch<WithdrawalRow>(
@@ -2675,6 +2689,37 @@ export const adminApi = {
     return data;
   },
 
+  /** Every context's reasons at once — the management page groups them itself. */
+  async getAllRejectionReasons(signal?: AbortSignal): Promise<RejectionReason[]> {
+    const { data } = await apiClient.get<RejectionReason[]>('/admin/rejection-reasons', {
+      signal,
+    });
+    return data;
+  },
+
+  /** `kyc.create`. Partner reasons are the platform's and cannot be added (the DTO's enum). */
+  async createRejectionReason(body: CreateRejectionReasonBody): Promise<RejectionReason> {
+    const { data } = await apiClient.post<RejectionReason>('/admin/rejection-reasons', body);
+    return data;
+  },
+
+  /** `kyc.edit`. `labelAr` omitted keeps the stored Arabic; `null` clears it. */
+  async updateRejectionReason(
+    id: string,
+    body: UpdateRejectionReasonBody,
+  ): Promise<RejectionReason> {
+    const { data } = await apiClient.put<RejectionReason>(
+      `/admin/rejection-reasons/${encodeURIComponent(id)}`,
+      body,
+    );
+    return data;
+  },
+
+  /** `kyc.delete`. */
+  async deleteRejectionReason(id: string): Promise<void> {
+    await apiClient.delete(`/admin/rejection-reasons/${encodeURIComponent(id)}`);
+  },
+
   // ── Clients (ADM-01) ──────────────────────────────────────────────────────
   //
   // These moved out of `clients/page.tsx`, which called `api.get()` inline and
@@ -3052,7 +3097,12 @@ export const adminApi = {
    */
   async fundTradingAccount(
     id: string,
-    body: { amount: string; reason: string; direction: 'deposit' | 'withdraw' },
+    body: {
+      amount: string;
+      reason: string;
+      reasonAr?: string | null;
+      direction: 'deposit' | 'withdraw';
+    },
     key: string,
   ): Promise<FundTradingAccountResult> {
     const { data } = await apiClient.post<FundTradingAccountResult>(

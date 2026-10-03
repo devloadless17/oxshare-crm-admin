@@ -135,13 +135,14 @@ export function ClientWalletsPanel({ userId }: { userId: ClientRef }) {
   });
 
   const credit = useMutation({
-    mutationFn: (values: { amount: string; reason: string }) =>
+    mutationFn: (values: { amount: string; reason: string; reasonAr?: string }) =>
       api.admin.creditWallet(
         {
           userId,
           amount: values.amount,
           currency: crediting!.currency,
           reason: values.reason,
+          reasonAr: values.reasonAr,
         },
         // One key per intended credit — see the wallets list page for why this
         // is derived from the balance rather than minted per attempt.

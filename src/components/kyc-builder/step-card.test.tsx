@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import { StepCard, type KycStepConfig } from './step-card';
@@ -41,23 +41,26 @@ const CATALOGUE: KycDocumentType[] = [
   {
     value: 'passport',
     label: 'Passport',
+    labelAr: 'جواز السفر',
     category: 'identity',
-    parts: [{ key: 'front', label: 'Photo Page', required: true }],
+    parts: [{ key: 'front', label: 'Photo Page', labelAr: 'صفحة الصورة', required: true }],
   },
   {
     value: 'national_id',
     label: 'National ID',
+    labelAr: 'بطاقة الهوية الوطنية',
     category: 'identity',
     parts: [
-      { key: 'front', label: 'Front Side', required: true },
-      { key: 'back', label: 'Back Side', required: true },
+      { key: 'front', label: 'Front Side', labelAr: 'الوجه الأمامي', required: true },
+      { key: 'back', label: 'Back Side', labelAr: 'الوجه الخلفي', required: true },
     ],
   },
   {
     value: 'utility_bill',
     label: 'Utility Bill',
+    labelAr: 'فاتورة خدمات',
     category: 'address',
-    parts: [{ key: 'front', label: 'The Bill', required: true }],
+    parts: [{ key: 'front', label: 'The Bill', labelAr: 'الفاتورة', required: true }],
   },
 ];
 
@@ -211,5 +214,87 @@ describe('the selfie and the broker’s own steps', () => {
       <StepCard step={own} canDelete={false} catalogue={CATALOGUE} {...handlers()} />,
     );
     expect(screen.queryByRole('button', { name: /delete step/i })).toBeNull();
+  });
+});
+
+describe('Arabic (0179)', () => {
+  const withArabic: KycStepConfig = {
+    ...PERSONAL,
+    titleAr: 'المعلومات الشخصية',
+    fields: [
+      { ...identity('firstName', 'First Name'), labelAr: 'الاسم الأول' },
+      { id: 'q-1', name: 'customField_1', label: 'Occupation', type: 'text', required: true },
+    ],
+  };
+
+  it('gives the title and description an Arabic twin, right to left, and patches each', () => {
+    const on = handlers();
+    renderWithProviders(<StepCard step={withArabic} canDelete catalogue={CATALOGUE} {...on} />);
+    const title = screen.getByLabelText('Title (Arabic)');
+    expect(title).toHaveValue('المعلومات الشخصية');
+    expect(title).toHaveAttribute('dir', 'rtl');
+    expect(title).toHaveAttribute('lang', 'ar');
+
+    fireEvent.change(screen.getByLabelText('Description (Arabic)'), {
+      target: { value: 'بياناتك' },
+    });
+    expect(on.onPatch).toHaveBeenCalledWith({ descriptionAr: 'بياناتك' });
+    fireEvent.change(title, { target: { value: '' } });
+    expect(on.onPatch).toHaveBeenCalledWith({ titleAr: '' });
+    expect(screen.getAllByText(/leave blank to show the english/i).length).toBeGreaterThan(0);
+  });
+
+  it('shows an identity detail’s platform Arabic, read-only', () => {
+    renderWithProviders(
+      <StepCard step={withArabic} canDelete catalogue={CATALOGUE} {...handlers()} />,
+    );
+    const arabic = screen.getByText('الاسم الأول');
+    expect(arabic).toHaveAttribute('dir', 'rtl');
+    expect(arabic.tagName).not.toBe('INPUT');
+    expect(screen.queryByDisplayValue('الاسم الأول')).toBeNull();
+  });
+
+  it('shows each document’s platform Arabic without renaming its checkbox', () => {
+    const doc: KycStepConfig = {
+      ...PERSONAL,
+      id: 'step-2',
+      slug: 'document',
+      title: 'Identity Document',
+      fields: [
+        {
+          id: 'f-doc-passport',
+          name: 'passport',
+          label: 'Passport',
+          type: 'doc:passport',
+          required: false,
+        },
+      ],
+    };
+    renderWithProviders(<StepCard step={doc} canDelete catalogue={CATALOGUE} {...handlers()} />);
+    expect(screen.getByText('جواز السفر')).toHaveAttribute('lang', 'ar');
+    expect(screen.getByRole('checkbox', { name: 'Passport' })).toBeChecked();
+  });
+
+  it('puts a refusal of an Arabic input under that input', () => {
+    renderWithProviders(
+      <StepCard
+        step={withArabic}
+        canDelete
+        catalogue={CATALOGUE}
+        refusal={{
+          fields: {},
+          properties: { titleAr: 'titleAr must be shorter than or equal to 200 characters' },
+          fieldProperties: { 'q-1': { labelAr: 'labelAr must be a string' } },
+        }}
+        {...handlers()}
+      />,
+    );
+    expect(screen.getByLabelText('Title (Arabic)')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Title (Arabic)')).toHaveAccessibleDescription(
+      /shorter than or equal to 200/,
+    );
+    expect(screen.getByLabelText('Label (Arabic)')).toHaveAccessibleDescription(
+      'labelAr must be a string',
+    );
   });
 });

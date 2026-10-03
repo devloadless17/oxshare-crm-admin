@@ -17,6 +17,7 @@ import {
   RoutePicker,
   type MethodRoute,
 } from '@/components/payment-providers/route-picker';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 
 export interface WithdrawalMethodFormValues {
@@ -24,6 +25,8 @@ export interface WithdrawalMethodFormValues {
   internalLabel: string;
   /** What the CLIENT sees. */
   name: string;
+  /** The client-facing name in Arabic; `null` clears a stored translation. */
+  nameAr: string | null;
   /** An upload path or an https URL; empty means no logo. */
   logoUrl: string;
   enabled: boolean;
@@ -70,6 +73,7 @@ export function WithdrawalMethodForm({
   // A NEW rail's internal name follows its display name until it is edited.
   const [labelEdited, setLabelEdited] = React.useState(method !== undefined);
   const [name, setName] = React.useState(method?.name ?? '');
+  const [nameAr, setNameAr] = React.useState(method?.nameAr ?? '');
   const [logoUrl, setLogoUrl] = React.useState(method?.logoUrl ?? '');
   const [enabled, setEnabled] = React.useState(method?.enabled ?? true);
   const [countries, setCountries] = React.useState<CountryRuleValue>({
@@ -83,6 +87,7 @@ export function WithdrawalMethodForm({
     onSubmit({
       internalLabel: internalLabel.trim(),
       name: name.trim(),
+      nameAr: arabicOrNull(nameAr),
       logoUrl: logoUrl.trim(),
       enabled,
       route,
@@ -128,6 +133,15 @@ export function WithdrawalMethodForm({
               className="text-xs"
             />
           </div>
+
+          <ArabicTextField
+            id={`${fieldId}-name-ar`}
+            label={t('arabic.name')}
+            value={nameAr}
+            onChange={setNameAr}
+            maxLength={80}
+            wrapperClassName="sm:col-start-2"
+          />
         </div>
 
         <RoutePicker

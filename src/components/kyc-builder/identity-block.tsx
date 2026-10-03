@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 import type { KycFieldConfig } from './field-editor';
+import { FixedArabic } from './arabic-input';
 
 /**
  * One of the client's IDENTITY details on Personal Information (Phase 2, 29 Sep
@@ -39,6 +40,8 @@ export function IdentityRow({
         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link">
           {t('builder.identityBadge')}
         </span>
+        {/* The platform's Arabic — fixed, shown so the operator sees what an Arabic reader gets. */}
+        <FixedArabic value={field.labelAr} />
       </span>
       <div className="flex items-center gap-3">
         <label className="flex cursor-pointer items-center gap-2">

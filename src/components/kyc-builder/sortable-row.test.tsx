@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { SortableList, SortableRow } from './sortable-row';
 
 /**
@@ -52,6 +53,27 @@ describe('SortableList', () => {
     const handle = screen.getByRole('button', { name: 'Reorder a' });
     expect(handle).toBeDisabled();
     expect(handle).toHaveAttribute('title', 'Fixed by the spec');
+  });
+
+  it('lets an Arabic box inside a row be typed into without starting a reorder (0179)', async () => {
+    const onReorder = vi.fn();
+    render(
+      <SortableList items={ITEMS} onReorder={onReorder}>
+        <SortableRow id="a" handleLabel="Reorder a">
+          <input aria-label="Label (Arabic)" dir="rtl" lang="ar" defaultValue="" />
+        </SortableRow>
+      </SortableList>,
+    );
+
+    const box = screen.getByRole('textbox', { name: 'Label (Arabic)' });
+    const user = userEvent.setup();
+    await user.click(box);
+    await user.keyboard('الوظيفة');
+    // A space typed into the field is text, not the keyboard sensor's "pick up".
+    await user.keyboard(' ');
+    expect(box).toHaveValue('الوظيفة ');
+    expect(box).toHaveAttribute('dir', 'rtl');
+    expect(onReorder).not.toHaveBeenCalled();
   });
 });
 

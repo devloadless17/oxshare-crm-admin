@@ -9,6 +9,7 @@ import type { TransactionRow } from '@/lib/api/admin';
 import { formatMoney } from '@/lib/money';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 
 /**
  * Release a transfer the MT5 bridge left in flight.
@@ -49,6 +50,7 @@ export function AbandonTransferDialog({
   onDone: () => unknown;
 }) {
   const [reason, setReason] = React.useState('');
+  const [reasonAr, setReasonAr] = React.useState('');
 
   /*
    * ⚠️ THE SAME BOUNDS THE API ENFORCES — `AbandonTransferDto` is
@@ -81,6 +83,7 @@ export function AbandonTransferDialog({
   if (lastId.current !== targetId) {
     lastId.current = targetId;
     if (reason !== '') setReason('');
+    if (reasonAr !== '') setReasonAr('');
   }
 
   const abandon = useMutation({
@@ -90,7 +93,7 @@ export function AbandonTransferDialog({
        * release rather than two. A second, deliberate abandon of the same
        * transfer is refused by the state guard anyway — it is no longer pending.
        */
-      api.admin.abandonTransfer(row.id, reason.trim(), `abandon:${row.id}`),
+      api.admin.abandonTransfer(row.id, reason.trim(), `abandon:${row.id}`, arabicOrNull(reasonAr)),
     onSuccess: async (_data, row) => {
       onClose();
       await onDone();
@@ -191,6 +194,16 @@ export function AbandonTransferDialog({
             )}
           </div>
         </div>
+
+        <ArabicTextField
+          id="abandon-reason-ar"
+          label={t('arabic.reasonLabel')}
+          value={reasonAr}
+          onChange={setReasonAr}
+          maxLength={REASON_MAX}
+          multiline
+          rows={2}
+        />
       </div>
     </Modal>
   );

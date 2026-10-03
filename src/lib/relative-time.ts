@@ -36,10 +36,12 @@ export function relativeTime(iso: string): string {
   for (const [unit, step] of units) {
     const rounded = Math.round(value);
     if (Math.abs(rounded) < step) {
-      return new Intl.RelativeTimeFormat(currentLocale(), { numeric: 'auto' }).format(
-        rounded,
-        unit,
-      );
+      // Arabic words with WESTERN digits (`-u-nu-latn`), as every other figure
+      // in the app: plain 'ar' would print "قبل ٥ دقائق" in Eastern digits.
+      const locale = currentLocale();
+      return new Intl.RelativeTimeFormat(locale === 'ar' ? 'ar-u-nu-latn' : locale, {
+        numeric: 'auto',
+      }).format(rounded, unit);
     }
     value /= step;
   }

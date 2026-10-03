@@ -67,6 +67,7 @@ function method(over: Partial<WithdrawalMethod> = {}): WithdrawalMethod {
   return {
     key: 'whish',
     name: 'Whish Money',
+    nameAr: null,
     logoUrl: null,
     enabled: true,
     sortOrder: 0,

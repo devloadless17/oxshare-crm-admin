@@ -113,6 +113,7 @@ export const messages = {
   'nav.commissionPlans': 'Commission Plans',
   'nav.kyc': 'KYC review',
   'nav.kycBuilder': 'KYC builder',
+  'nav.rejectionReasons': 'Rejection reasons',
   'nav.adminUsers': 'Admin users',
   'nav.roles': 'Roles & permissions',
   'nav.auditLog': 'Audit log',
@@ -2450,6 +2451,51 @@ export const messages = {
   // The `document` field type: one field that is the picker AND its uploads.
   'builder.acceptedDocuments': 'Documents this step accepts',
   'builder.documentParts': '{count} {count:photo|photos} required',
+
+  /*
+   * The builder's Arabic (0179): the broker's twins of their own texts, and the
+   * platform's fixed Arabic shown read-only beside its parts.
+   */
+  'builder.arabicSection': 'Arabic (optional)',
+  'builder.arabicFixed': 'The platform’s Arabic — fixed, shown to clients reading in Arabic.',
+  'builder.coreArabicHint':
+    'A built-in step comes with the platform’s Arabic. If you reword the English, reword the Arabic too.',
+  'builder.choicesArabic': 'Choices in Arabic',
+  'builder.choiceArabicNamed': 'Arabic for “{choice}”',
+  'builder.choicesArabicMissing':
+    '{missing} of {count} {count:choice|choices} {missing:has|have} no Arabic — clients reading Arabic will see the English.',
+
+  /* /rejection-reasons — the reasons reviewers pick from, in English and Arabic. */
+  'reasons.title': 'Rejection reasons',
+  'reasons.subtitle':
+    'The reasons a reviewer picks when turning something down. The client is told the reason — in Arabic where you give one.',
+  'reasons.context.kyc': 'KYC verification',
+  'reasons.context.withdrawal': 'Withdrawals',
+  'reasons.context.deposit': 'Deposits',
+  'reasons.context.partner': 'Partner applications',
+  'reasons.add': 'Add reason',
+  'reasons.editNamed': 'Edit {label}',
+  'reasons.deleteNamed': 'Delete {label}',
+  'reasons.addTo': 'Add a reason to {context}',
+  'reasons.empty': 'No reasons yet. Reviewers can still write their own.',
+  'reasons.colReason': 'Reason',
+  'reasons.colArabic': 'Arabic',
+  'reasons.createTitle': 'Add a rejection reason',
+  'reasons.editTitle': 'Edit rejection reason',
+  'reasons.usedFor': 'Used for: {context}',
+  'reasons.labelField': 'Reason (English)',
+  'reasons.labelPlaceholder': 'e.g. Document expired',
+  'reasons.arabicField': 'Reason (Arabic)',
+  'reasons.saved': 'Reason saved.',
+  'reasons.saveFailed': 'Could not save the reason.',
+  'reasons.confirmDeleteTitle': 'Delete “{label}”?',
+  'reasons.confirmDeleteBody':
+    'Reviewers will no longer be offered it. Decisions already made keep the words the client was sent.',
+  'reasons.deleted': 'Reason deleted.',
+  'reasons.deleteFailed': 'Could not delete the reason.',
+  'reasons.loading': 'Loading rejection reasons…',
+  'reasons.loadFailed': 'Could not load the rejection reasons.',
+  'reasons.arabicOf': 'In Arabic: {arabic}',
   'builder.tabOverview': 'Overview',
   'builder.openStep': 'Open',
   // Per-ACTION, not one shared string. A disabled control has to say why IT is
@@ -4539,6 +4585,33 @@ export const messages = {
     'MT5 has never confirmed a balance for this account. This is not a zero balance — it means the bridge has not delivered one yet.',
   'tradingAccounts.neverSyncedFootnote':
     'Some accounts show “never synced”: the bridge has not delivered a balance for them yet. That is different from a zero balance — check that the MT5 bridge is running.',
+
+  /*
+   * The optional Arabic twin of client-facing operator text
+   * (`components/arabic-text-field.tsx`). The console itself stays English.
+   */
+  'arabic.fieldHint':
+    'Shown to clients reading the portal in Arabic. Leave blank to show the English.',
+  'arabic.name': 'Name (Arabic)',
+  'arabic.title': 'Title (Arabic)',
+  'arabic.description': 'Description (Arabic)',
+  'arabic.label': 'Label (Arabic)',
+  'arabic.hint': 'Hint (Arabic)',
+  'arabic.missing': 'No Arabic',
+  // Under a reviewer's TYPED reason or note — a picked catalogue reason brings its own Arabic.
+  'arabic.reasonLabel': 'Reason in Arabic (optional)',
+  'arabic.noteLabel': 'Your note in Arabic (optional)',
+  'paymentMethods.proofFieldsArabicHint':
+    'Each detail can also have an Arabic label and hint, shown to clients reading the portal in Arabic. Leave them blank to show the English.',
+  'arabic.missingTitle': 'No Arabic translation yet — clients reading in Arabic see the English.',
+  // The shared data table's row/selection controls (components/data-table.tsx, a twin).
+  'table.selectAll': 'Select all',
+  'table.deselectAll': 'Deselect all',
+  'table.expandRow': 'Expand row',
+  'table.collapseRow': 'Collapse row',
+  'table.selectRow': 'Select this row',
+  'table.deselectRow': 'Deselect this row',
+  'table.loadingData': 'Loading table data…',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */

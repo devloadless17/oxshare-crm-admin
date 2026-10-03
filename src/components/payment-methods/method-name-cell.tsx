@@ -1,4 +1,5 @@
 import { assetUrl } from '@/lib/asset-url';
+import { ArabicSubline } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 
 /**
@@ -8,15 +9,20 @@ import { t } from '@/lib/i18n';
  * transaction, approval and export shows (backend 0161). What the client sees is
  * written beneath it only when it differs, so the common case reads as one name.
  * The method's key is never shown — it is a permanent ID, not a name.
+ *
+ * `nameAr`, when the caller passes it, adds the client-facing Arabic name (or a
+ * "No Arabic" marker) so the catalogue shows which methods still need one.
  */
 export function MethodNameCell({
   internalLabel,
   name,
   logoUrl,
+  nameAr,
 }: {
   internalLabel: string;
   name: string;
   logoUrl: string | null;
+  nameAr?: string | null;
 }) {
   const logo = assetUrl(logoUrl);
   return (
@@ -43,6 +49,7 @@ export function MethodNameCell({
             {t('paymentMethods.clientSees', { name })}
           </p>
         )}
+        {nameAr !== undefined && <ArabicSubline value={nameAr} className="truncate" />}
       </div>
     </div>
   );

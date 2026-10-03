@@ -3,6 +3,7 @@
 import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/lib/i18n';
 import type { KycDocumentType, KycFieldConfig } from './field-editor';
+import { FixedArabic } from './arabic-input';
 
 /**
  * WHICH DOCUMENTS A DOCUMENT STEP ACCEPTS — a checklist, not a list of fields.
@@ -79,6 +80,9 @@ export function DocumentChecklist({
                 />
                 {doc.label}
               </label>
+              {/* The platform's Arabic — fixed, like the English. Outside the
+                  label, so the checkbox keeps the English name it is found by. */}
+              <FixedArabic value={doc.labelAr} className="flex-1" />
               <span className="text-[11px] text-muted-foreground">
                 {t('builder.documentParts', { count: doc.parts?.length ?? 0 })}
               </span>
