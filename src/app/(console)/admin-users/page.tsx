@@ -194,6 +194,28 @@ export default function AdminUsersPage() {
     if (ok) sendReset.mutate(user);
   };
 
+  const unlinkGoogle = useMutation({
+    mutationFn: (user: AdminUser) => api.admin.unlinkAdminGoogle(user.id),
+    onSuccess: async (_data, user) => {
+      await invalidate();
+      toastSuccess(t('adminUsers.unlinkGoogleSucceeded', { name: user.name }));
+    },
+    onError: (error) => toastError(error, t('adminUsers.unlinkGoogleFailed')),
+  });
+
+  const handleUnlinkGoogle = async (user: AdminUser) => {
+    const ok = await confirm({
+      title: t('adminUsers.confirmUnlinkGoogleTitle', { name: user.name }),
+      description: t('adminUsers.confirmUnlinkGoogle', {
+        name: user.name,
+        email: user.googleEmail ?? '',
+      }),
+      confirmLabel: t('adminUsers.unlinkGoogle'),
+      destructive: true,
+    });
+    if (ok) unlinkGoogle.mutate(user);
+  };
+
   const handleRevokeInvite = async (invite: PendingInvite) => {
     const ok = await confirm({
       title: t('adminUsers.confirmRevokeTitle', { email: invite.email }),
@@ -326,6 +348,7 @@ export default function AdminUsersPage() {
             onEdit={setEditing}
             onToggleStatus={(user) => void handleToggleStatus(user)}
             onResetPassword={(user) => void handleResetPassword(user)}
+            onUnlinkGoogle={(user) => void handleUnlinkGoogle(user)}
             onRevokeInvite={(invite) => void handleRevokeInvite(invite)}
           />
         </div>

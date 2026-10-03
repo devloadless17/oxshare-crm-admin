@@ -44,6 +44,8 @@ const admin = (over: Partial<AdminProfile> = {}): AdminProfile => ({
   permissions: ['clients.view'],
   maskedFields: [],
   scopedTags: [],
+  googleEmail: null,
+  googleLinkedAt: null,
   createdAt: '2026-08-01T00:00:00.000Z',
   avatarUrl: null,
   ...over,

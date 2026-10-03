@@ -52,6 +52,8 @@ export const keys = {
   /** Identity. Not socket-driven — see `use-realtime.ts`. */
   session: {
     me: () => ['session', 'me'] as const,
+    /** Whether the sign-in screen offers Google — configuration, not identity. */
+    googleStatus: () => ['session', 'google-status'] as const,
   },
 
   kyc: {

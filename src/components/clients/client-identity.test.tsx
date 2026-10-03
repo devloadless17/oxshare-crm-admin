@@ -31,6 +31,8 @@ const as = (permissions: string[]) =>
       permissions,
       maskedFields: [],
       scopedTags: [],
+      googleEmail: null,
+      googleLinkedAt: null,
       createdAt: '2026-08-01T00:00:00.000Z',
     } satisfies AdminProfile,
   });

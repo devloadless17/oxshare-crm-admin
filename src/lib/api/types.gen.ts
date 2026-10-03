@@ -3334,6 +3334,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/auth/google/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the admin sign-in screen offers "Sign in with Google" */
+        get: operations["AdminGoogleAuthController_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/google/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Begin Google sign-in (browser navigation; 302 to Google)
+         * @description Sets a signed, httpOnly flow cookie (state, nonce, PKCE verifier) and redirects to Google's authorization endpoint. `next` must be a relative console path; anything else lands on /dashboard. `invite` (the emailed invite token) is kept in the cookie only.
+         */
+        get: operations["AdminGoogleAuthController_start"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Google redirects here (browser navigation; 302 back to the console)
+         * @description Verifies state against the signed flow cookie, exchanges the code with the PKCE verifier, verifies the ID token and starts an admin session. Every failure redirects to the console with `?google_error=<code>` — never Google text, never the address.
+         */
+        get: operations["AdminGoogleAuthController_callback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/me/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unlink your own Google account */
+        delete: operations["AdminGoogleAuthController_unlinkOwn"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unlink another administrator's Google account (admins.reset) */
+        delete: operations["AdminGoogleAuthController_unlinkFor"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/clients": {
         parameters: {
             query?: never;
@@ -8484,6 +8575,10 @@ export interface components {
             avatarUrl?: string | null;
             /** Format: date-time */
             passwordChangedAt?: string | null;
+            /** @example ada@bbcorp.trade */
+            googleEmail: string | null;
+            /** Format: date-time */
+            googleLinkedAt: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -8597,6 +8692,10 @@ export interface components {
              * @example /uploads/avatars/6f1c...c2.png
              */
             avatarUrl?: string | null;
+        };
+        GoogleSignInStatusDto: {
+            /** @description True when GOOGLE_OAUTH_CLIENT_ID and _SECRET are both configured. */
+            enabled: boolean;
         };
         ClientTagDto: {
             id: string;
@@ -14998,6 +15097,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminAvatarResponseDto"];
+                };
+            };
+        };
+    };
+    AdminGoogleAuthController_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleSignInStatusDto"];
+                };
+            };
+        };
+    };
+    AdminGoogleAuthController_start: {
+        parameters: {
+            query?: {
+                invite?: string;
+                next?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to Google, or back to the console when disabled. */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGoogleAuthController_callback: {
+        parameters: {
+            query?: {
+                error?: string;
+                state?: string;
+                code?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the console. */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGoogleAuthController_unlinkOwn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
+    AdminGoogleAuthController_unlinkFor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
                 };
             };
         };

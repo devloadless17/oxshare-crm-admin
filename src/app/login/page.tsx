@@ -16,6 +16,12 @@ import { apiErrorMessage } from '@/lib/api/errors';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/lib/return-to';
 import { RedirectIfAuthenticated } from '@/components/auth/redirect-if-authenticated';
 import { t } from '@/lib/i18n';
+import { googleErrorKey } from '@/lib/api/auth';
+import {
+  AuthDivider,
+  GoogleSignInButton,
+  useGoogleSignInEnabled,
+} from '@/components/auth/google-sign-in-button';
 
 function AdminLoginForm() {
   const router = useRouter();
@@ -27,6 +33,13 @@ function AdminLoginForm() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  /*
+   * Google sign-in. The API runs the whole round trip on its own host and
+   * comes back here with `?google_error=<code>` when it refuses — a fixed code,
+   * never Google's text or the address, mapped to our own sentence.
+   */
+  const googleEnabled = useGoogleSignInEnabled();
+  const googleError = googleErrorKey(searchParams.get('google_error'));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,6 +141,16 @@ function AdminLoginForm() {
 
         {/* Login Form Card */}
         <div className="rounded-xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-5">
+          {!error && googleError && (
+            <div
+              role="alert"
+              className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+            >
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{t(googleError)}</span>
+            </div>
+          )}
+
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -183,6 +206,15 @@ function AdminLoginForm() {
               {isLoading ? <span>{t('login.submitting')}</span> : <span>{t('login.submit')}</span>}
             </Button>
           </form>
+
+          {googleEnabled && (
+            <>
+              <AuthDivider />
+              {/* The page's own `?next=`, through the same validator the
+                  password path uses; the API re-checks it. */}
+              <GoogleSignInButton next={safeReturnTo(searchParams.get(RETURN_TO_PARAM))} />
+            </>
+          )}
         </div>
       </div>
     </main>

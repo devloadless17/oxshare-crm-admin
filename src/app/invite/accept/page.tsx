@@ -15,6 +15,12 @@ import { Label } from '@/components/ui/label';
 import { PageLoader } from '@/components/ui/loader';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { googleErrorKey } from '@/lib/api/auth';
+import {
+  AuthDivider,
+  GoogleSignInButton,
+  useGoogleSignInEnabled,
+} from '@/components/auth/google-sign-in-button';
 
 /**
  * Set a password and activate an invited administrator account.
@@ -48,6 +54,13 @@ function AcceptInviteContent() {
   const params = useSearchParams();
   const { admin, isLoading: sessionLoading } = useAdmin();
   const token = params.get('token') ?? '';
+  /*
+   * "Accept with Google" comes back here with `?google_error=<code>` when the
+   * API refuses it (wrong Google address, spent invite…). The password option
+   * stays beside it either way.
+   */
+  const googleEnabled = useGoogleSignInEnabled();
+  const googleError = googleErrorKey(params.get('google_error'));
 
   const [password, setPassword] = React.useState('');
   const [confirm, setConfirm] = React.useState('');
@@ -253,6 +266,16 @@ function AcceptInviteContent() {
               </div>
             )}
 
+            {!error && googleError && (
+              <div
+                role="alert"
+                className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{t(googleError)}</span>
+              </div>
+            )}
+
             {error && (
               <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -332,6 +355,13 @@ function AcceptInviteContent() {
                 )}
               </Button>
             </form>
+
+            {googleEnabled && (
+              <>
+                <AuthDivider />
+                <GoogleSignInButton invite={token} label={t('google.acceptWithGoogle')} />
+              </>
+            )}
           </div>
         )}
       </div>

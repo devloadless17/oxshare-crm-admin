@@ -1,6 +1,7 @@
 'use client';
 
-import { Ban, CircleCheck, Key, KeyRound, MailWarning, Pencil, Trash2 } from 'lucide-react';
+import { Ban, CircleCheck, Key, KeyRound, MailWarning, Pencil, Trash2, Unlink } from 'lucide-react';
+import { GoogleMark } from '@/components/auth/google-sign-in-button';
 import type { AdminUser, PendingInvite, Role } from '@/lib/api/admin';
 import { DataTable, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
@@ -102,6 +103,7 @@ export function AdminDirectoryTable({
   revokingId,
   onEdit,
   onResetPassword,
+  onUnlinkGoogle,
   onToggleStatus,
   onRevokeInvite,
 }: {
@@ -116,6 +118,11 @@ export function AdminDirectoryTable({
   revokingId: string | null | undefined;
   onEdit: (user: AdminUser) => void;
   onResetPassword: (user: AdminUser) => void;
+  /**
+   * Remove this administrator's Google sign-in. Offered on the same grant as a
+   * reset (`admins.reset`) — the API applies the same escalation guard.
+   */
+  onUnlinkGoogle?: (user: AdminUser) => void;
   onToggleStatus: (user: AdminUser) => void;
   onRevokeInvite: (invite: PendingInvite) => void;
 }) {
@@ -194,6 +201,15 @@ export function AdminDirectoryTable({
             <MailWarning className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
           )}
           {row.name}
+          {row.admin?.googleEmail && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+              title={t('adminUsers.googleLinkedTitle', { email: row.admin.googleEmail })}
+            >
+              <GoogleMark className="h-3 w-3" />
+              {t('adminUsers.googleLinked')}
+            </span>
+          )}
           {row.admin && isSelf(row.admin) && (
             <span className="text-[10px] font-normal text-muted-foreground">
               {t('settings.you')}
@@ -389,6 +405,15 @@ export function AdminDirectoryTable({
                           label: t('adminUsers.sendResetLink'),
                           icon: KeyRound,
                           onSelect: () => onResetPassword(user),
+                        },
+                      ]
+                    : []),
+                  ...(can.canResetPassword && onUnlinkGoogle && !isSelf(user) && user.googleEmail
+                    ? [
+                        {
+                          label: t('adminUsers.unlinkGoogle'),
+                          icon: Unlink,
+                          onSelect: () => onUnlinkGoogle(user),
                         },
                       ]
                     : []),

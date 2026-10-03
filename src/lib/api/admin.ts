@@ -1771,6 +1771,16 @@ export const adminApi = {
   },
 
   /**
+   * `DELETE /admin/users/:id/google` — remove another administrator's Google
+   * sign-in. `admins.reset` plus the same escalation guard as a password reset;
+   * the API refuses an administrator who outranks the caller.
+   */
+  async unlinkAdminGoogle(id: string) {
+    const { data } = await apiClient.delete<{ message: string }>(`/admin/users/${id}/google`);
+    return data;
+  },
+
+  /**
    * Email another administrator a single-use password reset link — D-44.
    *
    * There is deliberately no self-service equivalent: self-service would make

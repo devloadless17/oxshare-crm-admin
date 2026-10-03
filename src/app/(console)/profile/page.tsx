@@ -5,6 +5,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { AdminIdentityPanel } from '@/components/profile/admin-identity-panel';
 import { AdminPasswordPanel } from '@/components/profile/admin-password-panel';
 import { AdminSessionsPanel } from '@/components/profile/admin-sessions-panel';
+import { AdminGooglePanel } from '@/components/profile/admin-google-panel';
 import { t } from '@/lib/i18n';
 
 /**
@@ -70,6 +71,8 @@ export default function ProfilePage() {
         <AdminIdentityPanel admin={admin} icon={ShieldCheck} />
         <AdminPasswordPanel icon={KeyRound} />
       </div>
+
+      <AdminGooglePanel admin={admin} />
 
       <AdminSessionsPanel icon={Laptop} />
     </div>
