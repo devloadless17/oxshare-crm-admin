@@ -67,6 +67,7 @@ export function ReverseAccrualDialog({
 
   return (
     <Modal
+      busy={reverse.isPending}
       open={target !== null}
       onClose={onClose}
       labelledBy="reverse-accrual-title"

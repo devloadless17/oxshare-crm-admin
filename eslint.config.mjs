@@ -277,6 +277,8 @@ export default defineConfig([
       'src/app/(console)/reconciliation/**/*.tsx',
       'src/app/(console)/financial/**/*.tsx',
       'src/components/financial/**/*.tsx',
+      'src/components/trading/**/*.tsx',
+      'src/components/wallets/**/*.tsx',
     ],
     ignores: ['**/*.test.ts', '**/*.test.tsx'],
     rules: {
@@ -287,6 +289,14 @@ export default defineConfig([
           selector: "CallExpression[callee.name='Number']",
           message:
             'ARCHITECTURE §6.1: Number() on a monetary string silently truncates past 2^53. Use decimal.js via lib/money.ts (formatMoney, isZeroMoney).',
+        },
+        {
+          // `Number.parseFloat(amount)` is the same coercion as the banned
+          // global, spelled so `no-restricted-globals` never sees it.
+          selector:
+            "CallExpression[callee.object.name='Number'][callee.property.name=/^(parseFloat|parseInt)$/]",
+          message:
+            'ARCHITECTURE §6.1: Number.parseFloat/parseInt on a money path coerces a monetary string. Use decimal.js via lib/money.ts (compareMoney, isZeroMoney).',
         },
       ],
       'no-restricted-globals': [
@@ -431,6 +441,14 @@ export default defineConfig([
           selector: "CallExpression[callee.name='Number']",
           message:
             'ARCHITECTURE §6.1: Number() on a monetary string silently truncates past 2^53. Use decimal.js via lib/money.ts (formatMoney, isZeroMoney).',
+        },
+        {
+          // `Number.parseFloat(amount)` is the same coercion as the banned
+          // global, spelled so `no-restricted-globals` never sees it.
+          selector:
+            "CallExpression[callee.object.name='Number'][callee.property.name=/^(parseFloat|parseInt)$/]",
+          message:
+            'ARCHITECTURE §6.1: Number.parseFloat/parseInt on a money path coerces a monetary string. Use decimal.js via lib/money.ts (compareMoney, isZeroMoney).',
         },
         {
           selector:

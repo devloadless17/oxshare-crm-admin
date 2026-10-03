@@ -186,7 +186,8 @@ export const keys = {
     availableGroups: () => ['products', 'available-groups'] as const,
   },
 
-  /** The server's country and nationality lists — static per deployment. */
+  /** The server's country and nationality lists. Since backend 0178 they follow
+   *  the offered countries, so the countries panel's save invalidates this. */
   profileOptions: {
     all: () => ['profile-options'] as const,
   },

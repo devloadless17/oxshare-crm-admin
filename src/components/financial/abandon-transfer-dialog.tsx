@@ -109,6 +109,7 @@ export function AbandonTransferDialog({
 
   return (
     <Modal
+      busy={abandon.isPending}
       open={target !== null}
       onClose={onClose}
       labelledBy="abandon-transfer-title"

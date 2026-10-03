@@ -143,6 +143,7 @@ function AcknowledgeDialog({
 
   return (
     <Modal
+      busy={save.isPending}
       open
       onClose={onClose}
       labelledBy={`acknowledge-${record.id}`}

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { ArrowLeft, CalendarIcon, X } from 'lucide-react';
 import api from '@/lib/api';
 import { apiErrorMessage } from '@/lib/api/errors';
@@ -15,6 +15,8 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { AccessDenied } from '@/components/access-denied';
 import { keys } from '@/lib/query-keys';
+import { useResource } from '@/hooks/use-resource';
+import { AsyncBoundary } from '@/components/async-boundary';
 
 /**
  * Issue an API key — a page, not a dialog.
@@ -71,10 +73,10 @@ function NewApiKeyForm() {
 
   // The catalog is the server's vocabulary (R-4.5) — the frontend must never
   // invent a permission key, so the picker is built from what the API returns.
-  const catalog = useQuery({
-    queryKey: keys.permissions.all(),
-    queryFn: () => api.admin.getPermissions(),
-  });
+  // Through useResource + AsyncBoundary: as a bare useQuery a failed catalog
+  // rendered NOTHING under "Permissions" — no spinner, no error, no retry —
+  // and the form could never be submitted with no way to know why.
+  const catalog = useResource(keys.permissions.all(), () => api.admin.getPermissions());
 
   const create = useMutation({
     mutationFn: () =>
@@ -296,30 +298,38 @@ function NewApiKeyForm() {
             <p className="mt-1.5 text-xs text-muted-foreground">
               {t('apiKeys.form.permissionsHelp')}
             </p>
-            {catalog.data && (
-              <PermissionMatrix
-                catalog={catalog.data}
-                selected={permissions}
-                onToggle={(key) =>
-                  setPermissions((prev) =>
-                    prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key],
-                  )
-                }
-                /*
-                 * Select-all is applied HERE rather than inside the matrix,
-                 * which never owns the selection. `keys` is one module's keys or
-                 * the whole catalog's; the Set keeps the result duplicate-free
-                 * when a module is selected twice.
-                 */
-                onSelectAll={(keys, nextSelected) =>
-                  setPermissions((prev) =>
-                    nextSelected
-                      ? [...new Set([...prev, ...keys])]
-                      : prev.filter((p) => !keys.includes(p)),
-                  )
-                }
-              />
-            )}
+            <AsyncBoundary
+              status={catalog.status}
+              label={t('common.loading')}
+              endpoints={['GET /admin/permissions']}
+              onRetry={catalog.refetch}
+              error={catalog.error}
+            >
+              {catalog.data && (
+                <PermissionMatrix
+                  catalog={catalog.data}
+                  selected={permissions}
+                  onToggle={(key) =>
+                    setPermissions((prev) =>
+                      prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key],
+                    )
+                  }
+                  /*
+                   * Select-all is applied HERE rather than inside the matrix,
+                   * which never owns the selection. `keys` is one module's keys or
+                   * the whole catalog's; the Set keeps the result duplicate-free
+                   * when a module is selected twice.
+                   */
+                  onSelectAll={(keys, nextSelected) =>
+                    setPermissions((prev) =>
+                      nextSelected
+                        ? [...new Set([...prev, ...keys])]
+                        : prev.filter((p) => !keys.includes(p)),
+                    )
+                  }
+                />
+              )}
+            </AsyncBoundary>
           </div>
         </div>
       </div>

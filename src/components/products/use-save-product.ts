@@ -5,7 +5,12 @@ import type { ProductFormValues } from './product-form';
 
 export function useSaveProduct(editingId: string | undefined) {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.products.all() });
+  // The MT5 groups mirror names each group's products, so it moves with them.
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: keys.products.all() }),
+      queryClient.invalidateQueries({ queryKey: keys.mt5Groups.all() }),
+    ]);
   /**
    * Save the product AND reconcile its groups.
    *

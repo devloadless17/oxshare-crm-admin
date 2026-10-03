@@ -59,7 +59,7 @@ export function PartnerRejectDialog({
   onConfirm: (input: { reason?: string; note?: string; noteAr?: string }) => void;
 }) {
   return (
-    <Modal open={open} onClose={onCancel} title={t('partnerReview.rejectTitle')}>
+    <Modal busy={saving} open={open} onClose={onCancel} title={t('partnerReview.rejectTitle')}>
       {/* Keyed, so reopening on a different application starts from empty
           rather than carrying the previous applicant's note across. Same
           reason as IbLevelFormModal — an effect that re-seeds state renders the
@@ -144,7 +144,7 @@ function RejectForm({
       )}
 
       <label className="block space-y-1.5">
-        <span className="text-xs font-semibold text-foreground">
+        <span id="partner-reject-reason-label" className="text-xs font-semibold text-foreground">
           {t('partnerReview.rejectReason')}
         </span>
         {/*
@@ -160,7 +160,10 @@ function RejectForm({
           value={selected === '' ? NO_REASON : selected}
           onValueChange={(value) => setSelected(value === NO_REASON ? '' : value)}
         >
-          <SelectTrigger className="h-10 w-full text-xs">
+          <SelectTrigger
+            aria-labelledby="partner-reject-reason-label"
+            className="h-10 w-full text-xs"
+          >
             {/* The English alone in the box — the list below carries the Arabic too. */}
             <SelectValue>
               {selected === '' ? t('partnerReview.rejectReasonNone') : selected}

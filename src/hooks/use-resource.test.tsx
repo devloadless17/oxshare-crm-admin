@@ -91,6 +91,21 @@ function staleWrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={staleClient}>{children}</QueryClientProvider>;
 }
 
+describe('useResource keeps the client’s retry policy', () => {
+  /*
+   * `retry: options?.retry` handed React Query an explicit undefined, which its
+   * option SPREAD let replace the client's default — so a QueryProvider that
+   * never retries a 4xx retried every one three times, with backoff, behind a
+   * spinner.
+   */
+  it('does not retry when the caller passes no retry and the client says not to', async () => {
+    const fetcher = vi.fn(failingWith(500));
+    const { result } = renderHook(() => useResource(['t', 'policy'], fetcher), { wrapper });
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('useResource reports a failed background refresh', () => {
   it('stays `ready`, keeps the data, and RAISES refreshFailed', async () => {
     const fetcher = vi
