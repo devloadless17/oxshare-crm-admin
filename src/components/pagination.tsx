@@ -170,7 +170,7 @@ export function Pagination({
           className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-outline"
           aria-label={t('pagination.firstAria')}
         >
-          <ChevronsLeft className="h-4 w-4" />
+          <ChevronsLeft className="h-4 w-4 rtl:-scale-x-100" />
         </button>
 
         {/* Previous Page Button */}
@@ -182,7 +182,7 @@ export function Pagination({
           className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-outline"
           aria-label={t('pagination.previous')}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 rtl:-scale-x-100" />
         </button>
 
         {/* Numbered Page Buttons */}
@@ -225,7 +225,7 @@ export function Pagination({
           className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-outline"
           aria-label={t('pagination.next')}
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4 rtl:-scale-x-100" />
         </button>
 
         {/* Last Page Button */}
@@ -237,7 +237,7 @@ export function Pagination({
           className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-card text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-outline"
           aria-label={t('pagination.lastAria')}
         >
-          <ChevronsRight className="h-4 w-4" />
+          <ChevronsRight className="h-4 w-4 rtl:-scale-x-100" />
         </button>
       </div>
     </div>

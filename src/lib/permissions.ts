@@ -56,6 +56,16 @@ export type RouteRequirement =
 const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement }> = [
   { prefix: '/kyc/builder', requirement: { permission: 'kyc.edit' } }, // edits the KYC config itself
   /*
+   * The rejection-reason catalogue. Reading it needs no key at all (every
+   * reviewer's dialog lists it), but this page exists to CHANGE it, and each
+   * write is its own KYC key on the API (create / edit / delete) — so any one
+   * of them opens the page, and each control checks its own.
+   */
+  {
+    prefix: '/rejection-reasons',
+    requirement: { anyOf: ['kyc.create', 'kyc.edit', 'kyc.delete'] },
+  },
+  /*
    * EITHER key opens the queue. `kyc.view` is the read key and `kyc.review` is
    * the decide key, and neither implies the other — the guard matches keys
    * literally — so requiring only the second hid the queue from a compliance

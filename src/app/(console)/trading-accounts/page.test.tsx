@@ -557,7 +557,7 @@ describe('moving money on a trading account', () => {
     await userEvent.click(await screen.findByText(/add or remove funds/i));
 
     await userEvent.type(await screen.findByLabelText(/amount/i), '250.5');
-    await userEvent.type(screen.getByLabelText(/reason/i), 'Off-rail wire received');
+    await userEvent.type(screen.getByLabelText(/^reason$/i), 'Off-rail wire received');
     await userEvent.click(screen.getByRole('button', { name: /^add funds$/i }));
 
     await waitFor(() => expect(fundTradingAccount).toHaveBeenCalledTimes(1));
@@ -569,6 +569,42 @@ describe('moving money on a trading account', () => {
       direction: 'deposit',
     });
     expect(body).not.toHaveProperty('currency');
+  });
+
+  /*
+   * The reason reaches the client's credit email and bell; its Arabic twin
+   * (0179) is what a client reading in Arabic sees. Left out when blank — the
+   * test above pins that body exactly.
+   */
+  it('sends the reason in Arabic when one is typed, trimmed', async () => {
+    getTradingAccounts.mockResolvedValue(page([account()]));
+    fundTradingAccount.mockResolvedValue({
+      transaction: { id: 'tx-1', amount: '250.50000000', currency: 'USD' },
+      replayed: false,
+      transfer: { id: 'tr-1', state: 'settled' },
+      transferError: null,
+    });
+    identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+    await userEvent.click(await screen.findByText(/add or remove funds/i));
+
+    await userEvent.type(await screen.findByLabelText(/amount/i), '250.5');
+    await userEvent.type(screen.getByLabelText(/^reason$/i), 'Off-rail wire received');
+    const ar = screen.getByLabelText('Reason in Arabic (optional)');
+    expect(ar).toHaveAttribute('dir', 'rtl');
+    await userEvent.type(ar, ' حوالة واردة ');
+    await userEvent.click(screen.getByRole('button', { name: /^add funds$/i }));
+
+    await waitFor(() => expect(fundTradingAccount).toHaveBeenCalledTimes(1));
+    expect(fundTradingAccount.mock.calls[0]![1]).toEqual({
+      amount: '250.5',
+      reason: 'Off-rail wire received',
+      reasonAr: 'حوالة واردة',
+      direction: 'deposit',
+    });
   });
 
   /*
@@ -593,7 +629,7 @@ describe('moving money on a trading account', () => {
     await userEvent.click(await screen.findByText(/add or remove funds/i));
 
     await userEvent.type(await screen.findByLabelText(/amount/i), '100');
-    await userEvent.type(screen.getByLabelText(/reason/i), 'Reversing the duplicate credit');
+    await userEvent.type(screen.getByLabelText(/^reason$/i), 'Reversing the duplicate credit');
     await userEvent.click(screen.getByRole('button', { name: /remove funds/i }));
 
     await waitFor(() => expect(fundTradingAccount).toHaveBeenCalledTimes(1));
@@ -626,7 +662,7 @@ describe('moving money on a trading account', () => {
     await userEvent.click(await screen.findByText(/add or remove funds/i));
 
     await userEvent.type(await screen.findByLabelText(/amount/i), '250');
-    await userEvent.type(screen.getByLabelText(/reason/i), 'Off-rail wire received');
+    await userEvent.type(screen.getByLabelText(/^reason$/i), 'Off-rail wire received');
     await userEvent.click(screen.getByRole('button', { name: /^add funds$/i }));
 
     // The wallet is named as holding the money, and the bridge's own reason is

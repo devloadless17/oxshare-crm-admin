@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -35,7 +36,11 @@ export interface StagedGroup {
 
 export interface ProductFormValues {
   name: string;
+  /** Optional Arabic name; `null` clears a stored translation. */
+  nameAr: string | null;
   description: string | null;
+  /** Optional Arabic description; `null` clears a stored translation. */
+  descriptionAr: string | null;
   enabled: boolean;
   /** Chosen at creation, immutable after — the API refuses a change. */
   type: 'real' | 'demo';
@@ -89,7 +94,9 @@ export function ProductForm({
   onClose: () => void;
 }) {
   const [name, setName] = React.useState(product?.name ?? '');
+  const [nameAr, setNameAr] = React.useState(product?.nameAr ?? '');
   const [description, setDescription] = React.useState(product?.description ?? '');
+  const [descriptionAr, setDescriptionAr] = React.useState(product?.descriptionAr ?? '');
   /*
    * NOT a field, and never reset by this form.
    *
@@ -192,7 +199,9 @@ export function ProductForm({
     event.preventDefault();
     onSubmit({
       name: name.trim(),
+      nameAr: arabicOrNull(nameAr),
       description: description.trim() || null,
+      descriptionAr: arabicOrNull(descriptionAr),
       enabled,
       type,
       /*
@@ -223,6 +232,16 @@ export function ProductForm({
             className={INPUT_CLASS}
           />
         </label>
+
+        <ArabicTextField
+          id="product-name-ar"
+          label={t('arabic.name')}
+          value={nameAr}
+          onChange={setNameAr}
+          maxLength={80}
+          className={INPUT_CLASS}
+          wrapperClassName="sm:col-span-2"
+        />
 
         <label className="space-y-1.5 sm:col-span-2">
           <span className="block text-xs font-semibold">{t('products.commissionType')}</span>
@@ -269,6 +288,18 @@ export function ProductForm({
             className={`${INPUT_CLASS} h-auto py-2 leading-relaxed`}
           />
         </label>
+
+        <ArabicTextField
+          id="product-description-ar"
+          label={t('arabic.description')}
+          value={descriptionAr}
+          onChange={setDescriptionAr}
+          maxLength={2000}
+          multiline
+          rows={2}
+          className={`${INPUT_CLASS} h-auto py-2 leading-relaxed`}
+          wrapperClassName="sm:col-span-2"
+        />
 
         {/* ── Real or demo ───────────────────────────────────────────────── */}
         <div className="space-y-1.5 sm:col-span-2">

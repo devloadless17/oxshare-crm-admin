@@ -15,7 +15,7 @@ import { StepCard, type KycStepConfig } from '@/components/kyc-builder/step-card
 import { type KycDocumentType, type KycFieldConfig } from '@/components/kyc-builder/field-editor';
 import { BuilderOverview } from '@/components/kyc-builder/builder-overview';
 import { CountriesPanel } from '@/components/kyc-builder/countries-panel';
-import { AddStepDialog } from '@/components/kyc-builder/add-step-dialog';
+import { AddStepDialog, type NewStep } from '@/components/kyc-builder/add-step-dialog';
 import { placeRefusals, savePayload, type Refusals } from '@/components/kyc-builder/builder-save';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
@@ -196,7 +196,7 @@ export default function KycBuilderPage() {
     }
   };
 
-  const addStep = ({ title, description }: { title: string; description: string }) => {
+  const addStep = ({ title, description, titleAr, descriptionAr }: NewStep) => {
     const step: KycStepConfig = {
       id: `step-${Date.now()}`,
       stepNumber: steps.length + 1,
@@ -204,6 +204,9 @@ export default function KycBuilderPage() {
       slug: '',
       title,
       description: description || t('builder.defaultStepDescription'),
+      // A defaulted English description has no Arabic of the broker's to pair with.
+      titleAr,
+      descriptionAr: description ? descriptionAr : undefined,
       icon: 'FileText',
       enabled: true,
       fields: [],

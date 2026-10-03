@@ -30,6 +30,7 @@ import {
   type CorrectionPatch,
 } from '@/components/kyc-review/correct-identity-dialog';
 import { ReverifyDialog } from '@/components/kyc-review/reverify-dialog';
+import { arabicOrNull } from '@/components/arabic-text-field';
 import { isMasked } from '@/lib/masking';
 import { ReviewDock } from '@/components/kyc-review/review-dock';
 import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
@@ -79,6 +80,7 @@ export default function KycDetailPage() {
   const userId = params.userId as string;
 
   const [rejectReason, setRejectReason] = useState('');
+  const [rejectReasonAr, setRejectReasonAr] = useState('');
   const [selectedReasonId, setSelectedReasonId] = useState('');
   const [selectedRejectedFields, setSelectedRejectedFields] = useState<string[]>([]);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -236,7 +238,11 @@ export default function KycDetailPage() {
   };
 
   /** Return this APPROVED verification to the client to update — see ReverifyDialog. */
-  const requestReverification = async (request: { reason: string; items: string[] }) => {
+  const requestReverification = async (request: {
+    reason: string;
+    reasonAr?: string;
+    items: string[];
+  }) => {
     setActionLoading(true);
     setActionError('');
     try {
@@ -300,11 +306,13 @@ export default function KycDetailPage() {
       await api.patch(`/admin/kyc/${userId}/reject`, {
         reasonId: selectedReasonId || undefined,
         reason: rejectReason.trim() || undefined,
+        reasonAr: arabicOrNull(rejectReasonAr) ?? undefined,
         rejectedFields: selectedRejectedFields,
       });
       await refreshAfterDecision();
       setShowRejectModal(false);
       setRejectReason('');
+      setRejectReasonAr('');
       setSelectedReasonId('');
       setSelectedRejectedFields([]);
     } catch (e: unknown) {
@@ -579,6 +587,7 @@ export default function KycDetailPage() {
           reasons={reasons}
           selectedReasonId={selectedReasonId}
           note={rejectReason}
+          noteAr={rejectReasonAr}
           selectedFields={selectedRejectedFields}
           fieldGroups={fieldGroups}
           canConfirm={canConfirmReject}
@@ -586,6 +595,7 @@ export default function KycDetailPage() {
           error={actionError}
           onReasonChange={setSelectedReasonId}
           onNoteChange={setRejectReason}
+          onNoteArChange={setRejectReasonAr}
           onToggleField={toggleFieldSelection}
           onCancel={() => !actionLoading && setShowRejectModal(false)}
           onConfirm={reject}

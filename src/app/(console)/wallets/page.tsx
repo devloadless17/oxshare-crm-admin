@@ -240,13 +240,14 @@ function WalletsPageContent() {
   });
 
   const credit = useMutation({
-    mutationFn: (values: { amount: string; reason: string }) =>
+    mutationFn: (values: { amount: string; reason: string; reasonAr?: string }) =>
       api.admin.creditWallet(
         {
           userId: crediting!.user.id,
           amount: values.amount,
           currency: crediting!.currency,
           reason: values.reason,
+          reasonAr: values.reasonAr,
         },
         /*
          * ONE key per intended credit, minted when the modal opens rather than

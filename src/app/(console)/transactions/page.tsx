@@ -13,6 +13,8 @@ import {
   type WithdrawalState,
 } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
+import { ReasonOption } from '@/components/rejection-reasons/reason-option';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
@@ -288,6 +290,7 @@ function TransactionsPageContent() {
   };
   const [reasonId, setReasonId] = React.useState('');
   const [reasonNote, setReasonNote] = React.useState('');
+  const [reasonNoteAr, setReasonNoteAr] = React.useState('');
 
   const params = {
     limit: pageSize,
@@ -397,6 +400,7 @@ function TransactionsPageContent() {
         {
           reasonId: reasonId || undefined,
           reason: reasonNote.trim() || undefined,
+          reasonAr: arabicOrNull(reasonNoteAr) ?? undefined,
         },
         intentKey('reject', row),
       ),
@@ -415,7 +419,7 @@ function TransactionsPageContent() {
 
   const closeReject = () => {
     setRejectTarget(null);
-    [setReasonId, setReasonNote].forEach((clear) => clear(''));
+    [setReasonId, setReasonNote, setReasonNoteAr].forEach((clear) => clear(''));
   };
 
   const busy = approve.isPending || reject.isPending;
@@ -990,12 +994,14 @@ function TransactionsPageContent() {
             <label className="text-xs font-semibold">{t('withdrawals.rejectionReason')}</label>
             <Select value={reasonId} onValueChange={setReasonId}>
               <SelectTrigger className="mt-1 h-9 w-full">
-                <SelectValue placeholder={t('withdrawals.selectReason')} />
+                <SelectValue placeholder={t('withdrawals.selectReason')}>
+                  {reasons.find((r) => r.id === reasonId)?.label}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {reasons.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
-                    {r.label}
+                    <ReasonOption reason={r} />
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1026,6 +1032,17 @@ function TransactionsPageContent() {
           />
           <p className="mt-1 text-[11px] text-muted-foreground">{t('withdrawals.noteHint')}</p>
         </div>
+
+        <ArabicTextField
+          id="wd-note-ar"
+          label={t(reasons.length > 0 ? 'arabic.noteLabel' : 'arabic.reasonLabel')}
+          value={reasonNoteAr}
+          onChange={setReasonNoteAr}
+          maxLength={500}
+          multiline
+          rows={2}
+          className="w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-sm focus-outline"
+        />
 
         {reject.isError && (
           <p className="text-xs font-semibold text-destructive" role="alert">

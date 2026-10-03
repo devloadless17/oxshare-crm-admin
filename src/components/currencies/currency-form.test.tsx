@@ -19,6 +19,7 @@ import type { Currency } from '@/lib/api/admin';
 const LBP: Currency = {
   code: 'LBP',
   name: 'Lebanese Pound',
+  nameAr: null,
   symbol: 'LL',
   decimals: 0,
   enabled: true,
@@ -77,7 +78,7 @@ describe('the currency form’s limits', () => {
     const { onSubmit, user } = open();
     await user.type(screen.getByLabelText(/^Code/), 'LBP');
     await user.type(screen.getByLabelText(/^Symbol/), 'LL');
-    await user.type(screen.getByLabelText(/^Name/), 'Lebanese Pound');
+    await user.type(screen.getByLabelText(/^Name$/), 'Lebanese Pound');
     const fill: Record<string, string> = {
       'Minimum deposit': '1000000',
       'Maximum deposit': '5,000,000,000',
@@ -108,5 +109,48 @@ describe('the currency form’s limits', () => {
     const box = screen.getByLabelText('Maximum withdrawal');
     expect(box).toHaveAttribute('aria-invalid', 'true');
     expect(box).toHaveAccessibleDescription(/cannot be below the minimum withdrawal/);
+  });
+});
+
+describe('the currency form’s Arabic name', () => {
+  async function fillRequired(user: ReturnType<typeof userEvent.setup>) {
+    for (const label of [
+      'Minimum deposit',
+      'Maximum deposit',
+      'Minimum withdrawal',
+      'Maximum withdrawal',
+    ]) {
+      const box = screen.getByLabelText(label);
+      if ((box as HTMLInputElement).value === '') await user.type(box, '1');
+    }
+  }
+
+  it('is an optional right-to-left Arabic box with the same length limit', () => {
+    open();
+    const box = screen.getByLabelText('Name (Arabic)');
+    expect(box).toHaveAttribute('dir', 'rtl');
+    expect(box).toHaveAttribute('lang', 'ar');
+    expect(box).toHaveAttribute('maxLength', '80');
+    expect(box).not.toBeRequired();
+  });
+
+  it('sends the Arabic typed, trimmed', async () => {
+    const { onSubmit, user } = open();
+    await user.type(screen.getByLabelText(/^Code/), 'LBP');
+    await user.type(screen.getByLabelText(/^Symbol/), 'LL');
+    await user.type(screen.getByLabelText(/^Name$/), 'Lebanese Pound');
+    await user.type(screen.getByLabelText('Name (Arabic)'), '  ليرة لبنانية ');
+    await fillRequired(user);
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ nameAr: 'ليرة لبنانية' });
+  });
+
+  it('prefills the stored Arabic, and sends null once it is cleared', async () => {
+    const { onSubmit, user } = open({ currency: { ...LBP, nameAr: 'ليرة لبنانية' } });
+    const box = screen.getByLabelText('Name (Arabic)');
+    expect(box).toHaveValue('ليرة لبنانية');
+    await user.clear(box);
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ nameAr: null });
   });
 });

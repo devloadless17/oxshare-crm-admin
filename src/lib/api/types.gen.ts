@@ -21,6 +21,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/profile/locale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the client's portal language
+         * @description Stores `en` or `ar` on the account. Emails sent outside the client’s own requests (review decisions, payouts, credits) are written in it.
+         */
+        put: operations["ProfileLocaleController_setLocale"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/notifications": {
         parameters: {
             query?: never;
@@ -4909,8 +4929,34 @@ export interface components {
              *     ]
              */
             nationalities: string[];
+            /**
+             * @description Arabic name per country, keyed by the English value in `countries` (0179). The value sent and stored is always the English one.
+             * @example {
+             *       "Lebanon": "لبنان"
+             *     }
+             */
+            countryLabelsAr: {
+                [key: string]: string;
+            };
+            /**
+             * @description Arabic per nationality, keyed by the English value in `nationalities` (0179). The value sent and stored is always the English one.
+             * @example {
+             *       "Lebanese": "لبناني"
+             *     }
+             */
+            nationalityLabelsAr: {
+                [key: string]: string;
+            };
             /** @description Which fields are required, and when. Served so no form keeps its own copy of the rule (the owner’s ruling, 26 Sep 2026). */
             required: components["schemas"]["ProfileRequiredDto"];
+        };
+        UpdateProfileLocaleDto: {
+            /**
+             * @description The language the client reads the portal in. Stored on the account so mail sent outside the client's own requests (review decisions, payouts, credits) is written in it.
+             * @example ar
+             * @enum {string}
+             */
+            locale: "en" | "ar";
         };
         NotificationDto: {
             id: string;
@@ -5178,6 +5224,12 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             /**
+             * @description The portal language the client last chose (PUT /profile/locale, or the language they registered in). Emails sent outside their own requests are written in it.
+             * @example en
+             * @enum {string}
+             */
+            locale: "en" | "ar";
+            /**
              * @description Path to the profile photo, or null when there is none. The portal renders initials for null rather than a placeholder image or a gravatar - an invented image URL would be a request to a third party leaking the client's e-mail hash.
              * @example /uploads/avatars/6f1c2b9e-....png
              */
@@ -5332,6 +5384,11 @@ export interface components {
             code: string;
             /** @example US Dollar */
             name: string;
+            /**
+             * @description The name in Arabic (0179); null = not translated, show `name`.
+             * @example دولار أمريكي
+             */
+            nameAr: string | null;
             /** @example $ */
             symbol: string;
             /**
@@ -5374,6 +5431,11 @@ export interface components {
             code: string;
             /** @example Euro */
             name: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example يورو
+             */
+            nameAr?: string | null;
             /** @example € */
             symbol: string;
             /** @default 2 */
@@ -5408,6 +5470,11 @@ export interface components {
         UpdateCurrencyDto: {
             /** @example Euro */
             name?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example يورو
+             */
+            nameAr?: string | null;
             /** @example € */
             symbol?: string;
             decimals?: number;
@@ -5475,7 +5542,14 @@ export interface components {
             id: string;
             /** @example Economic calendar */
             title: string;
+            /**
+             * @description The title in Arabic (0179); null = not translated, show `title`.
+             * @example المفكرة الاقتصادية
+             */
+            titleAr: string | null;
             description: string | null;
+            /** @description The description in Arabic (0179); null = not translated, show `description`. */
+            descriptionAr: string | null;
             /** @example https://example.com/calendar */
             url: string;
             /** @description The operator’s order, which is the order to render. */
@@ -5486,8 +5560,15 @@ export interface components {
             id: string;
             /** @example Economic calendar */
             title: string;
+            /**
+             * @description The title in Arabic (0179); null = not translated, show `title`.
+             * @example المفكرة الاقتصادية
+             */
+            titleAr: string | null;
             /** @description One line of context under the title. Null is a real answer, not an omission. */
             description: string | null;
+            /** @description The description in Arabic (0179); null = not translated, show `description`. */
+            descriptionAr: string | null;
             /** @example https://example.com/calendar */
             url: string;
             /** @description A disabled link is off the client menu and still on this screen. */
@@ -5502,7 +5583,14 @@ export interface components {
         CreateExternalLinkDto: {
             /** @example Economic calendar */
             title: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example المفكرة الاقتصادية
+             */
+            titleAr?: string | null;
             description?: string;
+            /** @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English). */
+            descriptionAr?: string | null;
             /** @example https://example.com/calendar */
             url: string;
             /** @default true */
@@ -5512,7 +5600,14 @@ export interface components {
         };
         UpdateExternalLinkDto: {
             title?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example المفكرة الاقتصادية
+             */
+            titleAr?: string | null;
             description?: string;
+            /** @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English). */
+            descriptionAr?: string | null;
             url?: string;
             enabled?: boolean;
             sortOrder?: number;
@@ -5528,8 +5623,12 @@ export interface components {
             referralCode: string;
             active: boolean;
             agencyName?: string | null;
+            /** @description The agency name in Arabic (0179); null = not translated, show `agencyName`. */
+            agencyNameAr?: string | null;
             /** @description Product names this partner may introduce clients to. Empty means unrestricted. */
             products: string[];
+            /** @description The same products in Arabic (0179), index for index with `products`; a null item is untranslated — show that index of `products`. */
+            productsAr?: (string | null)[];
             /** Format: date-time */
             approvedAt: string;
         };
@@ -5542,7 +5641,10 @@ export interface components {
             status: "pending" | "approved" | "rejected";
             /** @description Already composed — this is the sentence the client is shown. */
             rejectionReason: string | null;
+            /** @description Arabic for `rejectionReason` — written with the decision, else the configured partner reason’s. Absent when there is none (show the English). */
+            rejectionReasonAr?: string;
             agencyName?: string | null;
+            agencyNameAr?: string | null;
             reviewedBy: string | null;
             /** Format: date-time */
             reviewedAt: string | null;
@@ -5552,6 +5654,8 @@ export interface components {
         InheritedAgencyDto: {
             id: string;
             name: string;
+            /** @description The agency name in Arabic (0179); null = not translated, show `name`. */
+            nameAr: string | null;
         };
         IbStatusDto: {
             account: components["schemas"]["IbAccountDto"] | null;
@@ -5694,7 +5798,14 @@ export interface components {
             id: string;
             /** @example Gold Agency */
             name: string;
+            /**
+             * @description The name in Arabic (0179); null = not translated, show `name`.
+             * @example الوكالة الذهبية
+             */
+            nameAr: string | null;
             description?: string | null;
+            /** @description The description in Arabic (0179); null = not translated, show `description`. */
+            descriptionAr: string | null;
             /**
              * @description Product NAMES, not ids — the applicant is reading, not selecting.
              * @example [
@@ -5703,6 +5814,14 @@ export interface components {
              *     ]
              */
             products: string[];
+            /**
+             * @description The same products in Arabic (0179), index for index with `products`; a null item is untranslated — show that index of `products`.
+             * @example [
+             *       "قياسي",
+             *       null
+             *     ]
+             */
+            productsAr: (string | null)[];
         };
         OpenOwnWalletDto: {
             /**
@@ -5777,6 +5896,16 @@ export interface components {
             reason?: string;
             /** @description The reviewer's own words, appended to the label. */
             note?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example الطلب غير مكتمل
+             */
+            reasonAr?: string | null;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example يُرجى إضافة رابط موقعك الإلكتروني.
+             */
+            noteAr?: string | null;
         };
         ReverseAccrualDto: {
             /**
@@ -6074,6 +6203,11 @@ export interface components {
             /** @example Phone number you sent from */
             label: string;
             /**
+             * @description The label in Arabic (0179); null = not translated, show `label`.
+             * @example رقم الهاتف الذي أرسلت منه
+             */
+            labelAr: string | null;
+            /**
              * @example phone
              * @enum {string}
              */
@@ -6081,6 +6215,8 @@ export interface components {
             required: boolean;
             /** @example The number on your OMT slip. */
             hint: string | null;
+            /** @description The hint in Arabic (0179); null = not translated, show `hint`. */
+            hintAr: string | null;
         };
         PaymentMethodDto: {
             /**
@@ -6090,6 +6226,11 @@ export interface components {
             key: string;
             /** @example Whish Money */
             name: string;
+            /**
+             * @description The name in Arabic (0179); null = not translated, show `name`.
+             * @example ويش ماني
+             */
+            nameAr: string | null;
             /** @example USD */
             currency: string;
             logoUrl: string | null;
@@ -6199,6 +6340,11 @@ export interface components {
              * @example Whish Money
              */
             name: string;
+            /**
+             * @description The name in Arabic (0179); null = not translated, show `name`.
+             * @example ويش ماني
+             */
+            nameAr: string | null;
             logoUrl?: string | null;
             /**
              * @example phone
@@ -6243,6 +6389,11 @@ export interface components {
              */
             label: string;
             /**
+             * @description The question in Arabic as asked (0179), when the field had one at filing. Absent on answers filed before it, or to an untranslated field — show `label`.
+             * @example رقم الهاتف الذي أرسلت منه
+             */
+            labelAr?: string | null;
+            /**
              * @example phone
              * @enum {string}
              */
@@ -6275,6 +6426,8 @@ export interface components {
             provider?: string;
             methodKey?: string | null;
             methodName?: string | null;
+            /** @example ويش ماني */
+            methodNameAr?: string | null;
             /** @description The provider's own reference. Backs UNIQUE(provider, provider_ref), which is what makes settlement idempotent in the database (§6.3). */
             providerRef?: string | null;
             /** @description The payment provider’s own id for this movement (its invoice, its payment id) — what a ticket quotes beside our `providerRef`. */
@@ -6283,6 +6436,8 @@ export interface components {
             proofFilename?: string | null;
             proofDetails?: components["schemas"]["ProofDetailDto"][] | null;
             rejectionReason?: string | null;
+            /** @description Arabic for `rejectionReason`: written with the decision, else the configured reason’s, else the system sentence’s. Absent when there is none (show the English). */
+            rejectionReasonAr?: string;
             reviewedBy?: string | null;
             /** Format: date-time */
             reviewedAt?: string | null;
@@ -6354,6 +6509,8 @@ export interface components {
              */
             state: "pending" | "settled" | "failed";
             failureReason?: string | null;
+            /** @description Arabic for `failureReason`; null when there is none (show the English). */
+            failureReasonAr?: string | null;
             /** Format: date-time */
             settledAt?: string | null;
             /** Format: date-time */
@@ -6368,6 +6525,11 @@ export interface components {
             /** @example Phone number you sent from */
             label: string;
             /**
+             * @description The label in Arabic (0179); null = not translated, show `label`.
+             * @example رقم الهاتف الذي أرسلت منه
+             */
+            labelAr: string | null;
+            /**
              * @example phone
              * @enum {string}
              */
@@ -6375,6 +6537,8 @@ export interface components {
             required: boolean;
             /** @example The number on your OMT slip. */
             hint: string | null;
+            /** @description The hint in Arabic (0179); null = not translated, show `hint`. */
+            hintAr: string | null;
             /** @description Shown to clients. A hidden field is kept but never asked. */
             enabled: boolean;
         };
@@ -6386,6 +6550,11 @@ export interface components {
             key: string;
             /** @example Whish Money */
             name: string;
+            /**
+             * @description The name in Arabic (0179); null = not translated, show `name`.
+             * @example ويش ماني
+             */
+            nameAr: string | null;
             /** @example USD */
             currency: string;
             logoUrl: string | null;
@@ -6459,6 +6628,13 @@ export interface components {
             /** @description Shown to clients. */
             enabled: boolean;
             hint?: string | null;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example رقم الهاتف الذي أرسلت منه
+             */
+            labelAr?: string | null;
+            /** @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English). */
+            hintAr?: string | null;
         };
         CreatePaymentMethodDto: {
             /** @example rival */
@@ -6472,6 +6648,11 @@ export interface components {
             key?: string;
             /** @example Whish Money */
             name: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example ويش ماني
+             */
+            nameAr?: string | null;
             /**
              * @description What the DESK calls the method — shown, typed and renamed in the console in place of the key, and on every admin screen, export and bell. Unique (case-insensitive). Never sent to a client. Omitted, it starts as `name`.
              * @example OMT – Hamra branch
@@ -6514,6 +6695,11 @@ export interface components {
         };
         UpdatePaymentMethodDto: {
             name?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example ويش ماني
+             */
+            nameAr?: string | null;
             /**
              * @description Renames the method for the desk: one row, and every admin screen, export and bell follows at once. Unique (case-insensitive), never blank, never sent to a client.
              * @example OMT – Hamra branch
@@ -6575,6 +6761,11 @@ export interface components {
              * @example Whish Money
              */
             name: string;
+            /**
+             * @description The name in Arabic (0179); null = not translated, show `name`.
+             * @example ويش ماني
+             */
+            nameAr: string | null;
             logoUrl: string | null;
             /** @description Whether clients are offered it on the withdraw form. Disabling leaves requests already made on it untouched — the desk still settles them. */
             enabled: boolean;
@@ -6641,6 +6832,11 @@ export interface components {
             /** @example Bank transfer */
             name: string;
             /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example تحويل مصرفي
+             */
+            nameAr?: string | null;
+            /**
              * @description What the DESK calls the method — shown, typed and renamed in the console in place of the key, and on every admin screen, export and bell. Unique (case-insensitive). Never sent to a client. Omitted, it starts as `name`.
              * @example OMT – Hamra branch
              */
@@ -6671,6 +6867,11 @@ export interface components {
              */
             internalLabel?: string;
             name?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example تحويل مصرفي
+             */
+            nameAr?: string | null;
             /** @example /v1/uploads/payment-logos/8f2c….png */
             logoUrl?: string;
             enabled?: boolean;
@@ -6969,6 +7170,8 @@ export interface components {
             balanceAfter: string;
             /** @description Payment rail name, if any. */
             methodName: string | null;
+            /** @description The rail name in Arabic (0179); null = not translated, show `methodName`. */
+            methodNameAr: string | null;
             /** @description Payment provider; `manual_admin` for money the team placed by hand. */
             provider: string | null;
             /** @description MT5 login, for a transfer line. */
@@ -7079,6 +7282,66 @@ export interface components {
              */
             amount: string;
         };
+        SelfServiceAccountTypeDto: {
+            /**
+             * @description The MT5 group the account opens in.
+             * @example real\standard-usd
+             */
+            group: string;
+            /**
+             * @description The group’s currency, read live from MT5 — the cached catalogue copy when MT5 cannot say.
+             * @example USD
+             */
+            currency: string;
+            /**
+             * @description The product’s name, as the client is offered it.
+             * @example Standard
+             */
+            product: string;
+            /**
+             * @description The product’s name in Arabic (0179); null = not translated, show `product`.
+             * @example قياسي
+             */
+            productAr: string | null;
+            /**
+             * Format: uuid
+             * @description Sent back on create (0142): a group may back several products, so the product is what identifies which offer the client picked.
+             */
+            productId: string;
+        };
+        SelfServiceOfferDto: {
+            /** @description This client has at least one live account type to open. */
+            live: boolean;
+            /** @description This client has at least one demo account type to open. */
+            demo: boolean;
+            liveTypes: components["schemas"]["SelfServiceAccountTypeDto"][];
+            demoTypes: components["schemas"]["SelfServiceAccountTypeDto"][];
+            /**
+             * @description The enabled leverage ladder — 500 means 1:500.
+             * @example [
+             *       50,
+             *       100,
+             *       200,
+             *       500
+             *     ]
+             */
+            leverages: number[];
+            /**
+             * @description The most live accounts a client may hold.
+             * @example 3
+             */
+            maxLiveAccounts: number;
+            /**
+             * @description The most demo accounts a client may hold.
+             * @example 3
+             */
+            maxDemoAccounts: number;
+            /**
+             * @description The most a demo account may be funded with, as a decimal string (§6.1).
+             * @example 100000.00000000
+             */
+            maxDemoDeposit: string;
+        };
         TradingAccountDto: {
             id: string;
             /** @description The MT5 login, once there is an MT5 to issue one. Null until a bridge assigns it — a string rather than a number because leading zeros are significant. */
@@ -7092,6 +7355,11 @@ export interface components {
              * @example Standard
              */
             product: string | null;
+            /**
+             * @description The same product's name in Arabic (0179), from the same catalogue row as `product`. Null when untranslated or when there is no product — show `product`.
+             * @example قياسي
+             */
+            productAr: string | null;
             /** @enum {string} */
             environment: "live" | "demo";
             /** @description The account's own currency, which need not match the wallet's. */
@@ -7687,9 +7955,16 @@ export interface components {
              * @example Back Side
              */
             label: string;
+            /**
+             * @description The label in Arabic — the platform’s, fixed.
+             * @example الوجه الخلفي
+             */
+            labelAr: string;
             required: boolean;
             /** @example Both sides must be readable. */
             hint?: string;
+            /** @description The hint in Arabic, when there is a hint. */
+            hintAr?: string;
         };
         KycDocumentTypeDto: {
             /**
@@ -7699,6 +7974,11 @@ export interface components {
             value: string;
             /** @example Passport */
             label: string;
+            /**
+             * @description The name in Arabic — the platform’s, fixed.
+             * @example جواز السفر
+             */
+            labelAr: string;
             /** @enum {string} */
             category: "identity" | "address";
             parts: components["schemas"]["KycDocumentPartDto"][];
@@ -7720,6 +8000,22 @@ export interface components {
             options?: string[];
             /** @example As on your ID */
             hint?: string;
+            /**
+             * @description The label in Arabic, when translated.
+             * @example الاسم الأول
+             */
+            labelAr?: string;
+            /** @description The hint in Arabic, when translated. */
+            hintAr?: string;
+            /**
+             * @description Arabic label per choice, keyed by the ENGLISH option value — the value submitted and stored is always the English one. A choice without an entry shows its English.
+             * @example {
+             *       "Lebanese": "لبناني"
+             *     }
+             */
+            optionsAr?: {
+                [key: string]: string;
+            };
             /** @description Resolved from the field type. Read-only — writes are ignored. */
             document?: components["schemas"]["KycDocumentTypeDto"];
             /** @description The platform's own field — fixed, never editable. */
@@ -7738,6 +8034,13 @@ export interface components {
             /** @example Personal Information */
             title: string;
             description?: string;
+            /**
+             * @description The title in Arabic, when translated; absent = show the English.
+             * @example المعلومات الشخصية
+             */
+            titleAr?: string;
+            /** @description The description in Arabic, when translated. */
+            descriptionAr?: string;
             /**
              * @description lucide icon name.
              * @example User
@@ -7811,6 +8114,8 @@ export interface components {
             };
             /** @description Set when status is rejected. */
             rejectionReason?: string;
+            /** @description Arabic for `rejectionReason` when it is a configured reason with Arabic; absent for a reviewer’s own wording. */
+            rejectionReasonAr?: string;
             /** @description Field names the client must re-submit. */
             rejectedFields?: string[];
             /**
@@ -8005,7 +8310,14 @@ export interface components {
             id: string;
             /** @example Standard */
             name: string;
+            /**
+             * @description The name in Arabic (0179); null = not translated, show `name`.
+             * @example قياسي
+             */
+            nameAr: string | null;
             description?: string | null;
+            /** @description The description in Arabic (0179); null = not translated, show `description`. */
+            descriptionAr: string | null;
             /** @description A disabled product stops being sold and keeps its accounts. */
             enabled: boolean;
             /**
@@ -8041,7 +8353,17 @@ export interface components {
         UpsertProductDto: {
             /** @example Standard */
             name: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example قياسي
+             */
+            nameAr?: string | null;
             description?: string | null;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example حسابات بفروق أسعار منخفضة وعمولة ثابتة.
+             */
+            descriptionAr?: string | null;
             /** @example true */
             enabled: boolean;
             /** @enum {string} */
@@ -8065,8 +8387,15 @@ export interface components {
              * @example Gold Agency
              */
             name: string;
+            /**
+             * @description The name in Arabic (0179); null = not translated, show `name`.
+             * @example الوكالة الذهبية
+             */
+            nameAr: string | null;
             /** @description Read by an applicant deciding which agency to request. Worth writing well. */
             description?: string | null;
+            /** @description The description in Arabic (0179); null = not translated, show `description`. */
+            descriptionAr: string | null;
             /** @description A disabled agency stops taking applications and keeps its partners. */
             enabled: boolean;
             /** @example 0 */
@@ -8077,7 +8406,14 @@ export interface components {
         UpsertAgencyDto: {
             /** @example Gold Agency */
             name: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example الوكالة الذهبية
+             */
+            nameAr?: string | null;
             description?: string | null;
+            /** @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English). */
+            descriptionAr?: string | null;
             /** @example true */
             enabled: boolean;
             /** @example 0 */
@@ -8605,6 +8941,8 @@ export interface components {
             /** @description The reviewer's email as it was when they decided. */
             decidedBy?: string | null;
             reason?: string | null;
+            /** @description The reason in Arabic as the client was shown it (0179). Null when none. */
+            reasonAr?: string | null;
             /**
              * @example [
              *       "doc_front"
@@ -8841,6 +9179,8 @@ export interface components {
             reviewedBy?: string;
             reviewedByName?: string | null;
             rejectionReason?: string;
+            /** @description The reason in Arabic as the client was shown it (0179). Absent when none. */
+            rejectionReasonAr?: string;
             rejectedFields?: string[];
             personalInfo?: {
                 [key: string]: string;
@@ -8886,6 +9226,8 @@ export interface components {
             reviewedBy?: string;
             reviewedByName?: string | null;
             rejectionReason?: string;
+            /** @description The reason in Arabic as the client was shown it (0179). Absent when none. */
+            rejectionReasonAr?: string;
             rejectedFields?: string[];
             personalInfo?: {
                 [key: string]: string;
@@ -8942,12 +9284,22 @@ export interface components {
             reason?: string;
             /** @description Id of a configured KYC rejection reason. */
             reasonId?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example جواز السفر منتهي الصلاحية
+             */
+            reasonAr?: string | null;
             /** @description What the client must update: identity details by key, pages on file by slot (e.g. "doc_front"), the selfie, or a question on their form. Anything else is refused. */
             rejectedFields?: string[];
         };
         ReverifyKycDto: {
             /** @example Your passport on file has expired. Please upload your new one. */
             reason: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example انتهت صلاحية جواز سفرك المسجَّل. يُرجى رفع الجواز الجديد.
+             */
+            reasonAr?: string | null;
             /**
              * @example [
              *       "doc_front",
@@ -8961,14 +9313,30 @@ export interface components {
             /** @enum {string} */
             context: "kyc" | "withdrawal" | "partner" | "deposit";
             label: string;
+            /** @description Arabic shown to clients reading the portal in Arabic (0179); null = not translated. */
+            labelAr: string | null;
             /** Format: date-time */
             createdAt: string;
         };
         RejectionReasonDto: {
             /** @enum {string} */
-            context: "kyc" | "withdrawal" | "deposit";
+            context: "kyc" | "withdrawal" | "deposit" | "partner";
             /** @example Document expired */
             label: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example الوثيقة منتهية الصلاحية
+             */
+            labelAr?: string | null;
+        };
+        UpdateRejectionReasonDto: {
+            /** @example Document expired */
+            label: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example الوثيقة منتهية الصلاحية
+             */
+            labelAr?: string | null;
         };
         KycFieldDto: {
             id: string;
@@ -8986,6 +9354,25 @@ export interface components {
             options?: string[];
             /** @example As shown on your ID */
             hint?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example الاسم الأول
+             */
+            labelAr?: string | null;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example كما يظهر في وثيقة هويتك
+             */
+            hintAr?: string | null;
+            /**
+             * @description Arabic label per choice, keyed by the ENGLISH option value. Trimmed; blank entries and keys that are not among `options` are dropped on save.
+             * @example {
+             *       "Employed": "موظف"
+             *     }
+             */
+            optionsAr?: {
+                [key: string]: string;
+            } | null;
             /** @description Hydrated from `type` on read. Accepted on write and ignored. */
             document?: Record<string, never>;
             /** @description Served on read. Accepted on write and ignored. */
@@ -9003,6 +9390,13 @@ export interface components {
             /** @example Personal Information */
             title: string;
             description?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example المعلومات الشخصية
+             */
+            titleAr?: string | null;
+            /** @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English). */
+            descriptionAr?: string | null;
             /**
              * @description lucide icon name.
              * @example User
@@ -9304,6 +9698,8 @@ export interface components {
             providerRef?: string | null;
             destination?: string | null;
             rejectionReason?: string | null;
+            /** @description The reason in Arabic as the client was shown it (0179). Null when none. */
+            rejectionReasonAr?: string | null;
             /** Format: date-time */
             requestedAt: string;
             /** Format: date-time */
@@ -9371,6 +9767,11 @@ export interface components {
             currency: string;
             /** @example Goodwill adjustment for the failed 4 August transfer. */
             reason: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example تسوية تعويضية عن تحويل 4 أغسطس الذي لم يكتمل.
+             */
+            reasonAr?: string | null;
         };
         WalletCreditResultDto: {
             transaction: components["schemas"]["TransactionDto"];
@@ -9382,6 +9783,11 @@ export interface components {
             amount: string;
             /** @example Funding the 4 August wire that arrived off-rail. */
             reason: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example تمويل الحوالة الواردة في 4 أغسطس.
+             */
+            reasonAr?: string | null;
             /**
              * @example deposit
              * @enum {string}
@@ -9412,6 +9818,11 @@ export interface components {
             reason?: string;
             /** @description Id of a configured rejection reason. */
             reasonId?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example بيانات المستفيد غير صحيحة
+             */
+            reasonAr?: string | null;
         };
         DepositDecisionDto: {
             id: string;
@@ -9433,6 +9844,8 @@ export interface components {
             /** @description The stored receipt, as `uploads/deposit-proofs/<file>`. Null when the deposit carried none. */
             proofPath?: Record<string, never> | null;
             rejectionReason?: Record<string, never> | null;
+            /** @description The reason in Arabic as the client was shown it (0179). Null when none. */
+            rejectionReasonAr?: string | null;
             /** Format: date-time */
             reviewedAt?: string | null;
             /** Format: date-time */
@@ -9443,6 +9856,11 @@ export interface components {
             reason?: string;
             /** @description A configured rejection reason from the `deposit` context. */
             reasonId?: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example لم يصل المبلغ بعد إلى حسابنا
+             */
+            reasonAr?: string | null;
         };
         SettleWithdrawalDto: {
             /** @example wise-tx-9f3a1c */
@@ -9518,6 +9936,11 @@ export interface components {
              * @example Checked MT5 deal history for 6480824 — the 1,000 never reached the account.
              */
             reason: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example راجعنا سجل الصفقات في MT5 — لم يصل المبلغ إلى الحساب.
+             */
+            reasonAr?: string | null;
         };
         ResolveAttentionDto: {
             /**
@@ -9622,6 +10045,8 @@ export interface components {
             providerPaymentId?: string | null;
             destination?: string | null;
             rejectionReason?: string | null;
+            /** @description The reason in Arabic as the client was shown it (0179). Null when none. */
+            rejectionReasonAr?: string | null;
             /** @description The trading account a TRANSFER moved money to or from. Null on other kinds. */
             tradingAccountId?: string | null;
             /** @description The RECEIPT on an offline deposit — the stored filename, served from GET /v1/uploads/deposit-proofs/<file>. Null on every other movement. On the list so the deposit desk can show the image beside the row it decides on, rather than fetching one per row. */
@@ -10085,6 +10510,11 @@ export interface components {
                 [key: string]: string;
             };
             /**
+             * @description Present only on an ARABIC request (`X-OxShare-Locale: ar`) whose message — or a `fields` entry — had no Arabic: typically text from an external system (a payment provider, the MT5 bridge, the mail server). `message` then carries a generic Arabic sentence for the status (a field, a generic field sentence) and this carries the original English, one line each (`<field>: <text>` for a field), so nothing is lost. Show it as secondary detail if at all; never parse it.
+             * @example The payment provider is not responding.
+             */
+            detail?: string;
+            /**
              * @description The correlation id for this request (R-6.1). Stamped on every log line the API wrote while handling it, so quoting it in a support ticket is enough to find them.
              * @example req-lz4k2p-8f3a91c2
              */
@@ -10125,6 +10555,42 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProfileOptionsDto"];
                 };
+            };
+        };
+    };
+    ProfileLocaleController_setLocale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileLocaleDto"];
+            };
+        };
+        responses: {
+            /** @description Stored. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The locale is not one of `en`, `ar`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No client session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -13094,7 +13560,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SelfServiceOfferDto"];
+                };
             };
         };
     };
@@ -15248,7 +15716,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRejectionReasonDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

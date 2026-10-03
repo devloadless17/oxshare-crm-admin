@@ -61,6 +61,18 @@ export function apiErrorRequestId(error: unknown): string | undefined {
 }
 
 /**
+ * The error's technical DETAIL, when the API sent one — a second, smaller line
+ * under the message (the message is the sentence to read; the detail is what
+ * support asks for: the offending value, the limit that was hit). Optional on
+ * the envelope, so `undefined` whenever it is absent or blank. Display it
+ * subdued and left-to-right; never branch on it — that is what `code` is for.
+ */
+export function apiErrorDetail(error: unknown): string | undefined {
+  const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+  return typeof detail === 'string' && detail.trim() !== '' ? detail.trim() : undefined;
+}
+
+/**
  * The machine-readable cause of an API error — R-2.2.
  *
  * `ErrorResponseDto` is now published in the OpenAPI document, so this reads a

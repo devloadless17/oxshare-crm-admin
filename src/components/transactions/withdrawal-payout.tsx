@@ -6,6 +6,8 @@ import { useMutation } from '@tanstack/react-query';
 import { AlertTriangle, Clock3, PauseCircle, RefreshCw, Send } from 'lucide-react';
 import { Spinner } from '@/components/ui/loader';
 import { adminApi, type RejectionReason, type WithdrawalRow } from '@/lib/api/admin';
+import { ReasonOption } from '@/components/rejection-reasons/reason-option';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { useResource } from '@/hooks/use-resource';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { apiErrorMessage } from '@/lib/api/errors';
@@ -205,6 +207,7 @@ export function CancelWithdrawalDialog({
 }) {
   const [reasonId, setReasonId] = React.useState('');
   const [note, setNote] = React.useState('');
+  const [noteAr, setNoteAr] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
 
   const reasons = useResource<RejectionReason[]>(
@@ -216,6 +219,7 @@ export function CancelWithdrawalDialog({
   const close = () => {
     setReasonId('');
     setNote('');
+    setNoteAr('');
     setError(null);
     onClose();
   };
@@ -224,7 +228,11 @@ export function CancelWithdrawalDialog({
     mutationFn: (row: WithdrawalRow) =>
       adminApi.cancelWithdrawal(
         row.id,
-        { reasonId: reasonId || undefined, reason: note.trim() || undefined },
+        {
+          reasonId: reasonId || undefined,
+          reason: note.trim() || undefined,
+          reasonAr: arabicOrNull(noteAr) ?? undefined,
+        },
         `cancel:${row.id}`,
       ),
     onSuccess: async (_data, row) => {
@@ -295,12 +303,14 @@ export function CancelWithdrawalDialog({
           <label className="text-xs font-semibold">{t('withdrawals.rejectionReason')}</label>
           <Select value={reasonId} onValueChange={setReasonId}>
             <SelectTrigger className="mt-1 h-9 w-full">
-              <SelectValue placeholder={t('withdrawals.selectReason')} />
+              <SelectValue placeholder={t('withdrawals.selectReason')}>
+                {reasonList.find((r) => r.id === reasonId)?.label}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {reasonList.map((r) => (
                 <SelectItem key={r.id} value={r.id}>
-                  {r.label}
+                  <ReasonOption reason={r} />
                 </SelectItem>
               ))}
             </SelectContent>
@@ -323,6 +333,20 @@ export function CancelWithdrawalDialog({
           className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus-outline"
         />
       </div>
+      <ArabicTextField
+        id="cancel-note-ar"
+        label={t(reasonList.length > 0 ? 'arabic.noteLabel' : 'arabic.reasonLabel')}
+        value={noteAr}
+        onChange={(value) => {
+          setNoteAr(value);
+          setError(null);
+        }}
+        maxLength={500}
+        multiline
+        rows={2}
+        className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus-outline"
+        wrapperClassName="mt-3"
+      />
       {error && (
         <p role="alert" className="mt-2 text-[11px] text-destructive">
           {error}

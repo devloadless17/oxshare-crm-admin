@@ -255,3 +255,59 @@ describe('the form', () => {
     expect(await screen.findByText(/must be http or https/i)).toBeInTheDocument();
   });
 });
+
+describe('the Arabic title and description', () => {
+  it('sends the Arabic typed, trimmed, beside the English', async () => {
+    createExternalLink.mockResolvedValue(link({ id: 'l-4' }));
+    const user = userEvent.setup();
+    renderWithProviders(<ExternalLinksPage />);
+    await screen.findByText('Calendar');
+
+    await user.click(screen.getByRole('button', { name: /add link/i }));
+    await user.type(await screen.findByLabelText(/^title$/i), 'Analysis');
+    const titleAr = screen.getByLabelText('Title (Arabic)');
+    expect(titleAr).toHaveAttribute('dir', 'rtl');
+    expect(titleAr).toHaveAttribute('lang', 'ar');
+    expect(titleAr).toHaveAttribute('maxLength', '80');
+    expect(screen.getByLabelText('Description (Arabic)')).toHaveAttribute('maxLength', '300');
+    await user.type(titleAr, ' تحليل ');
+    await user.type(screen.getByLabelText('Description (Arabic)'), 'تحليلات السوق');
+    await user.type(screen.getByLabelText(/^link$/i), 'https://example.com/analysis');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(createExternalLink.mock.calls[0]?.[0]).toMatchObject({
+      title: 'Analysis',
+      titleAr: 'تحليل',
+      descriptionAr: 'تحليلات السوق',
+    });
+  });
+
+  it('prefills the stored Arabic on edit, and sends null once it is cleared', async () => {
+    getExternalLinks.mockResolvedValue([
+      link({ id: 'l-2', title: 'Help centre', titleAr: 'مركز المساعدة', descriptionAr: 'أسئلة' }),
+    ]);
+    updateExternalLink.mockResolvedValue(link({ id: 'l-2' }));
+    const user = userEvent.setup();
+    renderWithProviders(<ExternalLinksPage />);
+    // The list shows the Arabic under the English.
+    expect(await screen.findByText('مركز المساعدة')).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole('button', { name: /actions for Help centre/i })[0]!);
+    await user.click(await screen.findByText(/^edit$/i));
+    const titleAr = await screen.findByLabelText('Title (Arabic)');
+    expect(titleAr).toHaveValue('مركز المساعدة');
+    await user.clear(titleAr);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(updateExternalLink.mock.calls[0]?.[1]).toMatchObject({
+      titleAr: null,
+      descriptionAr: 'أسئلة',
+    });
+  });
+
+  it('marks a link that has no Arabic yet', async () => {
+    renderWithProviders(<ExternalLinksPage />);
+    await screen.findByText('Calendar');
+    expect(screen.getAllByText('No Arabic').length).toBeGreaterThan(0);
+  });
+});

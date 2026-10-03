@@ -14,6 +14,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <input
         type={type}
+        /*
+         * A phone number has no letter to say which way it reads, so bidi
+         * would lay `+961 70 123 456` out right to left in an Arabic page with
+         * its groups reversed. It is pinned left to right.
+         */
+        dir={type === 'tel' ? 'ltr' : undefined}
         className={cn(
           // `bg-card`, not `bg-background`. On the light theme `--background` is
           // the page grey (#f0f0f0) and `--card` is white, so a field painted
@@ -22,6 +28,17 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           // of these live, it vanished into a same-coloured surround. `--card`
           // is the raised surface in both themes, which is what an input is.
           'flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+          /*
+           * What is TYPED reads in its own direction: an email, an IBAN or a
+           * wallet address typed into an Arabic form is laid out left to right
+           * (its first strong letter decides), Arabic typed into an English form
+           * right to left. `plaintext` rather than `dir="ltr"` keeps the FIELD
+           * in the page's direction, so the logical padding that clears a
+           * leading icon stays on the icon's side. In a right-to-left page the
+           * text is held to the right edge, where the label and the placeholder
+           * are, instead of jumping left at the first Latin letter.
+           */
+          '[unicode-bidi:plaintext] rtl:text-right',
           className,
         )}
         ref={ref}

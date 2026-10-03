@@ -5,6 +5,7 @@ import * as React from 'react';
 import type { WalletRow } from '@/lib/api/admin';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { formatMoney } from '@/lib/money';
 
 /**
@@ -45,7 +46,7 @@ export function CreditWalletModal({
   saving: boolean;
   error?: string;
   onClose: () => void;
-  onSubmit: (values: { amount: string; reason: string }) => void;
+  onSubmit: (values: { amount: string; reason: string; reasonAr?: string }) => void;
 }) {
   return (
     <Modal open={Boolean(wallet)} onClose={onClose} title={t('wallets.creditTitle')} size="md">
@@ -80,10 +81,11 @@ function CreditForm({
   saving: boolean;
   error?: string;
   onClose: () => void;
-  onSubmit: (values: { amount: string; reason: string }) => void;
+  onSubmit: (values: { amount: string; reason: string; reasonAr?: string }) => void;
 }) {
   const [amount, setAmount] = React.useState('');
   const [reason, setReason] = React.useState('');
+  const [reasonAr, setReasonAr] = React.useState('');
 
   /*
    * Name, else email, else the Portal ID — and the last one is why this uses
@@ -98,7 +100,11 @@ function CreditForm({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ amount: amount.trim(), reason: reason.trim() });
+        onSubmit({
+          amount: amount.trim(),
+          reason: reason.trim(),
+          reasonAr: arabicOrNull(reasonAr) ?? undefined,
+        });
       }}
       className="space-y-4"
     >
@@ -186,6 +192,17 @@ function CreditForm({
           {t('wallets.creditReasonHint')}
         </span>
       </label>
+
+      <ArabicTextField
+        id="credit-reason-ar"
+        label={t('arabic.reasonLabel')}
+        value={reasonAr}
+        onChange={setReasonAr}
+        maxLength={500}
+        multiline
+        rows={2}
+        className="focus-outline w-full rounded-lg border border-input bg-card px-3 py-2 text-xs"
+      />
 
       <div className="flex justify-end gap-2 pt-1">
         <button

@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 import { LimitInput, plainAmount } from '@/components/currencies/limit-input';
@@ -42,6 +43,8 @@ export interface PaymentMethodFormValues {
   internalLabel: string;
   /** What the CLIENT sees. */
   name: string;
+  /** The client-facing name in Arabic; `null` clears a stored translation. */
+  nameAr: string | null;
   currency: string;
   logoUrl: string;
   enabled: boolean;
@@ -117,6 +120,7 @@ export function PaymentMethodForm({
   // A NEW method's internal name follows its display name until it is edited.
   const [labelEdited, setLabelEdited] = React.useState(method !== undefined);
   const [name, setName] = React.useState(method?.name ?? '');
+  const [nameAr, setNameAr] = React.useState(method?.nameAr ?? '');
   const [currency, setCurrency] = React.useState(method?.currency ?? '');
   const [logoUrl, setLogoUrl] = React.useState(method?.logoUrl ?? '');
   // A new method starts enabled; changing it is the row action, not this form.
@@ -155,6 +159,7 @@ export function PaymentMethodForm({
     onSubmit({
       internalLabel: internalLabel.trim(),
       name: name.trim(),
+      nameAr: arabicOrNull(nameAr),
       currency,
       logoUrl: logoUrl.trim(),
       enabled,
@@ -230,6 +235,15 @@ export function PaymentMethodForm({
             />
             <p className="text-[11px] text-muted-foreground">{t('paymentMethods.nameHint')}</p>
           </div>
+
+          <ArabicTextField
+            id={`${fieldId}-name-ar`}
+            label={t('arabic.name')}
+            value={nameAr}
+            onChange={setNameAr}
+            maxLength={80}
+            wrapperClassName="sm:col-start-2"
+          />
         </div>
 
         <RoutePicker

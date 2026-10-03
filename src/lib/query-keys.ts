@@ -266,6 +266,14 @@ export const keys = {
     summary: () => ['notifications', 'summary'] as const,
   },
 
+  /** The rejection-reason catalogue, every context (`/rejection-reasons`). The
+   *  desks cache their own context's list under their own roots
+   *  (`withdrawals.rejectionReasons`, `deposits.rejectionReasons`), so an edit
+   *  here invalidates those too. */
+  rejectionReasons: {
+    all: () => ['rejection-reasons'] as const,
+  },
+
   /** Settings forms. Invalidated by their own save and by nothing else: a
    *  refetch under an operator's half-finished edit destroys their work. */
   settings: {

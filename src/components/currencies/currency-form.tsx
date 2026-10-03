@@ -5,6 +5,7 @@ import type { Currency } from '@/lib/api/admin';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { StickyActions } from '@/components/ui/form-section';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 import { LimitInput, plainAmount } from './limit-input';
 
@@ -19,6 +20,8 @@ export interface CurrencyLimitValues {
 export interface CurrencyFormValues extends CurrencyLimitValues {
   code: string;
   name: string;
+  /** Optional Arabic name; `null` clears a stored translation. */
+  nameAr: string | null;
   symbol: string;
   decimals: number;
   enabled: boolean;
@@ -77,6 +80,7 @@ export function CurrencyForm({
 
   const [code, setCode] = React.useState(currency?.code ?? '');
   const [name, setName] = React.useState(currency?.name ?? '');
+  const [nameAr, setNameAr] = React.useState(currency?.nameAr ?? '');
   const [symbol, setSymbol] = React.useState(currency?.symbol ?? '');
   const [decimals, setDecimals] = React.useState(currency?.decimals ?? 2);
   const [enabled, setEnabled] = React.useState(currency?.enabled ?? true);
@@ -100,6 +104,7 @@ export function CurrencyForm({
       // this is so the operator sees what they are about to create.
       code: code.trim().toUpperCase(),
       name: name.trim(),
+      nameAr: arabicOrNull(nameAr),
       symbol: symbol.trim(),
       decimals,
       enabled,
@@ -188,6 +193,15 @@ export function CurrencyForm({
             className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
           />
         </label>
+
+        <ArabicTextField
+          id="currency-name-ar"
+          label={t('arabic.name')}
+          value={nameAr}
+          onChange={setNameAr}
+          maxLength={80}
+          className="flex h-10 w-full rounded-lg border border-input bg-card px-3 text-xs focus-outline"
+        />
 
         <label className="block space-y-1.5">
           <span className="text-xs font-semibold text-foreground">{t('currencies.decimals')}</span>

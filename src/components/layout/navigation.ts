@@ -25,6 +25,7 @@ import {
   LayoutDashboard,
   LineChart,
   Link2,
+  MessageSquareX,
   Network,
   PlugZap,
   Receipt,
@@ -257,6 +258,8 @@ export const NAV: readonly NavEntry[] = [
        */
       { label: 'nav.withdrawalMethods', href: '/withdrawal-methods', icon: Banknote },
       { label: 'nav.kycBuilder', href: '/kyc/builder', icon: ClipboardList },
+      /* What reviewers pick from when they turn something down — English and Arabic. */
+      { label: 'nav.rejectionReasons', href: '/rejection-reasons', icon: MessageSquareX },
       /*
        * ADM-14. The tag CATALOGUE — creating, renaming, recolouring. Tagging a
        * client happens on the client; limiting an admin to tags happens under

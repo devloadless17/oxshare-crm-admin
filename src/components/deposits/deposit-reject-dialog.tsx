@@ -3,6 +3,7 @@
 import * as React from 'react';
 import api from '@/lib/api';
 import type { RejectionReason } from '@/lib/api/admin';
+import { ReasonOption } from '@/components/rejection-reasons/reason-option';
 import { Modal } from '@/components/ui/modal';
 import {
   Select,
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 
 /** Radix reserves `''` for "nothing selected", so "no catalogued reason" needs its own value. */
 const NO_REASON = '__none__';
@@ -45,7 +47,7 @@ export function DepositRejectDialog({
   saving: boolean;
   error?: string;
   onCancel: () => void;
-  onConfirm: (input: { reasonId?: string; reason?: string }) => void;
+  onConfirm: (input: { reasonId?: string; reason?: string; reasonAr?: string }) => void;
 }) {
   return (
     <Modal open={open} onClose={onCancel} title={t('deposits.rejectTitle')}>
@@ -77,11 +79,12 @@ function RejectForm({
   saving: boolean;
   error?: string;
   onCancel: () => void;
-  onConfirm: (input: { reasonId?: string; reason?: string }) => void;
+  onConfirm: (input: { reasonId?: string; reason?: string; reasonAr?: string }) => void;
 }) {
   const [reasons, setReasons] = React.useState<RejectionReason[]>([]);
   const [selected, setSelected] = React.useState('');
   const [note, setNote] = React.useState('');
+  const [noteAr, setNoteAr] = React.useState('');
 
   /*
    * Loaded on OPEN, and a failure does not block the rejection: free text alone
@@ -145,7 +148,11 @@ function RejectForm({
           onValueChange={(value) => setSelected(value === NO_REASON ? '' : value)}
         >
           <SelectTrigger className="h-10 w-full text-xs">
-            <SelectValue />
+            {/* The English alone in the box — the list below carries the Arabic too. */}
+            <SelectValue>
+              {reasons.find((reason) => reason.id === selected)?.label ??
+                t('deposits.rejectReasonNone')}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NO_REASON} className="text-xs">
@@ -153,7 +160,7 @@ function RejectForm({
             </SelectItem>
             {reasons.map((reason) => (
               <SelectItem key={reason.id} value={reason.id} className="text-xs">
-                {reason.label}
+                <ReasonOption reason={reason} />
               </SelectItem>
             ))}
           </SelectContent>
@@ -176,6 +183,17 @@ function RejectForm({
         </span>
       </label>
 
+      <ArabicTextField
+        id="deposit-reject-note-ar"
+        label={t('arabic.noteLabel')}
+        value={noteAr}
+        onChange={setNoteAr}
+        maxLength={500}
+        multiline
+        rows={2}
+        className="flex w-full rounded-lg border border-input bg-card px-3 py-2 text-xs leading-relaxed focus-outline"
+      />
+
       <div className="flex justify-end gap-2 pt-1">
         <button
           type="button"
@@ -188,7 +206,11 @@ function RejectForm({
           type="button"
           disabled={!canConfirm || saving}
           onClick={() =>
-            onConfirm({ reasonId: selected || undefined, reason: note.trim() || undefined })
+            onConfirm({
+              reasonId: selected || undefined,
+              reason: note.trim() || undefined,
+              reasonAr: arabicOrNull(noteAr) ?? undefined,
+            })
           }
           className="h-9 rounded-lg bg-destructive px-3 text-xs font-semibold text-destructive-foreground disabled:opacity-50 focus-outline"
         >

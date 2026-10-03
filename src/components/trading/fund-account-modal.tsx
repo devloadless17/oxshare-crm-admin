@@ -7,6 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
+import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
+
+/** What the form submits; `reasonAr` only when the operator wrote one. */
+export type FundValues = {
+  amount: string;
+  reason: string;
+  reasonAr?: string;
+  direction: 'deposit' | 'withdraw';
+};
 
 /**
  * Move money on a client's trading account — the console's ONLY money control
@@ -68,7 +77,7 @@ export function FundAccountModal({
   canWithdraw: boolean;
   saving: boolean;
   error?: string;
-  onSubmit: (values: { amount: string; reason: string; direction: 'deposit' | 'withdraw' }) => void;
+  onSubmit: (values: FundValues) => void;
 }) {
   return (
     <Modal open={open} onClose={onClose} title={t('tradingAccounts.fundTitle')}>
@@ -112,7 +121,7 @@ function FundForm({
   saving: boolean;
   error?: string;
   onClose: () => void;
-  onSubmit: (values: { amount: string; reason: string; direction: 'deposit' | 'withdraw' }) => void;
+  onSubmit: (values: FundValues) => void;
 }) {
   /*
    * Defaults to whichever direction the operator is actually allowed to use.
@@ -127,6 +136,7 @@ function FundForm({
   );
   const [amount, setAmount] = React.useState('');
   const [reason, setReason] = React.useState('');
+  const [reasonAr, setReasonAr] = React.useState('');
 
   // The same rule the API applies, so the button disables rather than inviting a
   // round trip that will fail. Positive decimals only, up to eight places.
@@ -140,7 +150,14 @@ function FundForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (!ready || !allowed) return;
-        onSubmit({ amount: amount.trim(), reason: reason.trim(), direction });
+        const ar = arabicOrNull(reasonAr);
+        // A blank Arabic is left out: a client reading Arabic then sees the English.
+        onSubmit({
+          amount: amount.trim(),
+          reason: reason.trim(),
+          ...(ar ? { reasonAr: ar } : {}),
+          direction,
+        });
       }}
     >
       <p className="text-xs text-muted-foreground">
@@ -253,6 +270,17 @@ function FundForm({
             : t('tradingAccounts.withdrawReasonHint')}
         </p>
       </div>
+
+      <ArabicTextField
+        id="fund-reason-ar"
+        label={t('arabic.reasonLabel')}
+        value={reasonAr}
+        onChange={setReasonAr}
+        maxLength={500}
+        multiline
+        rows={2}
+        className="focus-outline w-full rounded-lg border border-input bg-card px-3 py-2 text-xs"
+      />
 
       {error && (
         <p role="alert" className="text-xs font-medium text-destructive">

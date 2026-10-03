@@ -173,8 +173,12 @@ function PartnerApprovalsContent() {
   const confirmApprove = (row: IbApplicationPage['rows'][number]) => setApproving(row);
 
   const reject = useMutation({
-    mutationFn: (input: { id: string; reason?: string; note?: string }) =>
-      api.admin.rejectIbApplication(input.id, { reason: input.reason, note: input.note }),
+    mutationFn: (input: { id: string; reason?: string; note?: string; noteAr?: string }) =>
+      api.admin.rejectIbApplication(input.id, {
+        reason: input.reason,
+        note: input.note,
+        noteAr: input.noteAr,
+      }),
     onSuccess: async () => {
       setRejecting(null);
       await invalidate();

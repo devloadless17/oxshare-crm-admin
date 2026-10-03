@@ -32,14 +32,15 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
  *    reviewer concludes the client has no email.
  */
 /* `vi.hoisted`, because `vi.mock`'s factory is lifted above these declarations. */
-const { getWithdrawals, getRejectionReasons, getCurrencies } = vi.hoisted(() => ({
+const { getWithdrawals, getRejectionReasons, getCurrencies, rejectWithdrawal } = vi.hoisted(() => ({
   getWithdrawals: vi.fn(),
   getRejectionReasons: vi.fn(),
   getCurrencies: vi.fn(),
+  rejectWithdrawal: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getWithdrawals, getRejectionReasons, getCurrencies } };
+  const api = { admin: { getWithdrawals, getRejectionReasons, getCurrencies, rejectWithdrawal } };
   return { api, default: api };
 });
 
@@ -254,5 +255,40 @@ describe('a payout only a person can settle', () => {
     await user.click(await menuFor());
     await screen.findByRole('menuitem', { name: 'View details' });
     expect(screen.queryByRole('menuitem', { name: 'Mark resolved' })).toBeNull();
+  });
+});
+
+/*
+ * The reviewer's typed reason in Arabic (0179): a client reading the portal in
+ * Arabic is shown it; left blank, it is not sent and they read the English.
+ */
+describe('rejecting a withdrawal, in Arabic too', () => {
+  const rejectFlow = async (arabic: string) => {
+    const user = userEvent.setup();
+    getWithdrawals.mockResolvedValue(page());
+    rejectWithdrawal.mockResolvedValue(row({ state: 'rejected' }));
+    renderWithProviders(<TransactionsPage />);
+    await user.click(await screen.findByRole('button', { name: /actions for ada client/i }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Reject' }));
+    await user.type(await screen.findByLabelText('Rejection Reason'), 'Beneficiary name mismatch');
+    const ar = screen.getByLabelText('Reason in Arabic (optional)');
+    expect(ar).toHaveAttribute('dir', 'rtl');
+    if (arabic) await user.type(ar, arabic);
+    await user.click(screen.getByRole('button', { name: 'Confirm rejection' }));
+    await waitFor(() => expect(rejectWithdrawal).toHaveBeenCalledTimes(1));
+    return rejectWithdrawal.mock.calls[0]![1] as Record<string, unknown>;
+  };
+
+  it('sends the Arabic typed, trimmed', async () => {
+    const body = await rejectFlow('  اسم المستفيد غير مطابق ');
+    expect(body).toMatchObject({
+      reason: 'Beneficiary name mismatch',
+      reasonAr: 'اسم المستفيد غير مطابق',
+    });
+  });
+
+  it('leaves it out when blank', async () => {
+    const body = await rejectFlow('');
+    expect(body.reasonAr).toBeUndefined();
   });
 });

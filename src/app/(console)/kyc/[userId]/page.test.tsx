@@ -207,6 +207,36 @@ describe('KYC review — rejection requires a reason', () => {
     expect(body.reasonId).toBeUndefined();
   });
 
+  it('sends the note in Arabic when one is typed, trimmed', async () => {
+    const user = await openRejectDialog();
+
+    await user.type(
+      await screen.findByPlaceholderText(/passport image is blurry/i),
+      'Passport expired',
+    );
+    // Catalogue reasons exist, so the English box is a note — and so is its twin.
+    const ar = screen.getByLabelText('Your note in Arabic (optional)');
+    expect(ar).toHaveAttribute('dir', 'rtl');
+    expect(ar).toHaveAttribute('lang', 'ar');
+    await user.type(ar, ' جواز السفر منتهي الصلاحية ');
+    await user.click(screen.getByRole('button', { name: /confirm rejection/i }));
+
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    const [, body] = patch.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.reasonAr).toBe('جواز السفر منتهي الصلاحية');
+  });
+
+  it('omits the Arabic when the box is blank', async () => {
+    const user = await openRejectDialog();
+    await user.type(await screen.findByPlaceholderText(/passport image is blurry/i), 'Blurry');
+    await user.click(screen.getByRole('button', { name: /confirm rejection/i }));
+
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    const [, body] = patch.mock.calls[0] as [string, Record<string, unknown>];
+    // Undefined, so the JSON body carries no key at all.
+    expect(body.reasonAr).toBeUndefined();
+  });
+
   it('records which fields the client must re-submit', async () => {
     const user = await openRejectDialog();
 
@@ -614,6 +644,26 @@ describe('returning an approved verification for re-verification', () => {
     expect(post.mock.calls[0]).toEqual([
       '/admin/kyc/1000245/reverify',
       { reason: 'Expired', items: ['doc_front'] },
+    ]);
+  });
+
+  it('sends the reason in Arabic when one is typed, trimmed', async () => {
+    const user = userEvent.setup();
+    get.mockImplementation(servingApproved);
+    renderWithProviders(<KycDetailPage />);
+    await user.click(await screen.findByRole('button', { name: /request re-verification/i }));
+
+    await user.click(screen.getByRole('checkbox', { name: 'Passport' }));
+    await user.type(screen.getByLabelText(/reason, sent to the client/i), 'Expired');
+    const ar = screen.getByLabelText('Reason in Arabic (optional)');
+    expect(ar).toHaveAttribute('dir', 'rtl');
+    await user.type(ar, ' انتهت الصلاحية ');
+    await user.click(screen.getByRole('button', { name: /return for re-verification/i }));
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post.mock.calls[0]).toEqual([
+      '/admin/kyc/1000245/reverify',
+      { reason: 'Expired', reasonAr: 'انتهت الصلاحية', items: ['doc_front'] },
     ]);
   });
 

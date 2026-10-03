@@ -8,7 +8,7 @@ import type { TradingAccountRow } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import type { RowAction } from '@/components/row-actions';
-import { FundAccountModal } from '@/components/trading/fund-account-modal';
+import { FundAccountModal, type FundValues } from '@/components/trading/fund-account-modal';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
@@ -55,7 +55,7 @@ export function useAccountFunding() {
    * ledger, and the account's own cached balance column.
    */
   const fund = useMutation({
-    mutationFn: (values: { amount: string; reason: string; direction: 'deposit' | 'withdraw' }) =>
+    mutationFn: (values: FundValues) =>
       api.admin.fundTradingAccount(
         funding!.id,
         values,

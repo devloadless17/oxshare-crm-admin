@@ -28,6 +28,11 @@ export interface Refusals {
  * the form it was SENT — `steps.2`, `steps.2.fields.0` — which is the draft
  * this screen holds, so each lands under the step or field it is about rather
  * than in a toast that names neither.
+ *
+ * A refusal of one PROPERTY — class-validator's dotted paths, `steps.2.titleAr`
+ * or `steps.2.fields.0.optionsAr` — is kept under that property's name, so the
+ * sentence lands under the very input it is about (the Arabic box beside the
+ * English one), not in the form-wide banner where it used to fall.
  */
 export function placeRefusals(
   fields: Record<string, string>,
@@ -39,7 +44,7 @@ export function placeRefusals(
       out.form = message;
       continue;
     }
-    const match = /^steps\.(\d+)(?:\.fields\.(\d+))?$/.exec(path);
+    const match = /^steps\.(\d+)(?:\.fields\.(\d+))?(?:\.([A-Za-z]+)(?:\..*)?)?$/.exec(path);
     const step = match ? sent[Number(match[1])] : undefined;
     if (!match || !step) {
       out.form ??= message;
@@ -47,8 +52,16 @@ export function placeRefusals(
     }
     const entry = (out.byStep[step.id] ??= { fields: {} });
     const field = match[2] === undefined ? undefined : step.fields[Number(match[2])];
-    if (field) entry.fields[field.id] = message;
-    else entry.step = message;
+    const property = match[3];
+    if (field && property) {
+      (entry.fieldProperties ??= {})[field.id] = {
+        ...entry.fieldProperties?.[field.id],
+        [property]: message,
+      };
+    } else if (field) entry.fields[field.id] = message;
+    else if (match[2] === undefined && property && property !== 'fields') {
+      (entry.properties ??= {})[property] = message;
+    } else entry.step ??= message;
     out.firstStepId ??= step.id;
   }
   return out;

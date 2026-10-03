@@ -9,8 +9,17 @@ import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { direction } from '@/lib/i18n';
 
-const Select = SelectPrimitive.Root;
+/*
+ * The root takes the DOCUMENT's direction. Radix does not read `<html dir>`: left
+ * to itself it assumes left-to-right, so in an Arabic page the check mark, the
+ * typeahead and the arrow keys all ran the wrong way. A caller may still pass
+ * its own `dir`.
+ */
+function Select(props: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root>) {
+  return <SelectPrimitive.Root dir={direction()} {...props} />;
+}
 const SelectGroup = SelectPrimitive.Group;
 const SelectValue = SelectPrimitive.Value;
 
@@ -100,7 +109,7 @@ const SelectLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
     ref={ref}
-    className={cn('py-1.5 pl-8 pr-2 text-xs font-semibold text-muted-foreground', className)}
+    className={cn('py-1.5 ps-8 pe-2 text-xs font-semibold text-muted-foreground', className)}
     {...props}
   />
 ));
@@ -113,12 +122,12 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-xs outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 ps-8 pe-2 text-xs outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}
   >
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+    <span className="absolute start-2 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
         <Check className="h-4 w-4 text-link" />
       </SelectPrimitive.ItemIndicator>

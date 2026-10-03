@@ -11,6 +11,8 @@ export function useSaveWithdrawalMethod(editingKey: string | undefined) {
       const body = {
         internalLabel: values.internalLabel,
         name: values.name,
+        // Always sent: `null` clears a stored translation.
+        nameAr: values.nameAr,
         logoUrl: values.logoUrl === '' ? undefined : values.logoUrl,
         enabled: values.enabled,
         // Who can use it (backend 0178) — always sent, so clearing it saves.

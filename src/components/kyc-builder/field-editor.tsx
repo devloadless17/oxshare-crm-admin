@@ -16,9 +16,34 @@ import {
 } from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 import { fieldTypesForStep } from './field-types';
+import { ArabicHelper, ArabicInput, FieldError } from './arabic-input';
 
 export type KycFieldConfig = components['schemas']['KycFieldConfigDto'];
 export type KycDocumentType = components['schemas']['KycDocumentTypeDto'];
+
+/** The server's bounds (`KycFieldDto`): label 200, hint 500, one choice's Arabic 200. */
+const LABEL_AR_MAX = 200;
+const HINT_AR_MAX = 500;
+const OPTION_AR_MAX = 200;
+
+/** Properties this editor shows a refusal under; any other is listed below the field. */
+const SHOWN_IN_PLACE = new Set(['label', 'hint', 'options', 'labelAr', 'hintAr', 'optionsAr']);
+
+/**
+ * The Arabic of the choices that still exist, after the English list changed.
+ * Keyed by the English value, so reordering keeps every translation and a
+ * removed (or renamed) choice drops its own. `undefined` when none is left.
+ */
+export function keepArabicFor(
+  optionsAr: KycFieldConfig['optionsAr'],
+  options: readonly string[],
+): KycFieldConfig['optionsAr'] {
+  if (!optionsAr) return undefined;
+  const kept = Object.fromEntries(
+    Object.entries(optionsAr).filter(([value]) => options.includes(value)),
+  );
+  return Object.keys(kept).length > 0 ? kept : undefined;
+}
 
 /**
  * One of the BROKER's own fields — a question or an upload, on any step
@@ -41,6 +66,7 @@ export function FieldEditor({
   field,
   slug,
   error,
+  errors = {},
   onChange,
   onRemove,
   moveTargets = [],
@@ -51,6 +77,8 @@ export function FieldEditor({
   slug: string;
   /** The server's refusal about THIS field, from the last save. */
   error?: string;
+  /** The server's refusals of single inputs of this field, by property (`labelAr`). */
+  errors?: Record<string, string>;
   onChange: (patch: Partial<KycFieldConfig>) => void;
   onRemove: () => void;
   /** The other steps this question may move to — its answers follow it (Phase 2). */
@@ -58,10 +86,16 @@ export function FieldEditor({
   onMove?: (stepId: string) => void;
 }) {
   const offered = fieldTypesForStep(slug);
+  const hasChoices = field.type === 'select' || field.type === 'checkbox';
+  // A refusal of a property this editor has no box for still has to be read.
+  const otherErrors = Object.entries(errors)
+    .filter(([property]) => !SHOWN_IN_PLACE.has(property))
+    .map(([, message]) => message);
+  const invalid = Boolean(error) || Object.keys(errors).length > 0;
 
   return (
     <div
-      className={`rounded-xl border bg-card/60 p-3.5 ${error ? 'border-destructive/60' : 'border-border'}`}
+      className={`rounded-xl border bg-card/60 p-3.5 ${invalid ? 'border-destructive/60' : 'border-border'}`}
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="space-y-1">
@@ -72,10 +106,13 @@ export function FieldEditor({
             id={`label-${field.id}`}
             value={field.label}
             onChange={(e) => onChange({ label: e.target.value })}
-            aria-invalid={Boolean(error)}
-            aria-describedby={error ? `error-${field.id}` : undefined}
+            aria-invalid={Boolean(error || errors.label)}
+            aria-describedby={
+              error ? `error-${field.id}` : errors.label ? `label-${field.id}-error` : undefined
+            }
             className="h-8 text-xs"
           />
+          {errors.label && <FieldError id={`label-${field.id}-error`}>{errors.label}</FieldError>}
         </div>
 
         <div className="space-y-1">
@@ -108,8 +145,10 @@ export function FieldEditor({
             value={field.hint ?? ''}
             onChange={(e) => onChange({ hint: e.target.value })}
             placeholder={t('builder.fieldHintPlaceholder')}
+            aria-invalid={errors.hint ? true : undefined}
             className="h-8 text-xs"
           />
+          {errors.hint && <FieldError id={`hint-${field.id}-error`}>{errors.hint}</FieldError>}
         </div>
       </div>
 
@@ -118,7 +157,7 @@ export function FieldEditor({
        * would be a control with no effect. On a checkbox they are optional: none
        * is a single tick box, some make it "tick all that apply".
        */}
-      {(field.type === 'select' || field.type === 'checkbox') && (
+      {hasChoices && (
         <div className="mt-3 space-y-1">
           <Label className="text-[11px]" htmlFor={`options-${field.id}`}>
             {field.type === 'select' ? t('builder.fieldOptions') : t('builder.checkboxChoices')}
@@ -127,7 +166,11 @@ export function FieldEditor({
           <ChipInput
             id={`options-${field.id}`}
             value={field.options ?? []}
-            onChange={(options) => onChange({ options })}
+            // The Arabic is keyed by the English choice: a choice still there
+            // keeps its Arabic, a removed one takes its Arabic with it.
+            onChange={(options) =>
+              onChange({ options, optionsAr: keepArabicFor(field.optionsAr, options) })
+            }
             ariaLabel={
               field.type === 'select' ? t('builder.fieldOptions') : t('builder.checkboxChoices')
             }
@@ -146,8 +189,58 @@ export function FieldEditor({
                 ? t('builder.checkboxSingle')
                 : t('builder.checkboxMany', { count: (field.options ?? []).length })}
           </p>
+          {errors.options && (
+            <FieldError id={`options-${field.id}-error`}>{errors.options}</FieldError>
+          )}
         </div>
       )}
+
+      <section
+        aria-label={t('builder.arabicSection')}
+        className="mt-3 space-y-3 rounded-lg border border-dashed border-border p-3"
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h5 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            {t('builder.arabicSection')}
+          </h5>
+          <ArabicHelper />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <ArabicInput
+            id={`labelAr-${field.id}`}
+            label={t('arabic.label')}
+            labelClassName="text-[11px]"
+            value={field.labelAr ?? ''}
+            onChange={(labelAr) => onChange({ labelAr })}
+            maxLength={LABEL_AR_MAX}
+            error={errors.labelAr}
+            className="h-8 text-xs"
+          />
+          <ArabicInput
+            id={`hintAr-${field.id}`}
+            label={t('arabic.hint')}
+            labelClassName="text-[11px]"
+            value={field.hintAr ?? ''}
+            onChange={(hintAr) => onChange({ hintAr })}
+            maxLength={HINT_AR_MAX}
+            error={errors.hintAr}
+            className="h-8 text-xs"
+          />
+        </div>
+        {hasChoices && (field.options ?? []).length > 0 && (
+          <ChoicesArabic
+            field={field}
+            error={errors.optionsAr}
+            onChange={(optionsAr) => onChange({ optionsAr })}
+          />
+        )}
+      </section>
+
+      {otherErrors.map((message) => (
+        <p key={message} role="alert" className="mt-3 text-[11px] font-medium text-destructive">
+          {message}
+        </p>
+      ))}
 
       {error && (
         <p
@@ -199,5 +292,70 @@ export function FieldEditor({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * One Arabic box per English choice, each labelled with the choice it
+ * translates. What a client picks is still stored as the English value; the
+ * Arabic is only what an Arabic reader is SHOWN for it. A blank box removes the
+ * entry, so a choice without Arabic shows its English — and the count says how
+ * many do, because a half-translated list is easy to miss in a long one.
+ */
+function ChoicesArabic({
+  field,
+  error,
+  onChange,
+}: {
+  field: KycFieldConfig;
+  error?: string;
+  onChange: (optionsAr: KycFieldConfig['optionsAr']) => void;
+}) {
+  const options = field.options ?? [];
+  const arabic = field.optionsAr ?? {};
+  const missing = options.filter((option) => !arabic[option]?.trim()).length;
+
+  const set = (option: string, value: string) => {
+    const next = { ...keepArabicFor(arabic, options) };
+    if (value === '') delete next[option];
+    else next[option] = value;
+    onChange(Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-[11px] font-semibold">{t('builder.choicesArabic')}</legend>
+      <ul className="space-y-1.5">
+        {options.map((option, index) => {
+          const id = `optionAr-${field.id}-${index}`;
+          return (
+            <li
+              key={option}
+              className="grid grid-cols-1 items-center gap-1 sm:grid-cols-2 sm:gap-3"
+            >
+              <label htmlFor={id} className="truncate text-xs text-muted-foreground" title={option}>
+                {option}
+              </label>
+              <input
+                id={id}
+                dir="rtl"
+                lang="ar"
+                value={arabic[option] ?? ''}
+                maxLength={OPTION_AR_MAX}
+                onChange={(e) => set(option, e.target.value)}
+                aria-label={t('builder.choiceArabicNamed', { choice: option })}
+                className="h-8 w-full rounded-lg border border-input bg-card px-3 text-right text-xs focus-outline"
+              />
+            </li>
+          );
+        })}
+      </ul>
+      {missing > 0 && (
+        <p className="text-[11px] text-warning">
+          {t('builder.choicesArabicMissing', { missing, count: options.length })}
+        </p>
+      )}
+      {error && <FieldError id={`optionsAr-${field.id}-error`}>{error}</FieldError>}
+    </fieldset>
   );
 }

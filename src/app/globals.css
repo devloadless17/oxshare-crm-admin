@@ -189,14 +189,31 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+    /*
+     * `--font-arabic` (IBM Plex Sans Arabic, the portal's root layout) takes
+     * only the glyphs Geist lacks, so Latin is unchanged. The fallback inside
+     * var() matters: admin defines no Arabic face, and an undefined var() with
+     * no fallback would void this whole declaration there.
+     */
     font-family:
       var(--font-geist-sans),
+      var(--font-arabic, system-ui),
       system-ui,
       -apple-system,
       sans-serif;
     transition:
       background-color 0.2s ease,
       color 0.2s ease;
+  }
+
+  /*
+   * ARABIC IS NEVER LETTER-SPACED. Its letters join, and tracking pulls them
+   * apart into the broken, gap-toothed script no Arabic reader writes — so the
+   * `tracking-*` utilities used for Latin headings and caps labels are switched
+   * off for right-to-left pages. (`uppercase` needs nothing: Arabic has no case.)
+   */
+  [dir='rtl'] * {
+    letter-spacing: normal !important;
   }
 
   ::selection {

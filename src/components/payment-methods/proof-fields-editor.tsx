@@ -70,6 +70,8 @@ export function ProofFieldsEditor({
         required: true,
         enabled: true,
         hint: null,
+        labelAr: null,
+        hintAr: null,
       },
     ]);
 
@@ -80,6 +82,9 @@ export function ProofFieldsEditor({
           <p className="text-xs font-semibold">{t('paymentMethods.proofFieldsTitle')}</p>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             {t('paymentMethods.proofFieldsHint')}
+          </p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t('paymentMethods.proofFieldsArabicHint')}
           </p>
         </div>
         <Button
@@ -139,7 +144,7 @@ function ProofFieldRow({
 }) {
   const id = React.useId();
   const name = field.label.trim() || t('paymentMethods.proofFieldUnnamed');
-  const rowErrors = ['id', 'label', 'type', 'hint']
+  const rowErrors = ['id', 'label', 'labelAr', 'type', 'hint', 'hintAr']
     .map((prop) => errors?.[`proofFields.${index}.${prop}`])
     .filter((message): message is string => Boolean(message));
 
@@ -178,6 +183,21 @@ function ProofFieldRow({
             </SelectContent>
           </Select>
         </div>
+        {/*
+          The Arabic twins sit straight under their English, compact like the
+          rest of the row; the one helper line is in the editor's header. Kept
+          as typed — the save trims and sends a blank one as null.
+        */}
+        <Input
+          value={field.labelAr ?? ''}
+          onChange={(e) => onPatch({ labelAr: e.target.value === '' ? null : e.target.value })}
+          aria-label={t('arabic.label')}
+          placeholder={t('arabic.label')}
+          maxLength={60}
+          dir="rtl"
+          lang="ar"
+          className="text-right text-xs"
+        />
         <Input
           value={field.hint ?? ''}
           onChange={(e) => onPatch({ hint: e.target.value === '' ? null : e.target.value })}
@@ -185,6 +205,16 @@ function ProofFieldRow({
           placeholder={t('paymentMethods.proofFieldHintPlaceholder')}
           maxLength={160}
           className="text-xs"
+        />
+        <Input
+          value={field.hintAr ?? ''}
+          onChange={(e) => onPatch({ hintAr: e.target.value === '' ? null : e.target.value })}
+          aria-label={t('arabic.hint')}
+          placeholder={t('arabic.hint')}
+          maxLength={160}
+          dir="rtl"
+          lang="ar"
+          className="text-right text-xs"
         />
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
           <label htmlFor={`${id}-required`} className="flex items-center gap-1.5 text-[11px]">

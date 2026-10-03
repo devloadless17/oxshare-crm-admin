@@ -13,6 +13,7 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { AgencyFormModal, type AgencyFormValues } from '@/components/agencies/agency-form-modal';
+import { ArabicSubline } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -171,7 +172,12 @@ export default function AgenciesPage() {
   const columns: Column<Agency>[] = [
     {
       header: t('agencies.colName'),
-      cell: (agency) => <span className="font-semibold">{agency.name}</span>,
+      cell: (agency) => (
+        <span className="flex flex-col">
+          <span className="font-semibold">{agency.name}</span>
+          <ArabicSubline value={agency.nameAr} />
+        </span>
+      ),
       sortable: true,
       sortKey: 'name',
     },

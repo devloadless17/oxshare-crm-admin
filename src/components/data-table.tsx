@@ -245,7 +245,7 @@ export function DataTable<T>({
   empty,
   dimmed = false,
   loading = false,
-  loadingText = 'Loading table data...',
+  loadingText = t('table.loadingData'),
   fill = false,
   onRowDoubleClick,
   onRowClick,
@@ -617,7 +617,7 @@ export function DataTable<T>({
            * frame would render as three enormously padded ones.
            */}
           <table
-            className={`w-full text-xs md:text-sm text-left border-collapse ${
+            className={`w-full text-xs md:text-sm text-start border-collapse ${
               fill && isEmpty ? 'h-full' : ''
             }`}
           >
@@ -659,7 +659,7 @@ export function DataTable<T>({
                       type="button"
                       onClick={toggleSelectAll}
                       className="text-muted-foreground hover:text-foreground focus-outline rounded-sm"
-                      title={isAllSelected ? 'Deselect all' : 'Select all'}
+                      title={isAllSelected ? t('table.deselectAll') : t('table.selectAll')}
                     >
                       {isAllSelected ? (
                         <CheckSquare className="h-4 w-4 text-link" />
@@ -703,10 +703,10 @@ export function DataTable<T>({
                        */
                       className={`${headerCellBg} whitespace-nowrap px-4 py-3 font-semibold ${
                         c.align === 'right'
-                          ? 'text-right'
+                          ? 'text-end'
                           : c.align === 'center'
                             ? 'text-center'
-                            : 'text-left'
+                            : 'text-start'
                       } ${
                         /* A shadow, not a border — see `stickyCellClass`. The
                            header cell needs the same treatment or its divider
@@ -860,7 +860,7 @@ export function DataTable<T>({
                             type="button"
                             onClick={() => toggleExpandRow(key)}
                             className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-outline"
-                            title={isExpanded ? 'Collapse row' : 'Expand row'}
+                            title={isExpanded ? t('table.collapseRow') : t('table.expandRow')}
                           >
                             {isExpanded ? (
                               <ChevronUp className="h-4 w-4 text-link" />
@@ -891,7 +891,7 @@ export function DataTable<T>({
                              * "selected" without changing the element's role, so
                              * keyboard behaviour is exactly as before.
                              */
-                            aria-label={isSelected ? 'Deselect this row' : 'Select this row'}
+                            aria-label={isSelected ? t('table.deselectRow') : t('table.selectRow')}
                             aria-pressed={isSelected}
                             className="text-muted-foreground hover:text-foreground focus-outline rounded-sm"
                           >
@@ -921,10 +921,10 @@ export function DataTable<T>({
                            */
                           className={`whitespace-nowrap px-4 py-3.5 align-middle ${
                             c.align === 'right'
-                              ? 'text-right'
+                              ? 'text-end'
                               : c.align === 'center'
                                 ? 'text-center'
-                                : 'text-left'
+                                : 'text-start'
                           } ${c.sticky === 'end' ? stickyCellClass(isSelected) : ''} ${
                             c.cellClassName ?? ''
                           }`}

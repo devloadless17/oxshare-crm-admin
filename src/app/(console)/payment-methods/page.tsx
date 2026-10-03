@@ -117,7 +117,12 @@ export default function PaymentMethodsPage() {
     {
       header: t('paymentMethods.colName'),
       cell: (m) => (
-        <MethodNameCell internalLabel={m.internalLabel} name={m.name} logoUrl={m.logoUrl} />
+        <MethodNameCell
+          internalLabel={m.internalLabel}
+          name={m.name}
+          nameAr={m.nameAr}
+          logoUrl={m.logoUrl}
+        />
       ),
     },
     /*

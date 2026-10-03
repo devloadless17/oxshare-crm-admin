@@ -69,6 +69,7 @@ vi.mock('@/context/AdminAuthContext', () => ({
 const method = (over: Partial<PaymentMethod> = {}): PaymentMethod => ({
   key: 'external',
   name: 'External',
+  nameAr: null,
   currency: 'USD',
   logoUrl: null,
   enabled: true,
@@ -215,5 +216,51 @@ describe('the details an offline method asks for (backend 0163)', () => {
     renderWithProviders(<PaymentMethodPage />);
     await screen.findByText(/fixed when the method was created/i);
     expect(screen.queryByRole('checkbox', { name: /ask for a receipt/i })).toBeNull();
+  });
+});
+
+describe('the Arabic a client reads (name and proof details)', () => {
+  it('SENDS the Arabic name and each detail’s Arabic label and hint, trimmed', async () => {
+    getPaymentMethods.mockResolvedValue([method({ requiresProof: true })]);
+    const user = userEvent.setup();
+    renderWithProviders(<PaymentMethodPage />);
+
+    const nameAr = await screen.findByRole('textbox', { name: 'Name (Arabic)' });
+    expect(nameAr).toHaveAttribute('dir', 'rtl');
+    expect(nameAr).toHaveAttribute('lang', 'ar');
+    expect(nameAr).toHaveAttribute('maxLength', '80');
+    await user.type(nameAr, ' خارجي ');
+
+    await user.click(screen.getByRole('button', { name: /add a detail/i }));
+    await user.type(screen.getByRole('textbox', { name: /detail name/i }), 'Transfer code');
+    const labelAr = screen.getByRole('textbox', { name: 'Label (Arabic)' });
+    expect(labelAr).toHaveAttribute('dir', 'rtl');
+    expect(labelAr).toHaveAttribute('maxLength', '60');
+    expect(screen.getByRole('textbox', { name: 'Hint (Arabic)' })).toHaveAttribute(
+      'maxLength',
+      '160',
+    );
+    await user.type(labelAr, 'رمز التحويل ');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(updatePaymentMethod).toHaveBeenCalled());
+    expect(updatePaymentMethod.mock.calls[0]?.[1]).toMatchObject({
+      nameAr: 'خارجي',
+      proofFields: [{ label: 'Transfer code', labelAr: 'رمز التحويل', hintAr: null }],
+    });
+  });
+
+  it('prefills the stored Arabic, and sends null once it is cleared', async () => {
+    getPaymentMethods.mockResolvedValue([method({ nameAr: 'خارجي' })]);
+    const user = userEvent.setup();
+    renderWithProviders(<PaymentMethodPage />);
+
+    const nameAr = await screen.findByRole('textbox', { name: 'Name (Arabic)' });
+    expect(nameAr).toHaveValue('خارجي');
+    await user.clear(nameAr);
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(updatePaymentMethod).toHaveBeenCalled());
+    expect(updatePaymentMethod.mock.calls[0]?.[1]).toMatchObject({ nameAr: null });
   });
 });

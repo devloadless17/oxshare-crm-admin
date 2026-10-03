@@ -130,7 +130,7 @@ export function CursorPagination({
           aria-label={t('pagination.previous')}
           className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent focus-outline"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 rtl:-scale-x-100" />
           {t('pagination.previous')}
         </button>
         <button
@@ -141,7 +141,7 @@ export function CursorPagination({
           className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-40 disabled:hover:bg-transparent focus-outline"
         >
           {t('pagination.next')}
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4 rtl:-scale-x-100" />
         </button>
       </div>
     </div>

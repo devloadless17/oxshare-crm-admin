@@ -16,6 +16,7 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
+import { ArabicSubline } from '@/components/arabic-text-field';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 
@@ -169,7 +170,15 @@ export default function CurrenciesPage() {
         </span>
       ),
     },
-    { header: t('currencies.colName'), cell: (c) => c.name },
+    {
+      header: t('currencies.colName'),
+      cell: (c) => (
+        <span className="flex flex-col">
+          <span>{c.name}</span>
+          <ArabicSubline value={c.nameAr} />
+        </span>
+      ),
+    },
     {
       header: t('currencies.colSymbol'),
       cell: (c) => c.symbol,
