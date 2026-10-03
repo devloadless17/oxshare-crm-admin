@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { CreditWalletModal } from '@/components/wallets/credit-wallet-modal';
 import { apiErrorMessage } from '@/lib/api/errors';
+import { newIdempotencyKey } from '@/lib/api/client';
 import { toastSuccess } from '@/lib/toast';
 import { PageLoader } from '@/components/ui/loader';
 import {
@@ -201,6 +202,15 @@ function WalletsPageContent() {
    */
   const [crediting, setCrediting] = React.useState<WalletRow | undefined>();
   const [creditError, setCreditError] = React.useState<string | undefined>();
+  /*
+   * The idempotency key of the credit being entered, minted when the dialog
+   * OPENS and reused by every attempt inside it. It was derived from the
+   * wallet's balance, so a second deliberate credit made once the balance had
+   * come back to the same figure (spent to 0 and credited again, or a stale
+   * cached row) reused the first credit's key: the server replayed the old
+   * answer, the toast said "credited", and no money moved.
+   */
+  const [creditKey, setCreditKey] = React.useState('');
 
   /** The wallet awaiting a close confirmation, and the API's last refusal. */
   const [closing, setClosing] = React.useState<WalletRow | undefined>();
@@ -250,15 +260,14 @@ function WalletsPageContent() {
           reasonAr: values.reasonAr,
         },
         /*
-         * ONE key per intended credit, minted when the modal opens rather than
-         * per attempt — `crediting.id` plus the wallet's current balance, so a
-         * retry of the same submission reuses it and a SECOND, deliberate credit
-         * of the same client gets a new one (the balance has moved).
+         * ONE key per intended credit, minted when the modal opens (see
+         * `creditKey`), so a retry of the same submission reuses it and a
+         * SECOND, deliberate credit gets a new one.
          *
          * The server stores it as `provider_ref`, so this is what makes a
          * double-click credit once in the DATABASE rather than only in a cache.
          */
-        `credit:${crediting!.id}:${crediting!.balance}`,
+        creditKey,
       ),
     onSuccess: (_data, values) => {
       const wallet = crediting;
@@ -433,6 +442,7 @@ function WalletsPageContent() {
                         icon: PlusCircle,
                         onSelect: () => {
                           setCreditError(undefined);
+                          setCreditKey(newIdempotencyKey());
                           setCrediting(w);
                         },
                       },

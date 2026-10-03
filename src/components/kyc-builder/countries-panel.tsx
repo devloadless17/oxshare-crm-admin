@@ -60,6 +60,9 @@ type Mode = 'all' | 'except' | 'only';
 function initialState(data: OfferedCountries): { mode: Mode; chips: string[] } {
   if (data.offered === null) return { mode: 'all', chips: [] };
   const offered = new Set(data.offered);
+  // A list holding every country IS "every country": "Every country except…"
+  // with nothing excepted read as a choice left half-made (found live, 3 Oct 2026).
+  if (data.world.every((c) => offered.has(c.code))) return { mode: 'all', chips: [] };
   if (data.offered.length > data.world.length / 2) {
     return { mode: 'except', chips: data.world.map((c) => c.code).filter((c) => !offered.has(c)) };
   }
@@ -111,6 +114,9 @@ function CountriesEditor({ data, canEdit }: { data: OfferedCountries; canEdit: b
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: keys.countries.all() }),
         queryClient.invalidateQueries({ queryKey: keys.kyc.all() }),
+        // And the client Edit dialog's lists: `GET /profile/options` serves
+        // the offered countries (backend 0178).
+        queryClient.invalidateQueries({ queryKey: keys.profileOptions.all() }),
       ]);
     },
     onError: (error) => toastError(error, t('countries.saveFailed')),

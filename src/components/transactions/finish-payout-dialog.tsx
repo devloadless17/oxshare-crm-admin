@@ -84,6 +84,7 @@ export function FinishPayoutDialog({
 
   return (
     <Modal
+      busy={finish.isPending}
       open={target !== null}
       onClose={onClose}
       labelledBy="finish-payout-title"

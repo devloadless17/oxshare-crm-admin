@@ -33,11 +33,14 @@ function fromParam(value: string): Date | undefined {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   const [, year, month, day] = match ?? [];
   if (!year || !month || !day) return undefined;
+  // Calendar parts, not money: the money-path rule does not apply.
+  /* eslint-disable no-restricted-syntax */
   const date = new Date(
     Number.parseInt(year, 10),
     Number.parseInt(month, 10) - 1,
     Number.parseInt(day, 10),
   );
+  /* eslint-enable no-restricted-syntax */
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 

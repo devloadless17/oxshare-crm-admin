@@ -948,6 +948,7 @@ function TransactionsPageContent() {
 
       {/* Reject — reason from the configurable list (FR-ADM-03) */}
       <Modal
+        busy={reject.isPending}
         open={rejectTarget !== null}
         onClose={closeReject}
         labelledBy="reject-withdrawal-title"
@@ -991,9 +992,11 @@ function TransactionsPageContent() {
       >
         {reasons.length > 0 && (
           <div>
-            <label className="text-xs font-semibold">{t('withdrawals.rejectionReason')}</label>
+            <label id="reject-reason-label" className="text-xs font-semibold">
+              {t('withdrawals.rejectionReason')}
+            </label>
             <Select value={reasonId} onValueChange={setReasonId}>
-              <SelectTrigger className="mt-1 h-9 w-full">
+              <SelectTrigger aria-labelledby="reject-reason-label" className="mt-1 h-9 w-full">
                 <SelectValue placeholder={t('withdrawals.selectReason')}>
                   {reasons.find((r) => r.id === reasonId)?.label}
                 </SelectValue>

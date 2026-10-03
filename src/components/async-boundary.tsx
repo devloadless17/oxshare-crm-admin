@@ -229,7 +229,7 @@ export function AsyncBoundary({
           find it first mostly will not.
         */}
           {requestId && (
-            <p className="text-[11px] font-mono text-muted-foreground/70 select-all">
+            <p className="text-[11px] text-muted-foreground/70 tabular-nums select-all">
               {t('common.errorReference', { id: requestId })}
             </p>
           )}

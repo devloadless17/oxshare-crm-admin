@@ -81,7 +81,12 @@ export function ChangeLevelDialog({
   const options = (levels.data ?? []).filter((entry) => entry.enabled);
 
   return (
-    <Modal open={open} onClose={onClose} title={t('clientProfile.changeLevelTitle', { name })}>
+    <Modal
+      busy={save.isPending}
+      open={open}
+      onClose={onClose}
+      title={t('clientProfile.changeLevelTitle', { name })}
+    >
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -234,7 +239,12 @@ export function ReassignParentDialog({
   );
 
   return (
-    <Modal open={open} onClose={onClose} title={t('clientProfile.reassignParentTitle', { name })}>
+    <Modal
+      busy={save.isPending}
+      open={open}
+      onClose={onClose}
+      title={t('clientProfile.reassignParentTitle', { name })}
+    >
       <form
         className="space-y-4"
         onSubmit={(e) => {

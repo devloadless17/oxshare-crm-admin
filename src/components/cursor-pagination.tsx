@@ -98,7 +98,10 @@ export function CursorPagination({
               // eslint-disable-next-line no-restricted-syntax
               onValueChange={(value) => onPageSizeChange(Number(value))}
             >
-              <SelectTrigger className="h-8 w-20 px-2.5 text-xs font-semibold">
+              <SelectTrigger
+                aria-label={t('pagination.rowsPerPage').replace(/:$/, '')}
+                className="h-8 w-20 px-2.5 text-xs font-semibold"
+              >
                 <SelectValue placeholder={String(pageSize)}>{pageSize}</SelectValue>
               </SelectTrigger>
               <SelectContent>
