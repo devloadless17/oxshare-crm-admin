@@ -64,6 +64,7 @@ export function AgencyFormModal({
 }) {
   return (
     <Modal
+      busy={saving}
       open={open}
       onClose={onClose}
       size="lg"

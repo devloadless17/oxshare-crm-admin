@@ -378,11 +378,11 @@ function CommissionsPageContent() {
         onClose={() => setReverseTarget(null)}
         // A confirmed reversal debits a wallet: the balances and ledger move too.
         onDone={() =>
-          Promise.all(
-            [keys.ibAccruals.all(), keys.wallets.all(), keys.ledger.all()].map((queryKey) =>
-              queryClient.invalidateQueries({ queryKey }),
-            ),
-          )
+          Promise.all([
+            queryClient.invalidateQueries({ queryKey: keys.ibAccruals.all() }),
+            queryClient.invalidateQueries({ queryKey: keys.wallets.all() }),
+            queryClient.invalidateQueries({ queryKey: keys.ledger.all() }),
+          ])
         }
       />
 

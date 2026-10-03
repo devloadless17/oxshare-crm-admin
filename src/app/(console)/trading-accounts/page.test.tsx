@@ -677,6 +677,53 @@ describe('moving money on a trading account', () => {
  * no client owns with `user: null`; the list says "No client", names MT5's
  * holder, and offers to assign it.
  */
+describe('funding — one idempotency key per intent, not per balance', () => {
+  /*
+   * The key was `fund:<id>:<direction>:<cached balance>`. The balance is a
+   * mirror the bridge updates later, so a second deliberate funding before it
+   * moved reused the first one's key and the server REPLAYED it — no money
+   * moved. A key is now minted each time the dialog opens, and reused only by
+   * retries inside it.
+   */
+  async function fundOnce(amount: string) {
+    await userEvent.click(screen.getByRole('button', { name: /actions for account/i }));
+    await userEvent.click(await screen.findByText(/add or remove funds/i));
+    await userEvent.type(await screen.findByLabelText(/amount/i), amount);
+    await userEvent.type(screen.getByLabelText(/^reason$/i), 'Off-rail wire received');
+    await userEvent.click(screen.getByRole('button', { name: /^add funds$/i }));
+  }
+
+  it('gives a second funding of the same account a NEW key, and a retry the SAME one', async () => {
+    getTradingAccounts.mockResolvedValue(page([account()]));
+    identity.permissions = ['trading.view', 'trading.deposit', 'wallets.credit'];
+    fundTradingAccount.mockReset();
+    fundTradingAccount
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { response: { status: 503 } }))
+      .mockResolvedValue({
+        transaction: { id: 'tx-1', amount: '100', currency: 'USD' },
+        replayed: false,
+        transfer: { id: 'tr-1', state: 'settled' },
+        transferError: null,
+      });
+    renderWithProviders(<TradingAccountsPage />);
+    await screen.findByText('client@example.com');
+
+    await fundOnce('100');
+    await waitFor(() => expect(fundTradingAccount).toHaveBeenCalledTimes(1));
+    // The dialog stays open on failure; the retry is the same intent.
+    await userEvent.click(await screen.findByRole('button', { name: /^add funds$/i }));
+    await waitFor(() => expect(fundTradingAccount).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    await fundOnce('100');
+    await waitFor(() => expect(fundTradingAccount).toHaveBeenCalledTimes(3));
+
+    const [first, retry, second] = fundTradingAccount.mock.calls.map((c) => c[2] as string);
+    expect(retry).toBe(first);
+    expect(second).not.toBe(first);
+  });
+});
+
 describe('trading accounts — accounts with no client', () => {
   const unowned = () =>
     account({

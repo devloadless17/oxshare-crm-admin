@@ -149,6 +149,7 @@ export function ResolveAttentionDialog({
 
   return (
     <Modal
+      busy={resolve.isPending}
       open={target !== null}
       onClose={onClose}
       labelledBy="resolve-attention-title"

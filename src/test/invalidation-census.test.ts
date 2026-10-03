@@ -78,12 +78,19 @@ const SOURCES = (root = 'src'): string[] => {
   return found;
 };
 
-/** `keys.a.b` occurrences in a `queryKey:` position — what screens READ. */
+/**
+ * `keys.a.b` occurrences in a `queryKey:` position, or as the first argument of
+ * `useResource(` — what screens READ. Most screens read through useResource,
+ * which takes the key positionally, so a census of `queryKey:` alone saw only
+ * the minority of reads.
+ */
 function readKeys(): Map<string, string[]> {
   const out = new Map<string, string[]>();
   for (const path of SOURCES()) {
     const src = readFileSync(path, 'utf8');
-    for (const m of src.matchAll(/queryKey:\s*keys\.([A-Za-z0-9_.]+)/g)) {
+    for (const m of src.matchAll(
+      /(?:queryKey:\s*|useResource(?:<[^>]*>)?\(\s*)keys\.([A-Za-z0-9_.]+)/g,
+    )) {
       const key = (m[1] ?? '').split('(')[0] ?? '';
       if (key) out.set(key, [...(out.get(key) ?? []), path]);
     }
@@ -102,6 +109,12 @@ function invalidatedKeys(): Set<string> {
       const key = (m[1] ?? '').split('(')[0];
       if (key) out.add(key);
     }
+    // A write-through with the server's answer refreshes the entry as surely
+    // as an invalidate does (the scheduled-jobs save answers the whole list).
+    for (const m of src.matchAll(/setQueryData(?:<[^>]*>)?\(\s*keys\.([A-Za-z0-9_.]+)/g)) {
+      const key = (m[1] ?? '').split('(')[0];
+      if (key) out.add(key);
+    }
   }
   return out;
 }
@@ -109,8 +122,8 @@ function invalidatedKeys(): Set<string> {
 /**
  * Caches that are READ and legitimately never invalidated.
  *
- * Both are immutable for the lifetime of the screen reading them, so there is
- * no write to refresh them after. Each needs a reason, and the reason is
+ * No console mutation writes them: they are immutable for the screen's
+ * lifetime, or written only by the backend/bridge. Each needs a reason, and the reason is
  * checked below — an exemption whose premise has gone is worse than none.
  */
 const STATIC_READS = new Map([
@@ -121,6 +134,30 @@ const STATIC_READS = new Map([
   [
     'permissions.all',
     'the permission CATALOGUE, read from config on the backend — operator data cannot alter it',
+  ],
+  [
+    'auditLog.list',
+    'a forensic record read deliberately; it must NOT be live (query-keys.ts, use-realtime.ts) — every write appends to it, so no one mutation owns it',
+  ],
+  [
+    'auditLog.actions',
+    'the catalogue of audited action names — fixed by the backend code, not by operator data',
+  ],
+  [
+    'bridge.outbox',
+    'bridge diagnostics: written only by the backend and the MT5 bridge, never by a console mutation; the page re-reads on its own retry',
+  ],
+  [
+    'bridge.operations',
+    'bridge diagnostics: written only by the backend and the MT5 bridge, never by a console mutation; the page re-reads on its own retry',
+  ],
+  [
+    'session.googleStatus',
+    "whether Google sign-in is switched on: the API's deployment configuration, which no console mutation can change",
+  ],
+  [
+    'bridge.logs',
+    "the bridge's own log lines: no console mutation writes them; the page re-reads on its own retry",
   ],
 ]);
 

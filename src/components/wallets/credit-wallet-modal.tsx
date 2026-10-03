@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { t } from '@/lib/i18n';
 import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
 import { formatMoney } from '@/lib/money';
+import { isMoneyReasonReady, isPositiveMoneyInput } from '@/lib/money-input';
 
 /**
  * Put money into a client's wallet by hand.
@@ -49,7 +50,13 @@ export function CreditWalletModal({
   onSubmit: (values: { amount: string; reason: string; reasonAr?: string }) => void;
 }) {
   return (
-    <Modal open={Boolean(wallet)} onClose={onClose} title={t('wallets.creditTitle')} size="md">
+    <Modal
+      open={Boolean(wallet)}
+      onClose={onClose}
+      busy={saving}
+      title={t('wallets.creditTitle')}
+      size="md"
+    >
       {/*
         KEYED on the wallet, so opening this for a different client REMOUNTS the
         form and its fields start empty. Without it, an amount typed for one
@@ -95,11 +102,15 @@ function CreditForm({
    * confirm money into an account belonging to nobody they could identify.
    */
   const owner = clientLabel(wallet.user);
+  // The same gate as the fund-account dialog: submit stays disabled until the
+  // amount and reason would pass the API, rather than inviting a round trip.
+  const ready = isPositiveMoneyInput(amount) && isMoneyReasonReady(reason);
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        if (!ready || saving) return;
         onSubmit({
           amount: amount.trim(),
           reason: reason.trim(),
@@ -208,13 +219,14 @@ function CreditForm({
         <button
           type="button"
           onClick={onClose}
-          className="focus-outline inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-semibold hover:bg-muted"
+          disabled={saving}
+          className="focus-outline inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-semibold hover:bg-muted disabled:opacity-50"
         >
           {t('common.cancel')}
         </button>
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || !ready}
           className="focus-outline inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {saving ? t('wallets.crediting') : t('wallets.creditConfirm')}

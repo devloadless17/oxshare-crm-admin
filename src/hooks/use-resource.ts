@@ -163,8 +163,15 @@ export function useResource<T>(
      *
      * Callers that cross to an external service should pass a small number, or
      * `0` where a person is sitting in front of a retry button anyway.
+     *
+     * ⚠️ OMITTED when the caller passes nothing — never `retry: undefined`.
+     * React Query SPREADS these options over the client's defaults, so an
+     * explicit undefined REPLACED QueryProvider's policy (no retry on a 4xx,
+     * two on a 5xx) with the library's own three-with-backoff: every 403 or
+     * 404 behind this hook spun for ~7 s before the screen said "no access"
+     * or "not found".
      */
-    retry: options?.retry,
+    ...(options?.retry !== undefined ? { retry: options.retry } : {}),
     /**
      * Poll, for a screen whose value is written by something other than the
      * person looking at it.

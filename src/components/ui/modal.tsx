@@ -2,6 +2,7 @@
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
+import { t } from '@/lib/i18n';
 
 const FIRST_FIELD = 'input:not([disabled]), textarea:not([disabled]), select:not([disabled])';
 const FOCUSABLE =
@@ -23,6 +24,11 @@ const FOCUSABLE =
  * dialog opened is almost always to type in it. Backdrop dismissal is opt-in
  * (`dismissOnBackdrop`) because two of these dialogs threw away a half-typed
  * rejection reason on a stray click.
+ *
+ * `busy` LOCKS the dialog while its mutation is in flight: Escape and the X do
+ * nothing. Money dialogs report failure only inside themselves, so a dialog
+ * closed mid-request wrote its error into nothing and the operator never
+ * learned the action had failed. Pass `busy={mutation.isPending}`.
  */
 export function Modal({
   open,
@@ -34,6 +40,7 @@ export function Modal({
   dismissOnBackdrop = false,
   labelledBy = 'modal-title',
   size = 'md',
+  busy = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -44,14 +51,16 @@ export function Modal({
   dismissOnBackdrop?: boolean;
   labelledBy?: string;
   size?: 'md' | 'lg';
+  /** While true the dialog cannot be closed (Escape, X, backdrop). */
+  busy?: boolean;
 }) {
   const describedBy = description ? `${labelledBy}-description` : undefined;
   const keepOpen = (event: Event) => {
-    if (!dismissOnBackdrop) event.preventDefault();
+    if (busy || !dismissOnBackdrop) event.preventDefault();
   };
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
+    <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 animate-in fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
         <DialogPrimitive.Content
@@ -65,6 +74,9 @@ export function Modal({
               panel.querySelector<HTMLElement>(`${FOCUSABLE}:not([data-modal-close])`) ??
               panel
             ).focus();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (busy) event.preventDefault();
           }}
           onPointerDownOutside={keepOpen}
           onInteractOutside={keepOpen}
@@ -90,9 +102,10 @@ export function Modal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close dialog"
+              disabled={busy}
+              aria-label={t('common.closeDialog')}
               data-modal-close=""
-              className="rounded-md p-1 text-muted-foreground hover:bg-muted focus-outline"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted focus-outline disabled:opacity-50"
             >
               <X className="h-4 w-4" />
             </button>

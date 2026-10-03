@@ -53,6 +53,7 @@ export function CommissionTypeFormModal({
 }) {
   return (
     <Modal
+      busy={saving}
       open={open}
       onClose={onClose}
       size="lg"
