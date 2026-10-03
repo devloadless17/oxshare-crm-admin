@@ -34,6 +34,8 @@ const base: AdminProfile = {
   // modal opened.
   maskedFields: [],
   scopedTags: [],
+  googleEmail: null,
+  googleLinkedAt: null,
   createdAt: '2026-08-02T00:00:00.000Z',
 };
 

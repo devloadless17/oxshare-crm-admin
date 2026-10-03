@@ -1,5 +1,6 @@
 import { apiClient, clearAdminSession, startProactiveRefresh } from './client';
 import type { components } from './types.gen';
+import { API_BASE_URL } from '../env';
 
 /**
  * An ALIAS, not a hand-written copy — R-1.1.
@@ -45,6 +46,54 @@ export type AdminSession = components['schemas']['AdminSessionDto'];
 
 /** Where a profile photo is served from, or `null` when there is none. */
 export type AdminAvatarResponse = components['schemas']['AdminAvatarResponseDto'];
+
+/** `GET /admin/auth/google/status`. */
+export type GoogleSignInStatus = components['schemas']['GoogleSignInStatusDto'];
+
+/**
+ * Where the browser goes to sign in with Google — a full-page NAVIGATION to the
+ * API host, never an XHR. The whole OAuth round trip runs on the API's host so
+ * the session cookies are set there (they are `__Host-` cookies of that host);
+ * the API then redirects back to this console.
+ *
+ * `next` must already be a safe same-origin path (`safeReturnTo`); the API
+ * re-checks it. `invite` is the emailed token, kept by the API in a signed
+ * cookie and never sent to Google.
+ */
+export function googleStartUrl(params: { next?: string; invite?: string } = {}): string {
+  const query = new URLSearchParams();
+  if (params.next) query.set('next', params.next);
+  if (params.invite) query.set('invite', params.invite);
+  const suffix = query.toString();
+  return `${API_BASE_URL}/admin/auth/google/start${suffix ? `?${suffix}` : ''}`;
+}
+
+/** The `?google_error=` codes the API redirects back with. */
+export const GOOGLE_ERROR_CODES = [
+  'cancelled',
+  'expired',
+  'state',
+  'exchange',
+  'token',
+  'unverified_email',
+  'domain',
+  'no_account',
+  'suspended',
+  'account_mismatch',
+  'invite_invalid',
+  'invite_email_mismatch',
+  'disabled',
+  'server',
+] as const;
+export type GoogleErrorCode = (typeof GOOGLE_ERROR_CODES)[number];
+
+/** The sentence for a `google_error` value, or null for none / an unknown code. */
+export function googleErrorKey(code: string | null): `google.error.${GoogleErrorCode}` | null {
+  if (!code) return null;
+  return (GOOGLE_ERROR_CODES as readonly string[]).includes(code)
+    ? (`google.error.${code}` as `google.error.${GoogleErrorCode}`)
+    : 'google.error.server';
+}
 
 export const authApi = {
   async login(dto: AdminLoginDto) {
@@ -169,6 +218,22 @@ export const authApi = {
     const { data } = await apiClient.post<AdminAvatarResponse>('/admin/auth/me/avatar', body, {
       headers: { 'Content-Type': undefined },
     });
+    return data;
+  },
+
+  // ── Sign in with Google ────────────────────────────────────────────────────
+
+  /** `GET /admin/auth/google/status` — whether to offer the Google button at all. */
+  async googleStatus(signal?: AbortSignal) {
+    const { data } = await apiClient.get<GoogleSignInStatus>('/admin/auth/google/status', {
+      signal,
+    });
+    return data;
+  },
+
+  /** `DELETE /admin/auth/me/google` — unlink the caller's own Google account. */
+  async unlinkGoogle() {
+    const { data } = await apiClient.delete<{ message: string }>('/admin/auth/me/google');
     return data;
   },
 

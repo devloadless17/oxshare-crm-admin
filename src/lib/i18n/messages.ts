@@ -4612,6 +4612,51 @@ export const messages = {
   'table.selectRow': 'Select this row',
   'table.deselectRow': 'Deselect this row',
   'table.loadingData': 'Loading table data…',
+
+  // ── Sign in with Google (admin console) ───────────────────────────────────
+  // Each `google_error` code the API redirects back with has its own sentence;
+  // the API never puts Google's text or the address in the URL.
+  'google.continue': 'Continue with Google',
+  'google.acceptWithGoogle': 'Accept with Google',
+  'google.redirecting': 'Redirecting to Google…',
+  'google.or': 'or',
+  'google.error.cancelled': 'Google sign-in was cancelled.',
+  'google.error.expired': 'That Google sign-in took too long. Please try again.',
+  'google.error.state':
+    'That Google sign-in could not be verified. Start again from this page, in the same browser.',
+  'google.error.exchange': 'Google could not be reached to complete sign-in. Please try again.',
+  'google.error.token': 'Google’s answer could not be verified. Please try again.',
+  'google.error.unverified_email':
+    'That Google account’s email address is not verified. Verify it with Google first.',
+  'google.error.domain': 'That Google account is not from an allowed company domain.',
+  'google.error.no_account':
+    'There is no admin account for that Google account. Ask a master admin to invite you.',
+  'google.error.suspended': 'This administrator account has been suspended.',
+  'google.error.account_mismatch':
+    'This admin account is already linked to a different Google account.',
+  'google.error.invite_invalid': 'This invite link is invalid, expired or already used.',
+  'google.error.invite_email_mismatch':
+    'That Google account’s email does not match the address this invite was sent to.',
+  'google.error.disabled': 'Sign in with Google is not enabled.',
+  'google.error.server': 'Google sign-in failed. Please try again.',
+  'profile.googleTitle': 'Google account',
+  'profile.googleLinked': 'Linked as {email}',
+  'profile.googleLinkedSince': 'Linked {when}',
+  'profile.googleNotLinked': 'Not linked — sign in with Google once to link it.',
+  'profile.googleUnlink': 'Unlink',
+  'profile.googleUnlinkTitle': 'Unlink your Google account?',
+  'profile.googleUnlinkBody':
+    'You will no longer be able to sign in with {email}. Your password and current sessions are not affected.',
+  'profile.googleUnlinked': 'Google account unlinked.',
+  'profile.googleUnlinkFailed': 'Your Google account could not be unlinked.',
+  'adminUsers.googleLinked': 'Google',
+  'adminUsers.googleLinkedTitle': 'Signs in with Google as {email}',
+  'adminUsers.unlinkGoogle': 'Unlink Google',
+  'adminUsers.confirmUnlinkGoogleTitle': 'Unlink {name}’s Google account?',
+  'adminUsers.confirmUnlinkGoogle':
+    '{name} will no longer be able to sign in with {email}. Their password and sessions are not affected.',
+  'adminUsers.unlinkGoogleSucceeded': 'Google account unlinked from {name}.',
+  'adminUsers.unlinkGoogleFailed': 'The Google account could not be unlinked.',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */
