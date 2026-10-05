@@ -1939,6 +1939,7 @@ export const messages = {
   'assistantSettings.todayInput': 'Input tokens',
   'assistantSettings.todayCached': 'of them cached',
   'assistantSettings.todayOutput': 'Output tokens',
+  'assistantSettings.todaySearches': 'Web searches',
   'assistantSettings.save': 'Save',
   'assistantSettings.saved': 'Assistant settings saved',
   'assistantSettings.updateFailed': 'Could not save the assistant settings.',

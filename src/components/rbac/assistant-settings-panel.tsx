@@ -162,7 +162,7 @@ function AssistantForm({
             </span>
           )}
         </p>
-        <dl className="grid grid-cols-3 gap-3 text-xs">
+        <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
           <Stat
             label={t('assistantSettings.todayAnswers')}
             value={number.format(settings.today.answers)}
@@ -175,6 +175,10 @@ function AssistantForm({
           <Stat
             label={t('assistantSettings.todayOutput')}
             value={number.format(settings.today.outputTokens)}
+          />
+          <Stat
+            label={t('assistantSettings.todaySearches')}
+            value={number.format(settings.today.webSearches)}
           />
         </dl>
       </div>
