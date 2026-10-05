@@ -1,0 +1,72 @@
+# The frontends server (`ssh oxshare-web`, Paris): Caddy + the admin console + the
+# client portal. TWIN FILE: identical in oxshare-crm-admin and oxshare-crm-client
+# (deploy/), because one server runs both apps and either repo's deploy ships it.
+# Change both together. Each deploy recreates ONLY its own app:
+#
+#   docker compose up -d caddy admin     # an admin release
+#   docker compose up -d caddy portal    # a portal release
+#
+# Only Caddy publishes host ports. Docker writes its own iptables rules and bypasses
+# UFW, so any published port is open to the whole internet whatever `ufw status`
+# says (DEPLOY-PLAYBOOK §2). The two apps listen only on this compose network.
+
+name: oxshare-web
+
+# Docker's json-file driver has no bound of its own. The server's daemon.json sets
+# one too; this keeps the bound if the stack ever runs on a host without it.
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: '10m'
+      max-file: '5'
+
+x-app: &app
+  restart: unless-stopped
+  # PID 1 that forwards SIGTERM, so a redeploy lets in-flight requests finish.
+  init: true
+  stop_grace_period: 20s
+  <<: *logging
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    # HTTP/3 needs UDP/443. Delivery to THIS server was measured on 5 Oct 2026 (a
+    # listener in a container received probes from outside Hostinger and from the
+    # backend server). If the host ever stops passing it, remove the udp line AND
+    # pin `servers { protocols h1 h2 }` in the Caddyfile together: h3 advertised over
+    # a dead UDP path breaks some clients for the 30-day alt-svc cache lifetime.
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?ADMIN_DOMAIN is required}
+      PORTAL_DOMAIN: ${PORTAL_DOMAIN:?PORTAL_DOMAIN is required}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # caddy_data HOLDS THE CERTIFICATES AND THE ACME ACCOUNT KEY. Deleting it
+      # forces re-issuance, and Let's Encrypt rate-limits that per domain per week.
+      - caddy_data:/data
+      - caddy_config:/config
+    # No depends_on: an admin release must never need the portal, nor the reverse.
+    # An app that is down or not yet deployed is Caddy's 502 for that one site.
+    <<: *logging
+
+  admin:
+    <<: *app
+    # Built from oxshare-crm-admin with the API's origin baked in (see its
+    # Dockerfile), tagged by git SHA: rollback is `ADMIN_IMAGE=<previous tag>` +
+    # `up -d admin`. The placeholder lets the file parse before the FIRST admin
+    # release, when only the portal has ever been deployed; it is never started.
+    image: ${ADMIN_IMAGE:-oxshare-crm-admin:not-deployed-yet}
+
+  portal:
+    <<: *app
+    image: ${PORTAL_IMAGE:-oxshare-crm-portal:not-deployed-yet}
+
+volumes:
+  caddy_data:
+  caddy_config:
