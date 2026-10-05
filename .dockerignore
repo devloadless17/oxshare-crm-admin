@@ -1,0 +1,30 @@
+# What must never reach the image, and why.
+#
+# `.env.production.local` holds the values the Vercel build used. The image takes
+# its NEXT_PUBLIC_* values from build args instead, so a stale local file can never
+# decide which API a production console calls.
+.env
+.env.*
+
+# Build inputs, not outputs: the host's node_modules carries the host's libc, and a
+# stale .next would sit beside the fresh build.
+node_modules/
+.next/
+coverage/
+*.tsbuildinfo
+.vitest-result.json
+
+# Browser-test artefacts. CI runs Playwright; the image has no use for them.
+test-results/
+playwright-report/
+blob-report/
+
+.git/
+.github/
+.husky/
+.claude/
+
+Dockerfile
+.dockerignore
+README.md
+CLAUDE.md
