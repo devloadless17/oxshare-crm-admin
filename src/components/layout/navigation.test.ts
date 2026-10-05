@@ -34,8 +34,7 @@ const base: AdminProfile = {
   status: 'active',
   maskedFields: [],
   scopedTags: [],
-  googleEmail: null,
-  googleLinkedAt: null,
+  totpEnabledAt: null,
   createdAt: '2026-08-02T00:00:00.000Z',
 };
 const withPerms = (permissions: string[]): AdminProfile => ({ ...base, permissions });

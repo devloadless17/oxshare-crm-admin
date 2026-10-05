@@ -1,6 +1,5 @@
 import { apiClient, clearAdminSession, startProactiveRefresh } from './client';
 import type { components } from './types.gen';
-import { API_BASE_URL } from '../env';
 
 /**
  * An ALIAS, not a hand-written copy — R-1.1.
@@ -28,6 +27,16 @@ export type AdminLoginDto = components['schemas']['AdminLoginDto'];
  */
 export type AdminLoginResponse = components['schemas']['AdminLoginResponseDto'];
 
+/**
+ * What a right password buys (0191): NOT a session. `step: 'totp'` — ask for
+ * the 6-digit code from the authenticator app; `step: 'totp_setup'` — no app
+ * set up yet, show the QR code first. `challengeToken` goes back with either.
+ */
+export type AdminSignInChallenge = components['schemas']['AdminSignInChallengeDto'];
+
+/** `POST /admin/auth/totp/setup` — the QR code (SVG) and the secret as text. */
+export type AdminTotpSetup = components['schemas']['AdminTotpSetupDto'];
+
 /** `POST /admin/auth/change-password` — the body. */
 export type AdminChangePasswordDto = components['schemas']['AdminChangePasswordDto'];
 
@@ -47,60 +56,29 @@ export type AdminSession = components['schemas']['AdminSessionDto'];
 /** Where a profile photo is served from, or `null` when there is none. */
 export type AdminAvatarResponse = components['schemas']['AdminAvatarResponseDto'];
 
-/** `GET /admin/auth/google/status`. */
-export type GoogleSignInStatus = components['schemas']['GoogleSignInStatusDto'];
-
-/**
- * Where the browser goes to sign in with Google — a full-page NAVIGATION to the
- * API host, never an XHR. The whole OAuth round trip runs on the API's host so
- * the session cookies are set there (they are `__Host-` cookies of that host);
- * the API then redirects back to this console.
- *
- * `next` must already be a safe same-origin path (`safeReturnTo`); the API
- * re-checks it. `invite` is the emailed token, kept by the API in a signed
- * cookie and never sent to Google.
- */
-export function googleStartUrl(params: { next?: string; invite?: string } = {}): string {
-  const query = new URLSearchParams();
-  if (params.next) query.set('next', params.next);
-  if (params.invite) query.set('invite', params.invite);
-  const suffix = query.toString();
-  return `${API_BASE_URL}/admin/auth/google/start${suffix ? `?${suffix}` : ''}`;
-}
-
-/** The `?google_error=` codes the API redirects back with. */
-export const GOOGLE_ERROR_CODES = [
-  'cancelled',
-  'expired',
-  'state',
-  'exchange',
-  'token',
-  'unverified_email',
-  'domain',
-  'no_account',
-  'suspended',
-  'account_mismatch',
-  'invite_invalid',
-  'invite_email_mismatch',
-  'disabled',
-  'server',
-] as const;
-export type GoogleErrorCode = (typeof GOOGLE_ERROR_CODES)[number];
-
-/** The sentence for a `google_error` value, or null for none / an unknown code. */
-export function googleErrorKey(code: string | null): `google.error.${GoogleErrorCode}` | null {
-  if (!code) return null;
-  return (GOOGLE_ERROR_CODES as readonly string[]).includes(code)
-    ? (`google.error.${code}` as `google.error.${GoogleErrorCode}`)
-    : 'google.error.server';
-}
-
 export const authApi = {
+  /** Step one: the password. Answers with a challenge — no session yet. */
   async login(dto: AdminLoginDto) {
-    const { data } = await apiClient.post<AdminLoginResponse>('/admin/auth/login', dto);
+    const { data } = await apiClient.post<AdminSignInChallenge>('/admin/auth/login', dto);
+    return data;
+  },
+
+  /** Enrolment: a fresh secret as a QR code. Each call replaces the last one. */
+  async totpSetup(challengeToken: string) {
+    const { data } = await apiClient.post<AdminTotpSetup>('/admin/auth/totp/setup', {
+      challengeToken,
+    });
+    return data;
+  },
+
+  /** Step two: the code from the app. This is the call that starts the session. */
+  async totpVerify(challengeToken: string, code: string) {
+    const { data } = await apiClient.post<AdminLoginResponse>('/admin/auth/totp/verify', {
+      challengeToken,
+      code,
+    });
     // Nothing to store: the server sets the session as httpOnly cookies and the
     // browser installs them from this very response (PLATFORM-CONVENTIONS R-3.2).
-    // The response carries no tokens at all now — see the type above.
     startProactiveRefresh();
     return data;
   },
@@ -218,22 +196,6 @@ export const authApi = {
     const { data } = await apiClient.post<AdminAvatarResponse>('/admin/auth/me/avatar', body, {
       headers: { 'Content-Type': undefined },
     });
-    return data;
-  },
-
-  // ── Sign in with Google ────────────────────────────────────────────────────
-
-  /** `GET /admin/auth/google/status` — whether to offer the Google button at all. */
-  async googleStatus(signal?: AbortSignal) {
-    const { data } = await apiClient.get<GoogleSignInStatus>('/admin/auth/google/status', {
-      signal,
-    });
-    return data;
-  },
-
-  /** `DELETE /admin/auth/me/google` — unlink the caller's own Google account. */
-  async unlinkGoogle() {
-    const { data } = await apiClient.delete<{ message: string }>('/admin/auth/me/google');
     return data;
   },
 

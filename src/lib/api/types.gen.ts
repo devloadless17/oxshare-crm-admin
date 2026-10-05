@@ -3066,8 +3066,48 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Admin login */
+        /**
+         * Admin login, step one: the password (then the authenticator code)
+         * @description A right password sets NO session. It answers with a short-lived challenge: `step: "totp"` → send the 6-digit code to `auth/totp/verify`; `step: "totp_setup"` → no authenticator yet, call `auth/totp/setup` for the QR code first.
+         */
         post: operations["AdminAuthController_login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/totp/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin login, enrolment: a new authenticator secret as a QR code
+         * @description Only while the account has no authenticator. Each call replaces the previous secret, so only the newest QR code can finish enrolment.
+         */
+        post: operations["AdminAuthController_beginTotpSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/totp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin login, step two: the 6-digit authenticator code — starts the session */
+        post: operations["AdminAuthController_verifyTotp"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3206,7 +3246,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Accept invite and set password — logs admin in immediately */
+        /**
+         * Accept invite and set password — then set up the authenticator to sign in
+         * @description Creates the account and answers with the same challenge a correct password buys at login (`step: "totp_setup"`). No session until the authenticator code checks.
+         */
         post: operations["AdminAuthController_acceptInvite"];
         delete?: never;
         options?: never;
@@ -3225,6 +3268,26 @@ export interface paths {
         put?: never;
         /** Email another administrator a single-use password reset link */
         post: operations["AdminAuthController_initiatePasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}/totp/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset another administrator's authenticator app (admins.reset)
+         * @description Their next sign-in shows a new QR code to scan. Their password is unchanged.
+         */
+        post: operations["AdminAuthController_resetTotp"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3312,97 +3375,6 @@ export interface paths {
         post: operations["AdminAuthController_uploadAvatar"];
         /** Remove your profile photo */
         delete: operations["AdminAuthController_removeAvatar"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/auth/google/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Whether the admin sign-in screen offers "Sign in with Google" */
-        get: operations["AdminGoogleAuthController_status"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/auth/google/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Begin Google sign-in (browser navigation; 302 to Google)
-         * @description Sets a signed, httpOnly flow cookie (state, nonce, PKCE verifier) and redirects to Google's authorization endpoint. `next` must be a relative console path; anything else lands on /dashboard. `invite` (the emailed invite token) is kept in the cookie only.
-         */
-        get: operations["AdminGoogleAuthController_start"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/auth/google/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Google redirects here (browser navigation; 302 back to the console)
-         * @description Verifies state against the signed flow cookie, exchanges the code with the PKCE verifier, verifies the ID token and starts an admin session. Every failure redirects to the console with `?google_error=<code>` — never Google text, never the address.
-         */
-        get: operations["AdminGoogleAuthController_callback"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/auth/me/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Unlink your own Google account */
-        delete: operations["AdminGoogleAuthController_unlinkOwn"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/users/{id}/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Unlink another administrator's Google account (admins.reset) */
-        delete: operations["AdminGoogleAuthController_unlinkFor"];
         options?: never;
         head?: never;
         patch?: never;
@@ -8666,6 +8638,45 @@ export interface components {
             /** @example admin123 */
             password: string;
         };
+        AdminSignInChallengeDto: {
+            /**
+             * @description `totp`: ask for the 6-digit code. `totp_setup`: no authenticator yet — show the QR code first.
+             * @enum {string}
+             */
+            step: "totp" | "totp_setup";
+            /** @description Short-lived; send it back with the code. Not a session. */
+            challengeToken: string;
+            /** @example 600 */
+            expiresInSeconds: number;
+        };
+        AdminTotpChallengeDto: {
+            /** @description From `POST /admin/auth/login` or `/admin/invite/accept`. */
+            challengeToken: string;
+        };
+        AdminTotpSetupDto: {
+            /** @description Base32 secret, for typing into the app by hand. */
+            secret: string;
+            /** @description The otpauth:// URI the QR code encodes. */
+            otpauthUri: string;
+            /** @description The QR code, as an SVG document. */
+            qrSvg: string;
+            /**
+             * @description The account name the app shows.
+             * @example ada@bbcorp.trade
+             */
+            account: string;
+            /** @example OxShare Admin */
+            issuer: string;
+        };
+        AdminTotpVerifyDto: {
+            /** @description From `POST /admin/auth/login` or `/admin/invite/accept`. */
+            challengeToken: string;
+            /**
+             * @description The 6-digit code the authenticator app shows.
+             * @example 123456
+             */
+            code: string;
+        };
         AdminScopeTagDto: {
             tagId: string;
             slug: string;
@@ -8691,10 +8702,8 @@ export interface components {
             avatarUrl?: string | null;
             /** Format: date-time */
             passwordChangedAt?: string | null;
-            /** @example ada@bbcorp.trade */
-            googleEmail: string | null;
             /** Format: date-time */
-            googleLinkedAt: string | null;
+            totpEnabledAt: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -8756,9 +8765,13 @@ export interface components {
             password: string;
         };
         AcceptInviteResponseDto: {
-            /** @example Account created. Welcome aboard! */
+            /** @example Account created. Set up your authenticator app to finish. */
             message: string;
-            admin: components["schemas"]["AdminProfileDto"];
+            /** @enum {string} */
+            step: "totp" | "totp_setup";
+            challengeToken: string;
+            /** @example 600 */
+            expiresInSeconds: number;
         };
         CompleteAdminResetDto: {
             /** @description Single-use token from the password reset email. */
@@ -8808,10 +8821,6 @@ export interface components {
              * @example /uploads/avatars/6f1c...c2.png
              */
             avatarUrl?: string | null;
-        };
-        GoogleSignInStatusDto: {
-            /** @description True when GOOGLE_OAUTH_CLIENT_ID and _SECRET are both configured. */
-            enabled: boolean;
         };
         ClientTagDto: {
             id: string;
@@ -14960,6 +14969,52 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["AdminSignInChallengeDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_beginTotpSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminTotpChallengeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTotpSetupDto"];
+                };
+            };
+        };
+    };
+    AdminAuthController_verifyTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminTotpVerifyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["AdminLoginResponseDto"];
                 };
             };
@@ -15174,6 +15229,27 @@ export interface operations {
             };
         };
     };
+    AdminAuthController_resetTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
     AdminAuthController_completePasswordReset: {
         parameters: {
             query?: never;
@@ -15294,108 +15370,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminAvatarResponseDto"];
-                };
-            };
-        };
-    };
-    AdminGoogleAuthController_status: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GoogleSignInStatusDto"];
-                };
-            };
-        };
-    };
-    AdminGoogleAuthController_start: {
-        parameters: {
-            query?: {
-                invite?: string;
-                next?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Redirect to Google, or back to the console when disabled. */
-            302: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AdminGoogleAuthController_callback: {
-        parameters: {
-            query?: {
-                error?: string;
-                state?: string;
-                code?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Redirect to the console. */
-            302: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AdminGoogleAuthController_unlinkOwn: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
-                };
-            };
-        };
-    };
-    AdminGoogleAuthController_unlinkFor: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
                 };
             };
         };
