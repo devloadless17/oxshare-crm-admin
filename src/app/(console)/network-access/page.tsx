@@ -1,6 +1,7 @@
 'use client';
 
 import { IpAllowlistPanel } from '@/components/rbac/ip-allowlist-panel';
+import { IpExemptionsPanel } from '@/components/rbac/ip-exemptions-panel';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { t } from '@/lib/i18n';
@@ -35,8 +36,13 @@ export default function NetworkAccessPage() {
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t('ipAllowlist.subtitle')}</p>
       </div>
 
-      <div className="max-w-3xl">
+      <div className="max-w-3xl space-y-10">
         <IpAllowlistPanel canManage={canEdit} showHeading={false} />
+        <IpExemptionsPanel
+          canManage={canEdit}
+          canPickAdmins={hasPermission(admin, 'admins.view')}
+          selfId={admin?.id}
+        />
       </div>
     </div>
   );

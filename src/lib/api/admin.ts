@@ -1116,6 +1116,7 @@ export type PlatformLink = components['schemas']['PlatformLinkDto'];
 /** RBAC-08 — the allowlist, whether it is enforcing, and your own address. */
 export type IpAllowlistStatus = components['schemas']['IpAllowlistStatusDto'];
 export type IpAllowlistRule = components['schemas']['IpAllowlistRuleDto'];
+export type IpAllowlistExemption = components['schemas']['IpAllowlistExemptionDto'];
 
 /**
  * The catalogue: a product, and the MT5 groups behind it.
@@ -1191,6 +1192,29 @@ export const adminApi = {
   /** Requires `settings.security.edit`. Refused when it is the last rule covering you. */
   async removeIpAllowlistRule(id: string): Promise<{ message: string }> {
     const { data } = await apiClient.delete<{ message: string }>(`/admin/ip-allowlist/${id}`);
+    return data;
+  },
+
+  /**
+   * Requires `settings.security.edit`. Lets one administrator reach the console
+   * from ANY network (0191) — their permissions are unchanged.
+   */
+  async addIpAllowlistExemption(input: {
+    adminId: string;
+    reason: string;
+  }): Promise<IpAllowlistStatus> {
+    const { data } = await apiClient.post<IpAllowlistStatus>(
+      '/admin/ip-allowlist/exemptions',
+      input,
+    );
+    return data;
+  },
+
+  /** Requires `settings.security.edit`. Refused for your own while you are outside the list. */
+  async removeIpAllowlistExemption(adminId: string): Promise<{ message: string }> {
+    const { data } = await apiClient.delete<{ message: string }>(
+      `/admin/ip-allowlist/exemptions/${adminId}`,
+    );
     return data;
   },
   /**

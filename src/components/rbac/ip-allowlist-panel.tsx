@@ -78,6 +78,8 @@ export function IpAllowlistPanel({
   const yourIp = query.data?.yourIp ?? null;
   const enforced = query.data?.enforced ?? false;
   const disabledByConfig = query.data?.disabledByConfig ?? false;
+  // An exempt reader (0191) reaches the console from anywhere: no rule can lock them out.
+  const youAreExempt = query.data?.youAreExempt ?? false;
   /*
    * The FIRST rule is the dangerous one: it turns enforcement on, and if it does
    * not cover the person adding it they lose this screen. The API refuses that
@@ -201,10 +203,16 @@ export function IpAllowlistPanel({
               enforcement. Repeating it on every subsequent add would train
               people to ignore it.
             */}
-            {isFirstRule && (
-              <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-[11px] text-warning">
-                {t('ipAllowlist.firstRuleWarning')}
+            {youAreExempt ? (
+              <p className="rounded-lg border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
+                {t('ipAllowlist.youAreExempt')}
               </p>
+            ) : (
+              isFirstRule && (
+                <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-[11px] text-warning">
+                  {t('ipAllowlist.firstRuleWarning')}
+                </p>
+              )
             )}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
