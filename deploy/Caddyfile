@@ -11,13 +11,9 @@
 	email {$ACME_EMAIL}
 }
 
-# A release recreates the app container, and for a second or two nothing listens.
-# Caddy holds a request whose connection was REFUSED (so it never reached the app,
-# and retrying cannot run anything twice) for up to 10 s instead of answering 502.
-(restart_grace) {
-	lb_try_duration 10s
-	lb_try_interval 250ms
-}
+# Which colour of each app receives traffic is in active-admin.caddy and
+# active-portal.caddy (one `reverse_proxy` each), written and validated by
+# release.sh, which then reloads Caddy gracefully: a release never drops a connection.
 
 (common) {
 	encode zstd gzip
@@ -29,14 +25,10 @@
 
 {$ADMIN_DOMAIN} {
 	import common
-	reverse_proxy admin:3002 {
-		import restart_grace
-	}
+	import /etc/caddy/active-admin.caddy
 }
 
 {$PORTAL_DOMAIN} {
 	import common
-	reverse_proxy portal:3000 {
-		import restart_grace
-	}
+	import /etc/caddy/active-portal.caddy
 }

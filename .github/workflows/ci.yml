@@ -537,7 +537,6 @@ jobs:
       # ONE compose project for both frontends, behind one Caddy.
       DEPLOY_DIR: oxshare-web
       SERVICE: admin
-      IMAGE_VAR: ADMIN_IMAGE
     steps:
       - name: Validate secrets
         env:
@@ -606,7 +605,7 @@ jobs:
           COMMON="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
           ssh -i "$KEY" -p "$PORT" $COMMON "$SSH_USER@$HOST" "mkdir -p $DEPLOY_DIR"
           # The shared stack (a TWIN of the other frontend repo's deploy/).
-          scp -i "$KEY" -P "$PORT" $COMMON deploy/docker-compose.yml deploy/Caddyfile \
+          scp -i "$KEY" -P "$PORT" $COMMON deploy/docker-compose.yml deploy/Caddyfile deploy/release.sh \
             "$SSH_USER@$HOST:$DEPLOY_DIR/"
 
           REMOTE_SCRIPT="$(cat <<'REMOTE'
@@ -614,10 +613,10 @@ jobs:
           cd "$DEPLOY_DIR"
           touch .env && chmod 600 .env
 
-          # ONE line at a time, never a re-render: .env also holds the OTHER
-          # app's image, which this release must leave exactly as it is.
-          # Single-quoted, because compose expands $VAR in unquoted values
-          # (DEPLOY-PLAYBOOK §8).
+          # The domains, ONE line at a time: .env is shared with the other app's
+          # deploys. Single-quoted, because compose expands $VAR in unquoted
+          # values (DEPLOY-PLAYBOOK §8). Images are NOT here: release.sh keeps
+          # each app's colours in release.env.
           setkv() {
             { grep -v "^$1=" .env || true; printf "%s='%s'\n" "$1" "$2"; } > .env.next
             mv -f .env.next .env && chmod 600 .env
@@ -625,42 +624,15 @@ jobs:
           setkv ADMIN_DOMAIN "$ADMIN_DOMAIN"
           setkv PORTAL_DOMAIN "$PORTAL_DOMAIN"
           setkv ACME_EMAIL "$ACME_EMAIL"
-          setkv "$IMAGE_VAR" "$IMAGE"
 
           echo "$DOCKER_SECRET" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          echo "==> Pulling $SERVICE"
-          docker compose pull "$SERVICE" </dev/null
-          # Caddy is started if it is not running and otherwise left alone; only
-          # THIS app is recreated. `</dev/null`: this script arrives on stdin, and
-          # compose would drain the rest of it (DEPLOY-PLAYBOOK §1).
-          echo "==> Recreating $SERVICE"
-          docker compose up -d caddy "$SERVICE" </dev/null
-          echo "==> Applying Caddyfile"
-          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile </dev/null \
-            || docker compose up -d --force-recreate caddy </dev/null
-
-          echo "==> Waiting for $SERVICE to become healthy"
-          cid=$(docker compose ps -q "$SERVICE")
-          status=starting
-          for i in $(seq 1 40); do
-            status=$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo starting)
-            [ "$status" = healthy ] && break
-            sleep 3
-          done
-          if [ "$status" != healthy ]; then
-            docker compose logs --tail 80 "$SERVICE"
-            echo "::error::$SERVICE did not become healthy (status=$status). Roll back: put the previous tag in $IMAGE_VAR and 'docker compose up -d $SERVICE'."
-            exit 1
-          fi
-          echo "$SERVICE is healthy."
-
+          # Zero downtime: the new version starts BESIDE the live one, Caddy
+          # switches once it is healthy, the old one drains. A release that never
+          # becomes healthy is stopped and the live version carries on.
+          # Rollback: `bash release.sh rollback <app>` on the server.
+          bash release.sh deploy "$SERVICE" "$IMAGE"
           docker logout >/dev/null 2>&1 || true
-          # SHA tags are never dangling: keep the running one and the previous
-          # (the rollback target), remove the rest, or the disk fills.
-          docker images --format '{{.Repository}}:{{.Tag}}' "${IMAGE%:*}" \
-            | grep -v ':latest$' | tail -n +3 | xargs -r docker rmi >/dev/null 2>&1 || true
-          docker image prune -f >/dev/null 2>&1 || true
-          docker compose ps
+          bash release.sh status
           REMOTE
           )"
 
@@ -669,7 +641,6 @@ jobs:
           {
             printf 'DEPLOY_DIR=%q\n' "$DEPLOY_DIR"
             printf 'SERVICE=%q\n' "$SERVICE"
-            printf 'IMAGE_VAR=%q\n' "$IMAGE_VAR"
             printf 'IMAGE=%q\n' "$DOCKER_USERNAME/oxshare-crm-admin:$GITHUB_SHA"
             printf 'DOCKER_USERNAME=%q\n' "$DOCKER_USERNAME"
             printf 'DOCKER_SECRET=%q\n' "$DOCKER_SECRET"

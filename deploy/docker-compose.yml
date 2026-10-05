@@ -1,10 +1,10 @@
 # The frontends server (`ssh oxshare-web`, Paris): Caddy + the admin console + the
 # client portal. TWIN FILE: identical in oxshare-crm-admin and oxshare-crm-client
 # (deploy/), because one server runs both apps and either repo's deploy ships it.
-# Change both together. Each deploy recreates ONLY its own app:
+# Change both together. Releases go through release.sh (zero downtime, blue-green),
+# one app at a time; the other app is never touched:
 #
-#   docker compose up -d caddy admin     # an admin release
-#   docker compose up -d caddy portal    # a portal release
+#   bash release.sh deploy admin <image>     bash release.sh rollback portal
 #
 # Only Caddy publishes host ports. Docker writes its own iptables rules and bypasses
 # UFW, so any published port is open to the whole internet whatever `ufw status`
@@ -31,6 +31,7 @@ x-app: &app
 services:
   caddy:
     image: caddy:2
+    container_name: oxshare_web_caddy
     restart: unless-stopped
     # HTTP/3 needs UDP/443. Delivery to THIS server was measured on 5 Oct 2026 (a
     # listener in a container received probes from outside Hostinger and from the
@@ -47,25 +48,47 @@ services:
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Which colour of each app is live; written by release.sh (it creates both
+      # before Caddy first starts, or Docker would mount a directory instead).
+      - ./active-admin.caddy:/etc/caddy/active-admin.caddy:ro
+      - ./active-portal.caddy:/etc/caddy/active-portal.caddy:ro
       # caddy_data HOLDS THE CERTIFICATES AND THE ACME ACCOUNT KEY. Deleting it
       # forces re-issuance, and Let's Encrypt rate-limits that per domain per week.
       - caddy_data:/data
       - caddy_config:/config
-    # No depends_on: an admin release must never need the portal, nor the reverse.
-    # An app that is down or not yet deployed is Caddy's 502 for that one site.
+    # No depends_on: Caddy must never wait for, or restart with, an app.
     <<: *logging
 
-  admin:
+  # ── Each app as TWO services: zero-downtime releases (release.sh) ──────────
+  #
+  # A release starts the new version in the idle colour BESIDE the live one,
+  # waits for its health check, switches Caddy (graceful reload), then stops the
+  # old one. Which colour is live, and each colour's image, live in release.env.
+  # Each service has its own profile, so a bare `docker compose up -d` starts
+  # Caddy only: only release.sh starts an app.
+  admin_blue:
     <<: *app
-    # Built from oxshare-crm-admin with the API's origin baked in (see its
-    # Dockerfile), tagged by git SHA: rollback is `ADMIN_IMAGE=<previous tag>` +
-    # `up -d admin`. The placeholder lets the file parse before the FIRST admin
-    # release, when only the portal has ever been deployed; it is never started.
-    image: ${ADMIN_IMAGE:-oxshare-crm-admin:not-deployed-yet}
+    image: ${ADMIN_BLUE:-oxshare-crm-admin:unreleased}
+    container_name: oxshare_admin_blue
+    profiles: [admin_blue]
 
-  portal:
+  admin_green:
     <<: *app
-    image: ${PORTAL_IMAGE:-oxshare-crm-portal:not-deployed-yet}
+    image: ${ADMIN_GREEN:-oxshare-crm-admin:unreleased}
+    container_name: oxshare_admin_green
+    profiles: [admin_green]
+
+  portal_blue:
+    <<: *app
+    image: ${PORTAL_BLUE:-oxshare-crm-portal:unreleased}
+    container_name: oxshare_portal_blue
+    profiles: [portal_blue]
+
+  portal_green:
+    <<: *app
+    image: ${PORTAL_GREEN:-oxshare-crm-portal:unreleased}
+    container_name: oxshare_portal_green
+    profiles: [portal_green]
 
 volumes:
   caddy_data:

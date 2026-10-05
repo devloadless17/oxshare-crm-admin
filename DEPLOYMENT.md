@@ -4,12 +4,12 @@ A push to `production` runs `.github/workflows/ci.yml`: **verify → build → d
 deploys THIS app only. The portal lives on the same server and is never touched by this
 repo's deploy.
 
-|           |                                                                                                                            |
-| --------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Server    | Hostinger KVM 2, **Paris**, `31.97.52.63` (`ssh oxshare-web`), Ubuntu 26.04                                                |
-| On it     | `~/oxshare-web/`: one compose project for both frontends behind one Caddy (`deploy/`, a twin of the other frontend repo's) |
-| Image     | `<DOCKER_USERNAME>/oxshare-crm-admin`, tagged `:latest` + `:<git sha>`, **private** on Docker Hub                          |
-| Container | `admin` on port 3002, never published: only Caddy listens on 80/443                                                        |
+|            |                                                                                                                            |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Server     | Hostinger KVM 2, **Paris**, `31.97.52.63` (`ssh oxshare-web`), Ubuntu 26.04                                                |
+| On it      | `~/oxshare-web/`: one compose project for both frontends behind one Caddy (`deploy/`, a twin of the other frontend repo's) |
+| Image      | `<DOCKER_USERNAME>/oxshare-crm-admin`, tagged `:latest` + `:<git sha>`, **private** on Docker Hub                          |
+| Containers | `admin_blue` / `admin_green` (one live), never published: only Caddy listens on 80/443                                     |
 
 ## GitHub secrets
 
@@ -34,28 +34,30 @@ the server's `.env`.
 Before the first deploy, create `<DOCKER_USERNAME>/oxshare-crm-admin` on Docker Hub as **private**: the
 build refuses a public or missing repository.
 
-## What a deploy does
+## What a deploy does (zero downtime)
 
 1. Builds the image with `API_ORIGIN` baked in, and pushes both tags.
-2. Copies `deploy/docker-compose.yml` and `deploy/Caddyfile` to `~/oxshare-web/`.
-3. Rewrites ONLY the `ADMIN_IMAGE` line of the server's `.env` (the portal's line is left as it is).
-4. Pulls, recreates the `admin` container, reloads Caddy, and waits for `admin` to be healthy.
-5. Keeps the previous image (the rollback target) and removes older ones.
+2. Copies `deploy/docker-compose.yml`, `deploy/Caddyfile` and `deploy/release.sh` to `~/oxshare-web/`.
+3. Writes the domains into the server's `.env` (one line each).
+4. `bash release.sh deploy admin <image>`: the new version starts in the idle colour
+   (`admin_blue` / `admin_green`) BESIDE the live one, must pass its health check, Caddy is
+   switched with a graceful reload, and only then the old one is stopped (20 s to drain). A
+   version that never becomes healthy is stopped and the live one carries on. The other app is
+   never touched.
 
-Caddy holds a request for up to 10 s while the container restarts, so a release shows no
-error page (232 of 232 requests answered 200 during a rehearsed redeploy, 5 Oct 2026).
+Rehearsed on the real server (6 Oct 2026), under continuous traffic: a release served 531/531
+requests (69/69 slow ones, 24 in flight at the switch), the other app 316/316 untouched; a
+release failing its health check 1230/1230, all from the live version.
 
 ## Rollback
 
 ```bash
 ssh oxshare-web
-cd oxshare-web
-docker images "*/oxshare-crm-admin"                       # the previous tag is still here
-sed -i "s|^ADMIN_IMAGE=.*|ADMIN_IMAGE='<user>/oxshare-crm-admin:<previous sha>'|" .env
-docker compose up -d admin
+cd oxshare-web && bash release.sh rollback admin     # the same zero-downtime switch back
+bash release.sh status                               # which colour is live, and each image
 ```
 
-Or re-run the workflow from the older commit.
+The previous version's image is kept on the server for exactly this.
 
 ## Verifying a release
 
