@@ -71,6 +71,12 @@ export interface KindDisplay {
   href: (n: TaskFacts) => string;
   /** Rendered with the alert icon and tone instead of the category's. */
   alert?: boolean;
+  /**
+   * The decision that ends this task WITHOUT the item moving, for a kind whose
+   * item may rightly stay as it is — the backend catalogue's `closeOutcome`.
+   * Offered on the row; everything else ends only by handling its item.
+   */
+  close?: { actionKey: MessageKey; titleKey: MessageKey; introKey: MessageKey };
 }
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
@@ -205,6 +211,12 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
       vars: { amount: amountOf(n) },
     }),
     href: (n) => opened('/commissions', n, 'accrualId'),
+    // Reversing is done on the commission; keeping it is decided here.
+    close: {
+      actionKey: 'notifications.keepCommission',
+      titleKey: 'notifications.keepCommissionTitle',
+      introKey: 'notifications.keepCommissionIntro',
+    },
   },
   'admin.transfer.stuck': {
     titleKey: 'notifications.taskStuckTransfer',
@@ -279,6 +291,7 @@ export function outcomeOf(n: AdminNotification): Outcome {
   if (outcome === 'reset') return { labelKey: 'notifications.outcomeReset', tone: NEUTRAL };
   if (outcome === 'resolved') return { labelKey: 'notifications.outcomeResolved', tone: DONE };
   if (outcome === 'reversed') return { labelKey: 'notifications.outcomeReversed', tone: DONE };
+  if (outcome === 'kept') return { labelKey: 'notifications.outcomeKept', tone: NEUTRAL };
   if (outcome === 'approved') return { labelKey: 'notifications.outcomeApproved', tone: DONE };
   if (outcome === 'settled') return { labelKey: 'notifications.outcomeCompleted', tone: DONE };
   if (outcome === 'success') {

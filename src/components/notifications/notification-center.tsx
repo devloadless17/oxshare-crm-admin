@@ -11,8 +11,8 @@ import { NotificationFeed } from './notification-feed';
 type View = 'inbox' | 'history';
 
 /**
- * The bell's panel: Inbox — what still waits on you — and History — everything,
- * with how it ended. Nothing else.
+ * The bell's panel: Inbox — every task nobody has handled yet — and History —
+ * the handled ones, with how each ended and who ended it. Nothing else.
  *
  * No category chips, on the owner's call (25 Sep 2026): the inbox holds a
  * handful of tasks, each already saying what it is by its icon and its title,

@@ -9,14 +9,15 @@ import {
 import { keys } from '@/lib/query-keys';
 
 /**
- * Opening the item reads its task — the owner's rule that a notification
- * disappears once the admin has LOOKED at the thing it is about, however they
- * got there: the bell, the sidebar queue, a link pasted into a ticket.
+ * Opening the item marks its task SEEN — it stops reading as new in the bell,
+ * however the admin got there: the bell, the sidebar queue, a link pasted into
+ * a ticket. It does NOT take the task out of the Inbox: only handling the item
+ * does that (the owner's rule, 5 Oct 2026).
  *
  * Pass the subject's id only once the screen has actually loaded it, never
  * on a 403 or 404 where the reader saw nothing. Fires once per id. A failed
- * request is swallowed: the task stays in the inbox, which is the safe side of
- * a lost write — and the server scopes the marker anyway, so nothing here
+ * request is swallowed: the task merely keeps reading as new, the safe side
+ * of a lost write — and the server scopes the marker anyway, so nothing here
  * decides whose rows it touches.
  */
 export function useMarkSubjectRead(
@@ -28,8 +29,8 @@ export function useMarkSubjectRead(
 
   useEffect(() => {
     // Put away (the record closed, another loading): the next showing of the
-    // same record is a new look and reads its task again — it may have been
-    // marked unread in the meantime.
+    // same record is a new look and marks its task again — a new task about
+    // the same item may have landed in the meantime.
     if (!subjectId) {
       marked.current = null;
       return;

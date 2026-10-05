@@ -22,16 +22,18 @@ export type AdminNotificationCategory = AdminNotification['category'];
 export type AdminNotificationPage = components['schemas']['AdminNotificationListResponseDto'];
 export type AdminNotificationSummary = components['schemas']['AdminNotificationSummaryDto'];
 export type AdminNotificationMark = components['schemas']['AdminNotificationMarkResponseDto'];
+export type AdminNotificationClosed = components['schemas']['AdminNotificationCloseResponseDto'];
 export type AdminNotificationsMarkAllRead =
   components['schemas']['NotificationsMarkAllReadResponseDto'];
 export type AdminNotificationSubjectKind =
   components['schemas']['AdminNotificationsReadSubjectDto']['subjectKind'];
 
 export interface AdminNotificationQuery {
-  /** `inbox`: unread AND not yet handled by anyone. `history`: everything. */
+  /**
+   * `inbox`: not yet handled by anyone, opened or not. `history`: handled, with
+   * how it ended. A task is in exactly one of the two.
+   */
   view: 'inbox' | 'history';
-  /** History only: `open` = still waiting on somebody, `handled` = resolved. */
-  status?: 'open' | 'handled';
   category?: AdminNotificationCategory;
   /** A client — Portal ID (exact) or part of a name or email. */
   q?: string;
@@ -42,7 +44,6 @@ export interface AdminNotificationQuery {
 export const adminNotificationsApi = {
   async list(query: AdminNotificationQuery, signal?: AbortSignal): Promise<AdminNotificationPage> {
     const params = new URLSearchParams({ view: query.view });
-    if (query.status) params.set('status', query.status);
     if (query.category) params.set('category', query.category);
     if (query.q?.trim()) params.set('q', query.q.trim());
     if (query.cursor) params.set('cursor', query.cursor);
@@ -54,7 +55,7 @@ export const adminNotificationsApi = {
     return data;
   },
 
-  /** The badge: tasks waiting on the reader, in total and per category. */
+  /** The badge: every task still waiting on the reader, in total and per category. */
   async summary(signal?: AbortSignal): Promise<AdminNotificationSummary> {
     const { data } = await apiClient.get<AdminNotificationSummary>(
       '/admin/notifications/unread-count',
@@ -63,35 +64,26 @@ export const adminNotificationsApi = {
     return data;
   },
 
+  /** The reader opened the task — it stops reading as new. It stays until handled. */
   async markRead(id: string): Promise<AdminNotificationMark> {
     const { data } = await apiClient.post<AdminNotificationMark>(`/admin/notifications/${id}/read`);
     return data;
   },
 
-  /** The undo of a mark-read. */
-  async markUnread(id: string): Promise<AdminNotificationMark> {
-    const { data } = await apiClient.post<AdminNotificationMark>(
-      `/admin/notifications/${id}/unread`,
-    );
-    return data;
-  },
-
   /**
-   * Clear the reader's unread markers — every category, or one — never past
-   * `upTo`, the `createdAt` of the newest row they were shown. A task that
-   * arrived after the list rendered stays unread.
+   * End a task by the decision its kind declares for leaving the item as it is
+   * (a clawback: the partner keeps the commission). Ends it for every admin;
+   * 409 when somebody handled it first.
    */
-  async markAllRead(
-    options: { category?: AdminNotificationCategory; upTo?: string } = {},
-  ): Promise<AdminNotificationsMarkAllRead> {
-    const { data } = await apiClient.post<AdminNotificationsMarkAllRead>(
-      '/admin/notifications/read-all',
-      options,
+  async close(id: string, reason: string): Promise<AdminNotificationClosed> {
+    const { data } = await apiClient.post<AdminNotificationClosed>(
+      `/admin/notifications/${id}/close`,
+      { reason },
     );
     return data;
   },
 
-  /** The reader opened the item itself (a KYC review) — clear their tasks about it. */
+  /** The reader opened the item itself (a KYC review) — their tasks about it are seen. */
   async markSubjectRead(
     subjectKind: AdminNotificationSubjectKind,
     subjectId: string,

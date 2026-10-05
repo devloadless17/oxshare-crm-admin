@@ -23,8 +23,6 @@ vi.mock('@/lib/api/admin-notifications', () => ({
     list,
     summary,
     markRead: vi.fn(),
-    markUnread: vi.fn(),
-    markAllRead: vi.fn(),
     markSubjectRead: vi.fn(),
   },
 }));

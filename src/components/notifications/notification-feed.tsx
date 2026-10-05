@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { CheckCheck, Inbox } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { useInfiniteResource } from '@/hooks/use-infinite-resource';
 import {
@@ -13,11 +12,11 @@ import {
 } from '@/lib/api/admin-notifications';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
-import { toastError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { groupByDay } from './day-groups';
 import { refreshNotifications } from './refresh';
 import { useMinuteTick } from './use-minute-tick';
+import { CloseTaskDialog } from './close-task-dialog';
 import { NotificationItem } from './notification-item';
 
 type FeedQuery = Pick<AdminNotificationQuery, 'view' | 'q'>;
@@ -26,23 +25,18 @@ type FeedQuery = Pick<AdminNotificationQuery, 'view' | 'q'>;
  * The list of tasks — the bell's panel and the notifications page both render
  * this, so the two cannot drift into two behaviours for one feed.
  *
- * ## What disappears, and when
+ * ## A task leaves the Inbox when it is HANDLED, and only then
  *
- * The Inbox holds what still waits on the reader: unread AND not yet handled by
- * anybody. A row leaves it three ways, and each is immediate:
+ * The owner's rule (5 Oct 2026, from the buyer's old CRM): the Inbox is every
+ * task nobody has handled yet, and History is the handled ones, with who did
+ * what. Opening a task marks it SEEN — the row stops reading as new — and
+ * nothing more: it stays until somebody approves, rejects or resolves the
+ * item. The backend resolves it for every admin at once and the socket tells
+ * this tab, so nothing here has to ask.
  *
- *  - OPENED — the reader followed it to the item; it is marked read.
- *  - CLEARED with ✓ — marked read in place, with an Undo (the one mistake worth
- *    making reversible: "I cleared that too soon").
- *  - HANDLED by anyone — the backend resolves it for every admin at once and
- *    the socket tells this tab; nothing here has to ask.
- *
- * A row cleared from the Inbox is hidden AT ONCE and restored if the server
- * refuses, so the list never lags the click. History keeps every row, with how
- * it ended.
- *
- * "Mark all as read" marks only up to the newest row ON SCREEN (`upTo`) — a
- * task that arrived after the list rendered stays unread.
+ * There is deliberately no clear (✓), "mark all as read" or "mark unread". Each
+ * existed to take a task out of the Inbox unhandled — clicking a deposit filed
+ * it under History although nobody had approved it, the reported complaint.
  */
 export function NotificationFeed({
   query,
@@ -66,65 +60,20 @@ export function NotificationFeed({
   const feed = useInfiniteResource(keys.notifications.feed(query), (cursor, signal) =>
     adminNotificationsApi.list({ ...query, cursor, limit: pageSize }, signal),
   );
-  // Cleared from the Inbox and hidden until the server's answer replaces the list.
-  const [hidden, setHidden] = React.useState<ReadonlySet<string>>(() => new Set());
-  const hide = (id: string, on: boolean) =>
-    setHidden((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  const refresh = () => refreshNotifications(queryClient);
   // Relative times and day groups move on with the clock while the list is open.
   useMinuteTick();
 
-  const markUnread = useMutation({
-    mutationFn: (item: AdminNotification) => adminNotificationsApi.markUnread(item.id),
-    onSuccess: (_data, item) => hide(item.id, false),
-    onError: (error) => toastError(error, t('notifications.markUnreadFailed')),
-    onSettled: refresh,
+  // Opening a task marks it seen. Silent on failure: the navigation the reader
+  // asked for must not be interrupted by a marker that retries on the next
+  // visit, and the row stays in the Inbox either way.
+  const markSeen = useMutation({
+    mutationFn: (item: AdminNotification) => adminNotificationsApi.markRead(item.id),
+    onSettled: () => refreshNotifications(queryClient),
   });
 
-  const markRead = useMutation({
-    mutationFn: ({ item }: { item: AdminNotification; undoable: boolean }) =>
-      adminNotificationsApi.markRead(item.id),
-    onMutate: ({ item }) => {
-      if (query.view === 'inbox') hide(item.id, true);
-    },
-    onSuccess: (_data, { item, undoable }) => {
-      if (!undoable) return;
-      toast(t('notifications.markedRead'), {
-        action: { label: t('notifications.undo'), onClick: () => markUnread.mutate(item) },
-      });
-    },
-    // An opened row fails silently — the navigation the reader asked for must
-    // not be interrupted by a marker that simply retries on the next visit.
-    onError: (error, { item, undoable }) => {
-      hide(item.id, false);
-      if (undoable) toastError(error, t('notifications.markReadFailed'));
-    },
-    onSettled: refresh,
-  });
-
-  const visible = feed.items.filter((item) => !hidden.has(item.id));
-
-  const markAll = useMutation({
-    mutationFn: () => adminNotificationsApi.markAllRead({ upTo: visible[0]?.createdAt }),
-    onSuccess: () => setConfirmingAll(false),
-    onError: (error) => toastError(error, t('notifications.markAllReadFailed')),
-    onSettled: refresh,
-  });
-  /*
-   * One click would empty the whole inbox with no way back — every waiting task
-   * the reader holds, not only the rows on screen. So it asks, inline, once.
-   * And never under a search: the endpoint marks by time, not by the search,
-   * so the button would clear far more than the rows it appears to be about.
-   */
-  const [confirmingAll, setConfirmingAll] = React.useState(false);
-
-  const hasUnread = !filtered && visible.some((item) => !item.readAt);
-  const groups = groupByDay(visible);
+  const groups = groupByDay(feed.items);
+  // The task whose "leave it as it is" decision is being taken (a kept clawback).
+  const [deciding, setDeciding] = React.useState<AdminNotification | null>(null);
 
   return (
     <AsyncBoundary
@@ -136,52 +85,14 @@ export function NotificationFeed({
       error={feed.error}
       fill
     >
-      {visible.length === 0 ? (
+      {feed.items.length === 0 ? (
         <EmptyFeed view={query.view} filtered={filtered} action={emptyAction} />
       ) : (
         <div className="space-y-4">
-          {(hasUnread || feed.refreshFailed) && (
-            <div className="flex items-center justify-between gap-3">
-              <p
-                className="text-[11px] text-muted-foreground"
-                role={feed.refreshFailed ? 'status' : undefined}
-              >
-                {feed.refreshFailed ? t('notifications.refreshFailed') : ''}
-              </p>
-              {hasUnread && !confirmingAll && (
-                <button
-                  type="button"
-                  onClick={() => setConfirmingAll(true)}
-                  className="cursor-pointer text-xs font-medium text-primary hover:underline focus-outline"
-                >
-                  {t('notifications.markAllRead')}
-                </button>
-              )}
-              {hasUnread && confirmingAll && (
-                <span role="group" className="flex items-center gap-3 text-xs">
-                  <span className="text-muted-foreground">
-                    {t('notifications.markAllReadConfirm')}
-                  </span>
-                  <button
-                    type="button"
-                    autoFocus
-                    onClick={() => markAll.mutate()}
-                    disabled={markAll.isPending}
-                    className="cursor-pointer font-medium text-primary hover:underline disabled:opacity-50 focus-outline"
-                  >
-                    {t('notifications.markAllReadYes')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingAll(false)}
-                    className="cursor-pointer text-muted-foreground hover:underline focus-outline"
-                  >
-                    {t('common.cancel')}
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
+          {/* Mounted while empty, so a screen reader announces the text when it lands. */}
+          <p className="text-[11px] text-muted-foreground empty:hidden" role="status">
+            {feed.refreshFailed ? t('notifications.refreshFailed') : ''}
+          </p>
           {groups.map((group) => (
             <section key={group.key} aria-labelledby={`notifications-day-${group.key}`}>
               <h3
@@ -197,13 +108,10 @@ export function NotificationFeed({
                     item={item}
                     comfortable={comfortable}
                     onOpen={(opened) => {
-                      if (!opened.readAt) markRead.mutate({ item: opened, undoable: false });
+                      if (!opened.readAt) markSeen.mutate(opened);
                       onNavigate?.();
                     }}
-                    onMarkRead={(cleared) => markRead.mutate({ item: cleared, undoable: true })}
-                    onMarkUnread={
-                      query.view === 'history' ? (row) => markUnread.mutate(row) : undefined
-                    }
+                    onDecide={query.view === 'inbox' ? setDeciding : undefined}
                   />
                 ))}
               </ul>
@@ -226,6 +134,11 @@ export function NotificationFeed({
           )}
         </div>
       )}
+      <CloseTaskDialog
+        task={deciding}
+        onClose={() => setDeciding(null)}
+        onDone={() => refreshNotifications(queryClient)}
+      />
     </AsyncBoundary>
   );
 }

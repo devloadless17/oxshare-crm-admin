@@ -20,12 +20,13 @@ import {
  *    the stronger claim, neither is a REVIEWER whose territory is e2e-alpha
  *    without the intake pool: they could act on the task, but the client is
  *    outside their territory, and the server's read-time scope says so;
- *  - OPENING the task in one tab takes it out of the other tab's inbox, live —
- *    "if he clicked it, it should disappear";
- *  - History keeps it, still "Needs action";
- *  - a DIFFERENT admin approves, and the reviewer's History reads
- *    "Approved · <them>" without a reload — "when it is handled it should
- *    disappear", and say who handled it.
+ *  - OPENING the task in one tab marks it seen in the other, live — and it
+ *    STAYS in the inbox: clicking is not handling (the owner's rule, 5 Oct
+ *    2026, reversing "if he clicked it, it should disappear");
+ *  - History does not hold it while it waits;
+ *  - a DIFFERENT admin approves: it leaves the reviewer's inbox and their
+ *    History reads "Approved · <them>", without a reload — "when it is handled
+ *    it should disappear", and say who handled it.
  *
  * Costs one registration (the portal caps sign-ups at 10/h) and three KYC
  * uploads, like the realtime suite beside it.
@@ -70,7 +71,7 @@ test.describe('admin notifications are tasks', () => {
     }
   });
 
-  test('ring the reviewers in territory, clear on opening, and resolve when a peer approves', async ({
+  test('ring the reviewers in territory, keep the task when opened, and resolve when a peer approves', async ({
     page,
     browser,
   }) => {
@@ -143,20 +144,34 @@ test.describe('admin notifications are tasks', () => {
         'a reviewer outside the territory was told about this client',
       ).toBe(false);
 
-      // 3. Opening it in ANOTHER tab clears it from this one's inbox, live.
+      // 3. Opening it in ANOTHER tab marks it seen here, live — and it stays.
+      await expect(task.getByText(/Unread/)).toHaveCount(1);
       const other = await openBell(otherTab);
       await taskRow(other, portalId).getByRole('link').click();
       await expect(otherTab).toHaveURL(new RegExp(`/kyc/${portalId}$`));
-      await expect(task, 'opened elsewhere, still in this inbox').toBeHidden({
+      await expect(task.getByText(/Unread/), 'opened elsewhere, still new here').toHaveCount(0, {
         timeout: BUDGET_MS,
       });
+      await expect(task, 'opening it took it out of the inbox').toBeVisible();
 
-      // 4. History keeps it — still waiting on a decision.
+      // 4. History does not hold it while it waits on a decision. (History has
+      // loaded — a row or its empty state — before the absence counts.)
       await reviewer.getByRole('tab', { name: 'History' }).click();
-      const history = taskRow(reviewer, portalId);
-      await expect(history.getByText('Needs action')).toBeVisible({ timeout: BUDGET_MS });
+      await expect(reviewer.getByRole('tab', { name: 'History' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      await expect(
+        reviewer.getByRole('listitem').or(reviewer.getByText('Nothing handled yet')).first(),
+      ).toBeVisible({ timeout: BUDGET_MS });
+      await expect(taskRow(reviewer, portalId), 'a waiting task was filed in History').toHaveCount(
+        0,
+      );
+      await reviewer.getByRole('tab', { name: /inbox/i }).click();
+      await expect(task).toBeVisible({ timeout: BUDGET_MS });
 
-      // 5. A different operator approves; this History says so, without a reload.
+      // 5. A different operator approves: it leaves this inbox, and History says
+      // who handled it — without a reload.
       const peerName = `E2E Notif Peer ${Date.now()}`;
       const invited = await admin.post('/admin/invite', {
         email: `e2e-ntf-peer-${Date.now()}@oxshare-e2e.test`,
@@ -173,7 +188,9 @@ test.describe('admin notifications are tasks', () => {
           headers: peer.headers,
         });
         expect(approved.ok(), `the peer's approval answered ${approved.status()}`).toBe(true);
-        await expect(history.getByText(`Approved · ${peerName}`)).toBeVisible({
+        await expect(task, 'a handled task kept showing').toBeHidden({ timeout: BUDGET_MS });
+        await reviewer.getByRole('tab', { name: 'History' }).click();
+        await expect(taskRow(reviewer, portalId).getByText(`Approved · ${peerName}`)).toBeVisible({
           timeout: BUDGET_MS,
         });
       } finally {

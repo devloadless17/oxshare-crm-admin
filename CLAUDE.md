@@ -120,7 +120,7 @@ The socket (`hooks/use-realtime.ts`, a twin) carries three events into
 | event                  | means                                               | maps through                |
 | ---------------------- | --------------------------------------------------- | --------------------------- |
 | `notification.created` | a client did something that needs handling (a TASK) | `queryKeysFor(kind)`        |
-| `notification.changed` | one of YOUR tasks was read elsewhere or HANDLED     | `keys.notifications.all()`  |
+| `notification.changed` | one of YOUR tasks was seen elsewhere or HANDLED     | `keys.notifications.all()`  |
 | `resource.changed`     | another OPERATOR decided something                  | `resourceKeysFor(resource)` |
 
 `notification.changed` is what makes a handled task leave every inbox: the backend resolves it
@@ -144,11 +144,17 @@ labels; keyed by the backend's enum, so a new kind is a compile error), `notific
 (badge = inbox count, the socket), `notification-center.tsx` (Inbox / History and nothing else —
 **no category chips or status filters, on the owner's call**: a handful of tasks is read, not sorted
 through, and what a task IS is on the row already; the full page keeps one search, in History),
-`notification-feed.tsx` (shared by the sheet and `/notifications`: day groups, load more, clear
-with Undo, mark-all bounded by `upTo`), `notification-item.tsx`, `realtime-keys.ts`.
-Opening the panel marks nothing; a task leaves the inbox when the reader opens or clears it, or
-when anybody handles it. **Many arrivals are ONE announcement**: the transfer scheduler announces
-every transfer that stuck while the bridge was down in one pass, so the bell gathers arrivals within
+`notification-feed.tsx` (shared by the sheet and `/notifications`: day groups, load more),
+`notification-item.tsx`, `realtime-keys.ts`.
+Opening the panel marks nothing. Opening a task marks it SEEN (it un-bolds, the dot goes) and it
+stays in the Inbox, and on the badge, until anybody handles it; History holds only handled tasks
+(the owner's rule, 5 Oct 2026, backend 0189). There is no clear, mark-all or mark-unread control,
+on purpose: each took a task out of the Inbox unhandled, which is what the buyer reported.
+The one control a row may carry is a DECISION its kind declares for leaving the item as it is
+(`close` in `catalogue.ts`; only the clawback's "Keep commission", via `close-task-dialog.tsx`, a
+reason required) — an answer that ends the task for everyone, never a dismiss. A handled task is
+never drawn as new: the dot and tint belong to waiting tasks nobody here has opened.
+**Many arrivals are ONE announcement**: the transfer scheduler announces every transfer that stuck while the bridge was down in one pass, so the bell gathers arrivals within
 400 ms — one refetch, one chime (never closer than 3 s), one toast (the task when alone, "N new tasks
 need your action" under one toast id when not), and no toast while the panel is open.
 
@@ -165,14 +171,14 @@ Three things outside the folder make that true, and each is easy to break withou
   note, why it needs attention), `omit` and `extraFields` (what has no room in a cell) shape the
   rest. Integrity: it shows ONLY the record the URL names (the cache's previous one would put a live
   Approve on the wrong record), a missing / out-of-territory / malformed id reads "not available",
-  and the record's task is read once the record is on screen. The data is the desk's own list
+  and the record's task is marked seen once the record is on screen. The data is the desk's own list
   endpoint asked for one `id` (backend: every desk list takes `?id=`, scoped and masked like any
   filter). **Never deep-link by typing into a search box** (`?q=<client>`): it filtered by client,
   read as the reader's own search and outlived the visit — the reported defect, retired on every
   desk and on Financial's "Open in desk". A new desk a task links to needs `useOpenedRecord`, an
   `actionsFor`, and `<RecordSheet>`. KYC keeps its own page (`/kyc/<portalId>`).
-- **Looking at the item reads its task.** The KYC review calls `useMarkSubjectRead('kyc', id)`
-  once the submission has LOADED — never on a 403/404 — with the response's id (the client's Portal
+- **Looking at the item marks its task seen** (never removes it). The KYC review calls
+  `useMarkSubjectRead('kyc', id)` once the submission has LOADED — never on a 403/404 — with the response's id (the client's Portal
   ID, their only identifier since backend 0159), not the URL's, which may carry `#` or spaces.
 - **An attention task has a finish line**: `components/financial/resolve-attention-dialog.tsx`
   ("Mark resolved", a note of 10–500 characters, the DTO's bounds), opened from the Financial row
