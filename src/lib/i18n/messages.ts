@@ -110,6 +110,31 @@ export const messages = {
   'ipAllowlist.removeTitle': 'Remove this network rule?',
   'ipAllowlist.confirmRemove':
     'Remove {cidr}? If it is the last rule covering your own address the API will refuse, because it would lock you out.',
+  'ipAllowlist.youAreExempt':
+    'You can reach the console from any network, so no rule here can lock you out.',
+  // 0191 — administrators who bypass the list. The sentence says what it does
+  // NOT change, because "bypass" reads as "all powers" to anyone in a hurry.
+  'ipAllowlist.exempt.title': 'Admins who can connect from any network',
+  'ipAllowlist.exempt.subtitle':
+    'These administrators reach the console from anywhere. Only the network check is skipped: their permissions stay exactly as their role gives them, and API keys are never exempt.',
+  'ipAllowlist.exempt.empty': 'Nobody. Every administrator is held to the networks above.',
+  'ipAllowlist.exempt.grantedBy': 'Granted by {name} on {date}',
+  'ipAllowlist.exempt.grantedByUnknown': 'Granted on {date}',
+  'ipAllowlist.exempt.you': 'you',
+  'ipAllowlist.exempt.adminLabel': 'Administrator',
+  'ipAllowlist.exempt.adminPlaceholder': 'Choose an administrator',
+  'ipAllowlist.exempt.reasonLabel': 'Why',
+  'ipAllowlist.exempt.reasonPlaceholder': 'Owner, travels',
+  'ipAllowlist.exempt.add': 'Allow from any network',
+  'ipAllowlist.exempt.noAdminsView':
+    'Choosing an administrator needs the Admin users view permission.',
+  'ipAllowlist.exempt.noneLeft': 'Every active administrator is already exempt.',
+  'ipAllowlist.exempt.addFailed': 'Could not allow that administrator.',
+  'ipAllowlist.exempt.removeFailed': 'Could not remove that exemption.',
+  'ipAllowlist.exempt.remove': 'Remove {name}',
+  'ipAllowlist.exempt.removeTitle': 'Hold this administrator to the network rules?',
+  'ipAllowlist.exempt.confirmRemove':
+    '{name} will be refused on their next request from outside the networks above. Removing your OWN exemption from outside them is refused, because it would lock you out.',
   'nav.commissionPlans': 'Commission Plans',
   'nav.kyc': 'KYC review',
   'nav.kycBuilder': 'KYC builder',

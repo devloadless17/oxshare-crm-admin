@@ -4267,6 +4267,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ip-allowlist/exemptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Let an administrator reach the console from any network */
+        post: operations["AdminIpAllowlistController_addExemption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ip-allowlist/exemptions/{adminId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Withdraw an administrator's any-network access */
+        delete: operations["AdminIpAllowlistController_removeExemption"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/withdrawals/export": {
         parameters: {
             query?: never;
@@ -9846,6 +9880,17 @@ export interface components {
             createdBy: string;
             createdAt: string;
         };
+        IpAllowlistExemptionDto: {
+            adminId: string;
+            name: string;
+            email: string;
+            /** @example Owner, travels */
+            reason: string;
+            createdBy: string;
+            /** @description Null once the granter is deleted. */
+            createdByName: string | null;
+            createdAt: string;
+        };
         IpAllowlistStatusDto: {
             /** @description False while the list is empty. An empty list deliberately means the feature is OFF, so the deploy that adds the table cannot lock every administrator out (RBAC-08). */
             enforced: boolean;
@@ -9853,6 +9898,10 @@ export interface components {
             yourIp: string | null;
             disabledByConfig: boolean;
             rules: components["schemas"]["IpAllowlistRuleDto"][];
+            /** @description Administrators who may reach the console from any network (0192). */
+            exemptAdmins: components["schemas"]["IpAllowlistExemptionDto"][];
+            /** @description Whether the requesting administrator is exempt — they cannot lock themselves out. */
+            youAreExempt: boolean;
         };
         AddIpAllowlistRuleDto: {
             /**
@@ -9865,6 +9914,15 @@ export interface components {
              * @example Beirut office
              */
             label: string;
+        };
+        AddIpAllowlistExemptionDto: {
+            /** @description The administrator who may reach the console from any network. */
+            adminId: string;
+            /**
+             * @description Why — an exemption nobody remembers granting is one nobody removes.
+             * @example Owner, travels
+             */
+            reason: string;
         };
         PayoutPlanDto: {
             /** @enum {string} */
@@ -16735,6 +16793,50 @@ export interface operations {
             header?: never;
             path: {
                 id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
+            };
+        };
+    };
+    AdminIpAllowlistController_addExemption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddIpAllowlistExemptionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
+                };
+            };
+        };
+    };
+    AdminIpAllowlistController_removeExemption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adminId: string;
             };
             cookie?: never;
         };

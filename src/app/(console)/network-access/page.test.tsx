@@ -10,15 +10,31 @@ import NetworkAccessPage from './page';
  * `ip-allowlist-panel.test.tsx`; what this pins is the page: one title, and the
  * read/change split carried through to the controls.
  */
-const { getIpAllowlist, addIpAllowlistRule, removeIpAllowlistRule } = vi.hoisted(() => ({
+const {
+  getIpAllowlist,
+  addIpAllowlistRule,
+  removeIpAllowlistRule,
+  getAdminUsers,
+  addIpAllowlistExemption,
+} = vi.hoisted(() => ({
   getIpAllowlist: vi.fn(),
   addIpAllowlistRule: vi.fn(),
   removeIpAllowlistRule: vi.fn(),
+  getAdminUsers: vi.fn(),
+  addIpAllowlistExemption: vi.fn(),
 }));
 
 // Both exports — see the note in leverages/page.test.tsx.
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getIpAllowlist, addIpAllowlistRule, removeIpAllowlistRule } };
+  const api = {
+    admin: {
+      getIpAllowlist,
+      addIpAllowlistRule,
+      removeIpAllowlistRule,
+      getAdminUsers,
+      addIpAllowlistExemption,
+    },
+  };
   return { api, default: api };
 });
 
@@ -55,7 +71,24 @@ beforeEach(() => {
         createdAt: '2026-08-20T10:00:00.000Z',
       },
     ],
+    exemptAdmins: [
+      {
+        adminId: 'owner-1',
+        name: 'Owner',
+        email: 'owner@oxshare.com',
+        reason: 'Owner, travels',
+        createdBy: 'a-1',
+        createdByName: 'Admin',
+        createdAt: '2026-10-05T10:00:00.000Z',
+      },
+    ],
+    youAreExempt: false,
   });
+  getAdminUsers.mockResolvedValue([
+    { id: 'owner-1', name: 'Owner', email: 'owner@oxshare.com', status: 'active' },
+    { id: 'staff-1', name: 'Staff', email: 'staff@oxshare.com', status: 'active' },
+    { id: 'gone-1', name: 'Gone', email: 'gone@oxshare.com', status: 'suspended' },
+  ]);
 });
 
 describe('the network access page', () => {
@@ -85,5 +118,29 @@ describe('the network access page', () => {
 
     await screen.findByText('203.0.113.0/24');
     expect(screen.queryByRole('button', { name: /add/i })).toBeNull();
+  });
+
+  /*
+   * 0191 — the exempt list, and the picker offering only who can still be added:
+   * not someone already exempt, not a suspended account.
+   */
+  it('lists exempt admins and offers only active, not-yet-exempt ones', async () => {
+    renderWithProviders(<NetworkAccessPage />);
+
+    expect(await screen.findByText('Owner, travels')).toBeInTheDocument();
+    const picker = await screen.findByRole('combobox', { name: /administrator/i });
+    await screen.findByRole('option', { name: /staff@oxshare\.com/ });
+    const offered = Array.from((picker as HTMLSelectElement).options).map((o) => o.value);
+    expect(offered).toEqual(['', 'staff-1']);
+    expect(screen.getByRole('button', { name: /allow from any network/i })).toBeInTheDocument();
+  });
+
+  it('lets a read-only admin see the exemptions but not change them', async () => {
+    permissions.current = ['settings.security.view'];
+    renderWithProviders(<NetworkAccessPage />);
+
+    expect(await screen.findByText('Owner, travels')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /administrator/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /remove owner/i })).toBeNull();
   });
 });

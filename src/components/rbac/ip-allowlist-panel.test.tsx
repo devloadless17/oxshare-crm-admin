@@ -49,6 +49,8 @@ const status = (over: Record<string, unknown> = {}) => ({
   disabledByConfig: false,
   yourIp: '203.0.113.5',
   rules: [rule()],
+  exemptAdmins: [],
+  youAreExempt: false,
   ...over,
 });
 
