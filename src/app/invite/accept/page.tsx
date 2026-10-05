@@ -15,12 +15,8 @@ import { Label } from '@/components/ui/label';
 import { PageLoader } from '@/components/ui/loader';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
-import { googleErrorKey } from '@/lib/api/auth';
-import {
-  AuthDivider,
-  GoogleSignInButton,
-  useGoogleSignInEnabled,
-} from '@/components/auth/google-sign-in-button';
+import { AuthenticatorStep } from '@/components/auth/authenticator-step';
+import type { AdminSignInChallenge } from '@/lib/api/auth';
 
 /**
  * Set a password and activate an invited administrator account.
@@ -54,13 +50,6 @@ function AcceptInviteContent() {
   const params = useSearchParams();
   const { admin, isLoading: sessionLoading } = useAdmin();
   const token = params.get('token') ?? '';
-  /*
-   * "Accept with Google" comes back here with `?google_error=<code>` when the
-   * API refuses it (wrong Google address, spent invite…). The password option
-   * stays beside it either way.
-   */
-  const googleEnabled = useGoogleSignInEnabled();
-  const googleError = googleErrorKey(params.get('google_error'));
 
   const [password, setPassword] = React.useState('');
   const [confirm, setConfirm] = React.useState('');
@@ -84,6 +73,13 @@ function AcceptInviteContent() {
    * says "this succeeded" is the thing the render actually needs to know.
    */
   const [accepted, setAccepted] = React.useState(false);
+  /*
+   * The account exists; the authenticator comes next (0191 — required for
+   * every administrator, the newcomer included). Accept answers with the same
+   * challenge a right password buys at /login, and no session until the code.
+   */
+  const [challenge, setChallenge] = React.useState<AdminSignInChallenge | null>(null);
+  const [signedIn, setSignedIn] = React.useState(false);
 
   // Validating the token is a fetch, not an effect that assigns state. The old
   // version wrote the failure into the same `error` box the password form uses,
@@ -147,10 +143,11 @@ function AcceptInviteContent() {
     setError('');
     setLoading(true);
     try {
-      await api.admin.acceptInvite(token, password);
+      const result = await api.admin.acceptInvite(token, password);
       // BEFORE the scrub below, which is what empties the URL this component
       // re-reads. See the note on `accepted`.
       setAccepted(true);
+      setChallenge(result);
       /*
        * Take the token out of the address bar NOW — once it is spent.
        *
@@ -174,14 +171,20 @@ function AcceptInviteContent() {
        * reloading works.
        */
       window.history.replaceState(null, '', window.location.pathname);
-      // Full navigation instead of router.push so AdminAuthContext boots fresh
-      // with the new session; a client-side push renders the shell with admin: null.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.assign('/dashboard');
+      setLoading(false);
     } catch (e: unknown) {
       setError(apiErrorMessage(e, t('invite.failed')));
       setLoading(false);
     }
+  };
+
+  /** After the authenticator code: the session cookies are set. */
+  const enterConsole = () => {
+    setSignedIn(true);
+    // Full navigation instead of router.push so AdminAuthContext boots fresh
+    // with the new session; a client-side push renders the shell with admin: null.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign('/dashboard');
   };
 
   return (
@@ -212,14 +215,22 @@ function AcceptInviteContent() {
           </h1>
         </div>
 
-        {accepted ? (
-          /*
-           * The account exists and the session is set; the browser is on its
-           * way to the dashboard. Re-rendering the password form underneath
-           * that navigation invites a second submit against a token that is now
-           * spent, which would fail — so the terminal state is a stated one.
-           */
+        {signedIn ? (
+          // The session is set; the browser is on its way to the dashboard.
           <PageLoader label={t('invite.redirecting')} className="min-h-0" srOnly={false} />
+        ) : accepted && challenge ? (
+          /*
+           * The account exists and the invite is spent — re-rendering the
+           * password form here would invite a second submit against a dead
+           * token. What is left is the authenticator. Starting over means the
+           * ordinary sign-in, with the password just chosen.
+           */
+          <AuthenticatorStep
+            challenge={challenge}
+            onSignedIn={enterConsole}
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+            onStartOver={() => window.location.assign('/login')}
+          />
         ) : validating ? (
           // The shared loader, so this screen spins the same way as every other
           // one. `min-h-[60vh]` would push the mark off a short viewport, and
@@ -263,16 +274,6 @@ function AcceptInviteContent() {
               >
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{t('invite.sessionWarning', { email: admin?.email ?? '' })}</span>
-              </div>
-            )}
-
-            {!error && googleError && (
-              <div
-                role="alert"
-                className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-              >
-                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>{t(googleError)}</span>
               </div>
             )}
 
@@ -355,13 +356,6 @@ function AcceptInviteContent() {
                 )}
               </Button>
             </form>
-
-            {googleEnabled && (
-              <>
-                <AuthDivider />
-                <GoogleSignInButton invite={token} label={t('google.acceptWithGoogle')} />
-              </>
-            )}
           </div>
         )}
       </div>

@@ -34,8 +34,7 @@ const admin = (permissions: string[]): { admin: AdminProfile } => ({
     permissions,
     maskedFields: [],
     scopedTags: [],
-    googleEmail: null,
-    googleLinkedAt: null,
+    totpEnabledAt: null,
     createdAt: '2026-08-01T00:00:00.000Z',
   },
 });

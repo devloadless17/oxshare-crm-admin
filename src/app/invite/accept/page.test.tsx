@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
@@ -15,13 +15,15 @@ import AcceptInvitePage from './page';
  * could retype it forever.
  */
 
-const { validateInvite, acceptInvite } = vi.hoisted(() => ({
+const { validateInvite, acceptInvite, totpSetup, totpVerify } = vi.hoisted(() => ({
   validateInvite: vi.fn(),
   acceptInvite: vi.fn(),
+  totpSetup: vi.fn(),
+  totpVerify: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { validateInvite, acceptInvite } };
+  const api = { admin: { validateInvite, acceptInvite }, auth: { totpSetup, totpVerify } };
   return { api, default: api };
 });
 
@@ -40,7 +42,20 @@ beforeEach(() => {
     name: 'New Comer',
     role: 'sub_admin',
   });
-  acceptInvite.mockResolvedValue({ message: 'Account created.' });
+  acceptInvite.mockResolvedValue({
+    message: 'Account created.',
+    step: 'totp_setup',
+    challengeToken: 'challenge-1',
+    expiresInSeconds: 600,
+  });
+  totpSetup.mockResolvedValue({
+    secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
+    otpauthUri: 'otpauth://totp/x',
+    qrSvg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+    account: 'newcomer@oxshare.com',
+    issuer: 'OxShare Admin',
+  });
+  totpVerify.mockResolvedValue({ admin: {} });
 });
 
 describe('validating the link', () => {
@@ -143,5 +158,40 @@ describe('setting the password', () => {
     await screen.findByText(/expired/i);
 
     expect(screen.getByRole('button', { name: /activate|create|set password/i })).toBeEnabled();
+  });
+});
+
+describe('after accepting — the authenticator app, then the console (0191)', () => {
+  const assign = vi.fn();
+  const realLocation = window.location;
+  beforeEach(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...realLocation, assign, pathname: '/invite/accept' },
+    });
+  });
+  afterEach(() => {
+    Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+  });
+
+  it('shows the QR code straight away and enters the console only after the code', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AcceptInvitePage />);
+    await user.type(await screen.findByLabelText(/new password/i), 'a-good-password-123');
+    await user.type(screen.getByLabelText(/confirm/i), 'a-good-password-123');
+    await user.click(screen.getByRole('button', { name: /activate|create|set password/i }));
+
+    expect(await screen.findByText(/set up your authenticator app/i)).toBeInTheDocument();
+    expect(totpSetup).toHaveBeenCalledWith('challenge-1');
+    expect(await screen.findByAltText(/qr code/i)).toBeInTheDocument();
+    // No console yet: the account exists, the session does not.
+    expect(assign).not.toHaveBeenCalled();
+    // And the spent invite's password form is gone.
+    expect(screen.queryByLabelText(/new password/i)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/6-digit code/i), '123456');
+    await user.click(screen.getByRole('button', { name: /verify and sign in/i }));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/dashboard'));
+    expect(totpVerify).toHaveBeenCalledWith('challenge-1', '123456');
   });
 });

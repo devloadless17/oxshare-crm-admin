@@ -179,6 +179,25 @@ export default function AdminUsersPage() {
     onError: (error) => toastError(error, t('adminUsers.resetFailed')),
   });
 
+  const resetAuthenticator = useMutation({
+    mutationFn: (user: AdminUser) => api.admin.resetAdminAuthenticator(user.id),
+    onSuccess: (_data, user) => {
+      void invalidate();
+      toastSuccess(t('totp.resetDone'), user.email);
+    },
+    onError: (error) => toastError(error, t('totp.resetFailed')),
+  });
+
+  const handleResetAuthenticator = async (user: AdminUser) => {
+    const ok = await confirm({
+      title: t('totp.resetTitle', { name: user.name }),
+      description: t('totp.resetBody'),
+      confirmLabel: t('totp.reset'),
+      destructive: true,
+    });
+    if (ok) resetAuthenticator.mutate(user);
+  };
+
   const handleResetPassword = async (user: AdminUser) => {
     /*
      * Confirmed, because this is not reversible from the operator's side: it
@@ -192,28 +211,6 @@ export default function AdminUsersPage() {
       confirmLabel: t('adminUsers.confirmSendResetAction'),
     });
     if (ok) sendReset.mutate(user);
-  };
-
-  const unlinkGoogle = useMutation({
-    mutationFn: (user: AdminUser) => api.admin.unlinkAdminGoogle(user.id),
-    onSuccess: async (_data, user) => {
-      await invalidate();
-      toastSuccess(t('adminUsers.unlinkGoogleSucceeded', { name: user.name }));
-    },
-    onError: (error) => toastError(error, t('adminUsers.unlinkGoogleFailed')),
-  });
-
-  const handleUnlinkGoogle = async (user: AdminUser) => {
-    const ok = await confirm({
-      title: t('adminUsers.confirmUnlinkGoogleTitle', { name: user.name }),
-      description: t('adminUsers.confirmUnlinkGoogle', {
-        name: user.name,
-        email: user.googleEmail ?? '',
-      }),
-      confirmLabel: t('adminUsers.unlinkGoogle'),
-      destructive: true,
-    });
-    if (ok) unlinkGoogle.mutate(user);
   };
 
   const handleRevokeInvite = async (invite: PendingInvite) => {
@@ -348,7 +345,7 @@ export default function AdminUsersPage() {
             onEdit={setEditing}
             onToggleStatus={(user) => void handleToggleStatus(user)}
             onResetPassword={(user) => void handleResetPassword(user)}
-            onUnlinkGoogle={(user) => void handleUnlinkGoogle(user)}
+            onResetAuthenticator={(user) => void handleResetAuthenticator(user)}
             onRevokeInvite={(invite) => void handleRevokeInvite(invite)}
           />
         </div>

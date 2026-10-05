@@ -1,7 +1,15 @@
 'use client';
 
-import { Ban, CircleCheck, Key, KeyRound, MailWarning, Pencil, Trash2, Unlink } from 'lucide-react';
-import { GoogleMark } from '@/components/auth/google-sign-in-button';
+import {
+  Ban,
+  CircleCheck,
+  Key,
+  KeyRound,
+  MailWarning,
+  Pencil,
+  Smartphone,
+  Trash2,
+} from 'lucide-react';
 import type { AdminUser, PendingInvite, Role } from '@/lib/api/admin';
 import { DataTable, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
@@ -103,7 +111,7 @@ export function AdminDirectoryTable({
   revokingId,
   onEdit,
   onResetPassword,
-  onUnlinkGoogle,
+  onResetAuthenticator,
   onToggleStatus,
   onRevokeInvite,
 }: {
@@ -118,11 +126,8 @@ export function AdminDirectoryTable({
   revokingId: string | null | undefined;
   onEdit: (user: AdminUser) => void;
   onResetPassword: (user: AdminUser) => void;
-  /**
-   * Remove this administrator's Google sign-in. Offered on the same grant as a
-   * reset (`admins.reset`) — the API applies the same escalation guard.
-   */
-  onUnlinkGoogle?: (user: AdminUser) => void;
+  /** 0191 — forget their authenticator app (lost phone). Same grant as the reset. */
+  onResetAuthenticator: (user: AdminUser) => void;
   onToggleStatus: (user: AdminUser) => void;
   onRevokeInvite: (invite: PendingInvite) => void;
 }) {
@@ -201,15 +206,6 @@ export function AdminDirectoryTable({
             <MailWarning className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
           )}
           {row.name}
-          {row.admin?.googleEmail && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-              title={t('adminUsers.googleLinkedTitle', { email: row.admin.googleEmail })}
-            >
-              <GoogleMark className="h-3 w-3" />
-              {t('adminUsers.googleLinked')}
-            </span>
-          )}
           {row.admin && isSelf(row.admin) && (
             <span className="text-[10px] font-normal text-muted-foreground">
               {t('settings.you')}
@@ -408,12 +404,17 @@ export function AdminDirectoryTable({
                         },
                       ]
                     : []),
-                  ...(can.canResetPassword && onUnlinkGoogle && !isSelf(user) && user.googleEmail
+                  /*
+                   * A lost or replaced phone. Same grant and the same peer rule
+                   * as the password reset (the API applies `refuseReset`), and
+                   * only offered when there is an app to forget.
+                   */
+                  ...(can.canResetPassword && !isSelf(user) && user.totpEnabledAt
                     ? [
                         {
-                          label: t('adminUsers.unlinkGoogle'),
-                          icon: Unlink,
-                          onSelect: () => onUnlinkGoogle(user),
+                          label: t('totp.reset'),
+                          icon: Smartphone,
+                          onSelect: () => onResetAuthenticator(user),
                         },
                       ]
                     : []),

@@ -247,6 +247,16 @@ export function AdminIdentityPanel({
               : t('profile.fieldPasswordNever')
           }
         />
+        {/* 0191 — required at every sign-in, so for a signed-in admin this is
+            almost always set; it is shown so "when" is answerable. */}
+        <Field
+          label={t('profile.fieldAuthenticator')}
+          value={
+            admin.totpEnabledAt
+              ? t('totp.statusOn', { date: formatDate(admin.totpEnabledAt) })
+              : t('totp.statusOff')
+          }
+        />
       </dl>
     </section>
   );

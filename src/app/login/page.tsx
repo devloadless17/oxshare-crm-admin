@@ -15,13 +15,9 @@ import { Label } from '@/components/ui/label';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/lib/return-to';
 import { RedirectIfAuthenticated } from '@/components/auth/redirect-if-authenticated';
+import { AuthenticatorStep } from '@/components/auth/authenticator-step';
+import type { AdminSignInChallenge } from '@/lib/api/auth';
 import { t } from '@/lib/i18n';
-import { googleErrorKey } from '@/lib/api/auth';
-import {
-  AuthDivider,
-  GoogleSignInButton,
-  useGoogleSignInEnabled,
-} from '@/components/auth/google-sign-in-button';
 
 function AdminLoginForm() {
   const router = useRouter();
@@ -34,12 +30,11 @@ function AdminLoginForm() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   /*
-   * Google sign-in. The API runs the whole round trip on its own host and
-   * comes back here with `?google_error=<code>` when it refuses — a fixed code,
-   * never Google's text or the address, mapped to our own sentence.
+   * Set once the password checks (0191). A right password is HALF a sign-in:
+   * the session only exists after the authenticator code, so the form gives
+   * way to the code step — or, the first time, to scanning the QR code.
    */
-  const googleEnabled = useGoogleSignInEnabled();
-  const googleError = googleErrorKey(searchParams.get('google_error'));
+  const [challenge, setChallenge] = React.useState<AdminSignInChallenge | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,57 +48,8 @@ function AdminLoginForm() {
     setIsLoading(true);
 
     try {
-      await api.auth.login({ email, password });
-
-      /*
-       * Refetch the session BEFORE navigating.
-       *
-       * `AdminAuthContext` holds `GET /admin/auth/me` in a React Query with
-       * `retry: false` and a 5-minute staleTime. On the login screen that query
-       * has already run and failed with a 401, and that failure is cached.
-       * `router.push` is a client-side navigation — it does not remount the
-       * provider — and `router.refresh()` only re-runs Server Components, not a
-       * client query. So the dashboard rendered with `admin: null` until a
-       * manual reload.
-       *
-       * That bug predates the nav-gating change but was invisible: the sidebar
-       * used to fall back to showing EVERY item while `admin` was null, so it
-       * looked complete and only a sub-admin would ever have noticed. Once the
-       * nav correctly renders nothing until identity is known, an unrefetched
-       * session shows as an empty sidebar.
-       *
-       * `invite/accept` hit the same wall and solved it with a full page load,
-       * documenting that "a client-side push renders the shell with admin:
-       * null". Refetching is the smaller fix: it keeps the SPA navigation and
-       * uses the mechanism the context already exposes.
-       */
-      /*
-       * And do not navigate if that refetch FAILED.
-       *
-       * `refetchAdmin` is `invalidateQueries`, which resolves even when the
-       * refetch behind it errors — so a transient failure on `/admin/auth/me`
-       * immediately after a successful sign-in still pushed to the destination,
-       * landing the operator in the layout's "no admin" state after an
-       * apparently successful login.
-       */
-      const identity = await refetchAdmin();
-      if (!identity) {
-        setError(t('login.sessionCheckFailed'));
-        return;
-      }
-      /*
-       * Back where they were going, or the dashboard.
-       *
-       * `safeReturnTo` is not decoration here: `next` comes out of a URL, so it
-       * is attacker-controlled even though we wrote it. Anyone can send an
-       * operator a link to `/login?next=https://evil.example/login`, and a
-       * console that follows it after a successful sign-in has handed over a
-       * phishing page wearing its own flow — at the exact instant after the
-       * password was typed. The validator resolves through `URL` against an
-       * opaque origin rather than pattern-matching, because the browser's
-       * parser is the authority on what a string navigates to.
-       */
-      router.push(safeReturnTo(searchParams.get(RETURN_TO_PARAM)));
+      setChallenge(await api.auth.login({ email, password }));
+      setPassword('');
     } catch (err: unknown) {
       // This was a line-for-line reimplementation of apiErrorMessage, array join
       // included. One copy, in lib/api/errors.ts.
@@ -111,6 +57,60 @@ function AdminLoginForm() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  /** After the authenticator code: the session cookies are set. */
+  const enterConsole = async () => {
+    /*
+     * Refetch the session BEFORE navigating.
+     *
+     * `AdminAuthContext` holds `GET /admin/auth/me` in a React Query with
+     * `retry: false` and a 5-minute staleTime. On the login screen that query
+     * has already run and failed with a 401, and that failure is cached.
+     * `router.push` is a client-side navigation — it does not remount the
+     * provider — and `router.refresh()` only re-runs Server Components, not a
+     * client query. So the dashboard rendered with `admin: null` until a
+     * manual reload.
+     *
+     * That bug predates the nav-gating change but was invisible: the sidebar
+     * used to fall back to showing EVERY item while `admin` was null, so it
+     * looked complete and only a sub-admin would ever have noticed. Once the
+     * nav correctly renders nothing until identity is known, an unrefetched
+     * session shows as an empty sidebar.
+     *
+     * `invite/accept` hit the same wall and solved it with a full page load,
+     * documenting that "a client-side push renders the shell with admin:
+     * null". Refetching is the smaller fix: it keeps the SPA navigation and
+     * uses the mechanism the context already exposes.
+     */
+    /*
+     * And do not navigate if that refetch FAILED.
+     *
+     * `refetchAdmin` is `invalidateQueries`, which resolves even when the
+     * refetch behind it errors — so a transient failure on `/admin/auth/me`
+     * immediately after a successful sign-in still pushed to the destination,
+     * landing the operator in the layout's "no admin" state after an
+     * apparently successful login.
+     */
+    const identity = await refetchAdmin();
+    if (!identity) {
+      setChallenge(null);
+      setError(t('login.sessionCheckFailed'));
+      return;
+    }
+    /*
+     * Back where they were going, or the dashboard.
+     *
+     * `safeReturnTo` is not decoration here: `next` comes out of a URL, so it
+     * is attacker-controlled even though we wrote it. Anyone can send an
+     * operator a link to `/login?next=https://evil.example/login`, and a
+     * console that follows it after a successful sign-in has handed over a
+     * phishing page wearing its own flow — at the exact instant after the
+     * password was typed. The validator resolves through `URL` against an
+     * opaque origin rather than pattern-matching, because the browser's
+     * parser is the authority on what a string navigates to.
+     */
+    router.push(safeReturnTo(searchParams.get(RETURN_TO_PARAM)));
   };
 
   return (
@@ -141,78 +141,73 @@ function AdminLoginForm() {
 
         {/* Login Form Card */}
         <div className="rounded-xl border border-border bg-card p-6 md:p-8 shadow-sm space-y-5">
-          {!error && googleError && (
-            <div
-              role="alert"
-              className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-            >
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{t(googleError)}</span>
-            </div>
-          )}
-
-          {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">{t('login.email')}</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={t('login.emailPlaceholder')}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="password">{t('login.password')}</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="pl-9 pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  /* Icon-only, so it is named — the portal's toggle always was, and
-                     this one was announced as a bare "button" (ux-sweep). */
-                  aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
-                  aria-pressed={showPassword}
-                  className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground focus-outline rounded-sm"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <Button type="submit" loading={isLoading} className="w-full">
-              {isLoading ? <span>{t('login.submitting')}</span> : <span>{t('login.submit')}</span>}
-            </Button>
-          </form>
-
-          {googleEnabled && (
+          {challenge ? (
+            <AuthenticatorStep
+              challenge={challenge}
+              onSignedIn={enterConsole}
+              onStartOver={() => setChallenge(null)}
+            />
+          ) : (
             <>
-              <AuthDivider />
-              {/* The page's own `?next=`, through the same validator the
-                  password path uses; the API re-checks it. */}
-              <GoogleSignInButton next={safeReturnTo(searchParams.get(RETURN_TO_PARAM))} />
+              {error && (
+                <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">{t('login.email')}</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder={t('login.emailPlaceholder')}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="password">{t('login.password')}</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="pl-9 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      /* Icon-only, so it is named — the portal's toggle always was, and
+                     this one was announced as a bare "button" (ux-sweep). */
+                      aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                      aria-pressed={showPassword}
+                      className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground focus-outline rounded-sm"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <Button type="submit" loading={isLoading} className="w-full">
+                  {isLoading ? (
+                    <span>{t('login.submitting')}</span>
+                  ) : (
+                    <span>{t('login.submit')}</span>
+                  )}
+                </Button>
+              </form>
             </>
           )}
         </div>
