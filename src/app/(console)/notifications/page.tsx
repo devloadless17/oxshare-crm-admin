@@ -15,11 +15,12 @@ type View = 'inbox' | 'history';
 /**
  * Every task in one place — the bell's panel at full size.
  *
- * Two views and nothing to configure. The Inbox is what still waits on you, and
- * it is short by design: a task leaves it the moment it is opened or handled.
- * History is everything, with how each one ended — and its one tool is a search
- * by client, for the question History exists to answer ("what happened with
- * #1000245's withdrawal last week?").
+ * Two views and nothing to configure. The Inbox is every task nobody has
+ * handled yet — opening one only marks it seen; it leaves when somebody
+ * approves, rejects or resolves the item (the owner's rule, 5 Oct 2026).
+ * History is the handled ones, with how each ended — and its one tool is a
+ * search by client, for the question History exists to answer ("what happened
+ * with #1000245's withdrawal last week?").
  *
  * No category chips and no status filter, on the owner's call (25 Sep 2026): a
  * list of things you must do is READ, not sorted through, and a row of filters

@@ -12,24 +12,23 @@ import { NotificationBell } from './notification-bell';
  *  - the badge counts what still waits on the reader, capped, never drawn at 0;
  *  - a task reads as the action ("Approve withdrawal"), names the client by name
  *    and Portal ID — the Portal ID alone when the role hides names;
- *  - CLEARING a task takes it out of the inbox at once, with an Undo;
- *  - OPENING the panel clears nothing (the signal must survive until read);
- *  - "Mark all as read" never marks past the newest row on screen;
+ *  - OPENING a task marks it seen and nothing more: it stays in the inbox until
+ *    somebody handles it (5 Oct 2026), and no control takes it out unhandled;
+ *  - OPENING the panel marks nothing;
  *  - History says how a task ended and who ended it;
  *  - no filter row: the inbox is read, not sorted through;
  *  - a "your notifications changed" event re-reads the list (another admin
  *    handled a task — it must leave this inbox without anyone clicking).
  */
 
-const { list, summary, markRead, markUnread, markAllRead, toast, realtime } = vi.hoisted(() => {
+const { list, summary, markRead, close, toast, realtime } = vi.hoisted(() => {
   // The socket handlers the bell registered, so a test can play an event in.
   const handlers: Record<string, (payload?: unknown) => void> = {};
   return {
     list: vi.fn(),
     summary: vi.fn(),
     markRead: vi.fn(),
-    markUnread: vi.fn(),
-    markAllRead: vi.fn(),
+    close: vi.fn(),
     toast: vi.fn(),
     realtime: { handlers },
   };
@@ -47,8 +46,7 @@ vi.mock('@/lib/api/admin-notifications', () => ({
     list,
     summary,
     markRead,
-    markUnread,
-    markAllRead,
+    close,
     markSubjectRead: vi.fn(),
   },
 }));
@@ -64,6 +62,8 @@ vi.mock('@/hooks/use-realtime', () => ({
     return { connected: false };
   },
 }));
+// The click contract without jsdom's "navigation not implemented" noise.
+vi.mock('next/link', () => import('@/test/next-link'));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
 }));
@@ -118,8 +118,6 @@ beforeEach(() => {
   list.mockResolvedValue(page([]));
   summary.mockResolvedValue({ count: 0, byCategory: counts() });
   markRead.mockResolvedValue({ id: 'n-1', readAt: new Date().toISOString() });
-  markUnread.mockResolvedValue({ id: 'n-1', readAt: null });
-  markAllRead.mockResolvedValue({ updated: 1 });
 });
 
 async function openBell() {
@@ -210,39 +208,61 @@ describe('a task', () => {
   });
 });
 
-describe('what makes a task disappear', () => {
-  it('clearing one takes it out of the inbox at once, with an Undo', async () => {
-    list.mockResolvedValueOnce(page([task()])).mockResolvedValue(page([]));
+describe('only handling makes a task disappear', () => {
+  it('opening one marks it seen and keeps it — there is no way to clear it unhandled', async () => {
+    const seen = task({ readAt: new Date().toISOString() });
+    list.mockResolvedValueOnce(page([task()])).mockResolvedValue(page([seen]));
     renderWithProviders(<NotificationBell />);
     await openBell();
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: /mark .*approve withdrawal.* as read/i }),
-    );
+    const row = await screen.findByRole('listitem');
+    expect(within(row).getByText(/— Unread/)).toBeInTheDocument();
+    expect(within(row).queryByRole('button'), 'a control that clears the task').toBeNull();
+    expect(screen.queryByRole('button', { name: /mark all/i })).toBeNull();
+
+    // Opening it closes the panel and goes to the record…
+    await userEvent.click(within(row).getByRole('link'));
     expect(markRead).toHaveBeenCalledWith('n-1');
-    await waitFor(() => expect(screen.queryByText('Approve withdrawal')).not.toBeInTheDocument());
-    expect(toast).toHaveBeenCalledWith(
-      'Marked as read',
-      expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }),
+
+    // …and back at the bell, the task is still waiting — seen, no longer new.
+    await openBell();
+    await waitFor(() => expect(screen.queryByText(/— Unread/)).not.toBeInTheDocument());
+    expect(screen.getByText('Approve withdrawal')).toBeInTheDocument();
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it('a clawback can be KEPT — a decision with a reason, which ends the task', async () => {
+    const clawback = task({
+      kind: 'admin.commission.clawback',
+      category: 'ib',
+      params: { accrualId: 'acc-1', amount: '5.00000000', currency: 'USD', credited: true },
+      subject: { kind: 'ib_accrual', id: 'acc-1' },
+    });
+    list.mockResolvedValueOnce(page([clawback])).mockResolvedValue(page([]));
+    close.mockResolvedValue({ id: 'n-1', outcome: 'kept' });
+    renderWithProviders(<NotificationBell />);
+    await openBell();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Keep commission' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Keep this commission?' });
+    const confirm = within(dialog).getByRole('button', { name: 'Keep commission' });
+    // A decision needs its reason before it can be taken.
+    expect(confirm).toBeDisabled();
+    await userEvent.type(within(dialog).getByLabelText('Why'), 'Dealer re-opened the trade.');
+    await userEvent.click(confirm);
+
+    expect(close).toHaveBeenCalledWith('n-1', 'Dealer re-opened the trade.');
+    await waitFor(() =>
+      expect(screen.queryByText('Reverse or keep IB commission')).not.toBeInTheDocument(),
     );
   });
 
-  it('"Mark all as read" never marks past the newest row on screen', async () => {
-    const newest = new Date(Date.now() - 60_000).toISOString();
-    list.mockResolvedValue(
-      page([
-        task({ id: 'n-2', createdAt: newest }),
-        task({ id: 'n-1', createdAt: new Date(Date.now() - 600_000).toISOString() }),
-      ]),
-    );
+  it('offers no decision on a task that ends only by handling its item', async () => {
+    list.mockResolvedValue(page([task()]));
     renderWithProviders(<NotificationBell />);
     await openBell();
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Mark all as read' }));
-    // Emptying the whole inbox asks once, inline — nothing is sent before that.
-    expect(markAllRead).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
-    expect(markAllRead).toHaveBeenCalledWith({ upTo: newest });
+    await screen.findByText('Approve withdrawal');
+    expect(screen.queryByRole('button', { name: 'Keep commission' })).toBeNull();
   });
 
   it('re-reads the list when told its notifications changed — a task handled elsewhere', async () => {
@@ -275,7 +295,7 @@ describe('history', () => {
     list.mockResolvedValue(
       page([
         task({
-          readAt: new Date().toISOString(),
+          readAt: null,
           resolution: { at: new Date().toISOString(), outcome: 'success', byName: 'Omar Ali' },
         }),
       ]),
@@ -286,15 +306,8 @@ describe('history', () => {
 
     // `success` on a withdrawal is a PAYOUT — the category decides the word.
     expect(await screen.findByText('Paid · Omar Ali')).toBeInTheDocument();
-  });
-
-  it('marks a task still waiting as "Needs action"', async () => {
-    list.mockResolvedValue(page([task({ readAt: new Date().toISOString() })]));
-    renderWithProviders(<NotificationBell />);
-    await openBell();
-    await userEvent.click(screen.getByRole('tab', { name: 'History' }));
-
-    expect(await screen.findByText('Needs action')).toBeInTheDocument();
+    // A handled task is never "new", even one this reader never opened.
+    expect(screen.queryByText(/— Unread/)).toBeNull();
   });
 });
 
@@ -352,7 +365,7 @@ describe('arrivals', () => {
     expect(chime).toHaveBeenCalledTimes(1);
   });
 
-  it('following the toast reads the task — it leaves the inbox like a clicked row', async () => {
+  it('following the toast marks the task seen, like a clicked row', async () => {
     renderWithProviders(<NotificationBell />);
     realtime.handlers['notification.created']?.({ ...arrival(1000245), id: 'n-9' });
 

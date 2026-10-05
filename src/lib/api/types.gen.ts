@@ -133,27 +133,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Tasks waiting on the signed-in admin — the bell badge, in total and per category */
+        /** Tasks not yet handled by anybody, seen or not — the bell badge, in total and per category */
         get: operations["AdminNotificationsController_summary"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/notifications/read-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Mark tasks read — all, or one category — up to what was shown */
-        post: operations["AdminNotificationsController_markAllRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -169,8 +152,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** The reader opened an item (e.g. a KYC review) — mark their tasks about it read */
+        /** The reader opened an item (e.g. a KYC review) — mark their tasks about it seen. They stay in the inbox until the item is handled. */
         post: operations["AdminNotificationsController_markSubjectRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End a task by the decision its kind declares for leaving the item as it is (a clawback: the partner keeps the commission). Ends it for EVERY admin; 409 if already handled. */
+        post: operations["AdminNotificationsController_close"];
         delete?: never;
         options?: never;
         head?: never;
@@ -186,25 +186,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mark one task read. Idempotent. */
+        /** Mark one task seen. It stays in the inbox until handled. Idempotent. */
         post: operations["AdminNotificationsController_markRead"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/notifications/{id}/unread": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Mark one task unread again (undo). Idempotent. */
-        post: operations["AdminNotificationsController_markUnread"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5299,23 +5282,23 @@ export interface components {
             count: number;
             byCategory: components["schemas"]["AdminNotificationCategoryCountsDto"];
         };
-        AdminNotificationsReadAllDto: {
-            /**
-             * @description Only this category. Omitted: every category the reader can see.
-             * @enum {string}
-             */
-            category?: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
-            /**
-             * @description The `createdAt` of the newest row the reader was shown. Nothing newer is marked — a task that arrived after the list rendered stays unread.
-             * @example 2026-09-25T10:15:00.000Z
-             */
-            upTo?: string;
-        };
         AdminNotificationsReadSubjectDto: {
             /** @enum {string} */
             subjectKind: "transaction" | "kyc" | "ib_application" | "transfer" | "ib_accrual";
             /** @description The item's id — for a KYC task the client's Portal ID, for any other item the record's uuid. */
             subjectId: string;
+        };
+        AdminNotificationCloseDto: {
+            /**
+             * @description Why the item is left as it is. Recorded on the audit row.
+             * @example Trade re-opened by the dealer; the partner keeps the commission.
+             */
+            reason: string;
+        };
+        AdminNotificationCloseResponseDto: {
+            id: string;
+            /** @description The outcome recorded, e.g. 'kept' — History shows it. */
+            outcome: string;
         };
         AdminNotificationMarkResponseDto: {
             id: string;
@@ -11012,10 +10995,8 @@ export interface operations {
     AdminNotificationsController_list: {
         parameters: {
             query?: {
-                /** @description 'inbox': still waiting on you — unread AND not yet handled by anyone. 'history' (default): everything, handled or not. */
+                /** @description 'inbox': still waiting — not yet handled by anyone, whether you have opened it or not. 'history' (default): handled, with how it ended. A task is in exactly one of the two. */
                 view?: "inbox" | "history";
-                /** @description History only. 'open': nobody has handled it yet. 'handled': resolved. */
-                status?: "open" | "handled";
                 category?: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
                 /** @description A client: Portal ID (exact, `#` optional) or part of a name or email. */
                 q?: string;
@@ -11058,29 +11039,6 @@ export interface operations {
             };
         };
     };
-    AdminNotificationsController_markAllRead: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminNotificationsReadAllDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationsMarkAllReadResponseDto"];
-                };
-            };
-        };
-    };
     AdminNotificationsController_markSubjectRead: {
         parameters: {
             query?: never;
@@ -11104,7 +11062,7 @@ export interface operations {
             };
         };
     };
-    AdminNotificationsController_markRead: {
+    AdminNotificationsController_close: {
         parameters: {
             query?: never;
             header?: never;
@@ -11113,19 +11071,23 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNotificationCloseDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminNotificationMarkResponseDto"];
+                    "application/json": components["schemas"]["AdminNotificationCloseResponseDto"];
                 };
             };
         };
     };
-    AdminNotificationsController_markUnread: {
+    AdminNotificationsController_markRead: {
         parameters: {
             query?: never;
             header?: never;

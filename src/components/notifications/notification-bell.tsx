@@ -50,7 +50,8 @@ const kindOf = (payload: RealtimePayload): string =>
  *
  * ## The badge counts the inbox
  *
- * Tasks waiting on this reader: unread, and not yet handled by anybody. It
+ * Tasks waiting on this reader: every one not yet handled by anybody, opened
+ * or not — opening a task never lowers it, handling does (5 Oct 2026). It
  * polls on the sidebar badges' cadence (sixty seconds, backing off to five
  * minutes while the socket is proven up) and is NOT drawn at zero or unknown —
  * a badge that cannot be counted is not drawn.
@@ -59,7 +60,7 @@ const kindOf = (payload: RealtimePayload): string =>
  *
  *   notification.created   a task landed — the badge, the chime, the toast, and
  *                          the table it is about refresh;
- *   notification.changed   one of this reader's tasks was read (another tab) or
+ *   notification.changed   one of this reader's tasks was seen (another tab) or
  *                          HANDLED (by anyone) — the bell re-reads; this is what
  *                          makes an approved withdrawal leave every inbox;
  *   resource.changed       another operator decided something — the data only.
@@ -145,8 +146,8 @@ export function NotificationBell() {
         toastNotification(
           only,
           (href) => {
-            // Following the toast IS opening the task — it leaves the inbox, as a
-            // click on its row does.
+            // Following the toast IS opening the task — it is marked seen, as a
+            // click on its row is, and stays in the inbox until handled.
             if (id) {
               void adminNotificationsApi.markRead(id).then(
                 () => refreshNotifications(queryClient),
