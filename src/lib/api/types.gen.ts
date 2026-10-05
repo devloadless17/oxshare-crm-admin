@@ -4983,6 +4983,139 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/assistant/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the assistant is available to this client, and their allowance
+         * @description Never refuses: an unverified client gets `available: false, reason: "kyc_required"`, so the portal can show a locked launcher instead of an error.
+         */
+        get: operations["AssistantController_config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/assistant/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The client's recent conversations, newest first */
+        get: operations["AssistantController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/assistant/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One conversation with its messages, oldest first */
+        get: operations["AssistantController_thread"];
+        put?: never;
+        post?: never;
+        /** Delete a conversation and its messages, for good */
+        delete: operations["AssistantController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/assistant/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask a question; the answer streams back
+         * @description A `text/event-stream`: `meta`, then `delta` events, then `followups` and `done`, or `error`. Every refusal (switched off, not verified, a limit, busy) is an ordinary JSON error BEFORE the stream opens.
+         */
+        post: operations["AssistantController_ask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/assistant/conversations/{id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer the last question again, replacing the previous answer
+         * @description Counts against the daily allowance like a question. A `text/event-stream`: `meta`, then `delta` events, then `followups` and `done`, or `error`. Every refusal (switched off, not verified, a limit, busy) is an ordinary JSON error BEFORE the stream opens.
+         */
+        post: operations["AssistantController_regenerate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/assistant/messages/{id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Rate an answer as helpful or not (null clears the rating) */
+        put: operations["AssistantController_feedback"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settings/assistant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The portal assistant: switch, limits and usage today
+         * @description Usage counts answers and tokens since midnight UTC, across every client.
+         */
+        get: operations["AdminAssistantController_get"];
+        /** Switch the assistant on or off, and set its daily limits */
+        put: operations["AdminAssistantController_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -10582,6 +10715,99 @@ export interface components {
              */
             matched?: number;
             lines: string[];
+        };
+        AssistantConfigDto: {
+            available: boolean;
+            /**
+             * @description Why it is unavailable. `kyc_required` shows a locked launcher; the others hide it.
+             * @enum {string|null}
+             */
+            reason: "not_configured" | "disabled" | "kyc_required" | null;
+            dailyLimit: number;
+            usedToday: number;
+            /** Format: date-time */
+            resetsAt: string;
+            maxQuestionLength: number;
+        };
+        AssistantConversationDto: {
+            /** Format: uuid */
+            id: string;
+            title: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastMessageAt: string;
+        };
+        AssistantConversationListDto: {
+            items: components["schemas"]["AssistantConversationDto"][];
+        };
+        AssistantMessageDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            role: "user" | "assistant";
+            content: string;
+            /** @enum {string} */
+            status: "streaming" | "complete" | "aborted" | "failed" | "refused" | "interrupted";
+            followups: string[];
+            /** @enum {number|null} */
+            feedback: 1 | -1 | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AssistantThreadDto: {
+            conversation: components["schemas"]["AssistantConversationDto"];
+            messages: components["schemas"]["AssistantMessageDto"][];
+        };
+        AssistantAskDto: {
+            /**
+             * Format: uuid
+             * @description Continue this conversation; omit to start a new one.
+             */
+            conversationId?: string;
+            question: string;
+            /**
+             * Format: uuid
+             * @description The client's id for this question, reused by its retries: a question already received is refused (409 ASSISTANT_DUPLICATE), never asked twice.
+             */
+            requestId?: string;
+        };
+        AssistantFeedbackDto: {
+            /**
+             * @description 1 helpful, -1 not helpful, null clears it.
+             * @enum {number|null}
+             */
+            rating: 1 | -1 | null;
+            /**
+             * @description Why it was not helpful.
+             * @enum {string}
+             */
+            reason?: "wrong" | "not_helpful" | "off_topic" | "other";
+        };
+        AssistantUsageDto: {
+            answers: number;
+            inputTokens: number;
+            cachedTokens: number;
+            outputTokens: number;
+        };
+        AdminAssistantSettingsDto: {
+            enabled: boolean;
+            dailyMessageLimit: number;
+            globalDailyMessageLimit: number;
+            /** @description False when OPENAI_API_KEY is not set: the assistant stays off. */
+            keyConfigured: boolean;
+            model: string;
+            /** @description Since midnight UTC. */
+            today: components["schemas"]["AssistantUsageDto"];
+            /** Format: date-time */
+            updatedAt: string | null;
+        };
+        UpdateAssistantSettingsDto: {
+            enabled: boolean;
+            /** @description Answers one client may get per UTC day. */
+            dailyMessageLimit: number;
+            /** @description Answers the whole platform may give per UTC day: the spend ceiling. */
+            globalDailyMessageLimit: number;
         };
         ErrorResponseDto: {
             /**
@@ -17505,6 +17731,193 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BridgeLogsDto"];
+                };
+            };
+        };
+    };
+    AssistantController_config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantConfigDto"];
+                };
+            };
+        };
+    };
+    AssistantController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantConversationListDto"];
+                };
+            };
+        };
+    };
+    AssistantController_thread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantThreadDto"];
+                };
+            };
+        };
+    };
+    AssistantController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AssistantController_ask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantAskDto"];
+            };
+        };
+        responses: {
+            /** @description The answer, as Server-Sent Events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AssistantController_regenerate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new answer, as Server-Sent Events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AssistantController_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantFeedbackDto"];
+            };
+        };
+        responses: {
+            /** @description Recorded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminAssistantController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAssistantSettingsDto"];
+                };
+            };
+        };
+    };
+    AdminAssistantController_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAssistantSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAssistantSettingsDto"];
                 };
             };
         };

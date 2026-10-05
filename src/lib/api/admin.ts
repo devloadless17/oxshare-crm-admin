@@ -1142,6 +1142,8 @@ export type UpsertAgency = components['schemas']['UpsertAgencyDto'];
  * it rather than silently dropped.
  */
 export type TradingSettings = components['schemas']['TradingSettingsDto'];
+export type AssistantSettings = components['schemas']['AdminAssistantSettingsDto'];
+export type UpdateAssistantSettings = components['schemas']['UpdateAssistantSettingsDto'];
 export type UpdateTradingSettings = components['schemas']['UpdateTradingSettingsDto'];
 
 /*
@@ -1666,6 +1668,20 @@ export const adminApi = {
 
   async updateTradingSettings(body: UpdateTradingSettings): Promise<TradingSettings> {
     const { data } = await apiClient.put<TradingSettings>('/admin/settings/trading', body);
+    return data;
+  },
+
+  // ── The portal assistant (backend 0187) ───────────────────────────────────
+
+  async getAssistantSettings(signal?: AbortSignal): Promise<AssistantSettings> {
+    const { data } = await apiClient.get<AssistantSettings>('/admin/settings/assistant', {
+      signal,
+    });
+    return data;
+  },
+
+  async updateAssistantSettings(body: UpdateAssistantSettings): Promise<AssistantSettings> {
+    const { data } = await apiClient.put<AssistantSettings>('/admin/settings/assistant', body);
     return data;
   },
 
