@@ -10724,6 +10724,11 @@ export interface components {
         AssistantConversationListDto: {
             items: components["schemas"]["AssistantConversationDto"][];
         };
+        AssistantSourceDto: {
+            title: string;
+            /** Format: uri */
+            url: string;
+        };
         AssistantMessageDto: {
             /** Format: uuid */
             id: string;
@@ -10733,6 +10738,8 @@ export interface components {
             /** @enum {string} */
             status: "streaming" | "complete" | "aborted" | "failed" | "refused" | "interrupted";
             followups: string[];
+            /** @description Pages the answer cited; empty if none. */
+            sources: components["schemas"]["AssistantSourceDto"][];
             /** @enum {number|null} */
             feedback: 1 | -1 | null;
             /** Format: date-time */
@@ -10772,6 +10779,8 @@ export interface components {
             inputTokens: number;
             cachedTokens: number;
             outputTokens: number;
+            /** @description Web searches run (each is billed by OpenAI). */
+            webSearches: number;
         };
         AdminAssistantSettingsDto: {
             enabled: boolean;
