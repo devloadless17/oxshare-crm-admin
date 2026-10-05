@@ -152,10 +152,6 @@ const STATIC_READS = new Map([
     'bridge diagnostics: written only by the backend and the MT5 bridge, never by a console mutation; the page re-reads on its own retry',
   ],
   [
-    'session.googleStatus',
-    "whether Google sign-in is switched on: the API's deployment configuration, which no console mutation can change",
-  ],
-  [
     'bridge.logs',
     "the bridge's own log lines: no console mutation writes them; the page re-reads on its own retry",
   ],
