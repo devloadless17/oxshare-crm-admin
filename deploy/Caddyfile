@@ -1,0 +1,34 @@
+# TLS termination for the two frontends, and the only thing on this server
+# listening to the internet. TWIN FILE: identical in both frontend repos.
+# Every value comes from the environment (docker-compose.yml, from .env).
+#
+# DNS carries no ports. admin.<domain> and portal.<domain> are two A records with
+# the SAME address, this server's. Caddy tells them apart by the name the browser
+# asked for (TLS SNI, then Host) and forwards each to its app on the compose network.
+
+{
+	# So Let's Encrypt has somewhere to send expiry and revocation notices.
+	email {$ACME_EMAIL}
+}
+
+# Which colour of each app receives traffic is in active-admin.caddy and
+# active-portal.caddy (one `reverse_proxy` each), written and validated by
+# release.sh, which then reloads Caddy gracefully: a release never drops a connection.
+
+(common) {
+	encode zstd gzip
+	log {
+		output stdout
+		format json
+	}
+}
+
+{$ADMIN_DOMAIN} {
+	import common
+	import /etc/caddy/active-admin.caddy
+}
+
+{$PORTAL_DOMAIN} {
+	import common
+	import /etc/caddy/active-portal.caddy
+}
