@@ -3,8 +3,9 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Clock, LineChart, Mail, MonitorDown } from 'lucide-react';
+import { Clock, LineChart, Mail, MonitorDown, Sparkles } from 'lucide-react';
 import { PageLoader } from '@/components/ui/loader';
+import { AssistantSettingsPanel } from '@/components/rbac/assistant-settings-panel';
 import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
 import { ScheduledJobsPanel } from '@/components/rbac/scheduled-jobs-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
@@ -140,6 +141,12 @@ function AdminSettingsContent() {
         label: t('settings.tabJobs'),
         icon: <Clock className="h-4 w-4" aria-hidden="true" />,
       },
+      // The portal assistant (backend 0187): its switch, limits and today's usage.
+      {
+        value: 'assistant',
+        label: t('settings.tabAssistant'),
+        icon: <Sparkles className="h-4 w-4" aria-hidden="true" />,
+      },
     ];
     return all.filter((tab): tab is TabDefinition => tab !== null);
   }, [canViewSmtp]);
@@ -205,6 +212,10 @@ function AdminSettingsContent() {
 
         <TabPanel value="jobs" activeValue={active} idPrefix="settings">
           <ScheduledJobsPanel canManage={canManageSettings} />
+        </TabPanel>
+
+        <TabPanel value="assistant" activeValue={active} idPrefix="settings">
+          <AssistantSettingsPanel canManage={canManageSettings} />
         </TabPanel>
 
         <TabPanel value="platforms" activeValue={active} idPrefix="settings">

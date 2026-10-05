@@ -1916,6 +1916,32 @@ export const messages = {
   'settings.tabTrading': 'Trading',
   'settings.tabPlatforms': 'Platforms',
   'settings.tabJobs': 'Scheduled jobs',
+  'settings.tabAssistant': 'Assistant',
+  'assistantSettings.title': 'Portal assistant',
+  'assistantSettings.subtitle':
+    'The AI chat in the client portal. It answers general questions about trading, MetaTrader 5 and how OXShare works. It cannot see any client’s account, and only verified clients can use it.',
+  'assistantSettings.readOnly': 'You can view these settings. Changing them needs Settings: edit.',
+  'assistantSettings.loading': 'Loading assistant settings',
+  'assistantSettings.loadFailed': 'Could not load the assistant settings.',
+  'assistantSettings.noKey':
+    'No OpenAI key is configured on the server (OPENAI_API_KEY), so the assistant stays off whatever is set here.',
+  'assistantSettings.model': 'Model: {model}',
+  'assistantSettings.enabled': 'Show the assistant to clients',
+  'assistantSettings.enabledHint':
+    'Off hides it from every client at once and refuses new questions. Use it as the kill switch.',
+  'assistantSettings.dailyLimit': 'Questions per client per day',
+  'assistantSettings.dailyLimitHint': 'Each client’s allowance, renewed at midnight UTC.',
+  'assistantSettings.globalLimit': 'Questions for the whole platform per day',
+  'assistantSettings.globalLimitHint':
+    'The spend ceiling: once reached, the assistant pauses for everyone until midnight UTC.',
+  'assistantSettings.todayTitle': 'Today (since midnight UTC)',
+  'assistantSettings.todayAnswers': 'Answers',
+  'assistantSettings.todayInput': 'Input tokens',
+  'assistantSettings.todayCached': 'of them cached',
+  'assistantSettings.todayOutput': 'Output tokens',
+  'assistantSettings.save': 'Save',
+  'assistantSettings.saved': 'Assistant settings saved',
+  'assistantSettings.updateFailed': 'Could not save the assistant settings.',
 
   // ── Settings → Scheduled jobs (29 Sep 2026): every background job's timing ──
   'jobs.title': 'Scheduled jobs',
@@ -1993,6 +2019,8 @@ export const messages = {
   'jobs.label.notifications.prune': 'Notification clean-up',
   'jobs.desc.notifications.prune':
     'Deletes old notifications (clients after 90 days, admins after a year).',
+  'jobs.label.assistant.prune': 'Assistant chat clean-up',
+  'jobs.desc.assistant.prune': 'Deletes portal assistant chats idle for more than 180 days.',
 
   'settings.masterOnly': 'Master admin only',
 

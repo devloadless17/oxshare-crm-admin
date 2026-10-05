@@ -128,7 +128,7 @@ beforeEach(() => {
 });
 
 describe('which tabs an admin is offered', () => {
-  it('offers all four to a full-access admin', () => {
+  it('offers all five to a full-access admin', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
@@ -138,7 +138,7 @@ describe('which tabs an admin is offered', () => {
      * No Payments tab since backend 0168: the Rival connection is a payment
      * provider, under System → Payment providers.
      */
-    expect(tabs).toEqual(['Trading', 'Email', 'Platforms', 'Scheduled jobs']);
+    expect(tabs).toEqual(['Trading', 'Email', 'Platforms', 'Scheduled jobs', 'Assistant']);
   });
 
   it('hides the Email tab from a non-master admin', () => {
@@ -149,7 +149,7 @@ describe('which tabs an admin is offered', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['Trading', 'Platforms', 'Scheduled jobs']);
+    expect(tabs).toEqual(['Trading', 'Platforms', 'Scheduled jobs', 'Assistant']);
   });
 
   it('defaults to Trading when no tab is in the URL', async () => {
