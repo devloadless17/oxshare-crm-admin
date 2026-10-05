@@ -1,5 +1,7 @@
 # Deploying the admin console
 
+> The whole production setup on one page: `INFRASTRUCTURE.md` in the backend repo.
+
 A push to `production` runs `.github/workflows/ci.yml`: **verify → build → deploy**, and
 deploys THIS app only. The portal lives on the same server and is never touched by this
 repo's deploy.
