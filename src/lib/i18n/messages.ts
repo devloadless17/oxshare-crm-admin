@@ -1315,6 +1315,10 @@ export const messages = {
     'Partner 100% on own clients, the rest on sub-partners’ · client rebate {rebate}% of its rebate',
   'clientProfile.customTerms': 'Set for this sub-partner',
   'clientProfile.editTerms': 'Edit commission',
+  'clientProfile.termsMainPartner':
+    'This is a main partner. A main partner takes 100% of the commission on their own clients ' +
+    'and the rest on their sub-partners’ clients, so there is no share of theirs to set. Edit ' +
+    'the commission on one of their sub-partners instead.',
   'clientProfile.termsTitle': 'Commission and rebate for {name}',
   'clientProfile.termsBody':
     'This sub-partner’s own shares of the product’s commission and rebate. Leave a field empty ' +

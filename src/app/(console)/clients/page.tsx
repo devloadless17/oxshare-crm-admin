@@ -23,6 +23,7 @@ import { ClientFilters } from '@/components/clients/client-filters';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
 import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
+import { EditTermsFromList } from '@/components/partners/edit-terms-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
 import { ExportButton } from '@/components/export-button';
@@ -232,6 +233,7 @@ function ClientsPageContent() {
    * and re-sorted, so looking the row back up by id is a race the title loses.
    */
   const [programTarget, setProgramTarget] = useState<ClientRow | null>(null);
+  const [termsTarget, setTermsTarget] = useState<ClientRow | null>(null);
   // "Link MT5 account" from a row, the client filled in (29 Sep 2026).
   const canLinkAccounts = hasPermission(admin, 'trading.create');
   const [linkFor, setLinkFor] = useState<ClientRow | null>(null);
@@ -244,6 +246,7 @@ function ClientsPageContent() {
     actingId: status.actingId,
     onToggleStatus: (client: ClientRow) => void status.toggle(client),
     onChangeProgram: setProgramTarget,
+    onEditTerms: setTermsTarget,
     onLinkAccount: canLinkAccounts ? setLinkFor : undefined,
   });
 
@@ -265,6 +268,14 @@ function ClientsPageContent() {
             : undefined
         }
       />
+      {termsTarget && (
+        <EditTermsFromList
+          open
+          onClose={() => setTermsTarget(null)}
+          userId={termsTarget.id}
+          name={clientLabel(termsTarget)}
+        />
+      )}
       {programTarget && (
         <ChangeLevelFromList
           open

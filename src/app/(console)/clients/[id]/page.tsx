@@ -36,6 +36,7 @@ import {
   EditClientProfileDialog,
 } from '@/components/clients/profile/client-edit-dialogs';
 import { ClientPartnerPanel } from '@/components/clients/profile/client-partner-panel';
+import { SubPartnerTermsDialog } from '@/components/clients/profile/client-partner-dialogs';
 import { useClientTagToggle } from '@/components/clients/profile/use-client-tag-toggle';
 import { ClientClosedPositionsPanel } from '@/components/clients/profile/client-activity-panels';
 import { ClientAccountsPanel } from '@/components/clients/profile/client-accounts-panel';
@@ -132,6 +133,7 @@ export default function ClientProfilePage() {
   const [tab, setTab] = React.useState(TAB_OVERVIEW);
   const [tagsOpen, setTagsOpen] = React.useState(false);
   const [linkOpen, setLinkOpen] = React.useState(false);
+  const [termsOpen, setTermsOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [emailOpen, setEmailOpen] = React.useState(false);
   const [showRecordReferrer, setShowRecordReferrer] = React.useState(false);
@@ -427,6 +429,7 @@ export default function ClientProfilePage() {
                   onEditProfile={() => setEditOpen(true)}
                   onChangeEmail={() => setEmailOpen(true)}
                   onLinkAccount={() => setLinkOpen(true)}
+                  onEditTerms={() => setTermsOpen(true)}
                 />
               </div>
             </header>
@@ -434,6 +437,15 @@ export default function ClientProfilePage() {
             <div className="shrink-0">
               <Tabs tabs={tabs} value={tab} onValueChange={setTab} idPrefix="client-profile" />
             </div>
+
+            {termsOpen && partner && (
+              <SubPartnerTermsDialog
+                open
+                onClose={() => setTermsOpen(false)}
+                partner={partner}
+                name={clientLabel(profile)}
+              />
+            )}
 
             {/* The client is known here, so the dialog only asks for the login. */}
             <LinkAccountDialog
