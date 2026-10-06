@@ -10,6 +10,7 @@ import type { WithdrawalRow, WithdrawalState } from '@/lib/api/admin';
 import { t, type MessageKey } from '@/lib/i18n';
 import { formatMoney } from '@/lib/money';
 import { PayoutBadge } from './withdrawal-payout';
+import { DepositDetailsCell } from '@/components/deposits/deposit-details-cell';
 
 /**
  * A withdrawal's state in the desk's words and colours — ONE map, shared by the
@@ -167,6 +168,11 @@ export function WithdrawalRecordSheet({
         {
           label: t('withdrawals.detailsSettled'),
           value: w.settledAt ? formatDateTime(w.settledAt) : null,
+        },
+        {
+          // What the rail told the client when they asked (backend 0202), as a copy.
+          label: t('withdrawals.detailsShown'),
+          value: w.payToDetails?.length ? <DepositDetailsCell details={w.payToDetails} /> : null,
         },
       ]}
       columns={columns}

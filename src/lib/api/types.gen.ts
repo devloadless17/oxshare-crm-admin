@@ -6870,6 +6870,8 @@ export interface components {
              *     ]
              */
             currencies: string[] | null;
+            /** @description What the rail tells the client, in order (0202) — where to collect cash, a reference to quote. Read-only for the client; the shown details only. */
+            payToFields: components["schemas"]["ShownPayToFieldDto"][];
         };
         RequestWithdrawalDto: {
             /** @example 300.00000000 */
@@ -7348,6 +7350,8 @@ export interface components {
              * @example 0
              */
             sortOrder: number;
+            /** @description Every detail the rail shows the client on the withdraw form (0202), hidden ones included. */
+            payToFields: components["schemas"]["PayToFieldDto"][];
             /**
              * @description What the desk calls the rail (admin-only, unique). The console shows it in place of the key.
              * @example Whish payouts
@@ -7422,6 +7426,8 @@ export interface components {
             countryCodes?: string[];
             /** @description Omitted puts it after the last one. */
             sortOrder?: number;
+            /** @description What the rail SHOWS the client on the withdraw form (0202) — where to collect cash, a reference to quote. Ordered; the whole list is replaced on save. Each request keeps what it was shown. */
+            payToFields?: components["schemas"]["PayToFieldInputDto"][];
         };
         UpdateWithdrawalMethodDto: {
             /**
@@ -7451,6 +7457,8 @@ export interface components {
              */
             countryCodes?: string[];
             sortOrder?: number;
+            /** @description What the rail SHOWS the client on the withdraw form (0202) — where to collect cash, a reference to quote. Ordered; the whole list is replaced on save. Each request keeps what it was shown. */
+            payToFields?: components["schemas"]["PayToFieldInputDto"][];
         };
         ProviderCheckDto: {
             at: string;
@@ -10419,6 +10427,30 @@ export interface components {
             /** @description What arrives. */
             net?: string | null;
         };
+        PayToDetailDto: {
+            /** @example f_p7d2k9m4qa */
+            fieldId: string;
+            /**
+             * @description The label as shown.
+             * @example Send to
+             */
+            label: string;
+            /**
+             * @description The label in Arabic as shown, when the detail had one.
+             * @example أرسل إلى
+             */
+            labelAr?: string | null;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            /**
+             * @description As shown. A phone is E.164.
+             * @example +96170123456
+             */
+            value: string;
+        };
         WithdrawalUserDto: {
             id: string;
             /** @example 1000001 */
@@ -10493,6 +10525,8 @@ export interface components {
             payoutPlan?: components["schemas"]["PayoutPlanDto"] | null;
             /** @description The payment provider OPERATOR’s own note on a refused payout (Rival adminNotes). Admin-only: the client is told a fixed sentence in rejectionReason. Null when none. */
             providerNote?: string | null;
+            /** @description What the rail SHOWED the client when they requested it (0202) — a copy, so a later edit to the method never rewrites it. Null when it showed nothing. */
+            payToDetails?: components["schemas"]["PayToDetailDto"][] | null;
             user: components["schemas"]["WithdrawalUserDto"];
             userId?: number;
             walletId?: string;
@@ -10781,30 +10815,6 @@ export interface components {
         AdminTransactionsSummaryDto: {
             rows: components["schemas"]["AdminTransactionSummaryRowDto"][];
             directions: components["schemas"]["AdminTransactionDirectionTotalDto"][];
-        };
-        PayToDetailDto: {
-            /** @example f_p7d2k9m4qa */
-            fieldId: string;
-            /**
-             * @description The label as shown.
-             * @example Send to
-             */
-            label: string;
-            /**
-             * @description The label in Arabic as shown, when the detail had one.
-             * @example أرسل إلى
-             */
-            labelAr?: string | null;
-            /**
-             * @example phone
-             * @enum {string}
-             */
-            type: "text" | "phone";
-            /**
-             * @description As shown. A phone is E.164.
-             * @example +96170123456
-             */
-            value: string;
         };
         AdminTransactionRowDto: {
             id: string;

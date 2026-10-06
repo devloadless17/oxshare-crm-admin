@@ -8,7 +8,7 @@ import type { PaymentProvider, WithdrawalMethod } from '@/lib/api/admin';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { apiErrorMessage } from '@/lib/api/errors';
+import { apiErrorMessage, apiFieldErrors } from '@/lib/api/errors';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { WithdrawalMethodForm } from '@/components/withdrawal-methods/withdrawal-method-form';
 import { useSaveWithdrawalMethod } from '@/components/withdrawal-methods/use-save-withdrawal-method';
@@ -77,6 +77,7 @@ export default function WithdrawalMethodPage() {
                   ? apiErrorMessage(save.error, t('withdrawalMethods.saveFailed'))
                   : undefined
               }
+              fieldErrors={save.isError ? apiFieldErrors(save.error) : {}}
               onClose={back}
               onSubmit={(values) =>
                 save.mutate(values, {

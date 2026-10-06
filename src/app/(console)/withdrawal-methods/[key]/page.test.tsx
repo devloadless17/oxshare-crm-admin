@@ -75,6 +75,7 @@ function method(over: Partial<WithdrawalMethod> = {}): WithdrawalMethod {
     inUse: false,
     countryRule: null,
     countryCodes: [],
+    payToFields: [],
     // Rival's Whish payout route, paid by Rival (backend 0168).
     providerCode: 'rival',
     channelCode: 'whish',

@@ -5,7 +5,8 @@ import {
   type CountryRuleValue,
 } from '@/components/payment-methods/country-rule-section';
 import * as React from 'react';
-import type { PaymentProvider, WithdrawalMethod } from '@/lib/api/admin';
+import type { PaymentMethodPayToField, PaymentProvider, WithdrawalMethod } from '@/lib/api/admin';
+import { PayToFieldsEditor } from '@/components/payment-methods/proof-fields-editor';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,8 @@ export interface WithdrawalMethodFormValues {
   route: MethodRoute;
   /** Who can use it, by country of residence (backend 0178). */
   countries: CountryRuleValue;
+  /** What the rail SHOWS the client on the withdraw form (backend 0202). */
+  payToFields: PaymentMethodPayToField[];
 }
 
 /**
@@ -54,6 +57,7 @@ export function WithdrawalMethodForm({
   providers,
   saving,
   error,
+  fieldErrors = {},
   onSubmit,
   onClose,
 }: {
@@ -61,6 +65,8 @@ export function WithdrawalMethodForm({
   providers?: readonly PaymentProvider[];
   saving: boolean;
   error?: string;
+  /** Refusals keyed by field — the shown details' land under their row. */
+  fieldErrors?: Record<string, string>;
   onSubmit: (values: WithdrawalMethodFormValues) => void;
   onClose: () => void;
 }) {
@@ -80,7 +86,13 @@ export function WithdrawalMethodForm({
     countryRule: method?.countryRule ?? null,
     countryCodes: method?.countryCodes ?? [],
   });
+  const [payToFields, setPayToFields] = React.useState<PaymentMethodPayToField[]>(
+    method?.payToFields ?? [],
+  );
   const fieldId = React.useId();
+  // The banner repeats nothing a row already says.
+  const fieldKeys = Object.keys(fieldErrors);
+  const allInline = fieldKeys.length > 0 && fieldKeys.every((k) => k.startsWith('payToFields'));
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -92,6 +104,7 @@ export function WithdrawalMethodForm({
       enabled,
       route,
       countries,
+      payToFields,
     });
   };
 
@@ -167,11 +180,20 @@ export function WithdrawalMethodForm({
         </div>
       </FormSection>
 
+      <FormSection title={t('withdrawalMethods.sectionShown')}>
+        <PayToFieldsEditor
+          direction="payout"
+          fields={payToFields}
+          onChange={setPayToFields}
+          errors={fieldErrors}
+        />
+      </FormSection>
+
       <FormSection title={t('paymentMethods.sectionWho')}>
         <CountryRuleSection bare value={countries} onChange={setCountries} />
       </FormSection>
 
-      {error && (
+      {error && !allInline && (
         <p role="alert" className="text-xs leading-relaxed text-destructive">
           {error}
         </p>
