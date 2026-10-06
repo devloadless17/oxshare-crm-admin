@@ -389,7 +389,11 @@ function LevelCard({
                 <li key={type.id} className="tabular">
                   {t('ibLevels.perType', {
                     name: type.name,
-                    commission: shareOf(type.commissionPerLot, level.commissionShare),
+                    // 0197 — level 1 takes the whole commission on its own clients.
+                    commission: shareOf(
+                      type.commissionPerLot,
+                      level.level === 1 ? '100' : level.commissionShare,
+                    ),
                     rebate: shareOf(type.rebatePerLot, level.rebateShare),
                   })}
                 </li>

@@ -166,13 +166,13 @@ describe('the commission ladder', () => {
    * ── THE SHARE RESOLVES ON THE CARD, PER TYPE, AND THAT IS THE POINT ──────
    *
    * A percentage of a number on another screen is not a figure anybody can
-   * hold in their head. 70% of a $10 type is $7.00 to the partner and 50% of
-   * its $3 rebate is $1.50 to the client — said on the card.
+   * hold in their head. A main partner takes all of a $10 type on their own
+   * clients (0197), and 50% of its $3 rebate is $1.50 to the client.
    */
   it('says what each share comes to in money on every active type', async () => {
     renderWithProviders(<IbLevelsPage />);
 
-    expect(await screen.findByText('Standard: partner $7.00 · client $1.50')).toBeInTheDocument();
+    expect(await screen.findByText('Standard: partner $10.00 · client $1.50')).toBeInTheDocument();
     expect(screen.getByText('Standard: partner $3.00 · client $0.00')).toBeInTheDocument();
   });
 
@@ -183,7 +183,7 @@ describe('the commission ladder', () => {
     ]);
     renderWithProviders(<IbLevelsPage />);
 
-    await screen.findByText('Standard: partner $7.00 · client $1.50');
+    await screen.findByText('Standard: partner $10.00 · client $1.50');
     expect(screen.queryByText(/Retired: partner/)).toBeNull();
   });
 
