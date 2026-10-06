@@ -31,7 +31,6 @@ vi.mock('@/context/AdminAuthContext', () => ({
       email: 'admin@oxshare.com',
       name: 'Admin',
       status: 'active',
-      seesUntriaged: true,
       seesAllClients: true,
       permissions: ALL_PERMISSIONS,
     },

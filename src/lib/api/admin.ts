@@ -438,6 +438,9 @@ export interface ClientListParams {
    * looks like a bug; `UsersStore.countReferredBy` records why.
    */
   referredBy?: string;
+  /** When they REGISTERED — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+  from?: string;
+  to?: string;
   /**
    * `'true'`: only clients a partner introduced — the Referrals page, which is
    * this list with that one filter fixed. `'false'`: only clients nobody did.
@@ -493,6 +496,9 @@ export interface WithdrawalListParams {
   state?: string;
   /** Client email or name. Server-side — see `listForAdmin`'s note on scope. */
   q?: string;
+  /** The period — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+  from?: string;
+  to?: string;
   limit: number;
   page?: number;
   sort?: WithdrawalSortKey;
@@ -554,9 +560,14 @@ export interface TransactionListParams {
   currency?: string;
   /** Client email or name. Server-side, same columns as every other queue. */
   q?: string;
-  /** Inclusive date bounds, `YYYY-MM-DD`. */
+  /**
+   * The period: instants with offset (`lib/date-presets.ts`), `to` EXCLUSIVE —
+   * or legacy `YYYY-MM-DD` dates, `to` inclusive.
+   */
   from?: string;
   to?: string;
+  /** Payment method keys, comma-separated — deposit or withdrawal methods. */
+  method?: string;
   /** Only payments flagged for a person to reconcile — the API's one value. */
   attention?: 'true';
   /**
@@ -1913,6 +1924,8 @@ export const adminApi = {
     // state at all, and the API reads the empty string as a filter.
     if (params.state) query.set('state', params.state);
     if (params.q) query.set('q', params.q);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
     if (params.id) query.set('id', params.id);
     if (params.page !== undefined) query.set('page', String(params.page));
     // Both halves or neither. `order` alone describes an ordering of no column,
@@ -1955,6 +1968,7 @@ export const adminApi = {
     if (params.q) query.set('q', params.q);
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
+    if (params.method) query.set('method', params.method);
     if (params.attention) query.set('attention', params.attention);
     if (params.decidedBy) query.set('decidedBy', params.decidedBy);
     if (params.id) query.set('id', params.id);
@@ -1990,6 +2004,7 @@ export const adminApi = {
     if (params.q) query.set('q', params.q);
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
+    if (params.method) query.set('method', params.method);
     if (params.attention) query.set('attention', params.attention);
     const qs = query.toString();
     const { data } = await apiClient.get<TransactionsSummary>(
@@ -2357,6 +2372,9 @@ export const adminApi = {
       userId?: ClientRef;
       walletId?: string;
       entryType?: string;
+      /** The period — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+      from?: string;
+      to?: string;
       page?: number;
       limit?: number;
       cursor?: string;

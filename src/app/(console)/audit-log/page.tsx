@@ -7,6 +7,8 @@ import type { AuditEntry, AuditListResponse, AuditSortKey } from '@/lib/api/admi
 import { AUDIT_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { UrlSearchInput } from '@/components/url-search-input';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { ExportButton } from '@/components/export-button';
 import { MaskedChip } from '@/components/masked-value';
@@ -136,6 +138,12 @@ function AuditLogPageContent() {
   const subjectId = url.get('subjectId');
   const actorId = url.get('actorId');
   const q = useDebounced(url.get('q').trim());
+  /*
+   * The period opens on TODAY. "Everything that happened to this person" (a
+   * profile's `subjectId` link) or "everything this admin did" (`actorId`) is
+   * an investigation, and opens on All time so it starts complete.
+   */
+  const period = useDateRange(url, subjectId || actorId ? 'all' : 'today');
 
   /*
    * Checked against the allowlist rather than cast to it. A stale bookmark or a
@@ -172,6 +180,8 @@ function AuditLogPageContent() {
       subjectType,
       sortKey,
       sortKey ? url.sort.order : null,
+      period.range.from ?? null,
+      period.range.to ?? null,
     ]),
     async (signal) => {
       const params = new URLSearchParams({
@@ -183,6 +193,8 @@ function AuditLogPageContent() {
       if (subjectId) params.set('subjectId', subjectId);
       if (actorId) params.set('actorId', actorId);
       if (q) params.set('q', q);
+      if (period.range.from) params.set('from', period.range.from);
+      if (period.range.to) params.set('to', period.range.to);
       // Both halves or neither — `order` alone describes an ordering of no
       // column, and the API is entitled to reject it.
       if (sortKey) {
@@ -229,6 +241,8 @@ function AuditLogPageContent() {
   if (subjectId) exportFilters.set('subjectId', subjectId);
   if (actorId) exportFilters.set('actorId', actorId);
   if (q) exportFilters.set('q', q);
+  if (period.range.from) exportFilters.set('from', period.range.from);
+  if (period.range.to) exportFilters.set('to', period.range.to);
 
   /*
    * THREE of these sort, and the other two say explicitly that they do not.
@@ -399,7 +413,7 @@ function AuditLogPageContent() {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-3">
         <UrlSearchInput
           value={url.get('q')}
           label={t('audit.filterActor')}
@@ -430,6 +444,13 @@ function AuditLogPageContent() {
             ))}
           </SelectContent>
         </Select>
+
+        <DateRangePicker
+          choice={period.choice}
+          custom={period.custom}
+          defaultChoice={period.defaultChoice}
+          onChange={period.set}
+        />
       </div>
 
       <AsyncBoundary
@@ -452,6 +473,7 @@ function AuditLogPageContent() {
             <EmptyState
               icon={ScrollText}
               message={action ? 'No entries for this action.' : 'No admin actions recorded yet.'}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
             />
           }
           /*

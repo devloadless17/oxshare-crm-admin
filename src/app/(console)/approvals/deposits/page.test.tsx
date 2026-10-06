@@ -32,6 +32,13 @@ const { getTransactions, approveDeposit, rejectDeposit, getRejectionReasons } = 
  * own catch swallows it, and what renders is a generic "failed to load" that
  * reads as a broken query rather than a broken mock.
  */
+// The period lives in the URL (`useDateRange`), so the page needs a router.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  usePathname: () => '/approvals/deposits',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock('@/lib/api', () => {
   const api = { admin: { getTransactions, approveDeposit, rejectDeposit, getRejectionReasons } };
   return { api, default: api };

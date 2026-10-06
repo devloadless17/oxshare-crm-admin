@@ -177,9 +177,16 @@ export function ClientFilters({
           value={values.tag}
           onChange={(v) => onChange({ tag: v })}
           placeholder={t('clients.allTags')}
-          options={tags.map((tag) => ({
+          // The business's tags, then the countries clients live in (0193) —
+          // a country nobody lives in would only lengthen the list.
+          options={[
+            ...tags.filter((tag) => !tag.countryCode),
+            ...tags.filter((tag) => tag.countryCode && tag.clientCount > 0),
+          ].map((tag) => ({
             value: tag.slug,
-            label: `${tag.label} (${tag.clientCount})`,
+            label: tag.countryCode
+              ? `${t('tags.countryOption', { label: tag.label })} (${tag.clientCount})`
+              : `${tag.label} (${tag.clientCount})`,
           }))}
         />
       )}

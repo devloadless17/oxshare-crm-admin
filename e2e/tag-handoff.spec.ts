@@ -74,7 +74,6 @@ test('a desk hands a client to another desk from the client page — asked first
       name: 'E2E Handoff Desk',
       permissions: ['clients.view', 'clients.tag', 'tags.view'],
       scopedTagIds: [ownTag.id],
-      seesUntriaged: false,
     });
     expect(invited.ok(), `invite answered ${invited.status()}`).toBe(true);
     const token = new URL(

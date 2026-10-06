@@ -17,7 +17,8 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
 import { TxStateBadge, stateLabel } from '@/components/financial/transaction-badges';
-import { DateRangeFilter } from '@/components/financial/date-range-filter';
+import { DateRangePicker } from '@/components/date-range-picker';
+import { resolveRange, type DateRangeChoice } from '@/lib/date-presets';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -107,7 +108,12 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
   const table = useTableState<TransactionSortKey>(TRANSACTION_SORT_KEYS);
   const [state, setState] = React.useState('');
   const [currency, setCurrency] = React.useState('');
-  const [range, setRange] = React.useState<{ from?: string; to?: string }>({});
+  // One client's whole history is small, so the profile opens on All time.
+  const [period, setPeriod] = React.useState<{
+    choice: DateRangeChoice;
+    custom: { from: string; to: string };
+  }>({ choice: 'all', custom: { from: '', to: '' } });
+  const range = resolveRange(period.choice, period.custom);
   const [details, setDetails] = React.useState<TransactionRow | null>(null);
 
   const currencies = useResource<Currency[]>(keys.currencies.all(), (signal) =>
@@ -131,7 +137,7 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
     api.admin.getTransactions(params, signal),
   );
 
-  const filtered = Boolean(state || currency || range.from || range.to);
+  const filtered = Boolean(state || currency || period.choice !== 'all');
   const isDeposits = spec.value === 'deposits';
   const isTransfers = spec.value === 'transfers';
 
@@ -236,11 +242,12 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
             table.setPage(1);
           }}
         />
-        <DateRangeFilter
-          from={range.from ?? ''}
-          to={range.to ?? ''}
-          onChange={(next) => {
-            setRange(next);
+        <DateRangePicker
+          choice={period.choice}
+          custom={period.custom}
+          defaultChoice="all"
+          onChange={(choice, custom) => {
+            setPeriod({ choice, custom: custom ?? { from: '', to: '' } });
             table.setPage(1);
           }}
         />

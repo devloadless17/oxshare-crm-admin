@@ -7,6 +7,8 @@ import type { components } from '@/lib/api/types.gen';
 import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { QueueToolbar } from '@/components/queue-toolbar';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { CopyableId } from '@/components/copyable-id';
@@ -189,6 +191,13 @@ function KycQueue() {
    */
   // Both directions, and a link followed while on the queue wins — see the hook.
   const { search, setSearch, term: debouncedSearch } = useUrlSearch(url);
+  /*
+   * The period, by SUBMISSION date (a draft's: when it was started). A tab of
+   * work still waiting (in progress, submitted, under review) opens on All time — a submission from last week must never
+   * hide behind "Today" and read as an empty queue. A decided tab opens on Today.
+   */
+  const waitingTab = ['needs_review', 'in_progress', 'submitted', 'under_review'].includes(filter);
+  const period = useDateRange(url, waitingTab ? 'all' : 'today');
   /**
    * The sort, as the API's own two parameters.
    *
@@ -206,11 +215,22 @@ function KycQueue() {
   // Server-side filtering/search/sorting/pagination; counts come from the API
   // over the full set, so tab counts stay correct while a filter is active.
   const query = useResource<KycListResponse>(
-    keys.kyc.queue([page, pageSize, filter, debouncedSearch, sort?.key, sort?.order]),
+    keys.kyc.queue([
+      page,
+      pageSize,
+      filter,
+      debouncedSearch,
+      sort?.key,
+      sort?.order,
+      period.range.from,
+      period.range.to,
+    ]),
     async (signal) => {
       const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
       if (filter) params.set('status', filter);
       if (debouncedSearch) params.set('q', debouncedSearch);
+      if (period.range.from) params.set('from', period.range.from);
+      if (period.range.to) params.set('to', period.range.to);
       // Both halves or neither — `order` alone describes an ordering of no
       // column, and the API is entitled to reject it.
       if (sort) {
@@ -229,6 +249,8 @@ function KycQueue() {
   const exportFilters = new URLSearchParams();
   if (filter) exportFilters.set('status', filter);
   if (debouncedSearch) exportFilters.set('q', debouncedSearch);
+  if (period.range.from) exportFilters.set('from', period.range.from);
+  if (period.range.to) exportFilters.set('to', period.range.to);
 
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
@@ -500,6 +522,14 @@ function KycQueue() {
           onSearchChange={setSearch}
           searchPlaceholder={t('kycReview.searchPlaceholder')}
           searchAriaLabel={t('kyc.searchAria')}
+          extra={
+            <DateRangePicker
+              choice={period.choice}
+              custom={period.custom}
+              defaultChoice={period.defaultChoice}
+              onChange={period.set}
+            />
+          }
         />
       </div>
 
@@ -551,7 +581,13 @@ function KycQueue() {
           loading={loading}
           loadingText={t('kyc.loadingQueue')}
           dimmed={query.isFetching}
-          empty={<EmptyState icon={FileCheck} message={t('kyc.queueEmpty')} />}
+          empty={
+            <EmptyState
+              icon={FileCheck}
+              message={t('kyc.queueEmpty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
+            />
+          }
           sortColumn={sort?.key}
           sortDirection={sort?.order}
           /*

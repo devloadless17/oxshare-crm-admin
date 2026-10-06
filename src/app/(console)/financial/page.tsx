@@ -9,6 +9,8 @@ import {
   TRANSACTION_SORT_KEYS,
   TRANSACTION_STATES,
   type Currency,
+  type PaymentMethod,
+  type WithdrawalMethod,
   type TransactionDirection,
   type TransactionKind,
   type TransactionListParams,
@@ -34,6 +36,9 @@ import { QueueToolbar } from '@/components/queue-toolbar';
 import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
 import { TransactionFilters } from '@/components/financial/transaction-filters';
+import type { MethodOption } from '@/components/financial/method-filter';
+import { PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { TransactionSummary } from '@/components/financial/transaction-summary';
 import { AbandonTransferDialog } from '@/components/financial/abandon-transfer-dialog';
 import { ResolveAttentionDialog } from '@/components/financial/resolve-attention-dialog';
@@ -108,8 +113,13 @@ function FinancialPageContent() {
   const kind = member<TransactionKind>(url.get('kind'), TRANSACTION_KINDS);
   const state = member<TransactionState>(url.get('state'), TRANSACTION_STATES);
   const currency = url.get('currency');
-  const from = url.get('from');
-  const to = url.get('to');
+  /*
+   * The period opens on TODAY (the buyer: a busy book must never load its whole
+   * history by default). `lib/date-presets.ts` resolves it to the viewer's own
+   * day boundaries.
+   */
+  const period = useDateRange(url, 'today');
+  const methods = url.get('method').split(',').filter(Boolean);
   // Deep-linking from a client profile — the same shape /ledger?userId= uses.
   const userId = url.get('userId');
   // Only payments flagged for a person — where a deposit-anomaly task lands.
@@ -150,8 +160,9 @@ function FinancialPageContent() {
     userId: userId || undefined,
     currency: currency || undefined,
     q: q || undefined,
-    from: from || undefined,
-    to: to || undefined,
+    from: period.range.from,
+    to: period.range.to,
+    method: methods.length ? methods.join(',') : undefined,
     attention,
   };
 
@@ -183,6 +194,27 @@ function FinancialPageContent() {
   const currenciesQuery = useResource<Currency[]>(keys.currencies.all(), (signal) =>
     api.admin.getCurrencies(signal),
   );
+  // The method vocabulary, both directions, from their own endpoints. A reader
+  // who may not list methods simply gets no method filter (forbidden → []).
+  const depositMethodsQuery = useResource<PaymentMethod[]>(keys.paymentMethods.all(), (signal) =>
+    api.admin.getPaymentMethods(signal),
+  );
+  const withdrawalMethodsQuery = useResource<WithdrawalMethod[]>(
+    keys.withdrawalMethods.all(),
+    (signal) => api.admin.getWithdrawalMethods(signal),
+  );
+  const methodOptions: MethodOption[] = [
+    ...(depositMethodsQuery.data ?? []).map((m) => ({
+      key: m.key,
+      label: m.internalLabel || m.name,
+      direction: 'deposit' as const,
+    })),
+    ...(withdrawalMethodsQuery.data ?? []).map((m) => ({
+      key: m.key,
+      label: m.internalLabel || m.name,
+      direction: 'withdrawal' as const,
+    })),
+  ];
 
   // The one movement a notification opened (`?open=`): a flagged payment or a
   // stuck transfer, in any state, whatever the page's own filters say.
@@ -262,7 +294,15 @@ function FinancialPageContent() {
   });
 
   const isFiltered = Boolean(
-    direction || kind || state || currency || from || to || userId || attention || url.get('q'),
+    direction ||
+    kind ||
+    state ||
+    currency ||
+    period.choice !== period.defaultChoice ||
+    methods.length ||
+    userId ||
+    attention ||
+    url.get('q'),
   );
 
   const exportFilters = new URLSearchParams();
@@ -375,8 +415,9 @@ function FinancialPageContent() {
         kind={kind ?? ''}
         state={state ?? ''}
         currency={currency}
-        from={from}
-        to={to}
+        period={period}
+        methods={methods}
+        methodOptions={methodOptions}
         attention={attention === 'true'}
         currencies={currenciesQuery.data ?? []}
         isFiltered={isFiltered}
@@ -388,7 +429,7 @@ function FinancialPageContent() {
         status={query.status}
         label={t('financial.loading')}
         endpoints={[
-          'GET /admin/transactions?direction&kind&state&q&userId&currency&from&to&attention&page&limit&sort&order',
+          'GET /admin/transactions?direction&kind&state&q&userId&currency&from&to&method&attention&page&limit&sort&order',
         ]}
         onRetry={query.refetch}
         errorMessage={t('financial.loadFailed')}
@@ -409,6 +450,7 @@ function FinancialPageContent() {
             <EmptyState
               icon={Banknote}
               message={isFiltered ? t('financial.emptyFiltered') : t('financial.empty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
             />
           }
           sortColumn={sortKey}

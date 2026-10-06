@@ -20,6 +20,8 @@ import { PageLoader } from '@/components/ui/loader';
 import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
@@ -105,6 +107,8 @@ function ClientsPageContent() {
    * request rather than two.
    */
   const debouncedSearch = useDebounced(url.get('q').trim());
+  // When they registered. The client BOOK opens whole: All time.
+  const period = useDateRange(url, 'all');
 
   const sortKey = CLIENT_SORT_KEYS.includes(url.sort.key as ClientSortKey)
     ? (url.sort.key as ClientSortKey)
@@ -134,6 +138,8 @@ function ClientsPageContent() {
     // Everyone one partner introduced. Reached from the profile's Network tab,
     // whose list is capped — this is where the rest of the book lives.
     referredBy: url.get('referredBy'),
+    from: period.range.from,
+    to: period.range.to,
     sort: sortKey,
     // Withheld when nothing is sorted. `order` alone describes an ordering of
     // no column — the API is entitled to reject it, and sending it would also
@@ -169,6 +175,8 @@ function ClientsPageContent() {
       emailVerified: params.emailVerified,
       tag: params.tag,
       referredBy: params.referredBy,
+      from: params.from,
+      to: params.to,
       sort: params.sort,
       order: params.order,
     })) {
@@ -177,6 +185,8 @@ function ClientsPageContent() {
     }
     return filters;
   }, [
+    params.from,
+    params.to,
     params.q,
     params.type,
     params.status,
@@ -312,7 +322,14 @@ function ClientsPageContent() {
         </div>
       )}
 
-      <div className="shrink-0">
+      <div className="flex shrink-0 flex-wrap items-start gap-3">
+        <DateRangePicker
+          prefix={t('clients.registered')}
+          choice={period.choice}
+          custom={period.custom}
+          defaultChoice={period.defaultChoice}
+          onChange={period.set}
+        />
         <ClientFilters
           values={{
             q: url.get('q'),
@@ -362,7 +379,13 @@ function ClientsPageContent() {
           rows={rows}
           rowKey={(c) => String(c.id)}
           dimmed={query.isFetching}
-          empty={<EmptyState icon={Users} message={t('clients.empty')} />}
+          empty={
+            <EmptyState
+              icon={Users}
+              message={t('clients.empty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
+            />
+          }
           sortColumn={sortKey}
           sortDirection={url.sort.order}
           /*

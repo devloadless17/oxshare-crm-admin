@@ -51,6 +51,7 @@ export function QueueToolbar<T extends string>({
   onSearchChange,
   searchPlaceholder,
   searchAriaLabel,
+  extra,
 }: {
   filters: readonly QueueFilter<T>[];
   active: T;
@@ -60,6 +61,8 @@ export function QueueToolbar<T extends string>({
   searchPlaceholder: string;
   /** Named for the QUEUE — "Search withdrawals", not "Search". */
   searchAriaLabel: string;
+  /** Controls beside the search — the period picker. */
+  extra?: React.ReactNode;
 }) {
   return (
     /*
@@ -111,13 +114,16 @@ export function QueueToolbar<T extends string>({
         })}
       </div>
 
-      <Input
-        className="h-9 max-w-xs"
-        placeholder={searchPlaceholder}
-        aria-label={searchAriaLabel}
-        value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        {extra}
+        <Input
+          className="h-9 max-w-xs"
+          placeholder={searchPlaceholder}
+          aria-label={searchAriaLabel}
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+      </div>
     </div>
   );
 }

@@ -23,7 +23,6 @@ const base: AdminProfile = {
   email: 'sub@oxshare.com',
   name: 'Sub',
   role: 'sub_admin',
-  seesUntriaged: false,
   seesAllClients: true,
   permissions: [],
   // Required since the API started admitting it. The directory used to render a

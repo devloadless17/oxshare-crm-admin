@@ -8730,7 +8730,6 @@ export interface components {
             maskedFields: string[];
             maskedFieldsOverride?: string[] | null;
             scopedTags: components["schemas"]["AdminScopeTagDto"][];
-            seesUntriaged: boolean;
             seesAllClients: boolean;
             /** @example /uploads/avatars/6f1c.png */
             avatarUrl?: string | null;
@@ -8755,10 +8754,8 @@ export interface components {
             permissions?: string[];
             /** @description Client fields this admin may not see. Omit to inherit the role’s mask; [] means no mask. */
             maskedFields?: string[];
-            /** @description Client tags this admin is limited to. [] means no territory tags (new clients only, or none) — every client is only ever `seesAllClients` (0154). */
+            /** @description Client tags this admin is limited to. [] means no territory tags (no client) — every client is only ever `seesAllClients` (0154). */
             scopedTagIds?: string[];
-            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
-            seesUntriaged?: boolean;
             /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
             seesAllClients?: boolean;
         };
@@ -8863,6 +8860,11 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
+            /**
+             * @description Set on a COUNTRY tag (ISO code, 0193): carried by every client living there, derived from their country — never assigned, renamed or deleted; only its colour is editable.
+             * @example LB
+             */
+            countryCode?: string;
             /** Format: date-time */
             createdAt: string;
         };
@@ -9283,6 +9285,11 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
+            /**
+             * @description Set on a COUNTRY tag (ISO code, 0193): carried by every client living there, derived from their country — never assigned, renamed or deleted; only its colour is editable.
+             * @example LB
+             */
+            countryCode?: string;
             /** Format: date-time */
             createdAt: string;
             /** @description How many clients carry this tag in the reader’s territory. */
@@ -9310,6 +9317,11 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
+            /**
+             * @description Set on a COUNTRY tag (ISO code, 0193): carried by every client living there, derived from their country — never assigned, renamed or deleted; only its colour is editable.
+             * @example LB
+             */
+            countryCode?: string;
             /** Format: date-time */
             createdAt: string;
             assignedBy?: string | null;
@@ -9746,10 +9758,8 @@ export interface components {
             permissions?: string[];
             /** @description Client fields this administrator may not see. null clears the override and inherits the role; [] explicitly masks nothing. */
             maskedFields?: string[] | null;
-            /** @description Client tag ids. [] means no territory tags (new clients only, or none) — every client is only ever `seesAllClients` (0154). */
+            /** @description Client tag ids. [] means no territory tags (no client) — every client is only ever `seesAllClients` (0154). */
             scopedTagIds?: string[];
-            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
-            seesUntriaged?: boolean;
             /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
             seesAllClients?: boolean;
         };
@@ -11076,6 +11086,10 @@ export interface operations {
                 category?: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
                 /** @description A client: Portal ID (exact, `#` optional) or part of a name or email. */
                 q?: string;
+                /** @description Raised at or after: a date-time with offset, or YYYY-MM-DD (a UTC day). */
+                from?: string;
+                /** @description End: a date-time with offset (exclusive), or YYYY-MM-DD (that whole day). */
+                to?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
                 limit?: number;
@@ -13143,9 +13157,9 @@ export interface operations {
                 direction?: "deposit" | "withdrawal";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 currency?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Inclusive start: a date-time with offset, or YYYY-MM-DD. */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End: a date-time with offset (exclusive), or YYYY-MM-DD (that whole day). */
                 to?: string;
                 sort?: "createdAt" | "amount" | "direction" | "currency" | "state";
                 order?: "asc" | "desc";
@@ -13177,9 +13191,9 @@ export interface operations {
                 direction?: "deposit" | "withdrawal";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 currency?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Inclusive start: a date-time with offset, or YYYY-MM-DD. */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End: a date-time with offset (exclusive), or YYYY-MM-DD (that whole day). */
                 to?: string;
                 sort?: "createdAt" | "amount" | "direction" | "currency" | "state";
                 order?: "asc" | "desc";
@@ -15461,6 +15475,10 @@ export interface operations {
                 referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
+                /** @description Earliest registration time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -15501,6 +15519,10 @@ export interface operations {
                 referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
+                /** @description Earliest registration time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -15871,6 +15893,10 @@ export interface operations {
                 limit?: string;
                 sort?: "submittedAt" | "status" | "createdAt" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
+                /** @description Earliest submitted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -15895,6 +15921,10 @@ export interface operations {
                 status?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
                 /** @description A Portal ID (digits, matched exactly) or free text over email and name. */
                 q?: string;
+                /** @description Earliest submitted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -16630,6 +16660,10 @@ export interface operations {
                 subjectId?: string;
                 /** @description A Portal ID (digits) finds every row about that client or performed by them. Anything else is free text over the ACTOR's email, which is denormalised onto every row so a deleted administrator's trail still names them. It deliberately does not search `details`: that blob holds client PII, and matching inside it would let a narrow-scoped reader confirm a client exists from a row count. */
                 q?: string;
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -16665,6 +16699,10 @@ export interface operations {
                 q?: string;
                 sort?: "createdAt" | "action" | "actorEmail";
                 order?: "asc" | "desc";
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -16857,6 +16895,10 @@ export interface operations {
             query?: {
                 format?: "csv";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Earliest requested time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -16891,6 +16933,10 @@ export interface operations {
                 order?: "asc" | "desc";
                 /** @description One record by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No state is implied: a handled record is still returned. */
                 id?: string;
+                /** @description Earliest requested time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -17254,6 +17300,10 @@ export interface operations {
                 page: string;
                 limit: string;
                 cursor: string;
+                /** @description Earliest posted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -17413,14 +17463,16 @@ export interface operations {
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description Payment method keys, comma-separated — deposit or withdrawal methods. Only payments have a method, so a transfer never matches. At most 50. */
+                method?: string;
                 /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
                 id?: string;
             };
@@ -17454,14 +17506,16 @@ export interface operations {
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description Payment method keys, comma-separated — deposit or withdrawal methods. Only payments have a method, so a transfer never matches. At most 50. */
+                method?: string;
                 /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
                 id?: string;
             };
@@ -17494,14 +17548,16 @@ export interface operations {
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description Payment method keys, comma-separated — deposit or withdrawal methods. Only payments have a method, so a transfer never matches. At most 50. */
+                method?: string;
                 /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
                 id?: string;
                 /** @description Legacy offset paging. Prefer cursor. */

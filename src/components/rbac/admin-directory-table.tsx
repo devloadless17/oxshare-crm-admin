@@ -316,9 +316,7 @@ export function AdminDirectoryTable({
                 ? t('adminUsers.scopeCount', { count: row.admin.scopedTags.length })
                 : row.admin.seesAllClients
                   ? t('adminUsers.scopeAll')
-                  : row.admin.seesUntriaged
-                    ? t('adminUsers.scopeNewOnly')
-                    : t('adminUsers.scopeNone')}
+                  : t('adminUsers.scopeNone')}
             </span>
             {row.admin.maskedFields.length > 0 && (
               <span className="text-[10px]">

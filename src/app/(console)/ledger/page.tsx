@@ -9,6 +9,8 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { UrlSearchInput } from '@/components/url-search-input';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
@@ -110,6 +112,13 @@ function LedgerPageContent() {
    * what the cell displays, never what the query uses.
    */
   const walletId = url.get('walletId');
+  /*
+   * The period opens on TODAY — the ledger only ever grows, and its whole
+   * history is the last thing a reader wants by default. A deep link to one
+   * client's or one wallet's ledger opens on All time: that is a
+   * reconciliation, and it must start complete.
+   */
+  const period = useDateRange(url, userId || walletId ? 'all' : 'today');
 
   const params = {
     page,
@@ -118,6 +127,8 @@ function LedgerPageContent() {
     q: q || undefined,
     userId: userId || undefined,
     walletId: walletId || undefined,
+    from: period.range.from,
+    to: period.range.to,
   };
 
   const query = useResource<LedgerListResponse>(keys.ledger.list(params), (signal) =>
@@ -247,7 +258,9 @@ function LedgerPageContent() {
     },
   ];
 
-  const filtered = Boolean(entryType || q || userId || walletId);
+  const filtered = Boolean(
+    entryType || q || userId || walletId || period.choice !== period.defaultChoice,
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
@@ -265,6 +278,13 @@ function LedgerPageContent() {
           // Filter and page written together, so narrowing always lands on page
           // one rather than past the end of the new result set.
           onChange={(next) => url.set({ q: next || undefined, page: undefined })}
+        />
+
+        <DateRangePicker
+          choice={period.choice}
+          custom={period.custom}
+          defaultChoice={period.defaultChoice}
+          onChange={period.set}
         />
 
         <Select
@@ -331,7 +351,13 @@ function LedgerPageContent() {
           rows={rows}
           rowKey={(r) => r.id}
           dimmed={query.isFetching}
-          empty={<EmptyState icon={Receipt} message={t('ledger.empty')} />}
+          empty={
+            <EmptyState
+              icon={Receipt}
+              message={t('ledger.empty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
+            />
+          }
           pagination={{
             page,
             pageSize,

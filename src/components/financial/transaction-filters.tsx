@@ -10,13 +10,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AlertTriangle } from 'lucide-react';
-import { DateRangeFilter } from '@/components/financial/date-range-filter';
+import { DateRangePicker } from '@/components/date-range-picker';
+import { MethodFilter, type MethodOption } from '@/components/financial/method-filter';
+import type { DateRangeState } from '@/hooks/use-date-range';
 import { kindLabel, stateLabel } from '@/components/financial/transaction-badges';
 import { t } from '@/lib/i18n';
 
 /**
- * The Financial page's secondary filter row — kind, state, currency and the
- * date range. (Direction is the PRIMARY read and lives on the QueueToolbar
+ * The Financial page's secondary filter row — kind, state, currency, the
+ * period and the payment method. (Direction is the PRIMARY read and lives on the QueueToolbar
  * tabs beside the search, not here.)
  *
  * Dumb by design: it renders the URL's current values and reports changes;
@@ -28,8 +30,9 @@ export function TransactionFilters({
   kind,
   state,
   currency,
-  from,
-  to,
+  period,
+  methods,
+  methodOptions,
   attention,
   currencies,
   isFiltered,
@@ -39,8 +42,12 @@ export function TransactionFilters({
   kind: string;
   state: string;
   currency: string;
-  from: string;
-  to: string;
+  /** The period — `hooks/use-date-range.ts` owns its URL write. */
+  period: DateRangeState;
+  /** Selected payment method keys. */
+  methods: string[];
+  /** Every method the reader may filter by; empty hides the control. */
+  methodOptions: MethodOption[];
   /** Only payments flagged for a person to reconcile. */
   attention: boolean;
   /** From the currencies endpoint, never from the rows on screen. */
@@ -102,11 +109,20 @@ export function TransactionFilters({
         </SelectContent>
       </Select>
 
-      <DateRangeFilter
-        from={from}
-        to={to}
-        onChange={(next) => onChange({ from: next.from, to: next.to })}
+      <DateRangePicker
+        choice={period.choice}
+        custom={period.custom}
+        defaultChoice={period.defaultChoice}
+        onChange={period.set}
       />
+
+      {methodOptions.length > 0 && (
+        <MethodFilter
+          options={methodOptions}
+          selected={methods}
+          onChange={(next) => onChange({ method: next.length ? next.join(',') : undefined })}
+        />
+      )}
 
       {/*
         A toggle, not a select: "only what needs a person" is on or off. The

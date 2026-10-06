@@ -12,7 +12,7 @@ import { InviteAdminModal } from './invite-admin-modal';
  * The payload rules are the part worth pinning, because each has a quiet
  * failure mode:
  *  1. Untouched visibility sends NOTHING — `[]` stored as a choice would read
- *     as one that was never made, and an accidental `seesUntriaged: false`
+ *     as one that was never made, and an accidental restriction
  *     is an audit row about nothing.
  *  2. The mask INHERITS the chosen role until forked — and switching roles
  *     updates the inherited view, so the operator reads the truth of the role
@@ -91,8 +91,7 @@ async function fillRequired() {
 
 beforeEach(() => {
   createInvite.mockReset().mockResolvedValue({ inviteUrl: 'http://x/invite/accept?token=t' });
-  // An unrestricted inviter by default — they CAN grant the intake pool.
-  useAdmin.mockReturnValue({ admin: { scopedTags: [], seesUntriaged: true } });
+  useAdmin.mockReturnValue({ admin: { scopedTags: [] } });
 });
 
 describe('the invite modal — visibility at invite time', () => {
@@ -103,14 +102,7 @@ describe('the invite modal — visibility at invite time', () => {
     expect(screen.queryByText(/field visibility/i)).toBeNull();
   });
 
-  it('starts with the intake grant CHECKED — granted by default (0058)', () => {
-    renderModal();
-    expect(screen.getByRole('checkbox', { name: /sees new clients/i })).toBeChecked();
-  });
-
   it('sends NO visibility fields when none were changed — the default is not a choice', async () => {
-    // Including the pre-checked intake grant: sending `true` would demand
-    // `admins.scope` for a decision the operator never made.
     renderModal();
     await fillRequired();
     await userEvent.click(screen.getByRole('button', { name: /send invite|create/i }));
@@ -118,34 +110,18 @@ describe('the invite modal — visibility at invite time', () => {
     const payload = createInvite.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(payload).toBeDefined();
     expect(payload).not.toHaveProperty('scopedTagIds');
-    expect(payload).not.toHaveProperty('seesUntriaged');
     expect(payload).not.toHaveProperty('maskedFields');
   });
 
-  it('sends the chosen territory, and the RESTRICTION when the grant is unticked', async () => {
+  it('sends the chosen territory', async () => {
     renderModal();
     await fillRequired();
 
-    await userEvent.click(screen.getByRole('combobox', { name: /add a tag/i }));
+    await userEvent.type(screen.getByRole('combobox', { name: /add a tag/i }), 'Levant');
     await userEvent.click(await screen.findByRole('option', { name: /levant desk/i }));
-    await userEvent.click(screen.getByRole('checkbox', { name: /sees new clients/i }));
     await userEvent.click(screen.getByRole('button', { name: /send invite|create/i }));
 
-    expect(createInvite).toHaveBeenCalledWith(
-      expect.objectContaining({ scopedTagIds: ['t1'], seesUntriaged: false }),
-    );
-  });
-
-  it('locks the grant UNCHECKED for an inviter who does not see the pool themselves', () => {
-    useAdmin.mockReturnValue({
-      admin: { scopedTags: [{ tagId: 't9', slug: 'other', label: 'Other' }], seesUntriaged: false },
-    });
-    renderModal();
-
-    const grant = screen.getByRole('checkbox', { name: /sees new clients/i });
-    expect(grant).not.toBeChecked();
-    expect(grant).toBeDisabled();
-    expect(screen.getByText(/cannot grant it/i)).toBeInTheDocument();
+    expect(createInvite).toHaveBeenCalledWith(expect.objectContaining({ scopedTagIds: ['t1'] }));
   });
 
   it('shows the CHOSEN role’s mask as inherited, and sends only a forked override', async () => {

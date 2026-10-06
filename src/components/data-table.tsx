@@ -1088,11 +1088,21 @@ export function DataTable<T>({
  * to fill — without it a bare message would be a single line of text with no
  * presence at all.
  */
-export function EmptyState({ icon: Icon, message }: { icon: React.ElementType; message: string }) {
+export function EmptyState({
+  icon: Icon,
+  message,
+  action,
+}: {
+  icon: React.ElementType;
+  message: string;
+  /** A way out — e.g. widening the period (`PeriodWiden`). */
+  action?: React.ReactNode;
+}) {
   return (
     <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-3 p-12 text-center">
       <Icon className="h-8 w-8 text-muted-foreground/60" aria-hidden="true" />
       <p className="text-sm font-medium text-muted-foreground">{message}</p>
+      {action}
     </div>
   );
 }

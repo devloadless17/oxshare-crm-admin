@@ -322,7 +322,6 @@ async function invitedReviewer(
       (
         await master.patch(`/admin/users/${admin.id}`, {
           scopedTagIds: [tagId],
-          seesUntriaged: false,
         })
       ).ok(),
     ).toBe(true);

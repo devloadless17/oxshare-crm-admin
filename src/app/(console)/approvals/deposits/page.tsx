@@ -14,6 +14,9 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn, type RowAction } from '@/components/row-actions';
 import { QueueToolbar } from '@/components/queue-toolbar';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
+import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { DepositReceiptCell } from '@/components/deposits/deposit-receipt-cell';
@@ -96,6 +99,13 @@ function DepositApprovalsContent() {
   const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
   const [rejectTarget, setRejectTarget] = React.useState<TransactionRow | null>(null);
   const debouncedSearch = useDebounced(search, 300);
+  /*
+   * The period, in the URL like on every list. Pending opens on All time — a
+   * deposit waiting since yesterday must never hide behind "Today"; the
+   * decided tabs open on Today.
+   */
+  const url = useTableQueryState();
+  const period = useDateRange(url, state === 'pending' ? 'all' : 'today');
 
   const params = {
     direction: 'deposit' as const,
@@ -105,6 +115,8 @@ function DepositApprovalsContent() {
     decidedBy: 'desk' as const,
     state,
     q: debouncedSearch || undefined,
+    from: period.range.from,
+    to: period.range.to,
     page,
     limit: PAGE_SIZE,
   };
@@ -349,6 +361,17 @@ function DepositApprovalsContent() {
           }}
           searchPlaceholder={t('deposits.searchPlaceholder')}
           searchAriaLabel={t('deposits.searchAria')}
+          extra={
+            <DateRangePicker
+              choice={period.choice}
+              custom={period.custom}
+              defaultChoice={period.defaultChoice}
+              onChange={(choice, custom) => {
+                period.set(choice, custom);
+                setPage(1);
+              }}
+            />
+          }
         />
       </div>
 
@@ -373,7 +396,21 @@ function DepositApprovalsContent() {
             })
           }
           fill
-          empty={<EmptyState icon={Inbox} message={t('deposits.empty')} />}
+          empty={
+            <EmptyState
+              icon={Inbox}
+              message={t('deposits.empty')}
+              action={
+                <PeriodWiden
+                  choice={period.choice}
+                  onChange={(choice) => {
+                    period.set(choice);
+                    setPage(1);
+                  }}
+                />
+              }
+            />
+          }
           pagination={{
             page,
             pageSize: PAGE_SIZE,

@@ -28,7 +28,6 @@ const base: AdminProfile = {
   email: 'sub@oxshare.com',
   name: 'Sub',
   role: 'sub_admin',
-  seesUntriaged: false,
   seesAllClients: true,
   permissions: [],
   status: 'active',
