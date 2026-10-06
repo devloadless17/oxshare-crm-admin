@@ -17,18 +17,18 @@ repo's deploy.
 
 Settings → Secrets and variables → Actions. Checked on the runner before anything ships.
 
-| Secret            | What                                                                                                                                                             |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DOCKER_USERNAME` | Docker Hub username                                                                                                                                              |
-| `DOCKER_SECRET`   | Docker Hub access token (Read & Write)                                                                                                                           |
-| `VPS_HOST`        | `31.97.52.63`                                                                                                                                                    |
-| `VPS_USER`        | `deploy`                                                                                                                                                         |
-| `VPS_SSH_KEY_B64` | `base64 -w0 ~/.ssh/oxshare_deploy \| clip.exe`: the deploy key, one line                                                                                         |
-| `VPS_PORT`        | Optional, default 22                                                                                                                                             |
-| `ADMIN_DOMAIN`    | Bare hostname of the admin console, e.g. `oxshareadmin.loadless.site`                                                                                            |
-| `PORTAL_DOMAIN`   | Bare hostname of the client portal, e.g. `oxshareportal.loadless.site`                                                                                           |
-| `ACME_EMAIL`      | Where Let's Encrypt sends certificate notices                                                                                                                    |
-| `API_ORIGIN`      | The API's origin, `https://` and no trailing slash, e.g. `https://oxshareapi.loadless.site`. **Baked into the image** (bundle and CSP): a change needs a rebuild |
+| Secret            | What                                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DOCKER_USERNAME` | Docker Hub username                                                                                                                                           |
+| `DOCKER_SECRET`   | Docker Hub access token (Read & Write)                                                                                                                        |
+| `VPS_HOST`        | `31.97.52.63`                                                                                                                                                 |
+| `VPS_USER`        | `deploy`                                                                                                                                                      |
+| `VPS_SSH_KEY_B64` | `base64 -w0 ~/.ssh/oxshare_deploy \| clip.exe`: the deploy key, one line                                                                                      |
+| `VPS_PORT`        | Optional, default 22                                                                                                                                          |
+| `ADMIN_DOMAIN`    | Bare hostname of the admin console, e.g. `admin-dashboard.oxshare.com`                                                                                        |
+| `PORTAL_DOMAIN`   | Bare hostname of the client portal, e.g. `portal.oxshare.com`                                                                                                 |
+| `ACME_EMAIL`      | Where Let's Encrypt sends certificate notices                                                                                                                 |
+| `API_ORIGIN`      | The API's origin, `https://` and no trailing slash, e.g. `https://api-admin.oxshare.com`. **Baked into the image** (bundle and CSP): a change needs a rebuild |
 
 Both domains set the SAME values in both frontend repos: each deploy writes the domains into
 the server's `.env`.

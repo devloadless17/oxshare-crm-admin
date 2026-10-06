@@ -1,6 +1,6 @@
 # What must never reach the image, and why.
 #
-# `.env.production.local` holds the values the Vercel build used. The image takes
+# `.env.production.local` holds the values for a LOCAL production build. The image takes
 # its NEXT_PUBLIC_* values from build args instead, so a stale local file can never
 # decide which API a production console calls.
 .env
