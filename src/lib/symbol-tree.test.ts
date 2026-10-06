@@ -18,6 +18,13 @@ const ROWS: SymbolRow[] = [
 ];
 const NONE = { excludedPaths: [], excludedSymbols: [] };
 
+/** An element the fixture is known to hold; a missing one fails the test by name. */
+function at<T>(list: readonly T[], i: number): T {
+  const item = list[i];
+  if (item === undefined) throw new Error(`no element ${i} in the fixture`);
+  return item;
+}
+
 describe('buildSymbolTree', () => {
   it('nests folders as MT5 files them, with a count of everything beneath', () => {
     const tree = buildSymbolTree(ROWS);
@@ -25,12 +32,12 @@ describe('buildSymbolTree', () => {
       ['Crypto', 2],
       ['Forex', 3],
     ]);
-    const forex = tree.folders[1];
+    const forex = at(tree.folders, 1);
     expect(forex.folders.map((f) => [f.path, f.total])).toEqual([
       ['Forex\\Exotics', 1],
       ['Forex\\Majors', 2],
     ]);
-    expect(forex.folders[1].symbols.map((s) => s.symbol)).toEqual(['EURUSD', 'GBPUSD']);
+    expect(at(forex.folders, 1).symbols.map((s) => s.symbol)).toEqual(['EURUSD', 'GBPUSD']);
     // A symbol with no folder sits at the root.
     expect(tree.symbols.map((s) => s.symbol)).toEqual(['CASH']);
   });
@@ -39,9 +46,9 @@ describe('buildSymbolTree', () => {
 describe('what counts as excluded — the same rule the engine applies', () => {
   it('a folder covers every symbol beneath it, at any depth', () => {
     const value = { excludedPaths: ['Forex'], excludedSymbols: [] };
-    expect(isSymbolExcluded(ROWS[0], value)).toBe(true);
-    expect(isSymbolExcluded(ROWS[2], value)).toBe(true);
-    expect(isSymbolExcluded(ROWS[3], value)).toBe(false);
+    expect(isSymbolExcluded(at(ROWS, 0), value)).toBe(true);
+    expect(isSymbolExcluded(at(ROWS, 2), value)).toBe(true);
+    expect(isSymbolExcluded(at(ROWS, 3), value)).toBe(false);
     expect(coveringFolder('Forex\\Majors', value)).toBe('Forex');
   });
 
@@ -52,10 +59,10 @@ describe('what counts as excluded — the same rule the engine applies', () => {
   });
 
   it('ignores case, as MT5 does', () => {
-    expect(isSymbolExcluded(ROWS[3], { excludedPaths: ['crypto'], excludedSymbols: [] })).toBe(
+    expect(isSymbolExcluded(at(ROWS, 3), { excludedPaths: ['crypto'], excludedSymbols: [] })).toBe(
       true,
     );
-    expect(isSymbolExcluded(ROWS[0], { excludedPaths: [], excludedSymbols: ['eurusd'] })).toBe(
+    expect(isSymbolExcluded(at(ROWS, 0), { excludedPaths: [], excludedSymbols: ['eurusd'] })).toBe(
       true,
     );
   });

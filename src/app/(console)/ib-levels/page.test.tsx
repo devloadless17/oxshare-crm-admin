@@ -153,7 +153,11 @@ describe('the commission ladder', () => {
   it('shows each share as a percentage of the product’s figure', async () => {
     renderWithProviders(<IbLevelsPage />);
 
-    expect(await screen.findByText('70% of the product’s commission')).toBeInTheDocument();
+    // Level 1 takes the rest (0197): its own commission share decides nothing, so it is not shown.
+    expect(
+      await screen.findByText('100% on own clients · the rest on sub-partners’'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('70% of the product’s commission')).not.toBeInTheDocument();
     expect(screen.getByText('50% of the product’s rebate')).toBeInTheDocument();
     expect(screen.getByText('30% of the product’s commission')).toBeInTheDocument();
   });
@@ -223,7 +227,9 @@ describe('the commission ladder', () => {
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
     expect(await screen.findByLabelText(/^level name$/i)).toHaveValue('Main Partner');
-    expect(screen.getByRole('textbox', { name: /the partner earns/i })).toHaveValue('70');
+    // Level 1 takes the rest (0197): no commission share to edit, and the dialog says why.
+    expect(screen.queryByRole('textbox', { name: /the partner earns/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/main partners take 100% of the commission/i)).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /their client gets back/i })).toHaveValue('50');
   });
 
@@ -236,8 +242,8 @@ describe('the commission ladder', () => {
     const user = userEvent.setup();
     renderWithProviders(<IbLevelsPage />);
 
-    await screen.findByText('Main Partner');
-    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
+    await screen.findByText('Sub Partner');
+    await user.click(screen.getByRole('button', { name: /actions for level 2/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
     const commission = await screen.findByRole('textbox', { name: /the partner earns/i });
@@ -247,8 +253,8 @@ describe('the commission ladder', () => {
 
     await waitFor(() =>
       expect(updateIbLevel).toHaveBeenCalledWith(
-        1,
-        expect.objectContaining({ commissionShare: '33.3333', rebateShare: '50' }),
+        2,
+        expect.objectContaining({ commissionShare: '33.3333', rebateShare: '0' }),
       ),
     );
     const sent = updateIbLevel.mock.calls[0]?.[1] as { commissionShare: unknown } | undefined;
@@ -263,8 +269,8 @@ describe('the commission ladder', () => {
     const user = userEvent.setup();
     renderWithProviders(<IbLevelsPage />);
 
-    await screen.findByText('Main Partner');
-    await user.click(screen.getByRole('button', { name: /actions for level 1/i }));
+    await screen.findByText('Sub Partner');
+    await user.click(screen.getByRole('button', { name: /actions for level 2/i }));
     await user.click(await screen.findByRole('menuitem', { name: /edit/i }));
 
     const commission = await screen.findByRole('textbox', { name: /the partner earns/i });

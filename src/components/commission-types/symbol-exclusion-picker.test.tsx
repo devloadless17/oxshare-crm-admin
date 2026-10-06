@@ -75,8 +75,8 @@ describe('SymbolExclusionPicker', () => {
     renderWithProviders(
       <Harness initial={{ excludedPaths: ['Crypto'], excludedSymbols: [] }} spy={vi.fn()} />,
     );
-    await screen.findByText('Crypto');
-    await user.click(screen.getByRole('button', { name: /show or hide crypto/i }));
+    // Wait for the TREE: "Crypto" is also on the "Currently excluded" chip, which renders first.
+    await user.click(await screen.findByRole('button', { name: /show or hide crypto/i }));
     const btc = screen.getByRole('checkbox', { name: /btcusd/i });
     expect(btc).toBeChecked();
     expect(btc).toBeDisabled();

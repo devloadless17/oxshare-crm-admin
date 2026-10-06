@@ -1312,7 +1312,7 @@ export const messages = {
   'clientProfile.levelChanged': 'The partner’s commission level was changed.',
   // 0197 — a sub-partner's own terms.
   'clientProfile.mainTerms':
-    'Partner 100% on own clients, the rest on sub-partners’ · client rebate {rebate}',
+    'Partner 100% on own clients, the rest on sub-partners’ · client rebate {rebate}% of its rebate',
   'clientProfile.customTerms': 'Set for this sub-partner',
   'clientProfile.editTerms': 'Edit commission',
   'clientProfile.termsTitle': 'Commission and rebate for {name}',
