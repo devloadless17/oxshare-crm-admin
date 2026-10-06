@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { t } from '@/lib/i18n';
+import { usePrefetchNav } from './use-prefetch-nav';
 import {
   groupBadgeTotal,
   groupOf,
@@ -110,6 +111,7 @@ export function SidebarNav({
   badges: NavBadges;
   onNavigate: () => void;
 }) {
+  usePrefetchNav(entries);
   const [position, setPosition] = React.useState<MenuPosition>({ path: pathname });
   let here = position;
   if (position.path !== pathname) {
