@@ -36,9 +36,13 @@ export function IpExemptionsPanel({
   const status = useResource<IpAllowlistStatus>(keys.settings.ipAllowlist(), (signal) =>
     api.admin.getIpAllowlist(signal),
   );
-  const admins = useResource<AdminUser[]>(keys.adminUsers.all(), () => api.admin.getAdminUsers(), {
-    enabled: canManage && canPickAdmins,
-  });
+  const admins = useResource<AdminUser[]>(
+    keys.adminUsers.directory(),
+    () => api.admin.getAdminUsers(),
+    {
+      enabled: canManage && canPickAdmins,
+    },
+  );
 
   const [adminId, setAdminId] = React.useState('');
   const [reason, setReason] = React.useState('');
