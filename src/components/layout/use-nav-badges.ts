@@ -57,13 +57,8 @@ export function useNavBadges(admin: AdminProfile | null): NavBadges {
   const pendingDeposits = useQuery({
     queryKey: keys.deposits.pendingCount(),
     // The desk's own queue: deposits a person decides (backend 0168).
-    queryFn: () =>
-      api.admin.getTransactions({
-        direction: 'deposit',
-        decidedBy: 'desk',
-        state: 'pending',
-        limit: 1,
-      }),
+    // The desk's own endpoint, on the key this badge is shown for (`deposits.view`).
+    queryFn: () => api.admin.getDeskDeposits({ state: 'pending', limit: 1 }),
     enabled: canSeeDeposits,
     refetchInterval: 60_000,
     retry: false,

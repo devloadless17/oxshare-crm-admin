@@ -33,6 +33,7 @@ import {
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
+import { useTabCounts } from '@/hooks/use-tab-counts';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import {
   Select,
@@ -440,7 +441,21 @@ function TransactionsPageContent() {
    * Using either for the other's job makes one of them wrong.
    */
   const total = query.data?.total ?? 0;
-  const counts = query.data?.counts ?? {};
+  // Each tab's count is what it shows when clicked — Pending is the whole queue
+  // even while a decided tab is on Today (`useTabCounts`).
+  const owed = (state: string) => state === 'pending' || state === 'approved';
+  const countOf = useTabCounts({
+    url,
+    activeWaiting: owed(filter),
+    current: query.data?.counts,
+    isWaiting: owed,
+    // `tabCounts` keeps this key apart from the detail panel's `{ id, limit: 1 }`:
+    // React Query ignores undefined fields, so the two would otherwise SHARE a
+    // cache entry and the panel would read these counts as a withdrawal.
+    key: (range) => keys.withdrawals.list({ tabCounts: true, limit: 1, q: params.q, ...range }),
+    fetchCounts: async (range, signal) =>
+      (await api.admin.getWithdrawals({ limit: 1, q: params.q, ...range }, signal)).counts,
+  });
 
   /*
    * A failed APPROVE is a toast now, not a line under the filter tabs.
@@ -827,7 +842,7 @@ function TransactionsPageContent() {
             /* `counts` groups every state over the FULL set, so it stays
                correct whatever page is shown — unlike `total`, which is the
                filtered count for the current query (R-2.4). */
-            count: f.value === ALL_STATES ? counts['all'] : counts[f.value],
+            count: countOf(f.value === ALL_STATES ? 'all' : f.value),
           }))}
           active={filter}
           onFilterChange={(value) => {

@@ -9,6 +9,7 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { UrlSearchInput } from '@/components/url-search-input';
+import { ExportButton } from '@/components/export-button';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -134,6 +135,14 @@ function LedgerPageContent() {
   const query = useResource<LedgerListResponse>(keys.ledger.list(params), (signal) =>
     api.admin.getLedger(params, signal),
   );
+
+  // "Export what I am looking at": the list's own filters, never its paging.
+  const exportFilters = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (key !== 'page' && key !== 'limit' && value !== undefined && value !== '') {
+      exportFilters.set(key, String(value));
+    }
+  }
 
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
@@ -264,9 +273,12 @@ function LedgerPageContent() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('ledger.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('ledger.subtitle')}</p>
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold tracking-tight">{t('ledger.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('ledger.subtitle')}</p>
+        </div>
+        <ExportButton resource="ledger" filters={exportFilters} disabled={total === 0} />
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-3">

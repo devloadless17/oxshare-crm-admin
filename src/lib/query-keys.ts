@@ -89,8 +89,9 @@ export const keys = {
     all: () => ['tags'] as const,
   },
 
-  acquisitionLinks: {
-    all: () => ['acquisition-links'] as const,
+  signupLinks: {
+    all: () => ['signup-links'] as const,
+    mine: () => ['signup-links', 'mine'] as const,
   },
 
   withdrawals: {

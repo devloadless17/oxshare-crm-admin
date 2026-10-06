@@ -1,10 +1,11 @@
 'use client';
 
-import { KeyRound, Laptop, ShieldCheck, UserCircle } from 'lucide-react';
+import { KeyRound, Laptop, Link2, ShieldCheck, UserCircle } from 'lucide-react';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { AdminIdentityPanel } from '@/components/profile/admin-identity-panel';
 import { AdminPasswordPanel } from '@/components/profile/admin-password-panel';
 import { AdminSessionsPanel } from '@/components/profile/admin-sessions-panel';
+import { MySignupLinkPanel } from '@/components/profile/my-signup-link-panel';
 import { t } from '@/lib/i18n';
 
 /**
@@ -70,6 +71,9 @@ export default function ProfilePage() {
         <AdminIdentityPanel admin={admin} icon={ShieldCheck} />
         <AdminPasswordPanel icon={KeyRound} />
       </div>
+
+      {/* The link this administrator hands to the clients they bring (0198). */}
+      <MySignupLinkPanel adminId={admin.id} icon={Link2} />
 
       <AdminSessionsPanel icon={Laptop} />
     </div>

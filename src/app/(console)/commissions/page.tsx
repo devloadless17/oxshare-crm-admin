@@ -27,6 +27,7 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { UrlSearchInput } from '@/components/url-search-input';
+import { ExportButton } from '@/components/export-button';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -201,6 +202,13 @@ function CommissionsPageContent() {
     api.admin.getIbAccruals(params, signal),
   );
 
+  // "Export what I am looking at": the list's own filters, never paging or sort.
+  const exportFilters = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (['page', 'limit', 'sort', 'order'].includes(key)) continue;
+    if (value !== undefined && value !== '') exportFilters.set(key, String(value));
+  }
+
   // The accrual open in the detail panel (`?open=`), in any status.
   const opened = useOpenedRecord(keys.ibAccruals.list, (p, signal) =>
     api.admin.getIbAccruals(p, signal),
@@ -358,9 +366,12 @@ function CommissionsPageContent() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('commissions.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('commissions.subtitle')}</p>
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold tracking-tight">{t('commissions.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('commissions.subtitle')}</p>
+        </div>
+        <ExportButton resource="ib/accruals" filters={exportFilters} disabled={total === 0} />
       </div>
 
       <RecordSheet

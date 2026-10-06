@@ -14,8 +14,10 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn, type RowAction } from '@/components/row-actions';
 import { QueueToolbar } from '@/components/queue-toolbar';
+import { ExportButton } from '@/components/export-button';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
+import { useTabCounts } from '@/hooks/use-tab-counts';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -107,12 +109,13 @@ function DepositApprovalsContent() {
   const url = useTableQueryState();
   const period = useDateRange(url, state === 'pending' ? 'all' : 'today');
 
+  /*
+   * The desk's OWN endpoint (`GET /admin/deposits`, `deposits.view`): it fixes
+   * the rows to deposits a person decides (backend 0168) — one on a provider's
+   * hosted page is settled by the provider — and a deposit clerk is not handed
+   * every movement on the platform, which `/admin/transactions` would need.
+   */
   const params = {
-    direction: 'deposit' as const,
-    // Only deposits a person decides (backend 0168): one on a provider's hosted
-    // page is settled by the provider, and listing it here offered an Approve
-    // the API could only refuse.
-    decidedBy: 'desk' as const,
     state,
     q: debouncedSearch || undefined,
     from: period.range.from,
@@ -122,18 +125,39 @@ function DepositApprovalsContent() {
   };
 
   const query = useResource(keys.deposits.list(params), (signal) =>
-    api.admin.getTransactions(params, signal),
+    api.admin.getDeskDeposits(params, signal),
   );
 
   // The deposit open in the detail panel (`?open=` — a notification, a row
   // click), in ANY state, so a colleague's decision reads as the outcome.
   const opened = useOpenedRecord(keys.deposits.list, (p, signal) =>
-    api.admin.getTransactions({ ...p, direction: 'deposit' }, signal),
+    api.admin.getDeskDeposits(p, signal),
   );
+
+  // "Export what I am looking at": the desk's own filters, never its paging.
+  const exportFilters = new URLSearchParams();
+  for (const [key, value] of Object.entries({
+    state,
+    q: debouncedSearch || undefined,
+    from: period.range.from,
+    to: period.range.to,
+  })) {
+    if (value) exportFilters.set(key, value);
+  }
 
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
-  const counts = query.data?.counts;
+  // Each tab's count is what it shows when clicked (`useTabCounts`).
+  const countOf = useTabCounts({
+    url,
+    activeWaiting: state === 'pending',
+    current: query.data?.counts,
+    isWaiting: (tab) => tab === 'pending',
+    // `tabCounts` keeps this apart from the detail panel's `{ id, limit: 1 }` key.
+    key: (range) => keys.deposits.list({ tabCounts: true, limit: 1, q: params.q, ...range }),
+    fetchCounts: async (range, signal) =>
+      (await api.admin.getDeskDeposits({ limit: 1, q: params.q, ...range }, signal)).counts,
+  });
 
   /*
    * One invalidate for both decisions, covering more than a rejection strictly
@@ -278,6 +302,12 @@ function DepositApprovalsContent() {
       cell: (row) => <DepositDetailsCell details={row.proofDetails} />,
     },
     {
+      // Where the client was told to send it, as the method showed it then (backend 0199).
+      header: t('deposits.colPaidTo'),
+      sortable: false,
+      cell: (row) => <DepositDetailsCell details={row.payToDetails} />,
+    },
+    {
       header: t('deposits.colReceipt'),
       sortable: false,
       cell: (row) => <DepositReceiptCell filename={row.proofFilename} />,
@@ -316,9 +346,12 @@ function DepositApprovalsContent() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('deposits.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('deposits.subtitle')}</p>
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold tracking-tight">{t('deposits.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('deposits.subtitle')}</p>
+        </div>
+        <ExportButton resource="deposits" filters={exportFilters} disabled={total === 0} />
       </div>
 
       <RecordSheet
@@ -345,7 +378,7 @@ function DepositApprovalsContent() {
           filters={TABS.map((tab) => ({
             value: tab.value,
             label: t(tab.labelKey),
-            count: counts?.[tab.value],
+            count: countOf(tab.value),
           }))}
           active={state}
           onFilterChange={(value) => {

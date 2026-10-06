@@ -21,6 +21,7 @@ import { PartnerApproveDialog } from '@/components/ib/partner-approve-dialog';
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
+import { useTabCounts } from '@/hooks/use-tab-counts';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
@@ -207,8 +208,23 @@ function PartnerApprovalsContent() {
   });
 
   const rows = query.data?.rows ?? [];
-  const counts = query.data?.counts;
   const total = query.data?.total ?? 0;
+  // Each tab's count is what it shows when clicked (`useTabCounts`).
+  const countOf = useTabCounts({
+    url,
+    activeWaiting: status === 'pending',
+    current: query.data?.counts,
+    isWaiting: (tab) => tab === 'pending',
+    key: (range) =>
+      keys.ibApplications.list(['counts', debouncedSearch, range.from ?? null, range.to ?? null]),
+    fetchCounts: async (range, signal) =>
+      (
+        await api.admin.getIbApplications(
+          { q: debouncedSearch || undefined, page: 1, limit: 1, ...range },
+          signal,
+        )
+      ).counts,
+  });
 
   /*
    * WHICH application is being approved, not merely THAT one is.
@@ -497,7 +513,7 @@ function PartnerApprovalsContent() {
           filters={TABS.map((tab) => ({
             value: tab.value,
             label: t(tab.labelKey),
-            count: tab.value ? counts?.[tab.value] : undefined,
+            count: tab.value ? countOf(tab.value) : undefined,
           }))}
           active={status}
           onFilterChange={(value) => {

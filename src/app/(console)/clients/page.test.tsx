@@ -675,6 +675,29 @@ describe('the tag filter', () => {
     );
   });
 
+  it('keeps BOTH of two quick picks when the router is slow to apply the URL', async () => {
+    // The race the live spec found: the second pick was built on the URL as it
+    // was before the first had landed, and replaced it.
+    routerLatencyMs.current = 200;
+    const user = userEvent.setup();
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    const input = await screen.findByRole('combobox', { name: /all tags/i });
+    await user.type(input, 'High');
+    await user.click(await screen.findByRole('option', { name: /high risk/i }));
+    await user.type(input, 'VIP');
+    await user.click(await screen.findByRole('option', { name: /vip/i }));
+
+    expect(screen.getByRole('button', { name: /remove high risk/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove vip/i })).toBeInTheDocument();
+    await waitFor(
+      () => expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ tag: 'high-risk,vip' }),
+      { timeout: 4000 },
+    );
+    expect(screen.getByRole('button', { name: /remove high risk/i })).toBeInTheDocument();
+  });
+
   it('filters by tag SLUG, not id — a rename must not break a saved link', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);

@@ -9,6 +9,7 @@ import api from '@/lib/api';
 import { QueueToolbar } from '@/components/queue-toolbar';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
+import { useTabCounts } from '@/hooks/use-tab-counts';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { CopyableId } from '@/components/copyable-id';
@@ -254,7 +255,24 @@ function KycQueue() {
 
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
-  const counts = query.data?.counts ?? {};
+  // Each tab's count is what it shows when clicked (`useTabCounts`).
+  const waiting = (tab: string) =>
+    ['needs_review', 'in_progress', 'submitted', 'under_review'].includes(tab);
+  const countOf = useTabCounts({
+    url,
+    activeWaiting: waitingTab,
+    current: query.data?.counts,
+    isWaiting: waiting,
+    key: (range) =>
+      keys.kyc.queue(['counts', debouncedSearch, range.from ?? null, range.to ?? null]),
+    fetchCounts: async (range, signal) => {
+      const params = new URLSearchParams({ page: '1', limit: '1' });
+      if (debouncedSearch) params.set('q', debouncedSearch);
+      if (range.from) params.set('from', range.from);
+      if (range.to) params.set('to', range.to);
+      return (await api.get<KycListResponse>(`/admin/kyc?${params}`, { signal })).data.counts;
+    },
+  });
   const loading = query.status === 'loading';
 
   /*
@@ -483,7 +501,7 @@ function KycQueue() {
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('kycReview.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t('kycReview.totalSubmissions', { count: counts['all'] ?? 0 })}
+            {t('kycReview.totalSubmissions', { count: countOf('all') ?? 0 })}
           </p>
         </div>
         {/* The same filters the list is showing, so "export what I am looking
@@ -509,7 +527,7 @@ function KycQueue() {
             label: f.label,
             // `counts` is keyed by status, with `all` for the unfiltered tab —
             // the same server-side per-status totals the other two queues pass.
-            count: f.value ? (counts[f.value] ?? 0) : (counts['all'] ?? 0),
+            count: countOf(f.value || 'all') ?? 0,
           }))}
           active={filter}
           onFilterChange={(value) => {

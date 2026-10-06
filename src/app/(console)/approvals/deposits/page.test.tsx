@@ -19,8 +19,8 @@ import type { TransactionRow } from '@/lib/api/admin';
  *  - a failed load rendering as an empty queue says nobody is waiting, which is
  *    the one answer a console must never invent.
  */
-const { getTransactions, approveDeposit, rejectDeposit, getRejectionReasons } = vi.hoisted(() => ({
-  getTransactions: vi.fn(),
+const { getDeskDeposits, approveDeposit, rejectDeposit, getRejectionReasons } = vi.hoisted(() => ({
+  getDeskDeposits: vi.fn(),
   approveDeposit: vi.fn(),
   rejectDeposit: vi.fn(),
   getRejectionReasons: vi.fn(),
@@ -40,7 +40,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getTransactions, approveDeposit, rejectDeposit, getRejectionReasons } };
+  const api = { admin: { getDeskDeposits, approveDeposit, rejectDeposit, getRejectionReasons } };
   return { api, default: api };
 });
 
@@ -92,7 +92,7 @@ const page = (rows: TransactionRow[]) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   permissions.current = ALL_PERMISSIONS;
-  getTransactions.mockResolvedValue(page([row()]));
+  getDeskDeposits.mockResolvedValue(page([row()]));
   approveDeposit.mockResolvedValue({ id: 'tx-1', state: 'success' });
   rejectDeposit.mockResolvedValue({ id: 'tx-1', state: 'rejected' });
   getRejectionReasons.mockResolvedValue([{ id: 'r-1', label: 'The receipt is unreadable' }]);
@@ -131,7 +131,7 @@ describe('the offline deposit queue', () => {
   });
 
   it('keeps a PDF receipt on a link, because the CSP will not embed one', async () => {
-    getTransactions.mockResolvedValue(page([row({ proofFilename: 'advice-1.pdf' })]));
+    getDeskDeposits.mockResolvedValue(page([row({ proofFilename: 'advice-1.pdf' })]));
     renderWithProviders(<DepositApprovalsPage />);
 
     // `object-src 'none'` with no `frame-src` is deliberate — an operator
@@ -143,7 +143,7 @@ describe('the offline deposit queue', () => {
   });
 
   it('SAYS "no receipt" in words rather than leaving the cell blank', async () => {
-    getTransactions.mockResolvedValue(page([row({ proofFilename: null })]));
+    getDeskDeposits.mockResolvedValue(page([row({ proofFilename: null })]));
     renderWithProviders(<DepositApprovalsPage />);
 
     // A blank cell reads as a broken image, which invites an approval on the
@@ -154,7 +154,7 @@ describe('the offline deposit queue', () => {
   });
 
   it('shows what the client gave to identify the payment, under the question as asked', async () => {
-    getTransactions.mockResolvedValue(
+    getDeskDeposits.mockResolvedValue(
       page([
         row({
           proofDetails: [
@@ -195,7 +195,7 @@ describe('the offline deposit queue', () => {
 
   it('warns in the confirm when there is no receipt to check against', async () => {
     const user = userEvent.setup();
-    getTransactions.mockResolvedValue(page([row({ proofFilename: null })]));
+    getDeskDeposits.mockResolvedValue(page([row({ proofFilename: null })]));
     renderWithProviders(<DepositApprovalsPage />);
     await screen.findByText('Omar Haddad');
 
@@ -234,7 +234,7 @@ describe('the offline deposit queue', () => {
   });
 
   it('offers a retry when the queue fails to load, never an empty list', async () => {
-    getTransactions.mockRejectedValue(new Error('boom'));
+    getDeskDeposits.mockRejectedValue(new Error('boom'));
     renderWithProviders(<DepositApprovalsPage />);
 
     // An empty queue in front of an operator whose request 500'd says nobody is

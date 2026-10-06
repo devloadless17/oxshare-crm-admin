@@ -1254,6 +1254,26 @@ export interface paths {
         patch: operations["AdminIbController_reject"];
         trace?: never;
     };
+    "/v1/admin/ib/accruals/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered commission ledger as CSV
+         * @description The same filters as GET /admin/ib/accruals, over every matching accrual.
+         */
+        get: operations["AdminIbController_exportAccruals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ib/accruals": {
         parameters: {
             query?: never;
@@ -3721,25 +3741,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/acquisition-links": {
+    "/v1/admin/signup-links/me": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Sign-up links, with what each has brought (counts only) */
-        get: operations["AcquisitionLinksController_list"];
+        /** Your own sign-up link, the tags it gives, and what it has brought */
+        get: operations["SignupLinksController_mine"];
         put?: never;
-        /** Create a sign-up link */
-        post: operations["AcquisitionLinksController_create"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/acquisition-links/{id}": {
+    "/v1/admin/signup-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every administrator’s sign-up link, with what it has brought */
+        get: operations["SignupLinksController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/signup-links/{adminId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3752,8 +3788,25 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Rename, re-tag, hand over, or switch a sign-up link off/on */
-        patch: operations["AcquisitionLinksController_update"];
+        /** Rename a sign-up link (your own, or anyone’s with admins.edit) */
+        patch: operations["SignupLinksController_rename"];
+        trace?: never;
+    };
+    "/v1/admin/signup-links/{adminId}/random": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give a sign-up link a random word made by the server (the old word stops working) */
+        post: operations["SignupLinksController_randomize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/kyc": {
@@ -4691,6 +4744,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ledger/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered ledger as CSV
+         * @description The same filters as GET /admin/ledger, over every matching entry. Amounts and balances are the exact decimal strings the ledger holds — never rounded (§6.1).
+         */
+        get: operations["AdminMoneyController_exportLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ledger": {
         parameters: {
             query?: never;
@@ -4839,6 +4912,43 @@ export interface paths {
         };
         /** Totals over the filtered movement list, grouped per currency (amounts are strings) */
         get: operations["AdminFinancialController_transactionsSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the deposit desk as CSV
+         * @description The same filters as GET /admin/deposits, over every matching row. Amounts are the exact decimal strings the ledger holds (§6.1); the client's deposit details are a column.
+         */
+        get: operations["AdminFinancialController_exportDeskDeposits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The deposit desk — deposits a person decides (amounts are strings) */
+        get: operations["AdminFinancialController_listDeskDeposits"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6584,6 +6694,31 @@ export interface components {
             /** @description The hint in Arabic (0179); null = not translated, show `hint`. */
             hintAr: string | null;
         };
+        ShownPayToFieldDto: {
+            /** @example f_p7d2k9m4qa */
+            id: string;
+            /** @example Send to */
+            label: string;
+            /**
+             * @description The label in Arabic; null = not translated, show `label`.
+             * @example أرسل إلى
+             */
+            labelAr: string | null;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            /**
+             * @description The broker's value, shown read-only with a Copy button. A phone is E.164.
+             * @example +96170123456
+             */
+            value: string;
+            /** @example Whish account in the name of OxShare. */
+            hint: string | null;
+            /** @description The hint in Arabic; null = not translated, show `hint`. */
+            hintAr: string | null;
+        };
         PaymentMethodDto: {
             /**
              * @description A stable machine key. Never renamed.
@@ -6616,6 +6751,8 @@ export interface components {
             requiresProof: boolean;
             /** @description What the client must also give with the receipt, in order — only the fields shown to clients, and only for a method paid outside the platform. Answer them as `details[<id>]` parts of POST /payments/deposits/offline. */
             proofFields: components["schemas"]["AskedProofFieldDto"][];
+            /** @description Where the client sends the money, in order — only the details shown to clients, and only for a method paid outside the platform. Read-only for the client. */
+            payToFields: components["schemas"]["ShownPayToFieldDto"][];
         };
         DepositStateDto: {
             /**
@@ -6908,6 +7045,33 @@ export interface components {
             /** @description Shown to clients. A hidden field is kept but never asked. */
             enabled: boolean;
         };
+        PayToFieldDto: {
+            /** @example f_p7d2k9m4qa */
+            id: string;
+            /** @example Send to */
+            label: string;
+            /**
+             * @description The label in Arabic; null = not translated, show `label`.
+             * @example أرسل إلى
+             */
+            labelAr: string | null;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            /**
+             * @description The broker's value, shown read-only with a Copy button. A phone is E.164.
+             * @example +96170123456
+             */
+            value: string;
+            /** @example Whish account in the name of OxShare. */
+            hint: string | null;
+            /** @description The hint in Arabic; null = not translated, show `hint`. */
+            hintAr: string | null;
+            /** @description Shown to clients. A hidden detail is kept but never shown. */
+            enabled: boolean;
+        };
         AdminPaymentMethodDto: {
             /**
              * @description A stable machine key. Never renamed.
@@ -6940,6 +7104,8 @@ export interface components {
             requiresProof: boolean;
             /** @description Every detail the method asks for, hidden ones included. The details an OFFLINE method asks the client for with the receipt — e.g. the phone the money was sent from, or a transfer code. Ordered; the whole list is replaced on save. Asked only while `requiresProof` is true. */
             proofFields: components["schemas"]["ProofFieldDto"][];
+            /** @description Every detail the method shows, hidden ones included. What an OFFLINE method SHOWS the client — where to send the money, e.g. the phone a transfer goes to or an account name. Ordered; the whole list is replaced on save. Shown only while the method is paid outside the platform. Each deposit records what it was shown. */
+            payToFields: components["schemas"]["PayToFieldDto"][];
             /** @description The method's own minimum as the operator set it — null means the currency's. `minAmount` is what clients are actually held to. */
             ownMinAmount: string | null;
             /**
@@ -7002,6 +7168,29 @@ export interface components {
             /** @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English). */
             hintAr?: string | null;
         };
+        PayToFieldInputDto: {
+            /**
+             * @description Permanent; generated by the console.
+             * @example f_p7d2k9m4qa
+             */
+            id: string;
+            /** @example Send to */
+            label: string;
+            /** @enum {string} */
+            type: "text" | "phone";
+            /** @example +96170123456 */
+            value: string;
+            /** @description Shown to clients. */
+            enabled: boolean;
+            hint?: string | null;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example أرسل إلى
+             */
+            labelAr?: string | null;
+            /** @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English). */
+            hintAr?: string | null;
+        };
         CreatePaymentMethodDto: {
             /** @example rival */
             providerCode?: string;
@@ -7058,6 +7247,8 @@ export interface components {
             requiresProof?: boolean;
             /** @description The details an OFFLINE method asks the client for with the receipt — e.g. the phone the money was sent from, or a transfer code. Ordered; the whole list is replaced on save. Asked only while `requiresProof` is true. */
             proofFields?: components["schemas"]["ProofFieldInputDto"][];
+            /** @description What an OFFLINE method SHOWS the client — where to send the money, e.g. the phone a transfer goes to or an account name. Ordered; the whole list is replaced on save. Shown only while the method is paid outside the platform. Each deposit records what it was shown. */
+            payToFields?: components["schemas"]["PayToFieldInputDto"][];
         };
         UpdatePaymentMethodDto: {
             name?: string;
@@ -7102,6 +7293,8 @@ export interface components {
             ownMaxAmount?: string | null;
             /** @description The details an OFFLINE method asks the client for with the receipt — e.g. the phone the money was sent from, or a transfer code. Ordered; the whole list is replaced on save. Asked only while `requiresProof` is true. */
             proofFields?: components["schemas"]["ProofFieldInputDto"][];
+            /** @description What an OFFLINE method SHOWS the client — where to send the money, e.g. the phone a transfer goes to or an account name. Ordered; the whole list is replaced on save. Shown only while the method is paid outside the platform. Each deposit records what it was shown. */
+            payToFields?: components["schemas"]["PayToFieldInputDto"][];
         };
         DeletedMethodDto: {
             /** @example typo_method */
@@ -9548,55 +9741,46 @@ export interface components {
             /** @description False when the change took the client out of the acting admin’s territory — sent only with confirmLeavesScope=true. */
             stillVisible: boolean;
         };
-        AcquisitionLinkTagDto: {
+        SignupLinkTagDto: {
             id: string;
             slug: string;
             label: string;
             color?: string;
         };
-        AcquisitionLinkDto: {
-            id: string;
-            /**
-             * @description Public code: the portal link is /join/<code>.
-             * @example K7M2Q9XA
-             */
-            code: string;
-            name: string;
-            /** @description The link to hand out: <PORTAL_URL>/join/<code>. */
+        MySignupLinkDto: {
+            /** @example omar-farah */
+            slug: string;
+            /** @description The link to hand out: <PORTAL_URL>/join/<slug>. */
             url: string;
-            ownerAdminId: string;
-            ownerName: string;
-            /** @description False when the owner is suspended: the link then tags nobody. */
-            ownerActive: boolean;
-            /** @description False when none of the link's tags is in the owner's territory: the owner will not see the clients it brings. */
-            ownerSeesSignups: boolean;
-            tags: components["schemas"]["AcquisitionLinkTagDto"][];
-            /** Format: date-time */
-            disabledAt?: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** @description Clients who signed up through it. */
+            /** @description What a sign-up through it gets right now: your territory, minus countries. */
+            tags: components["schemas"]["SignupLinkTagDto"][];
+            /** @description True when the link gives no tag: you see every client, or only countries. Clients you bring are recorded as yours, not put in a book. */
+            addsNoTag: boolean;
             signups: number;
-            /** @description Of whom verified (level 1 or above). */
             verified: number;
-            /** @description Of whom have a successful deposit. */
             funded: number;
         };
-        CreateAcquisitionLinkDto: {
-            /** @description What the desk calls it ("O_F — Facebook campaign"). */
-            name?: string;
-            /** @description Who owns it; the caller when absent. Another administrator needs links.manage. */
-            ownerAdminId?: string;
-            /** @description Tags a sign-up arrives with. Absent: the owner's own territory tags. Never a country tag. */
-            tagIds?: string[];
+        SignupLinkRowDto: {
+            adminId: string;
+            name: string;
+            slug: string;
+            url: string;
+            /** @description A suspended administrator's link tags nobody. */
+            active: boolean;
+            signups: number;
+            verified: number;
+            funded: number;
         };
-        UpdateAcquisitionLinkDto: {
-            name?: string;
-            /** @description Hand the link to another administrator (links.manage). */
-            ownerAdminId?: string;
-            tagIds?: string[];
-            /** @description Switch the link off (tags nobody) or back on. */
-            disabled?: boolean;
+        RenameSignupLinkDto: {
+            /**
+             * @description Lowercase letters, digits, - and _; 3–32 characters. The old link stops working.
+             * @example omar-farah
+             */
+            slug: string;
+        };
+        SignupLinkUrlDto: {
+            slug: string;
+            url: string;
         };
         KycDocumentDto: {
             docType?: string;
@@ -10574,6 +10758,30 @@ export interface components {
             rows: components["schemas"]["AdminTransactionSummaryRowDto"][];
             directions: components["schemas"]["AdminTransactionDirectionTotalDto"][];
         };
+        PayToDetailDto: {
+            /** @example f_p7d2k9m4qa */
+            fieldId: string;
+            /**
+             * @description The label as shown.
+             * @example Send to
+             */
+            label: string;
+            /**
+             * @description The label in Arabic as shown, when the detail had one.
+             * @example أرسل إلى
+             */
+            labelAr?: string | null;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            /**
+             * @description As shown. A phone is E.164.
+             * @example +96170123456
+             */
+            value: string;
+        };
         AdminTransactionRowDto: {
             id: string;
             /** @enum {string} */
@@ -10608,6 +10816,8 @@ export interface components {
             proofFilename?: string | null;
             /** @description What the client gave with an OFFLINE deposit to identify the payment — the phone it was sent from, a transfer code — each with the question as asked (0163). Null otherwise. Never masked: it is the proof the desk approves the deposit on, like the receipt. */
             proofDetails?: components["schemas"]["ProofDetailDto"][] | null;
+            /** @description Where an OFFLINE deposit's client was told to send the money — the details the method showed when it was filed, e.g. the phone a transfer goes to (0199). A copy: the method may have changed since. Null otherwise. */
+            payToDetails?: components["schemas"]["PayToDetailDto"][] | null;
             walletId: string;
             /** Format: date-time */
             createdAt: string;
@@ -12845,6 +13055,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbApplicationDto"];
+                };
+            };
+        };
+    };
+    AdminIbController_exportAccruals: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                /** @description Restrict to one partner. */
+                ibUserId?: number;
+                /** @description Restrict to one client. */
+                clientUserId?: number;
+                q?: string;
+                status?: "pending" | "confirmed" | "reversed";
+                kind?: "commission" | "rebate";
+                /** @description Earliest accrued time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `commissions-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
         };
@@ -16250,7 +16493,7 @@ export interface operations {
             };
         };
     };
-    AcquisitionLinksController_list: {
+    SignupLinksController_mine: {
         parameters: {
             query?: never;
             header?: never;
@@ -16264,46 +16507,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AcquisitionLinkDto"][];
+                    "application/json": components["schemas"]["MySignupLinkDto"];
                 };
             };
         };
     };
-    AcquisitionLinksController_create: {
+    SignupLinksController_list: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateAcquisitionLinkDto"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AcquisitionLinkDto"];
+                    "application/json": components["schemas"]["SignupLinkRowDto"][];
                 };
             };
         };
     };
-    AcquisitionLinksController_update: {
+    SignupLinksController_rename: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                adminId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateAcquisitionLinkDto"];
+                "application/json": components["schemas"]["RenameSignupLinkDto"];
             };
         };
         responses: {
@@ -16312,7 +16551,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AcquisitionLinkDto"];
+                    "application/json": components["schemas"]["SignupLinkUrlDto"];
+                };
+            };
+        };
+    };
+    SignupLinksController_randomize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adminId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupLinkUrlDto"];
                 };
             };
         };
@@ -17723,6 +17983,36 @@ export interface operations {
             };
         };
     };
+    AdminMoneyController_exportLedger: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                userId?: number;
+                q?: string;
+                walletId?: string;
+                entryType?: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment" | "transfer";
+                /** @description Earliest posted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `ledger-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
     AdminMoneyController_listLedger: {
         parameters: {
             query: {
@@ -17965,6 +18255,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminTransactionsSummaryDto"];
+                };
+            };
+        };
+    };
+    AdminFinancialController_exportDeskDeposits: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description A Portal ID, a phone, a name or an email — or a detail the client gave with the receipt. */
+                q?: string;
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `deposits-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
+    AdminFinancialController_listDeskDeposits: {
+        parameters: {
+            query?: {
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description A Portal ID, a phone, a name or an email — or a detail the client gave with the receipt. */
+                q?: string;
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+                /** @description One deposit by its uuid — where a notification lands. No state is implied. */
+                id?: string;
+                /** @description Legacy offset paging. Prefer cursor. */
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                sort?: "createdAt" | "amount" | "state";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTransactionListResponseDto"];
                 };
             };
         };

@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import type {
   Currency,
   PaymentMethod,
+  PaymentMethodPayToField,
   PaymentMethodProofField,
   PaymentProvider,
 } from '@/lib/api/admin';
@@ -29,7 +30,7 @@ import { keys } from '@/lib/query-keys';
 import { LimitInput, plainAmount } from '@/components/currencies/limit-input';
 import { formatDecimal } from '@/lib/money';
 import { FormSection, StickyActions } from '@/components/ui/form-section';
-import { ProofFieldsEditor } from './proof-fields-editor';
+import { PayToFieldsEditor, ProofFieldsEditor } from './proof-fields-editor';
 import { CountryRuleSection, type CountryRuleValue } from './country-rule-section';
 import {
   DEFAULT_ROUTE,
@@ -58,6 +59,8 @@ export interface PaymentMethodFormValues {
   ownMaxAmount: string | null;
   /** What an offline method asks the client for with the receipt (backend 0163). */
   proofFields: PaymentMethodProofField[];
+  /** What an offline method SHOWS the client — where to send the money (backend 0199). */
+  payToFields: PaymentMethodPayToField[];
   /** The provider and channel it runs on — sent on create only, fixed after (backend 0168). */
   route: MethodRoute;
   /** Who can use it, by country of residence (backend 0178). */
@@ -144,6 +147,10 @@ export function PaymentMethodForm({
   const [proofFields, setProofFields] = React.useState<PaymentMethodProofField[]>(
     method?.proofFields ?? [],
   );
+  // Kept on a gateway route too, inert there: the API shows them only offline.
+  const [payToFields, setPayToFields] = React.useState<PaymentMethodPayToField[]>(
+    method?.payToFields ?? [],
+  );
   const fieldId = React.useId();
   /*
    * The chosen currency's deposit range, for the hint under each box. The same
@@ -170,6 +177,7 @@ export function PaymentMethodForm({
       ownMinAmount: ownMin.trim() === '' ? null : ownMin.trim(),
       ownMaxAmount: ownMax.trim() === '' ? null : ownMax.trim(),
       proofFields,
+      payToFields,
       countries,
     });
   };
@@ -184,7 +192,8 @@ export function PaymentMethodForm({
         key === 'ownMinAmount' ||
         key === 'ownMaxAmount' ||
         key.startsWith('country') ||
-        key.startsWith('proofFields'),
+        key.startsWith('proofFields') ||
+        key.startsWith('payToFields'),
     );
 
   return (
@@ -310,6 +319,17 @@ export function PaymentMethodForm({
         one. The API refuses it on a gateway method, which is the contradiction
         that cannot be resolved by guessing.
       */}
+      {/*
+        WHERE the client pays (backend 0199): read-only details the client copies
+        before sending the money. Any channel paid outside the platform, receipt
+        or not — a cash or bank method needs a destination too.
+      */}
+      {acceptsReceipt && (
+        <FormSection title={t('paymentMethods.sectionPayTo')}>
+          <PayToFieldsEditor fields={payToFields} onChange={setPayToFields} errors={fieldErrors} />
+        </FormSection>
+      )}
+
       {acceptsReceipt && (
         <FormSection title={t('paymentMethods.sectionReceipt')}>
           <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">

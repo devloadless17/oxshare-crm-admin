@@ -84,6 +84,7 @@ const method = (over: Partial<PaymentMethod> = {}): PaymentMethod => ({
   builtIn: false,
   inUse: false,
   proofFields: [],
+  payToFields: [],
   // The desk's own route (backend 0168) unless a case says otherwise.
   providerCode: 'manual',
   channelCode: 'offline',

@@ -91,9 +91,9 @@ export type ClientTag = components['schemas']['ClientTagDto'];
 /** What adding or removing a tag answers — the tags afterwards, and whether you still see the client. */
 export type ClientTagChangeResult = components['schemas']['ClientTagChangeResultDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
-export type AcquisitionLink = components['schemas']['AcquisitionLinkDto'];
-export type CreateAcquisitionLinkBody = components['schemas']['CreateAcquisitionLinkDto'];
-export type UpdateAcquisitionLinkBody = components['schemas']['UpdateAcquisitionLinkDto'];
+export type MySignupLink = components['schemas']['MySignupLinkDto'];
+export type SignupLinkRow = components['schemas']['SignupLinkRowDto'];
+export type SignupLinkUrl = components['schemas']['SignupLinkUrlDto'];
 export type BulkTagsBody = components['schemas']['BulkTagsDto'];
 export type BulkClientFilter = components['schemas']['BulkClientFilterDto'];
 export type BulkTagResult = components['schemas']['BulkTagResultDto'];
@@ -315,6 +315,10 @@ export type PaymentMethod = components['schemas']['AdminPaymentMethodDto'];
 export type PaymentMethodProofField = components['schemas']['ProofFieldDto'];
 /** One answer a client filed with an offline deposit, with the question as asked. */
 export type ProofDetail = components['schemas']['ProofDetailDto'];
+/** One detail an offline method SHOWS the client — where to pay (backend 0199), hidden ones included. */
+export type PaymentMethodPayToField = components['schemas']['PayToFieldDto'];
+/** What an offline deposit's client was shown at filing — where they were told to send it. */
+export type PayToDetail = components['schemas']['PayToDetailDto'];
 export type CreatePaymentMethod = components['schemas']['CreatePaymentMethodDto'];
 export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'];
 /**
@@ -1999,6 +2003,38 @@ export const adminApi = {
    *
    * Every `amount` is a STRING and must reach the DOM as one — §6.1.
    */
+  /**
+   * The DEPOSIT DESK — `GET /admin/deposits`: deposits a person decides, on the
+   * desk's own key (`deposits.view`). A deposit clerk is not given every
+   * movement on the platform (`transactions.view`), so the desk must not read
+   * through `/admin/transactions` (it did until 6 Oct 2026, and a clerk loaded
+   * nothing). The rows are fixed by the server; only these narrow them.
+   */
+  async getDeskDeposits(
+    params: Pick<TransactionListParams, 'id' | 'state' | 'q' | 'from' | 'to' | 'limit' | 'page'> & {
+      sort?: TransactionListParams['sort'];
+      order?: TransactionListParams['order'];
+    },
+    signal?: AbortSignal,
+  ): Promise<TransactionListResponse> {
+    const query = new URLSearchParams({ limit: String(params.limit) });
+    if (params.state) query.set('state', params.state);
+    if (params.q) query.set('q', params.q);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
+    if (params.id) query.set('id', params.id);
+    if (params.page !== undefined) query.set('page', String(params.page));
+    if (params.sort) {
+      query.set('sort', params.sort);
+      if (params.order) query.set('order', params.order);
+    }
+    const { data } = await apiClient.get<TransactionListResponse>(
+      `/admin/deposits?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
   async getTransactions(
     params: TransactionListParams,
     signal?: AbortSignal,
@@ -2976,23 +3012,31 @@ export const adminApi = {
     return data;
   },
 
-  // ── Sign-up links (backend 0195) ─────────────────────────────────────────
+  // ── Sign-up links (backend 0198): one per administrator ──────────────────
 
-  async getAcquisitionLinks(signal?: AbortSignal): Promise<AcquisitionLink[]> {
-    const { data } = await apiClient.get<AcquisitionLink[]>('/admin/acquisition-links', { signal });
+  /** Your own link, the tags it gives right now, and what it has brought. */
+  async getMySignupLink(signal?: AbortSignal): Promise<MySignupLink> {
+    const { data } = await apiClient.get<MySignupLink>('/admin/signup-links/me', { signal });
     return data;
   },
 
-  async createAcquisitionLink(dto: CreateAcquisitionLinkBody): Promise<AcquisitionLink> {
-    const { data } = await apiClient.post<AcquisitionLink>('/admin/acquisition-links', dto);
+  /** Every administrator's link with its counts (admins.view). */
+  async getSignupLinks(signal?: AbortSignal): Promise<SignupLinkRow[]> {
+    const { data } = await apiClient.get<SignupLinkRow[]>('/admin/signup-links', { signal });
     return data;
   },
 
-  async updateAcquisitionLink(
-    id: string,
-    dto: UpdateAcquisitionLinkBody,
-  ): Promise<AcquisitionLink> {
-    const { data } = await apiClient.patch<AcquisitionLink>(`/admin/acquisition-links/${id}`, dto);
+  /** Rename a link — your own freely, another administrator's with admins.edit. */
+  async renameSignupLink(adminId: string, slug: string): Promise<SignupLinkUrl> {
+    const { data } = await apiClient.patch<SignupLinkUrl>(`/admin/signup-links/${adminId}`, {
+      slug,
+    });
+    return data;
+  },
+
+  /** Give a link a random word the SERVER makes; the old word stops working. */
+  async randomizeSignupLink(adminId: string): Promise<SignupLinkUrl> {
+    const { data } = await apiClient.post<SignupLinkUrl>(`/admin/signup-links/${adminId}/random`);
     return data;
   },
 
