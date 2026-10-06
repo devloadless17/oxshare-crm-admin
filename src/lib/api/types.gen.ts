@@ -1394,6 +1394,26 @@ export interface paths {
         patch: operations["AdminIbController_reassignParent"];
         trace?: never;
     };
+    "/v1/admin/ib/partners/{userId}/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set a sub-partner’s own commission and rebate shares
+         * @description Sub-partners only. `commissionShare` is their percentage of the product’s commission; the main partner above them takes the rest (100 − it). `rebateShare` is what their CLIENTS get back of the product’s rebate. Null = level 2’s share; an absent key is left unchanged. Applies from the next trade.
+         */
+        patch: operations["AdminIbController_setTerms"];
+        trace?: never;
+    };
     "/v1/admin/ib/partners/{userId}/active": {
         parameters: {
             query?: never;
@@ -6297,6 +6317,10 @@ export interface components {
             levelCommissionShare: string | null;
             /** @description What their clients get back, as a percentage of the product’s rebate per lot. */
             levelRebateShare: string | null;
+            /** @description A sub-partner’s own commission share (0197), overriding the level’s. Null = the level’s. */
+            commissionShareOverride: string | null;
+            /** @description What a sub-partner’s clients get back of the rebate (0197), overriding the level’s. Null = the level’s. */
+            rebateShareOverride: string | null;
             referralCode: string;
             /** @description A suspended partner keeps their code and tree, and stops earning. */
             active: boolean;
@@ -6323,7 +6347,7 @@ export interface components {
         };
         ChangeIbLevelDto: {
             /**
-             * @description Must be a CONFIGURED and ENABLED level. 1 is a partner dealing with the broker directly.
+             * @description Must match the partner’s position (0197): 1 with no parent, 2 under a main partner.
              * @example 2
              */
             level: number;
@@ -6331,6 +6355,18 @@ export interface components {
         ReassignIbParentDto: {
             /** @description The new parent partner, or null to make them a direct partner. */
             parentIbUserId: number | null;
+        };
+        SetIbTermsDto: {
+            /**
+             * @description Their percentage of the product’s commission, 0–100. The main partner above them takes the rest. Null = level 2’s share.
+             * @example 50
+             */
+            commissionShare?: string | null;
+            /**
+             * @description What their CLIENTS get back, as a percentage of the product’s rebate, 0–100. Null = level 2’s rebate share.
+             * @example 30
+             */
+            rebateShare?: string | null;
         };
         SetIbActiveDto: {
             /** @description False suspends: the referral code and the tree are kept, the earning stops. There is no delete — removing the row would orphan every partner beneath them. */
@@ -12900,6 +12936,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReassignIbParentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbAccountDto"];
+                };
+            };
+        };
+    };
+    AdminIbController_setTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetIbTermsDto"];
             };
         };
         responses: {

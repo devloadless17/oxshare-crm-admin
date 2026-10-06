@@ -1301,6 +1301,23 @@ export const messages = {
     'not change. Partners beneath them keep the levels they were approved on.',
   'clientProfile.changeLevelSave': 'Move to this level',
   'clientProfile.levelChanged': 'The partner’s commission level was changed.',
+  // 0197 — a sub-partner's own terms.
+  'clientProfile.mainTerms':
+    'Partner 100% on own clients, the rest on sub-partners’ · client rebate {rebate}',
+  'clientProfile.customTerms': 'Set for this sub-partner',
+  'clientProfile.editTerms': 'Edit commission',
+  'clientProfile.termsTitle': 'Commission and rebate for {name}',
+  'clientProfile.termsBody':
+    'This sub-partner’s own shares of the product’s commission and rebate. Leave a field empty ' +
+    'to use the level 2 default. Applies from the next trade.',
+  'clientProfile.termsCommission': 'Sub-partner earns (% of commission)',
+  'clientProfile.termsRebate': 'Their clients get back (% of rebate)',
+  'clientProfile.termsDefault': 'Level default: {share}%',
+  'clientProfile.termsSplit': 'On their clients’ trades: sub-partner {sub}% · main partner {main}%',
+  'clientProfile.termsRange': 'Enter a percentage from 0 to 100.',
+  'clientProfile.termsSave': 'Save',
+  'clientProfile.termsSaved': 'The sub-partner’s commission and rebate were saved.',
+  'clientProfile.termsFailed': 'Could not save the commission and rebate.',
   'clientProfile.levelFailed': 'Could not change the commission level.',
   'clientProfile.levelOption': 'Level {level} · {name}',
   // The rates, because a rung number alone does not tell an operator what they
@@ -4017,15 +4034,20 @@ export const messages = {
   // per lot lives on the type (Commission Types); a rung never holds an amount.
   'ibLevels.commission': 'The partner earns',
   'ibLevels.commissionHint':
-    'The share of the product’s commission per lot a partner on this level takes, on every ' +
-    'trade that reaches them — their own clients’ and their sub-partners’ alike.',
+    'The default share of the product’s commission per lot a sub-partner takes on their own ' +
+    'clients’ trades. Their main partner takes the rest. It can be changed for one ' +
+    'sub-partner on their Partner tab.',
+  'ibLevels.mainTakesRest':
+    'Main partners take 100% of the commission on their own clients, and the rest (100% minus ' +
+    'the sub-partner’s share) on their sub-partners’ clients.',
+  'ibLevels.termRest': '100% on own clients · the rest on sub-partners’',
   'ibLevels.rebate': 'Their client gets back',
   'ibLevels.rebateHint':
     'The share of the product’s rebate per lot returned to a client introduced by a partner on ' +
     'this level. Set it to zero if this level pays no rebate.',
   'ibLevels.independentNote':
-    'Shares are paid independently: on a sub-partner’s client’s trade, this level and every ' +
-    'level above it each take their own share of the product’s figure.',
+    'One commission, split: the sub-partner takes their share and the main partner above them ' +
+    'takes the rest. The tree has two levels — main partners and their sub-partners.',
   'ibLevels.shareTooLarge': 'A share cannot exceed 100% of the product’s figure.',
   'ibLevels.rowActions': 'Actions for level {level}',
   'ibLevels.description': 'Description',

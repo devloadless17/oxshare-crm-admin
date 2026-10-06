@@ -1517,6 +1517,21 @@ export const adminApi = {
    * Partners BENEATH them are NOT moved. Cascading would re-price an unbounded
    * number of people from one edit of somebody else's row.
    */
+  /**
+   * A sub-partner's own commission and rebate shares (0197). `null` falls back
+   * to the level 2 default; an absent key is left as it is.
+   */
+  async setIbPartnerTerms(
+    userId: number,
+    terms: { commissionShare?: string | null; rebateShare?: string | null },
+  ) {
+    const { data } = await apiClient.patch<components['schemas']['IbAccountDto']>(
+      `/admin/ib/partners/${userId}/terms`,
+      terms,
+    );
+    return data;
+  },
+
   async changeIbPartnerLevel(userId: ClientRef, level: number): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/level`, {
       level,
