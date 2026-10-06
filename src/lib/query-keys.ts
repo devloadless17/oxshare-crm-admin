@@ -241,6 +241,14 @@ export const keys = {
 
   adminUsers: {
     all: () => ['admin-users'] as const,
+    /*
+     * The bare directory (`GET /admin/users`), for pickers. NOT `all()`: the Admin
+     * users page caches `{ roles, adminUsers, fieldCatalog }` there, and a picker
+     * reading that key got the object and crashed on `.filter` whenever the page
+     * had been opened first (Network access, 6 Oct 2026). Under the same root, so
+     * every invalidation of `all()` refreshes it too.
+     */
+    directory: () => ['admin-users', 'directory'] as const,
     invites: () => ['admin-users', 'invites'] as const,
     sessions: () => ['admin-users', 'sessions'] as const,
   },
