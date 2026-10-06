@@ -90,6 +90,7 @@ function product(over: Partial<Product> = {}): Product {
     // screen reads it.
     commissionTypeId: null,
     sortOrder: 0,
+    maxAccountsPerClient: 5,
     groups: [],
     ...over,
   };

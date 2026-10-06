@@ -2193,12 +2193,6 @@ export const messages = {
   'tradingSettings.leverages': 'Leverages offered',
   'tradingSettings.leveragesHint':
     'Comma-separated, in the order clients see them. MT5 still clamps to the group’s own maximum.',
-  'tradingSettings.maxLiveAccounts': 'Live accounts per client',
-  'tradingSettings.maxLiveAccountsHint':
-    'How many a client may open themselves. 0 stops new live accounts without touching existing ones.',
-  'tradingSettings.maxDemoAccounts': 'Demo accounts per client',
-  'tradingSettings.maxDemoAccountsHint':
-    'Same, for practice accounts. Every one is a real row on the broker’s server.',
   // ── How often commission is paid (0113) ───────────────────────────────────
   // Replaced "Maximum commission levels", which capped how deep the ladder
   // could go. That is the IB Levels page's job now — add a rung and it pays.
@@ -2304,7 +2298,7 @@ export const messages = {
     'commission level takes its share of it. Leave it unset for a product that pays no partner ' +
     'commission.',
   'products.commissionTypeNone': 'None — pays no partner commission',
-  'products.commissionTypeDemo': 'The demo product never pays commission.',
+  'products.commissionTypeDemo': 'A demo product never pays commission.',
   'products.commissionTypeInactive': 'inactive',
   'products.saveSucceeded': '{name} saved',
   'products.deleteSucceeded': '{name} deleted',
@@ -2378,10 +2372,15 @@ export const messages = {
   'products.typeReal': 'Real',
   'products.typeDemo': 'Demo',
   'products.typeHint':
-    'Real products carry live MT5 groups and are sold through agencies. The demo product carries demo groups and is offered to every client automatically — only one can exist.',
-  'products.typeDemoExists':
-    'A demo product already exists, and only one can. Edit that product to change what demo accounts open in.',
+    'Real products carry live MT5 groups and are sold through agencies. Demo products carry demo groups and are offered to every client automatically.',
   'products.typeLocked': 'Fixed when the product was created.',
+  // ── Limits (backend 0201) ─────────────────────────────────────────────────
+  'products.maxAccounts': 'Max accounts per client',
+  'products.maxAccountsHint':
+    'How many accounts of this product one client may hold, 1–100. Closed accounts do not count; accounts the desk opens are not held to it.',
+  'products.minDeposit': 'Minimum deposit',
+  'products.minDepositHint': 'Every transfer a client makes into this account must reach it',
+  'products.minDepositNone': 'No minimum',
 
   // ── Agencies tab ──────────────────────────────────────────────────────────
   'agencies.title': 'Agencies',

@@ -96,8 +96,6 @@ beforeEach(() => {
   getPlatformLinks.mockResolvedValue([]);
   getTradingSettings.mockResolvedValue({
     leverages: [50, 100, 200, 500],
-    maxLiveAccounts: 5,
-    maxDemoAccounts: 5,
     maxDemoDeposit: '1000000.00000000',
     /*
      * ONE IB field, and it is required — the note that stood here predicted

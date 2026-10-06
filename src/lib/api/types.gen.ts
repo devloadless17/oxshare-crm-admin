@@ -3048,7 +3048,11 @@ export interface paths {
         delete: operations["AdminCatalogueController_detachGroup"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Set an attached group's minimum deposit
+         * @description The least a client may move into an account on this group per transfer, in the group's currency; null clears it. Live groups only. Applies to the next transfer.
+         */
+        patch: operations["AdminCatalogueController_updateGroup"];
         trace?: never;
     };
     "/v1/admin/agencies": {
@@ -7905,6 +7909,21 @@ export interface components {
              * @description Sent back on create (0142): a group may back several products, so the product is what identifies which offer the client picked.
              */
             productId: string;
+            /**
+             * @description How many accounts one client may hold under this product (0201).
+             * @example 5
+             */
+            maxAccounts: number;
+            /**
+             * @description How many this client holds under the product now, closed ones excluded — at `maxAccounts` the product cannot be opened again.
+             * @example 1
+             */
+            heldAccounts: number;
+            /**
+             * @description The least the client may move into an account of this type per transfer, in its currency, as a decimal string (§6.1). Null = no minimum; always null on demo.
+             * @example 100.00000000
+             */
+            minDeposit: string | null;
         };
         SelfServiceOfferDto: {
             /** @description This client has at least one live account type to open. */
@@ -7923,16 +7942,6 @@ export interface components {
              *     ]
              */
             leverages: number[];
-            /**
-             * @description The most live accounts a client may hold.
-             * @example 3
-             */
-            maxLiveAccounts: number;
-            /**
-             * @description The most demo accounts a client may hold.
-             * @example 3
-             */
-            maxDemoAccounts: number;
             /**
              * @description The most a demo account may be funded with, as a decimal string (§6.1).
              * @example 100000.00000000
@@ -7972,6 +7981,11 @@ export interface components {
             status: "active" | "suspended" | "closed";
             /** Format: date-time */
             createdAt: string;
+            /**
+             * @description The least a transfer INTO this account must be, in its currency — its product group’s minimum deposit (0201), as a decimal string. Null = no minimum (always on demo).
+             * @example 100.00000000
+             */
+            minDeposit: string | null;
         };
         AccountSnapshotDto: {
             /**
@@ -8725,16 +8739,6 @@ export interface components {
         };
         TradingSettingsDto: {
             /**
-             * @description Live accounts one client may open themselves.
-             * @example 5
-             */
-            maxLiveAccounts: number;
-            /**
-             * @description Demo accounts one client may open themselves.
-             * @example 5
-             */
-            maxDemoAccounts: number;
-            /**
              * @description Largest opening balance a demo account may be given. A decimal string.
              * @example 1000000.00000000
              */
@@ -8749,10 +8753,6 @@ export interface components {
             updatedByName?: string | null;
         };
         UpdateTradingSettingsDto: {
-            /** @example 5 */
-            maxLiveAccounts: number;
-            /** @example 5 */
-            maxDemoAccounts: number;
             /**
              * @description Positive decimal string.
              * @example 1000000.00
@@ -8882,6 +8882,11 @@ export interface components {
              * @example USD
              */
             currency: string;
+            /**
+             * @description The least a client may move into an account on this group per transfer, in the group's currency (0201). Null = no minimum. Live groups only.
+             * @example 100
+             */
+            minDeposit: string | null;
         };
         ProductDto: {
             /** Format: uuid */
@@ -8899,17 +8904,22 @@ export interface components {
             /** @description A disabled product stops being sold and keeps its accounts. */
             enabled: boolean;
             /**
-             * @description Fixed at creation. At most ONE demo product exists; it is offered to every client for demo accounts regardless of agency, and cannot be assigned to an agency. Real products carry live groups, the demo product carries demo groups.
+             * @description Fixed at creation. Any number of demo products may exist (0201); every enabled one is offered to every client for demo accounts regardless of agency, and none can be assigned to an agency. Real products carry live groups, demo products demo groups.
              * @enum {string}
              */
             type: "real" | "demo";
             /**
              * Format: uuid
-             * @description The commission type this product pays partners on (0140) — the rate card whose per-lot amounts each level takes a share of. NULL means the product pays no partner commission at all; the demo product never carries one.
+             * @description The commission type this product pays partners on (0140) — the rate card whose per-lot amounts each level takes a share of. NULL means the product pays no partner commission at all; a demo product never carries one.
              */
             commissionTypeId: string | null;
             /** @example 0 */
             sortOrder: number;
+            /**
+             * @description How many accounts one client may hold under this product (0201). Closed accounts do not count.
+             * @example 5
+             */
+            maxAccountsPerClient: number;
             groups: components["schemas"]["ProductGroupDto"][];
         };
         AvailableGroupDto: {
@@ -8950,12 +8960,26 @@ export interface components {
             commissionTypeId?: string | null;
             /** @example 0 */
             sortOrder?: number;
+            /** @example 5 */
+            maxAccountsPerClient?: number;
         };
         AttachGroupDto: {
             /** @enum {string} */
             environment: "live" | "demo";
             /** @example real\Standard-USD */
             mt5Group: string;
+            /**
+             * @description The least a client may move into an account on this group per transfer, in the group's currency (0201). Null = no minimum. Live groups only.
+             * @example 100
+             */
+            minDeposit?: string | null;
+        };
+        UpdateProductGroupDto: {
+            /**
+             * @description The least a client may move into an account on this group per transfer, in the group's currency (0201). Null = no minimum. Live groups only.
+             * @example 100
+             */
+            minDeposit: string | null;
         };
         AgencyDto: {
             /** Format: uuid */
@@ -15444,6 +15468,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDto"];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_updateGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProductGroupDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

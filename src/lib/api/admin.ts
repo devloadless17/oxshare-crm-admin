@@ -1156,6 +1156,8 @@ export type IpAllowlistExemption = components['schemas']['IpAllowlistExemptionDt
 export type Product = components['schemas']['ProductDto'];
 export type UpsertProduct = components['schemas']['UpsertProductDto'];
 export type ProductGroup = components['schemas']['ProductGroupDto'];
+export type AttachProductGroup = components['schemas']['AttachGroupDto'];
+export type UpdateProductGroup = components['schemas']['UpdateProductGroupDto'];
 export type AvailableGroup = components['schemas']['AvailableGroupDto'];
 
 /** An agency (وكالة) — the package a partner is appointed under. */
@@ -1698,11 +1700,21 @@ export const adminApi = {
     await apiClient.delete(`/admin/products/${id}`);
   },
 
-  async attachProductGroup(
-    id: string,
-    body: { environment: 'live' | 'demo'; mt5Group: string },
-  ): Promise<Product> {
+  async attachProductGroup(id: string, body: AttachProductGroup): Promise<Product> {
     const { data } = await apiClient.post<Product>(`/admin/products/${id}/groups`, body);
+    return data;
+  },
+
+  /** A saved group's minimum deposit (backend 0201); null clears it. */
+  async updateProductGroup(
+    id: string,
+    groupId: string,
+    body: UpdateProductGroup,
+  ): Promise<Product> {
+    const { data } = await apiClient.patch<Product>(
+      `/admin/products/${id}/groups/${groupId}`,
+      body,
+    );
     return data;
   },
 
