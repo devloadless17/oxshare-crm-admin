@@ -27,6 +27,8 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { UrlSearchInput } from '@/components/url-search-input';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
@@ -172,6 +174,9 @@ function CommissionsPageContent() {
    * person as a row count.
    */
   const q = useDebounced(url.get('q').trim());
+  // When it accrued. Today, like every money history; one partner's book (a
+  // profile's `ibUserId` link) opens whole.
+  const period = useDateRange(url, ibUserId ? 'all' : 'today');
 
   const sortKey = IB_ACCRUAL_SORT_KEYS.includes(url.sort.key as IbAccrualSortKey)
     ? (url.sort.key as IbAccrualSortKey)
@@ -184,6 +189,8 @@ function CommissionsPageContent() {
     kind: kind || undefined,
     ibUserId: ibUserId || undefined,
     q: q || undefined,
+    from: period.range.from,
+    to: period.range.to,
     sort: sortKey,
     // Withheld when nothing is sorted: `order` alone describes an ordering of no
     // column, and sending it would cache one result set under two query keys.
@@ -454,7 +461,14 @@ function CommissionsPageContent() {
           </SelectContent>
         </Select>
 
-        {(status || kind || q) && (
+        <DateRangePicker
+          choice={period.choice}
+          custom={period.custom}
+          defaultChoice={period.defaultChoice}
+          onChange={period.set}
+        />
+
+        {(status || kind || q || period.choice !== period.defaultChoice) && (
           <button
             type="button"
             onClick={() => url.clear()}
@@ -484,7 +498,13 @@ function CommissionsPageContent() {
           activeRowKey={opened.openId}
           rowLabel={(r) => t('records.openRow', { name: accrualTitle(r) })}
           dimmed={query.isFetching}
-          empty={<EmptyState icon={Coins} message={t('commissions.empty')} />}
+          empty={
+            <EmptyState
+              icon={Coins}
+              message={t('commissions.empty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
+            />
+          }
           sortColumn={sortKey}
           sortDirection={url.sort.order}
           /*

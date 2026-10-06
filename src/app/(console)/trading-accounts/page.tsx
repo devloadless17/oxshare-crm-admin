@@ -20,6 +20,8 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { UrlSearchInput } from '@/components/url-search-input';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
@@ -123,6 +125,9 @@ function TradingAccountsPageContent() {
     ? (url.sort.key as TradingAccountSortKey)
     : undefined;
 
+  // When the account was opened. The account BOOK opens whole: All time.
+  const period = useDateRange(url, 'all');
+
   const params = {
     limit: pageSize,
     page,
@@ -131,6 +136,8 @@ function TradingAccountsPageContent() {
     environment,
     status,
     client,
+    from: period.range.from,
+    to: period.range.to,
     sort: sortKey,
     // Withheld when nothing is sorted — `order` alone describes an ordering of
     // no column, and sending it would cache one result set under two keys.
@@ -227,11 +234,15 @@ function TradingAccountsPageContent() {
     ...(environment ? { environment } : {}),
     ...(status ? { status } : {}),
     ...(client ? { client } : {}),
+    ...(period.range.from ? { from: period.range.from } : {}),
+    ...(period.range.to ? { to: period.range.to } : {}),
   });
 
   const columns: Column<TradingAccountRow>[] = tradingAccountColumns();
 
-  const isFiltered = Boolean(userId || environment || status || client);
+  const isFiltered = Boolean(
+    userId || environment || status || client || period.choice !== period.defaultChoice,
+  );
 
   /*
    * Appended rather than written into the array literal above, so the column
@@ -366,6 +377,14 @@ function TradingAccountsPageContent() {
           onChange={(next) => url.set({ q: next || undefined, page: undefined })}
         />
 
+        <DateRangePicker
+          prefix={t('tradingAccounts.openedPeriod')}
+          choice={period.choice}
+          custom={period.custom}
+          defaultChoice={period.defaultChoice}
+          onChange={period.set}
+        />
+
         <Select
           value={environment ?? 'all'}
           onValueChange={(value) =>
@@ -470,6 +489,7 @@ function TradingAccountsPageContent() {
             <EmptyState
               icon={CandlestickChart}
               message={isFiltered ? t('tradingAccounts.emptyFiltered') : t('tradingAccounts.empty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
             />
           }
           sortColumn={sortKey}

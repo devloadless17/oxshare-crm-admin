@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { SearchField } from '@/components/ui/search-field';
+import { ChipInput } from '@/components/ui/chip-input';
 import type { ClientTagWithCount } from '@/lib/api/admin';
 import {
   Select,
@@ -164,31 +165,33 @@ export function ClientFilters({
        * the UI any more.
        */}
       {/*
-       * A SELECT, at the operator's request — it was a row of toggle chips.
-       *
-       * Still ONE tag at a time, which the select now makes structural rather
-       * than a convention: the API takes a single `?tag=`, because AND and OR
-       * are both plausible readings of a multi-tag filter and shipping the
-       * wrong one silently is worse than not shipping it (D-15). It filters by
-       * SLUG, not id — a rename must not break a link somebody saved.
+       * Several tags at once, ANY of them (6 Oct 2026) — the reading a
+       * territory has, so "clients of O_F or T_N" is one filter. Search-and-pick
+       * (`ChipInput`), because the vocabulary includes every country clients
+       * live in. Slugs, comma-joined in the URL: a rename never breaks a link.
        */}
       {canViewTags && !hidden('client.tags') && tags.length > 0 && (
-        <FilterSelect
-          value={values.tag}
-          onChange={(v) => onChange({ tag: v })}
-          placeholder={t('clients.allTags')}
-          // The business's tags, then the countries clients live in (0193) —
-          // a country nobody lives in would only lengthen the list.
-          options={[
-            ...tags.filter((tag) => !tag.countryCode),
-            ...tags.filter((tag) => tag.countryCode && tag.clientCount > 0),
-          ].map((tag) => ({
-            value: tag.slug,
-            label: tag.countryCode
-              ? `${t('tags.countryOption', { label: tag.label })} (${tag.clientCount})`
-              : `${tag.label} (${tag.clientCount})`,
-          }))}
-        />
+        <div className="min-w-56 max-w-md">
+          <ChipInput
+            value={(values.tag ?? '').split(',').filter(Boolean)}
+            onChange={(slugs) => onChange({ tag: slugs.length > 0 ? slugs.join(',') : undefined })}
+            ariaLabel={t('clients.allTags')}
+            placeholder={t('clients.allTags')}
+            collapseAfter={3}
+            // The business's tags, then the countries clients live in (0193) —
+            // a country nobody lives in would only lengthen the list.
+            options={[
+              ...tags.filter((tag) => !tag.countryCode),
+              ...tags.filter((tag) => tag.countryCode && tag.clientCount > 0),
+            ].map((tag) => ({
+              value: tag.slug,
+              label: tag.countryCode
+                ? `${t('tags.countryOption', { label: tag.label })} (${tag.clientCount})`
+                : `${tag.label} (${tag.clientCount})`,
+              aliases: tag.countryCode ? [tag.label, tag.countryCode] : undefined,
+            }))}
+          />
+        </div>
       )}
 
       {isFiltered && (

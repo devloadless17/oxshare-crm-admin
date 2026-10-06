@@ -19,7 +19,7 @@ import { useMinuteTick } from './use-minute-tick';
 import { CloseTaskDialog } from './close-task-dialog';
 import { NotificationItem } from './notification-item';
 
-type FeedQuery = Pick<AdminNotificationQuery, 'view' | 'q'>;
+type FeedQuery = Pick<AdminNotificationQuery, 'view' | 'q' | 'from' | 'to'>;
 
 /**
  * The list of tasks — the bell's panel and the notifications page both render

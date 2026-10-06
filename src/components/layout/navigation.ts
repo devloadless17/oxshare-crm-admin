@@ -155,6 +155,12 @@ export const NAV: readonly NavEntry[] = [
        * is the portal's icon for the same accounts.
        */
       { label: 'nav.tradingAccounts', href: '/trading-accounts', icon: LineChart },
+      /*
+       * Sign-up links (backend 0195): a client who signs up through one lands
+       * in its owner's book. With the clients, because what they decide is
+       * WHOSE clients arrive.
+       */
+      { label: 'nav.signupLinks', href: '/acquisition-links', icon: Link2 },
     ],
   },
   {

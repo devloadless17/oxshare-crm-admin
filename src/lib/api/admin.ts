@@ -91,6 +91,12 @@ export type ClientTag = components['schemas']['ClientTagDto'];
 /** What adding or removing a tag answers — the tags afterwards, and whether you still see the client. */
 export type ClientTagChangeResult = components['schemas']['ClientTagChangeResultDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
+export type AcquisitionLink = components['schemas']['AcquisitionLinkDto'];
+export type CreateAcquisitionLinkBody = components['schemas']['CreateAcquisitionLinkDto'];
+export type UpdateAcquisitionLinkBody = components['schemas']['UpdateAcquisitionLinkDto'];
+export type BulkTagsBody = components['schemas']['BulkTagsDto'];
+export type BulkClientFilter = components['schemas']['BulkClientFilterDto'];
+export type BulkTagResult = components['schemas']['BulkTagResultDto'];
 export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
 export type Currency = components['schemas']['CurrencyDto'];
 
@@ -929,6 +935,9 @@ export interface TradingAccountListParams {
    * admin who sees every client.
    */
   client?: 'assigned' | 'unassigned';
+  /** When OPENED — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+  from?: string;
+  to?: string;
   sort?: TradingAccountSortKey;
   order?: 'asc' | 'desc';
 }
@@ -943,6 +952,8 @@ export function tradingAccountListSearchParams(params: TradingAccountListParams)
   if (params.environment) query.set('environment', params.environment);
   if (params.status) query.set('status', params.status);
   if (params.client) query.set('client', params.client);
+  if (params.from) query.set('from', params.from);
+  if (params.to) query.set('to', params.to);
   if (params.sort) {
     query.set('sort', params.sort);
     if (params.order) query.set('order', params.order);
@@ -1366,6 +1377,9 @@ export const adminApi = {
       q?: string;
       /** One application, in any status — what a notification opens. */
       id?: string;
+      /** When submitted — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+      from?: string;
+      to?: string;
       page?: number;
       limit?: number;
       sort?: IbApplicationSortKey;
@@ -1377,6 +1391,8 @@ export const adminApi = {
     if (params.status) query.set('status', params.status);
     if (params.q) query.set('q', params.q);
     if (params.id) query.set('id', params.id);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
     // Both halves or neither. `order` alone describes an ordering of no column,
@@ -2089,6 +2105,11 @@ export const adminApi = {
        */
       q?: string;
       status?: string;
+      /** `commission` or `rebate`; absent is both. */
+      kind?: string;
+      /** When it accrued — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+      from?: string;
+      to?: string;
       /** One accrual, in any status — what a notification opens. */
       id?: string;
       sort?: IbAccrualSortKey;
@@ -2923,6 +2944,43 @@ export const adminApi = {
 
   async deleteTag(id: string) {
     const { data } = await apiClient.delete<{ message: string }>(`/admin/tags/${id}`);
+    return data;
+  },
+
+  // ── Sign-up links (backend 0195) ─────────────────────────────────────────
+
+  async getAcquisitionLinks(signal?: AbortSignal): Promise<AcquisitionLink[]> {
+    const { data } = await apiClient.get<AcquisitionLink[]>('/admin/acquisition-links', { signal });
+    return data;
+  },
+
+  async createAcquisitionLink(dto: CreateAcquisitionLinkBody): Promise<AcquisitionLink> {
+    const { data } = await apiClient.post<AcquisitionLink>('/admin/acquisition-links', dto);
+    return data;
+  },
+
+  async updateAcquisitionLink(
+    id: string,
+    dto: UpdateAcquisitionLinkBody,
+  ): Promise<AcquisitionLink> {
+    const { data } = await apiClient.patch<AcquisitionLink>(`/admin/acquisition-links/${id}`, dto);
+    return data;
+  },
+
+  // ── Bulk actions on the clients list (Slice 3) ───────────────────────────
+
+  /**
+   * Add and/or remove tags on many clients — picked rows, or every client
+   * matching the list's filter with the count the reader was shown. `key` is
+   * the idempotency key: ONE per intended change, reused only to retry it, so
+   * a double click or a lost answer cannot apply it twice.
+   */
+  async bulkTags(body: BulkTagsBody, key: string): Promise<BulkTagResult> {
+    const { data } = await apiClient.post<BulkTagResult>(
+      '/admin/clients/bulk/tags',
+      body,
+      idempotent(key),
+    );
     return data;
   },
 

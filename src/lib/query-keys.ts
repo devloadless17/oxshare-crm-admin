@@ -89,6 +89,10 @@ export const keys = {
     all: () => ['tags'] as const,
   },
 
+  acquisitionLinks: {
+    all: () => ['acquisition-links'] as const,
+  },
+
   withdrawals: {
     all: () => ['withdrawals'] as const,
     list: (params: Params) => ['withdrawals', 'list', params] as const,

@@ -26,6 +26,8 @@ import { ChangeLevelFromList } from '@/components/clients/change-level-from-list
 import { clientColumns } from '@/components/clients/client-columns';
 import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
 import { ExportButton } from '@/components/export-button';
+import { ClientBulkBar } from '@/components/clients/client-bulk-bar';
+import type { BulkClientFilter } from '@/lib/api/admin';
 import { LinkAccountDialog } from '@/components/trading/link-account-dialog';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -67,6 +69,8 @@ function ClientsPageContent() {
   /* The same key `PermissionsGuard` enforces on PATCH /admin/ib/partners/:id/program. */
   const canEditPartners = hasPermission(admin, 'ib.partners.edit');
   const canViewTags = hasPermission(admin, 'tags.view') || hasPermission(admin, 'clients.view');
+  // Bulk tagging (Slice 3): the API demands both keys.
+  const canBulk = hasPermission(admin, 'clients.bulk') && hasPermission(admin, 'clients.tag');
 
   const url = useTableQueryState();
   /*
@@ -200,6 +204,14 @@ function ClientsPageContent() {
     params.order,
   ]);
   const maskedFields = query.data?.maskedFields ?? [];
+
+  // The picked rows, cleared whenever the filter (and so the set) changes.
+  const filterKey = exportFilters.toString();
+  const [picked, setPicked] = useState<{ forFilter: string; ids: string[] }>({
+    forFilter: filterKey,
+    ids: [],
+  });
+  const selectedIds = picked.forFilter === filterKey ? picked.ids : [];
 
   /*
    * There is no `countries` list any more, and no country FILTER.
@@ -379,6 +391,20 @@ function ClientsPageContent() {
           rows={rows}
           rowKey={(c) => String(c.id)}
           dimmed={query.isFetching}
+          selectable={canBulk}
+          selectedRowKeys={selectedIds}
+          onSelectionChange={(ids) => setPicked({ forFilter: filterKey, ids })}
+          renderBatchActions={(ids) => (
+            <ClientBulkBar
+              selectedIds={ids}
+              pageCount={rows.length}
+              total={total}
+              filter={bulkFilterOf(params)}
+              exportFilters={exportFilters}
+              tags={tagsQuery.data ?? []}
+              onDone={() => setPicked({ forFilter: filterKey, ids: [] })}
+            />
+          )}
           empty={
             <EmptyState
               icon={Users}
@@ -446,4 +472,28 @@ function ClientsPageContent() {
       </AsyncBoundary>
     </div>
   );
+}
+
+/** The list's filter, as a bulk action's "all matching" target carries it. */
+function bulkFilterOf(
+  params: Record<string, string | number | boolean | undefined | null>,
+): BulkClientFilter {
+  const text = (key: string) => {
+    const value = params[key];
+    return typeof value === 'string' && value !== '' ? value : undefined;
+  };
+  const referredBy = text('referredBy');
+  return {
+    q: text('q'),
+    type: text('type'),
+    status: text('status'),
+    level: text('level'),
+    country: text('country'),
+    kycStatus: text('kycStatus'),
+    emailVerified: text('emailVerified'),
+    tag: text('tag'),
+    referredBy: referredBy && /^\d+$/.test(referredBy) ? +referredBy : undefined, // a Portal ID, not money
+    from: text('from'),
+    to: text('to'),
+  };
 }

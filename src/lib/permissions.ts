@@ -150,6 +150,8 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * the same endpoint, which grants on either key.
    */
   { prefix: '/tags', requirement: { permission: 'tags.view' } },
+  // Sign-up links (backend 0195), matching AcquisitionLinksController's list.
+  { prefix: '/acquisition-links', requirement: { permission: 'links.view' } },
   /*
    * `settings.view`, matching `AdminCurrenciesController`. This entry was
    * MISSING while the page shipped, so /currencies fell through to the '/'

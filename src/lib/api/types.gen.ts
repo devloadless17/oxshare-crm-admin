@@ -3380,6 +3380,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/clients/bulk/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add/remove tags on many clients (picked, or all matching a filter) */
+        post: operations["AdminClientsController_bulkTags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/clients": {
         parameters: {
             query?: never;
@@ -3642,6 +3659,41 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/acquisition-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sign-up links, with what each has brought (counts only) */
+        get: operations["AcquisitionLinksController_list"];
+        put?: never;
+        /** Create a sign-up link */
+        post: operations["AcquisitionLinksController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/acquisition-links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename, re-tag, hand over, or switch a sign-up link off/on */
+        patch: operations["AcquisitionLinksController_update"];
         trace?: never;
     };
     "/v1/admin/kyc": {
@@ -5356,6 +5408,8 @@ export interface components {
             postalCode?: string;
             /** @example K7M2PQR9 */
             referralCode?: string;
+            /** @example K7M2Q9XA */
+            acquisitionCode?: string;
         };
         RegistrationResponseDto: {
             /** @example We have sent a 6-digit code to your email to confirm it. */
@@ -8853,6 +8907,47 @@ export interface components {
              */
             avatarUrl?: string | null;
         };
+        BulkClientFilterDto: {
+            q?: string;
+            type?: string;
+            status?: string;
+            level?: string;
+            country?: string;
+            emailVerified?: string;
+            kycStatus?: string;
+            /** @description Tag slugs, comma-separated (ANY). */
+            tag?: string;
+            referredBy?: number;
+            referred?: string;
+            /** @description Registered from (YYYY-MM-DD or ISO instant). */
+            from?: string;
+            /** @description Registered to. */
+            to?: string;
+        };
+        BulkTargetDto: {
+            /** @description Picked Portal IDs, at most 1000. */
+            ids?: number[];
+            filter?: components["schemas"]["BulkClientFilterDto"];
+            /** @description The count the reader was shown for `filter`. */
+            expectedCount?: number;
+        };
+        BulkTagsDto: {
+            target: components["schemas"]["BulkTargetDto"];
+            add?: string[];
+            remove?: string[];
+            /** @description Hand clients to another desk: confirms the 409 that asked. */
+            confirmLeavesScope?: boolean;
+        };
+        BulkTagResultDto: {
+            /** @description Clients the action was asked about and may see. */
+            matched: number;
+            /** @description Of which actually changed. */
+            changed: number;
+            /** @description Of which already carried the change. */
+            unchanged: number;
+            /** @description Picked clients outside your territory — skipped, never touched. */
+            skippedOutOfScope: number;
+        };
         ClientTagDto: {
             id: string;
             /** @description Stable machine name. Filter with ?tag=<slug>; a rename does not change it. */
@@ -9334,6 +9429,56 @@ export interface components {
             assignments: components["schemas"]["ClientTagAssignmentDto"][];
             /** @description False when the change took the client out of the acting admin’s territory — sent only with confirmLeavesScope=true. */
             stillVisible: boolean;
+        };
+        AcquisitionLinkTagDto: {
+            id: string;
+            slug: string;
+            label: string;
+            color?: string;
+        };
+        AcquisitionLinkDto: {
+            id: string;
+            /**
+             * @description Public code: the portal link is /join/<code>.
+             * @example K7M2Q9XA
+             */
+            code: string;
+            name: string;
+            /** @description The link to hand out: <PORTAL_URL>/join/<code>. */
+            url: string;
+            ownerAdminId: string;
+            ownerName: string;
+            /** @description False when the owner is suspended: the link then tags nobody. */
+            ownerActive: boolean;
+            /** @description False when none of the link's tags is in the owner's territory: the owner will not see the clients it brings. */
+            ownerSeesSignups: boolean;
+            tags: components["schemas"]["AcquisitionLinkTagDto"][];
+            /** Format: date-time */
+            disabledAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Clients who signed up through it. */
+            signups: number;
+            /** @description Of whom verified (level 1 or above). */
+            verified: number;
+            /** @description Of whom have a successful deposit. */
+            funded: number;
+        };
+        CreateAcquisitionLinkDto: {
+            /** @description What the desk calls it ("O_F — Facebook campaign"). */
+            name?: string;
+            /** @description Who owns it; the caller when absent. Another administrator needs links.manage. */
+            ownerAdminId?: string;
+            /** @description Tags a sign-up arrives with. Absent: the owner's own territory tags. Never a country tag. */
+            tagIds?: string[];
+        };
+        UpdateAcquisitionLinkDto: {
+            name?: string;
+            /** @description Hand the link to another administrator (links.manage). */
+            ownerAdminId?: string;
+            tagIds?: string[];
+            /** @description Switch the link off (tags nobody) or back on. */
+            disabled?: boolean;
         };
         KycDocumentDto: {
             docType?: string;
@@ -12490,6 +12635,10 @@ export interface operations {
                 order?: "asc" | "desc";
                 /** @description One application by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No status is implied. */
                 id?: string;
+                /** @description Earliest submitted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -12510,6 +12659,10 @@ export interface operations {
             query?: {
                 format?: "csv";
                 status?: "pending" | "approved" | "rejected";
+                /** @description Earliest submitted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -12581,6 +12734,10 @@ export interface operations {
     AdminIbController_listAccruals: {
         parameters: {
             query?: {
+                /** @description Earliest accrued time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
                 page?: string;
                 limit?: string;
                 /** @description Restrict to one partner. */
@@ -14154,6 +14311,10 @@ export interface operations {
                 status?: "active" | "suspended" | "closed";
                 /** @description `unassigned`: accounts the MT5 sync found that no client owns yet (shown only to a reader who sees every client); `assigned`: the rest. */
                 client?: "assigned" | "unassigned";
+                /** @description Earliest opened time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;
@@ -15446,6 +15607,29 @@ export interface operations {
             };
         };
     };
+    AdminClientsController_bulkTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkTagsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkTagResultDto"];
+                };
+            };
+        };
+    };
     AdminClientsController_listClients: {
         parameters: {
             query?: {
@@ -15467,7 +15651,7 @@ export interface operations {
                 emailVerified?: "true" | "false";
                 /** @description `not_started` matches clients with no submission row at all. */
                 kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
-                /** @description Tag SLUG, not id (ADM-14). */
+                /** @description Tag SLUG, not id (ADM-14). Several, comma-separated: clients carrying ANY of them. */
                 tag?: string;
                 /** @description Clients introduced by this partner, by the partner’s Portal ID (users.referred_by_ib_user_id). Scoped like every other filter — a reader still only sees their own territory. A value that is not a Portal ID is a 400, never a silently unfiltered list. */
                 referredBy?: number;
@@ -15511,7 +15695,7 @@ export interface operations {
                 emailVerified?: "true" | "false";
                 /** @description `not_started` matches clients with no submission row at all. */
                 kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
-                /** @description Tag SLUG, not id (ADM-14). */
+                /** @description Tag SLUG, not id (ADM-14). Several, comma-separated: clients carrying ANY of them. */
                 tag?: string;
                 /** @description Clients introduced by this partner, by Portal ID — the same filter as the list, so the file matches the screen it was exported from. */
                 referredBy?: number;
@@ -15523,6 +15707,8 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                /** @description Export selected: Portal IDs, comma-separated, at most 1000. Narrows the file; scope and masking still apply. */
+                ids?: string;
             };
             header?: never;
             path?: never;
@@ -15879,6 +16065,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientTagChangeResultDto"];
+                };
+            };
+        };
+    };
+    AcquisitionLinksController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcquisitionLinkDto"][];
+                };
+            };
+        };
+    };
+    AcquisitionLinksController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAcquisitionLinkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcquisitionLinkDto"];
+                };
+            };
+        };
+    };
+    AcquisitionLinksController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAcquisitionLinkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcquisitionLinkDto"];
                 };
             };
         };
@@ -17706,6 +17959,10 @@ export interface operations {
                 status?: "active" | "suspended" | "closed";
                 /** @description `unassigned`: accounts the MT5 sync found that no client owns yet (shown only to a reader who sees every client); `assigned`: the rest. */
                 client?: "assigned" | "unassigned";
+                /** @description Earliest opened time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;

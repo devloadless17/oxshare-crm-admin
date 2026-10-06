@@ -392,6 +392,7 @@ describe('assertPermissionKeysExist', () => {
     'ib.partners.suspend',
     'ib.commissions.view',
     'tags.view',
+    'links.view',
     'tags.create',
     'tags.edit',
     'tags.delete',
