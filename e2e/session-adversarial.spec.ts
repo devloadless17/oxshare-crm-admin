@@ -382,7 +382,8 @@ test('the invite MODAL grants exactly the territory it shows', async ({ page }) 
    * Slice 3's browser proof: the whole arc through the real screen. The
    * master scopes an invite to one tag from the modal; the invitee accepts in
    * a CLEAN context; their very first reads show exactly that territory —
-   * their tag plus the default intake pool, and no foreign-tagged client.
+   * their tag, and no foreign-tagged client — nor an untagged one: since 0193
+   * there is no intake pool, only countries, and none is in this territory.
    */
   const email = `e2e-modalscope-${run}@oxshare-e2e.test`;
   const master = await adminApiSession();
@@ -404,7 +405,7 @@ test('the invite MODAL grants exactly the territory it shows', async ({ page }) 
     // is a choice made first; then pick the e2e-beta tag, and require the CHIP
     // to appear before submitting — the proof the choice registered.
     await dialog.getByRole('radio', { name: /^only these tags$/i }).click();
-    await dialog.getByRole('combobox', { name: /add a tag/i }).click();
+    await dialog.getByRole('combobox', { name: /add a tag/i }).fill('E2E Beta');
     await page.getByRole('option', { name: /e2e beta/i }).click();
     await expect(dialog.getByText('E2E Beta').first()).toBeVisible();
     const [created] = await Promise.all([
@@ -455,8 +456,8 @@ test('the invite MODAL grants exactly the territory it shows', async ({ page }) 
         await visibleToInvitee('Alpha Aardvark'),
         'the modal scope leaked a foreign-tagged client',
       ).toBe(false);
-      expect(await visibleToInvitee('Delta Dunn'), 'the default intake grant is missing').toBe(
-        true,
+      expect(await visibleToInvitee('Delta Dunn'), 'a client outside the territory leaked').toBe(
+        false,
       );
 
       // And the mask reached the wire: no row carries an email for this admin.

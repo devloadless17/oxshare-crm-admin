@@ -1,8 +1,10 @@
 'use client';
 
+import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { SearchField } from '@/components/ui/search-field';
+import { ChipInput } from '@/components/ui/chip-input';
 import type { ClientTagWithCount } from '@/lib/api/admin';
 import {
   Select,
@@ -164,24 +166,37 @@ export function ClientFilters({
        * the UI any more.
        */}
       {/*
-       * A SELECT, at the operator's request — it was a row of toggle chips.
-       *
-       * Still ONE tag at a time, which the select now makes structural rather
-       * than a convention: the API takes a single `?tag=`, because AND and OR
-       * are both plausible readings of a multi-tag filter and shipping the
-       * wrong one silently is worse than not shipping it (D-15). It filters by
-       * SLUG, not id — a rename must not break a link somebody saved.
+       * Several tags at once, ANY of them (6 Oct 2026) — the reading a
+       * territory has, so "clients of O_F or T_N" is one filter. Search-and-pick
+       * (`ChipInput`), because the vocabulary includes every country clients
+       * live in. Slugs, comma-joined in the URL: a rename never breaks a link.
        */}
       {canViewTags && !hidden('client.tags') && tags.length > 0 && (
-        <FilterSelect
-          value={values.tag}
-          onChange={(v) => onChange({ tag: v })}
-          placeholder={t('clients.allTags')}
-          options={tags.map((tag) => ({
-            value: tag.slug,
-            label: `${tag.label} (${tag.clientCount})`,
-          }))}
-        />
+        <div className="min-w-56 max-w-md">
+          <TagFilter
+            value={values.tag}
+            onChange={(tag) => onChange({ tag })}
+            ariaLabel={t('clients.allTags')}
+            placeholder={t('clients.allTags')}
+            collapseAfter={3}
+            // The business's tags, then the countries clients live in (0193) —
+            // a country nobody lives in would only lengthen the list.
+            options={[
+              ...tags.filter((tag) => !tag.countryCode),
+              // Not offered to a reader whose role hides the country: a country
+              // tag IS the country, and the API refuses that filter for them.
+              ...(hidden('client.country')
+                ? []
+                : tags.filter((tag) => tag.countryCode && tag.clientCount > 0)),
+            ].map((tag) => ({
+              value: tag.slug,
+              label: tag.countryCode
+                ? `${t('tags.countryOption', { label: tag.label })} (${tag.clientCount})`
+                : `${tag.label} (${tag.clientCount})`,
+              aliases: tag.countryCode ? [tag.label, tag.countryCode] : undefined,
+            }))}
+          />
+        </div>
       )}
 
       {isFiltered && (
@@ -290,5 +305,56 @@ function FilterSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+/**
+ * The tag filter's chips, held LOCALLY and seeded from the URL.
+ *
+ * The router applies a URL change asynchronously (`router.replace`), so a chip
+ * list read straight from the URL is stale for a moment after every pick, and a
+ * second pick made in that moment was built on the stale list and REPLACED the
+ * first (found by `e2e/tagging-live.spec.ts`: two quick picks kept only the
+ * second). So the chips answer at once from local state, and the URL re-seeds
+ * them only when it changes to something this filter did NOT write — Back, a
+ * shared link, Clear filters. One of its own earlier writes landing mid-flight
+ * is recognised and ignored, so a third quick pick cannot lose the second either.
+ */
+function TagFilter({
+  value,
+  onChange,
+  ...rest
+}: Omit<React.ComponentProps<typeof ChipInput>, 'value' | 'onChange'> & {
+  value: string | undefined;
+  onChange: (tag: string | undefined) => void;
+}) {
+  const fromUrl = value ?? '';
+  const split = (text: string) => text.split(',').filter(Boolean);
+  const [seenUrl, setSeenUrl] = useState(fromUrl);
+  const [slugs, setSlugs] = useState(() => split(fromUrl));
+  /** What this filter has written and the URL has not caught up with yet. */
+  const [writes, setWrites] = useState<string[]>([]);
+  if (fromUrl !== seenUrl) {
+    // Adjusting state during render — "reset when a prop changes", no effect.
+    setSeenUrl(fromUrl);
+    const latest = writes[writes.length - 1];
+    if (fromUrl === latest) {
+      setWrites([]); // our last write landed: the chips already say so
+    } else if (!writes.includes(fromUrl)) {
+      setSlugs(split(fromUrl)); // an outside change: follow the URL
+      setWrites([]);
+    } // else: an EARLIER write of ours landing mid-flight — keep the newer chips
+  }
+  return (
+    <ChipInput
+      {...rest}
+      value={slugs}
+      onChange={(next) => {
+        setSlugs(next);
+        const joined = next.join(',');
+        setWrites((pending) => [...pending, joined]);
+        onChange(next.length > 0 ? joined : undefined);
+      }}
+    />
   );
 }

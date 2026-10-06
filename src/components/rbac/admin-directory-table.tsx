@@ -5,12 +5,15 @@ import {
   CircleCheck,
   Key,
   KeyRound,
+  Copy,
+  Link2,
   MailWarning,
   Pencil,
   Smartphone,
   Trash2,
 } from 'lucide-react';
-import type { AdminUser, PendingInvite, Role } from '@/lib/api/admin';
+import type { AdminUser, PendingInvite, Role, SignupLinkRow } from '@/lib/api/admin';
+import { copySignupLink } from '@/components/signup-links/copy-signup-link';
 import { DataTable, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { t } from '@/lib/i18n';
@@ -114,6 +117,8 @@ export function AdminDirectoryTable({
   onResetAuthenticator,
   onToggleStatus,
   onRevokeInvite,
+  signupLinks,
+  onRenameSignupLink,
 }: {
   admins: AdminUser[];
   invites: PendingInvite[];
@@ -130,8 +135,17 @@ export function AdminDirectoryTable({
   onResetAuthenticator: (user: AdminUser) => void;
   onToggleStatus: (user: AdminUser) => void;
   onRevokeInvite: (invite: PendingInvite) => void;
+  /** Each administrator's sign-up link and what it has brought (backend 0198). */
+  signupLinks: ReadonlyMap<string, SignupLinkRow>;
+  /** Change a link word — your own, or anybody's with admins.edit. */
+  onRenameSignupLink: (user: AdminUser, current: string) => void;
 }) {
-  const showActions = can.canEdit || can.canSuspend || can.canResetPassword || can.canRevokeInvite;
+  const showActions =
+    can.canEdit ||
+    can.canSuspend ||
+    can.canResetPassword ||
+    can.canRevokeInvite ||
+    signupLinks.size > 0;
 
   // The API refuses self-changes; don't offer them. (The master tier is gone —
   // its legacy enum value gates nothing any more.)
@@ -316,9 +330,7 @@ export function AdminDirectoryTable({
                 ? t('adminUsers.scopeCount', { count: row.admin.scopedTags.length })
                 : row.admin.seesAllClients
                   ? t('adminUsers.scopeAll')
-                  : row.admin.seesUntriaged
-                    ? t('adminUsers.scopeNewOnly')
-                    : t('adminUsers.scopeNone')}
+                  : t('adminUsers.scopeNone')}
             </span>
             {row.admin.maskedFields.length > 0 && (
               <span className="text-[10px]">
@@ -329,6 +341,30 @@ export function AdminDirectoryTable({
         );
       },
       cellClassName: 'text-muted-foreground',
+      sortable: false,
+    },
+    {
+      /*
+       * What each administrator's link has brought (0198) — counts, never who.
+       * An invite has no link yet: it is made when the account is.
+       */
+      header: t('signup.colSignups'),
+      cell: (row) => {
+        const link = row.admin ? signupLinks.get(row.admin.id) : undefined;
+        if (!link) return <span className="text-muted-foreground">—</span>;
+        return (
+          <span className="flex flex-col gap-0.5">
+            <code className="text-[11px] text-muted-foreground">/join/{link.slug}</code>
+            <span className="text-[11px]">
+              {t('signup.counts', {
+                signups: link.signups,
+                verified: link.verified,
+                funded: link.funded,
+              })}
+            </span>
+          </span>
+        );
+      },
       sortable: false,
     },
     ...(showActions
@@ -372,6 +408,9 @@ export function AdminDirectoryTable({
              * enforcing a concept that no longer exists.
              */
             const editable = can.canEdit && !isSelf(user) && !supersedesViewer(user);
+            const link = signupLinks.get(user.id);
+            // Your own link you rename freely; anybody else's needs admins.edit.
+            const renamable = Boolean(link) && (isSelf(user) || can.canEdit);
             const suspendable = can.canSuspend && !isSelf(user) && !supersedesViewer(user);
 
             return (
@@ -385,6 +424,24 @@ export function AdminDirectoryTable({
                           label: t('adminUsers.edit'),
                           icon: Pencil,
                           onSelect: () => onEdit(user),
+                        },
+                      ]
+                    : []),
+                  ...(link
+                    ? [
+                        {
+                          label: t('signup.copyFor'),
+                          icon: Copy,
+                          onSelect: () => void copySignupLink(link.url),
+                        },
+                      ]
+                    : []),
+                  ...(link && renamable
+                    ? [
+                        {
+                          label: t('signup.renameFor'),
+                          icon: Link2,
+                          onSelect: () => onRenameSignupLink(user, link.slug),
                         },
                       ]
                     : []),

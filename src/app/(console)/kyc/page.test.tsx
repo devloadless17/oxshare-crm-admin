@@ -117,9 +117,14 @@ const page = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-/** The querystring of the most recent request. */
+/**
+ * The querystring of the most recent LIST request — not the tab-count request
+ * (`limit=1`), which asks the other tabs' period for their counts only.
+ */
 const lastQuery = () => {
-  const calls = get.mock.calls as Array<[string, unknown]>;
+  const calls = (get.mock.calls as Array<[string, unknown]>).filter(
+    ([url]) => !new URLSearchParams(url.split('?')[1] ?? '').has('limit', '1'),
+  );
   const url = calls[calls.length - 1]?.[0] ?? '';
   return new URLSearchParams(url.split('?')[1] ?? '');
 };

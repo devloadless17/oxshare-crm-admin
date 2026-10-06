@@ -36,6 +36,7 @@ const {
   getIbCommissionTypes,
   attachProductGroup,
   detachProductGroup,
+  updateProductGroup,
 } = vi.hoisted(() => ({
   getProducts: vi.fn(),
   createProduct: vi.fn(),
@@ -45,6 +46,7 @@ const {
   getIbCommissionTypes: vi.fn(),
   attachProductGroup: vi.fn(),
   detachProductGroup: vi.fn(),
+  updateProductGroup: vi.fn(),
 }));
 
 // A product's settings are a page now (owner, 1 Oct 2026): the form tests render it.
@@ -69,6 +71,7 @@ vi.mock('@/lib/api/admin', async () => {
       getIbCommissionTypes,
       attachProductGroup,
       detachProductGroup,
+      updateProductGroup,
     },
   };
 });
@@ -103,7 +106,16 @@ function product(over: Partial<Product> = {}): Product {
     // looked up from the types the page also loads.
     commissionTypeId: 'ct-1',
     sortOrder: 0,
-    groups: [{ id: 'g-1', environment: 'live', mt5Group: 'real\\Standard-USD', currency: 'USD' }],
+    maxAccountsPerClient: 5,
+    groups: [
+      {
+        id: 'g-1',
+        environment: 'live',
+        mt5Group: 'real\\Standard-USD',
+        currency: 'USD',
+        minDeposit: null,
+      },
+    ],
     ...over,
   };
 }
@@ -199,9 +211,8 @@ describe('the product catalogue — who may change it', () => {
 /*
  * ── Real vs demo ──
  *
- * At most ONE demo product exists, and it is offered to every client
- * automatically. The table has to say which row that is, and the create form
- * has to stop a second one before the API refuses it.
+ * Any number of demo products may exist (backend 0201), each offered to every
+ * client automatically. The table has to say which rows they are.
  */
 describe('the product catalogue — real and demo', () => {
   it('badges the demo product and leaves the real rows unbadged', async () => {
@@ -218,7 +229,7 @@ describe('the product catalogue — real and demo', () => {
     expect(within(realRow as HTMLElement).queryByText(/^demo$/i)).toBeNull();
   });
 
-  it('disables the demo choice when a demo product already exists', async () => {
+  it('offers the demo choice even when a demo product already exists', async () => {
     getProducts.mockResolvedValue([
       product(),
       product({ id: 'p-2', name: 'Practice', type: 'demo', groups: [] }),
@@ -228,25 +239,9 @@ describe('the product catalogue — real and demo', () => {
     renderWithProviders(<ProductPage />);
 
     /*
-     * The type is a shadcn `Select` now, not two bare radios — so the options
-     * live behind the trigger and only exist once it is opened. `option` rather
-     * than `radio` is the role Radix gives them.
+     * The type is a shadcn `Select` — the options live behind the trigger and
+     * only exist once it is opened. `option` is the role Radix gives them.
      */
-    await user.click(await screen.findByRole('combobox', { name: /^type$/i }));
-
-    expect(await screen.findByRole('option', { name: /demo/i })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
-    expect(screen.getByRole('option', { name: /real/i })).not.toHaveAttribute('aria-disabled');
-    expect(screen.getByText(/a demo product already exists/i)).toBeInTheDocument();
-  });
-
-  it('offers the demo choice when none exists yet', async () => {
-    const user = userEvent.setup();
-    route.id = 'new';
-    renderWithProviders(<ProductPage />);
-
     await user.click(await screen.findByRole('combobox', { name: /^type$/i }));
 
     expect(await screen.findByRole('option', { name: /demo/i })).not.toHaveAttribute(
@@ -385,9 +380,12 @@ describe('attaching MT5 groups on the product form', () => {
       expect(attachProductGroup).toHaveBeenCalledWith('p-1', {
         environment: 'live',
         mt5Group: 'real\\Shared-GBP',
+        minDeposit: null,
       }),
     );
     expect(detachProductGroup).not.toHaveBeenCalled();
+    // The saved group was not touched, so its minimum is not re-sent.
+    expect(updateProductGroup).not.toHaveBeenCalled();
   });
 
   /* The 409 the operator hit: the form no longer offers it. */
@@ -423,10 +421,46 @@ describe('attaching MT5 groups on the product form', () => {
     expect(attachProductGroup).toHaveBeenCalledWith('p-1', {
       environment: 'live',
       mt5Group: 'real\\Pro-USD',
+      minDeposit: null,
     });
     expect(detachProductGroup.mock.invocationCallOrder[0]).toBeLessThan(
       attachProductGroup.mock.invocationCallOrder[0] ?? 0,
     );
+  });
+
+  /*
+   * The limits (backend 0201): a product's cap per client, and a minimum per
+   * live group in that group's currency, changed on a saved group in place.
+   */
+  it("saves the cap per client and a saved group's minimum deposit", async () => {
+    const user = userEvent.setup();
+    updateProduct.mockResolvedValue(product());
+    updateProductGroup.mockResolvedValue(product());
+    await openEdit(user);
+
+    const cap = screen.getByRole('textbox', { name: /max accounts per client/i });
+    await user.clear(cap);
+    await user.type(cap, '3');
+    await user.type(screen.getByRole('textbox', { name: /minimum deposit · usd/i }), '100');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(updateProductGroup).toHaveBeenCalledWith('p-1', 'g-1', { minDeposit: '100' }),
+    );
+    expect(updateProduct.mock.calls[0]?.[1]).toMatchObject({ maxAccountsPerClient: 3 });
+  });
+
+  it('refuses a cap outside 1–100 under the box, sending nothing', async () => {
+    const user = userEvent.setup();
+    await openEdit(user);
+
+    const cap = screen.getByRole('textbox', { name: /max accounts per client/i });
+    await user.clear(cap);
+    await user.type(cap, '0');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+    expect(await screen.findByText(/must be at least 1/i)).toBeInTheDocument();
+    expect(updateProduct).not.toHaveBeenCalled();
   });
 
   it('shows the API’s reason when an attach is refused, and keeps the page open', async () => {

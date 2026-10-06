@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ChevronsUpDown, LogOut, UserCircle } from 'lucide-react';
+import { ChevronsUpDown, Link2, LogOut, UserCircle } from 'lucide-react';
+import api from '@/lib/api';
+import { copySignupLink } from '@/components/signup-links/copy-signup-link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -235,6 +237,23 @@ export function UserMenu({
               <UserCircle />
               <span>{t('nav.profile')}</span>
             </Link>
+          </DropdownMenuItem>
+
+          {/*
+            The administrator's own sign-up link (backend 0198), one click from
+            anywhere — it is what a sales administrator hands out all day.
+            Fetched on demand: the menu never loads it until it is asked for.
+          */}
+          <DropdownMenuItem
+            onSelect={() => {
+              void api.admin
+                .getMySignupLink()
+                .then((link) => copySignupLink(link.url))
+                .catch((error: unknown) => toastError(error, t('signup.copyFailed')));
+            }}
+          >
+            <Link2 />
+            <span>{t('signup.copyMine')}</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

@@ -107,26 +107,32 @@ export function transactionColumns({
       cell: (row) => (
         <div className="flex flex-wrap items-center gap-1.5">
           <MovementBadge row={row} />
-          {/*
-            A payment's method name earns a second line only when it says more
-            than the badge — 'Whish Money' does, the transfer kinds' provider
-            fallbacks ('transfer', 'commission') repeat the badge and stay off.
-            `manual_admin` is the one provider a screen may recognise by name
-            (see MANUAL_ADMIN_PROVIDER): such a row went through no payment
-            method, so its fallback is a machine key nobody should read.
-            No raw `provider` on hover: it spells the method's key, which the
-            console never shows (backend 0161); the CSV's Provider column
-            carries it for reconciliation.
-          */}
-          {row.kind === 'payment' && (
-            <span className="text-xs text-muted-foreground">
-              {row.methodName === MANUAL_ADMIN_PROVIDER
-                ? t('financial.methodManualCredit')
-                : row.methodName}
-            </span>
-          )}
         </div>
       ),
+    },
+    {
+      /*
+       * THE METHOD, a column of its own (the buyer: "a payment method is the
+       * most important field in any transaction"). Only a payment has one; a
+       * transfer's provider fallback ('transfer', 'commission') would repeat
+       * the Movement badge, so it reads "—". `manual_admin` is the one provider
+       * a screen may recognise by name (MANUAL_ADMIN_PROVIDER): such a row went
+       * through no payment method, so its fallback is a machine key nobody
+       * should read. Never the raw key on hover — the console never shows one
+       * (backend 0161); the CSV's Provider column carries it.
+       */
+      header: t('financial.colMethod'),
+      sortable: false,
+      cell: (row) =>
+        row.kind === 'payment' ? (
+          <span className="whitespace-nowrap text-sm">
+            {row.methodName === MANUAL_ADMIN_PROVIDER
+              ? t('financial.methodManualCredit')
+              : row.methodName}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       header: t('financial.colAmount'),

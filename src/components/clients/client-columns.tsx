@@ -1,4 +1,4 @@
-import { Eye, Link2, PauseCircle, PlayCircle, Wallet } from 'lucide-react';
+import { Eye, Link2, PauseCircle, PlayCircle, Wallet, SlidersHorizontal } from 'lucide-react';
 import type { ClientRow, ClientSortKey } from '@/lib/api/admin';
 import type { ClientRef } from '@/lib/api/admin';
 import { kycStatusLabel, kycStatusVariant } from '@/lib/kyc-status';
@@ -72,6 +72,7 @@ export function clientColumns({
   actingId,
   onToggleStatus,
   onChangeProgram,
+  onEditTerms,
   showReferrer = false,
   onLinkAccount,
 }: {
@@ -83,6 +84,11 @@ export function clientColumns({
   actingId: ClientRef | null | undefined;
   onToggleStatus: (client: ClientRow) => void;
   onChangeProgram: (client: ClientRow) => void;
+  /**
+   * 0197 — "Edit commission" on partner rows. The row cannot tell a main
+   * partner from a sub-partner, so the dialog does (EditTermsFromList).
+   */
+  onEditTerms?: (client: ClientRow) => void;
   /**
    * Draw "Introduced by" after the Portal ID — the Referrals page. Pass it only
    * for a reader holding `ib.view`: without it the API sends no `referrer`, and
@@ -365,6 +371,15 @@ export function clientColumns({
                       separatorBefore: true,
                       onSelect: () => onChangeProgram(c),
                     },
+                    ...(onEditTerms
+                      ? [
+                          {
+                            label: t('clientProfile.editTerms'),
+                            icon: SlidersHorizontal,
+                            onSelect: () => onEditTerms(c),
+                          },
+                        ]
+                      : []),
                   ]
                 : []),
               ...(canSuspend

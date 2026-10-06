@@ -20,6 +20,7 @@ import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
 import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
+import { EditTermsFromList } from '@/components/partners/edit-terms-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
 import { ExportButton } from '@/components/export-button';
@@ -104,6 +105,7 @@ function ReferralsPageContent() {
   });
   const status = useClientStatusToggle();
   const [programTarget, setProgramTarget] = useState<ClientRow | null>(null);
+  const [termsTarget, setTermsTarget] = useState<ClientRow | null>(null);
   // "Link MT5 account" from a row, the client filled in (29 Sep 2026).
   const canLinkAccounts = hasPermission(admin, 'trading.create');
   const [linkFor, setLinkFor] = useState<ClientRow | null>(null);
@@ -136,6 +138,7 @@ function ReferralsPageContent() {
     actingId: status.actingId,
     onToggleStatus: (client: ClientRow) => void status.toggle(client),
     onChangeProgram: setProgramTarget,
+    onEditTerms: setTermsTarget,
     onLinkAccount: canLinkAccounts ? setLinkFor : undefined,
     showReferrer: canViewPartners,
   });
@@ -158,6 +161,14 @@ function ReferralsPageContent() {
             : undefined
         }
       />
+      {termsTarget && (
+        <EditTermsFromList
+          open
+          onClose={() => setTermsTarget(null)}
+          userId={termsTarget.id}
+          name={clientLabel(termsTarget)}
+        />
+      )}
       {programTarget && (
         <ChangeLevelFromList
           open

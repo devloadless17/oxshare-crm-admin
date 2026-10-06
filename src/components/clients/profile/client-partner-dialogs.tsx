@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/modal';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { formatDecimal } from '@/lib/money';
+import Decimal from 'decimal.js';
 import { keys } from '@/lib/query-keys';
 import { PortalIdTag } from '@/components/clients/client-identity';
 
@@ -175,6 +176,137 @@ function describeShares(entry: IbLevel): string {
     }),
     rebate: t('clientProfile.termRebateShare', { share: formatDecimal(entry.rebateShare) }),
   });
+}
+
+/**
+ * A SUB-PARTNER's own commission and rebate (0197, the owner's rule).
+ *
+ * Commission: their share of the product's commission; the main partner above
+ * takes the rest, and the split is shown live so the operator sees both sides
+ * of the decision. Rebate: what their CLIENTS get back. Empty = the level 2
+ * default (sent as `null`).
+ */
+export function SubPartnerTermsDialog({
+  open,
+  onClose,
+  partner,
+  name,
+}: {
+  open: boolean;
+  onClose: () => void;
+  partner: IbPartnerDetail;
+  name: string;
+}) {
+  const queryClient = useQueryClient();
+  const [commission, setCommission] = React.useState(
+    partner.commissionShareOverride ? formatDecimal(partner.commissionShareOverride) : '',
+  );
+  const [rebate, setRebate] = React.useState(
+    partner.rebateShareOverride ? formatDecimal(partner.rebateShareOverride) : '',
+  );
+
+  const parse = (value: string): Decimal | null => {
+    if (value.trim() === '') return null;
+    if (!/^\d{1,3}(\.\d{1,4})?$/.test(value.trim())) return new Decimal(-1);
+    return new Decimal(value.trim());
+  };
+  const commissionValue = parse(commission);
+  const rebateValue = parse(rebate);
+  const invalid = [commissionValue, rebateValue].some(
+    (v) => v !== null && (v.lessThan(0) || v.greaterThan(100)),
+  );
+  const effective = commissionValue ?? new Decimal(partner.levelCommissionShare ?? '0');
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.admin.setIbPartnerTerms(partner.userId, {
+        commissionShare: commission.trim() === '' ? null : commission.trim(),
+        rebateShare: rebate.trim() === '' ? null : rebate.trim(),
+      }),
+    onSuccess: async () => {
+      await invalidatePartnerViews(queryClient);
+      toastSuccess(t('clientProfile.termsSaved'));
+      onClose();
+    },
+    onError: (error) => toastError(error, t('clientProfile.termsFailed')),
+  });
+
+  const field = (
+    id: string,
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    fallback: string | null,
+  ) => (
+    <label htmlFor={id} className="block space-y-1">
+      <span className="text-xs font-medium">{label}</span>
+      <input
+        id={id}
+        inputMode="decimal"
+        value={value}
+        placeholder={formatDecimal(fallback ?? '0')}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex h-9 w-full rounded-lg border border-input bg-card px-3 text-sm tabular focus-outline"
+      />
+      <span className="block text-[11px] text-muted-foreground">
+        {t('clientProfile.termsDefault', { share: formatDecimal(fallback ?? '0') })}
+      </span>
+    </label>
+  );
+
+  return (
+    <Modal
+      busy={save.isPending}
+      open={open}
+      onClose={onClose}
+      title={t('clientProfile.termsTitle', { name })}
+    >
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!invalid) save.mutate();
+        }}
+      >
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {t('clientProfile.termsBody')}
+        </p>
+        {field(
+          'sub-partner-commission',
+          t('clientProfile.termsCommission'),
+          commission,
+          setCommission,
+          partner.levelCommissionShare,
+        )}
+        {!invalid && (
+          <p className="rounded-lg border border-border bg-muted/20 p-2.5 text-xs tabular">
+            {t('clientProfile.termsSplit', {
+              sub: formatDecimal(effective.toFixed(4)),
+              main: formatDecimal(new Decimal(100).minus(effective).toFixed(4)),
+            })}
+          </p>
+        )}
+        {field(
+          'sub-partner-rebate',
+          t('clientProfile.termsRebate'),
+          rebate,
+          setRebate,
+          partner.levelRebateShare,
+        )}
+        {invalid && (
+          <p role="alert" className="text-xs text-destructive">
+            {t('clientProfile.termsRange')}
+          </p>
+        )}
+        <Footer
+          onClose={onClose}
+          saving={save.isPending}
+          disabled={invalid}
+          label={t('clientProfile.termsSave')}
+        />
+      </form>
+    </Modal>
+  );
 }
 
 /** The current parent when the reader may not see who it is — never sent. */

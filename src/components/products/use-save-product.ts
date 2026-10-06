@@ -1,7 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/api/admin';
 import { keys } from '@/lib/query-keys';
+import { plainAmount } from '@/components/currencies/limit-input';
 import type { ProductFormValues } from './product-form';
+
+/** A typed minimum as the API takes it: blank is "no minimum" (backend 0201). */
+const minDepositOf = (typed: string): string | null => typed.trim() || null;
 
 export function useSaveProduct(editingId: string | undefined) {
   const queryClient = useQueryClient();
@@ -59,7 +63,6 @@ export function useSaveProduct(editingId: string | undefined) {
       const key = (mt5Group: string) => mt5Group.toLowerCase();
       const current = saved.groups;
       const wanted = new Set(wantedGroups.map((group) => key(group.mt5Group)));
-      const present = new Set(current.map((group) => key(group.mt5Group)));
 
       for (const group of current) {
         if (!wanted.has(key(group.mt5Group))) {
@@ -68,10 +71,25 @@ export function useSaveProduct(editingId: string | undefined) {
       }
 
       for (const group of wantedGroups) {
-        if (present.has(key(group.mt5Group))) continue;
+        const stored = current.find((row) => key(row.mt5Group) === key(group.mt5Group));
+        if (stored) {
+          /*
+           * Already attached: only its minimum can have changed. Compared as
+           * NUMBERS written out ('100' and '100.00000000' are the same
+           * minimum), so an untouched row sends nothing.
+           */
+          if (plainAmount(stored.minDeposit) !== plainAmount(minDepositOf(group.minDeposit))) {
+            await adminApi.updateProductGroup(saved.id, stored.id, {
+              minDeposit: minDepositOf(group.minDeposit),
+            });
+          }
+          continue;
+        }
         await adminApi.attachProductGroup(saved.id, {
           environment: group.environment,
           mt5Group: group.mt5Group,
+          // A demo group never carries one; the API refuses it.
+          ...(group.environment === 'live' ? { minDeposit: minDepositOf(group.minDeposit) } : {}),
         });
       }
 

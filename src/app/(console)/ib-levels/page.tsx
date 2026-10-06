@@ -353,7 +353,10 @@ function LevelCard({
         <div className="flex items-baseline justify-between gap-2">
           <dt className="shrink-0 text-muted-foreground">{t('ibLevels.commission')}</dt>
           <dd className="truncate text-right font-semibold tabular">
-            {t('ibLevels.termCommission', { share: trim(level.commissionShare) })}
+            {/* 0197 — level 1 takes the rest; its own share decides nothing. */}
+            {level.level === 1
+              ? t('ibLevels.termRest')
+              : t('ibLevels.termCommission', { share: trim(level.commissionShare) })}
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
@@ -386,7 +389,11 @@ function LevelCard({
                 <li key={type.id} className="tabular">
                   {t('ibLevels.perType', {
                     name: type.name,
-                    commission: shareOf(type.commissionPerLot, level.commissionShare),
+                    // 0197 — level 1 takes the whole commission on its own clients.
+                    commission: shareOf(
+                      type.commissionPerLot,
+                      level.level === 1 ? '100' : level.commissionShare,
+                    ),
                     rebate: shareOf(type.rebatePerLot, level.rebateShare),
                   })}
                 </li>
@@ -513,13 +520,19 @@ function LevelDialog({
           />
         </label>
 
-        <ShareField
-          id="level-commission"
-          label={t('ibLevels.commission')}
-          hint={t('ibLevels.commissionHint')}
-          value={commissionShare}
-          onChange={setCommissionShare}
-        />
+        {level === 1 ? (
+          <p className="rounded-lg border border-border bg-muted/20 p-2.5 text-xs text-muted-foreground">
+            {t('ibLevels.mainTakesRest')}
+          </p>
+        ) : (
+          <ShareField
+            id="level-commission"
+            label={t('ibLevels.commission')}
+            hint={t('ibLevels.commissionHint')}
+            value={commissionShare}
+            onChange={setCommissionShare}
+          />
+        )}
 
         <ShareField
           id="level-rebate"

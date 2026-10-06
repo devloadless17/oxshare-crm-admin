@@ -28,7 +28,6 @@ export interface AdminFormValues {
   /** RBAC-03 territory. An EMPTY ARRAY means no territory tags — never every client (0154). */
   scopedTagIds?: string[];
   /** D-60 — sees the intake pool (clients with no tags yet). */
-  seesUntriaged?: boolean;
   /** Sees every client — the explicit grant (0154). */
   seesAllClients?: boolean;
 }
@@ -98,7 +97,6 @@ export function AdminFormModal({
    */
   const [roleId, setRoleId] = React.useState<string>(admin.roleId ?? '');
   const [scopedTagIds, setScopedTagIds] = React.useState<string[]>(currentScope);
-  const [seesUntriaged, setSeesUntriaged] = React.useState<boolean>(admin.seesUntriaged ?? false);
   // Every client is its own choice (0154); only an admin who has it may give it.
   const [allClients, setAllClients] = React.useState<boolean>(admin.seesAllClients);
   const canGrantAll = useAdmin().admin?.seesAllClients ?? false;
@@ -172,9 +170,6 @@ export function AdminFormModal({
      */
     if (allClients !== admin.seesAllClients) values.seesAllClients = allClients;
     if (!allClients && !sameSet(scopedTagIds, currentScope)) values.scopedTagIds = scopedTagIds;
-    if (!allClients && seesUntriaged !== (admin.seesUntriaged ?? false)) {
-      values.seesUntriaged = seesUntriaged;
-    }
     /*
      * The override is sent only when it CHANGED, with `null` meaning "clear it
      * — follow the role again". `[]` is a real value (explicitly mask nothing
@@ -286,33 +281,6 @@ export function AdminFormModal({
                 canGrantAll={canGrantAll}
                 disabled={busy}
               />
-              {/*
-               * D-60 — the intake grant, INSIDE the scope section because it is
-               * territory: "the clients nobody has triaged yet" sits beside the
-               * tag territories it complements. Derived, not a tag, so it is a
-               * checkbox rather than an entry in the tag select. (No master
-               * exemption: that tier is gone; an unrestricted admin is simply
-               * one with no territory rows, and the grant is then moot.)
-               */}
-              {!allClients && (
-                <div className="border-t border-border pt-2.5">
-                  <label className="flex cursor-pointer items-start gap-2 text-xs font-medium">
-                    <input
-                      type="checkbox"
-                      checked={seesUntriaged}
-                      onChange={(e) => setSeesUntriaged(e.target.checked)}
-                      disabled={busy}
-                      className="mt-0.5 h-3.5 w-3.5 accent-primary"
-                    />
-                    <span>
-                      {t('adminUsers.seesUntriaged')}
-                      <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
-                        {t('adminUsers.seesUntriagedHint')}
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              )}
             </div>
           )}
 

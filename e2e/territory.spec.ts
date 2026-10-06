@@ -21,13 +21,12 @@ import {
  *  - a client carrying ONLY somebody else's tag does not exist for them — not in
  *    the list, not in the total, not by deep link (404, never 403 — the
  *    difference is an oracle), not in the CSV, not on the KYC queue;
- *  - NEW clients (no tags yet — the intake pool) are visible only to admins
- *    granted `seesUntriaged`, so a fresh registration is not everybody's;
+ *  - a client is visible only through a tag in the territory — a chosen tag
+ *    or, since 0193, their country's tag (there is no intake pool any more);
  *  - an admin with NO territory restriction sees all of it — "handles all
  *    clients" is the explicit unrestricted configuration, never a default.
  *
- * Fixtures: the restricted admin is scoped to `e2e-alpha` with
- * `seesUntriaged: false`; `alpha` carries `e2e-alpha` (and a submitted KYC row);
+ * Fixtures: the restricted admin is scoped to `e2e-alpha` alone; `alpha` carries `e2e-alpha` (and a submitted KYC row);
  * `bravo`…`zulu` are untagged; `e2e-beta` is a second tag assigned to nobody.
  * Every tag written here is removed in a `finally`, and the one admin flag this
  * file toggles is restored (the seed also re-asserts it every boot).
@@ -193,37 +192,6 @@ test.describe('what the scoped admin SEES', () => {
     expect(await restrictedSees(context, 'charlie'), 'cleanup left charlie visible').toBe(false);
   });
 
-  test('NEW clients (the untagged intake pool) appear only when seesUntriaged is granted', async ({
-    context,
-  }) => {
-    /*
-     * Delta is seeded untagged — a "new client" nobody has triaged. With the
-     * grant OFF (the seeded state) delta does not exist for this admin; with it
-     * ON, the whole intake pool appears; OFF again, it vanishes. This is the
-     * "also see the new clients, if set" half of the contract, D-60.
-     */
-    expect(
-      await restrictedSees(context, 'delta'),
-      'the intake pool leaked with the grant off',
-    ).toBe(false);
-
-    const granted = await master.patch(`/admin/users/${restrictedAdminId}`, {
-      seesUntriaged: true,
-    });
-    expect(granted.ok(), `granting seesUntriaged answered ${granted.status()}`).toBe(true);
-    try {
-      expect(
-        await restrictedSees(context, 'delta'),
-        'the intake pool did not appear with the grant on',
-      ).toBe(true);
-      // Their tagged client is still there — the pool is a union, not a replacement.
-      expect(await restrictedSees(context, 'alpha')).toBe(true);
-    } finally {
-      await master.patch(`/admin/users/${restrictedAdminId}`, { seesUntriaged: false });
-    }
-    expect(await restrictedSees(context, 'delta'), 'revoking the grant did not bite').toBe(false);
-  });
-
   test('the territory follows the client onto the KYC queue', async ({ context }) => {
     /*
      * Alpha (in scope) has a seeded SUBMITTED KYC row; e2e@oxshare.com (out of
@@ -258,82 +226,6 @@ test.describe('what the scoped admin SEES', () => {
       `/admin/clients/${id('alpha')}/tags/${tags[E2E_TAGS.beta.slug]}`,
     );
     expect(refused.status()).toBe(403);
-  });
-});
-
-test.describe('the DEFAULT for a brand-new scoped admin', () => {
-  test('sees new clients out of the box, until the box is unticked', async ({ playwright }) => {
-    /*
-     * The product default, as the invite screen states it: "Sees new clients
-     * (not yet tagged) — granted by default". The column is NOT NULL DEFAULT
-     * true and the invite path resolves an untouched checkbox to granted
-     * whenever the inviter may grant it. (The seeded e2e-restricted@ fixture
-     * has it deliberately UNTICKED so the tests above can prove the hidden
-     * direction — that is the fixture's configuration, not the default.)
-     *
-     * One scoped administrator is invited per run — scoped to `e2e-beta`, a
-     * territory that holds nobody — and accepted over the API (accepting mints
-     * the session, so this costs no login against the five-a-minute cap):
-     *
-     *   1. fresh scoped admin, checkbox untouched → the untagged intake pool
-     *      (delta) IS visible, their foreign-tagged neighbour (alpha) is not;
-     *   2. the master unticks the box → the pool vanishes, live.
-     */
-    const email = `e2e-intake-${Date.now()}@${E2E_DOMAIN}`;
-    const created = await master.post('/admin/invite', {
-      email,
-      name: 'E2E Intake Default',
-      permissions: ['clients.view'],
-      scopedTagIds: [tags[E2E_TAGS.beta.slug]],
-    });
-    expect(created.ok(), `invite answered ${created.status()}`).toBe(true);
-    const { inviteUrl } = (await created.json()) as { inviteUrl?: string };
-    expect(inviteUrl, 'the invite link is echoed outside production only').toBeTruthy();
-    const token = new URL(inviteUrl!).searchParams.get('token')!;
-
-    const invitee = await playwright.request.newContext({
-      storageState: { cookies: [], origins: [] },
-    });
-    try {
-      const accepted = await invitee.post(
-        `${process.env.E2E_API_NODE_ORIGIN ?? 'http://localhost:3001'}/v1/admin/invite/accept`,
-        {
-          headers: { Origin: process.env.E2E_ADMIN_ORIGIN ?? 'http://localhost:3002' },
-          data: { token, password: 'Intake-default-123!' },
-        },
-      );
-      expect(accepted.ok(), `accepting the invite answered ${accepted.status()}`).toBe(true);
-
-      const seen = async () => {
-        const res = await invitee.get(
-          `${process.env.E2E_API_NODE_ORIGIN ?? 'http://localhost:3001'}/v1/admin/clients?q=${encodeURIComponent(E2E_DOMAIN)}&limit=100`,
-        );
-        expect(res.ok(), `client list answered ${res.status()}`).toBe(true);
-        return ((await res.json()) as { items: { id: string }[] }).items.map((c) => c.id);
-      };
-
-      const byDefault = await seen();
-      expect(byDefault, 'a fresh scoped admin could NOT see the intake pool').toContain(
-        id('delta'),
-      );
-      expect(byDefault, "the default let them see another desk's tagged client").not.toContain(
-        id('alpha'),
-      );
-
-      // The master unticks the box; the pool vanishes on the very next read.
-      const me = (await (
-        await invitee.get(
-          `${process.env.E2E_API_NODE_ORIGIN ?? 'http://localhost:3001'}/v1/admin/auth/me`,
-        )
-      ).json()) as { id: string };
-      const unticked = await master.patch(`/admin/users/${me.id}`, { seesUntriaged: false });
-      expect(unticked.ok(), `unticking answered ${unticked.status()}`).toBe(true);
-
-      const after = await seen();
-      expect(after, 'unticking the box did not hide the intake pool').not.toContain(id('delta'));
-    } finally {
-      await invitee.dispose();
-    }
   });
 });
 

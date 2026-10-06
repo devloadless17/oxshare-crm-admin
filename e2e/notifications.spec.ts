@@ -98,7 +98,6 @@ test.describe('admin notifications are tasks', () => {
       name: `E2E Notif Scoped ${Date.now()}`,
       permissions: ['kyc.view', 'kyc.review'],
       scopedTagIds: [alphaTagId],
-      seesUntriaged: false,
     });
     expect(scopedInvite.ok(), `the scoped invite answered ${scopedInvite.status()}`).toBe(true);
     const outsider = await acceptAdminInvite(

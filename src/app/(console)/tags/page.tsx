@@ -15,6 +15,7 @@ import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { ExportButton } from '@/components/export-button';
 import { Badge } from '@/components/ui/badge';
+import { TabPanel, Tabs } from '@/components/ui/tabs';
 import { TagFormModal, type TagFormValues } from '@/components/tags/tag-form-modal';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -82,6 +83,13 @@ export default function TagsPage() {
 
   const [editing, setEditing] = React.useState<ClientTag | undefined>(undefined);
   const [formOpen, setFormOpen] = React.useState(false);
+  /*
+   * Two vocabularies on one screen (0193): the business's own tags, and one
+   * tag per country — derived from each client's country, never assigned. The
+   * countries tab lists only countries somebody lives in unless asked.
+   */
+  const [tab, setTab] = React.useState<'tags' | 'countries'>('tags');
+  const [allCountries, setAllCountries] = React.useState(false);
 
   const query = useResource<ClientTagWithCount[]>(keys.tags.all(), (signal) =>
     api.admin.getTags(signal),
@@ -128,6 +136,12 @@ export default function TagsPage() {
    * every row's delete during any delete, which read as the whole table
    * freezing over one action.
    */
+  const rows = (query.data ?? []).filter((tag) =>
+    tab === 'tags'
+      ? !tag.countryCode
+      : Boolean(tag.countryCode) && (allCountries || tag.clientCount + tag.clientsOutsideScope > 0),
+  );
+
   const deletingId = deleteTag.isPending ? deleteTag.variables?.id : undefined;
 
   const openCreate = () => {
@@ -220,13 +234,18 @@ export default function TagsPage() {
                 busy={deleteTag.isPending && deletingId === tag.id}
                 items={[
                   { label: t('tags.edit'), icon: Pencil, onSelect: () => openEdit(tag) },
-                  {
-                    label: t('tags.delete'),
-                    icon: Trash2,
-                    destructive: true,
-                    separatorBefore: true,
-                    onSelect: () => void confirmDelete(tag),
-                  },
+                  // A country tag is never deleted — it follows its clients.
+                  ...(tag.countryCode
+                    ? []
+                    : [
+                        {
+                          label: t('tags.delete'),
+                          icon: Trash2,
+                          destructive: true,
+                          separatorBefore: true,
+                          onSelect: () => void confirmDelete(tag),
+                        },
+                      ]),
                 ]}
               />
             ),
@@ -271,26 +290,64 @@ export default function TagsPage() {
         </div>
       )}
 
-      <AsyncBoundary
-        status={query.status}
-        label={t('tags.loading')}
-        endpoints={['GET /admin/tags', 'POST /admin/tags', 'DELETE /admin/tags/:id']}
-        onRetry={query.refetch}
-        errorMessage={t('tags.loadFailed')}
-        error={query.error}
-        fill
-      >
-        <DataTable
-          fill
-          caption={t('tags.caption')}
-          columns={columns}
-          rows={query.data ?? []}
-          rowKey={(tag) => tag.id}
-          dimmed={query.isFetching}
-          empty={<EmptyState icon={TagsIcon} message={t('tags.empty')} />}
-          clientPagination={TAG_PAGING}
+      <div className="flex shrink-0 flex-col gap-2">
+        <Tabs
+          idPrefix="tags"
+          tabs={[
+            { value: 'tags', label: t('tags.tabTags') },
+            { value: 'countries', label: t('tags.tabCountries') },
+          ]}
+          value={tab}
+          onValueChange={(next) => setTab(next === 'countries' ? 'countries' : 'tags')}
         />
-      </AsyncBoundary>
+        {tab === 'countries' && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">{t('tags.countriesHint')}</p>
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={allCountries}
+                onChange={(e) => setAllCountries(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              {t('tags.countriesShowAll')}
+            </label>
+          </div>
+        )}
+      </div>
+
+      <TabPanel
+        idPrefix="tags"
+        value={tab}
+        activeValue={tab}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <AsyncBoundary
+          status={query.status}
+          label={t('tags.loading')}
+          endpoints={['GET /admin/tags', 'POST /admin/tags', 'DELETE /admin/tags/:id']}
+          onRetry={query.refetch}
+          errorMessage={t('tags.loadFailed')}
+          error={query.error}
+          fill
+        >
+          <DataTable
+            fill
+            caption={t('tags.caption')}
+            columns={columns}
+            rows={rows}
+            rowKey={(tag) => tag.id}
+            dimmed={query.isFetching}
+            empty={
+              <EmptyState
+                icon={TagsIcon}
+                message={tab === 'tags' ? t('tags.empty') : t('tags.countriesEmpty')}
+              />
+            }
+            clientPagination={TAG_PAGING}
+          />
+        </AsyncBoundary>
+      </TabPanel>
 
       <TagFormModal
         open={formOpen}

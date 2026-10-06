@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
+import { EditTermsFromList } from '@/components/partners/edit-terms-from-list';
 import { clientLabel } from '@/components/clients/client-identity';
 import { partnerColumns } from '@/components/partners/partner-columns';
 import { ReassignParentFromList } from '@/components/partners/reassign-parent-from-list';
@@ -131,6 +132,7 @@ function PartnersPageContent() {
    * re-sort while it is open.
    */
   const [levelTarget, setLevelTarget] = useState<IbPartnerRow | null>(null);
+  const [termsTarget, setTermsTarget] = useState<IbPartnerRow | null>(null);
   const [parentTarget, setParentTarget] = useState<IbPartnerRow | null>(null);
 
   const setActive = useMutation({
@@ -184,6 +186,7 @@ function PartnersPageContent() {
     actingId: setActive.isPending ? setActive.variables?.row.account.userId : null,
     onChangeLevel: setLevelTarget,
     onReassignParent: setParentTarget,
+    onEditTerms: setTermsTarget,
     onToggleActive: (row) => void toggleActive(row),
   });
 
@@ -201,6 +204,14 @@ function PartnersPageContent() {
           onClose={() => setLevelTarget(null)}
           userId={levelTarget.account.userId}
           name={clientLabel(levelTarget.user)}
+        />
+      )}
+      {termsTarget && (
+        <EditTermsFromList
+          open
+          onClose={() => setTermsTarget(null)}
+          userId={termsTarget.account.userId}
+          name={clientLabel(termsTarget.user)}
         />
       )}
       {parentTarget && (

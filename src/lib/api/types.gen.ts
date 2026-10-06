@@ -1254,6 +1254,26 @@ export interface paths {
         patch: operations["AdminIbController_reject"];
         trace?: never;
     };
+    "/v1/admin/ib/accruals/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered commission ledger as CSV
+         * @description The same filters as GET /admin/ib/accruals, over every matching accrual.
+         */
+        get: operations["AdminIbController_exportAccruals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ib/accruals": {
         parameters: {
             query?: never;
@@ -1392,6 +1412,26 @@ export interface paths {
          * @description Refuses a change that would put a partner beneath their own descendant. A self-FK cannot catch that — Postgres accepts A→B→A — and the payout walk climbs parents until it runs out, so a loop is a walk that never does.
          */
         patch: operations["AdminIbController_reassignParent"];
+        trace?: never;
+    };
+    "/v1/admin/ib/partners/{userId}/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set a sub-partner’s own commission and rebate shares
+         * @description Sub-partners only. `commissionShare` is their percentage of the product’s commission; the main partner above them takes the rest (100 − it). `rebateShare` is what their CLIENTS get back of the product’s rebate. Null = level 2’s share; an absent key is left unchanged. Applies from the next trade.
+         */
+        patch: operations["AdminIbController_setTerms"];
         trace?: never;
     };
     "/v1/admin/ib/partners/{userId}/active": {
@@ -2547,6 +2587,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/mt5-symbols": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * MT5 symbols with their folders, as last synced
+         * @description From the local mirror (`mt5_symbols`), so it renders when the server is unreachable. Symbols the server stopped reporting are left out.
+         */
+        get: operations["AdminMt5SymbolsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/mt5-symbols/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-read the symbol list from MT5 now
+         * @description The same sync the scheduled MT5 job runs. Answers the refreshed list. Slow on a large server: the bridge reads one symbol per round trip, then caches the list.
+         */
+        post: operations["AdminMt5SymbolsController_sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/kyc/config": {
         parameters: {
             query?: never;
@@ -2968,7 +3048,11 @@ export interface paths {
         delete: operations["AdminCatalogueController_detachGroup"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Set an attached group's minimum deposit
+         * @description The least a client may move into an account on this group per transfer, in the group's currency; null clears it. Live groups only. Applies to the next transfer.
+         */
+        patch: operations["AdminCatalogueController_updateGroup"];
         trace?: never;
     };
     "/v1/admin/agencies": {
@@ -3380,6 +3464,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/clients/bulk/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add/remove tags on many clients (picked, or all matching a filter) */
+        post: operations["AdminClientsController_bulkTags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/clients": {
         parameters: {
             query?: never;
@@ -3639,6 +3740,74 @@ export interface paths {
         post: operations["AdminTagsController_assign"];
         /** Detach a tag from a client (any tag, on a client you can see) */
         delete: operations["AdminTagsController_unassign"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/signup-links/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your own sign-up link, the tags it gives, and what it has brought */
+        get: operations["SignupLinksController_mine"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/signup-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every administrator’s sign-up link, with what it has brought */
+        get: operations["SignupLinksController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/signup-links/{adminId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename a sign-up link (your own, or anyone’s with admins.edit) */
+        patch: operations["SignupLinksController_rename"];
+        trace?: never;
+    };
+    "/v1/admin/signup-links/{adminId}/random": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give a sign-up link a random word made by the server (the old word stops working) */
+        post: operations["SignupLinksController_randomize"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4579,6 +4748,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/ledger/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered ledger as CSV
+         * @description The same filters as GET /admin/ledger, over every matching entry. Amounts and balances are the exact decimal strings the ledger holds — never rounded (§6.1).
+         */
+        get: operations["AdminMoneyController_exportLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/ledger": {
         parameters: {
             query?: never;
@@ -4727,6 +4916,43 @@ export interface paths {
         };
         /** Totals over the filtered movement list, grouped per currency (amounts are strings) */
         get: operations["AdminFinancialController_transactionsSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the deposit desk as CSV
+         * @description The same filters as GET /admin/deposits, over every matching row. Amounts are the exact decimal strings the ledger holds (§6.1); the client's deposit details are a column.
+         */
+        get: operations["AdminFinancialController_exportDeskDeposits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/deposits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The deposit desk — deposits a person decides (amounts are strings) */
+        get: operations["AdminFinancialController_listDeskDeposits"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5356,6 +5582,8 @@ export interface components {
             postalCode?: string;
             /** @example K7M2PQR9 */
             referralCode?: string;
+            /** @example K7M2Q9XA */
+            acquisitionCode?: string;
         };
         RegistrationResponseDto: {
             /** @example We have sent a 6-digit code to your email to confirm it. */
@@ -6243,6 +6471,10 @@ export interface components {
             levelCommissionShare: string | null;
             /** @description What their clients get back, as a percentage of the product’s rebate per lot. */
             levelRebateShare: string | null;
+            /** @description A sub-partner’s own commission share (0197), overriding the level’s. Null = the level’s. */
+            commissionShareOverride: string | null;
+            /** @description What a sub-partner’s clients get back of the rebate (0197), overriding the level’s. Null = the level’s. */
+            rebateShareOverride: string | null;
             referralCode: string;
             /** @description A suspended partner keeps their code and tree, and stops earning. */
             active: boolean;
@@ -6269,7 +6501,7 @@ export interface components {
         };
         ChangeIbLevelDto: {
             /**
-             * @description Must be a CONFIGURED and ENABLED level. 1 is a partner dealing with the broker directly.
+             * @description Must match the partner’s position (0197): 1 with no parent, 2 under a main partner.
              * @example 2
              */
             level: number;
@@ -6277,6 +6509,18 @@ export interface components {
         ReassignIbParentDto: {
             /** @description The new parent partner, or null to make them a direct partner. */
             parentIbUserId: number | null;
+        };
+        SetIbTermsDto: {
+            /**
+             * @description Their percentage of the product’s commission, 0–100. The main partner above them takes the rest. Null = level 2’s share.
+             * @example 50
+             */
+            commissionShare?: string | null;
+            /**
+             * @description What their CLIENTS get back, as a percentage of the product’s rebate, 0–100. Null = level 2’s rebate share.
+             * @example 30
+             */
+            rebateShare?: string | null;
         };
         SetIbActiveDto: {
             /** @description False suspends: the referral code and the tree are kept, the earning stops. There is no delete — removing the row would orphan every partner beneath them. */
@@ -6377,6 +6621,21 @@ export interface components {
              * @example 3.00000000
              */
             rebatePerLot: string;
+            /**
+             * @description MT5 symbol FOLDERS this type pays nothing on — no commission, no rebate. A folder covers every symbol beneath it, including ones added later (0198).
+             * @example [
+             *       "Crypto",
+             *       "Forex\\Exotics"
+             *     ]
+             */
+            excludedPaths: string[];
+            /**
+             * @description Single symbols this type pays nothing on — no commission, no rebate (0198).
+             * @example [
+             *       "BTCUSD"
+             *     ]
+             */
+            excludedSymbols: string[];
             /** @example 0 */
             sortOrder: number;
             /** @description The products sold on this type, by name. Part of the row so a delete or a disable can be refused on the screen before the API refuses it. */
@@ -6394,6 +6653,10 @@ export interface components {
             commissionPerLot: string;
             /** @example 3 */
             rebatePerLot: string;
+            /** @description MT5 folder paths excluded from commission and rebate, e.g. "Crypto". */
+            excludedPaths?: string[];
+            /** @description Symbols excluded from commission and rebate, e.g. "BTCUSD". */
+            excludedSymbols?: string[];
             /** @default true */
             enabled: boolean;
             /** @example 0 */
@@ -6404,6 +6667,10 @@ export interface components {
             description?: string | null;
             commissionPerLot?: string;
             rebatePerLot?: string;
+            /** @description MT5 folder paths excluded from commission and rebate, e.g. "Crypto". */
+            excludedPaths?: string[];
+            /** @description Symbols excluded from commission and rebate, e.g. "BTCUSD". */
+            excludedSymbols?: string[];
             enabled?: boolean;
             sortOrder?: number;
         };
@@ -6429,6 +6696,31 @@ export interface components {
             /** @example The number on your OMT slip. */
             hint: string | null;
             /** @description The hint in Arabic (0179); null = not translated, show `hint`. */
+            hintAr: string | null;
+        };
+        ShownPayToFieldDto: {
+            /** @example f_p7d2k9m4qa */
+            id: string;
+            /** @example Send to */
+            label: string;
+            /**
+             * @description The label in Arabic; null = not translated, show `label`.
+             * @example أرسل إلى
+             */
+            labelAr: string | null;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            /**
+             * @description The broker's value, shown read-only with a Copy button. A phone is E.164.
+             * @example +96170123456
+             */
+            value: string;
+            /** @example Whish account in the name of OxShare. */
+            hint: string | null;
+            /** @description The hint in Arabic; null = not translated, show `hint`. */
             hintAr: string | null;
         };
         PaymentMethodDto: {
@@ -6463,6 +6755,8 @@ export interface components {
             requiresProof: boolean;
             /** @description What the client must also give with the receipt, in order — only the fields shown to clients, and only for a method paid outside the platform. Answer them as `details[<id>]` parts of POST /payments/deposits/offline. */
             proofFields: components["schemas"]["AskedProofFieldDto"][];
+            /** @description Where the client sends the money, in order — only the details shown to clients, and only for a method paid outside the platform. Read-only for the client. */
+            payToFields: components["schemas"]["ShownPayToFieldDto"][];
         };
         DepositStateDto: {
             /**
@@ -6755,6 +7049,33 @@ export interface components {
             /** @description Shown to clients. A hidden field is kept but never asked. */
             enabled: boolean;
         };
+        PayToFieldDto: {
+            /** @example f_p7d2k9m4qa */
+            id: string;
+            /** @example Send to */
+            label: string;
+            /**
+             * @description The label in Arabic; null = not translated, show `label`.
+             * @example أرسل إلى
+             */
+            labelAr: string | null;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            /**
+             * @description The broker's value, shown read-only with a Copy button. A phone is E.164.
+             * @example +96170123456
+             */
+            value: string;
+            /** @example Whish account in the name of OxShare. */
+            hint: string | null;
+            /** @description The hint in Arabic; null = not translated, show `hint`. */
+            hintAr: string | null;
+            /** @description Shown to clients. A hidden detail is kept but never shown. */
+            enabled: boolean;
+        };
         AdminPaymentMethodDto: {
             /**
              * @description A stable machine key. Never renamed.
@@ -6787,6 +7108,8 @@ export interface components {
             requiresProof: boolean;
             /** @description Every detail the method asks for, hidden ones included. The details an OFFLINE method asks the client for with the receipt — e.g. the phone the money was sent from, or a transfer code. Ordered; the whole list is replaced on save. Asked only while `requiresProof` is true. */
             proofFields: components["schemas"]["ProofFieldDto"][];
+            /** @description Every detail the method shows, hidden ones included. What an OFFLINE method SHOWS the client — where to send the money, e.g. the phone a transfer goes to or an account name. Ordered; the whole list is replaced on save. Shown only while the method is paid outside the platform. Each deposit records what it was shown. */
+            payToFields: components["schemas"]["PayToFieldDto"][];
             /** @description The method's own minimum as the operator set it — null means the currency's. `minAmount` is what clients are actually held to. */
             ownMinAmount: string | null;
             /**
@@ -6849,6 +7172,29 @@ export interface components {
             /** @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English). */
             hintAr?: string | null;
         };
+        PayToFieldInputDto: {
+            /**
+             * @description Permanent; generated by the console.
+             * @example f_p7d2k9m4qa
+             */
+            id: string;
+            /** @example Send to */
+            label: string;
+            /** @enum {string} */
+            type: "text" | "phone";
+            /** @example +96170123456 */
+            value: string;
+            /** @description Shown to clients. */
+            enabled: boolean;
+            hint?: string | null;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example أرسل إلى
+             */
+            labelAr?: string | null;
+            /** @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English). */
+            hintAr?: string | null;
+        };
         CreatePaymentMethodDto: {
             /** @example rival */
             providerCode?: string;
@@ -6905,6 +7251,8 @@ export interface components {
             requiresProof?: boolean;
             /** @description The details an OFFLINE method asks the client for with the receipt — e.g. the phone the money was sent from, or a transfer code. Ordered; the whole list is replaced on save. Asked only while `requiresProof` is true. */
             proofFields?: components["schemas"]["ProofFieldInputDto"][];
+            /** @description What an OFFLINE method SHOWS the client — where to send the money, e.g. the phone a transfer goes to or an account name. Ordered; the whole list is replaced on save. Shown only while the method is paid outside the platform. Each deposit records what it was shown. */
+            payToFields?: components["schemas"]["PayToFieldInputDto"][];
         };
         UpdatePaymentMethodDto: {
             name?: string;
@@ -6949,6 +7297,8 @@ export interface components {
             ownMaxAmount?: string | null;
             /** @description The details an OFFLINE method asks the client for with the receipt — e.g. the phone the money was sent from, or a transfer code. Ordered; the whole list is replaced on save. Asked only while `requiresProof` is true. */
             proofFields?: components["schemas"]["ProofFieldInputDto"][];
+            /** @description What an OFFLINE method SHOWS the client — where to send the money, e.g. the phone a transfer goes to or an account name. Ordered; the whole list is replaced on save. Shown only while the method is paid outside the platform. Each deposit records what it was shown. */
+            payToFields?: components["schemas"]["PayToFieldInputDto"][];
         };
         DeletedMethodDto: {
             /** @example typo_method */
@@ -7559,6 +7909,21 @@ export interface components {
              * @description Sent back on create (0142): a group may back several products, so the product is what identifies which offer the client picked.
              */
             productId: string;
+            /**
+             * @description How many accounts one client may hold under this product (0201).
+             * @example 5
+             */
+            maxAccounts: number;
+            /**
+             * @description How many this client holds under the product now, closed ones excluded — at `maxAccounts` the product cannot be opened again.
+             * @example 1
+             */
+            heldAccounts: number;
+            /**
+             * @description The least the client may move into an account of this type per transfer, in its currency, as a decimal string (§6.1). Null = no minimum; always null on demo.
+             * @example 100.00000000
+             */
+            minDeposit: string | null;
         };
         SelfServiceOfferDto: {
             /** @description This client has at least one live account type to open. */
@@ -7577,16 +7942,6 @@ export interface components {
              *     ]
              */
             leverages: number[];
-            /**
-             * @description The most live accounts a client may hold.
-             * @example 3
-             */
-            maxLiveAccounts: number;
-            /**
-             * @description The most demo accounts a client may hold.
-             * @example 3
-             */
-            maxDemoAccounts: number;
             /**
              * @description The most a demo account may be funded with, as a decimal string (§6.1).
              * @example 100000.00000000
@@ -7626,6 +7981,11 @@ export interface components {
             status: "active" | "suspended" | "closed";
             /** Format: date-time */
             createdAt: string;
+            /**
+             * @description The least a transfer INTO this account must be, in its currency — its product group’s minimum deposit (0201), as a decimal string. Null = no minimum (always on demo).
+             * @example 100.00000000
+             */
+            minDeposit: string | null;
         };
         AccountSnapshotDto: {
             /**
@@ -8157,6 +8517,25 @@ export interface components {
              */
             accountsOutsideScope: number;
         };
+        Mt5SymbolDto: {
+            /** @example BTCUSD */
+            symbol: string;
+            /**
+             * @description MT5’s own path, backslash-separated, ending in the symbol itself.
+             * @example Crypto\BTCUSD
+             */
+            path: string;
+            /** @example Bitcoin vs US Dollar */
+            description: string;
+        };
+        Mt5SymbolListDto: {
+            symbols: components["schemas"]["Mt5SymbolDto"][];
+            /**
+             * Format: date-time
+             * @description When the server last confirmed the list. Null = never synced.
+             */
+            lastSyncedAt: string | null;
+        };
         KycDocumentPartDto: {
             /**
              * @description Slot identifier, unique within the type.
@@ -8360,16 +8739,6 @@ export interface components {
         };
         TradingSettingsDto: {
             /**
-             * @description Live accounts one client may open themselves.
-             * @example 5
-             */
-            maxLiveAccounts: number;
-            /**
-             * @description Demo accounts one client may open themselves.
-             * @example 5
-             */
-            maxDemoAccounts: number;
-            /**
              * @description Largest opening balance a demo account may be given. A decimal string.
              * @example 1000000.00000000
              */
@@ -8384,10 +8753,6 @@ export interface components {
             updatedByName?: string | null;
         };
         UpdateTradingSettingsDto: {
-            /** @example 5 */
-            maxLiveAccounts: number;
-            /** @example 5 */
-            maxDemoAccounts: number;
             /**
              * @description Positive decimal string.
              * @example 1000000.00
@@ -8517,6 +8882,11 @@ export interface components {
              * @example USD
              */
             currency: string;
+            /**
+             * @description The least a client may move into an account on this group per transfer, in the group's currency (0201). Null = no minimum. Live groups only.
+             * @example 100
+             */
+            minDeposit: string | null;
         };
         ProductDto: {
             /** Format: uuid */
@@ -8534,17 +8904,22 @@ export interface components {
             /** @description A disabled product stops being sold and keeps its accounts. */
             enabled: boolean;
             /**
-             * @description Fixed at creation. At most ONE demo product exists; it is offered to every client for demo accounts regardless of agency, and cannot be assigned to an agency. Real products carry live groups, the demo product carries demo groups.
+             * @description Fixed at creation. Any number of demo products may exist (0201); every enabled one is offered to every client for demo accounts regardless of agency, and none can be assigned to an agency. Real products carry live groups, demo products demo groups.
              * @enum {string}
              */
             type: "real" | "demo";
             /**
              * Format: uuid
-             * @description The commission type this product pays partners on (0140) — the rate card whose per-lot amounts each level takes a share of. NULL means the product pays no partner commission at all; the demo product never carries one.
+             * @description The commission type this product pays partners on (0140) — the rate card whose per-lot amounts each level takes a share of. NULL means the product pays no partner commission at all; a demo product never carries one.
              */
             commissionTypeId: string | null;
             /** @example 0 */
             sortOrder: number;
+            /**
+             * @description How many accounts one client may hold under this product (0201). Closed accounts do not count.
+             * @example 5
+             */
+            maxAccountsPerClient: number;
             groups: components["schemas"]["ProductGroupDto"][];
         };
         AvailableGroupDto: {
@@ -8585,12 +8960,26 @@ export interface components {
             commissionTypeId?: string | null;
             /** @example 0 */
             sortOrder?: number;
+            /** @example 5 */
+            maxAccountsPerClient?: number;
         };
         AttachGroupDto: {
             /** @enum {string} */
             environment: "live" | "demo";
             /** @example real\Standard-USD */
             mt5Group: string;
+            /**
+             * @description The least a client may move into an account on this group per transfer, in the group's currency (0201). Null = no minimum. Live groups only.
+             * @example 100
+             */
+            minDeposit?: string | null;
+        };
+        UpdateProductGroupDto: {
+            /**
+             * @description The least a client may move into an account on this group per transfer, in the group's currency (0201). Null = no minimum. Live groups only.
+             * @example 100
+             */
+            minDeposit: string | null;
         };
         AgencyDto: {
             /** Format: uuid */
@@ -8730,7 +9119,6 @@ export interface components {
             maskedFields: string[];
             maskedFieldsOverride?: string[] | null;
             scopedTags: components["schemas"]["AdminScopeTagDto"][];
-            seesUntriaged: boolean;
             seesAllClients: boolean;
             /** @example /uploads/avatars/6f1c.png */
             avatarUrl?: string | null;
@@ -8755,10 +9143,8 @@ export interface components {
             permissions?: string[];
             /** @description Client fields this admin may not see. Omit to inherit the role’s mask; [] means no mask. */
             maskedFields?: string[];
-            /** @description Client tags this admin is limited to. [] means no territory tags (new clients only, or none) — every client is only ever `seesAllClients` (0154). */
+            /** @description Client tags this admin is limited to. [] means no territory tags (no client) — every client is only ever `seesAllClients` (0154). */
             scopedTagIds?: string[];
-            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
-            seesUntriaged?: boolean;
             /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
             seesAllClients?: boolean;
         };
@@ -8856,6 +9242,47 @@ export interface components {
              */
             avatarUrl?: string | null;
         };
+        BulkClientFilterDto: {
+            q?: string;
+            type?: string;
+            status?: string;
+            level?: string;
+            country?: string;
+            emailVerified?: string;
+            kycStatus?: string;
+            /** @description Tag slugs, comma-separated (ANY). */
+            tag?: string;
+            referredBy?: number;
+            referred?: string;
+            /** @description Registered from (YYYY-MM-DD or ISO instant). */
+            from?: string;
+            /** @description Registered to. */
+            to?: string;
+        };
+        BulkTargetDto: {
+            /** @description Picked Portal IDs, at most 1000. */
+            ids?: number[];
+            filter?: components["schemas"]["BulkClientFilterDto"];
+            /** @description The count the reader was shown for `filter`. */
+            expectedCount?: number;
+        };
+        BulkTagsDto: {
+            target: components["schemas"]["BulkTargetDto"];
+            add?: string[];
+            remove?: string[];
+            /** @description Hand clients to another desk: confirms the 409 that asked. */
+            confirmLeavesScope?: boolean;
+        };
+        BulkTagResultDto: {
+            /** @description Clients the action was asked about and may see. */
+            matched: number;
+            /** @description Of which actually changed. */
+            changed: number;
+            /** @description Of which already carried the change. */
+            unchanged: number;
+            /** @description Picked clients outside your territory — skipped, never touched. */
+            skippedOutOfScope: number;
+        };
         ClientTagDto: {
             id: string;
             /** @description Stable machine name. Filter with ?tag=<slug>; a rename does not change it. */
@@ -8863,6 +9290,11 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
+            /**
+             * @description Set on a COUNTRY tag (ISO code, 0193): carried by every client living there, derived from their country — never assigned, renamed or deleted; only its colour is editable.
+             * @example LB
+             */
+            countryCode?: string;
             /** Format: date-time */
             createdAt: string;
         };
@@ -9283,6 +9715,11 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
+            /**
+             * @description Set on a COUNTRY tag (ISO code, 0193): carried by every client living there, derived from their country — never assigned, renamed or deleted; only its colour is editable.
+             * @example LB
+             */
+            countryCode?: string;
             /** Format: date-time */
             createdAt: string;
             /** @description How many clients carry this tag in the reader’s territory. */
@@ -9310,6 +9747,11 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
+            /**
+             * @description Set on a COUNTRY tag (ISO code, 0193): carried by every client living there, derived from their country — never assigned, renamed or deleted; only its colour is editable.
+             * @example LB
+             */
+            countryCode?: string;
             /** Format: date-time */
             createdAt: string;
             assignedBy?: string | null;
@@ -9322,6 +9764,47 @@ export interface components {
             assignments: components["schemas"]["ClientTagAssignmentDto"][];
             /** @description False when the change took the client out of the acting admin’s territory — sent only with confirmLeavesScope=true. */
             stillVisible: boolean;
+        };
+        SignupLinkTagDto: {
+            id: string;
+            slug: string;
+            label: string;
+            color?: string;
+        };
+        MySignupLinkDto: {
+            /** @example omar-farah */
+            slug: string;
+            /** @description The link to hand out: <PORTAL_URL>/join/<slug>. */
+            url: string;
+            /** @description What a sign-up through it gets right now: your territory, minus countries. */
+            tags: components["schemas"]["SignupLinkTagDto"][];
+            /** @description True when the link gives no tag: you see every client, or only countries. Clients you bring are recorded as yours, not put in a book. */
+            addsNoTag: boolean;
+            signups: number;
+            verified: number;
+            funded: number;
+        };
+        SignupLinkRowDto: {
+            adminId: string;
+            name: string;
+            slug: string;
+            url: string;
+            /** @description A suspended administrator's link tags nobody. */
+            active: boolean;
+            signups: number;
+            verified: number;
+            funded: number;
+        };
+        RenameSignupLinkDto: {
+            /**
+             * @description Lowercase letters, digits, - and _; 3–32 characters. The old link stops working.
+             * @example omar-farah
+             */
+            slug: string;
+        };
+        SignupLinkUrlDto: {
+            slug: string;
+            url: string;
         };
         KycDocumentDto: {
             docType?: string;
@@ -9746,10 +10229,8 @@ export interface components {
             permissions?: string[];
             /** @description Client fields this administrator may not see. null clears the override and inherits the role; [] explicitly masks nothing. */
             maskedFields?: string[] | null;
-            /** @description Client tag ids. [] means no territory tags (new clients only, or none) — every client is only ever `seesAllClients` (0154). */
+            /** @description Client tag ids. [] means no territory tags (no client) — every client is only ever `seesAllClients` (0154). */
             scopedTagIds?: string[];
-            /** @description D-60 — sees the intake pool: clients with no tag assignments yet. Meaningful only for a scoped admin. DEFAULTS TO TRUE — restriction is the explicit act; an inviter who does not see the pool cannot grant it, and their default resolves to false. */
-            seesUntriaged?: boolean;
             /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
             seesAllClients?: boolean;
         };
@@ -10301,6 +10782,30 @@ export interface components {
             rows: components["schemas"]["AdminTransactionSummaryRowDto"][];
             directions: components["schemas"]["AdminTransactionDirectionTotalDto"][];
         };
+        PayToDetailDto: {
+            /** @example f_p7d2k9m4qa */
+            fieldId: string;
+            /**
+             * @description The label as shown.
+             * @example Send to
+             */
+            label: string;
+            /**
+             * @description The label in Arabic as shown, when the detail had one.
+             * @example أرسل إلى
+             */
+            labelAr?: string | null;
+            /**
+             * @example phone
+             * @enum {string}
+             */
+            type: "text" | "phone";
+            /**
+             * @description As shown. A phone is E.164.
+             * @example +96170123456
+             */
+            value: string;
+        };
         AdminTransactionRowDto: {
             id: string;
             /** @enum {string} */
@@ -10335,6 +10840,8 @@ export interface components {
             proofFilename?: string | null;
             /** @description What the client gave with an OFFLINE deposit to identify the payment — the phone it was sent from, a transfer code — each with the question as asked (0163). Null otherwise. Never masked: it is the proof the desk approves the deposit on, like the receipt. */
             proofDetails?: components["schemas"]["ProofDetailDto"][] | null;
+            /** @description Where an OFFLINE deposit's client was told to send the money — the details the method showed when it was filed, e.g. the phone a transfer goes to (0199). A copy: the method may have changed since. Null otherwise. */
+            payToDetails?: components["schemas"]["PayToDetailDto"][] | null;
             walletId: string;
             /** Format: date-time */
             createdAt: string;
@@ -11076,6 +11583,10 @@ export interface operations {
                 category?: "deposits" | "withdrawals" | "kyc" | "ib" | "transfers";
                 /** @description A client: Portal ID (exact, `#` optional) or part of a name or email. */
                 q?: string;
+                /** @description Raised at or after: a date-time with offset, or YYYY-MM-DD (a UTC day). */
+                from?: string;
+                /** @description End: a date-time with offset (exclusive), or YYYY-MM-DD (that whole day). */
+                to?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
                 limit?: number;
@@ -12476,6 +12987,10 @@ export interface operations {
                 order?: "asc" | "desc";
                 /** @description One application by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No status is implied. */
                 id?: string;
+                /** @description Earliest submitted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -12496,6 +13011,10 @@ export interface operations {
             query?: {
                 format?: "csv";
                 status?: "pending" | "approved" | "rejected";
+                /** @description Earliest submitted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -12564,9 +13083,46 @@ export interface operations {
             };
         };
     };
+    AdminIbController_exportAccruals: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                /** @description Restrict to one partner. */
+                ibUserId?: number;
+                /** @description Restrict to one client. */
+                clientUserId?: number;
+                q?: string;
+                status?: "pending" | "confirmed" | "reversed";
+                kind?: "commission" | "rebate";
+                /** @description Earliest accrued time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `commissions-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
     AdminIbController_listAccruals: {
         parameters: {
             query?: {
+                /** @description Earliest accrued time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
                 page?: string;
                 limit?: string;
                 /** @description Restrict to one partner. */
@@ -12729,6 +13285,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReassignIbParentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbAccountDto"];
+                };
+            };
+        };
+    };
+    AdminIbController_setTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetIbTermsDto"];
             };
         };
         responses: {
@@ -13143,9 +13724,9 @@ export interface operations {
                 direction?: "deposit" | "withdrawal";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 currency?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Inclusive start: a date-time with offset, or YYYY-MM-DD. */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End: a date-time with offset (exclusive), or YYYY-MM-DD (that whole day). */
                 to?: string;
                 sort?: "createdAt" | "amount" | "direction" | "currency" | "state";
                 order?: "asc" | "desc";
@@ -13177,9 +13758,9 @@ export interface operations {
                 direction?: "deposit" | "withdrawal";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 currency?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Inclusive start: a date-time with offset, or YYYY-MM-DD. */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End: a date-time with offset (exclusive), or YYYY-MM-DD (that whole day). */
                 to?: string;
                 sort?: "createdAt" | "amount" | "direction" | "currency" | "state";
                 order?: "asc" | "desc";
@@ -14140,6 +14721,10 @@ export interface operations {
                 status?: "active" | "suspended" | "closed";
                 /** @description `unassigned`: accounts the MT5 sync found that no client owns yet (shown only to a reader who sees every client); `assigned`: the rest. */
                 client?: "assigned" | "unassigned";
+                /** @description Earliest opened time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;
@@ -14313,6 +14898,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Mt5GroupDto"][];
+                };
+            };
+        };
+    };
+    AdminMt5SymbolsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5SymbolListDto"];
+                };
+            };
+        };
+    };
+    AdminMt5SymbolsController_sync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5SymbolListDto"];
                 };
             };
         };
@@ -14845,6 +15468,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDto"];
+                };
+            };
+        };
+    };
+    AdminCatalogueController_updateGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProductGroupDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -15432,6 +16081,29 @@ export interface operations {
             };
         };
     };
+    AdminClientsController_bulkTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkTagsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkTagResultDto"];
+                };
+            };
+        };
+    };
     AdminClientsController_listClients: {
         parameters: {
             query?: {
@@ -15453,7 +16125,7 @@ export interface operations {
                 emailVerified?: "true" | "false";
                 /** @description `not_started` matches clients with no submission row at all. */
                 kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
-                /** @description Tag SLUG, not id (ADM-14). */
+                /** @description Tag SLUG, not id (ADM-14). Several, comma-separated: clients carrying ANY of them. */
                 tag?: string;
                 /** @description Clients introduced by this partner, by the partner’s Portal ID (users.referred_by_ib_user_id). Scoped like every other filter — a reader still only sees their own territory. A value that is not a Portal ID is a 400, never a silently unfiltered list. */
                 referredBy?: number;
@@ -15461,6 +16133,10 @@ export interface operations {
                 referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
+                /** @description Earliest registration time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -15493,7 +16169,7 @@ export interface operations {
                 emailVerified?: "true" | "false";
                 /** @description `not_started` matches clients with no submission row at all. */
                 kycStatus?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
-                /** @description Tag SLUG, not id (ADM-14). */
+                /** @description Tag SLUG, not id (ADM-14). Several, comma-separated: clients carrying ANY of them. */
                 tag?: string;
                 /** @description Clients introduced by this partner, by Portal ID — the same filter as the list, so the file matches the screen it was exported from. */
                 referredBy?: number;
@@ -15501,6 +16177,12 @@ export interface operations {
                 referred?: "true" | "false";
                 sort?: "createdAt" | "email" | "firstName" | "status" | "verificationLevel" | "country";
                 order?: "asc" | "desc";
+                /** @description Earliest registration time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+                /** @description Export selected: Portal IDs, comma-separated, at most 1000. Narrows the file; scope and masking still apply. */
+                ids?: string;
             };
             header?: never;
             path?: never;
@@ -15861,6 +16543,90 @@ export interface operations {
             };
         };
     };
+    SignupLinksController_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySignupLinkDto"];
+                };
+            };
+        };
+    };
+    SignupLinksController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupLinkRowDto"][];
+                };
+            };
+        };
+    };
+    SignupLinksController_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adminId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameSignupLinkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupLinkUrlDto"];
+                };
+            };
+        };
+    };
+    SignupLinksController_randomize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                adminId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupLinkUrlDto"];
+                };
+            };
+        };
+    };
     AdminComplianceController_listKyc: {
         parameters: {
             query?: {
@@ -15871,6 +16637,10 @@ export interface operations {
                 limit?: string;
                 sort?: "submittedAt" | "status" | "createdAt" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
+                /** @description Earliest submitted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -15895,6 +16665,10 @@ export interface operations {
                 status?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
                 /** @description A Portal ID (digits, matched exactly) or free text over email and name. */
                 q?: string;
+                /** @description Earliest submitted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -16630,6 +17404,10 @@ export interface operations {
                 subjectId?: string;
                 /** @description A Portal ID (digits) finds every row about that client or performed by them. Anything else is free text over the ACTOR's email, which is denormalised onto every row so a deleted administrator's trail still names them. It deliberately does not search `details`: that blob holds client PII, and matching inside it would let a narrow-scoped reader confirm a client exists from a row count. */
                 q?: string;
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -16665,6 +17443,10 @@ export interface operations {
                 q?: string;
                 sort?: "createdAt" | "action" | "actorEmail";
                 order?: "asc" | "desc";
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -16857,6 +17639,10 @@ export interface operations {
             query?: {
                 format?: "csv";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Earliest requested time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -16891,6 +17677,10 @@ export interface operations {
                 order?: "asc" | "desc";
                 /** @description One record by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No state is implied: a handled record is still returned. */
                 id?: string;
+                /** @description Earliest requested time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -17243,6 +18033,36 @@ export interface operations {
             };
         };
     };
+    AdminMoneyController_exportLedger: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                userId?: number;
+                q?: string;
+                walletId?: string;
+                entryType?: "deposit" | "withdrawal" | "commission" | "rebate" | "payout" | "adjustment" | "transfer";
+                /** @description Earliest posted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `ledger-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
     AdminMoneyController_listLedger: {
         parameters: {
             query: {
@@ -17254,6 +18074,10 @@ export interface operations {
                 page: string;
                 limit: string;
                 cursor: string;
+                /** @description Earliest posted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -17413,14 +18237,16 @@ export interface operations {
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description Payment method keys, comma-separated — deposit or withdrawal methods. Only payments have a method, so a transfer never matches. At most 50. */
+                method?: string;
                 /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
                 id?: string;
             };
@@ -17454,14 +18280,16 @@ export interface operations {
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description Payment method keys, comma-separated — deposit or withdrawal methods. Only payments have a method, so a transfer never matches. At most 50. */
+                method?: string;
                 /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
                 id?: string;
             };
@@ -17481,6 +18309,71 @@ export interface operations {
             };
         };
     };
+    AdminFinancialController_exportDeskDeposits: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description A Portal ID, a phone, a name or an email — or a detail the client gave with the receipt. */
+                q?: string;
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `deposits-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
+    AdminFinancialController_listDeskDeposits: {
+        parameters: {
+            query?: {
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description A Portal ID, a phone, a name or an email — or a detail the client gave with the receipt. */
+                q?: string;
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+                /** @description One deposit by its uuid — where a notification lands. No state is implied. */
+                id?: string;
+                /** @description Legacy offset paging. Prefer cursor. */
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                sort?: "createdAt" | "amount" | "state";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTransactionListResponseDto"];
+                };
+            };
+        };
+    };
     AdminFinancialController_listTransactions: {
         parameters: {
             query?: {
@@ -17494,14 +18387,16 @@ export interface operations {
                 currency?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over the client’s email and name — the one client search every queue shares. */
                 q?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
                 from?: string;
-                /** @description Inclusive, YYYY-MM-DD. */
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
                 decidedBy?: "desk";
+                /** @description Payment method keys, comma-separated — deposit or withdrawal methods. Only payments have a method, so a transfer never matches. At most 50. */
+                method?: string;
                 /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
                 id?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
@@ -17650,6 +18545,10 @@ export interface operations {
                 status?: "active" | "suspended" | "closed";
                 /** @description `unassigned`: accounts the MT5 sync found that no client owns yet (shown only to a reader who sees every client); `assigned`: the rest. */
                 client?: "assigned" | "unassigned";
+                /** @description Earliest opened time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
             };
             header?: never;
             path?: never;

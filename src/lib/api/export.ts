@@ -54,7 +54,12 @@ export type ExportResource =
   // note above about the rest.
   | 'wallets'
   | 'trading-accounts'
-  | 'transactions';
+  | 'transactions'
+  // 6 Oct 2026: the deposit desk (its own key, `deposits.view`), the ledger
+  // (`ledger.view`) and the commission ledger — each CSV, each the list's filters.
+  | 'deposits'
+  | 'ledger'
+  | 'ib/accruals';
 
 export type ExportFormat = 'csv' | 'xlsx';
 

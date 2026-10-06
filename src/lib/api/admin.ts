@@ -91,6 +91,12 @@ export type ClientTag = components['schemas']['ClientTagDto'];
 /** What adding or removing a tag answers — the tags afterwards, and whether you still see the client. */
 export type ClientTagChangeResult = components['schemas']['ClientTagChangeResultDto'];
 export type ClientTagWithCount = components['schemas']['ClientTagWithCountDto'];
+export type MySignupLink = components['schemas']['MySignupLinkDto'];
+export type SignupLinkRow = components['schemas']['SignupLinkRowDto'];
+export type SignupLinkUrl = components['schemas']['SignupLinkUrlDto'];
+export type BulkTagsBody = components['schemas']['BulkTagsDto'];
+export type BulkClientFilter = components['schemas']['BulkClientFilterDto'];
+export type BulkTagResult = components['schemas']['BulkTagResultDto'];
 export type ClientFieldGroup = components['schemas']['ClientFieldGroupDto'];
 export type Currency = components['schemas']['CurrencyDto'];
 
@@ -167,6 +173,8 @@ export type Mt5GroupRow = components['schemas']['Mt5GroupDto'];
 export type Mt5AccountLookup = components['schemas']['Mt5AccountLookupDto'];
 export type LinkedMt5Account = components['schemas']['LinkedMt5AccountDto'];
 
+/** 0198 — `GET /admin/mt5-symbols`. */
+export type Mt5SymbolList = components['schemas']['Mt5SymbolListDto'];
 export type IbCommissionType = components['schemas']['IbCommissionTypeDto'];
 export type CreateIbCommissionType = components['schemas']['CreateIbCommissionTypeDto'];
 export type UpdateIbCommissionType = components['schemas']['UpdateIbCommissionTypeDto'];
@@ -307,6 +315,10 @@ export type PaymentMethod = components['schemas']['AdminPaymentMethodDto'];
 export type PaymentMethodProofField = components['schemas']['ProofFieldDto'];
 /** One answer a client filed with an offline deposit, with the question as asked. */
 export type ProofDetail = components['schemas']['ProofDetailDto'];
+/** One detail an offline method SHOWS the client — where to pay (backend 0199), hidden ones included. */
+export type PaymentMethodPayToField = components['schemas']['PayToFieldDto'];
+/** What an offline deposit's client was shown at filing — where they were told to send it. */
+export type PayToDetail = components['schemas']['PayToDetailDto'];
 export type CreatePaymentMethod = components['schemas']['CreatePaymentMethodDto'];
 export type UpdatePaymentMethod = components['schemas']['UpdatePaymentMethodDto'];
 /**
@@ -438,6 +450,9 @@ export interface ClientListParams {
    * looks like a bug; `UsersStore.countReferredBy` records why.
    */
   referredBy?: string;
+  /** When they REGISTERED — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+  from?: string;
+  to?: string;
   /**
    * `'true'`: only clients a partner introduced — the Referrals page, which is
    * this list with that one filter fixed. `'false'`: only clients nobody did.
@@ -493,6 +508,9 @@ export interface WithdrawalListParams {
   state?: string;
   /** Client email or name. Server-side — see `listForAdmin`'s note on scope. */
   q?: string;
+  /** The period — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+  from?: string;
+  to?: string;
   limit: number;
   page?: number;
   sort?: WithdrawalSortKey;
@@ -554,9 +572,14 @@ export interface TransactionListParams {
   currency?: string;
   /** Client email or name. Server-side, same columns as every other queue. */
   q?: string;
-  /** Inclusive date bounds, `YYYY-MM-DD`. */
+  /**
+   * The period: instants with offset (`lib/date-presets.ts`), `to` EXCLUSIVE —
+   * or legacy `YYYY-MM-DD` dates, `to` inclusive.
+   */
   from?: string;
   to?: string;
+  /** Payment method keys, comma-separated — deposit or withdrawal methods. */
+  method?: string;
   /** Only payments flagged for a person to reconcile — the API's one value. */
   attention?: 'true';
   /**
@@ -918,6 +941,9 @@ export interface TradingAccountListParams {
    * admin who sees every client.
    */
   client?: 'assigned' | 'unassigned';
+  /** When OPENED — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+  from?: string;
+  to?: string;
   sort?: TradingAccountSortKey;
   order?: 'asc' | 'desc';
 }
@@ -932,6 +958,8 @@ export function tradingAccountListSearchParams(params: TradingAccountListParams)
   if (params.environment) query.set('environment', params.environment);
   if (params.status) query.set('status', params.status);
   if (params.client) query.set('client', params.client);
+  if (params.from) query.set('from', params.from);
+  if (params.to) query.set('to', params.to);
   if (params.sort) {
     query.set('sort', params.sort);
     if (params.order) query.set('order', params.order);
@@ -1128,6 +1156,8 @@ export type IpAllowlistExemption = components['schemas']['IpAllowlistExemptionDt
 export type Product = components['schemas']['ProductDto'];
 export type UpsertProduct = components['schemas']['UpsertProductDto'];
 export type ProductGroup = components['schemas']['ProductGroupDto'];
+export type AttachProductGroup = components['schemas']['AttachGroupDto'];
+export type UpdateProductGroup = components['schemas']['UpdateProductGroupDto'];
 export type AvailableGroup = components['schemas']['AvailableGroupDto'];
 
 /** An agency (وكالة) — the package a partner is appointed under. */
@@ -1355,6 +1385,9 @@ export const adminApi = {
       q?: string;
       /** One application, in any status — what a notification opens. */
       id?: string;
+      /** When submitted — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+      from?: string;
+      to?: string;
       page?: number;
       limit?: number;
       sort?: IbApplicationSortKey;
@@ -1366,6 +1399,8 @@ export const adminApi = {
     if (params.status) query.set('status', params.status);
     if (params.q) query.set('q', params.q);
     if (params.id) query.set('id', params.id);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
     if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
     // Both halves or neither. `order` alone describes an ordering of no column,
@@ -1490,6 +1525,21 @@ export const adminApi = {
    * Partners BENEATH them are NOT moved. Cascading would re-price an unbounded
    * number of people from one edit of somebody else's row.
    */
+  /**
+   * A sub-partner's own commission and rebate shares (0197). `null` falls back
+   * to the level 2 default; an absent key is left as it is.
+   */
+  async setIbPartnerTerms(
+    userId: number,
+    terms: { commissionShare?: string | null; rebateShare?: string | null },
+  ) {
+    const { data } = await apiClient.patch<components['schemas']['IbAccountDto']>(
+      `/admin/ib/partners/${userId}/terms`,
+      terms,
+    );
+    return data;
+  },
+
   async changeIbPartnerLevel(userId: ClientRef, level: number): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/level`, {
       level,
@@ -1571,6 +1621,18 @@ export const adminApi = {
   /* ── MT5 groups ───────────────────────────────────────────────────────── */
 
   /** Every mirrored group, removed ones included, with its product and account count. */
+  /** 0198 — MT5 symbols with their folders, from the CRM's mirror, dated. */
+  async getMt5Symbols(signal?: AbortSignal): Promise<Mt5SymbolList> {
+    const { data } = await apiClient.get<Mt5SymbolList>('/admin/mt5-symbols', { signal });
+    return data;
+  },
+
+  /** Re-read the symbol list from MT5 now; answers the refreshed list. */
+  async syncMt5Symbols(): Promise<Mt5SymbolList> {
+    const { data } = await apiClient.post<Mt5SymbolList>('/admin/mt5-symbols/sync', {});
+    return data;
+  },
+
   async getMt5GroupMirror(signal?: AbortSignal): Promise<Mt5GroupRow[]> {
     const { data } = await apiClient.get<Mt5GroupRow[]>('/admin/mt5-groups', { signal });
     return data;
@@ -1638,11 +1700,21 @@ export const adminApi = {
     await apiClient.delete(`/admin/products/${id}`);
   },
 
-  async attachProductGroup(
-    id: string,
-    body: { environment: 'live' | 'demo'; mt5Group: string },
-  ): Promise<Product> {
+  async attachProductGroup(id: string, body: AttachProductGroup): Promise<Product> {
     const { data } = await apiClient.post<Product>(`/admin/products/${id}/groups`, body);
+    return data;
+  },
+
+  /** A saved group's minimum deposit (backend 0201); null clears it. */
+  async updateProductGroup(
+    id: string,
+    groupId: string,
+    body: UpdateProductGroup,
+  ): Promise<Product> {
+    const { data } = await apiClient.patch<Product>(
+      `/admin/products/${id}/groups/${groupId}`,
+      body,
+    );
     return data;
   },
 
@@ -1913,6 +1985,8 @@ export const adminApi = {
     // state at all, and the API reads the empty string as a filter.
     if (params.state) query.set('state', params.state);
     if (params.q) query.set('q', params.q);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
     if (params.id) query.set('id', params.id);
     if (params.page !== undefined) query.set('page', String(params.page));
     // Both halves or neither. `order` alone describes an ordering of no column,
@@ -1941,6 +2015,38 @@ export const adminApi = {
    *
    * Every `amount` is a STRING and must reach the DOM as one — §6.1.
    */
+  /**
+   * The DEPOSIT DESK — `GET /admin/deposits`: deposits a person decides, on the
+   * desk's own key (`deposits.view`). A deposit clerk is not given every
+   * movement on the platform (`transactions.view`), so the desk must not read
+   * through `/admin/transactions` (it did until 6 Oct 2026, and a clerk loaded
+   * nothing). The rows are fixed by the server; only these narrow them.
+   */
+  async getDeskDeposits(
+    params: Pick<TransactionListParams, 'id' | 'state' | 'q' | 'from' | 'to' | 'limit' | 'page'> & {
+      sort?: TransactionListParams['sort'];
+      order?: TransactionListParams['order'];
+    },
+    signal?: AbortSignal,
+  ): Promise<TransactionListResponse> {
+    const query = new URLSearchParams({ limit: String(params.limit) });
+    if (params.state) query.set('state', params.state);
+    if (params.q) query.set('q', params.q);
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
+    if (params.id) query.set('id', params.id);
+    if (params.page !== undefined) query.set('page', String(params.page));
+    if (params.sort) {
+      query.set('sort', params.sort);
+      if (params.order) query.set('order', params.order);
+    }
+    const { data } = await apiClient.get<TransactionListResponse>(
+      `/admin/deposits?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
   async getTransactions(
     params: TransactionListParams,
     signal?: AbortSignal,
@@ -1955,6 +2061,7 @@ export const adminApi = {
     if (params.q) query.set('q', params.q);
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
+    if (params.method) query.set('method', params.method);
     if (params.attention) query.set('attention', params.attention);
     if (params.decidedBy) query.set('decidedBy', params.decidedBy);
     if (params.id) query.set('id', params.id);
@@ -1990,6 +2097,7 @@ export const adminApi = {
     if (params.q) query.set('q', params.q);
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
+    if (params.method) query.set('method', params.method);
     if (params.attention) query.set('attention', params.attention);
     const qs = query.toString();
     const { data } = await apiClient.get<TransactionsSummary>(
@@ -2074,6 +2182,11 @@ export const adminApi = {
        */
       q?: string;
       status?: string;
+      /** `commission` or `rebate`; absent is both. */
+      kind?: string;
+      /** When it accrued — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+      from?: string;
+      to?: string;
       /** One accrual, in any status — what a notification opens. */
       id?: string;
       sort?: IbAccrualSortKey;
@@ -2357,6 +2470,9 @@ export const adminApi = {
       userId?: ClientRef;
       walletId?: string;
       entryType?: string;
+      /** The period — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+      from?: string;
+      to?: string;
       page?: number;
       limit?: number;
       cursor?: string;
@@ -2905,6 +3021,51 @@ export const adminApi = {
 
   async deleteTag(id: string) {
     const { data } = await apiClient.delete<{ message: string }>(`/admin/tags/${id}`);
+    return data;
+  },
+
+  // ── Sign-up links (backend 0198): one per administrator ──────────────────
+
+  /** Your own link, the tags it gives right now, and what it has brought. */
+  async getMySignupLink(signal?: AbortSignal): Promise<MySignupLink> {
+    const { data } = await apiClient.get<MySignupLink>('/admin/signup-links/me', { signal });
+    return data;
+  },
+
+  /** Every administrator's link with its counts (admins.view). */
+  async getSignupLinks(signal?: AbortSignal): Promise<SignupLinkRow[]> {
+    const { data } = await apiClient.get<SignupLinkRow[]>('/admin/signup-links', { signal });
+    return data;
+  },
+
+  /** Rename a link — your own freely, another administrator's with admins.edit. */
+  async renameSignupLink(adminId: string, slug: string): Promise<SignupLinkUrl> {
+    const { data } = await apiClient.patch<SignupLinkUrl>(`/admin/signup-links/${adminId}`, {
+      slug,
+    });
+    return data;
+  },
+
+  /** Give a link a random word the SERVER makes; the old word stops working. */
+  async randomizeSignupLink(adminId: string): Promise<SignupLinkUrl> {
+    const { data } = await apiClient.post<SignupLinkUrl>(`/admin/signup-links/${adminId}/random`);
+    return data;
+  },
+
+  // ── Bulk actions on the clients list (Slice 3) ───────────────────────────
+
+  /**
+   * Add and/or remove tags on many clients — picked rows, or every client
+   * matching the list's filter with the count the reader was shown. `key` is
+   * the idempotency key: ONE per intended change, reused only to retry it, so
+   * a double click or a lost answer cannot apply it twice.
+   */
+  async bulkTags(body: BulkTagsBody, key: string): Promise<BulkTagResult> {
+    const { data } = await apiClient.post<BulkTagResult>(
+      '/admin/clients/bulk/tags',
+      body,
+      idempotent(key),
+    );
     return data;
   },
 

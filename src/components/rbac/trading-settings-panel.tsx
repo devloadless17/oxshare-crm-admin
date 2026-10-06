@@ -68,13 +68,9 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
    * other panels: a `value` bound straight to query data would let a background
    * refetch wipe what the operator is halfway through typing.
    *
-   * All four are held as STRINGS, including the two counts. A number-typed
-   * state forces a decision about what an empty box means, and the usual answer
-   * — `Number(e.target.value) || 0` — turns a mid-edit blank into a saved zero,
-   * which on `maxLiveAccounts` closes live account opening.
+   * Held as STRINGS. The two account caps that sat here are per PRODUCT now
+   * (backend 0201): each product's "Max accounts per client", on its own page.
    */
-  const [maxLiveAccounts, setMaxLiveAccounts] = React.useState(String(settings.maxLiveAccounts));
-  const [maxDemoAccounts, setMaxDemoAccounts] = React.useState(String(settings.maxDemoAccounts));
   // Trailing zeros trimmed for display: the column is numeric(28,8) and
   // '1000000.00000000' in a text box is a number nobody typed.
   const [maxDemoDeposit, setMaxDemoDeposit] = React.useState(trimAmount(settings.maxDemoDeposit));
@@ -148,8 +144,6 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
   const mutation = useMutation({
     mutationFn: () =>
       adminApi.updateTradingSettings({
-        maxLiveAccounts: parseCount(maxLiveAccounts),
-        maxDemoAccounts: parseCount(maxDemoAccounts),
         maxDemoDeposit: maxDemoDeposit.trim(),
         ibCommissionIntervalSeconds: parseInterval(
           intervalValue,
@@ -173,8 +167,6 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
   });
 
   const dirty =
-    maxLiveAccounts.trim() !== String(settings.maxLiveAccounts) ||
-    maxDemoAccounts.trim() !== String(settings.maxDemoAccounts) ||
     maxDemoDeposit.trim() !== trimAmount(settings.maxDemoDeposit) ||
     parseInterval(intervalValue, intervalUnit, settings.ibCommissionIntervalSeconds) !==
       settings.ibCommissionIntervalSeconds;
@@ -188,7 +180,7 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
    * It gated Save behind a confirmation when the accrual start CHANGED —
    * that field decides which trades are ever paid for, marks the rest decided
    * for ever, and is not undone by setting it back. Nothing left on this form
-   * has that shape: the account caps and the demo ceiling are terms an operator
+   * has that shape: the demo ceiling is a term an operator
    * adjusts and re-adjusts, and a confirmation on every save trains people to
    * click through it.
    *
@@ -218,52 +210,6 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
         surfaces that appear to own one list is how the CSV and the table would
         drift.
       */}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          id="trading-max-live"
-          label={t('tradingSettings.maxLiveAccounts')}
-          hint={t('tradingSettings.maxLiveAccountsHint')}
-        >
-          <input
-            id="trading-max-live"
-            type="number"
-            inputMode="numeric"
-            value={maxLiveAccounts}
-            onChange={(e) => {
-              setMaxLiveAccounts(e.target.value);
-              clear();
-            }}
-            disabled={disabled}
-            required
-            min={0}
-            max={100}
-            className={INPUT_CLASS}
-          />
-        </Field>
-
-        <Field
-          id="trading-max-demo"
-          label={t('tradingSettings.maxDemoAccounts')}
-          hint={t('tradingSettings.maxDemoAccountsHint')}
-        >
-          <input
-            id="trading-max-demo"
-            type="number"
-            inputMode="numeric"
-            value={maxDemoAccounts}
-            onChange={(e) => {
-              setMaxDemoAccounts(e.target.value);
-              clear();
-            }}
-            disabled={disabled}
-            required
-            min={0}
-            max={100}
-            className={INPUT_CLASS}
-          />
-        </Field>
-      </div>
 
       <Field
         id="trading-max-demo-deposit"
@@ -400,20 +346,6 @@ function TradingForm({ settings, canManage }: { settings: TradingSettings; canMa
       <SettingsSavedLine updatedAt={settings.updatedAt} updatedByName={settings.updatedByName} />
     </form>
   );
-}
-
-/**
- * A count box's contents, as an integer the API will accept.
- *
- * `Number(x) || fallback` is the idiom this replaces, and on this form it is a
- * live bug: `|| 5` turns a deliberate 0 — "stop opening new live accounts" —
- * into five. `NaN` maps to 0 instead, which is the safe direction here: a
- * malformed count closes the door rather than opening it wider, and the API
- * validates the value regardless.
- */
-function parseCount(value: string): number {
-  const parsed = Number.parseInt(value.trim(), 10);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 /** The units the interval control offers. Seconds only ever arrive from a stored value. */

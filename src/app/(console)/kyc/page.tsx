@@ -7,6 +7,9 @@ import type { components } from '@/lib/api/types.gen';
 import { ChevronRight, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { QueueToolbar } from '@/components/queue-toolbar';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
+import { useTabCounts } from '@/hooks/use-tab-counts';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { CopyableId } from '@/components/copyable-id';
@@ -189,6 +192,13 @@ function KycQueue() {
    */
   // Both directions, and a link followed while on the queue wins — see the hook.
   const { search, setSearch, term: debouncedSearch } = useUrlSearch(url);
+  /*
+   * The period, by SUBMISSION date (a draft's: when it was started). A tab of
+   * work still waiting (in progress, submitted, under review) opens on All time — a submission from last week must never
+   * hide behind "Today" and read as an empty queue. A decided tab opens on Today.
+   */
+  const waitingTab = ['needs_review', 'in_progress', 'submitted', 'under_review'].includes(filter);
+  const period = useDateRange(url, waitingTab ? 'all' : 'today');
   /**
    * The sort, as the API's own two parameters.
    *
@@ -206,11 +216,22 @@ function KycQueue() {
   // Server-side filtering/search/sorting/pagination; counts come from the API
   // over the full set, so tab counts stay correct while a filter is active.
   const query = useResource<KycListResponse>(
-    keys.kyc.queue([page, pageSize, filter, debouncedSearch, sort?.key, sort?.order]),
+    keys.kyc.queue([
+      page,
+      pageSize,
+      filter,
+      debouncedSearch,
+      sort?.key,
+      sort?.order,
+      period.range.from,
+      period.range.to,
+    ]),
     async (signal) => {
       const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
       if (filter) params.set('status', filter);
       if (debouncedSearch) params.set('q', debouncedSearch);
+      if (period.range.from) params.set('from', period.range.from);
+      if (period.range.to) params.set('to', period.range.to);
       // Both halves or neither — `order` alone describes an ordering of no
       // column, and the API is entitled to reject it.
       if (sort) {
@@ -229,10 +250,29 @@ function KycQueue() {
   const exportFilters = new URLSearchParams();
   if (filter) exportFilters.set('status', filter);
   if (debouncedSearch) exportFilters.set('q', debouncedSearch);
+  if (period.range.from) exportFilters.set('from', period.range.from);
+  if (period.range.to) exportFilters.set('to', period.range.to);
 
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
-  const counts = query.data?.counts ?? {};
+  // Each tab's count is what it shows when clicked (`useTabCounts`).
+  const waiting = (tab: string) =>
+    ['needs_review', 'in_progress', 'submitted', 'under_review'].includes(tab);
+  const countOf = useTabCounts({
+    url,
+    activeWaiting: waitingTab,
+    current: query.data?.counts,
+    isWaiting: waiting,
+    key: (range) =>
+      keys.kyc.queue(['counts', debouncedSearch, range.from ?? null, range.to ?? null]),
+    fetchCounts: async (range, signal) => {
+      const params = new URLSearchParams({ page: '1', limit: '1' });
+      if (debouncedSearch) params.set('q', debouncedSearch);
+      if (range.from) params.set('from', range.from);
+      if (range.to) params.set('to', range.to);
+      return (await api.get<KycListResponse>(`/admin/kyc?${params}`, { signal })).data.counts;
+    },
+  });
   const loading = query.status === 'loading';
 
   /*
@@ -461,7 +501,7 @@ function KycQueue() {
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('kycReview.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t('kycReview.totalSubmissions', { count: counts['all'] ?? 0 })}
+            {t('kycReview.totalSubmissions', { count: countOf('all') ?? 0 })}
           </p>
         </div>
         {/* The same filters the list is showing, so "export what I am looking
@@ -487,7 +527,7 @@ function KycQueue() {
             label: f.label,
             // `counts` is keyed by status, with `all` for the unfiltered tab —
             // the same server-side per-status totals the other two queues pass.
-            count: f.value ? (counts[f.value] ?? 0) : (counts['all'] ?? 0),
+            count: countOf(f.value || 'all') ?? 0,
           }))}
           active={filter}
           onFilterChange={(value) => {
@@ -500,6 +540,14 @@ function KycQueue() {
           onSearchChange={setSearch}
           searchPlaceholder={t('kycReview.searchPlaceholder')}
           searchAriaLabel={t('kyc.searchAria')}
+          extra={
+            <DateRangePicker
+              choice={period.choice}
+              custom={period.custom}
+              defaultChoice={period.defaultChoice}
+              onChange={period.set}
+            />
+          }
         />
       </div>
 
@@ -551,7 +599,13 @@ function KycQueue() {
           loading={loading}
           loadingText={t('kyc.loadingQueue')}
           dimmed={query.isFetching}
-          empty={<EmptyState icon={FileCheck} message={t('kyc.queueEmpty')} />}
+          empty={
+            <EmptyState
+              icon={FileCheck}
+              message={t('kyc.queueEmpty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
+            />
+          }
           sortColumn={sort?.key}
           sortDirection={sort?.order}
           /*

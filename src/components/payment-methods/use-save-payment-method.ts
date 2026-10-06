@@ -41,6 +41,17 @@ export function useSavePaymentMethod(editingKey: string | undefined) {
           labelAr: arabicOrNull(field.labelAr ?? ''),
           hintAr: arabicOrNull(field.hintAr ?? ''),
         })),
+        // What it shows the client — where to pay (backend 0199), the whole list, in order.
+        payToFields: values.payToFields.map((field) => ({
+          id: field.id,
+          label: field.label,
+          type: field.type,
+          value: field.value,
+          enabled: field.enabled,
+          hint: field.hint,
+          labelAr: arabicOrNull(field.labelAr ?? ''),
+          hintAr: arabicOrNull(field.hintAr ?? ''),
+        })),
         // Who can use it (backend 0178) — always sent, so clearing it saves.
         countryRule: values.countries.countryRule,
         countryCodes: values.countries.countryCodes,

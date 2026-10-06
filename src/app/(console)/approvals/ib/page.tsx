@@ -19,6 +19,10 @@ import { Badge } from '@/components/ui/badge';
 import { PartnerRejectDialog } from '@/components/ib/partner-reject-dialog';
 import { PartnerApproveDialog } from '@/components/ib/partner-approve-dialog';
 import { QueueToolbar } from '@/components/queue-toolbar';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
+import { useTabCounts } from '@/hooks/use-tab-counts';
+import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
 import { RecordCallout, RecordSheet, useOpenedRecord } from '@/components/record-sheet';
@@ -95,6 +99,10 @@ function PartnerApprovalsContent() {
   const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
   const debouncedSearch = useDebounced(search, 300);
   const [pageSize, setPageSize] = React.useState(25);
+  // The period, by submission: Pending opens on All time (an application
+  // waiting since last week must never hide behind "Today"); decided tabs Today.
+  const url = useTableQueryState();
+  const period = useDateRange(url, status === 'pending' ? 'all' : 'today');
   const [rejecting, setRejecting] = React.useState<Row | null>(null);
   /**
    * The sort, as the API's own two parameters.
@@ -116,12 +124,23 @@ function PartnerApprovalsContent() {
    * new sort — rows that do not match what the header claims.
    */
   const query = useResource<IbApplicationPage>(
-    keys.ibApplications.list([status, debouncedSearch, page, pageSize, sort?.key, sort?.order]),
+    keys.ibApplications.list([
+      status,
+      debouncedSearch,
+      page,
+      pageSize,
+      sort?.key,
+      sort?.order,
+      period.range.from,
+      period.range.to,
+    ]),
     (signal) =>
       api.admin.getIbApplications(
         {
           status: status || undefined,
           q: debouncedSearch || undefined,
+          from: period.range.from,
+          to: period.range.to,
           page,
           limit: pageSize,
           sort: sort?.key,
@@ -189,8 +208,23 @@ function PartnerApprovalsContent() {
   });
 
   const rows = query.data?.rows ?? [];
-  const counts = query.data?.counts;
   const total = query.data?.total ?? 0;
+  // Each tab's count is what it shows when clicked (`useTabCounts`).
+  const countOf = useTabCounts({
+    url,
+    activeWaiting: status === 'pending',
+    current: query.data?.counts,
+    isWaiting: (tab) => tab === 'pending',
+    key: (range) =>
+      keys.ibApplications.list(['counts', debouncedSearch, range.from ?? null, range.to ?? null]),
+    fetchCounts: async (range, signal) =>
+      (
+        await api.admin.getIbApplications(
+          { q: debouncedSearch || undefined, page: 1, limit: 1, ...range },
+          signal,
+        )
+      ).counts,
+  });
 
   /*
    * WHICH application is being approved, not merely THAT one is.
@@ -479,7 +513,7 @@ function PartnerApprovalsContent() {
           filters={TABS.map((tab) => ({
             value: tab.value,
             label: t(tab.labelKey),
-            count: tab.value ? counts?.[tab.value] : undefined,
+            count: tab.value ? countOf(tab.value) : undefined,
           }))}
           active={status}
           onFilterChange={(value) => {
@@ -495,6 +529,17 @@ function PartnerApprovalsContent() {
           }}
           searchPlaceholder={t('partnerReview.searchPlaceholder')}
           searchAriaLabel={t('partnerReview.searchAria')}
+          extra={
+            <DateRangePicker
+              choice={period.choice}
+              custom={period.custom}
+              defaultChoice={period.defaultChoice}
+              onChange={(choice, custom) => {
+                period.set(choice, custom);
+                setPage(1);
+              }}
+            />
+          }
         />
       </div>
 
@@ -546,7 +591,21 @@ function PartnerApprovalsContent() {
            * on is a column of controls that does nothing.
            */
           dimmed={query.isFetching}
-          empty={<EmptyState icon={Handshake} message={t('partnerReview.empty')} />}
+          empty={
+            <EmptyState
+              icon={Handshake}
+              message={t('partnerReview.empty')}
+              action={
+                <PeriodWiden
+                  choice={period.choice}
+                  onChange={(choice) => {
+                    period.set(choice);
+                    setPage(1);
+                  }}
+                />
+              }
+            />
+          }
           sortColumn={sort?.key}
           sortDirection={sort?.order}
           /*

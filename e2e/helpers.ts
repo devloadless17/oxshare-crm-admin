@@ -982,7 +982,8 @@ export async function answerBrokersQuestions(
       else if (field.type === 'select') answers[field.name] = field.options?.[0] ?? 'E2E';
       else if (field.type === 'checkbox') answers[field.name] = field.options?.[0] ?? 'true';
       else if (field.type === 'date') answers[field.name] = '1990-01-01';
-      else if (field.type === 'phone') answers[field.name] = '+96170000011';
+      else if (field.type === 'phone')
+        answers[field.name] = `+96176${String(Date.now()).slice(-6)}`;
       else answers[field.name] = 'Endtoend answer';
     }
     if (Object.keys(answers).length > 0) {
@@ -1044,7 +1045,8 @@ export async function registerClientWithPendingKyc(
   const identity = {
     ...name,
     dateOfBirth: '1988-08-08',
-    phone: '+96170000010',
+    // Its own number: one client per phone since backend 0194.
+    phone: `+96171${String(Date.now()).slice(-6)}`,
     nationality: 'Lebanese',
     country: 'Lebanon',
   };

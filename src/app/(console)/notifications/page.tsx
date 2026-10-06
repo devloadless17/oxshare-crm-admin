@@ -4,6 +4,8 @@ import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Tabs } from '@/components/ui/tabs';
 import { UrlSearchInput } from '@/components/url-search-input';
+import { DateRangePicker } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { NotificationFeed } from '@/components/notifications/notification-feed';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { adminNotificationsApi } from '@/lib/api/admin-notifications';
@@ -42,6 +44,9 @@ function NotificationsScreen() {
   const url = useTableQueryState();
   const view: View = url.get('view') === 'history' ? 'history' : 'inbox';
   const q = view === 'history' ? url.get('q') : '';
+  // History's period — handled tasks pile up; the Inbox is always every open task.
+  const period = useDateRange(url, 'all');
+  const range = view === 'history' ? period.range : {};
 
   // The same query as the bell's badge — one cache entry, one request.
   const summary = useQuery({
@@ -64,7 +69,13 @@ function NotificationsScreen() {
           value={view}
           // The search belongs to History; leaving it drops the term.
           onValueChange={(next) =>
-            url.set({ view: next === 'history' ? 'history' : undefined, q: undefined })
+            url.set({
+              view: next === 'history' ? 'history' : undefined,
+              q: undefined,
+              range: undefined,
+              from: undefined,
+              to: undefined,
+            })
           }
           tabs={[
             {
@@ -80,13 +91,21 @@ function NotificationsScreen() {
           ]}
         />
         {view === 'history' && (
-          <UrlSearchInput
-            value={q}
-            onChange={(next) => url.set({ q: next || undefined })}
-            label={t('notifications.searchLabel')}
-            placeholder={t('notifications.searchPlaceholder')}
-            title={t('notifications.searchTitle')}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <DateRangePicker
+              choice={period.choice}
+              custom={period.custom}
+              defaultChoice={period.defaultChoice}
+              onChange={period.set}
+            />
+            <UrlSearchInput
+              value={q}
+              onChange={(next) => url.set({ q: next || undefined })}
+              label={t('notifications.searchLabel')}
+              placeholder={t('notifications.searchPlaceholder')}
+              title={t('notifications.searchTitle')}
+            />
+          </div>
         )}
       </div>
 
@@ -98,11 +117,11 @@ function NotificationsScreen() {
       >
         <div className="mx-auto w-full max-w-3xl pb-6">
           <NotificationFeed
-            key={`${view}:${q}`}
-            query={{ view, q: q || undefined }}
+            key={`${view}:${q}:${range.from ?? ''}:${range.to ?? ''}`}
+            query={{ view, q: q || undefined, ...range }}
             comfortable
             pageSize={30}
-            filtered={Boolean(q)}
+            filtered={Boolean(q || range.from || range.to)}
             emptyAction={
               view === 'inbox' ? (
                 <button

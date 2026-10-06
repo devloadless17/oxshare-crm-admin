@@ -1,16 +1,10 @@
 'use client';
 
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import type { ClientFieldGroup, ClientTagWithCount } from '@/lib/api/admin';
 import { ToggleList, type ToggleListOption } from '@/components/ui/toggle-list';
+import { ChipInput, type ChipOption } from '@/components/ui/chip-input';
 
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select';
 import { t } from '@/lib/i18n';
 import { maskableFields } from '@/lib/masking';
 
@@ -62,6 +56,30 @@ import { maskableFields } from '@/lib/masking';
  * themselves (the server refuses anyone else), and "only these tags" with none
  * chosen says plainly that it means no clients — or only new ones.
  */
+/**
+ * The territory picker's options: the business's own tags, then the countries
+ * (0193). Unknown chosen ids are kept as options so their chips still render.
+ */
+function scopeOptions(
+  chosen: readonly { id: string; label: string }[],
+  tags: readonly ClientTagWithCount[],
+): ChipOption[] {
+  const regular = tags.filter((tag) => !tag.countryCode);
+  const countries = tags.filter((tag) => tag.countryCode);
+  const known = new Set(tags.map((tag) => tag.id));
+  return [
+    ...chosen
+      .filter((tag) => !known.has(tag.id))
+      .map((tag) => ({ value: tag.id, label: tag.label })),
+    ...regular.map((tag) => ({ value: tag.id, label: tag.label })),
+    ...countries.map((tag) => ({
+      value: tag.id,
+      label: t('tags.countryOption', { label: tag.label }),
+      aliases: [tag.label, tag.countryCode ?? ''],
+    })),
+  ];
+}
+
 export function AdminTagScopePanel({
   tags,
   selected,
@@ -105,7 +123,6 @@ export function AdminTagScopePanel({
         createdAt: '',
       },
   );
-  const available = tags.filter((tag) => !selected.includes(tag.id));
 
   return (
     <div className="space-y-3">
@@ -148,69 +165,34 @@ export function AdminTagScopePanel({
           ) : tags.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t('adminUsers.scopeNoTags')}</p>
           ) : (
+            /*
+             * Search-and-pick (`ChipInput`): since 0193 every country is a tag
+             * too, so the vocabulary is ~270 entries and a plain select is a
+             * wall. Chosen tags show as chips first — the answer to the
+             * question this panel exists for — and a country can be found by
+             * its name or its ISO code. Chosen tags first, then the rest, each
+             * group alphabetical; countries after the business's own tags.
+             */
             <>
-              {/*
-               * WHAT IS CHOSEN, first and on its own. This is the answer to the
-               * question the panel exists to answer, so it is not something to
-               * be inferred from which rows of a grid happen to be ticked.
-               */}
-              {chosen.length === 0 ? (
+              {chosen.length === 0 && (
                 <p className="text-[11px] text-muted-foreground">
                   {t('adminUsers.scopeTagsNoneChosen')}
                 </p>
-              ) : (
-                <ul className="flex flex-wrap gap-1.5">
-                  {chosen.map((tag) => (
-                    <li key={tag.id}>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-ring bg-primary/10 py-1 ps-2.5 pe-1 text-[11px] font-semibold text-foreground">
-                        {tag.label}
-                        <span className="font-normal text-muted-foreground">
-                          {t('adminUsers.scopeTagHint', { count: tag.clientCount })}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => onToggle(tag.id)}
-                          disabled={disabled}
-                          // Named for the tag it removes: a row of identical
-                          // "Remove" buttons is unusable without sight of them.
-                          aria-label={t('adminUsers.scopeTagRemove', { label: tag.label })}
-                          className="focus-outline rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <X className="h-3 w-3" aria-hidden="true" />
-                        </button>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
               )}
-
-              {available.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">
-                  {t('adminUsers.scopeTagsAllChosen')}
-                </p>
-              ) : (
-                /*
-                 * `value=""` on every render — this control performs an action
-                 * rather than holding a value. Letting it keep the last pick
-                 * would leave a tag named in the trigger AND listed as a chip
-                 * below, which reads as two different pieces of state.
-                 */
-                <Select value="" onValueChange={onToggle} disabled={disabled}>
-                  <SelectTrigger
-                    aria-label={t('adminUsers.scopeTagAdd')}
-                    className="h-9 w-full text-xs"
-                  >
-                    <SelectValue placeholder={t('adminUsers.scopeTagAdd')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {available.map((tag) => (
-                      <SelectItem key={tag.id} value={tag.id}>
-                        {tag.label} · {t('adminUsers.scopeTagHint', { count: tag.clientCount })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <ChipInput
+                value={selected}
+                onChange={(next) => {
+                  for (const id of next) if (!selected.includes(id)) onToggle(id);
+                  for (const id of selected) if (!next.includes(id)) onToggle(id);
+                }}
+                options={scopeOptions(chosen, tags)}
+                placeholder={t('adminUsers.scopeTagAdd')}
+                ariaLabel={t('adminUsers.scopeTagAdd')}
+                disabled={disabled}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {t('adminUsers.scopeCountryHint')}
+              </p>
             </>
           )}
 

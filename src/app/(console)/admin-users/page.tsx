@@ -5,10 +5,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserPlus, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import type { AdminUser, PendingInvite, Role } from '@/lib/api/admin';
+import type { AdminUser, PendingInvite, Role, SignupLinkRow } from '@/lib/api/admin';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { ExportButton } from '@/components/export-button';
 import { AdminDirectoryTable } from '@/components/rbac/admin-directory-table';
+import { RenameSignupLinkDialog } from '@/components/signup-links/rename-signup-link-dialog';
 import { AdminFormModal, type AdminFormValues } from '@/components/rbac/admin-form-modal';
 import { InviteAdminModal } from '@/components/rbac/invite-admin-modal';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -54,6 +55,18 @@ export default function AdminUsersPage() {
 
   const [editing, setEditing] = React.useState<AdminUser | null>(null);
   const [inviting, setInviting] = React.useState(false);
+  /** The link being renamed from a row (0198). */
+  const [renamingLink, setRenamingLink] = React.useState<{ adminId: string; slug: string } | null>(
+    null,
+  );
+  // Every administrator's sign-up link and what it has brought (admins.view, as this page).
+  const signupLinksQuery = useResource<SignupLinkRow[]>(keys.signupLinks.all(), (signal) =>
+    api.admin.getSignupLinks(signal),
+  );
+  const signupLinks = React.useMemo(
+    () => new Map((signupLinksQuery.data ?? []).map((link) => [link.adminId, link] as const)),
+    [signupLinksQuery.data],
+  );
 
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -343,6 +356,8 @@ export default function AdminUsersPage() {
             suspendingId={setStatus.isPending ? setStatus.variables?.id : null}
             revokingId={revokeInvite.isPending ? revokeInvite.variables?.id : null}
             onEdit={setEditing}
+            signupLinks={signupLinks}
+            onRenameSignupLink={(user, slug) => setRenamingLink({ adminId: user.id, slug })}
             onToggleStatus={(user) => void handleToggleStatus(user)}
             onResetPassword={(user) => void handleResetPassword(user)}
             onResetAuthenticator={(user) => void handleResetAuthenticator(user)}
@@ -351,6 +366,12 @@ export default function AdminUsersPage() {
         </div>
       </AsyncBoundary>
 
+      <RenameSignupLinkDialog
+        adminId={renamingLink?.adminId ?? ''}
+        current={renamingLink?.slug ?? ''}
+        open={renamingLink !== null}
+        onClose={() => setRenamingLink(null)}
+      />
       <InviteAdminModal
         open={inviting}
         // The directory has already fetched them for the edit modal, so the

@@ -451,13 +451,14 @@ describe('the partner tab', () => {
     expect(screen.getByText(/Level 1 · Main Partner/)).toBeInTheDocument();
     expect(screen.getByText('JFSA8BQB')).toBeInTheDocument();
     /*
-     * BOTH terms and both UNITS. The rung this replaced showed one rate, which
-     * on a partner paid at two depths was half the answer — and the half that
-     * reads as the whole one. The unit matters just as much: "10" alone is two
-     * different payouts, and only the glyph says which.
+     * BOTH terms and both UNITS. The unit matters: "50" alone is two different
+     * payouts, and only the glyph says which. A main partner takes the rest
+     * (0197), so their own commission share is not shown as a term.
      */
     expect(
-      screen.getByText(/70% of the product’s commission · client rebate 50% of its rebate/i),
+      screen.getByText(
+        /Partner 100% on own clients, the rest on sub-partners’ · client rebate 50% of its rebate/i,
+      ),
     ).toBeInTheDocument();
   });
 

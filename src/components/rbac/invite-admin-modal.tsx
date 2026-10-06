@@ -76,14 +76,6 @@ export function InviteAdminModal({
   onInvited: () => void;
 }) {
   const { admin: inviter } = useAdmin();
-  /*
-   * The intake grant is TRUE BY DEFAULT (0058 — restriction is the explicit
-   * act) — EXCEPT when the inviter cannot grant it: a scoped inviter without
-   * the grant themselves gets a false default the API enforces regardless, so
-   * the checkbox must show the truth rather than a tick that will not happen.
-   */
-  const inviterScoped = (inviter?.scopedTags?.length ?? 0) > 0;
-  const canGrantIntake = !inviterScoped || (inviter?.seesUntriaged ?? false);
   // Every client is its own grant (0154), and only an inviter who has it may
   // give it — which is also what the API does with a silent invite.
   const canGrantAll = inviter?.seesAllClients ?? false;
@@ -92,7 +84,6 @@ export function InviteAdminModal({
   const [email, setEmail] = React.useState('');
   const [roleId, setRoleId] = React.useState('');
   const [scopedTagIds, setScopedTagIds] = React.useState<string[]>([]);
-  const [seesUntriaged, setSeesUntriaged] = React.useState(canGrantIntake);
   const [allClients, setAllClients] = React.useState(canGrantAll);
   /** `null` = inherit the chosen role's mask; a list = this person's override. */
   const [maskOverride, setMaskOverride] = React.useState<string[] | null>(null);
@@ -140,7 +131,6 @@ export function InviteAdminModal({
     setEmail('');
     setRoleId('');
     setScopedTagIds([]);
-    setSeesUntriaged(canGrantIntake);
     setMaskOverride(null);
     setResult(null);
     setError('');
@@ -227,7 +217,6 @@ export function InviteAdminModal({
          */
         ...(allClients !== canGrantAll ? { seesAllClients: allClients } : {}),
         ...(!allClients && (scopedTagIds.length > 0 || canGrantAll) ? { scopedTagIds } : {}),
-        ...(!allClients && seesUntriaged !== canGrantIntake ? { seesUntriaged } : {}),
         ...(maskOverride !== null ? { maskedFields: maskOverride } : {}),
       });
       setResult(created);
@@ -446,29 +435,6 @@ export function InviteAdminModal({
                 canGrantAll={canGrantAll}
                 disabled={loading}
               />
-              {!allClients && (
-                <div className="border-t border-border pt-2.5">
-                  <label className="flex cursor-pointer items-start gap-2 text-xs font-medium">
-                    <input
-                      type="checkbox"
-                      checked={seesUntriaged}
-                      onChange={(e) => setSeesUntriaged(e.target.checked)}
-                      // Locked when the inviter cannot grant it — the API would
-                      // refuse, and a tick that cannot happen is a lie.
-                      disabled={loading || !canGrantIntake}
-                      className="mt-0.5 h-3.5 w-3.5 accent-primary"
-                    />
-                    <span>
-                      {t('adminUsers.seesUntriaged')}
-                      <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
-                        {canGrantIntake
-                          ? t('adminUsers.seesUntriagedHint')
-                          : t('adminUsers.seesUntriagedLockedOwn')}
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              )}
             </div>
           )}
 

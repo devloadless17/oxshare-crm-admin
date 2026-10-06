@@ -495,6 +495,16 @@ export const messages = {
   'paymentMethods.proofFieldRequired': 'Required',
   'paymentMethods.proofFieldShown': 'Show to clients',
   'paymentMethods.proofFieldRemove': 'Remove {name}',
+  // What an offline method SHOWS the client — where to send the money (backend 0199).
+  'paymentMethods.sectionPayTo': 'Where the client pays',
+  'paymentMethods.payToFieldsTitle': 'Details shown to the client',
+  'paymentMethods.payToFieldsHint':
+    'Where to send the money — the phone a transfer goes to, an account name. The client sees them on the deposit screen with a Copy button and cannot change them. Each deposit keeps what it was shown.',
+  'paymentMethods.payToFieldsEmpty': 'Nothing shown. Add a detail to tell the client where to pay.',
+  'paymentMethods.payToFieldAdd': 'Add a payment detail',
+  'paymentMethods.payToFieldLabelPlaceholder': 'Send to',
+  'paymentMethods.payToFieldValue': 'Value the client sees',
+  'paymentMethods.payToFieldValuePlaceholder': 'OxShare Ltd',
   'paymentMethods.delete': 'Delete',
   'paymentMethods.deleteInUse': 'Can’t delete — used by transactions',
   'paymentMethods.confirmDeleteTitle': 'Delete {name}?',
@@ -573,7 +583,7 @@ export const messages = {
   'wallets.filterCurrency': 'Currency',
   'wallets.filterCurrencyAll': 'All currencies',
   'wallets.filterClient': 'Search client',
-  'wallets.filterClientPlaceholder': 'Search by name, email, Portal ID or wallet no.',
+  'wallets.filterClientPlaceholder': 'Search by name, email, phone, Portal ID or wallet no.',
   'wallets.filterClientHint':
     'Matches the owner’s email or name, or a whole wallet number — the identifiers this table shows. A wallet number is matched exactly.',
   'wallets.clearFilters': 'Clear filters',
@@ -651,7 +661,7 @@ export const messages = {
   'tradingAccounts.filterStatus': 'Status',
   'tradingAccounts.filterStatusAll': 'All statuses',
   'tradingAccounts.filterClient': 'Search client',
-  'tradingAccounts.filterClientPlaceholder': 'Search by name, email, Portal ID or MT5 login',
+  'tradingAccounts.filterClientPlaceholder': 'Search by name, email, phone, Portal ID or MT5 login',
   'tradingAccounts.filterClientHint':
     'Matches the owner’s email or name, or a whole MT5 login — the identifiers this table shows. Leading zeros matter: 00012345 and 12345 are different accounts.',
   'tradingAccounts.clearFilters': 'Clear filters',
@@ -751,7 +761,7 @@ export const messages = {
   'clients.allLevels': 'All KYC Levels',
   'clients.level0': 'Level 0 — Unverified',
   'clients.level1': 'Level 1 — Verified',
-  'clients.searchPlaceholder': 'Search by name, email or Portal ID…',
+  'clients.searchPlaceholder': 'Search by name, email, phone or Portal ID…',
   'clients.colName': 'Name',
   'clients.colEmail': 'Email',
   'clients.colId': 'Portal ID',
@@ -874,7 +884,7 @@ export const messages = {
   'clients.referredByWho': 'this partner',
   'clients.referredByClear': 'Show all clients',
   'clients.referredByProfile': 'Open their profile',
-  'clients.searchLabel': 'Search clients by name, email or Portal ID',
+  'clients.searchLabel': 'Search clients by name, email, phone or Portal ID',
   /*
    * "Verified" / "Not verified", with no level prefix.
    *
@@ -976,14 +986,8 @@ export const messages = {
   'roles.maskLockedOwn': 'Hidden from you — you cannot grant visibility you do not have.',
 
   'adminUsers.scopeSection': 'Client scope',
-  // D-60 — the intake pool. "Untriaged" is derived (no tags), never a tag.
-  'adminUsers.seesUntriaged': 'Sees new clients (not yet tagged)',
   // A scope id the tag vocabulary did not return — shown rather than dropped.
   'adminUsers.scopeUnknownTag': 'Unknown tag',
-  'adminUsers.seesUntriagedHint':
-    'The intake pool: clients with no tags at all. Granted by default — untick to restrict. Only unrestricted admins and holders of this grant see them. Assigning any tag moves a client out of intake by definition; removing their last tag returns them to it — nobody can fall between territories.',
-  'adminUsers.seesUntriagedLockedOwn':
-    'You do not see the intake pool yourself, so you cannot grant it — the invitee starts without it.',
   'adminUsers.scopeSummary': '{count} {count:tag|tags}',
   // Said in words, because both readings of an empty scope are plausible and
   // one of them is a data breach.
@@ -996,9 +1000,70 @@ export const messages = {
   'adminUsers.scopeTagAdd': 'Add a tag…',
   'adminUsers.scopeTagRemove': 'Remove {label}',
   'adminUsers.scopeTagsAllChosen': 'Every tag is already on this administrator.',
+  'adminUsers.scopeCountryHint':
+    "A country is a tag too: every client living there carries it, so a country here makes this administrator that country's desk.",
+  'tags.countryOption': '{label} (country)',
+  'bulk.selectAllMatching': 'Select all {count} matching',
+  'bulk.allMatchingSelected': 'All {count} matching clients selected',
+  'bulk.onlyThisPage': 'Only this page',
+  'bulk.addTags': 'Add tags',
+  'bulk.removeTags': 'Remove tags',
+  'bulk.replaceTag': 'Replace tag',
+  'bulk.export': 'Export selected',
+  'bulk.title.add': 'Add tags to {count} {count:client|clients}',
+  'bulk.title.remove': 'Remove tags from {count} {count:client|clients}',
+  'bulk.title.replace': 'Replace a tag on {count} {count:client|clients}',
+  'bulk.tagsLabel': 'Tags',
+  'bulk.replaceFrom': 'Take off',
+  'bulk.replaceTo': 'Put on instead',
+  'bulk.apply': 'Apply to {count} {count:client|clients}',
+  'bulk.handOver': 'Hand over {count} {count:client|clients}',
+  'bulk.cancel': 'Cancel',
+  'bulk.failed': 'The change could not be made.',
+  'bulk.done': 'Done: {changed} of {matched} clients changed.',
+  'bulk.skipped': '{count} outside your territory were skipped.',
+  'bulk.targetChanged':
+    'This filter now matches {count} clients, not the number you saw. Check, then apply again.',
+  'bulk.leavesScope':
+    '{count} of these clients will leave your territory: after this change you will no longer see them.',
+  'signup.title': 'My sign-up link',
+  'signup.subtitle':
+    'Send this link to the clients you bring. Whoever signs up through it lands in your book.',
+  'signup.copy': 'Copy link',
+  'signup.copied': 'Sign-up link copied.',
+  'signup.copyFailed': 'Could not copy — select the link and copy it by hand.',
+  'signup.gives': 'Clients who sign up get:',
+  'signup.addsNoTag':
+    'Your link adds no tag: clients you bring are recorded as yours, but no book of yours holds them. Ask for a tag of your own on the Admin users page.',
+  'signup.counts': '{signups} signed up · {verified} verified · {funded} funded',
+  'signup.rename': 'Change link word',
+  'signup.renameTitle': 'Change the sign-up link',
+  'signup.renameHint':
+    'Lowercase letters, digits, - and _ (3–32). The old link stops working: anyone who signs up through it is no longer put in this book.',
+  'signup.renameField': 'Link word',
+  'signup.generate': 'Use a random word',
+  'signup.save': 'Save',
+  'signup.cancel': 'Cancel',
+  'signup.renamed': 'Sign-up link changed.',
+  'signup.renameFailed': 'Could not change the link.',
+  'signup.loading': 'Loading your sign-up link…',
+  'signup.loadFailed': 'Could not load your sign-up link.',
+  'signup.colSignups': 'Sign-ups',
+  'signup.copyFor': 'Copy sign-up link',
+  'signup.renameFor': 'Change sign-up link',
+  'signup.copyMine': 'Copy my sign-up link',
+  'tags.countryFixed':
+    'A country tag is named by its country and carried by every client living there. Only its colour can change.',
+  'tags.tabTags': 'Tags',
+  'tags.tabCountries': 'Countries',
+  'tags.countriesHint':
+    "Every client carries the tag of the country they live in: it follows their country and is never assigned by hand. Put a country in an administrator's territory to make them that country's desk.",
+  'tags.countriesShowAll': 'Show every country',
+  'tags.countriesEmpty': 'No client lives in any country yet.',
+  'tags.countryChipTitle': 'Country: {label}. Every client living there carries it.',
   'adminUsers.scopeTagsNoneChosen': 'No tags chosen.',
   'adminUsers.scopeEmptyWarning':
-    'No tags chosen: this administrator sees no clients — or only new clients, if that is ticked below.',
+    'No tags chosen: this administrator sees no clients. Choose an owner tag or a country.',
   'adminUsers.scopeModeLabel': 'Which clients this administrator sees',
   'adminUsers.scopeModeAll': 'All clients',
   'adminUsers.scopeModeTags': 'Only these tags',
@@ -1006,7 +1071,6 @@ export const messages = {
   'adminUsers.scopeModeAllLocked':
     'Only an administrator who sees every client can grant all clients.',
   'adminUsers.scopeNone': 'No clients',
-  'adminUsers.scopeNewOnly': 'New clients only',
   'adminUsers.maskSection': 'Field visibility',
   'adminUsers.maskSummary': '{count} {count:field|fields} hidden',
   'adminUsers.maskSummaryNone': 'Nothing hidden',
@@ -1169,7 +1233,7 @@ export const messages = {
   'clientProfile.tabReferredAccounts': 'Referred accounts',
   'clientProfile.referredClientsTitle': 'Clients this partner introduced',
   'clientProfile.referredClientsSearch': 'Search the clients this partner introduced',
-  'clientProfile.referredClientsSearchPlaceholder': 'Name, email or Portal ID…',
+  'clientProfile.referredClientsSearchPlaceholder': 'Name, email, phone or Portal ID…',
   'clientProfile.referredClientsOpenList': 'Open in the clients list →',
   'clientProfile.referredClientsLoading': 'Loading the clients this partner introduced',
   'clientProfile.referredClientsLoadFailed': 'Could not load the clients this partner introduced.',
@@ -1226,7 +1290,47 @@ export const messages = {
     'closed trade — commission already earned records the rate it was calculated at and does ' +
     'not change. Partners beneath them keep the levels they were approved on.',
   'clientProfile.changeLevelSave': 'Move to this level',
+  // 0198 — symbols a commission type pays nothing on.
+  'symbolExclusions.title': 'Excluded symbols — no commission, no rebate',
+  'symbolExclusions.hint':
+    'Tick a folder to exclude every symbol in it, including ones added later, or tick single ' +
+    'symbols. Trades on them are still recorded; partners earn nothing and clients get no ' +
+    'rebate on them. Applies to trades priced from now on.',
+  'symbolExclusions.refresh': 'Refresh from MT5',
+  'symbolExclusions.refreshFailed': 'Could not read the symbol list from MT5.',
+  'symbolExclusions.search': 'Search symbols',
+  'symbolExclusions.loading': 'Loading symbols…',
+  'symbolExclusions.empty': 'No symbols yet. Use “Refresh from MT5” to load them from the server.',
+  'symbolExclusions.loadFailed': 'Could not load the symbol list. Try “Refresh from MT5”.',
+  'symbolExclusions.noMatch': 'No symbol matches that search.',
+  'symbolExclusions.count': '{count} symbols',
+  'symbolExclusions.current': 'Currently excluded',
+  'symbolExclusions.remove': 'Stop excluding {name}',
+  'symbolExclusions.toggleFolder': 'Show or hide {folder}',
+  'symbolExclusions.coveredBy': 'Excluded with the whole {folder} folder',
+  'symbolExclusions.syncedAt': 'Symbol list from MT5, last updated {when}.',
   'clientProfile.levelChanged': 'The partner’s commission level was changed.',
+  // 0197 — a sub-partner's own terms.
+  'clientProfile.mainTerms':
+    'Partner 100% on own clients, the rest on sub-partners’ · client rebate {rebate}% of its rebate',
+  'clientProfile.customTerms': 'Set for this sub-partner',
+  'clientProfile.editTerms': 'Edit commission',
+  'clientProfile.termsMainPartner':
+    'This is a main partner. A main partner takes 100% of the commission on their own clients ' +
+    'and the rest on their sub-partners’ clients, so there is no share of theirs to set. Edit ' +
+    'the commission on one of their sub-partners instead.',
+  'clientProfile.termsTitle': 'Commission and rebate for {name}',
+  'clientProfile.termsBody':
+    'This sub-partner’s own shares of the product’s commission and rebate. Leave a field empty ' +
+    'to use the level 2 default. Applies from the next trade.',
+  'clientProfile.termsCommission': 'Sub-partner earns (% of commission)',
+  'clientProfile.termsRebate': 'Their clients get back (% of rebate)',
+  'clientProfile.termsDefault': 'Level default: {share}%',
+  'clientProfile.termsSplit': 'On their clients’ trades: sub-partner {sub}% · main partner {main}%',
+  'clientProfile.termsRange': 'Enter a percentage from 0 to 100.',
+  'clientProfile.termsSave': 'Save',
+  'clientProfile.termsSaved': 'The sub-partner’s commission and rebate were saved.',
+  'clientProfile.termsFailed': 'Could not save the commission and rebate.',
   'clientProfile.levelFailed': 'Could not change the commission level.',
   'clientProfile.levelOption': 'Level {level} · {name}',
   // The rates, because a rung number alone does not tell an operator what they
@@ -1582,7 +1686,7 @@ export const messages = {
 
   // ── KYC review ────────────────────────────────────────────────────────────
   'kycReview.title': 'KYC Submissions',
-  'kycReview.searchPlaceholder': 'Search by name, email or Portal ID…',
+  'kycReview.searchPlaceholder': 'Search by name, email, phone or Portal ID…',
   'kycReview.review': 'Review',
   'kycReview.colUser': 'User',
   'kycReview.colId': 'Portal ID',
@@ -2089,12 +2193,6 @@ export const messages = {
   'tradingSettings.leverages': 'Leverages offered',
   'tradingSettings.leveragesHint':
     'Comma-separated, in the order clients see them. MT5 still clamps to the group’s own maximum.',
-  'tradingSettings.maxLiveAccounts': 'Live accounts per client',
-  'tradingSettings.maxLiveAccountsHint':
-    'How many a client may open themselves. 0 stops new live accounts without touching existing ones.',
-  'tradingSettings.maxDemoAccounts': 'Demo accounts per client',
-  'tradingSettings.maxDemoAccountsHint':
-    'Same, for practice accounts. Every one is a real row on the broker’s server.',
   // ── How often commission is paid (0113) ───────────────────────────────────
   // Replaced "Maximum commission levels", which capped how deep the ladder
   // could go. That is the IB Levels page's job now — add a rung and it pays.
@@ -2200,7 +2298,7 @@ export const messages = {
     'commission level takes its share of it. Leave it unset for a product that pays no partner ' +
     'commission.',
   'products.commissionTypeNone': 'None — pays no partner commission',
-  'products.commissionTypeDemo': 'The demo product never pays commission.',
+  'products.commissionTypeDemo': 'A demo product never pays commission.',
   'products.commissionTypeInactive': 'inactive',
   'products.saveSucceeded': '{name} saved',
   'products.deleteSucceeded': '{name} deleted',
@@ -2274,10 +2372,15 @@ export const messages = {
   'products.typeReal': 'Real',
   'products.typeDemo': 'Demo',
   'products.typeHint':
-    'Real products carry live MT5 groups and are sold through agencies. The demo product carries demo groups and is offered to every client automatically — only one can exist.',
-  'products.typeDemoExists':
-    'A demo product already exists, and only one can. Edit that product to change what demo accounts open in.',
+    'Real products carry live MT5 groups and are sold through agencies. Demo products carry demo groups and are offered to every client automatically.',
   'products.typeLocked': 'Fixed when the product was created.',
+  // ── Limits (backend 0201) ─────────────────────────────────────────────────
+  'products.maxAccounts': 'Max accounts per client',
+  'products.maxAccountsHint':
+    'How many accounts of this product one client may hold, 1–100. Closed accounts do not count; accounts the desk opens are not held to it.',
+  'products.minDeposit': 'Minimum deposit',
+  'products.minDepositHint': 'Every transfer a client makes into this account must reach it',
+  'products.minDepositNone': 'No minimum',
 
   // ── Agencies tab ──────────────────────────────────────────────────────────
   'agencies.title': 'Agencies',
@@ -2719,14 +2822,14 @@ export const messages = {
   'common.loading': 'Loading',
   'auditLog.filterAllActions': 'All Actions',
   'auditLog.filterByAction': 'Filter by action',
-  'clients.searchAria': 'Search clients by name, email or Portal ID',
+  'clients.searchAria': 'Search clients by name, email, phone or Portal ID',
   'kycBuilder.requiredStepTitle': 'Required by FR-CORE-15 — cannot be disabled or deleted',
   'kycBuilder.moveStepUp': 'Move Step Up',
   'kycBuilder.moveStepDown': 'Move Step Down',
   'kycBuilder.removeField': 'Remove Field',
   'kycBuilder.expandStep': 'Show step details — {name}',
   'kycBuilder.collapseStep': 'Hide step details — {name}',
-  'kyc.searchAria': 'Search submissions by name, email or Portal ID',
+  'kyc.searchAria': 'Search submissions by name, email, phone or Portal ID',
   'kyc.loadingQueue': 'Loading KYC submissions',
   'kyc.queueLoadFailed':
     'Failed to load the review queue. This is NOT an empty queue — submissions may be waiting.',
@@ -2773,7 +2876,7 @@ export const messages = {
   'linkAccount.stepProduct': '4 · Product',
   'linkAccount.changeClient': 'Change',
   'linkAccount.clientSearch': 'Search clients',
-  'linkAccount.clientSearchPlaceholder': 'Name, email or Portal ID',
+  'linkAccount.clientSearchPlaceholder': 'Name, email, phone or Portal ID',
   'linkAccount.searching': 'Searching…',
   'linkAccount.noClients': 'No client matches.',
   'linkAccount.loginLabel': 'MT5 login',
@@ -2924,7 +3027,7 @@ export const messages = {
   'financial.caption': 'Money movements',
   'financial.noun': 'movement',
   'financial.nounPlural': 'movements',
-  'financial.searchPlaceholder': 'Search by name, email or Portal ID…',
+  'financial.searchPlaceholder': 'Search by name, email, phone or Portal ID…',
   'financial.searchAria': 'Search movements by client',
   'financial.clearFilters': 'Clear',
   'financial.colClient': 'Client',
@@ -3069,6 +3172,39 @@ export const messages = {
   'financial.filterState': 'State',
   'financial.filterCurrency': 'Currency',
   'financial.filterCurrencyAll': 'All currencies',
+  'financial.filterMethod': 'Payment method',
+  'financial.methodAll': 'All methods',
+  'financial.methodCount': '{count:1 method|{count} methods}',
+  'financial.methodSearch': 'Find a method',
+  'financial.methodNone': 'No method matches.',
+  'financial.methodClear': 'Clear methods',
+  'financial.methodGroupDeposit': 'Deposit methods',
+  'financial.methodGroupWithdrawal': 'Withdrawal methods',
+  'dateRange.label': 'Period: {period}',
+  'clients.registered': 'Registered',
+  'tradingAccounts.openedPeriod': 'Opened',
+  'dateRange.presets': 'Periods',
+  'dateRange.today': 'Today',
+  'dateRange.yesterday': 'Yesterday',
+  'dateRange.last7': 'Last 7 days',
+  'dateRange.last30': 'Last 30 days',
+  'dateRange.thisMonth': 'This month',
+  'dateRange.lastMonth': 'Last month',
+  'dateRange.last3Months': 'Last 3 months',
+  'dateRange.thisYear': 'This year',
+  'dateRange.last12Months': 'Last 12 months',
+  'dateRange.all': 'All time',
+  'dateRange.custom': 'Custom period',
+  'dateRange.defaultMark': '(default)',
+  'dateRange.fromTime': 'From time',
+  'dateRange.toTime': 'To time',
+  'dateRange.timeHint': 'Leave a time empty for the whole day.',
+  'dateRange.apply': 'Apply',
+  'dateRange.since': 'Since {date}',
+  'dateRange.until': 'Until {date}',
+  'dateRange.emptyIn': 'Nothing in this period.',
+  'dateRange.widen30': 'Show the last 30 days',
+  'dateRange.widenAll': 'Show all time',
   'financial.filterFrom': 'From',
   'financial.filterTo': 'To',
   'financial.dateAny': 'Any date',
@@ -3106,7 +3242,7 @@ export const messages = {
   'ledger.filterType': 'Entry type',
   'ledger.filterTypeAll': 'All entry types',
   'ledger.filterClient': 'Search client',
-  'ledger.filterClientPlaceholder': 'Search by name, email or Portal ID',
+  'ledger.filterClientPlaceholder': 'Search by name, email, phone or Portal ID',
   'ledger.filterClientHint':
     'Matches the client’s email or name — the same identifiers shown in the Client column.',
   'ledger.clearFilters': 'Clear',
@@ -3574,6 +3710,8 @@ export const messages = {
   'deposits.colReference': 'Reference',
   'deposits.colReceipt': 'Receipt',
   'deposits.colDetails': 'Details',
+  // What the client was shown at filing — where they were told to send it (backend 0199).
+  'deposits.colPaidTo': 'Paid to',
   'deposits.copyDetail': 'Copy {label}',
   'deposits.colRequested': 'Requested',
   'deposits.colState': 'State',
@@ -3910,15 +4048,20 @@ export const messages = {
   // per lot lives on the type (Commission Types); a rung never holds an amount.
   'ibLevels.commission': 'The partner earns',
   'ibLevels.commissionHint':
-    'The share of the product’s commission per lot a partner on this level takes, on every ' +
-    'trade that reaches them — their own clients’ and their sub-partners’ alike.',
+    'The default share of the product’s commission per lot a sub-partner takes on their own ' +
+    'clients’ trades. Their main partner takes the rest. It can be changed for one ' +
+    'sub-partner on their Partner tab.',
+  'ibLevels.mainTakesRest':
+    'Main partners take 100% of the commission on their own clients, and the rest (100% minus ' +
+    'the sub-partner’s share) on their sub-partners’ clients.',
+  'ibLevels.termRest': '100% on own clients · the rest on sub-partners’',
   'ibLevels.rebate': 'Their client gets back',
   'ibLevels.rebateHint':
     'The share of the product’s rebate per lot returned to a client introduced by a partner on ' +
     'this level. Set it to zero if this level pays no rebate.',
   'ibLevels.independentNote':
-    'Shares are paid independently: on a sub-partner’s client’s trade, this level and every ' +
-    'level above it each take their own share of the product’s figure.',
+    'One commission, split: the sub-partner takes their share and the main partner above them ' +
+    'takes the rest. The tree has two levels — main partners and their sub-partners.',
   'ibLevels.shareTooLarge': 'A share cannot exceed 100% of the product’s figure.',
   'ibLevels.rowActions': 'Actions for level {level}',
   'ibLevels.description': 'Description',
@@ -4045,7 +4188,7 @@ export const messages = {
   'partnerReview.confirmApprove':
     'This creates their partner account and issues a referral code, which is never reissued. The application cannot be decided again.',
   'partnerReview.approving': 'Approving…',
-  'withdrawals.searchPlaceholder': 'Search by name, email or Portal ID',
+  'withdrawals.searchPlaceholder': 'Search by name, email, phone or Portal ID',
   'withdrawals.actionsFor': 'Actions for {name}’s withdrawal',
   'withdrawals.detailsAction': 'View details',
   // The AMOUNT is in the title and the client in the body: this is a queue of
@@ -4077,7 +4220,7 @@ export const messages = {
   'withdrawals.detailsFailureReason': 'Why this failed',
   'withdrawals.detailsNoReason': 'No reason was recorded.',
   'withdrawals.searchAria': 'Search withdrawals',
-  'partnerReview.searchPlaceholder': 'Search by name, email or Portal ID',
+  'partnerReview.searchPlaceholder': 'Search by name, email, phone or Portal ID',
   // Named for the QUEUE. Several screens carry a search box and "Search" alone
   // announces the same thing on all of them.
   'partnerReview.searchAria': 'Search partner applications',
@@ -4178,7 +4321,7 @@ export const messages = {
   'commissions.filterKind': 'Filter by type',
   'commissions.filterKindAll': 'Commission and rebates',
   'commissions.filterPartner': 'Search partner',
-  'commissions.filterPartnerPlaceholder': 'Search by partner name, email or Portal ID',
+  'commissions.filterPartnerPlaceholder': 'Search by partner name, email, phone or Portal ID',
   'commissions.filterPartnerHint':
     'Matches the partner’s Portal ID, email or name — the identifiers shown in the Partner column. It does not search the client on the row.',
   'commissions.clearFilters': 'Clear',
@@ -4206,7 +4349,7 @@ export const messages = {
   'partners.nounOne': 'partner',
   'partners.nounMany': 'partners',
   'partners.searchLabel': 'Search partners',
-  'partners.searchPlaceholder': 'Portal ID, name, email or referral code',
+  'partners.searchPlaceholder': 'Portal ID, name, email, phone or referral code',
   'partners.searchHint':
     'A Portal ID or a referral code matches exactly; a name or an email matches in part.',
   'partners.filterStatus': 'Filter by state',
@@ -4358,8 +4501,9 @@ export const messages = {
   'notifications.pageSubtitle':
     'Every deposit, withdrawal, KYC and IB task for the clients in your territory — what still needs handling, and how the rest ended.',
   'notifications.searchLabel': 'Search by client',
-  'notifications.searchPlaceholder': 'Portal ID or client name',
-  'notifications.searchTitle': 'Matches a Portal ID exactly, or part of a name or email.',
+  'notifications.searchPlaceholder': 'Portal ID, phone or client name',
+  'notifications.searchTitle':
+    'Matches a Portal ID exactly, a phone number with or without its country code, or part of a name or email.',
   'notifications.title': 'Notifications',
   'notifications.loading': 'Loading notifications',
   'notifications.loadFailed': 'Could not load notifications.',

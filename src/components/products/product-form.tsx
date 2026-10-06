@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   adminApi,
   type AvailableGroup,
@@ -22,17 +22,13 @@ import {
 import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { ArabicTextField, arabicOrNull } from '@/components/arabic-text-field';
+import { plainAmount } from '@/components/currencies/limit-input';
+import { parseIntegerField } from '@/lib/form-values';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { ProductGroupRow, type StagedGroup } from './product-group-row';
 
-/** A group the form is holding, whether or not the server has it yet. */
-export interface StagedGroup {
-  /** The row id, absent while the group is only staged in this form. */
-  id?: string;
-  environment: 'live' | 'demo';
-  mt5Group: string;
-  currency: string;
-}
+export type { StagedGroup };
 
 export interface ProductFormValues {
   name: string;
@@ -46,9 +42,11 @@ export interface ProductFormValues {
   type: 'real' | 'demo';
   /**
    * The rate card this product pays partners on (0140), or null for a product
-   * that pays no partner commission. The demo product never carries one.
+   * that pays no partner commission. A demo product never carries one.
    */
   commissionTypeId: string | null;
+  /** How many accounts one client may hold under this product, 1–100 (0201). */
+  maxAccountsPerClient: number;
   /** The complete set the operator wants. The caller diffs it against the row. */
   groups: StagedGroup[];
 }
@@ -78,7 +76,6 @@ export interface ProductFormValues {
  */
 export function ProductForm({
   product,
-  demoTaken,
   commissionTypes,
   saving,
   error,
@@ -86,7 +83,6 @@ export function ProductForm({
   onClose,
 }: {
   product?: Product;
-  demoTaken: boolean;
   commissionTypes: IbCommissionType[];
   saving: boolean;
   error: unknown;
@@ -115,7 +111,19 @@ export function ProductForm({
   const [commissionTypeId, setCommissionTypeId] = React.useState<string>(
     product?.commissionTypeId ?? NO_TYPE,
   );
-  const [groups, setGroups] = React.useState<StagedGroup[]>(product?.groups ?? []);
+  const [groups, setGroups] = React.useState<StagedGroup[]>(
+    (product?.groups ?? []).map((group) => ({
+      ...group,
+      // '100.00000000' on the wire reads '100' in the box.
+      minDeposit: plainAmount(group.minDeposit),
+    })),
+  );
+  /*
+   * A STRING, parsed at submit by `parseIntegerField` — never `Number(x) || 5`,
+   * which would save a typo as five. 5 is the API's own default for a new one.
+   */
+  const [maxAccounts, setMaxAccounts] = React.useState(String(product?.maxAccountsPerClient ?? 5));
+  const [maxAccountsError, setMaxAccountsError] = React.useState<string | null>(null);
 
   /*
    * The type decides the groups' environment — a real product carries live
@@ -187,6 +195,7 @@ export function ProductForm({
         environment: type === 'demo' ? 'demo' : 'live',
         mt5Group: match.name,
         currency: match.currency,
+        minDeposit: '',
       },
     ]);
     setChosen('');
@@ -195,8 +204,18 @@ export function ProductForm({
   const removeGroup = (mt5Group: string) =>
     setGroups((current) => current.filter((group) => group.mt5Group !== mt5Group));
 
+  const setMinDeposit = (mt5Group: string, minDeposit: string) =>
+    setGroups((current) =>
+      current.map((group) => (group.mt5Group === mt5Group ? { ...group, minDeposit } : group)),
+    );
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
+    const cap = parseIntegerField(maxAccounts, t('products.maxAccounts'), { min: 1, max: 100 });
+    if (!cap.ok) {
+      setMaxAccountsError(cap.error);
+      return;
+    }
     onSubmit({
       name: name.trim(),
       nameAr: arabicOrNull(nameAr),
@@ -214,6 +233,7 @@ export function ProductForm({
        */
       commissionTypeId:
         type === 'demo' ? null : commissionTypeId === NO_TYPE ? null : commissionTypeId,
+      maxAccountsPerClient: cap.value,
       groups,
     });
   };
@@ -327,13 +347,9 @@ export function ProductForm({
               A select rather than a radio group: this repo has no
               `radio-group.tsx` and `@radix-ui/react-radio-group` is not a
               dependency, so a group would mean adding a package to render a
-              two-way choice that a select already states in one line. The
-              options are mutually exclusive and always exactly two.
-
-              `demoTaken` disables the OPTION, not the control. The rule is
-              "there is already a demo product", which is a fact about that one
-              choice — disabling the whole select would also take away the real
-              option, which is always available.
+              two-way choice that a select already states in one line. Both
+              options are always available: any number of demo products may
+              exist (backend 0201).
             */}
               <Select value={type} onValueChange={(next) => changeType(next as 'real' | 'demo')}>
                 <SelectTrigger className="h-9 w-full" aria-label={t('products.type')}>
@@ -341,17 +357,40 @@ export function ProductForm({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="real">{t('products.typeReal')}</SelectItem>
-                  <SelectItem value="demo" disabled={demoTaken}>
-                    {t('products.typeDemo')}
-                  </SelectItem>
+                  <SelectItem value="demo">{t('products.typeDemo')}</SelectItem>
                 </SelectContent>
               </Select>
               <span className="block text-[11px] leading-relaxed text-muted-foreground">
-                {demoTaken ? t('products.typeDemoExists') : t('products.typeHint')}
+                {t('products.typeHint')}
               </span>
             </div>
           )}
         </div>
+
+        {/* ── How many one client may hold (0201) ─────────────────────────── */}
+        <label className="space-y-1.5 sm:col-span-2">
+          <span className="block text-xs font-semibold">{t('products.maxAccounts')}</span>
+          <input
+            value={maxAccounts}
+            onChange={(event) => {
+              setMaxAccounts(event.target.value);
+              setMaxAccountsError(null);
+            }}
+            inputMode="numeric"
+            required
+            maxLength={3}
+            aria-invalid={maxAccountsError !== null}
+            className={`${INPUT_CLASS} max-w-32 tabular-nums`}
+          />
+          <span
+            role={maxAccountsError ? 'alert' : undefined}
+            className={`block text-[11px] leading-relaxed ${
+              maxAccountsError ? 'font-medium text-destructive' : 'text-muted-foreground'
+            }`}
+          >
+            {maxAccountsError ?? t('products.maxAccountsHint')}
+          </span>
+        </label>
 
         {/* ── The MT5 groups ─────────────────────────────────────────────── */}
         <div className="space-y-2 border-t border-border pt-4 sm:col-span-2">
@@ -368,33 +407,14 @@ export function ProductForm({
             </p>
           ) : (
             <ul className="space-y-1.5">
-              {groups.map((group) => (
-                <li
+              {groups.map((group, index) => (
+                <ProductGroupRow
                   key={group.mt5Group}
-                  className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs"
-                >
-                  <Badge variant={group.environment === 'live' ? 'default' : 'tag'}>
-                    {group.environment === 'live' ? t('products.live') : t('products.demo')}
-                  </Badge>
-                  <span className="font-mono">{group.mt5Group}</span>
-                  <span className="text-muted-foreground">{group.currency || '—'}</span>
-                  {/* Staged rows say so. Detaching one that is already saved
-                    takes effect on Save, and the operator should be able to
-                    tell which of the two a row is. */}
-                  {group.id === undefined && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {t('products.pending')}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeGroup(group.mt5Group)}
-                    aria-label={t('products.detach')}
-                    className="ml-auto cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive focus-outline"
-                  >
-                    <X className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                </li>
+                  group={group}
+                  index={index}
+                  onRemove={() => removeGroup(group.mt5Group)}
+                  onMinDepositChange={(value) => setMinDeposit(group.mt5Group, value)}
+                />
               ))}
             </ul>
           )}

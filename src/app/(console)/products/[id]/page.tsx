@@ -60,9 +60,6 @@ export default function ProductPage() {
             <ProductForm
               key={product?.id ?? 'new'}
               product={product}
-              demoTaken={(products.data ?? []).some(
-                (other) => other.type === 'demo' && other.id !== product?.id,
-              )}
               commissionTypes={commissionTypes.data ?? []}
               saving={save.isPending}
               error={save.error}

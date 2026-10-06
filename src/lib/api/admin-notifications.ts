@@ -37,6 +37,9 @@ export interface AdminNotificationQuery {
   category?: AdminNotificationCategory;
   /** A client — Portal ID (exact) or part of a name or email. */
   q?: string;
+  /** When raised — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
+  from?: string;
+  to?: string;
   cursor?: string;
   limit?: number;
 }
@@ -46,6 +49,8 @@ export const adminNotificationsApi = {
     const params = new URLSearchParams({ view: query.view });
     if (query.category) params.set('category', query.category);
     if (query.q?.trim()) params.set('q', query.q.trim());
+    if (query.from) params.set('from', query.from);
+    if (query.to) params.set('to', query.to);
     if (query.cursor) params.set('cursor', query.cursor);
     if (query.limit) params.set('limit', String(query.limit));
     const { data } = await apiClient.get<AdminNotificationPage>(

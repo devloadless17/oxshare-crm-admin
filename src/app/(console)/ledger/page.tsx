@@ -9,6 +9,9 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { UrlSearchInput } from '@/components/url-search-input';
+import { ExportButton } from '@/components/export-button';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
@@ -110,6 +113,13 @@ function LedgerPageContent() {
    * what the cell displays, never what the query uses.
    */
   const walletId = url.get('walletId');
+  /*
+   * The period opens on TODAY — the ledger only ever grows, and its whole
+   * history is the last thing a reader wants by default. A deep link to one
+   * client's or one wallet's ledger opens on All time: that is a
+   * reconciliation, and it must start complete.
+   */
+  const period = useDateRange(url, userId || walletId ? 'all' : 'today');
 
   const params = {
     page,
@@ -118,11 +128,21 @@ function LedgerPageContent() {
     q: q || undefined,
     userId: userId || undefined,
     walletId: walletId || undefined,
+    from: period.range.from,
+    to: period.range.to,
   };
 
   const query = useResource<LedgerListResponse>(keys.ledger.list(params), (signal) =>
     api.admin.getLedger(params, signal),
   );
+
+  // "Export what I am looking at": the list's own filters, never its paging.
+  const exportFilters = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (key !== 'page' && key !== 'limit' && value !== undefined && value !== '') {
+      exportFilters.set(key, String(value));
+    }
+  }
 
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
@@ -247,13 +267,18 @@ function LedgerPageContent() {
     },
   ];
 
-  const filtered = Boolean(entryType || q || userId || walletId);
+  const filtered = Boolean(
+    entryType || q || userId || walletId || period.choice !== period.defaultChoice,
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('ledger.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('ledger.subtitle')}</p>
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold tracking-tight">{t('ledger.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('ledger.subtitle')}</p>
+        </div>
+        <ExportButton resource="ledger" filters={exportFilters} disabled={total === 0} />
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-3">
@@ -265,6 +290,13 @@ function LedgerPageContent() {
           // Filter and page written together, so narrowing always lands on page
           // one rather than past the end of the new result set.
           onChange={(next) => url.set({ q: next || undefined, page: undefined })}
+        />
+
+        <DateRangePicker
+          choice={period.choice}
+          custom={period.custom}
+          defaultChoice={period.defaultChoice}
+          onChange={period.set}
         />
 
         <Select
@@ -331,7 +363,13 @@ function LedgerPageContent() {
           rows={rows}
           rowKey={(r) => r.id}
           dimmed={query.isFetching}
-          empty={<EmptyState icon={Receipt} message={t('ledger.empty')} />}
+          empty={
+            <EmptyState
+              icon={Receipt}
+              message={t('ledger.empty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
+            />
+          }
           pagination={{
             page,
             pageSize,

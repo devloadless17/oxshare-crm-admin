@@ -4,9 +4,8 @@
  *
  * The rewrite made every call same-origin, so the API's `Set-Cookie` reached the
  * browser through the FRONTEND's host and the session was stored there. The
- * realtime socket cannot use a rewrite — Vercel serves rewrites from serverless
- * functions, which cannot hold a WebSocket open — so it dials the API host
- * directly, found no cookie for that host, and every handshake was refused with
+ * realtime socket never went through the rewrite: it dials the API host
+ * directly, so it found no cookie for that host, and every handshake was refused with
  * only a warning to show for it.
  *
  * Calling the API directly puts the cookie where the socket looks for it, and
@@ -17,8 +16,8 @@
  * THE DEPLOYMENT REQUIREMENT THIS CREATES: the frontend and the API must be
  * SIBLING SUBDOMAINS of one registrable domain — `admin.example.com` and
  * `api.example.com`. `SameSite=Lax` sends a cookie on a same-SITE request and
- * withholds it on a cross-site one, and `*.vercel.app` is its own registrable
- * domain, so a Vercel-hosted frontend on the default URL is cross-site from the
+ * withholds it on a cross-site one, and a frontend on another registrable
+ * domain (a hosting provider's default URL, say) is cross-site from the
  * API and gets no cookie at all. DEPLOYMENT.md states this; it is the one thing
  * that must be true wherever this is hosted.
  */

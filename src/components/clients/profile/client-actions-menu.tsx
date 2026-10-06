@@ -12,6 +12,7 @@ import {
   ScrollText,
   ShieldCheck,
   Tags,
+  SlidersHorizontal,
 } from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
@@ -60,6 +61,7 @@ export function ClientActionsMenu({
   onEditProfile,
   onChangeEmail,
   onLinkAccount,
+  onEditTerms,
 }: {
   profile: ClientProfile;
   /** Null when this client is not a partner — the partner block is then absent. */
@@ -69,6 +71,8 @@ export function ClientActionsMenu({
   onChangeEmail: () => void;
   /** Opens "Link an existing MT5 account" with this client filled in. */
   onLinkAccount?: () => void;
+  /** 0197 — a sub-partner's own commission and rebate. */
+  onEditTerms?: () => void;
 }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
@@ -87,6 +91,12 @@ export function ClientActionsMenu({
   const canChangeEmail = hasPermission(admin, 'clients.email');
   const canSuspendClient = hasPermission(admin, 'clients.suspend');
   const canSuspendPartner = hasPermission(admin, 'ib.partners.suspend');
+  const canEditPartner = hasPermission(admin, 'ib.partners.edit');
+  // Only a sub-partner has terms of their own (0197).
+  const isSubPartner =
+    partner !== null &&
+    partner.level >= 2 &&
+    (partner.parent !== null || partner.parentOutsideTerritory);
   const canAssignTags = hasPermission(admin, 'clients.tag');
   // The KYC page opens with either key (its route requirement), so the item does.
   const canViewKyc = hasPermission(admin, 'kyc.view') || hasPermission(admin, 'kyc.review');
@@ -250,6 +260,17 @@ export function ClientActionsMenu({
             destructive: partner.active,
             separatorBefore: true,
             onSelect: () => void confirmPartnerActive(),
+          },
+        ]
+      : []),
+    // 0197 — the owner asked for a sub-partner's commission here too (6 Oct 2026).
+    ...(isSubPartner && canEditPartner && onEditTerms
+      ? [
+          {
+            label: t('clientProfile.editTerms'),
+            icon: SlidersHorizontal,
+            separatorBefore: !(partner && canSuspendPartner),
+            onSelect: onEditTerms,
           },
         ]
       : []),

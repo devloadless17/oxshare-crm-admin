@@ -28,10 +28,9 @@ import { TradingSettingsPanel } from './trading-settings-panel';
  *
  * ## What is left is still worth pinning
  *
- * Three numbers that decide what a client is offered, and one of them —
- * `maxLiveAccounts` — has a zero that MEANS something ("stop opening new live
- * accounts"). That is why the form parses rather than coercing: `Number(x) || 5`
- * would turn a deliberate 0 into five, and the save would report success.
+ * The demo ceiling, which is money and stays a string. The two account caps
+ * that sat beside it are per PRODUCT now (backend 0201) — set on each product's
+ * page — so this form neither shows nor sends them.
  */
 const { getTradingSettings, updateTradingSettings } = vi.hoisted(() => ({
   getTradingSettings: vi.fn(),
@@ -47,8 +46,6 @@ vi.mock('@/lib/api/admin', async (importOriginal) => {
 });
 
 const SAVED = {
-  maxLiveAccounts: 5,
-  maxDemoAccounts: 5,
   maxDemoDeposit: '1000000.00000000',
   /*
    * The commission cadence (0113), REQUIRED here rather than optional: the
@@ -84,47 +81,11 @@ describe('the account terms on the trading form', () => {
   it('shows the terms the platform is actually offering', async () => {
     renderWithProviders(<TradingSettingsPanel canManage />);
 
-    expect(await screen.findByLabelText(/live accounts per client/i)).toHaveValue(5);
     // Trailing zeros trimmed: the column is numeric(28,8) and
     // '1000000.00000000' in a text box is a number nobody typed.
-    expect(screen.getByLabelText(/largest demo starting balance/i)).toHaveValue('1000000');
-  });
-
-  it('saves a changed cap', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<TradingSettingsPanel canManage />);
-
-    const box = await screen.findByLabelText(/live accounts per client/i);
-    await user.clear(box);
-    await user.type(box, '3');
-    await user.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() =>
-      expect(updateTradingSettings).toHaveBeenCalledWith(
-        expect.objectContaining({ maxLiveAccounts: 3 }),
-      ),
-    );
-  });
-
-  /*
-   * ⚠️ ZERO IS A DECISION HERE — "stop opening new live accounts" — so it must
-   * survive the trip. `Number(x) || 5` is the idiom that would quietly turn it
-   * back into five while the save reported success.
-   */
-  it('sends zero when an operator genuinely chooses it', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<TradingSettingsPanel canManage />);
-
-    const box = await screen.findByLabelText(/live accounts per client/i);
-    await user.clear(box);
-    await user.type(box, '0');
-    await user.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() =>
-      expect(updateTradingSettings).toHaveBeenCalledWith(
-        expect.objectContaining({ maxLiveAccounts: 0 }),
-      ),
-    );
+    expect(await screen.findByLabelText(/largest demo starting balance/i)).toHaveValue('1000000');
+    // The account caps are each product's now (0201).
+    expect(screen.queryByLabelText(/accounts per client/i)).not.toBeInTheDocument();
   });
 
   /*
@@ -203,7 +164,7 @@ describe('the account terms on the trading form', () => {
   it('offers no editing to an operator who may only read the tab', async () => {
     renderWithProviders(<TradingSettingsPanel canManage={false} />);
 
-    expect(await screen.findByLabelText(/live accounts per client/i)).toBeDisabled();
+    expect(await screen.findByLabelText(/largest demo starting balance/i)).toBeDisabled();
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 
@@ -215,7 +176,7 @@ describe('the account terms on the trading form', () => {
   it('offers no commission controls at all', async () => {
     renderWithProviders(<TradingSettingsPanel canManage />);
 
-    await screen.findByLabelText(/live accounts per client/i);
+    await screen.findByLabelText(/largest demo starting balance/i);
 
     expect(screen.queryByLabelText(/maximum paid to partners/i)).toBeNull();
     expect(screen.queryByLabelText(/settlement window/i)).toBeNull();

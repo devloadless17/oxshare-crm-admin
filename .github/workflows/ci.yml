@@ -52,8 +52,14 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/production' }}
 
 jobs:
-  verify:
-    name: Type-check, test and build
+  # ── Verification, in PARALLEL (6 Oct 2026: the owner's "about 5 minutes") ──
+  #
+  # `checks` (audit, types, format, lint, build, contract) and 3 unit-test SHARDS
+  # run side by side; `verify` merges the shards. The coverage floors and the
+  # every-file-ran check are judged on the MERGED run, the whole suite, as before.
+  # Shards switch the floors off only because each holds part of the suite.
+  checks:
+    name: Audit, types, lint, build and contract
     runs-on: ubuntu-latest
 
     steps:
@@ -114,27 +120,6 @@ jobs:
           sparse-checkout: openapi.json
           sparse-checkout-cone-mode: false
 
-      - name: Unit tests
-        run: npm run test:coverage
-
-      # This step does NOT detect API contract drift, and used to claim it did.
-      #
-      # `next build` type-checks this app against the COMMITTED
-      # src/lib/api/types.gen.ts. If the backend changed a response shape and
-      # nobody ran `npm run gen:api-types`, the committed file still describes the
-      # old shape, the app still compiles against it, and this step is green — so
-      # the one failure mode the generated types exist to catch is the one it
-      # cannot see. It fires only in the harmless direction: someone regenerated
-      # and forgot to update a caller.
-      #
-      # PLATFORM-CONVENTIONS §13.3 called that claim out as the most consequential
-      # of three stale statements in the docs, "because it describes a safety net
-      # that is not there". The claim is gone rather than left to reassure.
-      #
-      # The real check (R-1.3) needs the backend to publish its OpenAPI document
-      # so this job can regenerate and diff. That is cross-repo work, tracked as a
-      # Group C item in docs/AUDIT-oxshare-crm-admin.md. Until it exists, treat
-      # `types.gen.ts` as a snapshot that a human must refresh.
       - name: Build
         run: npm run build
         env:
@@ -215,6 +200,104 @@ jobs:
   #
   # No `continue-on-error`. The audit found a lint step that was green by
   # construction; a gate that cannot fail is not a gate.
+
+  tests:
+    name: Unit tests (shard ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2, 3]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # PLATFORM-CONVENTIONS R-7.6. `--no-audit` above keeps the install quiet;
+      # auditing is a separate, FAILING step rather than install noise nobody
+      # reads. This app holds admin session cookies and renders client PII.
+      #
+      # `--omit=dev`, as the backend does: this audits what SHIPS. A dev-only
+      # advisory must not block a production deploy (5 Oct 2026: `braces` via
+      # eslint-config-next, with no patched release yet, failed every run while
+      # the production tree was clean). Dev tooling never reaches the image.
+
+      - name: Fetch the backend contract
+        uses: actions/checkout@v4
+        with:
+          repository: devloadless17/oxshare-crm-backend
+          # Same owner, so the default token works while the repo is visible to
+          # it. If that stops being true the step FAILS the build rather than
+          # degrading to a skip — which is the behaviour this whole change is
+          # about. Set CROSS_REPO_TOKEN to a read-only PAT if needed.
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+          path: .contract
+          sparse-checkout: openapi.json
+          sparse-checkout-cone-mode: false
+
+
+      - name: Unit tests, shard ${{ matrix.shard }} of 3
+        run: >-
+          npx vitest run --shard=${{ matrix.shard }}/3 --coverage
+          --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
+          --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
+          --reporter=default --reporter=blob
+          --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vitest-blob-${{ matrix.shard }}
+          path: .vitest-reports/
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
+  verify:
+    name: Type-check, test and build
+    # The gate `deploy` waits for: everything above passed, and the WHOLE unit
+    # suite, merged, meets the coverage floors with every test file accounted for.
+    needs: [checks, tests]
+    if: ${{ !cancelled() && needs.checks.result == 'success' && needs.tests.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # PLATFORM-CONVENTIONS R-7.6. `--no-audit` above keeps the install quiet;
+      # auditing is a separate, FAILING step rather than install noise nobody
+      # reads. This app holds admin session cookies and renders client PII.
+      #
+      # `--omit=dev`, as the backend does: this audits what SHIPS. A dev-only
+      # advisory must not block a production deploy (5 Oct 2026: `braces` via
+      # eslint-config-next, with no patched release yet, failed every run while
+      # the production tree was clean). Dev tooling never reaches the image.
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: vitest-blob-*
+          path: .vitest-reports
+          merge-multiple: true
+
+      - name: The whole unit suite, merged — coverage floors and every file accounted for
+        run: >-
+          npx vitest run --merge-reports --coverage
+          --reporter=default --reporter=json --outputFile.json=.vitest-result.json
+          && node scripts/assert-suite-complete.mjs
+
   journeys:
     name: Browser journeys (E2E_STRICT)
     # Never on `push` — see above. Production PRs and on demand only.
@@ -453,18 +536,21 @@ jobs:
   # Everything below runs ONLY for a push to `production`. On a pull_request,
   # github.ref is refs/pull/N/merge, so the event is checked too.
   # ───────────────────────────────────────────────────────────────────────────
+  # ── CI on main, CI + CD on production (the owner's rule, 6 Oct 2026) ──────
+  #
+  # A push to main verifies and stops. A push to production verifies AND builds
+  # the image at the same time; `deploy` ships it only when both have passed, so
+  # nothing reaches the server that did not pass `verify`. The image is tagged
+  # with the commit, so a rollback names exactly what it returns to.
   build:
-    name: Build and push image
+    name: Build image
     if: github.ref == 'refs/heads/production' && github.event_name != 'pull_request'
-    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      # NEXT_PUBLIC_* are BAKED INTO the image (bundle and CSP), so a wrong value
-      # here ships a admin console that calls the wrong API until the next release.
-      # Checked here, where the message can name the secret.
+
       - name: Check the API origin
         env:
           API_ORIGIN: ${{ secrets.API_ORIGIN }}
@@ -484,9 +570,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_SECRET }}
 
-      # A push does not check visibility, and a push to a repository that does not
-      # exist CREATES it with the account's default visibility, usually public. The
-      # backend's image was found public on 5 Oct 2026; this refuses both cases.
       - name: Refuse a public or missing Docker Hub repository
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
@@ -522,8 +605,7 @@ jobs:
               ;;
           esac
 
-      # `latest` for a human, the commit SHA for the machine: the deploy pins the
-      # SHA, so `up -d` always recreates, and the tag is the rollback target.
+      # Tagged with the commit: `deploy` ships it only once `verify` has passed.
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -532,16 +614,16 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=${{ secrets.API_ORIGIN }}
             NEXT_PUBLIC_REALTIME_ORIGIN=${{ secrets.API_ORIGIN }}
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/oxshare-crm-admin:latest
-            ${{ secrets.DOCKER_USERNAME }}/oxshare-crm-admin:${{ github.sha }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/oxshare-crm-admin:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
     name: Deploy the admin console (only)
-    if: github.ref == 'refs/heads/production' && github.event_name != 'pull_request'
-    needs: build
+    if: >-
+      !cancelled() && github.ref == 'refs/heads/production' && github.event_name != 'pull_request' &&
+      needs.verify.result == 'success' && needs.build.result == 'success'
+    needs: [verify, build]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -603,6 +685,7 @@ jobs:
 
       - name: Ship and deploy
         env:
+          IMAGE_TAG: ${{ github.sha }}
           HOST: ${{ secrets.VPS_HOST }}
           SSH_USER: ${{ secrets.VPS_USER }}
           PORT: ${{ secrets.VPS_PORT || '22' }}
@@ -653,7 +736,7 @@ jobs:
           {
             printf 'DEPLOY_DIR=%q\n' "$DEPLOY_DIR"
             printf 'SERVICE=%q\n' "$SERVICE"
-            printf 'IMAGE=%q\n' "$DOCKER_USERNAME/oxshare-crm-admin:$GITHUB_SHA"
+            printf 'IMAGE=%q\n' "$DOCKER_USERNAME/oxshare-crm-admin:$IMAGE_TAG"
             printf 'DOCKER_USERNAME=%q\n' "$DOCKER_USERNAME"
             printf 'DOCKER_SECRET=%q\n' "$DOCKER_SECRET"
             printf 'ADMIN_DOMAIN=%q\n' "$ADMIN_DOMAIN"

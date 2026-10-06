@@ -68,8 +68,8 @@ const nextConfig: NextConfig = {
   /*
    * Self-hosted builds set NEXT_OUTPUT=standalone (see the Dockerfile). The build
    * then emits `.next/standalone`: a server.js plus only the node_modules it
-   * traces, so the production image carries no dev dependencies. Unset, as on
-   * Vercel and in `npm run dev`, nothing changes.
+   * traces, so the production image carries no dev dependencies. Unset, as in `npm run dev`,
+   * nothing changes.
    */
   ...(process.env.NEXT_OUTPUT === 'standalone' ? { output: 'standalone' as const } : {}),
   // Three sibling repos each have a lockfile; pin the root so Next doesn't guess.

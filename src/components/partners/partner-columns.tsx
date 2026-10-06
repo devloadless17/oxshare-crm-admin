@@ -1,4 +1,13 @@
-import { Ban, CheckCircle2, Eye, HandCoins, Network, Percent, Users } from 'lucide-react';
+import {
+  Ban,
+  CheckCircle2,
+  Eye,
+  HandCoins,
+  Network,
+  Percent,
+  Users,
+  SlidersHorizontal,
+} from 'lucide-react';
 import type { Column } from '@/components/data-table';
 import { RowActions, actionsColumn, type RowAction } from '@/components/row-actions';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +58,7 @@ export function partnerColumns({
   actingId,
   onChangeLevel,
   onReassignParent,
+  onEditTerms,
   onToggleActive,
 }: {
   maskedFields: readonly string[];
@@ -64,6 +74,8 @@ export function partnerColumns({
   actingId: ClientRef | null | undefined;
   onChangeLevel: (row: IbPartnerRow) => void;
   onReassignParent: (row: IbPartnerRow) => void;
+  /** 0197 — a sub-partner's own commission and rebate. Offered on sub-partners only. */
+  onEditTerms: (row: IbPartnerRow) => void;
   onToggleActive: (row: IbPartnerRow) => void;
 }): Column<IbPartnerRow>[] {
   const nameHidden = isMasked('client.firstName', maskedFields);
@@ -181,6 +193,15 @@ export function partnerColumns({
             icon: Network,
             onSelect: () => onReassignParent(row),
           },
+          ...(row.account.level >= 2
+            ? [
+                {
+                  label: t('clientProfile.editTerms'),
+                  icon: SlidersHorizontal,
+                  onSelect: () => onEditTerms(row),
+                },
+              ]
+            : []),
         ]
       : []),
     ...(canSuspendPartners

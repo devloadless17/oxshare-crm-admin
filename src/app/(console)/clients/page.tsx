@@ -20,10 +20,15 @@ import { PageLoader } from '@/components/ui/loader';
 import { MaskedFieldsNotice } from '@/components/masked-value';
 import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
+import { EditTermsFromList } from '@/components/partners/edit-terms-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
 import { ExportButton } from '@/components/export-button';
+import { ClientBulkBar } from '@/components/clients/client-bulk-bar';
+import type { BulkClientFilter } from '@/lib/api/admin';
 import { LinkAccountDialog } from '@/components/trading/link-account-dialog';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -65,6 +70,8 @@ function ClientsPageContent() {
   /* The same key `PermissionsGuard` enforces on PATCH /admin/ib/partners/:id/program. */
   const canEditPartners = hasPermission(admin, 'ib.partners.edit');
   const canViewTags = hasPermission(admin, 'tags.view') || hasPermission(admin, 'clients.view');
+  // Bulk tagging (Slice 3): the API demands both keys.
+  const canBulk = hasPermission(admin, 'clients.bulk') && hasPermission(admin, 'clients.tag');
 
   const url = useTableQueryState();
   /*
@@ -105,6 +112,8 @@ function ClientsPageContent() {
    * request rather than two.
    */
   const debouncedSearch = useDebounced(url.get('q').trim());
+  // When they registered. The client BOOK opens whole: All time.
+  const period = useDateRange(url, 'all');
 
   const sortKey = CLIENT_SORT_KEYS.includes(url.sort.key as ClientSortKey)
     ? (url.sort.key as ClientSortKey)
@@ -134,6 +143,8 @@ function ClientsPageContent() {
     // Everyone one partner introduced. Reached from the profile's Network tab,
     // whose list is capped — this is where the rest of the book lives.
     referredBy: url.get('referredBy'),
+    from: period.range.from,
+    to: period.range.to,
     sort: sortKey,
     // Withheld when nothing is sorted. `order` alone describes an ordering of
     // no column — the API is entitled to reject it, and sending it would also
@@ -169,6 +180,8 @@ function ClientsPageContent() {
       emailVerified: params.emailVerified,
       tag: params.tag,
       referredBy: params.referredBy,
+      from: params.from,
+      to: params.to,
       sort: params.sort,
       order: params.order,
     })) {
@@ -177,6 +190,8 @@ function ClientsPageContent() {
     }
     return filters;
   }, [
+    params.from,
+    params.to,
     params.q,
     params.type,
     params.status,
@@ -190,6 +205,14 @@ function ClientsPageContent() {
     params.order,
   ]);
   const maskedFields = query.data?.maskedFields ?? [];
+
+  // The picked rows, cleared whenever the filter (and so the set) changes.
+  const filterKey = exportFilters.toString();
+  const [picked, setPicked] = useState<{ forFilter: string; ids: string[] }>({
+    forFilter: filterKey,
+    ids: [],
+  });
+  const selectedIds = picked.forFilter === filterKey ? picked.ids : [];
 
   /*
    * There is no `countries` list any more, and no country FILTER.
@@ -210,6 +233,7 @@ function ClientsPageContent() {
    * and re-sorted, so looking the row back up by id is a race the title loses.
    */
   const [programTarget, setProgramTarget] = useState<ClientRow | null>(null);
+  const [termsTarget, setTermsTarget] = useState<ClientRow | null>(null);
   // "Link MT5 account" from a row, the client filled in (29 Sep 2026).
   const canLinkAccounts = hasPermission(admin, 'trading.create');
   const [linkFor, setLinkFor] = useState<ClientRow | null>(null);
@@ -222,6 +246,7 @@ function ClientsPageContent() {
     actingId: status.actingId,
     onToggleStatus: (client: ClientRow) => void status.toggle(client),
     onChangeProgram: setProgramTarget,
+    onEditTerms: setTermsTarget,
     onLinkAccount: canLinkAccounts ? setLinkFor : undefined,
   });
 
@@ -243,6 +268,14 @@ function ClientsPageContent() {
             : undefined
         }
       />
+      {termsTarget && (
+        <EditTermsFromList
+          open
+          onClose={() => setTermsTarget(null)}
+          userId={termsTarget.id}
+          name={clientLabel(termsTarget)}
+        />
+      )}
       {programTarget && (
         <ChangeLevelFromList
           open
@@ -312,7 +345,14 @@ function ClientsPageContent() {
         </div>
       )}
 
-      <div className="shrink-0">
+      <div className="flex shrink-0 flex-wrap items-start gap-3">
+        <DateRangePicker
+          prefix={t('clients.registered')}
+          choice={period.choice}
+          custom={period.custom}
+          defaultChoice={period.defaultChoice}
+          onChange={period.set}
+        />
         <ClientFilters
           values={{
             q: url.get('q'),
@@ -362,7 +402,27 @@ function ClientsPageContent() {
           rows={rows}
           rowKey={(c) => String(c.id)}
           dimmed={query.isFetching}
-          empty={<EmptyState icon={Users} message={t('clients.empty')} />}
+          selectable={canBulk}
+          selectedRowKeys={selectedIds}
+          onSelectionChange={(ids) => setPicked({ forFilter: filterKey, ids })}
+          renderBatchActions={(ids) => (
+            <ClientBulkBar
+              selectedIds={ids}
+              pageCount={rows.length}
+              total={total}
+              filter={bulkFilterOf(params)}
+              exportFilters={exportFilters}
+              tags={tagsQuery.data ?? []}
+              onDone={() => setPicked({ forFilter: filterKey, ids: [] })}
+            />
+          )}
+          empty={
+            <EmptyState
+              icon={Users}
+              message={t('clients.empty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
+            />
+          }
           sortColumn={sortKey}
           sortDirection={url.sort.order}
           /*
@@ -423,4 +483,28 @@ function ClientsPageContent() {
       </AsyncBoundary>
     </div>
   );
+}
+
+/** The list's filter, as a bulk action's "all matching" target carries it. */
+function bulkFilterOf(
+  params: Record<string, string | number | boolean | undefined | null>,
+): BulkClientFilter {
+  const text = (key: string) => {
+    const value = params[key];
+    return typeof value === 'string' && value !== '' ? value : undefined;
+  };
+  const referredBy = text('referredBy');
+  return {
+    q: text('q'),
+    type: text('type'),
+    status: text('status'),
+    level: text('level'),
+    country: text('country'),
+    kycStatus: text('kycStatus'),
+    emailVerified: text('emailVerified'),
+    tag: text('tag'),
+    referredBy: referredBy && /^\d+$/.test(referredBy) ? +referredBy : undefined, // a Portal ID, not money
+    from: text('from'),
+    to: text('to'),
+  };
 }

@@ -647,13 +647,9 @@ describe('verification is shown separately from the account state', () => {
 });
 
 /**
- * The tag filter is a SELECT, at the operator's request — it was a row of
- * toggle chips.
- *
- * Still ONE tag at a time, which the select makes structural rather than a
- * convention: the API takes a single `?tag=`, because AND and OR are both
- * plausible readings of a multi-tag filter and shipping the wrong one silently
- * is worse than not shipping it (D-15).
+ * The tag filter: several tags at once, ANY of them (6 Oct 2026) — the reading
+ * a territory has. Search-and-pick, because every country is a tag too. By
+ * SLUG, comma-joined in the URL, so a rename never breaks a saved link.
  */
 describe('the tag filter', () => {
   beforeEach(() => {
@@ -663,15 +659,43 @@ describe('the tag filter', () => {
     ]);
   });
 
-  it('is a select rather than a row of chips', async () => {
+  it('is a search-and-pick: several tags at once, sent as ANY of them', async () => {
+    const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
     await screen.findByText('client@oxshare.com');
 
-    const trigger = await screen.findByLabelText(/all tags/i);
-    // A combobox, not a set of pressable chips — the chips were `aria-pressed`
-    // buttons, so their absence is what "it is no longer chips" means.
-    expect(trigger).toHaveAttribute('role', 'combobox');
-    expect(screen.queryByRole('button', { pressed: false })).toBeNull();
+    const input = await screen.findByRole('combobox', { name: /all tags/i });
+    await user.type(input, 'High');
+    await user.click(await screen.findByRole('option', { name: /high risk/i }));
+    await user.type(input, 'VIP');
+    await user.click(await screen.findByRole('option', { name: /vip/i }));
+
+    await waitFor(() =>
+      expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ tag: 'high-risk,vip' }),
+    );
+  });
+
+  it('keeps BOTH of two quick picks when the router is slow to apply the URL', async () => {
+    // The race the live spec found: the second pick was built on the URL as it
+    // was before the first had landed, and replaced it.
+    routerLatencyMs.current = 200;
+    const user = userEvent.setup();
+    renderWithProviders(<ClientsPage />);
+    await screen.findByText('client@oxshare.com');
+
+    const input = await screen.findByRole('combobox', { name: /all tags/i });
+    await user.type(input, 'High');
+    await user.click(await screen.findByRole('option', { name: /high risk/i }));
+    await user.type(input, 'VIP');
+    await user.click(await screen.findByRole('option', { name: /vip/i }));
+
+    expect(screen.getByRole('button', { name: /remove high risk/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /remove vip/i })).toBeInTheDocument();
+    await waitFor(
+      () => expect(getClients.mock.calls.at(-1)?.[0]).toMatchObject({ tag: 'high-risk,vip' }),
+      { timeout: 4000 },
+    );
+    expect(screen.getByRole('button', { name: /remove high risk/i })).toBeInTheDocument();
   });
 
   it('filters by tag SLUG, not id — a rename must not break a saved link', async () => {
@@ -679,7 +703,7 @@ describe('the tag filter', () => {
     renderWithProviders(<ClientsPage />);
     await screen.findByText('client@oxshare.com');
 
-    await user.click(await screen.findByLabelText(/all tags/i));
+    await user.type(await screen.findByRole('combobox', { name: /all tags/i }), 'High');
     await user.click(await screen.findByRole('option', { name: /high risk/i }));
 
     await waitFor(() =>
@@ -687,15 +711,13 @@ describe('the tag filter', () => {
     );
   });
 
-  it('offers an "all tags" option that CLEARS the filter', async () => {
-    // The select's equivalent of the second click that used to clear a chip.
+  it('removing the last tag CLEARS the filter', async () => {
     searchParams.current = new URLSearchParams('tag=high-risk');
     const user = userEvent.setup();
     renderWithProviders(<ClientsPage />);
     await screen.findByText('client@oxshare.com');
 
-    await user.click(await screen.findByLabelText(/all tags/i));
-    await user.click(await screen.findByRole('option', { name: /^all tags$/i }));
+    await user.click(await screen.findByRole('button', { name: /remove high risk/i }));
 
     await waitFor(() => expect(searchParams.current.get('tag')).toBeNull());
   });

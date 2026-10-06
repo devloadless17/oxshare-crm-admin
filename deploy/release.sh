@@ -19,6 +19,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 touch release.env
+chmod 600 release.env # release state belongs to the deploy user alone, like .env
 # shellcheck disable=SC1091
 . ./release.env
 COMPOSE=(docker compose --env-file .env --env-file release.env)
@@ -34,6 +35,7 @@ save() {
   for n in ADMIN_ACTIVE ADMIN_BLUE ADMIN_GREEN PORTAL_ACTIVE PORTAL_BLUE PORTAL_GREEN; do
     printf '%s=%s\n' "$n" "${!n:-}"
   done > release.env.next
+  chmod 600 release.env.next
   mv -f release.env.next release.env
 }
 

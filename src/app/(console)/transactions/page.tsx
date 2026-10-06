@@ -31,6 +31,9 @@ import {
   withdrawalRowLabel,
 } from '@/components/transactions/withdrawal-record';
 import { QueueToolbar } from '@/components/queue-toolbar';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
+import { useTabCounts } from '@/hooks/use-tab-counts';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import {
   Select,
@@ -216,6 +219,9 @@ function TransactionsPageContent() {
    */
   // Both directions, and a link followed while on the desk wins — see the hook.
   const { search, setSearch, term: debouncedSearch } = useUrlSearch(url);
+  // The period: a tab of payouts still OWED (pending, awaiting payout) opens on
+  // All time — an old request must never hide behind "Today". Decided tabs: Today.
+  const period = useDateRange(url, filter === 'pending' || filter === 'approved' ? 'all' : 'today');
 
   const [rejectTarget, setRejectTarget] = React.useState<WithdrawalRow | null>(null);
   /* The row whose details are open — always reachable. */
@@ -299,6 +305,8 @@ function TransactionsPageContent() {
     // parameter, and sending it would fail the endpoint's `@IsIn`.
     state: filter === ALL_STATES ? undefined : filter,
     q: debouncedSearch || undefined,
+    from: period.range.from,
+    to: period.range.to,
     sort: sortKey,
     // Withheld when nothing is sorted. `order` alone describes an ordering of
     // no column, and sending it would also make two identical result sets
@@ -433,7 +441,21 @@ function TransactionsPageContent() {
    * Using either for the other's job makes one of them wrong.
    */
   const total = query.data?.total ?? 0;
-  const counts = query.data?.counts ?? {};
+  // Each tab's count is what it shows when clicked — Pending is the whole queue
+  // even while a decided tab is on Today (`useTabCounts`).
+  const owed = (state: string) => state === 'pending' || state === 'approved';
+  const countOf = useTabCounts({
+    url,
+    activeWaiting: owed(filter),
+    current: query.data?.counts,
+    isWaiting: owed,
+    // `tabCounts` keeps this key apart from the detail panel's `{ id, limit: 1 }`:
+    // React Query ignores undefined fields, so the two would otherwise SHARE a
+    // cache entry and the panel would read these counts as a withdrawal.
+    key: (range) => keys.withdrawals.list({ tabCounts: true, limit: 1, q: params.q, ...range }),
+    fetchCounts: async (range, signal) =>
+      (await api.admin.getWithdrawals({ limit: 1, q: params.q, ...range }, signal)).counts,
+  });
 
   /*
    * A failed APPROVE is a toast now, not a line under the filter tabs.
@@ -462,8 +484,10 @@ function TransactionsPageContent() {
         // The search term too, or "export what you are looking at" downloads
         // the whole state bucket while the screen shows three rows.
         ...(debouncedSearch ? { q: debouncedSearch } : {}),
+        ...(period.range.from ? { from: period.range.from } : {}),
+        ...(period.range.to ? { to: period.range.to } : {}),
       }),
-    [filter, debouncedSearch],
+    [filter, debouncedSearch, period.range.from, period.range.to],
   );
 
   /** What may be done to a withdrawal — the row menu and the detail panel alike. */
@@ -818,7 +842,7 @@ function TransactionsPageContent() {
             /* `counts` groups every state over the FULL set, so it stays
                correct whatever page is shown — unlike `total`, which is the
                filtered count for the current query (R-2.4). */
-            count: f.value === ALL_STATES ? counts['all'] : counts[f.value],
+            count: countOf(f.value === ALL_STATES ? 'all' : f.value),
           }))}
           active={filter}
           onFilterChange={(value) => {
@@ -839,6 +863,14 @@ function TransactionsPageContent() {
           }}
           searchPlaceholder={t('withdrawals.searchPlaceholder')}
           searchAriaLabel={t('withdrawals.searchAria')}
+          extra={
+            <DateRangePicker
+              choice={period.choice}
+              custom={period.custom}
+              defaultChoice={period.defaultChoice}
+              onChange={period.set}
+            />
+          }
         />
       </div>
 
@@ -877,6 +909,7 @@ function TransactionsPageContent() {
                   ? t('withdrawals.emptyFiltered')
                   : t('withdrawals.empty')
               }
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
             />
           }
           sortColumn={sortKey}

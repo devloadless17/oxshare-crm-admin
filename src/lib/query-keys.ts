@@ -89,6 +89,11 @@ export const keys = {
     all: () => ['tags'] as const,
   },
 
+  signupLinks: {
+    all: () => ['signup-links'] as const,
+    mine: () => ['signup-links', 'mine'] as const,
+  },
+
   withdrawals: {
     all: () => ['withdrawals'] as const,
     list: (params: Params) => ['withdrawals', 'list', params] as const,
@@ -157,6 +162,11 @@ export const keys = {
 
   mt5Groups: {
     all: () => ['mt5-groups'] as const,
+  },
+
+  /** 0198 — the mirrored MT5 symbol list, for commission-type exclusions. */
+  mt5Symbols: {
+    all: () => ['mt5-symbols'] as const,
   },
 
   ibCommissionTypes: {

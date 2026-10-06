@@ -6,6 +6,7 @@ import type { IbCommissionType } from '@/lib/api/admin';
 import { Modal } from '@/components/ui/modal';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
+import { SymbolExclusionPicker } from './symbol-exclusion-picker';
 
 export interface CommissionTypeFormValues {
   name: string;
@@ -21,6 +22,9 @@ export interface CommissionTypeFormValues {
   commissionPerLot: string;
   rebatePerLot: string;
   enabled: boolean;
+  /** 0198 — MT5 folders and symbols this type pays nothing on. */
+  excludedPaths: string[];
+  excludedSymbols: string[];
 }
 
 /**
@@ -106,6 +110,10 @@ function CommissionTypeForm({
    * cannot silently put it back into service.
    */
   const enabled = type?.enabled ?? true;
+  const [exclusions, setExclusions] = React.useState({
+    excludedPaths: type?.excludedPaths ?? [],
+    excludedSymbols: type?.excludedSymbols ?? [],
+  });
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -115,6 +123,7 @@ function CommissionTypeForm({
       commissionPerLot: commissionPerLot.trim() === '' ? '0' : commissionPerLot.trim(),
       rebatePerLot: rebatePerLot.trim() === '' ? '0' : rebatePerLot.trim(),
       enabled,
+      ...exclusions,
     });
   };
 
@@ -157,6 +166,8 @@ function CommissionTypeForm({
           className={`${INPUT_CLASS} h-auto py-2 leading-relaxed`}
         />
       </label>
+
+      <SymbolExclusionPicker value={exclusions} onChange={setExclusions} />
 
       {error !== null && error !== undefined && (
         <p role="alert" className="text-xs leading-relaxed text-destructive sm:col-span-2">

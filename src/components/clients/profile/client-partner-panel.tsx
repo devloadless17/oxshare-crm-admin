@@ -1,6 +1,10 @@
 'use client';
 
+import * as React from 'react';
 import { Coins, Network, Users } from 'lucide-react';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
+import { SubPartnerTermsDialog } from '@/components/clients/profile/client-partner-dialogs';
 import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import type { IbPartnerDetail, IbPartnerEarnings, IbSubPartnerRow } from '@/lib/api/admin';
@@ -36,6 +40,13 @@ import { PortalIdTag } from '@/components/clients/client-identity';
  * the stored scale is for arithmetic, not for reading.
  */
 export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
+  const { admin } = useAdmin();
+  const [editingTerms, setEditingTerms] = React.useState(false);
+  // 0197 — only a sub-partner has terms of their own.
+  const isSub = detail.level >= 2 && (detail.parent !== null || detail.parentOutsideTerritory);
+  const commissionShare = detail.commissionShareOverride ?? detail.levelCommissionShare;
+  const rebateShare = detail.rebateShareOverride ?? detail.levelRebateShare;
+  const custom = detail.commissionShareOverride !== null || detail.rebateShareOverride !== null;
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <ProfileCard title={t('clientProfile.partnerStanding')}>
@@ -67,8 +78,13 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
           </Cell>
 
           <Cell label={t('clientProfile.partnerTerms')}>
-            {detail.levelCommissionShare === null ? (
+            {commissionShare === null ? (
               <span className="text-muted-foreground">—</span>
+            ) : !isSub ? (
+              /* A main partner takes the rest (0197); their own share decides nothing. */
+              <span className="tabular font-semibold">
+                {t('clientProfile.mainTerms', { rebate: formatDecimal(rebateShare ?? '0') })}
+              </span>
             ) : (
               /*
                * Shares of the traded product's commission type (0140). What
@@ -78,13 +94,35 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
               <span className="tabular font-semibold">
                 {t('clientProfile.levelTerms', {
                   commission: t('clientProfile.termCommissionShare', {
-                    share: formatDecimal(detail.levelCommissionShare),
+                    share: formatDecimal(commissionShare),
                   }),
                   rebate: t('clientProfile.termRebateShare', {
-                    share: formatDecimal(detail.levelRebateShare ?? '0'),
+                    share: formatDecimal(rebateShare ?? '0'),
                   }),
                 })}
               </span>
+            )}
+            {isSub && custom && (
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                {t('clientProfile.customTerms')}
+              </span>
+            )}
+            {isSub && hasPermission(admin, 'ib.partners.edit') && (
+              <button
+                type="button"
+                onClick={() => setEditingTerms(true)}
+                className="mt-1 block text-xs text-link hover:underline focus-outline"
+              >
+                {t('clientProfile.editTerms')}
+              </button>
+            )}
+            {editingTerms && (
+              <SubPartnerTermsDialog
+                open
+                onClose={() => setEditingTerms(false)}
+                partner={detail}
+                name={detail.referralCode}
+              />
             )}
           </Cell>
 

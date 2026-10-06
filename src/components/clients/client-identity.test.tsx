@@ -26,7 +26,6 @@ const as = (permissions: string[]) =>
       name: 'Ops',
       role: 'sub_admin',
       status: 'active',
-      seesUntriaged: false,
       seesAllClients: true,
       permissions,
       maskedFields: [],

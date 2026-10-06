@@ -27,6 +27,9 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
 import { UrlSearchInput } from '@/components/url-search-input';
+import { ExportButton } from '@/components/export-button';
+import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
+import { useDateRange } from '@/hooks/use-date-range';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
@@ -172,6 +175,9 @@ function CommissionsPageContent() {
    * person as a row count.
    */
   const q = useDebounced(url.get('q').trim());
+  // When it accrued. Today, like every money history; one partner's book (a
+  // profile's `ibUserId` link) opens whole.
+  const period = useDateRange(url, ibUserId ? 'all' : 'today');
 
   const sortKey = IB_ACCRUAL_SORT_KEYS.includes(url.sort.key as IbAccrualSortKey)
     ? (url.sort.key as IbAccrualSortKey)
@@ -184,6 +190,8 @@ function CommissionsPageContent() {
     kind: kind || undefined,
     ibUserId: ibUserId || undefined,
     q: q || undefined,
+    from: period.range.from,
+    to: period.range.to,
     sort: sortKey,
     // Withheld when nothing is sorted: `order` alone describes an ordering of no
     // column, and sending it would cache one result set under two query keys.
@@ -193,6 +201,13 @@ function CommissionsPageContent() {
   const query = useResource<IbAccrualPage>(keys.ibAccruals.list(params), (signal) =>
     api.admin.getIbAccruals(params, signal),
   );
+
+  // "Export what I am looking at": the list's own filters, never paging or sort.
+  const exportFilters = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (['page', 'limit', 'sort', 'order'].includes(key)) continue;
+    if (value !== undefined && value !== '') exportFilters.set(key, String(value));
+  }
 
   // The accrual open in the detail panel (`?open=`), in any status.
   const opened = useOpenedRecord(keys.ibAccruals.list, (p, signal) =>
@@ -351,9 +366,12 @@ function CommissionsPageContent() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <div className="shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">{t('commissions.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('commissions.subtitle')}</p>
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold tracking-tight">{t('commissions.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('commissions.subtitle')}</p>
+        </div>
+        <ExportButton resource="ib/accruals" filters={exportFilters} disabled={total === 0} />
       </div>
 
       <RecordSheet
@@ -454,7 +472,14 @@ function CommissionsPageContent() {
           </SelectContent>
         </Select>
 
-        {(status || kind || q) && (
+        <DateRangePicker
+          choice={period.choice}
+          custom={period.custom}
+          defaultChoice={period.defaultChoice}
+          onChange={period.set}
+        />
+
+        {(status || kind || q || period.choice !== period.defaultChoice) && (
           <button
             type="button"
             onClick={() => url.clear()}
@@ -484,7 +509,13 @@ function CommissionsPageContent() {
           activeRowKey={opened.openId}
           rowLabel={(r) => t('records.openRow', { name: accrualTitle(r) })}
           dimmed={query.isFetching}
-          empty={<EmptyState icon={Coins} message={t('commissions.empty')} />}
+          empty={
+            <EmptyState
+              icon={Coins}
+              message={t('commissions.empty')}
+              action={<PeriodWiden choice={period.choice} onChange={period.set} />}
+            />
+          }
           sortColumn={sortKey}
           sortDirection={url.sort.order}
           /*

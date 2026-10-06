@@ -65,6 +65,8 @@ function type(over: Partial<IbCommissionType> = {}): IbCommissionType {
     enabled: true,
     commissionPerLot: '10.00000000',
     rebatePerLot: '3.00000000',
+    excludedPaths: [],
+    excludedSymbols: [],
     sortOrder: 0,
     productNames: ['Standard'],
     createdAt: '2026-09-01T00:00:00.000Z',
