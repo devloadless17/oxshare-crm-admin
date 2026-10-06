@@ -1300,6 +1300,25 @@ export const messages = {
     'closed trade — commission already earned records the rate it was calculated at and does ' +
     'not change. Partners beneath them keep the levels they were approved on.',
   'clientProfile.changeLevelSave': 'Move to this level',
+  // 0198 — symbols a commission type pays nothing on.
+  'symbolExclusions.title': 'Excluded symbols — no commission, no rebate',
+  'symbolExclusions.hint':
+    'Tick a folder to exclude every symbol in it, including ones added later, or tick single ' +
+    'symbols. Trades on them are still recorded; partners earn nothing and clients get no ' +
+    'rebate on them. Applies to trades priced from now on.',
+  'symbolExclusions.refresh': 'Refresh from MT5',
+  'symbolExclusions.refreshFailed': 'Could not read the symbol list from MT5.',
+  'symbolExclusions.search': 'Search symbols',
+  'symbolExclusions.loading': 'Loading symbols…',
+  'symbolExclusions.empty': 'No symbols yet. Use “Refresh from MT5” to load them from the server.',
+  'symbolExclusions.loadFailed': 'Could not load the symbol list. Try “Refresh from MT5”.',
+  'symbolExclusions.noMatch': 'No symbol matches that search.',
+  'symbolExclusions.count': '{count} symbols',
+  'symbolExclusions.current': 'Currently excluded',
+  'symbolExclusions.remove': 'Stop excluding {name}',
+  'symbolExclusions.toggleFolder': 'Show or hide {folder}',
+  'symbolExclusions.coveredBy': 'Excluded with the whole {folder} folder',
+  'symbolExclusions.syncedAt': 'Symbol list from MT5, last updated {when}.',
   'clientProfile.levelChanged': 'The partner’s commission level was changed.',
   // 0197 — a sub-partner's own terms.
   'clientProfile.mainTerms':

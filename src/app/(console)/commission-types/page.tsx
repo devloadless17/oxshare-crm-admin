@@ -73,6 +73,8 @@ export default function CommissionTypesPage() {
             description: values.description,
             commissionPerLot: values.commissionPerLot,
             rebatePerLot: values.rebatePerLot,
+            excludedPaths: values.excludedPaths,
+            excludedSymbols: values.excludedSymbols,
           })
         : adminApi.createIbCommissionType(values),
     onSuccess: async (_data, values) => {

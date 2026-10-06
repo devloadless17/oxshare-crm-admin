@@ -173,6 +173,8 @@ export type Mt5GroupRow = components['schemas']['Mt5GroupDto'];
 export type Mt5AccountLookup = components['schemas']['Mt5AccountLookupDto'];
 export type LinkedMt5Account = components['schemas']['LinkedMt5AccountDto'];
 
+/** 0198 — `GET /admin/mt5-symbols`. */
+export type Mt5SymbolList = components['schemas']['Mt5SymbolListDto'];
 export type IbCommissionType = components['schemas']['IbCommissionTypeDto'];
 export type CreateIbCommissionType = components['schemas']['CreateIbCommissionTypeDto'];
 export type UpdateIbCommissionType = components['schemas']['UpdateIbCommissionTypeDto'];
@@ -1613,6 +1615,18 @@ export const adminApi = {
   /* ── MT5 groups ───────────────────────────────────────────────────────── */
 
   /** Every mirrored group, removed ones included, with its product and account count. */
+  /** 0198 — MT5 symbols with their folders, from the CRM's mirror, dated. */
+  async getMt5Symbols(signal?: AbortSignal): Promise<Mt5SymbolList> {
+    const { data } = await apiClient.get<Mt5SymbolList>('/admin/mt5-symbols', { signal });
+    return data;
+  },
+
+  /** Re-read the symbol list from MT5 now; answers the refreshed list. */
+  async syncMt5Symbols(): Promise<Mt5SymbolList> {
+    const { data } = await apiClient.post<Mt5SymbolList>('/admin/mt5-symbols/sync', {});
+    return data;
+  },
+
   async getMt5GroupMirror(signal?: AbortSignal): Promise<Mt5GroupRow[]> {
     const { data } = await apiClient.get<Mt5GroupRow[]>('/admin/mt5-groups', { signal });
     return data;

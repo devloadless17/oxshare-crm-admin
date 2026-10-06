@@ -163,6 +163,11 @@ export const keys = {
     all: () => ['mt5-groups'] as const,
   },
 
+  /** 0198 — the mirrored MT5 symbol list, for commission-type exclusions. */
+  mt5Symbols: {
+    all: () => ['mt5-symbols'] as const,
+  },
+
   ibCommissionTypes: {
     all: () => ['ib-commission-types'] as const,
   },

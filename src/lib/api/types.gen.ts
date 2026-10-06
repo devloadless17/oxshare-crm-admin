@@ -2567,6 +2567,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/mt5-symbols": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * MT5 symbols with their folders, as last synced
+         * @description From the local mirror (`mt5_symbols`), so it renders when the server is unreachable. Symbols the server stopped reporting are left out.
+         */
+        get: operations["AdminMt5SymbolsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/mt5-symbols/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-read the symbol list from MT5 now
+         * @description The same sync the scheduled MT5 job runs. Answers the refreshed list. Slow on a large server: the bridge reads one symbol per round trip, then caches the list.
+         */
+        post: operations["AdminMt5SymbolsController_sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/kyc/config": {
         parameters: {
             query?: never;
@@ -6467,6 +6507,21 @@ export interface components {
              * @example 3.00000000
              */
             rebatePerLot: string;
+            /**
+             * @description MT5 symbol FOLDERS this type pays nothing on — no commission, no rebate. A folder covers every symbol beneath it, including ones added later (0198).
+             * @example [
+             *       "Crypto",
+             *       "Forex\\Exotics"
+             *     ]
+             */
+            excludedPaths: string[];
+            /**
+             * @description Single symbols this type pays nothing on — no commission, no rebate (0198).
+             * @example [
+             *       "BTCUSD"
+             *     ]
+             */
+            excludedSymbols: string[];
             /** @example 0 */
             sortOrder: number;
             /** @description The products sold on this type, by name. Part of the row so a delete or a disable can be refused on the screen before the API refuses it. */
@@ -6484,6 +6539,10 @@ export interface components {
             commissionPerLot: string;
             /** @example 3 */
             rebatePerLot: string;
+            /** @description MT5 folder paths excluded from commission and rebate, e.g. "Crypto". */
+            excludedPaths?: string[];
+            /** @description Symbols excluded from commission and rebate, e.g. "BTCUSD". */
+            excludedSymbols?: string[];
             /** @default true */
             enabled: boolean;
             /** @example 0 */
@@ -6494,6 +6553,10 @@ export interface components {
             description?: string | null;
             commissionPerLot?: string;
             rebatePerLot?: string;
+            /** @description MT5 folder paths excluded from commission and rebate, e.g. "Crypto". */
+            excludedPaths?: string[];
+            /** @description Symbols excluded from commission and rebate, e.g. "BTCUSD". */
+            excludedSymbols?: string[];
             enabled?: boolean;
             sortOrder?: number;
         };
@@ -8246,6 +8309,25 @@ export interface components {
              * @example 0
              */
             accountsOutsideScope: number;
+        };
+        Mt5SymbolDto: {
+            /** @example BTCUSD */
+            symbol: string;
+            /**
+             * @description MT5’s own path, backslash-separated, ending in the symbol itself.
+             * @example Crypto\BTCUSD
+             */
+            path: string;
+            /** @example Bitcoin vs US Dollar */
+            description: string;
+        };
+        Mt5SymbolListDto: {
+            symbols: components["schemas"]["Mt5SymbolDto"][];
+            /**
+             * Format: date-time
+             * @description When the server last confirmed the list. Null = never synced.
+             */
+            lastSyncedAt: string | null;
         };
         KycDocumentPartDto: {
             /**
@@ -14549,6 +14631,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Mt5GroupDto"][];
+                };
+            };
+        };
+    };
+    AdminMt5SymbolsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5SymbolListDto"];
+                };
+            };
+        };
+    };
+    AdminMt5SymbolsController_sync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5SymbolListDto"];
                 };
             };
         };
