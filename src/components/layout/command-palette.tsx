@@ -1,5 +1,6 @@
 'use client';
 
+import { startNavigationProgress } from './navigation-progress';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { CornerDownLeft, Search } from 'lucide-react';
@@ -88,6 +89,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const go = React.useCallback(
     (entry: { item: NavLeaf }) => {
       onClose();
+      startNavigationProgress(leafHref(entry.item));
       router.push(leafHref(entry.item));
     },
     [onClose, router],

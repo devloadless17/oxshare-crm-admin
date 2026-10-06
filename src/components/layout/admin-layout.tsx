@@ -1,5 +1,6 @@
 'use client';
 
+import { NavigationProgress } from './navigation-progress';
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -260,6 +261,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
      * sticky table header visibly jitters through it.
      */
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      <NavigationProgress label={t('common.loading')} />
       {/* Mobile Overlay — presentational: Escape and the Close button are the
           named ways out; this is the pointer's. */}
       {mobileOpen && (
