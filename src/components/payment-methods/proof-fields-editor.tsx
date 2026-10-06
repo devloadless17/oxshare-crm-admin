@@ -104,23 +104,31 @@ export function ProofFieldsEditor(props: {
  * reads them with a Copy button and changes nothing; each deposit keeps a copy
  * of what it was shown, so editing a number here never rewrites an old deposit.
  */
-export function PayToFieldsEditor(props: {
+export function PayToFieldsEditor({
+  direction = 'deposit',
+  ...props
+}: {
   fields: PaymentMethodPayToField[];
   onChange: (next: PaymentMethodPayToField[]) => void;
   errors?: Record<string, string>;
+  /** A withdrawal rail tells the client something else than where to send money (0202). */
+  direction?: 'deposit' | 'payout';
 }) {
+  const payout = direction === 'payout';
   return (
     <DetailsEditor
       {...props}
       copy={{
         title: 'paymentMethods.payToFieldsTitle',
-        hint: 'paymentMethods.payToFieldsHint',
-        empty: 'paymentMethods.payToFieldsEmpty',
+        hint: payout ? 'withdrawalMethods.payToFieldsHint' : 'paymentMethods.payToFieldsHint',
+        empty: payout ? 'withdrawalMethods.payToFieldsEmpty' : 'paymentMethods.payToFieldsEmpty',
         add: 'paymentMethods.payToFieldAdd',
-        labelPlaceholder: 'paymentMethods.payToFieldLabelPlaceholder',
+        labelPlaceholder: payout
+          ? 'withdrawalMethods.payToFieldLabelPlaceholder'
+          : 'paymentMethods.payToFieldLabelPlaceholder',
         errorPrefix: 'payToFields',
       }}
-      blank={() => ({ type: 'phone', value: '' })}
+      blank={() => (payout ? { type: 'text', value: '' } : { type: 'phone', value: '' })}
     />
   );
 }

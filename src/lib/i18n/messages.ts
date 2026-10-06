@@ -429,6 +429,13 @@ export const messages = {
   'withdrawalMethods.name': 'Name',
   'withdrawalMethods.namePlaceholder': 'Bank transfer',
   'withdrawalMethods.enabled': 'Offer it to clients',
+  // What a payout rail SHOWS the client on the withdraw form (backend 0202).
+  'withdrawalMethods.sectionShown': 'What the client is told',
+  'withdrawalMethods.payToFieldsHint':
+    'Shown on the withdraw form when the client picks this method, with a Copy button — where to collect cash, a reference to quote, a number to call. The client cannot change them. Each request keeps what it was shown.',
+  'withdrawalMethods.payToFieldsEmpty':
+    'Nothing shown. Add a detail to tell the client something about this method.',
+  'withdrawalMethods.payToFieldLabelPlaceholder': 'Collect at',
   'withdrawalMethods.save': 'Save',
   'withdrawalMethods.cancel': 'Cancel',
   'withdrawalMethods.saveSucceeded': '{name} saved',
@@ -4210,6 +4217,8 @@ export const messages = {
   'financial.providerRefTitle': 'Provider reference',
   'withdrawals.detailsReviewed': 'Reviewed',
   'withdrawals.detailsSettled': 'Settled',
+  // What the rail told the client when they requested it (backend 0202).
+  'withdrawals.detailsShown': 'Shown to the client',
   /*
    * ONE stored column, TWO labels. `rejectionReason` is written both when a
    * reviewer refuses and when a payout fails, so the label is picked from the

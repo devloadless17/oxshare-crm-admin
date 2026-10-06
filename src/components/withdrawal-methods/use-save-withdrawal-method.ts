@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { arabicOrNull } from '@/components/arabic-text-field';
 import { keys } from '@/lib/query-keys';
 import type { WithdrawalMethodFormValues } from './withdrawal-method-form';
 
@@ -18,6 +19,17 @@ export function useSaveWithdrawalMethod(editingKey: string | undefined) {
         // Who can use it (backend 0178) — always sent, so clearing it saves.
         countryRule: values.countries.countryRule,
         countryCodes: values.countries.countryCodes,
+        // What it shows the client (backend 0202) — the whole list, in order.
+        payToFields: values.payToFields.map((field) => ({
+          id: field.id,
+          label: field.label,
+          type: field.type,
+          value: field.value,
+          enabled: field.enabled,
+          hint: field.hint,
+          labelAr: arabicOrNull(field.labelAr ?? ''),
+          hintAr: arabicOrNull(field.hintAr ?? ''),
+        })),
       };
       // No key is ever sent: the API generates a new rail's permanent ID (0161).
       // The route is chosen once, at creation, and fixed after (backend 0168).
