@@ -26,6 +26,16 @@ x-app: &app
   # PID 1 that forwards SIGTERM, so a redeploy lets in-flight requests finish.
   init: true
   stop_grace_period: 20s
+  # The image's own check, but every 1 s while the container STARTS (start_interval)
+  # instead of the first check at 30 s: a release switches over about a second
+  # after the new version answers.
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+process.env.PORT+'/favicon.ico',{redirect:'manual'}).then(r=>process.exit(r.status<500?0:1),()=>process.exit(1))"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 30s
+    start_interval: 1s
   <<: *logging
 
 services:

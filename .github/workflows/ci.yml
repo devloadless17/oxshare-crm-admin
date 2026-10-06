@@ -54,6 +54,9 @@ concurrency:
 jobs:
   verify:
     name: Type-check, test and build
+    # On production, skipped when `plan` found this code already verified on main.
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.outputs.verified != 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -453,18 +456,91 @@ jobs:
   # Everything below runs ONLY for a push to `production`. On a pull_request,
   # github.ref is refs/pull/N/merge, so the event is checked too.
   # ───────────────────────────────────────────────────────────────────────────
-  build:
-    name: Build and push image
+  # ── Build once, promote: why a production push takes about 2 minutes ──────
+  #
+  # Every push to main builds the image IN PARALLEL with `verify`, tagged
+  # `cand-<content key>`, and `promote` stamps it `tree-<content key>` only once
+  # verify has passed. A push to production then re-runs nothing: `plan` finds the
+  # verified image for exactly this code and `deploy` ships it. The content key
+  # (.github/content-key.sh) hashes the code, not the commit, so a "Release:" merge
+  # commit finds the image main built, and a docs-only change keeps the key.
+  #
+  # Code that never went through main (a direct hotfix on production) gets no such
+  # image, so `plan` says so and this run verifies and builds it before deploying.
+  # Either way, nothing ships that has not passed `verify`.
+  plan:
+    name: Find the verified image
     if: github.ref == 'refs/heads/production' && github.event_name != 'pull_request'
-    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    outputs:
+      key: ${{ steps.find.outputs.key }}
+      verified: ${{ steps.find.outputs.verified }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_SECRET }}
+
+      - id: find
+        env:
+          IMAGE: ${{ secrets.DOCKER_USERNAME }}/oxshare-crm-admin
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          key=$(bash .github/content-key.sh HEAD)
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+          has() { docker manifest inspect "$IMAGE:tree-$key" >/dev/null 2>&1; }
+          if has; then
+            echo "verified=true" >> "$GITHUB_OUTPUT"
+            echo "Verified image found: $IMAGE:tree-$key. Deploying it."
+            exit 0
+          fi
+          # Main's latest code IS this code: its pipeline is still verifying and
+          # building it, so wait for it rather than redo it here.
+          main_sha=$(git rev-parse origin/main)
+          if [ "$(bash .github/content-key.sh origin/main)" != "$key" ]; then
+            echo "verified=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::This code never passed through main: verifying and building it in this run."
+            exit 0
+          fi
+          echo "Waiting for main's pipeline (${main_sha:0:7}) to verify and build this code..."
+          for _ in $(seq 1 135); do
+            if has; then echo "verified=true" >> "$GITHUB_OUTPUT"; echo "Verified."; exit 0; fi
+            conclusion=$(gh api "repos/$REPO/actions/runs?branch=main&head_sha=$main_sha" \
+              --jq '[.workflow_runs[] | select(.name=="CI")][0].conclusion // ""')
+            case "$conclusion" in
+              failure | cancelled | timed_out)
+                echo "::error::main's pipeline for this code ended '$conclusion': nothing ships that has not passed it."
+                exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "::error::No verified image for this code after 45 minutes."
+          exit 1
+
+  build:
+    name: Build image (candidate)
+    needs: plan
+    if: >-
+      !cancelled() && github.event_name != 'pull_request' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.ref == 'refs/heads/production' && needs.plan.outputs.verified == 'false'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      key: ${{ steps.key.outputs.key }}
     steps:
       - uses: actions/checkout@v4
 
-      # NEXT_PUBLIC_* are BAKED INTO the image (bundle and CSP), so a wrong value
-      # here ships a admin console that calls the wrong API until the next release.
-      # Checked here, where the message can name the secret.
+      - id: key
+        run: echo "key=$(bash .github/content-key.sh HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Check the API origin
         env:
           API_ORIGIN: ${{ secrets.API_ORIGIN }}
@@ -484,9 +560,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_SECRET }}
 
-      # A push does not check visibility, and a push to a repository that does not
-      # exist CREATES it with the account's default visibility, usually public. The
-      # backend's image was found public on 5 Oct 2026; this refuses both cases.
       - name: Refuse a public or missing Docker Hub repository
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
@@ -522,8 +595,7 @@ jobs:
               ;;
           esac
 
-      # `latest` for a human, the commit SHA for the machine: the deploy pins the
-      # SHA, so `up -d` always recreates, and the tag is the rollback target.
+      # A CANDIDATE: nothing deploys `cand-*`. `promote` stamps it once verify passes.
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -532,16 +604,37 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=${{ secrets.API_ORIGIN }}
             NEXT_PUBLIC_REALTIME_ORIGIN=${{ secrets.API_ORIGIN }}
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/oxshare-crm-admin:latest
-            ${{ secrets.DOCKER_USERNAME }}/oxshare-crm-admin:${{ github.sha }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/oxshare-crm-admin:cand-${{ steps.key.outputs.key }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  promote:
+    name: Promote the verified image
+    needs: [verify, build]
+    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_SECRET }}
+
+      # A registry-side copy of the manifest: seconds, nothing rebuilt or re-pulled.
+      - name: Stamp tree-<key> (and latest)
+        env:
+          IMAGE: ${{ secrets.DOCKER_USERNAME }}/oxshare-crm-admin
+          KEY: ${{ needs.build.outputs.key }}
+        run: docker buildx imagetools create -t "$IMAGE:tree-$KEY" -t "$IMAGE:latest" "$IMAGE:cand-$KEY"
+
   deploy:
     name: Deploy the admin console (only)
-    if: github.ref == 'refs/heads/production' && github.event_name != 'pull_request'
-    needs: build
+    if: >-
+      !cancelled() && github.ref == 'refs/heads/production' && github.event_name != 'pull_request' &&
+      (needs.plan.outputs.verified == 'true' || needs.promote.result == 'success')
+    needs: [plan, promote]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -603,6 +696,7 @@ jobs:
 
       - name: Ship and deploy
         env:
+          IMAGE_TAG: tree-${{ needs.plan.outputs.key }}
           HOST: ${{ secrets.VPS_HOST }}
           SSH_USER: ${{ secrets.VPS_USER }}
           PORT: ${{ secrets.VPS_PORT || '22' }}
@@ -653,7 +747,7 @@ jobs:
           {
             printf 'DEPLOY_DIR=%q\n' "$DEPLOY_DIR"
             printf 'SERVICE=%q\n' "$SERVICE"
-            printf 'IMAGE=%q\n' "$DOCKER_USERNAME/oxshare-crm-admin:$GITHUB_SHA"
+            printf 'IMAGE=%q\n' "$DOCKER_USERNAME/oxshare-crm-admin:$IMAGE_TAG"
             printf 'DOCKER_USERNAME=%q\n' "$DOCKER_USERNAME"
             printf 'DOCKER_SECRET=%q\n' "$DOCKER_SECRET"
             printf 'ADMIN_DOMAIN=%q\n' "$ADMIN_DOMAIN"
