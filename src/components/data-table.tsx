@@ -11,8 +11,10 @@ import {
   CheckSquare,
   Square,
   MinusSquare,
+  X,
 } from 'lucide-react';
 import { PageLoader } from './ui/loader';
+import { Button } from './ui/button';
 import { compareValues, type SortType } from '@/lib/table-sort';
 
 // Re-exported: the comparators live in lib/table-sort.ts now, but they are part
@@ -565,22 +567,19 @@ export function DataTable<T>({
     <div className={`w-full space-y-3 ${fillFrame}`}>
       {/* Batch Action Bar if selection active */}
       {selectable && selectedKeys.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-xs text-primary animate-in fade-in slide-in-from-top-1">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border border-l-4 border-l-primary bg-card px-4 py-2.5 text-sm text-foreground shadow-xs animate-in fade-in slide-in-from-top-1">
           <span className="font-semibold">
             {t('table.selectedCount', {
               count: selectedKeys.length,
               noun: selectedKeys.length === 1 ? t('table.row') : t('table.rows'),
             })}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {renderBatchActions?.(selectedKeys)}
-            <button
-              type="button"
-              onClick={() => setSelectedKeys([])}
-              className="px-2 py-1 rounded bg-primary/15 hover:bg-primary/20 font-medium transition-colors"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedKeys([])}>
+              <X aria-hidden="true" />
               {t('table.clearSelection')}
-            </button>
+            </Button>
           </div>
         </div>
       )}

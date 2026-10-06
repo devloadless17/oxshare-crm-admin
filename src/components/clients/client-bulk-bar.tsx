@@ -10,6 +10,7 @@ import { apiErrorCode, apiErrorMessage, apiFieldErrors } from '@/lib/api/errors'
 import { Modal } from '@/components/ui/modal';
 import { ChipInput } from '@/components/ui/chip-input';
 import { ExportButton } from '@/components/export-button';
+import { Button } from '@/components/ui/button';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -67,19 +68,19 @@ export function ClientBulkBar({
         <button
           type="button"
           onClick={() => setAllMatching(true)}
-          className="rounded px-2 py-1 font-semibold underline-offset-2 hover:underline"
+          className="rounded px-2 py-1 text-xs font-semibold text-link underline-offset-2 hover:underline"
         >
           {t('bulk.selectAllMatching', { count: total })}
         </button>
       )}
       {allMatching && (
-        <span className="inline-flex items-center gap-1 font-semibold">
+        <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-foreground">
           {t('bulk.allMatchingSelected', { count: total })}
           <button
             type="button"
             onClick={() => setAllMatching(false)}
             aria-label={t('bulk.onlyThisPage')}
-            className="rounded p-0.5 hover:bg-primary/20"
+            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <X className="h-3 w-3" aria-hidden="true" />
           </button>
@@ -115,6 +116,7 @@ export function ClientBulkBar({
   );
 }
 
+/** The console's standard outline button — the same shape as Export beside it. */
 function BarButton({
   icon: Icon,
   label,
@@ -125,14 +127,10 @@ function BarButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-1 font-medium transition-colors hover:bg-primary/20"
-    >
+    <Button type="button" variant="outline" size="sm" onClick={onClick}>
       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
       {label}
-    </button>
+    </Button>
   );
 }
 
