@@ -121,17 +121,21 @@ export function partnerColumns({
       /* IB TOTAL (owner, 7 Oct 2026): sub-partners + clients, both halves shown. */
       header: t('partners.colIbTotal'),
       align: 'right',
-      cell: (row) => (
-        <div className="tabular">
-          <div className="font-semibold">{row.subPartnerCount + row.clientCount}</div>
-          <div className="whitespace-nowrap text-xs text-muted-foreground">
-            {t('partners.ibTotalLine', {
-              partners: String(row.subPartnerCount),
-              clients: String(row.clientCount),
-            })}
+      // A dash, never NaN, from an API that predates the counts.
+      cell: (row) =>
+        typeof row.subPartnerCount !== 'number' || typeof row.clientCount !== 'number' ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <div className="tabular">
+            <div className="font-semibold">{row.subPartnerCount + row.clientCount}</div>
+            <div className="whitespace-nowrap text-xs text-muted-foreground">
+              {t('partners.ibTotalLine', {
+                partners: String(row.subPartnerCount),
+                clients: String(row.clientCount),
+              })}
+            </div>
           </div>
-        </div>
-      ),
+        ),
     },
     {
       header: t('partners.colEarnings'),

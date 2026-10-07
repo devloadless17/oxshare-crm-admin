@@ -227,7 +227,7 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
           <Stat
             icon={Users}
             label={t('clientProfile.partnerClients')}
-            value={String(detail.clientCount)}
+            value={String(detail.clientCount ?? detail.referredClientCount)}
             hint={withOutside(
               t('clientProfile.partnerClientsHint'),
               detail.referredClientsOutsideScope,
@@ -236,7 +236,7 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
           <Stat
             icon={Network}
             label={t('clientProfile.partnerSubCount')}
-            value={String(detail.subPartnerCount)}
+            value={String(detail.subPartnerCount ?? detail.directPartners.length)}
             hint={withOutside(
               t('clientProfile.partnerSubCountHint'),
               detail.directPartnersOutsideScope,
@@ -244,18 +244,20 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
           />
           {/* IB TOTAL (owner, 7 Oct 2026): the two counts above, added. Clients
               leave out partners, so a sub-partner is not counted twice. */}
-          <div className="col-span-2">
-            <Stat
-              icon={Sigma}
-              label={t('clientProfile.partnerIbTotal')}
-              value={String(detail.subPartnerCount + detail.clientCount)}
-              hint={t('clientProfile.partnerIbTotalHint', {
-                partners: String(detail.subPartnerCount),
-                clients: String(detail.clientCount),
-              })}
-              tone="primary"
-            />
-          </div>
+          {typeof detail.subPartnerCount === 'number' && typeof detail.clientCount === 'number' && (
+            <div className="col-span-2">
+              <Stat
+                icon={Sigma}
+                label={t('clientProfile.partnerIbTotal')}
+                value={String(detail.subPartnerCount + detail.clientCount)}
+                hint={t('clientProfile.partnerIbTotalHint', {
+                  partners: String(detail.subPartnerCount),
+                  clients: String(detail.clientCount),
+                })}
+                tone="primary"
+              />
+            </div>
+          )}
         </div>
       </ProfileCard>
 
