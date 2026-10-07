@@ -130,7 +130,7 @@ test('1. the role editor builds the Sales role the buyer asked for', async ({ pa
   await page.waitForURL(/\/roles$/);
   salesRoleId = await roleId(SALES);
   expect(salesRoleId, 'the role was not created').not.toBe('');
-  const row = page.getByRole('row').filter({ hasText: SALES });
+  const row = await rowAcrossPages(page, SALES);
   await expect(row).toContainText('0 admins');
 });
 

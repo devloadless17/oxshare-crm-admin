@@ -197,7 +197,7 @@ test.describe('what a RESTRICTED sub-admin cannot reach', () => {
     await expect(page.getByText(/access denied/i)).toBeVisible();
   });
 
-  test('and the API refuses it too, with 403', async ({ page, browser }) => {
+  test('and the API refuses it too, with 403', async ({ page }) => {
     /*
      * Two halves, because the first can be vacuous on its own.
      *
@@ -218,11 +218,12 @@ test.describe('what a RESTRICTED sub-admin cannot reach', () => {
     expect(refused.every((status) => status === 403)).toBe(true);
     expect(refused.length, 'the refused page retried the forbidden call').toBeLessThanOrEqual(1);
 
-    // The API itself, on the restricted session: exactly one 403.
-    const restricted = await browser.newContext({ storageState: RESTRICTED_STATE });
-    const direct = await (await adminApi(restricted)).get('/admin/roles');
+    // The API itself, on the restricted session: exactly one 403. Asked from
+    // THIS page's context, whose session the app just kept fresh — a context
+    // rebuilt from the run's start-up file carries an access token that has
+    // long expired in a full run, and answers 401 for that reason alone.
+    const direct = await (await adminApi(page.context())).get('/admin/roles');
     expect(direct.status(), 'the API answered a restricted admin with').toBe(403);
-    await restricted.close();
   });
 
   test('never receives a masked value, in the DOM OR on the wire', async ({ page }) => {

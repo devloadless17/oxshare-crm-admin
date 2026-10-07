@@ -69,7 +69,14 @@ test('invite → accept → the invitee holds the role and nothing more → susp
   const me = await inviteeApi.get('/admin/auth/me');
   expect(me.ok()).toBe(true);
   const profile = (await me.json()) as { id: string; permissions: string[] };
-  expect([...profile.permissions].sort()).toEqual(['clients.view', 'kyc.review', 'tags.view']);
+  // `kyc.view` too: approving or rejecting KYC requires the page it happens on
+  // (the catalog's `requires`, applied on every save since backend 0204).
+  expect([...profile.permissions].sort()).toEqual([
+    'clients.view',
+    'kyc.review',
+    'kyc.view',
+    'tags.view',
+  ]);
 
   // A section outside the role: closed door, and the API refuses too.
   await page.goto('/roles');
