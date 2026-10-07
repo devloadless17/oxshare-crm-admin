@@ -1243,7 +1243,7 @@ export const messages = {
   'clientProfile.tabOverview': 'Overview',
   'clientProfile.tabPartner': 'Partner',
   'clientProfile.tabCompliance': 'Compliance',
-  'clientProfile.tabMoney': 'Money',
+  'clientProfile.tabMoney': 'Wallets',
   'clientProfile.tabNetwork': 'Network',
   // A partner's book, in full — the clients they introduced and those clients' accounts.
   'clientProfile.tabReferredClients': 'Referred clients',
