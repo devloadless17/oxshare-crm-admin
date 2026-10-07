@@ -282,7 +282,12 @@ test.describe('filtering the client directory', () => {
     expect(new URL(page.url()).searchParams.get('type')).toBe('individual');
 
     // Every visible Type cell agrees with the filter.
-    const types = await page.locator('tbody tr td:nth-child(4)').allTextContents();
+    // The column is found by its HEADER: the selection column shifted the
+    // positions, and a fixed index read the Portal ID instead.
+    const headers = await page.locator('thead th').allInnerTexts();
+    const col = headers.findIndex((h) => /^type/i.test(h.trim())) + 1;
+    expect(col, 'the client list has no Type column').toBeGreaterThan(0);
+    const types = await page.locator(`tbody tr td:nth-child(${col})`).allTextContents();
     for (const cell of types) {
       expect(cell.trim().toLowerCase(), 'a row survived a filter it does not match').toContain(
         'individual',

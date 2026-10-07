@@ -109,7 +109,7 @@ test('credit → request ×3 → approve+settle, reject, and cancel — every le
 
     await test.step('the DESK approves one through the console — it pays in one step', async () => {
       await page.goto('/transactions');
-      const search = page.getByPlaceholder(/search by name, email or portal id/i);
+      const search = page.getByPlaceholder(/search by name, email.*portal id/i);
       await Promise.all([
         page.waitForResponse((r) => r.url().includes('q=') && r.ok()),
         search.fill(client.email),
@@ -195,7 +195,7 @@ test('credit → request ×3 → approve+settle, reject, and cancel — every le
 
     await test.step('the DESK rejects one with a note — the money comes BACK', async () => {
       await page.goto('/transactions');
-      const search = page.getByPlaceholder(/search by name, email or portal id/i);
+      const search = page.getByPlaceholder(/search by name, email.*portal id/i);
       await Promise.all([
         page.waitForResponse((r) => r.url().includes('q=') && r.ok()),
         search.fill(client.email),
@@ -238,7 +238,7 @@ test('credit → request ×3 → approve+settle, reject, and cancel — every le
     let cancelledId = '';
     await test.step('approve the third, then CANCEL it from the console — the money comes back', async () => {
       await page.goto('/transactions');
-      const search = page.getByPlaceholder(/search by name, email or portal id/i);
+      const search = page.getByPlaceholder(/search by name, email.*portal id/i);
       await Promise.all([
         page.waitForResponse((r) => r.url().includes('q=') && r.ok()),
         search.fill(client.email),
