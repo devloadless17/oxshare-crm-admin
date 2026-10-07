@@ -1228,6 +1228,8 @@ export const messages = {
   'clientProfile.partnerClientsHint': 'They introduced',
   'clientProfile.partnerSubCount': 'Sub-partners',
   'clientProfile.partnerSubCountHint': 'Directly beneath them',
+  'clientProfile.partnerIbTotal': 'IB total',
+  'clientProfile.partnerIbTotalHint': '{partners} sub-partners + {clients} clients',
   'clientProfile.outsideTerritoryCount': '+{count} outside your territory',
 
   'clientProfile.partnerAgency': 'Agency',
@@ -4420,6 +4422,8 @@ export const messages = {
   // though it were paid is the mistake this wording exists to prevent. One line
   // PER CURRENCY — there is no FX source to add them with.
   'partners.colEarnings': 'Commission earned',
+  'partners.colIbTotal': 'IB total',
+  'partners.ibTotalLine': '{partners} sub-partners · {clients} clients',
   'partners.pendingAmount': '+{amount} pending',
   'partners.pendingHint': 'Calculated by the engine but not yet credited.',
   'partners.nothingEarned': 'Nothing yet',

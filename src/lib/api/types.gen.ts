@@ -6407,6 +6407,10 @@ export interface components {
             agencyName: string | null;
             /** @description Commission only (a rebate is the client’s money), one entry per currency. */
             earnings: components["schemas"]["IbPartnerEarningsDto"][];
+            /** @description IB total, first half: sub-partners directly under this partner, in the reader’s territory. */
+            subPartnerCount: number;
+            /** @description IB total, second half: clients this partner introduced who are not partners themselves, in the reader’s territory — so it adds to `subPartnerCount` without double counting. */
+            clientCount: number;
         };
         IbPartnerListResponseDto: {
             rows: components["schemas"]["IbPartnerRowDto"][];
@@ -6495,6 +6499,10 @@ export interface components {
             referredClientCount: number;
             /** @description How many clients this partner introduced sit OUTSIDE the reader’s territory, and so are absent from `referredClientCount`. Zero for an unrestricted reader. A count, no identity. */
             referredClientsOutsideScope: number;
+            /** @description IB total, first half: sub-partners directly under this partner, in the reader’s territory. */
+            subPartnerCount: number;
+            /** @description IB total, second half: clients this partner introduced who are not partners themselves, in the reader’s territory — so it adds to `subPartnerCount` without double counting. */
+            clientCount: number;
             /** @description One entry per currency they have earned in, sorted by currency. Empty when nothing has accrued yet — never a zero in a currency nobody chose. */
             earnings: components["schemas"]["IbPartnerEarningsDto"][];
             maskedFields?: string[];

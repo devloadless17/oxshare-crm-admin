@@ -408,6 +408,8 @@ const partnerDetail = (over: Record<string, unknown> = {}) => ({
   },
   directPartners: [] as unknown[],
   referredClientCount: 4,
+  subPartnerCount: 0,
+  clientCount: 4,
   // One line per currency (the API stopped summing across currencies).
   earnings: [{ currency: 'USD', confirmed: '31.50000000', pending: '0.00000000' }],
   ...over,
