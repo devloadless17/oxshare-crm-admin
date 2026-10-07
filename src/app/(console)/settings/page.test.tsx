@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import AdminSettingsPage from './page';
@@ -31,9 +31,8 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
  *    to `?tab=security` has to land somewhere rather than render blank.
  */
 
-const { getPlatformLinks, getTradingSettings, getSmtpSettings } = vi.hoisted(() => ({
+const { getPlatformLinks, getSmtpSettings } = vi.hoisted(() => ({
   getPlatformLinks: vi.fn(),
-  getTradingSettings: vi.fn(),
   getSmtpSettings: vi.fn(),
 }));
 
@@ -52,7 +51,6 @@ vi.mock('@/lib/api/admin', async (importOriginal) => {
     adminApi: {
       ...actual.adminApi,
       getPlatformLinks,
-      getTradingSettings,
       getSmtpSettings,
     },
   };
@@ -94,25 +92,6 @@ beforeEach(() => {
   search.current = new URLSearchParams();
 
   getPlatformLinks.mockResolvedValue([]);
-  getTradingSettings.mockResolvedValue({
-    leverages: [50, 100, 200, 500],
-    maxDemoDeposit: '1000000.00000000',
-    /*
-     * ONE IB field, and it is required — the note that stood here predicted
-     * precisely what happens without it, and then it happened.
-     *
-     * The four that decided what partners are PAID went in 0103/0104. The two
-     * payout CEILINGS left this form in 0112 — still stored, still enforced on
-     * every accrual, simply no longer controls — so what is left is the ladder
-     * ceiling (0105), which BOUNDS the Commission Levels page rather than
-     * restating it.
-     *
-     * Absent, it is not a blank field but a TypeError during render, surfacing
-     * as an unrelated tab-navigation failure three tests away.
-     */
-    ibMaxLevels: 2,
-    updatedAt: null,
-  });
   getSmtpSettings.mockResolvedValue({
     host: 'smtp.example.com',
     port: 587,
@@ -126,7 +105,7 @@ beforeEach(() => {
 });
 
 describe('which tabs an admin is offered', () => {
-  it('offers all five to a full-access admin', () => {
+  it('offers all four to a full-access admin', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
@@ -136,7 +115,8 @@ describe('which tabs an admin is offered', () => {
      * No Payments tab since backend 0168: the Rival connection is a payment
      * provider, under System → Payment providers.
      */
-    expect(tabs).toEqual(['Trading', 'Email', 'Platforms', 'Scheduled jobs', 'Assistant']);
+    // No Trading tab since 7 Oct 2026: nothing on it was left to save.
+    expect(tabs).toEqual(['Platforms', 'Email', 'Scheduled jobs', 'Assistant']);
   });
 
   it('hides the Email tab from a non-master admin', () => {
@@ -147,14 +127,28 @@ describe('which tabs an admin is offered', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['Trading', 'Platforms', 'Scheduled jobs', 'Assistant']);
+    expect(tabs).toEqual(['Platforms', 'Scheduled jobs', 'Assistant']);
   });
 
-  it('defaults to Trading when no tab is in the URL', async () => {
+  it('defaults to Platforms when no tab is in the URL', async () => {
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(screen.getByRole('tab', { name: /trading/i })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText(/account opening/i)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /platforms/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(await screen.findByText(/trading platform downloads/i)).toBeInTheDocument();
+  });
+
+  it('offers no Trading tab, and an old ?tab=trading link lands on Platforms', () => {
+    search.current = new URLSearchParams('tab=trading');
+    renderWithProviders(<AdminSettingsPage />);
+
+    expect(screen.queryByRole('tab', { name: /^trading$/i })).toBeNull();
+    expect(screen.getByRole('tab', { name: /platforms/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 });
 
@@ -171,12 +165,15 @@ describe('the active tab comes from the URL', () => {
   });
 
   it('falls back to the first tab for an unknown ?tab=', async () => {
-    // A renamed tab in an old bookmark. Landing on Trading beats a blank panel.
+    // A renamed tab in an old bookmark. Landing on Platforms beats a blank panel.
     search.current = new URLSearchParams('tab=nonsense');
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(screen.getByRole('tab', { name: /trading/i })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText(/account opening/i)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /platforms/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(await screen.findByText(/trading platform downloads/i)).toBeInTheDocument();
   });
 
   it('falls back when a sub-admin opens a link to the master-only Email tab', () => {
@@ -187,7 +184,10 @@ describe('the active tab comes from the URL', () => {
     search.current = new URLSearchParams('tab=email');
     renderWithProviders(<AdminSettingsPage />);
 
-    expect(screen.getByRole('tab', { name: /trading/i })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /platforms/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     expect(getSmtpSettings).not.toHaveBeenCalled();
   });
 
@@ -205,20 +205,18 @@ describe('the active tab comes from the URL', () => {
 describe('only the active panel mounts', () => {
   it('does not fetch the other tabs on load', async () => {
     renderWithProviders(<AdminSettingsPage />);
-    await screen.findByText(/account opening/i);
+    await screen.findByText(/trading platform downloads/i);
 
-    expect(getTradingSettings).toHaveBeenCalledTimes(1);
+    expect(getPlatformLinks).toHaveBeenCalledTimes(1);
     expect(getSmtpSettings).not.toHaveBeenCalled();
-    expect(getPlatformLinks).not.toHaveBeenCalled();
   });
 
   it('fetches a tab only once it is opened', async () => {
-    search.current = new URLSearchParams('tab=platforms');
+    search.current = new URLSearchParams('tab=email');
     renderWithProviders(<AdminSettingsPage />);
 
-    await screen.findByText(/trading platform downloads/i);
-    expect(getPlatformLinks).toHaveBeenCalledTimes(1);
-    expect(getTradingSettings).not.toHaveBeenCalled();
+    await waitFor(() => expect(getSmtpSettings).toHaveBeenCalledTimes(1));
+    expect(getPlatformLinks).not.toHaveBeenCalled();
   });
 });
 
@@ -259,7 +257,7 @@ describe('what the settings page still does not carry', () => {
     // The point of the earlier split. Both moved to /roles and /admin-users;
     // leaving a second copy here is how the old /roles page drifted out of sync.
     renderWithProviders(<AdminSettingsPage />);
-    await screen.findByText(/account opening/i);
+    await screen.findByText(/trading platform downloads/i);
 
     expect(screen.queryByRole('button', { name: /create custom role/i })).toBeNull();
     expect(screen.queryByText(/admin account directory/i)).toBeNull();

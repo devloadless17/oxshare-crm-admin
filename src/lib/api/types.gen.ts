@@ -2210,7 +2210,7 @@ export interface paths {
         put?: never;
         /**
          * Top up a demo trading account with practice money
-         * @description Demo accounts only — a live account is funded by transferring from a wallet, which posts both sides of the movement. The amount is capped at the operator ceiling reported as `maxDemoDeposit`; a larger request is clamped rather than refused, so a mistyped extra zero still leaves a working account.
+         * @description Demo accounts only — a live account is funded by transferring from a wallet, which posts both sides of the movement. Any positive amount with up to two decimal places.
          */
         post: operations["TradingController_fundDemoAccount"];
         delete?: never;
@@ -2811,30 +2811,6 @@ export interface paths {
         /** Serve a KYC document to its owner or a kyc.review admin */
         get: operations["UploadsController_serveKycFile"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/settings/trading": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The terms clients may open trading accounts on
-         * @description The leverage ladder, the per-client account caps and the largest demo opening balance. Until the first save these are the defaults, seeded from MT5_CLIENT_LEVERAGES when that variable is set.
-         */
-        get: operations["AdminSettingsController_getTrading"];
-        /**
-         * Update the trading terms
-         * @description Leverages are a comma-separated list; a malformed entry is REFUSED rather than dropped, so a typo cannot silently shorten the offer. An account cap of 0 stops new accounts of that kind without touching the ones a client already holds.
-         */
-        put: operations["AdminSettingsController_setTrading"];
         post?: never;
         delete?: never;
         options?: never;
@@ -7883,7 +7859,7 @@ export interface components {
         };
         FundDemoAccountDto: {
             /**
-             * @description How much practice money to add. Positive decimal string, capped by the operator ceiling reported as `maxDemoDeposit` on /trading/accounts/self-service.
+             * @description How much practice money to add. Positive decimal string, up to two decimal places.
              * @example 10000.00
              */
             amount: string;
@@ -7985,11 +7961,6 @@ export interface components {
              *     ]
              */
             leverages: number[];
-            /**
-             * @description The most a demo account may be funded with, as a decimal string (§6.1).
-             * @example 100000.00000000
-             */
-            maxDemoDeposit: string;
         };
         TradingAccountDto: {
             id: string;
@@ -8779,33 +8750,6 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
-        };
-        TradingSettingsDto: {
-            /**
-             * @description Largest opening balance a demo account may be given. A decimal string.
-             * @example 1000000.00000000
-             */
-            maxDemoDeposit: string;
-            /**
-             * @description Seconds between commission payouts, and how long an accrual matures first. 60 credits a partner about a minute after the trade closes.
-             * @example 3600
-             */
-            ibCommissionIntervalSeconds: number;
-            /** Format: date-time */
-            updatedAt?: string | null;
-            updatedByName?: string | null;
-        };
-        UpdateTradingSettingsDto: {
-            /**
-             * @description Positive decimal string.
-             * @example 1000000.00
-             */
-            maxDemoDeposit: string;
-            /**
-             * @description Seconds between commission payouts, and how long an accrual matures before it is payable. One number for both: either alone leaves the other as the real delay. 60 = a partner is credited about a minute after the trade closes.
-             * @example 3600
-             */
-            ibCommissionIntervalSeconds: number;
         };
         ScheduledJobDto: {
             /** @example mt5.syncAccounts */
@@ -15254,48 +15198,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    AdminSettingsController_getTrading: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TradingSettingsDto"];
-                };
-            };
-        };
-    };
-    AdminSettingsController_setTrading: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateTradingSettingsDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TradingSettingsDto"];
-                };
             };
         };
     };

@@ -1164,18 +1164,8 @@ export type AvailableGroup = components['schemas']['AvailableGroupDto'];
 export type Agency = components['schemas']['AgencyDto'];
 export type UpsertAgency = components['schemas']['UpsertAgencyDto'];
 
-/**
- * The terms clients may open trading accounts on.
- *
- * `leverages` comes back as `number[]` and goes up as the comma-separated
- * STRING the operator typed — the asymmetry is deliberate on the server: the
- * form is a text box, and a malformed entry is refused with a message naming
- * it rather than silently dropped.
- */
-export type TradingSettings = components['schemas']['TradingSettingsDto'];
 export type AssistantSettings = components['schemas']['AdminAssistantSettingsDto'];
 export type UpdateAssistantSettings = components['schemas']['UpdateAssistantSettingsDto'];
-export type UpdateTradingSettings = components['schemas']['UpdateTradingSettingsDto'];
 
 /*
  * `RevenueBasis` IS GONE (0104), with the "Partners are paid on" control it
@@ -1777,16 +1767,6 @@ export const adminApi = {
   /** The COMPLETE set, not a delta — see SetAgencyProductsDto. */
   async setAgencyProducts(id: string, productIds: string[]): Promise<Agency> {
     const { data } = await apiClient.put<Agency>(`/admin/agencies/${id}/products`, { productIds });
-    return data;
-  },
-
-  async getTradingSettings(): Promise<TradingSettings> {
-    const { data } = await apiClient.get<TradingSettings>('/admin/settings/trading');
-    return data;
-  },
-
-  async updateTradingSettings(body: UpdateTradingSettings): Promise<TradingSettings> {
-    const { data } = await apiClient.put<TradingSettings>('/admin/settings/trading', body);
     return data;
   },
 

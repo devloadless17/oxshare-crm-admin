@@ -296,7 +296,6 @@ export const keys = {
   /** Settings forms. Invalidated by their own save and by nothing else: a
    *  refetch under an operator's half-finished edit destroys their work. */
   settings: {
-    trading: () => ['settings', 'trading'] as const,
     assistant: () => ['settings', 'assistant'] as const,
     scheduledJobs: () => ['settings', 'scheduled-jobs'] as const,
     smtp: () => ['settings', 'smtp'] as const,
