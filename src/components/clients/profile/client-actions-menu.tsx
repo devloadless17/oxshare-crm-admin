@@ -13,6 +13,10 @@ import {
   ShieldCheck,
   Tags,
   SlidersHorizontal,
+  Layers,
+  GitBranch,
+  UserPlus,
+  ArrowUpToLine,
 } from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
@@ -62,6 +66,10 @@ export function ClientActionsMenu({
   onChangeEmail,
   onLinkAccount,
   onEditTerms,
+  onChangeLevel,
+  onReassignParent,
+  onMakeMainPartner,
+  onAppointPartner,
 }: {
   profile: ClientProfile;
   /** Null when this client is not a partner — the partner block is then absent. */
@@ -73,6 +81,12 @@ export function ClientActionsMenu({
   onLinkAccount?: () => void;
   /** 0197 — a sub-partner's own commission and rebate. */
   onEditTerms?: () => void;
+  /** Where a partner stands in the tree (owner, 7 Oct 2026). */
+  onChangeLevel?: () => void;
+  onReassignParent?: () => void;
+  onMakeMainPartner?: () => void;
+  /** An individual (not a partner) made one, under an agency. */
+  onAppointPartner?: () => void;
 }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
@@ -92,6 +106,8 @@ export function ClientActionsMenu({
   const canSuspendClient = hasPermission(admin, 'clients.suspend');
   const canSuspendPartner = hasPermission(admin, 'ib.partners.suspend');
   const canEditPartner = hasPermission(admin, 'ib.partners.edit');
+  // Making a partner IS an approval on the server, so it is the approver's key.
+  const canAppointPartner = hasPermission(admin, 'ib.approve');
   // Only a sub-partner has terms of their own (0197).
   const isSubPartner =
     partner !== null &&
@@ -275,11 +291,50 @@ export function ClientActionsMenu({
         ]
       : []),
     /*
-     * NO "Change commission level" and NO "Reassign parent" here (owner, 26 Sep
-     * 2026). Both re-price or re-place a partner; they are the Partners desk's
-     * controls, and a profile opened to answer a question should not carry them.
-     * Nor "View documents": the Overview tab lists them.
+     * WHERE THEY STAND IN THE TREE (owner, 7 Oct 2026) — this reverses the
+     * 26 Sep note that kept these on the Partners desk only: the owner asked
+     * for them on the partner's and sub-partner's menus and profile too.
+     * Each dialog states that "introduced by" follows the move.
      */
+    ...(partner && canEditPartner && onChangeLevel
+      ? [
+          {
+            label: t('clientProfile.actionChangeLevel'),
+            icon: Layers,
+            separatorBefore: !(partner && canSuspendPartner) && !isSubPartner,
+            onSelect: onChangeLevel,
+          },
+        ]
+      : []),
+    ...(partner && canEditPartner && onReassignParent
+      ? [
+          {
+            label: t('clientProfile.actionReassignParent'),
+            icon: GitBranch,
+            onSelect: onReassignParent,
+          },
+        ]
+      : []),
+    ...(isSubPartner && canEditPartner && onMakeMainPartner
+      ? [
+          {
+            label: t('clientProfile.actionMakeMain'),
+            icon: ArrowUpToLine,
+            onSelect: onMakeMainPartner,
+          },
+        ]
+      : []),
+    ...(!partner && canAppointPartner && onAppointPartner
+      ? [
+          {
+            label: t('clientProfile.actionAppointPartner'),
+            icon: UserPlus,
+            separatorBefore: true,
+            onSelect: onAppointPartner,
+          },
+        ]
+      : []),
+    // Nor "View documents": the Overview tab lists them.
     /*
      * EVERYTHING THAT HAS HAPPENED TO THIS CLIENT — the audit trail, scoped to
      * them.

@@ -14,11 +14,15 @@ export function transactionMethodLabel(row: {
   methodName: string | null | undefined;
   methodKey?: string | null;
   provider: string | null | undefined;
+  /** A desk withdrawal (7 Oct 2026) is "Manual withdrawal", not "Manual credit". */
+  direction?: string | null;
 }): string {
   if (row.methodName) return row.methodName;
   switch (row.provider) {
     case MANUAL_ADMIN_PROVIDER:
-      return t('financial.methodManualCredit');
+      return row.direction === 'withdrawal'
+        ? t('financial.methodManualDebit')
+        : t('financial.methodManualCredit');
     case 'transfer':
       return t('clientProfile.txMethodTransfer');
     case 'commission':
@@ -38,11 +42,14 @@ export function transactionMethodLabel(row: {
  * EQUAL to the provider is that fallback, not a method — handed to the shared
  * rule, which names it ("Manual credit") instead of printing a machine key.
  */
-export function movementMethodLabel(row: Pick<TransactionRow, 'methodName' | 'provider'>): string {
+export function movementMethodLabel(
+  row: Pick<TransactionRow, 'methodName' | 'provider' | 'direction'>,
+): string {
   return transactionMethodLabel({
     methodName: row.methodName && row.methodName !== row.provider ? row.methodName : null,
     methodKey: null,
     provider: row.provider,
+    direction: row.direction,
   });
 }
 

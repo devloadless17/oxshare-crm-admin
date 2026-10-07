@@ -23,6 +23,8 @@ import { ClientFilters } from '@/components/clients/client-filters';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
 import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
+import { ReassignParentFromList } from '@/components/partners/reassign-parent-from-list';
+import { AppointPartnerDialog } from '@/components/clients/profile/partner-structure-dialogs';
 import { EditTermsFromList } from '@/components/partners/edit-terms-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
@@ -233,6 +235,10 @@ function ClientsPageContent() {
    * and re-sorted, so looking the row back up by id is a race the title loses.
    */
   const [programTarget, setProgramTarget] = useState<ClientRow | null>(null);
+  // Where a partner stands in the tree (owner, 7 Oct 2026).
+  const [parentTarget, setParentTarget] = useState<ClientRow | null>(null);
+  const [appointTarget, setAppointTarget] = useState<ClientRow | null>(null);
+  const canAppointPartners = hasPermission(admin, 'ib.approve');
   const [termsTarget, setTermsTarget] = useState<ClientRow | null>(null);
   // "Link MT5 account" from a row, the client filled in (29 Sep 2026).
   const canLinkAccounts = hasPermission(admin, 'trading.create');
@@ -248,6 +254,8 @@ function ClientsPageContent() {
     onChangeProgram: setProgramTarget,
     onEditTerms: setTermsTarget,
     onLinkAccount: canLinkAccounts ? setLinkFor : undefined,
+    onReassignParent: setParentTarget,
+    onAppointPartner: canAppointPartners ? setAppointTarget : undefined,
   });
 
   return (
@@ -274,6 +282,22 @@ function ClientsPageContent() {
           onClose={() => setTermsTarget(null)}
           userId={termsTarget.id}
           name={clientLabel(termsTarget)}
+        />
+      )}
+      {parentTarget && (
+        <ReassignParentFromList
+          open
+          onClose={() => setParentTarget(null)}
+          userId={parentTarget.id}
+          name={clientLabel(parentTarget)}
+        />
+      )}
+      {appointTarget && (
+        <AppointPartnerDialog
+          open
+          onClose={() => setAppointTarget(null)}
+          userId={appointTarget.id}
+          name={clientLabel(appointTarget)}
         />
       )}
       {programTarget && (

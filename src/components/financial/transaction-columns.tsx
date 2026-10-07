@@ -127,7 +127,9 @@ export function transactionColumns({
         row.kind === 'payment' ? (
           <span className="whitespace-nowrap text-sm">
             {row.methodName === MANUAL_ADMIN_PROVIDER
-              ? t('financial.methodManualCredit')
+              ? row.direction === 'withdrawal'
+                ? t('financial.methodManualDebit')
+                : t('financial.methodManualCredit')
               : row.methodName}
           </span>
         ) : (

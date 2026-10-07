@@ -60,6 +60,7 @@ export const ALL_PERMISSIONS: string[] = [
   'wallets.view',
   'wallets.create',
   'wallets.credit',
+  'wallets.debit',
   'wallets.delete',
   'deposits.view',
   'deposits.proofs.view',

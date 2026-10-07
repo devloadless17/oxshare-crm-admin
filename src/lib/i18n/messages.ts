@@ -1297,6 +1297,49 @@ export const messages = {
     'closed trade — commission already earned records the rate it was calculated at and does ' +
     'not change. Partners beneath them keep the levels they were approved on.',
   'clientProfile.changeLevelSave': 'Move to this level',
+  // 7 Oct 2026 — a change of level is a MOVE, and "introduced by" follows it.
+  'clientProfile.levelToMainNote':
+    'Level 1 makes them a main partner: they are detached from the partner they sit under, ' +
+    'and their "introduced by" is removed — they are the broker’s partner now. Their own ' +
+    'sub-partner terms are cleared.',
+  'clientProfile.levelToSubChoose': 'Under which main partner?',
+  'clientProfile.levelToSubNote':
+    'Level 2 makes them a sub-partner of the main partner you choose, who also becomes their ' +
+    '"introduced by".',
+  'clientProfile.levelToSubHasSubs':
+    'This partner has sub-partners of their own, so they cannot become a sub-partner — the ' +
+    'tree has two levels. Move their sub-partners first.',
+  'clientProfile.mainPartnerSearch': 'Search main partners by name, email or Portal ID',
+  'clientProfile.mainPartnerLegend': 'Main partner',
+  'clientProfile.mainPartnerNone': 'There are no active main partners to choose from.',
+  'clientProfile.mainPartnerNoMatch': 'No active main partner matches that search.',
+  'clientProfile.actionAppointPartner': 'Make partner',
+  'clientProfile.appointTitle': 'Make {name} a partner',
+  'clientProfile.appointBody':
+    'Appoints this client as a partner under the agency you choose. They get a referral code ' +
+    'and a commission wallet, and are emailed — exactly as when an application is approved. A ' +
+    'pending application of theirs is approved by this.',
+  'clientProfile.appointAgency': 'Agency',
+  'clientProfile.appointPlacement': 'Position',
+  'clientProfile.appointAsMain': 'Main partner',
+  'clientProfile.appointAsMainHint': 'Level 1, deals with the broker directly. No introducer.',
+  'clientProfile.appointAsSub': 'Sub-partner',
+  'clientProfile.appointAsSubHint': 'Level 2, under a main partner, who becomes their introducer.',
+  'clientProfile.appointSave': 'Make partner',
+  'clientProfile.appointDone': '{name} is now a partner',
+  'clientProfile.appointFailed': 'They could not be made a partner.',
+  'clientProfile.actionMakeMain': 'Make main partner',
+  'clientProfile.makeMainTitle': 'Make {name} a main partner',
+  'clientProfile.makeMainBody': 'This removes them from under the partner they sit under.',
+  'clientProfile.makeMainBodyNamed': 'This removes them from under {parent}.',
+  'clientProfile.makeMainEffectLevel': 'They become a main partner (level 1) with no parent.',
+  'clientProfile.makeMainEffectReferrer':
+    'Their "introduced by" is removed — they are the broker’s partner now.',
+  'clientProfile.makeMainEffectTerms':
+    'Their own sub-partner commission and rebate are cleared. Their clients stay theirs.',
+  'clientProfile.makeMainSave': 'Make main partner',
+  'clientProfile.makeMainDone': '{name} is now a main partner',
+  'clientProfile.makeMainFailed': 'They could not be made a main partner.',
   // 0198 — symbols a commission type pays nothing on.
   'symbolExclusions.title': 'Excluded symbols — no commission, no rebate',
   'symbolExclusions.hint':
@@ -1350,7 +1393,7 @@ export const messages = {
   'clientProfile.termRebateShare': '{share}% of its rebate',
   'clientProfile.levelNoneEnabled':
     'No commission level is enabled, so there is nothing to move this partner to.',
-  'clientProfile.actionReassignParent': 'Reassign parent',
+  'clientProfile.actionReassignParent': 'Move under another partner',
   'clientProfile.actionManageTags': 'Manage tags',
   'clientProfile.actionOpenKyc': 'View KYC',
   'clientProfile.actionViewAuditTrail': 'View audit trail',
@@ -1427,13 +1470,18 @@ export const messages = {
   'clientProfile.changeEmailSaved': 'Sign-in email changed',
   'clientProfile.changeEmailFailed': 'The sign-in email could not be changed.',
 
-  'clientProfile.reassignParentTitle': 'Reassign {name}’s parent',
+  'clientProfile.reassignParentTitle': 'Move {name} under another partner',
   'clientProfile.reassignParentBody':
-    'Who they sit under. The API refuses a choice that would close a loop, and a partner’s own level is not changed by moving them.',
-  'clientProfile.reassignParentNone': 'No parent — deals with the broker directly',
+    'Who they sit under. Under a main partner they are a sub-partner (level 2); with no parent ' +
+    'they are a main partner (level 1). A partner with sub-partners of their own cannot move ' +
+    'under somebody.',
+  'clientProfile.reassignParentReferrerNote':
+    'Their "introduced by" follows the move: it becomes the main partner you choose, or is ' +
+    'removed when they deal with the broker directly.',
+  'clientProfile.reassignParentNone': 'No parent — a main partner, deals with the broker directly',
   'clientProfile.reassignParentKeepOutside': 'Keep current — a partner outside your territory',
-  'clientProfile.reassignParentSave': 'Reassign',
-  'clientProfile.parentChanged': 'Parent reassigned',
+  'clientProfile.reassignParentSave': 'Move',
+  'clientProfile.parentChanged': 'Partner moved',
   'clientProfile.parentFailed': 'Their parent could not be reassigned.',
   'clientProfile.manageTagsTitle': 'Tags for {name}',
   'clientProfile.manageTagsBody':
@@ -1465,6 +1513,54 @@ export const messages = {
   'clientProfile.txTabDeposits': 'Deposits',
   'clientProfile.txTabWithdrawals': 'Withdrawals',
   'clientProfile.txTabTransfers': 'Transfers',
+  // 7 Oct 2026 — the desk's hand movements from the Transactions tab.
+  'clientMoney.deposit': 'Deposit',
+  'clientMoney.withdraw': 'Withdraw',
+  'clientMoney.transfer': 'Transfer',
+  'clientMoney.depositTitle': 'Deposit for this client',
+  'clientMoney.withdrawTitle': 'Withdraw for this client',
+  'clientMoney.transferTitle': 'Transfer between wallet and trading account',
+  'clientMoney.into': 'Deposit into',
+  'clientMoney.outOf': 'Withdraw from',
+  'clientMoney.toWallet': 'Wallet',
+  'clientMoney.toAccount': 'Trading account',
+  'clientMoney.fromWallet': 'Wallet',
+  'clientMoney.fromAccount': 'Trading account',
+  'clientMoney.from': 'Money comes from',
+  'clientMoney.to': 'Money goes to',
+  'clientMoney.sourceSystem': 'The system',
+  'clientMoney.sourceSystemHint': 'New money, added by the desk. The client is emailed.',
+  'clientMoney.sourceWallet': 'The client’s wallet',
+  'clientMoney.sourceWalletHint': 'Moves money the client already holds. Nothing is added.',
+  'clientMoney.destWallet': 'The client’s wallet',
+  'clientMoney.destWalletHint': 'The money stays on the platform, in their wallet.',
+  'clientMoney.destSystem': 'Out of the platform',
+  'clientMoney.destSystemHint':
+    'Moved to their wallet, then withdrawn from it as a completed manual withdrawal.',
+  'clientMoney.way': 'Direction',
+  'clientMoney.wayToAccount': 'Wallet → trading account',
+  'clientMoney.wayToWallet': 'Trading account → wallet',
+  'clientMoney.wallet': 'Wallet',
+  'clientMoney.account': 'Trading account',
+  'clientMoney.walletAvailable': '{amount} available',
+  'clientMoney.accountBalance': 'balance {amount}',
+  'clientMoney.accountWalletLine': 'Their {currency} wallet has {amount} available.',
+  'clientMoney.accountWalletNone':
+    'They have no {currency} wallet yet; one is opened when money first moves through it.',
+  'clientMoney.noWallet': 'This client has no wallet. Open one on the Overview tab first.',
+  'clientMoney.noAccount': 'This client has no active live trading account.',
+  'clientMoney.amount': 'Amount ({currency})',
+  'clientMoney.amountLabel': 'Amount',
+  'clientMoney.overAvailable': 'More than the wallet has available ({amount}).',
+  'clientMoney.reason': 'Reason',
+  'clientMoney.reasonPlaceholder': 'Why this money is moving — kept on the audit log.',
+  'clientMoney.depositConfirm': 'Deposit',
+  'clientMoney.withdrawConfirm': 'Withdraw',
+  'clientMoney.transferConfirm': 'Transfer',
+  'clientMoney.done': '{amount} moved',
+  'clientMoney.partial': 'Only part of the movement happened ({amount}): {error}',
+  'clientMoney.failed': 'The money could not be moved.',
+  'financial.methodManualDebit': 'Manual withdrawal',
   'clientProfile.txColDate': 'Date',
   'clientProfile.txColType': 'Type',
   'clientProfile.txColWay': 'Direction',

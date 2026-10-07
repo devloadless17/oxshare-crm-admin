@@ -1,4 +1,13 @@
-import { Eye, Link2, PauseCircle, PlayCircle, Wallet, SlidersHorizontal } from 'lucide-react';
+import {
+  Eye,
+  GitBranch,
+  Link2,
+  PauseCircle,
+  PlayCircle,
+  SlidersHorizontal,
+  UserPlus,
+  Wallet,
+} from 'lucide-react';
 import type { ClientRow, ClientSortKey } from '@/lib/api/admin';
 import type { ClientRef } from '@/lib/api/admin';
 import { kycStatusLabel, kycStatusVariant } from '@/lib/kyc-status';
@@ -75,6 +84,8 @@ export function clientColumns({
   onEditTerms,
   showReferrer = false,
   onLinkAccount,
+  onReassignParent,
+  onAppointPartner,
 }: {
   canSuspend: boolean;
   canViewTags: boolean;
@@ -100,6 +111,13 @@ export function clientColumns({
    * Pass it only for a reader holding `trading.create`.
    */
   onLinkAccount?: (client: ClientRow) => void;
+  /** "Move under another partner" on partner rows (owner, 7 Oct 2026). */
+  onReassignParent?: (client: ClientRow) => void;
+  /**
+   * "Make partner" on rows that are not partners (owner, 7 Oct 2026). Pass it
+   * only for a reader holding `ib.approve` — the API's key for it.
+   */
+  onAppointPartner?: (client: ClientRow) => void;
 }): Column<ClientRow>[] {
   const hidden = (field: string) => isMasked(field, maskedFields);
 
@@ -320,7 +338,7 @@ export function clientColumns({
    * `clients.suspend` — a commission operator, which is exactly the role that
    * needs it most.
    */
-  if (canSuspend || canEditPartners || onLinkAccount) {
+  if (canSuspend || canEditPartners || onLinkAccount || onAppointPartner) {
     /*
      * `actionsColumn` rather than a hand-written column, so this table gets the
      * same pinned, unsortable, right-aligned Actions affordance as every other
@@ -371,6 +389,15 @@ export function clientColumns({
                       separatorBefore: true,
                       onSelect: () => onChangeProgram(c),
                     },
+                    ...(onReassignParent
+                      ? [
+                          {
+                            label: t('clientProfile.actionReassignParent'),
+                            icon: GitBranch,
+                            onSelect: () => onReassignParent(c),
+                          },
+                        ]
+                      : []),
                     ...(onEditTerms
                       ? [
                           {
@@ -380,6 +407,17 @@ export function clientColumns({
                           },
                         ]
                       : []),
+                  ]
+                : []),
+              // An individual (or a referred client) made a partner, under an agency.
+              ...(onAppointPartner && c.type !== 'partner'
+                ? [
+                    {
+                      label: t('clientProfile.actionAppointPartner'),
+                      icon: UserPlus,
+                      separatorBefore: true,
+                      onSelect: () => onAppointPartner(c),
+                    },
                   ]
                 : []),
               ...(canSuspend

@@ -7,6 +7,7 @@ import {
   Percent,
   Users,
   SlidersHorizontal,
+  ArrowUpToLine,
 } from 'lucide-react';
 import type { Column } from '@/components/data-table';
 import { RowActions, actionsColumn, type RowAction } from '@/components/row-actions';
@@ -60,6 +61,7 @@ export function partnerColumns({
   onReassignParent,
   onEditTerms,
   onToggleActive,
+  onMakeMain,
 }: {
   maskedFields: readonly string[];
   /** `clients.view` — the profile and the introduced-clients list need it. */
@@ -77,6 +79,8 @@ export function partnerColumns({
   /** 0197 — a sub-partner's own commission and rebate. Offered on sub-partners only. */
   onEditTerms: (row: IbPartnerRow) => void;
   onToggleActive: (row: IbPartnerRow) => void;
+  /** A sub-partner cut loose to be a main partner (owner, 7 Oct 2026). */
+  onMakeMain?: (row: IbPartnerRow) => void;
 }): Column<IbPartnerRow>[] {
   const nameHidden = isMasked('client.firstName', maskedFields);
 
@@ -193,6 +197,15 @@ export function partnerColumns({
             icon: Network,
             onSelect: () => onReassignParent(row),
           },
+          ...(row.account.level >= 2 && onMakeMain
+            ? [
+                {
+                  label: t('clientProfile.actionMakeMain'),
+                  icon: ArrowUpToLine,
+                  onSelect: () => onMakeMain(row),
+                },
+              ]
+            : []),
           ...(row.account.level >= 2
             ? [
                 {

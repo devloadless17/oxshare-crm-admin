@@ -176,7 +176,7 @@ export const keys = {
   ibPartners: {
     all: () => ['ib-partners'] as const,
     list: (params: Params) => ['ib-partners', 'list', params] as const,
-    forReassign: () => ['ib-partners', 'for-reassign'] as const,
+    forReassign: (q = '') => ['ib-partners', 'for-reassign', q] as const,
     detail: (userId: ClientRef) => ['ib-partners', 'detail', userId] as const,
   },
 

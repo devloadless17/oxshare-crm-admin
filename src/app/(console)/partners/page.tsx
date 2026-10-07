@@ -35,6 +35,7 @@ import { EditTermsFromList } from '@/components/partners/edit-terms-from-list';
 import { clientLabel } from '@/components/clients/client-identity';
 import { partnerColumns } from '@/components/partners/partner-columns';
 import { ReassignParentFromList } from '@/components/partners/reassign-parent-from-list';
+import { MakeMainPartnerDialog } from '@/components/clients/profile/partner-structure-dialogs';
 import { maskedFieldLabels } from '@/lib/masking';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
@@ -134,6 +135,7 @@ function PartnersPageContent() {
   const [levelTarget, setLevelTarget] = useState<IbPartnerRow | null>(null);
   const [termsTarget, setTermsTarget] = useState<IbPartnerRow | null>(null);
   const [parentTarget, setParentTarget] = useState<IbPartnerRow | null>(null);
+  const [mainTarget, setMainTarget] = useState<IbPartnerRow | null>(null);
 
   const setActive = useMutation({
     mutationFn: ({ row, active }: { row: IbPartnerRow; active: boolean }) =>
@@ -187,6 +189,7 @@ function PartnersPageContent() {
     onChangeLevel: setLevelTarget,
     onReassignParent: setParentTarget,
     onEditTerms: setTermsTarget,
+    onMakeMain: setMainTarget,
     onToggleActive: (row) => void toggleActive(row),
   });
 
@@ -212,6 +215,15 @@ function PartnersPageContent() {
           onClose={() => setTermsTarget(null)}
           userId={termsTarget.account.userId}
           name={clientLabel(termsTarget.user)}
+        />
+      )}
+      {mainTarget && (
+        <MakeMainPartnerDialog
+          open
+          onClose={() => setMainTarget(null)}
+          userId={mainTarget.account.userId}
+          name={clientLabel(mainTarget.user)}
+          parentName={null}
         />
       )}
       {parentTarget && (
