@@ -56,15 +56,11 @@ export type RouteRequirement =
 const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement }> = [
   { prefix: '/kyc/builder', requirement: { permission: 'kyc.edit' } }, // edits the KYC config itself
   /*
-   * The rejection-reason catalogue. Reading it needs no key at all (every
-   * reviewer's dialog lists it), but this page exists to CHANGE it, and each
-   * write is its own KYC key on the API (create / edit / delete) — so any one
-   * of them opens the page, and each control checks its own.
+   * The rejection-reason catalogue: its OWN key since the Oct 2026 audit. It
+   * rode on the KYC builder's keys, so giving somebody the builder put a second
+   * menu item in front of them — and the reasons cover withdrawals too.
    */
-  {
-    prefix: '/rejection-reasons',
-    requirement: { anyOf: ['kyc.create', 'kyc.edit', 'kyc.delete'] },
-  },
+  { prefix: '/rejection-reasons', requirement: { permission: 'rejection_reasons.view' } },
   /*
    * EITHER key opens the queue. `kyc.view` is the read key and `kyc.review` is
    * the decide key, and neither implies the other — the guard matches keys
@@ -106,23 +102,14 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
   { prefix: '/wallets', requirement: { permission: 'wallets.view' } },
   { prefix: '/trading-accounts', requirement: { permission: 'trading.view' } },
   /*
-   * `/bridge` shares `trading.view` with `/trading-accounts`, and the sharing is
-   * the point: the screen shows the delivery queue and balance operations BEHIND
-   * those accounts — the same client logins, amounts and transfer ids, one layer
-   * down. Whoever may read a client's trading account may read why a deal on it
-   * has not appeared.
-   *
-   * A dedicated key was the alternative and would have shipped a screen that
-   * 404s for every existing role until somebody granted it — a diagnostics page
-   * nobody can open during the incident it exists for.
+   * ONE PAGE, ONE KEY (Oct 2026 audit). The bridge diagnostics and the MT5
+   * groups used to open on `trading.view`, so every employee given Trading
+   * accounts also found a "Trading" group holding the MT5 server's groups —
+   * the buyer's report. Each has its own key now, and `trading.view` opens
+   * Trading accounts alone.
    */
-  { prefix: '/bridge', requirement: { permission: 'trading.view' } },
-  /*
-   * The groups the sync job mirrors from MT5. `trading.view` for the reason
-   * `/bridge` shares it with `/trading-accounts`: all three answer "what does
-   * the MT5 side hold", and the screen writes nothing.
-   */
-  { prefix: '/mt5-groups', requirement: { permission: 'trading.view' } },
+  { prefix: '/bridge', requirement: { permission: 'mt5.bridge.view' } },
+  { prefix: '/mt5-groups', requirement: { permission: 'mt5.groups.view' } },
   // `payments.view` reads the list; the page checks `payments.manage` before it
   // draws any write control, and the API refuses the writes regardless.
   { prefix: '/payment-methods', requirement: { permission: 'payments.view' } },
@@ -193,68 +180,28 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * `Administrator`; anyone else is a deliberate edit on the Roles screen.
    */
   { prefix: '/external-links', requirement: { permission: 'externallinks.view' } },
+  /* Their own keys — they rode on `settings.view`, opening two extra pages. */
+  { prefix: '/products', requirement: { permission: 'products.view' } },
+  { prefix: '/agencies', requirement: { permission: 'agencies.view' } },
   /*
-   * The catalogue: what the broker sells, and the programmes partners sell it
-   * under. `settings.*` rather than keys of their own — see the note on the
-   * backend controller. Reading is the weaker half on purpose: an operator who
-   * may look at the settings screen should be able to see what is on sale.
-   */
-  { prefix: '/products', requirement: { permission: 'settings.view' } },
-  { prefix: '/agencies', requirement: { permission: 'settings.view' } },
-  /*
-   * READ is `ib.view` — the write keys (`ib.levels.create` / `.edit` /
-   * `.delete`) are checked by the controls inside, so an operator who may see
-   * the terms is not also required to be able to change them. Route access is
-   * the weaker of the two on purpose: somebody who may see partners should be
-   * able to see the rules they are paid under.
+   * INTRODUCING BROKERS — one page, one key (Oct 2026 audit).
    *
-   * Registering it here is not optional: `canAccess` returns FALSE for any path
-   * this table does not list, so a screen with a nav entry and no requirement is
-   * unreachable for everybody — the exact failure this file's docblock records
-   * for `partners.view` and `payouts.review`.
+   * All of these opened on `ib.view`, so the buyer could not give his Sales
+   * role the partners without also giving it the commission ladder and the
+   * rate cards. Each page now asks for its own view key; the actions inside
+   * still check their own (`ib.partners.edit`, `ib.approve`, `ib.levels.*`…).
+   *
+   * Referrals rode on `clients.view`, which put an "Introducing brokers" group
+   * in front of every support agent. Its key is `ib.referrals.view`, and the
+   * API holds a reader with only that key to referred clients.
    */
-  { prefix: '/ib-levels', requirement: { permission: 'ib.view' } },
-  /* The rate cards the ladder takes its shares of (0140). Same read key as the
-     ladder, for the same reason; the write keys are checked by the controls. */
-  { prefix: '/commission-types', requirement: { permission: 'ib.view' } },
-  /*
-   * `ib.view`, not `ib.approve`. Seeing the queue and deciding on it are
-   * separate powers — the buttons inside each check their own — so requiring
-   * `ib.approve` here would hide the whole screen from a reviewer who may only
-   * reject.
-   */
-  { prefix: '/approvals/ib', requirement: { permission: 'ib.view' } },
+  { prefix: '/partners', requirement: { permission: 'ib.partners.view' } },
+  { prefix: '/approvals/ib', requirement: { permission: 'ib.applications.view' } },
   { prefix: '/approvals/deposits', requirement: { permission: 'deposits.view' } },
-  /*
-   * The partner DIRECTORY — back, on the owner's request (25 Sep 2026).
-   *
-   * It was removed on 13 Aug with its page and nav entry, together, because it
-   * and the client list disagreed about who was a partner. Both now read
-   * `ib_accounts` (the client type is derived from it), and the backend pins
-   * that their totals agree — so the page, its leaf under Introducing brokers
-   * and this requirement come back together, by the same rule.
-   *
-   * `ib.view`, exactly what `GET /admin/ib/partners` enforces. The row actions
-   * inside check their own keys (`ib.partners.edit`, `ib.partners.suspend`).
-   */
-  { prefix: '/partners', requirement: { permission: 'ib.view' } },
-  /*
-   * The Referrals page is `GET /admin/clients?referred=true`, so it asks for
-   * what that endpoint enforces: `clients.view`. The "Introduced by" column
-   * inside needs `ib.view` as well and is drawn only when it is held — the page
-   * without it is still the list of referred clients.
-   */
-  { prefix: '/referrals', requirement: { permission: 'clients.view' } },
-  /*
-   * The commission ledger. It was NOT LISTED, and an unlisted path is denied —
-   * so the screen shipped unreachable for everybody, which is the failure mode
-   * the deny-by-default note below promises will be caught on the author's
-   * first click. It was not, because the wildcard was still being honoured and
-   * `hasPermission` returned true before the route table was ever consulted.
-   */
-  // Either key, matching `GET /admin/ib/accruals` exactly — the route was
-  // stricter than its API, which denies a page the API would serve.
-  { prefix: '/commissions', requirement: { anyOf: ['ib.view', 'ib.commissions.view'] } },
+  { prefix: '/referrals', requirement: { permission: 'ib.referrals.view' } },
+  { prefix: '/commissions', requirement: { permission: 'ib.commissions.view' } },
+  { prefix: '/ib-levels', requirement: { permission: 'ib.levels.view' } },
+  { prefix: '/commission-types', requirement: { permission: 'ib.commission_types.view' } },
   /*
    * `settings.view` — the family this screen is actually made of.
    *
@@ -283,22 +230,14 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * widening any panel. (`settings.rival.view` left with the Payments tab: the
    * Rival connection is on Payment providers since backend 0168.)
    */
-  {
-    prefix: '/settings',
-    requirement: {
-      anyOf: [
-        'settings.view',
-        'settings.edit',
-        'settings.smtp.view',
-        /*
-         * `settings.security.view` is NOT in this union any more. The Security
-         * tab it opened became its own page, `/network-access`, below — so an
-         * operator who administers the allowlist and nothing else no longer
-         * needs a door into Settings to reach it.
-         */
-      ],
-    },
-  },
+  /*
+   * ONE door since the Oct 2026 audit. `settings.edit` and `settings.smtp.view`
+   * also opened the page, onto tabs that then read with `settings.view` and
+   * answered 403. Both now REQUIRE `settings.view` (the catalog's `requires`,
+   * applied on every role save), so the view key is the page and the others
+   * are what may be done on it.
+   */
+  { prefix: '/settings', requirement: { permission: 'settings.view' } },
   /*
    * RBAC-08 — which networks may reach the administration API. Its own page
    * under Security since 25 Sep 2026; it was a tab on /settings. READ is the

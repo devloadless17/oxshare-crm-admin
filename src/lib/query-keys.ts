@@ -256,7 +256,8 @@ export const keys = {
   roles: {
     all: () => ['roles'] as const,
     edit: (roleId: string) => ['roles', 'edit', roleId] as const,
-    formCatalogs: () => ['roles', 'form-catalogs'] as const,
+    // `from`: the role a duplicate is pre-filled from — its own cache entry.
+    formCatalogs: (from: string = '') => ['roles', 'form-catalogs', from] as const,
   },
 
   permissions: {

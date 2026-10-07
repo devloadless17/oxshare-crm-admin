@@ -45,9 +45,11 @@ const AGENCY_PAGING = { noun: ['agency', 'agencies'] as [string, string] };
 
 export default function AgenciesPage() {
   const { admin } = useAdmin();
-  // `settings.*` for the same reason as products — see that page's note.
-  const canView = hasPermission(admin, 'settings.view');
-  const canManage = hasPermission(admin, 'settings.edit');
+  // Its own keys, like products — see that page's note.
+  const canView = hasPermission(admin, 'agencies.view');
+  const canCreate = hasPermission(admin, 'agencies.create');
+  const canEdit = hasPermission(admin, 'agencies.edit');
+  const canDelete = hasPermission(admin, 'agencies.delete');
 
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -234,7 +236,8 @@ export default function AgenciesPage() {
         label={t('table.rowActions', { name: agency.name })}
         busy={busyId === agency.id}
         items={[
-          ...(canManage
+          // Each action on the key its endpoint enforces (Oct 2026 audit).
+          ...(canEdit
             ? [
                 { label: t('agencies.edit'), icon: Pencil, onSelect: () => openEdit(agency) },
                 {
@@ -242,6 +245,10 @@ export default function AgenciesPage() {
                   icon: Handshake,
                   onSelect: () => toggleEnabled.mutate(agency),
                 },
+              ]
+            : []),
+          ...(canDelete
+            ? [
                 {
                   label: t('agencies.delete'),
                   icon: Trash2,
@@ -262,7 +269,7 @@ export default function AgenciesPage() {
           <h1 className="text-2xl font-bold tracking-tight">{t('agencies.pageTitle')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('agencies.subtitle')}</p>
         </div>
-        {canManage && (
+        {canCreate && (
           <button
             type="button"
             onClick={openCreate}

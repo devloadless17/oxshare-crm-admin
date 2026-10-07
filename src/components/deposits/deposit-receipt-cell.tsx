@@ -1,5 +1,7 @@
 'use client';
 
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 import * as React from 'react';
 import { FileText, Receipt } from 'lucide-react';
 import { DocLightbox } from '@/components/kyc-review/doc-lightbox';
@@ -32,6 +34,9 @@ import { t } from '@/lib/i18n';
  */
 export function DepositReceiptCell({ filename }: { filename?: string | null }) {
   const [open, setOpen] = React.useState(false);
+  const { admin } = useAdmin();
+  const mayOpen =
+    hasPermission(admin, 'deposits.proofs.view') || hasPermission(admin, 'deposits.approve');
 
   if (!filename) {
     /*
@@ -41,6 +46,15 @@ export function DepositReceiptCell({ filename }: { filename?: string | null }) {
      * invites an approval on the assumption that it is there.
      */
     return <span className="text-xs text-muted-foreground">{t('deposits.noReceipt')}</span>;
+  }
+
+  /*
+   * The file opens with `deposits.proofs.view`, or `deposits.approve`, which the
+   * API treats as implying it. Without either the link could only answer 403
+   * (Oct 2026 audit) — so say a receipt exists, and that this role can't open it.
+   */
+  if (!mayOpen) {
+    return <span className="text-xs text-muted-foreground">{t('deposits.receiptNotAllowed')}</span>;
   }
 
   const path = `uploads/deposit-proofs/${filename}`;

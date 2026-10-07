@@ -140,7 +140,7 @@ describe('the agency list', () => {
 
 describe('the agency list — who may change it', () => {
   it('offers no way to add an agency to a read-only operator', async () => {
-    permissions.current = ['settings.view'];
+    permissions.current = ['agencies.view'];
     renderWithProviders(<AgenciesPage />);
 
     await screen.findByText('Gold Agency');

@@ -54,7 +54,12 @@ describe('NewApiKeyPage — permission catalog', () => {
 
     const retry = await screen.findByRole('button', { name: /retry/i });
     getPermissions.mockResolvedValue({
-      clients: { label: 'Clients', permissions: [{ key: 'clients.view', label: 'View clients' }] },
+      clients: {
+        group: 'clients',
+        moduleName: 'Clients',
+        description: '',
+        permissions: [{ key: 'clients.view', label: 'View clients' }],
+      },
     });
     await user.click(retry);
 

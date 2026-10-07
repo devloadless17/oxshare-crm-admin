@@ -1,7 +1,7 @@
 'use client';
 
+import { PermittedLink } from '@/components/permitted-link';
 import * as React from 'react';
-import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Tags as TagsIcon, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -214,12 +214,14 @@ export default function TagsPage() {
           ) : (
             // The link that made URL-state on the client list non-optional. A
             // count nobody can act on is a number on a screen.
-            <Link
+            // A PermittedLink: a reader with the tags page but not the client
+            // list gets the count as text, not a link to "Access denied".
+            <PermittedLink
               href={`/clients?tag=${tag.slug}`}
               className="text-link hover:underline focus-outline"
             >
               {t('tags.clientCount', { count: tag.clientCount })}
-            </Link>
+            </PermittedLink>
           )}
           <OutsideTerritoryCount count={tag.clientsOutsideScope} />
         </>
@@ -233,9 +235,12 @@ export default function TagsPage() {
                 label={t('table.rowActions', { name: tag.label })}
                 busy={deleteTag.isPending && deletingId === tag.id}
                 items={[
-                  { label: t('tags.edit'), icon: Pencil, onSelect: () => openEdit(tag) },
+                  // Each item on the key its endpoint enforces (Oct 2026 audit).
+                  ...(canEdit
+                    ? [{ label: t('tags.edit'), icon: Pencil, onSelect: () => openEdit(tag) }]
+                    : []),
                   // A country tag is never deleted — it follows its clients.
-                  ...(tag.countryCode
+                  ...(tag.countryCode || !canDelete
                     ? []
                     : [
                         {

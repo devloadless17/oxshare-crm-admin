@@ -1,8 +1,10 @@
 'use client';
 
+import { withoutLocked } from '@/lib/masking';
 import * as React from 'react';
 import type { AdminUser, ClientFieldGroup, ClientTagWithCount, Role } from '@/lib/api/admin';
 import { AdminFieldMaskPanel, AdminTagScopePanel } from './admin-visibility-panels';
+import { RoleSummaryLine } from './role-menu-preview';
 import {
   Select,
   SelectTrigger,
@@ -107,8 +109,9 @@ export function AdminFormModal({
    * tell "inherits the role" from "has an identical override" — and offer the
    * way back.
    */
-  const [maskOverride, setMaskOverride] = React.useState<string[] | null>(
-    admin.maskedFieldsOverride ?? null,
+  const [maskOverride, setMaskOverride] = React.useState<string[] | null>(() =>
+    // Locked fields dropped, or a stale one makes the override unsavable.
+    admin.maskedFieldsOverride ? withoutLocked(admin.maskedFieldsOverride, fieldCatalog) : null,
   );
   const inheriting = maskOverride === null;
   /*
@@ -255,6 +258,7 @@ export function AdminFormModal({
                 ))}
               </SelectContent>
             </Select>
+            <RoleSummaryLine role={assignable.find((r) => r.id === roleId)} />
             <p className="mt-1.5 text-[11px] text-muted-foreground">{t('adminUsers.roleHint')}</p>
           </div>
 

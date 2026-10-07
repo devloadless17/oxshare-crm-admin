@@ -34,7 +34,7 @@ import type { NavBadges } from './navigation';
  * the nav simply shows no badge, which reads the same as none pending.
  */
 export function useNavBadges(admin: AdminProfile | null): NavBadges {
-  const canSeeApplications = hasPermission(admin, 'ib.view');
+  const canSeeApplications = hasPermission(admin, 'ib.applications.view');
   const pendingApplications = useQuery({
     queryKey: keys.ibApplications.pendingCount(),
     queryFn: () => api.admin.getIbApplications({ status: 'pending', limit: 1 }),

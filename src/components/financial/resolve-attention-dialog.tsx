@@ -95,11 +95,13 @@ export function ResolveAttentionDialog({
     target.direction === 'deposit' &&
     Boolean(target.providerPaymentId) &&
     (target.state === 'pending' || target.state === 'failure');
+  // "Mark resolved" on a deposit is `deposits.approve`'s (the API's rule).
+  const mayResolve = target?.direction !== 'deposit' || hasPermission(admin, 'deposits.approve');
   const choices: Choice[] = finishable
     ? [
         ...(hasPermission(admin, 'deposits.approve') ? (['credit'] as const) : []),
         ...(hasPermission(admin, 'deposits.reject') ? (['close'] as const) : []),
-        'resolve',
+        ...(mayResolve ? (['resolve'] as const) : []),
       ]
     : ['resolve'];
 

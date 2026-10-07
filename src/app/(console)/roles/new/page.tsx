@@ -2,7 +2,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -34,15 +34,29 @@ export default function NewRolePage() {
   const canManage = hasPermission(admin, 'roles.create');
   const router = useRouter();
   const queryClient = useQueryClient();
+  /*
+   * DUPLICATE (Oct 2026 audit): `?from=<role id>` opens this form pre-filled
+   * from that role — the common case is "like Sales, plus one thing". Only
+   * keys the editor holds are copied, so the copy is one they can save.
+   */
+  const fromId = useSearchParams().get('from');
 
   // The permission catalog and the RBAC-03 field vocabulary, together — the
   // mask section is back (13 Aug), so the form needs both to render.
-  const query = useResource(keys.roles.formCatalogs(), async () => {
-    const [catalog, fieldCatalog] = await Promise.all([
+  const query = useResource(keys.roles.formCatalogs(fromId ?? ''), async () => {
+    const [catalog, fieldCatalog, roles] = await Promise.all([
       api.admin.getPermissions(),
       api.admin.getClientFields(),
+      fromId ? api.admin.getRoles() : Promise.resolve([]),
     ]);
-    return { catalog, fieldCatalog };
+    const source = roles.find((r) => r.id === fromId);
+    const initial = source && {
+      name: t('roles.copyOf', { name: source.name }),
+      description: source.description,
+      permissions: source.permissions.filter((key) => hasPermission(admin, key)),
+      maskedFields: source.maskedFields,
+    };
+    return { catalog, fieldCatalog, initial };
   });
 
   const save = useMutation({
@@ -92,6 +106,8 @@ export default function NewRolePage() {
           error={query.error}
         >
           <RoleForm
+            key={query.data?.initial ? 'copy' : 'blank'}
+            initial={query.data?.initial}
             catalog={query.data?.catalog ?? {}}
             fieldCatalog={query.data?.fieldCatalog ?? {}}
             busy={save.isPending}

@@ -40,9 +40,9 @@ type Editing = { context: RejectionContext; reason?: RejectionReason };
  */
 export default function RejectionReasonsPage() {
   const { admin } = useAdmin();
-  const canCreate = hasPermission(admin, 'kyc.create');
-  const canEdit = hasPermission(admin, 'kyc.edit');
-  const canDelete = hasPermission(admin, 'kyc.delete');
+  const canCreate = hasPermission(admin, 'rejection_reasons.create');
+  const canEdit = hasPermission(admin, 'rejection_reasons.edit');
+  const canDelete = hasPermission(admin, 'rejection_reasons.delete');
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 

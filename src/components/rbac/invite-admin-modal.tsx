@@ -8,6 +8,7 @@ import { apiErrorMessage } from '@/lib/api/errors';
 import { AdminFieldMaskPanel, AdminTagScopePanel } from './admin-visibility-panels';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { Modal } from '@/components/ui/modal';
+import { RoleSummaryLine } from './role-menu-preview';
 import {
   Select,
   SelectTrigger,
@@ -417,6 +418,7 @@ export function InviteAdminModal({
                 </SelectContent>
               </Select>
             )}
+            <RoleSummaryLine role={assignable.find((r) => r.id === roleId)} />
           </div>
 
           {canScope && (

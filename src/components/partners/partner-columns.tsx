@@ -66,7 +66,7 @@ export function partnerColumns({
   maskedFields: readonly string[];
   /** `clients.view` — the profile and the introduced-clients list need it. */
   canViewClients: boolean;
-  /** `ib.view` or `ib.commissions.view` — the ledger's own route requirement. */
+  /** `ib.commissions.view` — the payouts page's own route requirement. */
   canViewCommissions: boolean;
   /** `ib.partners.edit` — the key the level and parent PATCHes enforce. */
   canEditPartners: boolean;

@@ -125,7 +125,7 @@ export default function ClientProfilePage() {
   const queryClient = useQueryClient();
 
   const canViewTrading = hasPermission(admin, 'trading.view');
-  const canViewPartners = hasPermission(admin, 'ib.view');
+  const canViewPartners = hasPermission(admin, 'ib.partners.view');
   /*
    * Its OWN key, not `clients.edit`. Recording who introduced a client decides
    * who is paid commission on their future trading — that is not the same power
@@ -135,6 +135,7 @@ export default function ClientProfilePage() {
   const canRecordReferrer = hasPermission(admin, 'clients.referrer.set');
   // The Financial list's key — the Transactions tab reads it, filtered to this client.
   const canViewTransactions = hasPermission(admin, 'transactions.view');
+  const canViewWallets = hasPermission(admin, 'wallets.view');
   const canViewClients = hasPermission(admin, 'clients.view');
   const canAssignTags = hasPermission(admin, 'clients.tag');
 
@@ -261,11 +262,17 @@ export default function ClientProfilePage() {
       label: t('clientProfile.tabOverview'),
       icon: <User className="h-3.5 w-3.5" />,
     },
-    {
-      value: TAB_MONEY,
-      label: t('clientProfile.tabMoney'),
-      icon: <Wallet className="h-3.5 w-3.5" />,
-    },
+    // Gated like Accounts and Transactions: without `wallets.view` the panel's
+    // read is refused, and the tab said "No wallets" about a client who had some.
+    ...(canViewWallets
+      ? [
+          {
+            value: TAB_MONEY,
+            label: t('clientProfile.tabMoney'),
+            icon: <Wallet className="h-3.5 w-3.5" />,
+          },
+        ]
+      : []),
     // Beside Wallets: what the client holds on the MT5 side, and nobody else's.
     ...(canViewTrading
       ? [
@@ -538,7 +545,7 @@ export default function ClientProfilePage() {
                 returns identity and compliance, not money, and the two are
                 behind different permissions.
               */}
-              <ClientWalletsPanel userId={profile.id} />
+              {canViewWallets && <ClientWalletsPanel userId={profile.id} />}
             </TabPanel>
 
             {partner && (

@@ -116,8 +116,7 @@ export function ClientActionsMenu({
   const canAssignTags = hasPermission(admin, 'clients.tag');
   // The KYC page opens with either key (its route requirement), so the item does.
   const canViewKyc = hasPermission(admin, 'kyc.view') || hasPermission(admin, 'kyc.review');
-  const canViewCommissions =
-    hasPermission(admin, 'ib.view') || hasPermission(admin, 'ib.commissions.view');
+  const canViewCommissions = hasPermission(admin, 'ib.commissions.view');
   const canViewAudit = hasPermission(admin, 'audit.view');
 
   /*

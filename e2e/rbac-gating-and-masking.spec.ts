@@ -138,8 +138,11 @@ test.describe('what a MASTER admin can reach', () => {
     await page.waitForURL(/\/roles\/.+\/edit/);
 
     await expect(page.getByText(/\b1 field hidden/i)).toBeVisible();
-    // Open the section and see the field itself ticked.
-    await page.getByText(/client field visibility/i).click();
+    // The section is always open since the Oct 2026 audit (it was a collapsed
+    // "Client field visibility" <details>): the field is ticked in plain view.
+    await expect(
+      page.getByRole('heading', { name: /client details this role cannot see/i }),
+    ).toBeVisible();
     // Anchored: the locked Portal ID row's reason mentions "email" too, so an
     // unanchored /email/ lands on that row instead of the Email field.
     await expect(page.getByRole('button', { name: /^email/i }).first()).toHaveAttribute(

@@ -47,7 +47,7 @@ const TYPE_PAGING = { noun: ['commission type', 'commission types'] as [string, 
 
 export default function CommissionTypesPage() {
   const { admin } = useAdmin();
-  const canView = hasPermission(admin, 'ib.view');
+  const canView = hasPermission(admin, 'ib.commission_types.view');
   const canCreate = hasPermission(admin, 'ib.commission_types.create');
   const canEdit = hasPermission(admin, 'ib.commission_types.edit');
   const canDelete = hasPermission(admin, 'ib.commission_types.delete');

@@ -1,3 +1,4 @@
+import { ALL_PERMISSIONS } from '@/test/permissions';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -34,6 +35,7 @@ vi.mock('@/context/AdminAuthContext', () => ({ useAdmin }));
 
 const PERMISSIONS = {
   clients: {
+    group: 'clients' as const,
     moduleName: 'Clients',
     description: 'Client records',
     permissions: [
@@ -81,7 +83,10 @@ function renderForm(overrides: Partial<Parameters<typeof RoleForm>[0]> = {}): {
 
 beforeEach(() => {
   // An unmasked submitter by default; the superset test overrides this.
-  useAdmin.mockReturnValue({ admin: { maskedFields: [] }, isLoading: false });
+  useAdmin.mockReturnValue({
+    admin: { maskedFields: [], permissions: ALL_PERMISSIONS },
+    isLoading: false,
+  });
 });
 
 describe('the role editor', () => {
@@ -200,7 +205,10 @@ describe('the role editor — field masking (RBAC-03)', () => {
      * whole save. So the field arrives pre-ticked and disabled with the
      * reason, and the payload carries it even though this role never did.
      */
-    useAdmin.mockReturnValue({ admin: { maskedFields: ['client.phone'] }, isLoading: false });
+    useAdmin.mockReturnValue({
+      admin: { maskedFields: ['client.phone'], permissions: ALL_PERMISSIONS },
+      isLoading: false,
+    });
 
     const { onSubmit } = renderForm({
       initial: { name: 'Support', description: '', permissions: [], maskedFields: [] },

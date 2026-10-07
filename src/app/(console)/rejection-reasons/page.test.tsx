@@ -195,7 +195,7 @@ describe('writing', () => {
 
 describe('permissions', () => {
   it('shows each control only to the key the API checks for it', async () => {
-    permissions.current = ['kyc.edit'];
+    permissions.current = ['rejection_reasons.view', 'rejection_reasons.edit'];
     renderWithProviders(<RejectionReasonsPage />);
     await screen.findByText('Document expired');
     expect(screen.queryByRole('button', { name: /add a reason/i })).toBeNull();

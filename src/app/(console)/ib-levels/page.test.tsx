@@ -334,7 +334,7 @@ describe('the commission ladder', () => {
    * to change what every partner on it earns.
    */
   it('offers no editing to an operator who may only read', async () => {
-    permissions.current = ['ib.view'];
+    permissions.current = ['ib.levels.view'];
     renderWithProviders(<IbLevelsPage />);
 
     await screen.findByText('Main Partner');

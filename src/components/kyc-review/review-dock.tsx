@@ -47,6 +47,13 @@ export function ReviewDock({
    * neither, and offered no way out of the claim either.
    */
   reviewedByName,
+  /*
+   * A COLLEAGUE holds the claim (Oct 2026 audit). Approve and reject are the
+   * claim holder's alone on the API, so offering them here could only fail;
+   * releasing somebody else's claim needs `kyc.claim.override`.
+   */
+  heldByColleague = false,
+  canOverrideClaim = false,
   loading,
   error,
   onApprove,
@@ -56,6 +63,8 @@ export function ReviewDock({
 }: {
   status: string;
   reviewedByName?: string | null;
+  heldByColleague?: boolean;
+  canOverrideClaim?: boolean;
   loading: boolean;
   /** Shown ABOVE the dock — a failure has to be visible from where the click was. */
   error?: string;
@@ -91,22 +100,24 @@ export function ReviewDock({
          */
         className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-border bg-card/90 p-1.5 shadow-lg backdrop-blur-md"
       >
-        <button
-          type="button"
-          onClick={onReject}
-          disabled={loading}
-          /*
-           * A fuller accessible name than the visible word, and it CONTAINS the
-           * visible word — the label-in-name rule. "Reject" alone is ambiguous
-           * to somebody tabbing a list of buttons with no surrounding context,
-           * on an action that emails a client a refusal.
-           */
-          aria-label={t('kycReview.rejectAria')}
-          className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50 focus-outline"
-        >
-          <X className="h-4 w-4" aria-hidden="true" />
-          <span>{t('kycReview.rejectCta')}</span>
-        </button>
+        {!heldByColleague && (
+          <button
+            type="button"
+            onClick={onReject}
+            disabled={loading}
+            /*
+             * A fuller accessible name than the visible word, and it CONTAINS the
+             * visible word — the label-in-name rule. "Reject" alone is ambiguous
+             * to somebody tabbing a list of buttons with no surrounding context,
+             * on an action that emails a client a refusal.
+             */
+            aria-label={t('kycReview.rejectAria')}
+            className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50 focus-outline"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span>{t('kycReview.rejectCta')}</span>
+          </button>
+        )}
 
         {/*
           Only while the submission is unclaimed. Once it is `under_review` the
@@ -120,23 +131,25 @@ export function ReviewDock({
         */}
         {status === 'under_review' && (
           <>
-            <span aria-hidden="true" className="h-6 w-px bg-border" />
+            {!heldByColleague && <span aria-hidden="true" className="h-6 w-px bg-border" />}
             <span className="text-xs font-medium text-muted-foreground">
               {reviewedByName
                 ? t('kycReview.claimedBy', { name: reviewedByName })
                 : t('kycReview.claimedByUnknown')}
             </span>
-            <button
-              type="button"
-              onClick={onRelease}
-              disabled={loading}
-              title={t('kycReview.releaseHint')}
-              aria-label={t('kycReview.releaseAria')}
-              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-outline"
-            >
-              <Undo2 className="h-4 w-4" aria-hidden="true" />
-              <span>{t('kycReview.release')}</span>
-            </button>
+            {(!heldByColleague || canOverrideClaim) && (
+              <button
+                type="button"
+                onClick={onRelease}
+                disabled={loading}
+                title={t('kycReview.releaseHint')}
+                aria-label={t('kycReview.releaseAria')}
+                className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-outline"
+              >
+                <Undo2 className="h-4 w-4" aria-hidden="true" />
+                <span>{t('kycReview.release')}</span>
+              </button>
+            )}
           </>
         )}
 
@@ -156,7 +169,7 @@ export function ReviewDock({
           </>
         )}
 
-        <span aria-hidden="true" className="h-6 w-px bg-border" />
+        {!heldByColleague && <span aria-hidden="true" className="h-6 w-px bg-border" />}
 
         {/*
           The only FILLED button of the three. Approve is the outcome most
@@ -164,16 +177,18 @@ export function ReviewDock({
           makes the dock readable at a glance — reject stays deliberately quiet
           rather than competing as a second bright target next to it.
         */}
-        <button
-          type="button"
-          onClick={onApprove}
-          disabled={loading}
-          aria-label={t('kycReview.approveAria')}
-          className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-success px-5 text-xs font-semibold text-success-foreground shadow-xs transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-outline"
-        >
-          <Check className="h-4 w-4" aria-hidden="true" />
-          <span>{t('kycReview.approveCta')}</span>
-        </button>
+        {!heldByColleague && (
+          <button
+            type="button"
+            onClick={onApprove}
+            disabled={loading}
+            aria-label={t('kycReview.approveAria')}
+            className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-success px-5 text-xs font-semibold text-success-foreground shadow-xs transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-outline"
+          >
+            <Check className="h-4 w-4" aria-hidden="true" />
+            <span>{t('kycReview.approveCta')}</span>
+          </button>
+        )}
       </div>
     </div>
   );

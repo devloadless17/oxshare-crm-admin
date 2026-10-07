@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AdminProfile } from '@/context/AdminAuthContext';
 import { assertPermissionKeysExist, canAccess, hasPermission } from './permissions';
+import { ALL_PERMISSIONS } from '@/test/permissions';
 
 /**
  * The route table and the key matcher, against the PER-PAGE catalog.
@@ -123,7 +124,7 @@ describe('canAccess', () => {
 
   it('opens the partner directory on exactly the key its API enforces', () => {
     // Back since 25 Sep 2026 — see the table entry for why it went and returned.
-    expect(canAccess(withPerms(['ib.view']), '/partners')).toBe(true);
+    expect(canAccess(withPerms(['ib.partners.view']), '/partners')).toBe(true);
     expect(canAccess(withPerms(['clients.view']), '/partners')).toBe(false);
     expect(canAccess(withPerms(['ib.commissions.view']), '/partners')).toBe(false);
   });
@@ -219,9 +220,7 @@ describe('canAccess', () => {
        * returned true before the route table was ever consulted.
        */
       expect(canAccess(withPerms(['ib.commissions.view']), '/commissions')).toBe(true);
-      // `ib.view` opens it too — GET /admin/ib/accruals accepts EITHER key,
-      // and a route stricter than its API denies a page the API would serve.
-      expect(canAccess(withPerms(['ib.view']), '/commissions')).toBe(true);
+      expect(canAccess(withPerms(['ib.partners.view']), '/commissions')).toBe(false);
       expect(canAccess(withPerms(['ib.approve']), '/commissions')).toBe(false);
     });
   });
@@ -273,13 +272,13 @@ describe('canAccess', () => {
      * panel on the page checks `settings.*`, so the screen had two ways to deny
      * somebody who had been deliberately given it.
      *
-     * EITHER key opens it. Nothing says `settings.edit` implies
-     * `settings.view` — the guard matches literally — so a role given only
-     * "Change settings" was locked out of the screen it was granted the power
-     * to change.
+     * ONE door since the Oct 2026 audit: `settings.edit` REQUIRES
+     * `settings.view` in the catalog, and every role save adds it, so the
+     * view key is the page. (`settings.edit` alone used to open it onto tabs
+     * that then answered 403.)
      */
     expect(canAccess(withPerms(['settings.view']), '/settings')).toBe(true);
-    expect(canAccess(withPerms(['settings.edit']), '/settings')).toBe(true);
+    expect(canAccess(withPerms(['settings.edit']), '/settings')).toBe(false);
     expect(canAccess(withPerms(['roles.edit']), '/settings')).toBe(false);
   });
 
@@ -348,85 +347,8 @@ describe('assertPermissionKeysExist', () => {
    * uses the read keys, and a fixture holding only those would not notice a
    * write key disappearing from under a control.
    */
-  const CATALOG = [
-    'clients.view',
-    'clients.suspend',
-    'clients.tag',
-    'admins.view',
-    'admins.create',
-    'admins.edit',
-    'admins.suspend',
-    'admins.scope',
-    'admins.reset',
-    'roles.view',
-    'roles.create',
-    'roles.edit',
-    'roles.delete',
-    'kyc.view',
-    'kyc.documents.view',
-    'kyc.review',
-    'kyc.create',
-    'kyc.edit',
-    'kyc.delete',
-    'wallets.view',
-    'wallets.create',
-    'wallets.credit',
-    'wallets.delete',
-    // The offline deposit desk. `deposits.approve` is separate from
-    // `wallets.credit` on purpose: approving credits an amount the CLIENT
-    // declared, while wallets.credit types any figure into any wallet.
-    'deposits.view',
-    'deposits.proofs.view',
-    'deposits.approve',
-    'deposits.reject',
-    'withdrawals.view',
-    'withdrawals.approve',
-    'withdrawals.settle',
-    // The Financial page — backend module `transactions`.
-    'transactions.view',
-    'trading.view',
-    'ib.view',
-    'ib.approve',
-    'ib.reject',
-    'ib.partners.edit',
-    'ib.partners.suspend',
-    'ib.commissions.view',
-    'tags.view',
-    'tags.create',
-    'tags.edit',
-    'tags.delete',
-    'currencies.view',
-    'currencies.create',
-    'currencies.edit',
-    'currencies.delete',
-    'leverages.view',
-    'leverages.create',
-    'leverages.edit',
-    'leverages.delete',
-    // The portal's sidebar links — their own module on the backend, for the
-    // reason currencies and leverages are theirs (backend migration 0110).
-    'externallinks.view',
-    'externallinks.create',
-    'externallinks.edit',
-    'externallinks.delete',
-    'payments.view',
-    'payments.create',
-    'payments.edit',
-    'payments.providers.view',
-    'payments.providers.edit',
-    'apikeys.view',
-    'apikeys.create',
-    'apikeys.revoke',
-    'settings.view',
-    'settings.edit',
-    'settings.smtp.view',
-    'settings.smtp.edit',
-    'settings.security.view',
-    'settings.security.edit',
-    'audit.view',
-    'ledger.view',
-    'reconciliation.view',
-  ];
+  // The backend catalog, as the shared fixture mirrors it.
+  const CATALOG: string[] = ALL_PERMISSIONS;
 
   it('reports nothing when every referenced key is in the catalog', () => {
     expect(assertPermissionKeysExist(CATALOG)).toEqual([]);

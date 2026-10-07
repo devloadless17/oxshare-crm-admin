@@ -49,16 +49,15 @@ const PRODUCT_PAGING = { noun: ['product', 'products'] as [string, string] };
 export default function ProductsPage() {
   const { admin } = useAdmin();
   /*
-   * `settings.*`, not a key of their own.
-   *
-   * Products are commercial configuration of the same class as the download
-   * links and the trading terms. Minting `products.edit` would mean a migration
-   * granting it to everyone who already holds `settings.edit` — and the last
-   * time this codebase added catalogue keys without one, every role edit failed
-   * with "you cannot grant permissions you do not hold".
+   * Their OWN keys since the Oct 2026 audit (0204). They rode on `settings.*`,
+   * so the settings grant put two more pages in somebody's menu. 0204 gives the
+   * new keys to Administrator only; the role editor's subset rule is no longer
+   * the trap it was, because Administrator always holds the whole catalogue.
    */
-  const canView = hasPermission(admin, 'settings.view');
-  const canManage = hasPermission(admin, 'settings.edit');
+  const canView = hasPermission(admin, 'products.view');
+  const canCreate = hasPermission(admin, 'products.create');
+  const canEdit = hasPermission(admin, 'products.edit');
+  const canDelete = hasPermission(admin, 'products.delete');
 
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -255,7 +254,8 @@ export default function ProductsPage() {
         label={t('table.rowActions', { name: product.name })}
         busy={busyId === product.id}
         items={[
-          ...(canManage
+          // Each action on the key its endpoint enforces (Oct 2026 audit).
+          ...(canEdit
             ? [
                 { label: t('products.edit'), icon: Pencil, onSelect: () => openEdit(product) },
                 {
@@ -263,6 +263,10 @@ export default function ProductsPage() {
                   icon: Boxes,
                   onSelect: () => toggleEnabled.mutate(product),
                 },
+              ]
+            : []),
+          ...(canDelete
+            ? [
                 {
                   label: t('products.delete'),
                   icon: Trash2,
@@ -283,7 +287,7 @@ export default function ProductsPage() {
           <h1 className="text-2xl font-bold tracking-tight">{t('products.pageTitle')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('products.subtitle')}</p>
         </div>
-        {canManage && (
+        {canCreate && (
           <button
             type="button"
             onClick={openCreate}

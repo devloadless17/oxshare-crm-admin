@@ -1,5 +1,6 @@
 'use client';
 
+import { catalogNavProblems } from '@/components/rbac/catalog-consistency';
 import React, { createContext, useContext, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, startProactiveRefresh } from '@/lib/api/client';
@@ -207,11 +208,16 @@ export function AdminAuthProvider({
     if (process.env.NODE_ENV === 'production' || !admin) return;
     adminApi
       .getPermissions()
-      .then((catalog) =>
+      .then((catalog) => {
         assertPermissionKeysExist(
           Object.values(catalog).flatMap((m) => (m.permissions ?? []).map((p) => p.key)),
-        ),
-      )
+        );
+        // The sidebar and the catalog must agree page for page — see the file.
+        const problems = catalogNavProblems(catalog);
+        if (problems.length > 0) {
+          console.error(`[permissions] Sidebar and catalog disagree:\n  ${problems.join('\n  ')}`);
+        }
+      })
       .catch((err: unknown) => {
         const status = (err as { response?: { status?: number } })?.response?.status;
         if (status === 403) {

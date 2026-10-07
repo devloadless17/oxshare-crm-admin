@@ -172,8 +172,8 @@ describe('the Referrals page', () => {
     expect(within(row).getByText(/a partner outside your territory/i)).toBeInTheDocument();
   });
 
-  it('draws no Introduced by column without ib.view', async () => {
-    permissions.current = ALL_PERMISSIONS.filter((key) => key !== 'ib.view');
+  it('draws no Introduced by column without ib.referrals.view', async () => {
+    permissions.current = ALL_PERMISSIONS.filter((key) => key !== 'ib.referrals.view');
     getClients.mockResolvedValue(page([client({ referrer: undefined })]));
     renderWithProviders(<ReferralsPage />);
     await screen.findByText('alpha@oxshare.com');

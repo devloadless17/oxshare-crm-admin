@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Copy, Pencil, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Role } from '@/lib/api/admin';
@@ -74,6 +74,7 @@ export default function RolesPage() {
   const canEditRoles = hasPermission(admin, 'roles.edit');
   const canDeleteRoles = hasPermission(admin, 'roles.delete');
   const canManageRoles = canEditRoles || canDeleteRoles;
+  const beyondReader = (role: Role) => role.permissions.some((key) => !hasPermission(admin, key));
 
   /** The role awaiting delete confirmation — also what the dialog names. */
   const [pendingDelete, setPendingDelete] = React.useState<Role | null>(null);
@@ -174,7 +175,10 @@ export default function RolesPage() {
         <span className="flex items-center gap-2">
           <span className="font-semibold text-foreground">{role.name}</span>
           {role.isSystem && (
-            <span className="shrink-0 rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link">
+            <span
+              className="shrink-0 rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-link"
+              title={t('roles.systemRoleHint')}
+            >
               {t('settings.systemRole')}
             </span>
           )}
@@ -186,6 +190,14 @@ export default function RolesPage() {
               title={t('roles.yourRoleHint')}
             >
               {t('roles.yourRole')}
+            </span>
+          )}
+          {!role.isSystem && role.id !== admin?.roleId && beyondReader(role) && (
+            <span
+              className="shrink-0 rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
+              title={t('roles.beyondYouHint')}
+            >
+              {t('roles.beyondYou')}
             </span>
           )}
         </span>
@@ -223,6 +235,21 @@ export default function RolesPage() {
       cell: (role) => t('settings.assignedPermissions', { count: role.permissions.length }),
       cellClassName: 'text-muted-foreground',
     },
+    {
+      /*
+       * WHO this role affects (Oct 2026 audit) — before editing it, and before
+       * trying to delete it (a role with holders cannot be). Names on hover for
+       * a reader allowed the admin directory; a count for everyone else.
+       */
+      header: t('roles.colHolders'),
+      sortable: false,
+      cell: (role) => (
+        <span title={role.holderNames?.join(', ') || undefined}>
+          {t('roles.holders', { count: role.holderCount ?? 0 })}
+        </span>
+      ),
+      cellClassName: 'text-muted-foreground',
+    },
     ...(canManageRoles
       ? [
           actionsColumn<Role>(
@@ -242,22 +269,39 @@ export default function RolesPage() {
                * holders cannot be deleted, and you are a holder), so the whole
                * menu goes rather than one item.
                */
-              role.isSystem || role.id === admin?.roleId ? null : (
+              /*
+               * THIRD: a role carrying a key the reader lacks. Only somebody
+               * holding those keys may change it (backend, Oct 2026 audit), so
+               * the menu goes and the row's badge says why.
+               */
+              role.isSystem || role.id === admin?.roleId || beyondReader(role) ? null : (
                 <RowActions
                   label={t('roles.rowActions', { name: role.name })}
                   busy={deletingId === role.id}
                   items={[
-                    {
-                      label: t('common.edit'),
-                      icon: Pencil,
-                      href: `/roles/${role.id}/edit`,
-                    },
-                    {
-                      label: t('common.delete'),
-                      icon: Trash2,
-                      destructive: true,
-                      onSelect: () => setPendingDelete(role),
-                    },
+                    // Each on its own key — one `canManage` showed both to either.
+                    ...(canEditRoles
+                      ? [{ label: t('common.edit'), icon: Pencil, href: `/roles/${role.id}/edit` }]
+                      : []),
+                    ...(canCreateRoles
+                      ? [
+                          {
+                            label: t('roles.duplicate'),
+                            icon: Copy,
+                            href: `/roles/new?from=${role.id}`,
+                          },
+                        ]
+                      : []),
+                    ...(canDeleteRoles
+                      ? [
+                          {
+                            label: t('common.delete'),
+                            icon: Trash2,
+                            destructive: true,
+                            onSelect: () => setPendingDelete(role),
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               ),

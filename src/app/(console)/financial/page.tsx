@@ -248,7 +248,20 @@ function FinancialPageContent() {
    * the API asks: `deposits.approve` for a deposit, `withdrawals.settle` for a
    * payout ("did this money move" is that key's judgement).
    */
-  const canResolveDeposit = hasPermission(admin, 'deposits.approve');
+  /*
+   * A flagged DEPOSIT: `deposits.approve` may do everything; `deposits.reject`
+   * alone may only CLOSE one a provider still holds (`finish-deposit` takes
+   * either key — Oct 2026 audit). A row that offers nothing this reader can
+   * complete gets no action.
+   */
+  const canApproveDeposits = hasPermission(admin, 'deposits.approve');
+  const canRejectDeposits = hasPermission(admin, 'deposits.reject');
+  const canResolveDeposit = canApproveDeposits || canRejectDeposits;
+  const mayResolveDepositRow = (row: TransactionRow) =>
+    canApproveDeposits ||
+    (canRejectDeposits &&
+      Boolean(row.providerPaymentId) &&
+      (row.state === 'pending' || row.state === 'failure'));
   const canResolveWithdrawal = hasPermission(admin, 'withdrawals.settle');
   const [resolveTarget, setResolveTarget] = useState<TransactionRow | null>(null);
 
@@ -290,7 +303,8 @@ function FinancialPageContent() {
      */
     onAbandon: canAbandon ? setAbandonTarget : undefined,
     onResolve: canResolveDeposit || canResolveWithdrawal ? setResolveTarget : undefined,
-    canResolve: (row) => (row.direction === 'deposit' ? canResolveDeposit : canResolveWithdrawal),
+    canResolve: (row) =>
+      row.direction === 'deposit' ? mayResolveDepositRow(row) : canResolveWithdrawal,
   });
 
   const isFiltered = Boolean(
@@ -371,7 +385,7 @@ function FinancialPageContent() {
             onAbandon: canAbandon ? setAbandonTarget : undefined,
             onResolve: canResolveDeposit || canResolveWithdrawal ? setResolveTarget : undefined,
             canResolve: (target) =>
-              target.direction === 'deposit' ? canResolveDeposit : canResolveWithdrawal,
+              target.direction === 'deposit' ? mayResolveDepositRow(target) : canResolveWithdrawal,
           })
         }
       />
