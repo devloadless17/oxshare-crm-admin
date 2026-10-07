@@ -71,7 +71,9 @@ test('the audit export downloads EVERY matching row, not the first page of them'
         'export — seed more history rather than trusting the green',
     ).toBeGreaterThan(100);
 
-    await page.goto('/audit-log');
+    // ALL time: the page opens on today since the period filter (6 Oct 2026), and
+    // the export follows the page — while `total` above counts every row.
+    await page.goto('/audit-log?range=all');
     await expect(page.getByRole('heading', { name: /audit log/i })).toBeVisible();
 
     const [download] = await Promise.all([
