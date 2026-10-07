@@ -176,7 +176,7 @@ export const keys = {
   ibPartners: {
     all: () => ['ib-partners'] as const,
     list: (params: Params) => ['ib-partners', 'list', params] as const,
-    forReassign: () => ['ib-partners', 'for-reassign'] as const,
+    forReassign: (q = '') => ['ib-partners', 'for-reassign', q] as const,
     detail: (userId: ClientRef) => ['ib-partners', 'detail', userId] as const,
   },
 
@@ -296,7 +296,6 @@ export const keys = {
   /** Settings forms. Invalidated by their own save and by nothing else: a
    *  refetch under an operator's half-finished edit destroys their work. */
   settings: {
-    trading: () => ['settings', 'trading'] as const,
     assistant: () => ['settings', 'assistant'] as const,
     scheduledJobs: () => ['settings', 'scheduled-jobs'] as const,
     smtp: () => ['settings', 'smtp'] as const,

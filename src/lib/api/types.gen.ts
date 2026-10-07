@@ -1367,7 +1367,11 @@ export interface paths {
          */
         get: operations["AdminIbController_partnerDetail"];
         put?: never;
-        post?: never;
+        /**
+         * Make an individual client a partner
+         * @description Appoints the client under an agency — a main partner, or a sub-partner under a main partner. It is an approval: a pending application the client sent is approved, otherwise one is opened on their behalf, and every approval rule applies. "Introduced by" follows the chosen position.
+         */
+        post: operations["AdminIbController_appointPartner"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2206,7 +2210,7 @@ export interface paths {
         put?: never;
         /**
          * Top up a demo trading account with practice money
-         * @description Demo accounts only — a live account is funded by transferring from a wallet, which posts both sides of the movement. The amount is capped at the operator ceiling reported as `maxDemoDeposit`; a larger request is clamped rather than refused, so a mistyped extra zero still leaves a working account.
+         * @description Demo accounts only — a live account is funded by transferring from a wallet, which posts both sides of the movement. Any positive amount with up to two decimal places.
          */
         post: operations["TradingController_fundDemoAccount"];
         delete?: never;
@@ -2807,30 +2811,6 @@ export interface paths {
         /** Serve a KYC document to its owner or a kyc.review admin */
         get: operations["UploadsController_serveKycFile"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/settings/trading": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The terms clients may open trading accounts on
-         * @description The leverage ladder, the per-client account caps and the largest demo opening balance. Until the first save these are the defaults, seeded from MT5_CLIENT_LEVERAGES when that variable is set.
-         */
-        get: operations["AdminSettingsController_getTrading"];
-        /**
-         * Update the trading terms
-         * @description Leverages are a comma-separated list; a malformed entry is REFUSED rather than dropped, so a typo cannot silently shorten the offer. An account cap of 0 stops new accounts of that kind without touching the ones a client already holds.
-         */
-        put: operations["AdminSettingsController_setTrading"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4521,6 +4501,26 @@ export interface paths {
          * @description Writes a successful DEPOSIT transaction and a ledger entry, so the credit appears in the client's own history, and emails them the amount and the reason. Requires a reason: an unexplained credit cannot be audited.
          */
         post: operations["AdminMoneyController_creditWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/wallets/debit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw funds from a client's wallet by hand
+         * @description Writes a successful WITHDRAWAL transaction and a ledger debit — the money leaves the platform. Refused beyond the wallet’s available balance. Requires a reason.
+         */
+        post: operations["AdminMoneyController_debitWallet"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6501,10 +6501,21 @@ export interface components {
         };
         ChangeIbLevelDto: {
             /**
-             * @description Must match the partner’s position (0197): 1 with no parent, 2 under a main partner.
+             * @description The level IS the position (0197): 1 with no parent, 2 under a main partner. Choosing the other level MOVES them — 1 detaches them from their parent, 2 places them under `parentIbUserId` — and "introduced by" follows the new position.
              * @example 2
              */
             level: number;
+            /** @description The main partner to place them under. Required when moving a main partner to 2. */
+            parentIbUserId?: number | null;
+        };
+        AppointIbPartnerDto: {
+            /**
+             * Format: uuid
+             * @description The agency to appoint them under.
+             */
+            agencyId: string;
+            /** @description A main partner to place them under. Omitted or null: a main partner. */
+            parentIbUserId?: number | null;
         };
         ReassignIbParentDto: {
             /** @description The new parent partner, or null to make them a direct partner. */
@@ -7848,7 +7859,7 @@ export interface components {
         };
         FundDemoAccountDto: {
             /**
-             * @description How much practice money to add. Positive decimal string, capped by the operator ceiling reported as `maxDemoDeposit` on /trading/accounts/self-service.
+             * @description How much practice money to add. Positive decimal string, up to two decimal places.
              * @example 10000.00
              */
             amount: string;
@@ -7950,11 +7961,6 @@ export interface components {
              *     ]
              */
             leverages: number[];
-            /**
-             * @description The most a demo account may be funded with, as a decimal string (§6.1).
-             * @example 100000.00000000
-             */
-            maxDemoDeposit: string;
         };
         TradingAccountDto: {
             id: string;
@@ -8744,33 +8750,6 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
-        };
-        TradingSettingsDto: {
-            /**
-             * @description Largest opening balance a demo account may be given. A decimal string.
-             * @example 1000000.00000000
-             */
-            maxDemoDeposit: string;
-            /**
-             * @description Seconds between commission payouts, and how long an accrual matures first. 60 credits a partner about a minute after the trade closes.
-             * @example 3600
-             */
-            ibCommissionIntervalSeconds: number;
-            /** Format: date-time */
-            updatedAt?: string | null;
-            updatedByName?: string | null;
-        };
-        UpdateTradingSettingsDto: {
-            /**
-             * @description Positive decimal string.
-             * @example 1000000.00
-             */
-            maxDemoDeposit: string;
-            /**
-             * @description Seconds between commission payouts, and how long an accrual matures before it is payable. One number for both: either alone leaves the other as the real delay. 60 = a partner is credited about a minute after the trade closes.
-             * @example 3600
-             */
-            ibCommissionIntervalSeconds: number;
         };
         ScheduledJobDto: {
             /** @example mt5.syncAccounts */
@@ -10575,6 +10554,24 @@ export interface components {
             /** @description True when the idempotency key replayed an earlier credit — nothing moved again. */
             replayed: boolean;
         };
+        DebitWalletDto: {
+            /** @description The client to credit. */
+            userId: number;
+            /** @example 250.00000000 */
+            amount: string;
+            /**
+             * @description Must be a currency the platform holds.
+             * @example USD
+             */
+            currency: string;
+            /** @example Goodwill adjustment for the failed 4 August transfer. */
+            reason: string;
+            /**
+             * @description Arabic for the portal’s Arabic readers. Optional; blank or null = not translated (the portal shows the English).
+             * @example تسوية تعويضية عن تحويل 4 أغسطس الذي لم يكتمل.
+             */
+            reasonAr?: string | null;
+        };
         FundTradingAccountDto: {
             /** @example 250.00000000 */
             amount: string;
@@ -10590,6 +10587,11 @@ export interface components {
              * @enum {string}
              */
             direction: "deposit" | "withdraw";
+            /**
+             * @example system
+             * @enum {string}
+             */
+            source?: "system" | "wallet";
         };
         TradingAccountFundResultDto: {
             transaction: components["schemas"]["TransactionDto"] | null;
@@ -10597,10 +10599,15 @@ export interface components {
             transfer: components["schemas"]["TransferDto"] | null;
             transferError: string | null;
             /**
-             * @description Where the money went, on a withdrawal.
+             * @description Where the money went, on a withdrawal: the client wallet, or off the platform (system).
              * @enum {string}
              */
-            destination?: "wallet";
+            destination?: "wallet" | "system";
+            /**
+             * @description On a deposit: set when it was moved from the client wallet rather than minted.
+             * @enum {string}
+             */
+            source?: "wallet";
         };
         OpenWalletDto: {
             userId: number;
@@ -13258,6 +13265,31 @@ export interface operations {
             };
         };
     };
+    AdminIbController_appointPartner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointIbPartnerDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IbAccountDto"];
+                };
+            };
+        };
+    };
     AdminIbController_changeLevel: {
         parameters: {
             query?: never;
@@ -15166,48 +15198,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    AdminSettingsController_getTrading: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TradingSettingsDto"];
-                };
-            };
-        };
-    };
-    AdminSettingsController_setTrading: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateTradingSettingsDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TradingSettingsDto"];
-                };
             };
         };
     };
@@ -17721,6 +17711,32 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreditWalletDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletCreditResultDto"];
+                };
+            };
+        };
+    };
+    AdminMoneyController_debitWallet: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description A unique value per intended withdrawal, reused only when retrying that same one. Stored as the transaction `provider_ref`, so a replay withdraws once. */
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebitWalletDto"];
             };
         };
         responses: {

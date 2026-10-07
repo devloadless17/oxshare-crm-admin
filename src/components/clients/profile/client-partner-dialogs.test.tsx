@@ -64,7 +64,25 @@ const PARTNER = {
   levelName: 'Main Partner',
   referralCode: 'OX-1234',
   active: true,
+  parent: null,
+  parentOutsideTerritory: false,
+  directPartners: [],
+  directPartnersOutsideScope: 0,
 } as unknown as IbPartnerDetail;
+
+/** A row of the partner directory, as the parent picker reads it. */
+function partnerRow(userId: string, level: number, firstName: string) {
+  return {
+    account: { userId, level, active: true },
+    user: {
+      firstName,
+      lastName: 'Partner',
+      email: `${firstName.toLowerCase()}@x.test`,
+      portalId: 1000,
+    },
+    agencyName: 'Gold',
+  };
+}
 
 function renderDialog() {
   return renderWithProviders(
@@ -76,6 +94,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   getIbLevels.mockResolvedValue([level(), SUB_PARTNER]);
   changeIbPartnerLevel.mockResolvedValue({});
+  getIbPartners.mockResolvedValue({
+    rows: [
+      partnerRow('u-9', 1, 'Omar'),
+      partnerRow('u-8', 2, 'Sami'),
+      partnerRow('u-1', 1, 'Self'),
+    ],
+    total: 3,
+  });
 });
 
 describe('moving a partner to another level', () => {
@@ -160,18 +186,67 @@ describe('moving a partner to another level', () => {
     expect(screen.getByRole('button', { name: /move to this level/i })).toBeDisabled();
   });
 
-  it('moves the partner once another level is chosen', async () => {
+  /*
+   * A change of level is a MOVE (owner, 7 Oct 2026): a main partner going to
+   * level 2 needs the main partner to sit under, and only main partners are
+   * offered — never a sub-partner, never themselves.
+   */
+  it('moves a main partner to level 2 under the main partner chosen', async () => {
     renderDialog();
 
     await screen.findByText(/Sub Partner/);
     await userEvent.click(screen.getByRole('radio', { name: /sub partner/i }));
 
     const save = screen.getByRole('button', { name: /move to this level/i });
+    expect(save).toBeDisabled();
+    expect(await screen.findByText(/becomes their "introduced by"/i)).toBeInTheDocument();
+
+    const omar = await screen.findByRole('radio', { name: /omar partner/i });
+    expect(screen.queryByRole('radio', { name: /sami partner/i })).toBeNull();
+    expect(screen.queryByRole('radio', { name: /self partner/i })).toBeNull();
+    await userEvent.click(omar);
+
     expect(save).toBeEnabled();
     await userEvent.click(save);
-
     /* The NUMBER, not an id — a level is its number, and that is the API's key. */
-    await waitFor(() => expect(changeIbPartnerLevel).toHaveBeenCalledWith('u-1', 2));
+    await waitFor(() => expect(changeIbPartnerLevel).toHaveBeenCalledWith('u-1', 2, 'u-9'));
+  });
+
+  it('refuses level 2 for a main partner who has sub-partners of their own', async () => {
+    renderWithProviders(
+      <ChangeLevelDialog
+        open
+        onClose={vi.fn()}
+        partner={{ ...PARTNER, directPartners: [{}] } as unknown as IbPartnerDetail}
+        name="Layla Hadad"
+      />,
+    );
+    await userEvent.click(await screen.findByRole('radio', { name: /sub partner/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/has sub-partners of their own/i);
+    expect(screen.getByRole('button', { name: /move to this level/i })).toBeDisabled();
+  });
+
+  it('moves a sub-partner to level 1, saying "introduced by" is removed', async () => {
+    renderWithProviders(
+      <ChangeLevelDialog
+        open
+        onClose={vi.fn()}
+        partner={
+          {
+            ...PARTNER,
+            level: 2,
+            parent: { userId: 'u-9', portalId: 1000, firstName: 'Omar' },
+          } as unknown as IbPartnerDetail
+        }
+        name="Layla Hadad"
+      />,
+    );
+    await userEvent.click(await screen.findByRole('radio', { name: /main partner/i }));
+
+    expect(screen.getByText(/"introduced by" is removed/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /move to this level/i }));
+    await waitFor(() => expect(changeIbPartnerLevel).toHaveBeenCalledWith('u-1', 1, undefined));
   });
 });
 
@@ -201,7 +276,7 @@ describe('reassigning a partner whose parent is outside the reader’s territory
       }),
     ).toBeChecked();
     expect(screen.getByRole('radio', { name: /no parent/i })).not.toBeChecked();
-    expect(screen.getByRole('button', { name: /^reassign$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^move$/i })).toBeDisabled();
   });
 
   it('detaches only when "no parent" is chosen on purpose', async () => {
@@ -211,7 +286,40 @@ describe('reassigning a partner whose parent is outside the reader’s territory
       <ReassignParentDialog open onClose={vi.fn()} partner={OUTSIDE} name="Layla Hadad" />,
     );
     await user.click(await screen.findByRole('radio', { name: /no parent/i }));
-    await user.click(screen.getByRole('button', { name: /^reassign$/i }));
+    await user.click(screen.getByRole('button', { name: /^move$/i }));
     await waitFor(() => expect(reassignIbPartnerParent).toHaveBeenCalledWith('u-1', null));
+  });
+});
+
+describe('moving a partner under another main partner (7 Oct 2026)', () => {
+  it('offers main partners only, says "introduced by" follows, and moves them', async () => {
+    const user = userEvent.setup();
+    reassignIbPartnerParent.mockResolvedValue({});
+    renderWithProviders(
+      <ReassignParentDialog open onClose={vi.fn()} partner={PARTNER} name="Layla Hadad" />,
+    );
+
+    expect(screen.getByText(/"introduced by" follows the move/i)).toBeInTheDocument();
+    const omar = await screen.findByRole('radio', { name: /omar partner/i });
+    expect(screen.queryByRole('radio', { name: /sami partner/i })).toBeNull();
+    expect(screen.queryByRole('radio', { name: /self partner/i })).toBeNull();
+
+    await user.click(omar);
+    await user.click(screen.getByRole('button', { name: /^move$/i }));
+    await waitFor(() => expect(reassignIbPartnerParent).toHaveBeenCalledWith('u-1', 'u-9'));
+  });
+
+  it('searches the directory on the server', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ReassignParentDialog open onClose={vi.fn()} partner={PARTNER} name="Layla Hadad" />,
+    );
+    await user.type(screen.getByRole('searchbox'), 'omar');
+    await waitFor(() =>
+      expect(getIbPartners).toHaveBeenLastCalledWith(
+        expect.objectContaining({ q: 'omar', status: 'active' }),
+        expect.anything(),
+      ),
+    );
   });
 });

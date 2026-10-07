@@ -25,8 +25,8 @@ vi.mock('@/lib/api/admin', async (importOriginal) => {
 
 function job(over: Partial<ScheduledJob>): ScheduledJob {
   return {
-    key: 'mt5.syncAccounts',
-    group: 'mt5',
+    key: 'payments.reconcileProviders',
+    group: 'money',
     runsOn: 'crm',
     intervalSeconds: 600,
     defaultSeconds: 600,
@@ -47,13 +47,10 @@ function job(over: Partial<ScheduledJob>): ScheduledJob {
 const LIST = {
   items: [
     job({}),
-    job({
-      key: 'bridge.sweep',
-      runsOn: 'bridge',
-      intervalSeconds: 300,
-      minSeconds: 30,
-      maxSeconds: 3600,
-    }),
+    /*
+     * No MT5 jobs: since 7 Oct 2026 they run instantly in the background and
+     * the API leaves them out of this list (backend 0206).
+     */
     job({
       key: 'ib.accrueDeals',
       group: 'commission',
@@ -82,7 +79,7 @@ const rowOf = async (name: string) =>
 describe('the scheduled jobs tab', () => {
   it('shows each job’s interval in its own unit, and how its last run went', async () => {
     renderWithProviders(<ScheduledJobsPanel canManage />);
-    const sync = await rowOf('MT5 account sync');
+    const sync = await rowOf('Payment provider check');
     expect(within(sync).getByRole('spinbutton')).toHaveValue(10);
     expect(within(sync).getByRole('combobox', { name: 'Unit' })).toHaveValue('minutes');
     expect(within(sync).getByText('OK')).toBeInTheDocument();
@@ -95,18 +92,20 @@ describe('the scheduled jobs tab', () => {
   it('saves a new interval in seconds', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ScheduledJobsPanel canManage />);
-    const sync = await rowOf('MT5 account sync');
+    const sync = await rowOf('Payment provider check');
     const box = within(sync).getByRole('spinbutton');
     await user.clear(box);
     await user.type(box, '15');
     await user.click(within(sync).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(updateScheduledJob).toHaveBeenCalledWith('mt5.syncAccounts', 900));
+    await waitFor(() =>
+      expect(updateScheduledJob).toHaveBeenCalledWith('payments.reconcileProviders', 900),
+    );
   });
 
   it('will not save outside the job’s bounds, and says them', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ScheduledJobsPanel canManage />);
-    const sync = await rowOf('MT5 account sync');
+    const sync = await rowOf('Payment provider check');
     const box = within(sync).getByRole('spinbutton');
     await user.clear(box);
     await user.type(box, '30');
@@ -115,15 +114,16 @@ describe('the scheduled jobs tab', () => {
     expect(within(sync).getByText(/Choose between 1 minute and 1 day/)).toBeInTheDocument();
   });
 
-  it('runs a CRM job now — not a bridge job, not commission', async () => {
+  it('runs a CRM job now — not commission', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ScheduledJobsPanel canManage />);
-    await user.click(await screen.findByRole('button', { name: 'Run now: MT5 account sync' }));
-    await waitFor(() => expect(runScheduledJob).toHaveBeenCalledWith('mt5.syncAccounts'));
+    await user.click(
+      await screen.findByRole('button', { name: 'Run now: Payment provider check' }),
+    );
+    await waitFor(() =>
+      expect(runScheduledJob).toHaveBeenCalledWith('payments.reconcileProviders'),
+    );
 
-    const bridge = await rowOf('MT5 deal & balance sweep');
-    expect(within(bridge).queryByRole('button', { name: /run now/i })).toBeNull();
-    expect(within(bridge).getByText('On the MT5 bridge')).toBeInTheDocument();
     const commission = await rowOf('Commission — calculate from trades');
     expect(within(commission).queryByRole('button', { name: /run now/i })).toBeNull();
     expect(screen.getByText(/also how long a commission is held/)).toBeInTheDocument();
@@ -131,7 +131,7 @@ describe('the scheduled jobs tab', () => {
 
   it('is read-only without settings.edit', async () => {
     renderWithProviders(<ScheduledJobsPanel canManage={false} />);
-    const sync = await rowOf('MT5 account sync');
+    const sync = await rowOf('Payment provider check');
     expect(within(sync).getByRole('spinbutton')).toBeDisabled();
     expect(screen.queryByRole('button', { name: /run now/i })).toBeNull();
   });

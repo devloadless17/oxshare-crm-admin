@@ -36,7 +36,15 @@ import {
   EditClientProfileDialog,
 } from '@/components/clients/profile/client-edit-dialogs';
 import { ClientPartnerPanel } from '@/components/clients/profile/client-partner-panel';
-import { SubPartnerTermsDialog } from '@/components/clients/profile/client-partner-dialogs';
+import {
+  ChangeLevelDialog,
+  ReassignParentDialog,
+  SubPartnerTermsDialog,
+} from '@/components/clients/profile/client-partner-dialogs';
+import {
+  AppointPartnerDialog,
+  MakeMainPartnerDialog,
+} from '@/components/clients/profile/partner-structure-dialogs';
 import { useClientTagToggle } from '@/components/clients/profile/use-client-tag-toggle';
 import { ClientClosedPositionsPanel } from '@/components/clients/profile/client-activity-panels';
 import { ClientAccountsPanel } from '@/components/clients/profile/client-accounts-panel';
@@ -134,6 +142,10 @@ export default function ClientProfilePage() {
   const [tagsOpen, setTagsOpen] = React.useState(false);
   const [linkOpen, setLinkOpen] = React.useState(false);
   const [termsOpen, setTermsOpen] = React.useState(false);
+  // Where a partner stands in the tree (owner, 7 Oct 2026).
+  const [structureDialog, setStructureDialog] = React.useState<
+    'level' | 'parent' | 'main' | 'appoint' | null
+  >(null);
   const [editOpen, setEditOpen] = React.useState(false);
   const [emailOpen, setEmailOpen] = React.useState(false);
   const [showRecordReferrer, setShowRecordReferrer] = React.useState(false);
@@ -430,6 +442,10 @@ export default function ClientProfilePage() {
                   onChangeEmail={() => setEmailOpen(true)}
                   onLinkAccount={() => setLinkOpen(true)}
                   onEditTerms={() => setTermsOpen(true)}
+                  onChangeLevel={() => setStructureDialog('level')}
+                  onReassignParent={() => setStructureDialog('parent')}
+                  onMakeMainPartner={() => setStructureDialog('main')}
+                  onAppointPartner={() => setStructureDialog('appoint')}
                 />
               </div>
             </header>
@@ -437,6 +453,40 @@ export default function ClientProfilePage() {
             <div className="shrink-0">
               <Tabs tabs={tabs} value={tab} onValueChange={setTab} idPrefix="client-profile" />
             </div>
+
+            {structureDialog === 'level' && partner && (
+              <ChangeLevelDialog
+                open
+                onClose={() => setStructureDialog(null)}
+                partner={partner}
+                name={clientLabel(profile)}
+              />
+            )}
+            {structureDialog === 'parent' && partner && (
+              <ReassignParentDialog
+                open
+                onClose={() => setStructureDialog(null)}
+                partner={partner}
+                name={clientLabel(profile)}
+              />
+            )}
+            {structureDialog === 'main' && partner && (
+              <MakeMainPartnerDialog
+                open
+                onClose={() => setStructureDialog(null)}
+                userId={partner.userId}
+                name={clientLabel(profile)}
+                parentName={partner.parent ? clientLabel(partner.parent) : null}
+              />
+            )}
+            {structureDialog === 'appoint' && !partner && (
+              <AppointPartnerDialog
+                open
+                onClose={() => setStructureDialog(null)}
+                userId={profile.id}
+                name={clientLabel(profile)}
+              />
+            )}
 
             {termsOpen && partner && (
               <SubPartnerTermsDialog

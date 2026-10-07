@@ -1297,6 +1297,49 @@ export const messages = {
     'closed trade — commission already earned records the rate it was calculated at and does ' +
     'not change. Partners beneath them keep the levels they were approved on.',
   'clientProfile.changeLevelSave': 'Move to this level',
+  // 7 Oct 2026 — a change of level is a MOVE, and "introduced by" follows it.
+  'clientProfile.levelToMainNote':
+    'Level 1 makes them a main partner: they are detached from the partner they sit under, ' +
+    'and their "introduced by" is removed — they are the broker’s partner now. Their own ' +
+    'sub-partner terms are cleared.',
+  'clientProfile.levelToSubChoose': 'Under which main partner?',
+  'clientProfile.levelToSubNote':
+    'Level 2 makes them a sub-partner of the main partner you choose, who also becomes their ' +
+    '"introduced by".',
+  'clientProfile.levelToSubHasSubs':
+    'This partner has sub-partners of their own, so they cannot become a sub-partner — the ' +
+    'tree has two levels. Move their sub-partners first.',
+  'clientProfile.mainPartnerSearch': 'Search main partners by name, email or Portal ID',
+  'clientProfile.mainPartnerLegend': 'Main partner',
+  'clientProfile.mainPartnerNone': 'There are no active main partners to choose from.',
+  'clientProfile.mainPartnerNoMatch': 'No active main partner matches that search.',
+  'clientProfile.actionAppointPartner': 'Make partner',
+  'clientProfile.appointTitle': 'Make {name} a partner',
+  'clientProfile.appointBody':
+    'Appoints this client as a partner under the agency you choose. They get a referral code ' +
+    'and a commission wallet, and are emailed — exactly as when an application is approved. A ' +
+    'pending application of theirs is approved by this.',
+  'clientProfile.appointAgency': 'Agency',
+  'clientProfile.appointPlacement': 'Position',
+  'clientProfile.appointAsMain': 'Main partner',
+  'clientProfile.appointAsMainHint': 'Level 1, deals with the broker directly. No introducer.',
+  'clientProfile.appointAsSub': 'Sub-partner',
+  'clientProfile.appointAsSubHint': 'Level 2, under a main partner, who becomes their introducer.',
+  'clientProfile.appointSave': 'Make partner',
+  'clientProfile.appointDone': '{name} is now a partner',
+  'clientProfile.appointFailed': 'They could not be made a partner.',
+  'clientProfile.actionMakeMain': 'Make main partner',
+  'clientProfile.makeMainTitle': 'Make {name} a main partner',
+  'clientProfile.makeMainBody': 'This removes them from under the partner they sit under.',
+  'clientProfile.makeMainBodyNamed': 'This removes them from under {parent}.',
+  'clientProfile.makeMainEffectLevel': 'They become a main partner (level 1) with no parent.',
+  'clientProfile.makeMainEffectReferrer':
+    'Their "introduced by" is removed — they are the broker’s partner now.',
+  'clientProfile.makeMainEffectTerms':
+    'Their own sub-partner commission and rebate are cleared. Their clients stay theirs.',
+  'clientProfile.makeMainSave': 'Make main partner',
+  'clientProfile.makeMainDone': '{name} is now a main partner',
+  'clientProfile.makeMainFailed': 'They could not be made a main partner.',
   // 0198 — symbols a commission type pays nothing on.
   'symbolExclusions.title': 'Excluded symbols — no commission, no rebate',
   'symbolExclusions.hint':
@@ -1350,7 +1393,7 @@ export const messages = {
   'clientProfile.termRebateShare': '{share}% of its rebate',
   'clientProfile.levelNoneEnabled':
     'No commission level is enabled, so there is nothing to move this partner to.',
-  'clientProfile.actionReassignParent': 'Reassign parent',
+  'clientProfile.actionReassignParent': 'Move under another partner',
   'clientProfile.actionManageTags': 'Manage tags',
   'clientProfile.actionOpenKyc': 'View KYC',
   'clientProfile.actionViewAuditTrail': 'View audit trail',
@@ -1427,13 +1470,18 @@ export const messages = {
   'clientProfile.changeEmailSaved': 'Sign-in email changed',
   'clientProfile.changeEmailFailed': 'The sign-in email could not be changed.',
 
-  'clientProfile.reassignParentTitle': 'Reassign {name}’s parent',
+  'clientProfile.reassignParentTitle': 'Move {name} under another partner',
   'clientProfile.reassignParentBody':
-    'Who they sit under. The API refuses a choice that would close a loop, and a partner’s own level is not changed by moving them.',
-  'clientProfile.reassignParentNone': 'No parent — deals with the broker directly',
+    'Who they sit under. Under a main partner they are a sub-partner (level 2); with no parent ' +
+    'they are a main partner (level 1). A partner with sub-partners of their own cannot move ' +
+    'under somebody.',
+  'clientProfile.reassignParentReferrerNote':
+    'Their "introduced by" follows the move: it becomes the main partner you choose, or is ' +
+    'removed when they deal with the broker directly.',
+  'clientProfile.reassignParentNone': 'No parent — a main partner, deals with the broker directly',
   'clientProfile.reassignParentKeepOutside': 'Keep current — a partner outside your territory',
-  'clientProfile.reassignParentSave': 'Reassign',
-  'clientProfile.parentChanged': 'Parent reassigned',
+  'clientProfile.reassignParentSave': 'Move',
+  'clientProfile.parentChanged': 'Partner moved',
   'clientProfile.parentFailed': 'Their parent could not be reassigned.',
   'clientProfile.manageTagsTitle': 'Tags for {name}',
   'clientProfile.manageTagsBody':
@@ -1465,6 +1513,54 @@ export const messages = {
   'clientProfile.txTabDeposits': 'Deposits',
   'clientProfile.txTabWithdrawals': 'Withdrawals',
   'clientProfile.txTabTransfers': 'Transfers',
+  // 7 Oct 2026 — the desk's hand movements from the Transactions tab.
+  'clientMoney.deposit': 'Deposit',
+  'clientMoney.withdraw': 'Withdraw',
+  'clientMoney.transfer': 'Transfer',
+  'clientMoney.depositTitle': 'Deposit for this client',
+  'clientMoney.withdrawTitle': 'Withdraw for this client',
+  'clientMoney.transferTitle': 'Transfer between wallet and trading account',
+  'clientMoney.into': 'Deposit into',
+  'clientMoney.outOf': 'Withdraw from',
+  'clientMoney.toWallet': 'Wallet',
+  'clientMoney.toAccount': 'Trading account',
+  'clientMoney.fromWallet': 'Wallet',
+  'clientMoney.fromAccount': 'Trading account',
+  'clientMoney.from': 'Money comes from',
+  'clientMoney.to': 'Money goes to',
+  'clientMoney.sourceSystem': 'The system',
+  'clientMoney.sourceSystemHint': 'New money, added by the desk. The client is emailed.',
+  'clientMoney.sourceWallet': 'The client’s wallet',
+  'clientMoney.sourceWalletHint': 'Moves money the client already holds. Nothing is added.',
+  'clientMoney.destWallet': 'The client’s wallet',
+  'clientMoney.destWalletHint': 'The money stays on the platform, in their wallet.',
+  'clientMoney.destSystem': 'Out of the platform',
+  'clientMoney.destSystemHint':
+    'Moved to their wallet, then withdrawn from it as a completed manual withdrawal.',
+  'clientMoney.way': 'Direction',
+  'clientMoney.wayToAccount': 'Wallet → trading account',
+  'clientMoney.wayToWallet': 'Trading account → wallet',
+  'clientMoney.wallet': 'Wallet',
+  'clientMoney.account': 'Trading account',
+  'clientMoney.walletAvailable': '{amount} available',
+  'clientMoney.accountBalance': 'balance {amount}',
+  'clientMoney.accountWalletLine': 'Their {currency} wallet has {amount} available.',
+  'clientMoney.accountWalletNone':
+    'They have no {currency} wallet yet; one is opened when money first moves through it.',
+  'clientMoney.noWallet': 'This client has no wallet. Open one on the Overview tab first.',
+  'clientMoney.noAccount': 'This client has no active live trading account.',
+  'clientMoney.amount': 'Amount ({currency})',
+  'clientMoney.amountLabel': 'Amount',
+  'clientMoney.overAvailable': 'More than the wallet has available ({amount}).',
+  'clientMoney.reason': 'Reason',
+  'clientMoney.reasonPlaceholder': 'Why this money is moving — kept on the audit log.',
+  'clientMoney.depositConfirm': 'Deposit',
+  'clientMoney.withdrawConfirm': 'Withdraw',
+  'clientMoney.transferConfirm': 'Transfer',
+  'clientMoney.done': '{amount} moved',
+  'clientMoney.partial': 'Only part of the movement happened ({amount}): {error}',
+  'clientMoney.failed': 'The money could not be moved.',
+  'financial.methodManualDebit': 'Manual withdrawal',
   'clientProfile.txColDate': 'Date',
   'clientProfile.txColType': 'Type',
   'clientProfile.txColWay': 'Direction',
@@ -2079,7 +2175,6 @@ export const messages = {
 
   // ── Settings tabs ─────────────────────────────────────────────────────────
   'settings.tabEmail': 'Email',
-  'settings.tabTrading': 'Trading',
   'settings.tabPlatforms': 'Platforms',
   'settings.tabJobs': 'Scheduled jobs',
   'settings.tabAssistant': 'Assistant',
@@ -2153,15 +2248,6 @@ export const messages = {
   'jobs.bridgeNeverRead': 'The bridge has not read this yet',
   'jobs.sharedCommission':
     'One interval for both commission jobs, and also how long a commission is held before it is paid — the same value as Trading → commission interval.',
-  'jobs.label.bridge.sweep': 'MT5 deal & balance sweep',
-  'jobs.desc.bridge.sweep':
-    'The bridge re-reads recent deals from MT5 and refreshes account balances.',
-  'jobs.label.mt5.syncAccounts': 'MT5 account sync',
-  'jobs.desc.mt5.syncAccounts':
-    'Adds MT5 accounts the CRM does not have yet, with no client, to be assigned.',
-  'jobs.label.mt5.syncGroups': 'MT5 group sync',
-  'jobs.desc.mt5.syncGroups':
-    'Re-reads the MT5 group catalogue and flags groups that changed or vanished.',
   'jobs.label.ib.accrueDeals': 'Commission — calculate from trades',
   'jobs.desc.ib.accrueDeals': 'Turns closed MT5 trades into commission owed to partners.',
   'jobs.label.ib.confirmAccruals': 'Commission — pay partners',
@@ -2192,90 +2278,22 @@ export const messages = {
   'settings.masterOnly': 'Master admin only',
 
   // ── Trading tab ───────────────────────────────────────────────────────────
-  'tradingSettings.title': 'Account opening',
-  'tradingSettings.subtitle':
-    'The terms a client may open a trading account on, from the portal. These take effect on the next account opened; accounts already open are untouched.',
-  'tradingSettings.loading': 'Loading trading settings',
-  'tradingSettings.loadFailed': 'Could not load the trading settings.',
-  'tradingSettings.leverages': 'Leverages offered',
-  'tradingSettings.leveragesHint':
-    'Comma-separated, in the order clients see them. MT5 still clamps to the group’s own maximum.',
   // ── How often commission is paid (0113) ───────────────────────────────────
   // Replaced "Maximum commission levels", which capped how deep the ladder
   // could go. That is the IB Levels page's job now — add a rung and it pays.
-  'tradingSettings.commissionInterval': 'Pay commission every',
-  'tradingSettings.commissionIntervalHint':
-    'How often partners are paid, and how long each commission waits before it becomes ' +
-    'spendable — one number for both. Set it to a minute and a partner is credited about a ' +
-    'minute after the trade closes.',
-  'tradingSettings.commissionIntervalUnit': 'Unit',
-  'tradingSettings.unitMinutes': 'minutes',
-  'tradingSettings.unitHours': 'hours',
-  'tradingSettings.unitDays': 'days',
   // ⚠️ Shown only below an hour, so it keeps its force. The wait is not a delay
   // for its own sake — it is the window in which a bad trade can be caught
   // BEFORE the commission on it can be withdrawn.
-  'tradingSettings.commissionIntervalShortWarning':
-    'Under an hour leaves almost no time to review a trade before the commission on it becomes ' +
-    'spendable. Reversing it later means taking back money the partner may already have moved.',
-  'tradingSettings.maxDemoDeposit': 'Largest demo starting balance',
-  'tradingSettings.maxDemoDepositHint':
-    'A client asking for more gets this instead. Practice with position sizes nobody would really trade teaches nothing.',
-  'tradingSettings.holdHours': 'Settlement window (hours)',
   // The rule between earned and spendable, said plainly: an operator setting
   // this is deciding how long the desk has to catch a reversal before a
   // partner can move the money.
-  'tradingSettings.holdHoursHint':
-    'How long a commission is held before a partner can spend it. 0 pays as soon as it is ' +
-    'calculated, which leaves no window to reverse a trade in.',
   // WHAT a partner is paid on, as against how long it is held. This was a
   // constant in the API's source until it became a setting, so the hint carries
   // the whole decision: what each option means, and the order that matters.
-  'tradingSettings.revenueBasis': 'Partners are paid on',
-  'tradingSettings.revenueBasisHint':
-    'Which of the broker earnings a partner rate applies to. Charges is what the platform has ' +
-    'always paid on. Changing this re-prices FUTURE trades only — nothing already calculated is ' +
-    'restated.',
-  'tradingSettings.revenueBasisWarning':
-    'Before choosing an option that includes spread, set the spread markup on every product. A ' +
-    'product left at 0 earns nothing, and a trade that earns nothing is closed permanently — ' +
-    'changing this back will not recover it.',
-  'tradingSettings.revenueBasis.commission_swap': 'Charges — commission + swap (default)',
-  'tradingSettings.revenueBasis.spread': 'Spread — lots x the product markup',
-  'tradingSettings.revenueBasis.commission_swap_spread': 'Both — charges and spread',
   // The BACKLOG DECISION — the only irreversible field on this form, and the
   // one that had no control at all until now. Three meanings, one of which is a
   // moment, so the copy has to carry what each option actually does rather than
   // leaving an operator to infer it from a date box.
-  'tradingSettings.accrualStart': 'Commission is paid from',
-  'tradingSettings.accrualStartHint':
-    'Which trades the engine will pay partners for. This applies ONLY to trades it has not already ' +
-    'decided — a trade already processed is never revisited, so changing this later re-prices ' +
-    'nothing and reports no error.',
-  'tradingSettings.accrualStart.unset': 'Not decided yet — the engine holds',
-  'tradingSettings.accrualStart.all': 'Every trade on record, including history',
-  'tradingSettings.accrualStart.from': 'Trades from a date onwards',
-  'tradingSettings.accrualStartDate': 'Paying from',
-  'tradingSettings.accrualStartUnsetNote':
-    'While this is undecided the engine stops rather than paying a backlog nobody chose. That is ' +
-    'the safe state, and it is also indistinguishable from "no trades yet" — so it will not ' +
-    'resolve itself.',
-  'tradingSettings.accrualStartWarning':
-    'Money paid to a partner for a trade nobody meant to pay for comes back by conversation, not ' +
-    'by changing this field.',
-  'tradingSettings.accrualStartDateMissing': 'Choose the date commission should be paid from.',
-  'tradingSettings.confirmAccrualTitle': 'Pay commission on every trade on record?',
-  'tradingSettings.confirmAccrualAllBody':
-    'This includes the whole history the platform has ingested. On a busy book that can be months ' +
-    'of commission credited in a single run, and it cannot be undone from this screen.',
-  'tradingSettings.confirmAccrualFromTitle': 'Start paying commission from {date}?',
-  'tradingSettings.confirmAccrualFromBody':
-    'Trades before this date will be marked decided and will never accrue. Trades from it onwards ' +
-    'will be paid on the next run. Neither is reversible from this screen.',
-  'tradingSettings.confirmAccrualAction': 'Set the start date',
-  'tradingSettings.readOnly': 'You do not have permission to change these.',
-  'tradingSettings.updateFailed': 'Could not save the trading settings.',
-  'tradingSettings.save': 'Save changes',
   /*
    * WHO last saved this, and when.
    *
@@ -2286,8 +2304,6 @@ export const messages = {
    */
   'settings.lastSavedBy': 'Last saved by {who} · {when}',
   'settings.lastSavedAt': 'Last saved {when}',
-  'tradingSettings.saving': 'Saving...',
-  'tradingSettings.saved': 'Saved',
 
   // ── Products tab ──────────────────────────────────────────────────────────
   'products.title': 'Products',

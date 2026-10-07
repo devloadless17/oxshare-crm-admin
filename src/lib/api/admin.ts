@@ -1164,18 +1164,8 @@ export type AvailableGroup = components['schemas']['AvailableGroupDto'];
 export type Agency = components['schemas']['AgencyDto'];
 export type UpsertAgency = components['schemas']['UpsertAgencyDto'];
 
-/**
- * The terms clients may open trading accounts on.
- *
- * `leverages` comes back as `number[]` and goes up as the comma-separated
- * STRING the operator typed — the asymmetry is deliberate on the server: the
- * form is a text box, and a malformed entry is refused with a message naming
- * it rather than silently dropped.
- */
-export type TradingSettings = components['schemas']['TradingSettingsDto'];
 export type AssistantSettings = components['schemas']['AdminAssistantSettingsDto'];
 export type UpdateAssistantSettings = components['schemas']['UpdateAssistantSettingsDto'];
-export type UpdateTradingSettings = components['schemas']['UpdateTradingSettingsDto'];
 
 /*
  * `RevenueBasis` IS GONE (0104), with the "Partners are paid on" control it
@@ -1540,9 +1530,38 @@ export const adminApi = {
     return data;
   },
 
-  async changeIbPartnerLevel(userId: ClientRef, level: number): Promise<IbAccount> {
+  /**
+   * A change of level is a MOVE (7 Oct 2026): 2 → 1 detaches them and clears
+   * "introduced by"; 1 → 2 needs `parentIbUserId`, the main partner to sit under.
+   */
+  async changeIbPartnerLevel(
+    userId: ClientRef,
+    level: number,
+    parentIbUserId?: ClientRef | null,
+  ): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/level`, {
       level,
+      ...(parentIbUserId !== undefined && parentIbUserId !== null
+        ? { parentIbUserId: Number(parentIbUserId) }
+        : {}),
+    });
+    return data;
+  },
+
+  /**
+   * Make an individual client a partner under an agency (7 Oct 2026) — a main
+   * partner, or a sub-partner under `parentIbUserId`. `ib.approve`.
+   */
+  async appointIbPartner(
+    userId: ClientRef,
+    body: { agencyId: string; parentIbUserId?: ClientRef | null },
+  ): Promise<IbAccount> {
+    const { data } = await apiClient.post<IbAccount>(`/admin/ib/partners/${userId}`, {
+      agencyId: body.agencyId,
+      parentIbUserId:
+        body.parentIbUserId === undefined || body.parentIbUserId === null
+          ? null
+          : Number(body.parentIbUserId),
     });
     return data;
   },
@@ -1748,16 +1767,6 @@ export const adminApi = {
   /** The COMPLETE set, not a delta — see SetAgencyProductsDto. */
   async setAgencyProducts(id: string, productIds: string[]): Promise<Agency> {
     const { data } = await apiClient.put<Agency>(`/admin/agencies/${id}/products`, { productIds });
-    return data;
-  },
-
-  async getTradingSettings(): Promise<TradingSettings> {
-    const { data } = await apiClient.get<TradingSettings>('/admin/settings/trading');
-    return data;
-  },
-
-  async updateTradingSettings(body: UpdateTradingSettings): Promise<TradingSettings> {
-    const { data } = await apiClient.put<TradingSettings>('/admin/settings/trading', body);
     return data;
   },
 
@@ -2144,6 +2153,29 @@ export const adminApi = {
   ): Promise<WalletCreditResult> {
     const { data } = await apiClient.post<WalletCreditResult>(
       '/admin/wallets/credit',
+      { ...body, userId: Number(body.userId) },
+      idempotent(key),
+    );
+    return data;
+  },
+
+  /**
+   * Take money OUT of a client's wallet by hand (7 Oct 2026) — it leaves the
+   * platform as a completed manual withdrawal. `wallets.debit`. The key is the
+   * transaction's `provider_ref`, exactly as for a credit.
+   */
+  async debitWallet(
+    body: {
+      userId: ClientRef;
+      amount: string;
+      currency: string;
+      reason: string;
+      reasonAr?: string | null;
+    },
+    key: string,
+  ): Promise<WalletCreditResult> {
+    const { data } = await apiClient.post<WalletCreditResult>(
+      '/admin/wallets/debit',
       { ...body, userId: Number(body.userId) },
       idempotent(key),
     );
@@ -3308,6 +3340,12 @@ export const adminApi = {
       reason: string;
       reasonAr?: string | null;
       direction: 'deposit' | 'withdraw';
+      /**
+       * Deposit: `system` (default) is new money; `wallet` moves the client's
+       * own wallet money. Withdraw: `wallet` (default) lands it in the wallet;
+       * `system` then takes it off the platform.
+       */
+      source?: 'system' | 'wallet';
     },
     key: string,
   ): Promise<FundTradingAccountResult> {

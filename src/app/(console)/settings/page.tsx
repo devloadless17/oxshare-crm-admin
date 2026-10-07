@@ -3,14 +3,13 @@
 import * as React from 'react';
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Clock, LineChart, Mail, MonitorDown, Sparkles } from 'lucide-react';
+import { Clock, Mail, MonitorDown, Sparkles } from 'lucide-react';
 import { PageLoader } from '@/components/ui/loader';
 import { AssistantSettingsPanel } from '@/components/rbac/assistant-settings-panel';
 import { PlatformLinksPanel } from '@/components/rbac/platform-links-panel';
 import { ScheduledJobsPanel } from '@/components/rbac/scheduled-jobs-panel';
 import { SmtpSettingsPanel } from '@/components/rbac/smtp-settings-panel';
 
-import { TradingSettingsPanel } from '@/components/rbac/trading-settings-panel';
 import { Tabs, TabPanel, type TabDefinition } from '@/components/ui/tabs';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
@@ -93,25 +92,18 @@ function AdminSettingsContent() {
   const tabs = React.useMemo<TabDefinition[]>(() => {
     const all: (TabDefinition | null)[] = [
       /*
-       * FIRST, so it is what the screen opens on.
+       * FIRST, so it is what the screen opens on — and visible to every admin,
+       * unlike Email, which is permission-gated: a default tab some operators
+       * cannot see is a screen that opens on a fallback.
        *
-       * General held that position and was removed with its table — nothing
-       * outside its own form ever read the brand name, the support contacts or
-       * the maintenance notice, so every field was an operator changing a value
-       * with no effect. Trading takes the slot rather than Email, which is
-       * permission-gated: a default tab half the operators cannot see is a
-       * screen that opens on a fallback.
-       */
-      /*
-       * Trading is visible to every admin, like Platforms and unlike Email.
-       * The leverage ladder and the account caps are terms the broker
-       * advertises to its own clients — there is nothing to withhold from an
-       * operator, and the controls are disabled without `settings.edit`.
+       * Trading held this position until 7 Oct 2026 (owner): its demo ceiling
+       * was removed and its commission cadence lives in Scheduled jobs, so it
+       * had nothing left to save and went.
        */
       {
-        value: 'trading',
-        label: t('settings.tabTrading'),
-        icon: <LineChart className="h-4 w-4" aria-hidden="true" />,
+        value: 'platforms',
+        label: t('settings.tabPlatforms'),
+        icon: <MonitorDown className="h-4 w-4" aria-hidden="true" />,
       },
       /*
        * The SMTP tab, on `settings.smtp.view` rather than on being the master
@@ -126,15 +118,10 @@ function AdminSettingsContent() {
             icon: <Mail className="h-4 w-4" aria-hidden="true" />,
           }
         : null,
-      {
-        value: 'platforms',
-        label: t('settings.tabPlatforms'),
-        icon: <MonitorDown className="h-4 w-4" aria-hidden="true" />,
-      },
       /*
        * Every background job's timing (owner, 29 Sep 2026), edited here rather
        * than in the server's environment file. Visible to every admin like
-       * Trading; the controls need `settings.edit`.
+       * Platforms; the controls need `settings.edit`.
        */
       {
         value: 'jobs',
@@ -155,25 +142,25 @@ function AdminSettingsContent() {
    * An unknown or forbidden `?tab=` falls back to the first tab rather than
    * rendering an empty screen. A stale link — to `general`, whose tab no longer
    * exists, or to `email` shared with a sub-admin who cannot see it — is a
-   * thing that happens, and landing on Trading beats a blank panel.
+   * thing that happens, and landing on Platforms beats a blank panel.
    */
   const requested = searchParams.get('tab') ?? '';
 
   /*
    * The Security tab moved to its own page. A link to it is REDIRECTED rather
-   * than left to the Trading fallback: the operator asked for the allowlist,
-   * which still exists, and landing on trading limits instead would read as
-   * the allowlist having been removed. The page's own route gate decides
+   * than left to the Platforms fallback: the operator asked for the allowlist,
+   * which still exists, and landing elsewhere would read as the allowlist
+   * having been removed. The page's own route gate decides
    * whether they may see it.
    */
   React.useEffect(() => {
     if (requested === 'security') router.replace('/network-access');
   }, [requested, router]);
-  // `tabs` always has at least Trading and Platforms, so the fallback is never
-  // reached — it exists because the compiler cannot know that from the filter.
+  // `tabs` always has Platforms, so the fallback is never reached — it exists
+  // because the compiler cannot know that from the filter.
   const active = tabs.some((tab) => tab.value === requested)
     ? requested
-    : (tabs[0]?.value ?? 'trading');
+    : (tabs[0]?.value ?? 'platforms');
 
   const setActive = React.useCallback(
     (value: string) => {
@@ -204,10 +191,6 @@ function AdminSettingsContent() {
             read-only holder would get editable fields that 403 on save.
           */}
           <SmtpSettingsPanel canManage={canEditSmtp} />
-        </TabPanel>
-
-        <TabPanel value="trading" activeValue={active} idPrefix="settings">
-          <TradingSettingsPanel canManage={canManageSettings} />
         </TabPanel>
 
         <TabPanel value="jobs" activeValue={active} idPrefix="settings">

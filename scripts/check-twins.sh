@@ -124,6 +124,10 @@ TWINS=(
   src/components/ui/sheet.tsx
   src/hooks/use-focus-trap.ts
   src/components/brand-logo.tsx
+  # Navigation that answers at once (Oct 2026): full menu prefetch + the progress bar.
+  src/lib/use-prefetch-routes.ts
+  src/components/layout/navigation-progress.tsx
+  src/components/layout/navigation-progress.test.tsx
 )
 
 # Strip line comments, block-comment bodies and blank lines. Crude but adequate:

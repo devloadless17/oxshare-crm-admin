@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { t } from '@/lib/i18n';
 import { usePrefetchNav } from './use-prefetch-nav';
+import { startNavigationProgress } from './navigation-progress';
 import {
   groupBadgeTotal,
   groupOf,
@@ -146,6 +147,7 @@ export function SidebarNav({
         ? [...(here.overtaken ?? []), here.heading]
         : here.overtaken;
     setPosition({ path: here.path, heading: href, overtaken });
+    startNavigationProgress(href);
     onNavigate();
   };
 
@@ -287,6 +289,7 @@ function NavLink({
   return (
     <Link
       href={leafHref(item)}
+      prefetch
       /* Not `onClick` — see `MenuPosition`: a click that opens a new tab is not a navigation here. */
       onNavigate={onNavigate}
       title={collapsed ? t(item.label) : undefined}
@@ -376,6 +379,7 @@ function NavGroupPanel({
       >
         <Link
           href={leafHref(home)}
+          prefetch
           /*
            * OPEN, the name folds it — the same as its arrow (the owner's call,
            * 30 Sep 2026: "pressing Clients when it is expanded should close
@@ -652,6 +656,7 @@ function RailGroupMenu({
             <DropdownMenuItem key={item.href} asChild>
               <Link
                 href={leafHref(item)}
+                prefetch
                 onNavigate={() => onNavigate(item.href)}
                 aria-current={active ? 'page' : undefined}
                 className={active ? 'bg-primary/10 font-semibold text-foreground' : undefined}

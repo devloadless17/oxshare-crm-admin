@@ -25,6 +25,11 @@ import { keys } from '@/lib/query-keys';
 import { ChoiceFilter, useTableState } from './table-state';
 import { movementMethodLabel, transferDirectionLabel } from './movement-labels';
 import { TransactionDetailsModal } from './transaction-details-modal';
+import {
+  ClientMoneyDialog,
+  useClientMoneyPermissions,
+  type MoneyAction,
+} from './client-money-dialog';
 
 /**
  * The client's money movements — the profile's Transactions tab (owner,
@@ -36,6 +41,11 @@ import { TransactionDetailsModal } from './transaction-details-modal';
  * client — so filtering, sorting and paging are the server's, over every
  * movement they have, never a page of them. A Details button on each row opens
  * everything about it, the deposit's receipt included.
+ *
+ * Deposit, Withdraw and Transfer buttons above the sub-tabs (owner, 7 Oct 2026)
+ * move money by hand — each says where it comes from and where it goes; see
+ * `ClientMoneyDialog`. Each appears only for an admin who may make at least
+ * one of its movements.
  */
 
 type SubTab = 'deposits' | 'withdrawals' | 'transfers';
@@ -59,6 +69,8 @@ const STATES: Record<SubTab, readonly string[]> = {
 
 export function ClientTransactionsTab({ userId }: { userId: ClientRef }) {
   const [sub, setSub] = React.useState<SubTab>('deposits');
+  const [moving, setMoving] = React.useState<MoneyAction | null>(null);
+  const can = useClientMoneyPermissions();
   const tabs: TabDefinition[] = [
     {
       value: 'deposits',
@@ -79,14 +91,47 @@ export function ClientTransactionsTab({ userId }: { userId: ClientRef }) {
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="shrink-0">
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-2">
         <Tabs
           tabs={tabs}
           value={sub}
           onValueChange={(next) => setSub(next as SubTab)}
           idPrefix="client-tx"
         />
+        {(can.deposit || can.withdraw || can.transfer) && (
+          <div className="flex flex-wrap gap-2">
+            {can.deposit && (
+              <Button type="button" size="sm" onClick={() => setMoving('deposit')}>
+                <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('clientMoney.deposit')}
+              </Button>
+            )}
+            {can.withdraw && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setMoving('withdraw')}
+              >
+                <ArrowUpFromLine className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('clientMoney.withdraw')}
+              </Button>
+            )}
+            {can.transfer && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setMoving('transfer')}
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('clientMoney.transfer')}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
+      <ClientMoneyDialog action={moving} userId={userId} onClose={() => setMoving(null)} />
       {SUB_TABS.map((spec) => (
         <TabPanel
           key={spec.value}

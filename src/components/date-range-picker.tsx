@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import type { DateRange as DayRange } from 'react-day-picker';
 import { Calendar as CalendarIcon, Check, ChevronDown } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   DATE_PRESETS,
@@ -15,6 +15,21 @@ import {
   type LocalBound,
 } from '@/lib/date-presets';
 import { t, type MessageKey } from '@/lib/i18n';
+
+/*
+ * The calendar is loaded on its own, never with the page. It pulls in
+ * react-day-picker and its date-fns code — ~160 KB, the biggest single piece of
+ * every list page that has a period filter — for a control most visits never
+ * open. It is warmed twice so opening it is still instant: once the page is
+ * idle, and again the moment a pointer or keyboard reaches the button. The
+ * placeholder holds the calendar's measured size (273×311), so nothing moves if a very
+ * early open beats the download.
+ */
+const loadCalendar = () => import('@/components/ui/calendar');
+const Calendar = dynamic(() => loadCalendar().then((m) => m.Calendar), {
+  ssr: false,
+  loading: () => <div className="h-[311px] w-[273px]" aria-hidden="true" />,
+});
 
 /**
  * THE period control every list shares (`lib/date-presets.ts`,
@@ -98,6 +113,15 @@ export function DateRangePicker({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const warm = () => void loadCalendar();
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(warm, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 1500);
+    return () => window.clearTimeout(id);
+  }, []);
   // The custom draft, started from the current custom bounds each time it opens.
   const [days, setDays] = useState<DayRange | undefined>();
   const [fromTime, setFromTime] = useState('');
@@ -140,6 +164,8 @@ export function DateRangePicker({
   return (
     <Popover open={open} onOpenChange={openWith}>
       <PopoverTrigger
+        onPointerEnter={() => void loadCalendar()}
+        onFocus={() => void loadCalendar()}
         type="button"
         aria-label={t('dateRange.label', { period: dateRangeLabel(choice, custom) })}
         className={`focus-outline inline-flex h-9 max-w-full cursor-pointer items-center gap-2 rounded-lg border border-input bg-card px-3 text-left text-sm active:!scale-100 ${className}`}

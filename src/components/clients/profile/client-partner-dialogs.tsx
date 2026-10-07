@@ -12,7 +12,11 @@ import { t } from '@/lib/i18n';
 import { formatDecimal } from '@/lib/money';
 import Decimal from 'decimal.js';
 import { keys } from '@/lib/query-keys';
-import { PortalIdTag } from '@/components/clients/client-identity';
+import {
+  DialogFooter as Footer,
+  MainPartnerPicker,
+  invalidatePartnerViews,
+} from './partner-structure-dialogs';
 
 /**
  * The two partner edits that need a CHOICE, so neither fits in a confirm.
@@ -64,13 +68,25 @@ export function ChangeLevelDialog({
 }) {
   const queryClient = useQueryClient();
   const [level, setLevel] = React.useState(partner.level);
+  const [parentId, setParentId] = React.useState<ClientRef | null>(null);
+
+  /*
+   * The level IS the position (0197), so a different level is a MOVE (owner,
+   * 7 Oct 2026): 2 → 1 detaches them and removes "introduced by"; 1 → 2 needs
+   * the main partner to sit under, who becomes their introducer.
+   */
+  const positional = partner.parent || partner.parentOutsideTerritory ? 2 : 1;
+  const movingDown = level === 2 && positional === 1;
+  const movingUp = level === 1 && positional === 2;
+  const hasSubPartners = partner.directPartners.length + partner.directPartnersOutsideScope > 0;
 
   const levels = useResource(keys.ibLevels.all(), (signal) => api.admin.getIbLevels(signal), {
     enabled: open,
   });
 
   const save = useMutation({
-    mutationFn: () => api.admin.changeIbPartnerLevel(partner.userId, level),
+    mutationFn: () =>
+      api.admin.changeIbPartnerLevel(partner.userId, level, movingDown ? parentId : undefined),
     onSuccess: async () => {
       await invalidatePartnerViews(queryClient);
       toastSuccess(t('clientProfile.levelChanged'));
@@ -79,7 +95,8 @@ export function ChangeLevelDialog({
     onError: (error) => toastError(error, t('clientProfile.levelFailed')),
   });
 
-  const options = (levels.data ?? []).filter((entry) => entry.enabled);
+  // Two levels: a main partner (1) and a sub-partner (2).
+  const options = (levels.data ?? []).filter((entry) => entry.enabled && entry.level <= 2);
 
   return (
     <Modal
@@ -137,6 +154,34 @@ export function ChangeLevelDialog({
           </p>
         )}
 
+        {movingUp && (
+          <p className="rounded-lg border border-warning/30 bg-warning/10 p-2.5 text-xs">
+            {t('clientProfile.levelToMainNote')}
+          </p>
+        )}
+
+        {movingDown &&
+          (hasSubPartners ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive"
+            >
+              {t('clientProfile.levelToSubHasSubs')}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">{t('clientProfile.levelToSubChoose')}</h3>
+              <p className="text-xs text-muted-foreground">{t('clientProfile.levelToSubNote')}</p>
+              <MainPartnerPicker
+                value={parentId}
+                onChange={setParentId}
+                exclude={partner.userId}
+                enabled={open}
+                name="level-parent"
+              />
+            </div>
+          ))}
+
         {save.isError && (
           <p
             role="alert"
@@ -149,7 +194,11 @@ export function ChangeLevelDialog({
         <Footer
           onClose={onClose}
           saving={save.isPending}
-          disabled={options.length === 0 || level === partner.level}
+          disabled={
+            options.length === 0 ||
+            level === partner.level ||
+            (movingDown && (hasSubPartners || parentId === null))
+          }
           label={t('clientProfile.changeLevelSave')}
         />
       </form>
@@ -338,12 +387,6 @@ export function ReassignParentDialog({
     : (partner.parent?.userId ?? null);
   const [parentId, setParentId] = React.useState<ClientRef | null>(initial);
 
-  const partners = useResource(
-    keys.ibPartners.forReassign(),
-    (signal) => api.admin.getIbPartners({ page: 1, limit: 100 }, signal),
-    { enabled: open },
-  );
-
   const save = useMutation({
     mutationFn: () => {
       if (parentId === KEEP_OUTSIDE_PARENT) throw new Error('Nothing to change.');
@@ -356,19 +399,6 @@ export function ReassignParentDialog({
     },
     onError: (error) => toastError(error, t('clientProfile.parentFailed')),
   });
-
-  /*
-   * THEMSELVES excluded, and nothing else is.
-   *
-   * A partner cannot be their own parent, and that one case is worth removing
-   * here because it is the only choice guaranteed to be refused. Every other
-   * loop — placing somebody under their own descendant — is refused by the API's
-   * cycle guard, which walks the whole chain; reproducing that walk in the
-   * browser would be a second implementation of a rule that must not disagree.
-   */
-  const options = (partners.data?.rows ?? []).filter(
-    (row) => row.account.userId !== partner.userId,
-  );
 
   return (
     <Modal
@@ -386,6 +416,9 @@ export function ReassignParentDialog({
       >
         <p className="text-xs leading-relaxed text-muted-foreground">
           {t('clientProfile.reassignParentBody')}
+        </p>
+        <p className="rounded-lg border border-border bg-muted/30 p-2.5 text-xs">
+          {t('clientProfile.reassignParentReferrerNote')}
         </p>
 
         <div className="max-h-64 space-y-1.5 overflow-y-auto">
@@ -423,50 +456,18 @@ export function ReassignParentDialog({
             />
             <span className="text-sm font-medium">{t('clientProfile.reassignParentNone')}</span>
           </label>
-
-          {options.map((row) => (
-            <label
-              key={row.account.userId}
-              className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 ${
-                parentId === row.account.userId ? 'border-primary bg-primary/5' : 'border-border'
-              }`}
-            >
-              <span className="flex min-w-0 items-center gap-2.5">
-                <input
-                  type="radio"
-                  name="ib-parent"
-                  checked={parentId === row.account.userId}
-                  onChange={() => setParentId(row.account.userId)}
-                  className="h-3.5 w-3.5 shrink-0"
-                />
-                <span className="min-w-0">
-                  <span className="flex min-w-0 items-baseline gap-1.5">
-                    <span className="truncate text-sm font-medium">
-                      {[row.user.firstName, row.user.lastName].filter(Boolean).join(' ') ||
-                        row.user.email ||
-                        `#${row.user.portalId}`}
-                    </span>
-                    {(row.user.firstName || row.user.lastName || row.user.email) && (
-                      <PortalIdTag id={row.user.portalId} />
-                    )}
-                  </span>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {row.user.email}
-                  </span>
-                </span>
-              </span>
-              {/* The candidate parent's RUNG (0112). Worth showing because it
-                  is what decides whether this parent earns anything from the
-                  sub-tree they are about to be given. It read `row.level`, a
-                  field the hand-written type promised and the API never sent,
-                  so every option said "Level undefined" — caught the moment the
-                  type became the generated one. */}
-              <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
-                {t('clientProfile.levelBadge', { level: String(row.account.level) })}
-              </span>
-            </label>
-          ))}
         </div>
+
+        {/* Sub-partners are not offered: the tree has two levels, and the API
+            refuses one as a parent. Searched on the server, so every main
+            partner is reachable, not only the first page. */}
+        <MainPartnerPicker
+          value={parentId === KEEP_OUTSIDE_PARENT ? null : parentId}
+          onChange={setParentId}
+          exclude={partner.userId}
+          enabled={open}
+          name="ib-parent"
+        />
 
         {save.isError && (
           <p
@@ -486,59 +487,4 @@ export function ReassignParentDialog({
       </form>
     </Modal>
   );
-}
-
-function Footer({
-  onClose,
-  saving,
-  disabled,
-  label,
-}: {
-  onClose: () => void;
-  saving: boolean;
-  disabled: boolean;
-  label: string;
-}) {
-  return (
-    <div className="flex justify-end gap-2 pt-1">
-      <button
-        type="button"
-        onClick={onClose}
-        className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-semibold hover:bg-muted focus-outline"
-      >
-        {t('common.cancel')}
-      </button>
-      <button
-        type="submit"
-        disabled={saving || disabled}
-        className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-outline"
-      >
-        {saving ? t('common.saving') : label}
-      </button>
-    </div>
-  );
-}
-
-/**
- * Every screen a partner change is read back from.
- *
- * It was `invalidateBoth(queryClient, userId)` — the profile and its partner
- * panel — and the name was accurate about what it did and wrong about what was
- * needed. One `clients.all()` now covers the profile, its panels and the list;
- * `ibPartners.all()` covers the list-side picker.
- */
-async function invalidatePartnerViews(
-  queryClient: ReturnType<typeof useQueryClient>,
-): Promise<void> {
-  await Promise.all([
-    queryClient.invalidateQueries({ queryKey: keys.clients.all() }),
-    /*
-     * The clients LIST opens this same dialog through
-     * `change-level-from-list.tsx`, which reads the partner under
-     * `ibPartners.detail(userId)` — a key nothing used to invalidate, so
-     * reopening the same row within the 30s staleTime showed the programme
-     * the operator had just changed away from.
-     */
-    queryClient.invalidateQueries({ queryKey: keys.ibPartners.all() }),
-  ]);
 }

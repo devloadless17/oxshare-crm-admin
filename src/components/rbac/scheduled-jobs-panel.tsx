@@ -133,13 +133,11 @@ function JobRow({ job, canManage }: { job: ScheduledJob; canManage: boolean }) {
 
   const save = useMutation({
     mutationFn: () => adminApi.updateScheduledJob(job.key, seconds ?? job.intervalSeconds),
-    onSuccess: async (list) => {
+    onSuccess: (list) => {
       setError(null);
       replaceList(list);
-      // The commission pair's interval is the Trading setting too.
-      if (job.sharedInterval) {
-        await queryClient.invalidateQueries({ queryKey: keys.settings.trading() });
-      }
+      // (The commission pair's interval was mirrored on the Trading tab, which
+      // went on 7 Oct 2026 — this list is now its only screen.)
       toastSuccess(
         t('jobs.saved', { job: text.label, every: describeEvery(seconds ?? job.intervalSeconds) }),
       );

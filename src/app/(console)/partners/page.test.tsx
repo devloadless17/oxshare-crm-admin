@@ -274,7 +274,7 @@ describe('the partner directory — what an operator may do', () => {
       '/clients?referredBy=1000009',
     );
     expect(menu.getByRole('menuitem', { name: /change commission level/i })).toBeInTheDocument();
-    expect(menu.getByRole('menuitem', { name: /reassign parent/i })).toBeInTheDocument();
+    expect(menu.getByRole('menuitem', { name: /move under another partner/i })).toBeInTheDocument();
     expect(menu.getByRole('menuitem', { name: /suspend partner/i })).toBeInTheDocument();
   });
 
@@ -288,7 +288,7 @@ describe('the partner directory — what an operator may do', () => {
     expect(menu.getByRole('menuitem', { name: /commission ledger/i })).toBeInTheDocument();
     expect(menu.queryByRole('menuitem', { name: /view profile/i })).toBeNull();
     expect(menu.queryByRole('menuitem', { name: /change commission level/i })).toBeNull();
-    expect(menu.queryByRole('menuitem', { name: /reassign parent/i })).toBeNull();
+    expect(menu.queryByRole('menuitem', { name: /move under another partner/i })).toBeNull();
     expect(menu.queryByRole('menuitem', { name: /suspend partner/i })).toBeNull();
   });
 

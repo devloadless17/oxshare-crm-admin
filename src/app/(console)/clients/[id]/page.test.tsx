@@ -585,24 +585,69 @@ describe("a partner's book — Referred clients and Referred accounts (owner, 26
   });
 });
 
-describe('the actions menu, trimmed (owner, 26 Sep 2026)', () => {
-  it('offers no commission-level change, no parent reassignment and no documents item', async () => {
+describe('the actions menu (owner, 26 Sep and 7 Oct 2026)', () => {
+  /*
+   * 26 Sep kept "Change commission level" and "Reassign parent" on the
+   * Partners desk only; on 7 Oct the owner asked for the partner's and
+   * sub-partner's structure actions on their profile too.
+   */
+  async function openMenu() {
     const user = userEvent.setup();
-    getPartnerDetail.mockResolvedValue(partnerDetail());
-    getClient.mockResolvedValue(profile({ documents: ['passport.png'] }));
     renderWithProviders(<ClientProfilePage />);
-    await screen.findByRole('tab', { name: /referred clients/i });
-
-    await user.click(screen.getByRole('button', { name: /actions for/i }));
+    await user.click(await screen.findByRole('button', { name: /actions for/i }));
     await screen.findByRole('menuitem', { name: /edit profile/i });
+    return user;
+  }
 
-    expect(screen.queryByRole('menuitem', { name: /commission level/i })).toBeNull();
-    expect(screen.queryByRole('menuitem', { name: /reassign parent/i })).toBeNull();
+  it('offers a main partner a level change and a move, and no documents item', async () => {
+    getPartnerDetail.mockResolvedValue(partnerDetail({ parent: null }));
+    getClient.mockResolvedValue(profile({ documents: ['passport.png'] }));
+    await openMenu();
+
+    expect(screen.getByRole('menuitem', { name: /change commission level/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: /move under another partner/i }),
+    ).toBeInTheDocument();
+    // Already a main partner: nothing to cut loose, and already a partner.
+    expect(screen.queryByRole('menuitem', { name: /make main partner/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /^make partner$/i })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /view documents/i })).toBeNull();
     // "View KYC" — moved here from the Overview's KYC card — by Portal ID.
     expect(screen.getByRole('menuitem', { name: /view kyc/i })).toHaveAttribute(
       'href',
       '/kyc/1000245',
     );
+  });
+
+  it('offers a sub-partner "Make main partner", which says "introduced by" goes', async () => {
+    getPartnerDetail.mockResolvedValue(
+      partnerDetail({
+        level: 2,
+        parent: { userId: 'p-1', portalId: 1000001, firstName: 'Omar', lastName: 'Main' },
+      }),
+    );
+    const user = await openMenu();
+
+    await user.click(screen.getByRole('menuitem', { name: /make main partner/i }));
+    expect(await screen.findByText(/removes them from under omar main/i)).toBeInTheDocument();
+    expect(screen.getByText(/"introduced by" is removed/i)).toBeInTheDocument();
+  });
+
+  it('offers an individual "Make partner", and no partner structure items', async () => {
+    getPartnerDetail.mockResolvedValue(null);
+    await openMenu();
+
+    expect(screen.getByRole('menuitem', { name: /^make partner$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /change commission level/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /move under another partner/i })).toBeNull();
+  });
+
+  it('offers none of them to an admin without the partner keys', async () => {
+    permissions.current = ALL_PERMISSIONS.filter(
+      (key) => key !== 'ib.partners.edit' && key !== 'ib.approve',
+    );
+    getPartnerDetail.mockResolvedValue(null);
+    await openMenu();
+    expect(screen.queryByRole('menuitem', { name: /^make partner$/i })).toBeNull();
   });
 });
