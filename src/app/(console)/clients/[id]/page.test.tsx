@@ -457,7 +457,7 @@ describe('the partner tab', () => {
      */
     expect(
       screen.getByText(
-        /Partner 100% on own clients, the rest on sub-partners’ · client rebate 50% of its rebate/i,
+        /Partner 100% of commission and rebate on own clients, the rest on sub-partners’/i,
       ),
     ).toBeInTheDocument();
   });

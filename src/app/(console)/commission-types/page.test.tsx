@@ -122,7 +122,7 @@ describe('the commission types', () => {
     const commission = screen.getByRole('textbox', { name: /partners’ commission per lot/i });
     await user.clear(commission);
     await user.type(commission, '7.12345678');
-    const rebate = screen.getByRole('textbox', { name: /client rebate per lot/i });
+    const rebate = screen.getByRole('textbox', { name: /partner rebate per lot/i });
     await user.clear(rebate);
     await user.type(rebate, '2.5');
     await user.click(screen.getByRole('button', { name: /^save$/i }));
@@ -151,7 +151,7 @@ describe('the commission types', () => {
     expect(
       await screen.findByRole('textbox', { name: /partners’ commission per lot/i }),
     ).toHaveValue('10.00000000');
-    expect(screen.getByRole('textbox', { name: /client rebate per lot/i })).toHaveValue(
+    expect(screen.getByRole('textbox', { name: /partner rebate per lot/i })).toHaveValue(
       '3.00000000',
     );
   });

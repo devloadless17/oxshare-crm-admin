@@ -133,10 +133,10 @@ describe('moving a partner to another level', () => {
     renderDialog();
 
     expect(
-      await screen.findByText(/70% of the product’s commission · client rebate 50% of its rebate/i),
+      await screen.findByText(/70% of the product’s commission · rebate 50% of its rebate/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/30% of the product’s commission · client rebate 5% of its rebate/i),
+      screen.getByText(/30% of the product’s commission · rebate 5% of its rebate/i),
     ).toBeInTheDocument();
   });
 
@@ -159,9 +159,7 @@ describe('moving a partner to another level', () => {
     renderDialog();
 
     expect(
-      await screen.findByText(
-        /7\.5% of the product’s commission · client rebate 0% of its rebate/i,
-      ),
+      await screen.findByText(/7\.5% of the product’s commission · rebate 0% of its rebate/i),
     ).toBeInTheDocument();
   });
 
