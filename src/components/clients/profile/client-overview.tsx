@@ -36,7 +36,8 @@ export function ClientOverview({
 }) {
   const { admin } = useAdmin();
   const canViewKyc = hasPermission(admin, 'kyc.view') || hasPermission(admin, 'kyc.review');
-  const canViewPartners = hasPermission(admin, 'ib.view');
+  const canViewPartners =
+    hasPermission(admin, 'ib.partners.view') || hasPermission(admin, 'ib.referrals.view');
 
   return (
     <div className="space-y-6">

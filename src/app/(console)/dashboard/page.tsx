@@ -95,7 +95,7 @@ export default function AdminDashboardPage() {
   const canViewClients = hasPermission(admin, 'clients.view');
   const canReviewKyc = hasPermission(admin, 'kyc.review') || hasPermission(admin, 'kyc.view');
   const canViewWithdrawals = hasPermission(admin, 'withdrawals.view');
-  const canViewIb = hasPermission(admin, 'ib.view');
+  const canViewIb = hasPermission(admin, 'ib.partners.view');
   // Any one section is enough to ask; with NONE the request is not made at
   // all. The route guard would 403 it, and the console never asks the API for
   // something it already knows it cannot have — the noSections explanation

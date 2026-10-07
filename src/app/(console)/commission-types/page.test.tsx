@@ -177,7 +177,7 @@ describe('the commission types', () => {
    * trusted to change what every product pays.
    */
   it('offers no editing to an operator who may only read', async () => {
-    permissions.current = ['ib.view'];
+    permissions.current = ['ib.commission_types.view'];
     renderWithProviders(<CommissionTypesPage />);
 
     await screen.findByText('Standard terms');

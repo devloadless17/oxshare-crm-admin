@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { activeNavHref, navLeaves } from '@/components/layout/navigation';
 import { ShieldOff } from 'lucide-react';
 import { t } from '@/lib/i18n';
 
@@ -34,6 +36,7 @@ export function AccessDenied({
 }: {
   reason?: string;
 }) {
+  const pathname = usePathname();
   return (
     <div
       className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 py-24 text-center"
@@ -46,7 +49,7 @@ export function AccessDenied({
       <div className="space-y-1.5">
         <h2 className="text-lg font-bold text-foreground">{t('session.deniedTitle')}</h2>
         <p className="max-w-sm text-sm text-muted-foreground text-pretty">
-          {reason ?? t('session.deniedBody')}
+          {reason ?? deniedSentence(pathname)}
         </p>
       </div>
 
@@ -58,4 +61,19 @@ export function AccessDenied({
       </Link>
     </div>
   );
+}
+
+/**
+ * Names the page the reader was refused (Oct 2026 audit). The sentence told
+ * every refused operator to "ask a master admin" — a tier that no longer
+ * exists — and never said which page their role lacked.
+ */
+function deniedSentence(pathname: string | null): string {
+  const leaves = navLeaves();
+  const href = activeNavHref(
+    pathname,
+    leaves.map((leaf) => leaf.href),
+  );
+  const leaf = leaves.find((l) => l.href === href);
+  return leaf ? t('session.deniedPage', { page: t(leaf.label) }) : t('session.deniedBody');
 }

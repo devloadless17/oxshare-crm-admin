@@ -60,7 +60,6 @@ export function ClientWalletsPanel({ userId }: { userId: ClientRef }) {
    */
   const canOpen = hasPermission(admin, 'wallets.create');
   const canClose = hasPermission(admin, 'wallets.delete');
-  const canManage = canOpen || canClose;
   const canCredit = hasPermission(admin, 'wallets.credit');
 
   /*
@@ -343,7 +342,7 @@ export function ClientWalletsPanel({ userId }: { userId: ClientRef }) {
         empty={<EmptyState icon={Wallet} message={t('clientProfile.noWallets')} />}
       />
 
-      {canManage && openable.length > 0 && (
+      {canOpen && openable.length > 0 && (
         <div className="flex shrink-0 items-center gap-2">
           <Select value={newCurrency} onValueChange={setNewCurrency}>
             <SelectTrigger className="h-8 w-40 text-xs" aria-label={t('clientProfile.walletOpen')}>

@@ -11,6 +11,7 @@ import {
   routeHit,
   waitForMail,
 } from './helpers';
+import { completeAuthenticator } from './authenticator';
 
 /**
  * The session state machine under ADVERSE conditions — the four defects the
@@ -187,7 +188,9 @@ test('accepting an invite ends the session it displaces — everywhere', async (
         page.getByRole('button', { name: /activate/i }).click(),
       ]);
       expect(acceptedB.status(), 'accepting while signed in failed').toBe(200);
-      await page.waitForURL(/\/dashboard/, { timeout: 20_000 });
+      // Accepting ends in the authenticator step (0191), like any sign-in.
+      await completeAuthenticator(page, `e2e-displacer-${run}@oxshare-e2e.test`);
+      await expect(page).toHaveURL(/\/dashboard/, { timeout: 20_000 });
       displacerId = (
         (await (await ctx.request.get(`${API_NODE_BASE}/admin/auth/me`)).json()) as { id: string }
       ).id;

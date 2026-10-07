@@ -104,7 +104,10 @@ test.describe('the client index', () => {
     // single read can catch the previous render and report the default
     // ordering as a sort failure.
     await expect(async () => {
-      const emails = await page.locator('tbody tr td:nth-child(2)').allInnerTexts();
+      // Found by its HEADER: the selection column moved Email off column 2.
+      const headers = await page.locator('thead th').allInnerTexts();
+      const col = headers.findIndex((h) => /^email/i.test(h.trim())) + 1;
+      const emails = await page.locator(`tbody tr td:nth-child(${col})`).allInnerTexts();
       const owned = emails.filter((e) => e.includes('oxshare-e2e.test'));
       expect(owned.length).toBeGreaterThan(2);
       expect(owned).toEqual([...owned].sort());

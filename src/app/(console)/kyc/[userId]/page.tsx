@@ -398,6 +398,8 @@ export default function KycDetailPage() {
   // One derived list, shared by the grid and the lightbox, so the two cannot
   // disagree about which documents exist — named from the server's layout.
   const documents = reviewDocuments(data);
+  const canOpenDocuments =
+    hasPermission(admin, 'kyc.documents.view') || hasPermission(admin, 'kyc.review');
   // Name, else email, else the Portal ID — a masked name must not blank the heading.
   const clientName = data.user ? clientLabel(data.user, '') : '';
 
@@ -493,7 +495,17 @@ export default function KycDetailPage() {
         <div className="detail-right">
           <div className="docs-card">
             <h3>{t('kycReview.documentsTitle')}</h3>
-            <DocumentGroups groups={reviewDocumentGroups(data)} onOpen={setLightboxAt} />
+            {/*
+              The files open only with `kyc.documents.view` — or `kyc.review`,
+              which the API treats as implying it (a reviewer must see what they
+              decide on). Without either every thumbnail was a broken image and
+              every click a 403 (Oct 2026 audit).
+            */}
+            {canOpenDocuments ? (
+              <DocumentGroups groups={reviewDocumentGroups(data)} onOpen={setLightboxAt} />
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('kycReview.documentsNotAllowed')}</p>
+            )}
           </div>
 
           {/* The decision controls are DOCKED at the foot of the screen — see
@@ -623,6 +635,10 @@ export default function KycDetailPage() {
         <ReviewDock
           status={data.status}
           reviewedByName={data.reviewedByName}
+          heldByColleague={
+            data.status === 'under_review' && !!data.reviewedBy && data.reviewedBy !== admin?.id
+          }
+          canOverrideClaim={hasPermission(admin, 'kyc.claim.override')}
           loading={actionLoading}
           error={!showRejectModal && !showApproveConfirm ? actionError : ''}
           onApprove={() => {

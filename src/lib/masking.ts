@@ -121,3 +121,26 @@ export function maskableFields<F extends { maskable: boolean }>(
     .flatMap((group) => group.fields)
     .filter((field) => field.maskable);
 }
+
+/**
+ * A stored mask without the keys the catalog LOCKS (Oct 2026).
+ *
+ * A field can stop being hideable after a role ticked it (payout destination,
+ * 29 Sep; tags, KYC extras and more, 7 Oct). The picker never shows a locked
+ * field, so nobody could untick it — and the API refuses to SAVE a mask naming
+ * one. Dropping exactly the keys the catalog lists as locked (never an UNKNOWN
+ * key: a catalog that failed to load must not unmask anything on save) keeps
+ * every such role editable.
+ */
+export function withoutLocked<F extends { key: string; maskable: boolean }>(
+  keys: readonly string[],
+  catalog: Record<string, { fields: F[] }>,
+): string[] {
+  const locked = new Set(
+    Object.values(catalog)
+      .flatMap((group) => group.fields)
+      .filter((field) => !field.maskable)
+      .map((field) => field.key),
+  );
+  return keys.filter((key) => !locked.has(key));
+}

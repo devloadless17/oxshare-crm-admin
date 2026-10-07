@@ -54,6 +54,7 @@ export default function NewApiKeyPage() {
 
 function NewApiKeyForm() {
   const router = useRouter();
+  const { admin } = useAdmin();
 
   const [name, setName] = React.useState('');
   const [permissions, setPermissions] = React.useState<string[]>([]);
@@ -309,24 +310,10 @@ function NewApiKeyForm() {
                 <PermissionMatrix
                   catalog={catalog.data}
                   selected={permissions}
-                  onToggle={(key) =>
-                    setPermissions((prev) =>
-                      prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key],
-                    )
-                  }
-                  /*
-                   * Select-all is applied HERE rather than inside the matrix,
-                   * which never owns the selection. `keys` is one module's keys or
-                   * the whole catalog's; the Set keeps the result duplicate-free
-                   * when a module is selected twice.
-                   */
-                  onSelectAll={(keys, nextSelected) =>
-                    setPermissions((prev) =>
-                      nextSelected
-                        ? [...new Set([...prev, ...keys])]
-                        : prev.filter((p) => !keys.includes(p)),
-                    )
-                  }
+                  onChange={setPermissions}
+                  // A key carries only what its creator holds — the API refuses
+                  // the rest, so the box says so before the save does.
+                  grantable={(key) => hasPermission(admin, key)}
                 />
               )}
             </AsyncBoundary>

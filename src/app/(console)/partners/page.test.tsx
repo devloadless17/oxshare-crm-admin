@@ -280,11 +280,11 @@ describe('the partner directory — what an operator may do', () => {
 
   it('offers no write to an operator who may only read partners', async () => {
     const user = userEvent.setup();
-    permissions.current = ['ib.view'];
+    // Payouts are their own page now, on their own key; the profile needs `clients.view`.
+    permissions.current = ['ib.partners.view', 'ib.commissions.view'];
     renderWithProviders(<PartnersPage />);
 
     const menu = await openRowMenu(user);
-    // `ib.view` opens the ledger; the profile needs `clients.view`.
     expect(menu.getByRole('menuitem', { name: /commission ledger/i })).toBeInTheDocument();
     expect(menu.queryByRole('menuitem', { name: /view profile/i })).toBeNull();
     expect(menu.queryByRole('menuitem', { name: /change commission level/i })).toBeNull();

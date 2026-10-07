@@ -4,11 +4,14 @@ import * as React from 'react';
 import Link from 'next/link';
 import type { ClientFieldGroup, PermissionModule, Role } from '@/lib/api/admin';
 import { PermissionMatrix } from './permission-matrix';
+import { RoleMenuPreview } from './role-menu-preview';
+import { withRequirements } from './permission-rules';
+import { hasPermission } from '@/lib/permissions';
 import { ToggleList } from '@/components/ui/toggle-list';
 import { Button } from '@/components/ui/button';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { t } from '@/lib/i18n';
-import { maskableFields } from '@/lib/masking';
+import { maskableFields, withoutLocked } from '@/lib/masking';
 
 export interface RoleFormValues {
   name: string;
@@ -95,16 +98,24 @@ export function RoleForm({
 
   const [name, setName] = React.useState(initial?.name ?? '');
   const [description, setDescription] = React.useState(initial?.description ?? '');
-  const [permissions, setPermissions] = React.useState<string[]>(initial?.permissions ?? []);
+  // Closed over `requires` from the start, so an older role opens showing the
+  // pages its actions need — the set the API would store on save anyway.
+  const [permissions, setPermissions] = React.useState<string[]>(() =>
+    withRequirements(catalog, initial?.permissions ?? []),
+  );
   const [maskedFields, setMaskedFields] = React.useState<string[]>(() =>
     // The union: what the role hides, plus what the SUBMITTER cannot reveal.
     // The server would refuse anything narrower, so offering it would only
     // move the refusal from the checkbox to the save button.
-    Array.from(new Set([...(initial?.maskedFields ?? []), ...ownMask])),
+    withoutLocked(
+      Array.from(new Set([...(initial?.maskedFields ?? []), ...ownMask])),
+      fieldCatalog,
+    ),
   );
 
-  const toggle = (key: string) =>
-    setPermissions((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
+  // The API grants only what the editor holds (Oct 2026 audit) — say so on the box.
+  const grantable = (key: string) => hasPermission(admin, key);
+  const nameTaken = /name already exists/i.test(error);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,8 +143,15 @@ export function RoleForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={busy}
+            aria-invalid={nameTaken || undefined}
+            aria-describedby={nameTaken ? 'role-name-error' : undefined}
             className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 disabled:opacity-60"
           />
+          {nameTaken && (
+            <p id="role-name-error" className="mt-1 text-[11px] text-destructive">
+              {error}
+            </p>
+          )}
         </div>
         <div>
           <label className="font-semibold" htmlFor="role-description">
@@ -151,50 +169,67 @@ export function RoleForm({
         </div>
       </div>
 
-      {/* The matrix is shared with the admin editor (RBAC-02), so a role and a
-          direct grant always offer the same vocabulary. */}
-      <PermissionMatrix catalog={catalog} selected={permissions} onToggle={toggle} />
+      {/* The matrix beside the menu it produces — the buyer sees what a holder
+          will see before saving. Shared with the API key form. */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_15rem]">
+        <PermissionMatrix
+          catalog={catalog}
+          selected={permissions}
+          onChange={setPermissions}
+          grantable={grantable}
+          disabled={busy}
+        />
+        <div className="lg:sticky lg:top-4 lg:self-start">
+          <RoleMenuPreview permissions={permissions} />
+        </div>
+      </div>
 
       {/*
-       * A <details> with an always-visible summary. Collapsed because most
-       * roles hide nothing — but the summary line is on screen before it is
-       * opened, because RBAC-03's failure mode is granting visibility you did
-       * not realise you granted.
+       * RBAC-03 — a VISIBLE section, after the matrix (Oct 2026 audit). It was a
+       * collapsed <details> titled "Client field visibility", ticks meaning
+       * HIDDEN, each option printing its raw key: easy to miss and read upside
+       * down. Grouped as the field catalog groups them, in plain words.
        */}
-      <details className="rounded-lg border border-border bg-card p-3">
-        <summary className="cursor-pointer list-none text-xs font-semibold focus-outline">
-          <span className="flex items-center justify-between gap-3">
-            {t('roles.maskSection')}
-            <span className="text-[11px] font-normal text-muted-foreground">
-              {maskedFields.length === 0
-                ? t('roles.maskSummaryNone')
-                : t('roles.maskSummary', { count: maskedFields.length })}
-            </span>
+      <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h4 className="text-sm font-bold text-foreground">{t('roles.maskSection')}</h4>
+          <span className="text-[11px] text-muted-foreground">
+            {maskedFields.length === 0
+              ? t('roles.maskSummaryNone')
+              : t('roles.maskSummary', { count: maskedFields.length })}
           </span>
-        </summary>
-        <div className="pt-3">
-          <p className="mb-2 text-[11px] text-muted-foreground">{t('roles.maskHint')}</p>
-          <ToggleList
-            options={maskableFields(fieldCatalog).map((field) => ({
-              value: field.key,
-              label: field.label,
-              hint: field.key,
-              // A field the editor's own role hides stays disabled with the
-              // reason: they cannot grant sight they do not have (D-82).
-              disabledReason: ownMask.includes(field.key) ? t('roles.maskLockedOwn') : undefined,
-            }))}
-            selected={maskedFields}
-            onToggle={(key) =>
-              setMaskedFields((prev) =>
-                prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-              )
-            }
-            disabled={busy}
-          />
         </div>
-      </details>
+        <p className="text-[11px] text-muted-foreground">{t('roles.maskHint')}</p>
+        {Object.entries(fieldCatalog).map(([groupId, group]) => {
+          const fields = maskableFields({ [groupId]: group });
+          if (fields.length === 0) return null;
+          return (
+            <div key={groupId} className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-foreground">{group.groupName}</p>
+              <ToggleList
+                options={fields.map((field) => ({
+                  value: field.key,
+                  label: field.label,
+                  // A field the editor's own role hides stays disabled with the
+                  // reason: they cannot grant sight they do not have (D-82).
+                  disabledReason: ownMask.includes(field.key)
+                    ? t('roles.maskLockedOwn')
+                    : undefined,
+                }))}
+                selected={maskedFields}
+                onToggle={(key) =>
+                  setMaskedFields((prev) =>
+                    prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+                  )
+                }
+                disabled={busy}
+              />
+            </div>
+          );
+        })}
+      </section>
 
-      {error && (
+      {error && !nameTaken && (
         <div
           className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
           role="alert"

@@ -197,7 +197,9 @@ export const messages = {
   'common.notFoundTitle': 'Not found',
   'common.notFoundBody': 'It may have been removed, or it is not available to you.',
   'session.deniedBody':
-    'Your role does not include access to this section. Ask a master admin if you need it.',
+    'Your role does not include this page. Ask an administrator who manages roles to add it.',
+  'session.deniedPage':
+    'Your role does not include {page}. Ask an administrator who manages roles to add it.',
   'session.backToDashboard': 'Back to dashboard',
   // Signed in, but the console could not then confirm who with. Navigating
   // anyway lands the operator in a shell that knows nothing about them.
@@ -982,14 +984,22 @@ export const messages = {
   'roles.createSucceeded': 'Role “{name}” created',
   'roles.saveSucceeded': 'Role “{name}” saved',
   'roles.deleteSucceeded': 'Role “{name}” deleted',
-  'roles.maskSection': 'Client field visibility',
+  'rbac.roleFullAccess': 'Full access — every permission, including new ones as they are added.',
+  'rbac.rolePages': '{count} {count:page|pages} in their menu',
+  'rbac.matrixTitle': 'Permissions ({count} granted)',
+  'rbac.search': 'Search permissions',
+  'rbac.showCodes': 'Show permission codes',
+  'rbac.alsoCleared': 'Also turned off, because they need what you removed: {keys}.',
+  'rbac.noMatch': 'No permission matches “{query}”.',
+  'rbac.menuChip': 'Menu',
+  'rbac.notGrantable': "You can't grant a permission you don't hold.",
+  'rbac.previewTitle': 'Menu preview',
+  'rbac.previewHint': 'The sidebar someone with this role will see.',
+  'roles.maskSection': 'Client details this role cannot see',
   'roles.maskSummary': '{count} {count:field|fields} hidden',
   'roles.maskSummaryNone': 'Nothing hidden',
   'roles.maskHint':
-    'Fields holders of this role cannot see. The value is removed from the API response, not just from the screen — and it applies everywhere, including the KYC review.',
-  // The superset rule (assertMaskAllowed): a role you save must hide at least
-  // what is hidden from YOU, or saving roles would be the way around your own
-  // mask. Locked on the control, so the answer is where the operator looks.
+    'Ticked details are hidden from everyone with this role, on every screen and in every export.',
   'roles.maskLockedOwn': 'Hidden from you — you cannot grant visibility you do not have.',
 
   'adminUsers.scopeSection': 'Client scope',
@@ -1908,6 +1918,8 @@ export const messages = {
   'kycReview.releaseHint':
     'Returns it to the queue so any reviewer can pick it up. Nothing is decided.',
   'kycReview.releaseFailed': 'Could not hand this submission back.',
+  'kycReview.documentsNotAllowed':
+    "Your role can't open identity documents. Ask an administrator who manages roles to add “Open clients' identity documents”.",
   'kycReview.claimedBy': 'Being reviewed by {name}',
   'kycReview.claimedByUnknown': 'Being reviewed',
   'kycReview.claimHint':
@@ -2046,7 +2058,13 @@ export const messages = {
   // Column headers, added when the row stack became a DataTable. The row
   // components carried no headers — a stacked row labels itself by layout — so
   // these are the one thing the conversion genuinely had to name.
-  'roles.caption': 'Custom roles',
+  'roles.copyOf': '{name} (copy)',
+  'roles.duplicate': 'Duplicate',
+  'roles.colHolders': 'Admins',
+  'roles.holders': '{count} {count:admin|admins}',
+  'roles.systemRoleHint':
+    'Full access. New permissions are added to it automatically, and it cannot be edited or deleted.',
+  'roles.caption': 'Roles',
   'roles.colName': 'Role',
   'roles.colDescription': 'Description',
   'roles.colPermissions': 'Permissions',
@@ -2068,6 +2086,9 @@ export const messages = {
   'roles.saving': 'Saving…',
   'roles.notFound': 'That role no longer exists.',
   'roles.systemReadOnly': 'System roles cannot be edited.',
+  'roles.beyondYou': 'Beyond your access',
+  'roles.beyondYouHint':
+    'This role carries permissions you do not hold, so only someone who holds them can change or delete it.',
   'roles.yourRole': 'Your role',
   'roles.yourRoleHint':
     'This role decides your own access, so you cannot edit it. Another administrator with role access can.',
@@ -3738,6 +3759,7 @@ export const messages = {
   'deposits.copyDetail': 'Copy {label}',
   'deposits.colRequested': 'Requested',
   'deposits.colState': 'State',
+  'deposits.receiptNotAllowed': "Receipt attached — your role can't open it",
   'deposits.noReceipt': 'No receipt',
   'deposits.openReceipt': 'Open receipt',
   'deposits.approve': 'Approve & credit',

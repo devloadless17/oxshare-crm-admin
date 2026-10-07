@@ -225,7 +225,9 @@ export default function CurrenciesPage() {
                 label={t('table.rowActions', { name: c.code })}
                 busy={busyCode === c.code}
                 items={[
-                  { label: t('currencies.edit'), icon: Pencil, onSelect: () => openEdit(c) },
+                  ...(canEdit
+                    ? [{ label: t('currencies.edit'), icon: Pencil, onSelect: () => openEdit(c) }]
+                    : []),
 
                   /*
                    * Every entry below is withheld for the DEFAULT currency, and
@@ -237,7 +239,7 @@ export default function CurrenciesPage() {
                    * control that can never become enabled from this row is
                    * worse than its absence.
                    */
-                  ...(c.isDefault
+                  ...(c.isDefault || !canEdit
                     ? []
                     : [
                         {
@@ -256,6 +258,11 @@ export default function CurrenciesPage() {
                               },
                             ]
                           : []),
+                      ]),
+                  // Delete is its own key — `currencies.edit` alone could not use it.
+                  ...(c.isDefault || !canDelete
+                    ? []
+                    : [
                         {
                           label: t('currencies.delete'),
                           icon: Trash2,

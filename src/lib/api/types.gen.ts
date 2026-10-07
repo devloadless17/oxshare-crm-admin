@@ -3152,7 +3152,7 @@ export interface paths {
         put?: never;
         /**
          * Admin login, enrolment: a new authenticator secret as a QR code
-         * @description Only while the account has no authenticator. Each call replaces the previous secret, so only the newest QR code can finish enrolment.
+         * @description Only while the account has no authenticator. Until a code confirms it, every call returns the SAME secret, so a scan is never wasted by a reload.
          */
         post: operations["AdminAuthController_beginTotpSetup"];
         delete?: never;
@@ -4135,7 +4135,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Permission catalog grouped by module (requires roles.view or admins.view) */
+        /** Permission catalog grouped by module (roles.view, admins.view or apikeys.create) */
         get: operations["AdminRbacController_getPermissions"];
         put?: never;
         post?: never;
@@ -10150,8 +10150,17 @@ export interface components {
         PermissionItemDto: {
             key: string;
             label: string;
+            /** @description Keys this one cannot be used without. A role save adds them. */
+            requires?: string[];
+            /** @description The console routes this VIEW key opens. Only view keys carry it. */
+            opens?: string[];
         };
         PermissionModuleDto: {
+            /**
+             * @description The sidebar group this page sits in.
+             * @enum {string}
+             */
+            group: "clients" | "introducing-brokers" | "finance" | "trading" | "system" | "security";
             moduleName: string;
             description: string;
             permissions: components["schemas"]["PermissionItemDto"][];
@@ -10179,6 +10188,10 @@ export interface components {
             isSystem: boolean;
             /** Format: date-time */
             createdAt: string;
+            /** @description How many administrators hold this role (list only). */
+            holderCount?: number;
+            /** @description Their names — only for a reader holding admins.view (list only). */
+            holderNames?: string[];
         };
         RoleDto: {
             /** @example KYC Reviewer */

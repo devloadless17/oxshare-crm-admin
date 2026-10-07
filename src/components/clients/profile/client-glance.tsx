@@ -61,7 +61,7 @@ export function ClientGlance({
       {may('trading.view') && <AccountsTile userId={userId} onOpen={() => onOpen('accounts')} />}
       {seesMovements && <TotalsTiles userId={userId} onOpen={() => onOpen('transactions')} />}
       {seesMovements && <LastActivityTile userId={userId} onOpen={() => onOpen('transactions')} />}
-      {partner && may('ib.view') && (
+      {partner && may('ib.partners.view') && (
         <PartnerTile partner={partner} onOpen={() => onOpen('partner')} />
       )}
     </div>

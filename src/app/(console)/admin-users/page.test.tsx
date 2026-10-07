@@ -189,6 +189,7 @@ beforeEach(() => {
   getAdminUsers.mockResolvedValue([master, sub()]);
   getPermissions.mockResolvedValue({
     kyc: {
+      group: 'clients' as const,
       moduleName: 'KYC',
       description: 'Compliance',
       permissions: [

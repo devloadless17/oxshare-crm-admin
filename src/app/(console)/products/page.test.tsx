@@ -200,7 +200,7 @@ describe('the product catalogue', () => {
 
 describe('the product catalogue — who may change it', () => {
   it('offers no way to add a product to a read-only operator', async () => {
-    permissions.current = ['settings.view'];
+    permissions.current = ['products.view'];
     renderWithProviders(<ProductsPage />);
 
     await screen.findByText('Standard');

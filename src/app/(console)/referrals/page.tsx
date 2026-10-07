@@ -75,7 +75,7 @@ function ReferralsPageContent() {
   const canSuspend = hasPermission(admin, 'clients.suspend');
   const canEditPartners = hasPermission(admin, 'ib.partners.edit');
   const canViewTags = hasPermission(admin, 'tags.view') || hasPermission(admin, 'clients.view');
-  const canViewPartners = hasPermission(admin, 'ib.view');
+  const canViewPartners = hasPermission(admin, 'ib.referrals.view');
 
   // Filters, page, size and sort live in the URL, as on /clients.
   const url = useTableQueryState();

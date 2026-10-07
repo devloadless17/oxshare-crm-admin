@@ -2,6 +2,11 @@
 // below read at import time. See topology.ts.
 import './topology';
 import {
+  completeAuthenticator,
+  completeAuthenticatorApi,
+  resetAuthenticator,
+} from './authenticator';
+import {
   expect,
   request as apiRequest,
   test,
@@ -191,6 +196,8 @@ export async function adminApiSession(
    * a context revoked the SHARED master session and took the suite down.
    */
   const request = await apiRequest.newContext({ storageState: { cookies: [], origins: [] } });
+  // Test accounts enrol afresh on every session; see e2e/authenticator.ts.
+  resetAuthenticator(credentials.email);
   for (;;) {
     const login = await request.post(`${API_NODE_BASE}/admin/auth/login`, {
       headers: { Origin: APP_ORIGIN },
@@ -205,6 +212,14 @@ export async function adminApiSession(
     if (!login.ok()) {
       throw new Error(`admin API sign-in as ${credentials.email} answered ${login.status()}`);
     }
+    // The password is half a sign-in (0191): answer the authenticator challenge.
+    await completeAuthenticatorApi(
+      request,
+      API_NODE_BASE,
+      APP_ORIGIN,
+      credentials.email,
+      (await login.json()) as { step?: 'totp' | 'totp_setup'; challengeToken?: string },
+    );
     break;
   }
   const csrf =
@@ -357,6 +372,8 @@ export async function signIn(
   if (!new URL(page.url(), APP_ORIGIN).pathname.startsWith('/login')) {
     await page.goto('/login');
   }
+  // Every run enrols afresh (local dev DB) — see e2e/authenticator.ts.
+  resetAuthenticator(credentials.email);
   await page.locator('#email').fill(credentials.email);
   await page.locator('#password').fill(credentials.password);
 
@@ -434,6 +451,15 @@ export async function signIn(
     );
   }
 
+  // The second factor, typed like a person with an authenticator app would.
+  if ((await completeAuthenticator(page, credentials.email)) === 'rate-limited') {
+    test.setTimeout(RATE_LIMIT_WINDOW_MS + 120_000);
+    // eslint-disable-next-line no-console
+    console.log(`↻ authenticator rate limit reached; waiting ${RATE_LIMIT_WINDOW_MS / 1000}s…`);
+    await page.waitForTimeout(RATE_LIMIT_WINDOW_MS);
+    await page.goto('/login');
+    return signIn(page, credentials, landsOn);
+  }
   await page.waitForURL(landsOn, { timeout: 30_000 });
 }
 
@@ -771,6 +797,14 @@ export async function acceptAdminInvite(
       await ctx.dispose();
       throw new Error(`Accepting the invite answered ${res.status()}.`);
     }
+    // Accepting ends in the authenticator step (0191), like any sign-in.
+    await completeAuthenticatorApi(
+      ctx,
+      API_NODE_BASE,
+      APP_ORIGIN,
+      `invite-${token.slice(0, 12)}`,
+      (await res.json()) as { step?: 'totp' | 'totp_setup'; challengeToken?: string },
+    );
     const csrf =
       (await ctx.storageState()).cookies.find((c) => c.name.includes('admin_csrf'))?.value ?? '';
     const me = await ctx.get(`${API_NODE_BASE}/admin/auth/me`);

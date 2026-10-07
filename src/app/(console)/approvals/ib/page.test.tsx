@@ -189,7 +189,7 @@ describe('the partner queue — what a reviewer is shown', () => {
  */
 describe('the partner queue — approve and reject are separate privileges', () => {
   it('offers neither action to a reviewer who may only look', async () => {
-    permissions.current = ['ib.view'];
+    permissions.current = ['ib.applications.view'];
     renderWithProviders(<ApprovalsIbPage />);
 
     await screen.findByText('applicant@example.com');
@@ -197,7 +197,7 @@ describe('the partner queue — approve and reject are separate privileges', () 
   });
 
   it('offers a row menu once the reviewer may act', async () => {
-    permissions.current = ['ib.view', 'ib.approve'];
+    permissions.current = ['ib.applications.view', 'ib.approve'];
     renderWithProviders(<ApprovalsIbPage />);
 
     await screen.findByText('applicant@example.com');

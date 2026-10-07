@@ -11,6 +11,8 @@ import { useSaveProduct } from '@/components/products/use-save-product';
 import { toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { useAdmin } from '@/context/AdminAuthContext';
+import { hasPermission } from '@/lib/permissions';
 
 /**
  * ONE PRODUCT'S SETTINGS, as a page (owner, 1 Oct 2026): name, type, commission
@@ -21,6 +23,10 @@ export default function ProductPage() {
   const router = useRouter();
   const id = typeof params.id === 'string' ? params.id : '';
   const creating = id === 'new';
+  const { admin } = useAdmin();
+  // This page IS the form, so it opens for whoever may save it — never a form
+  // whose Save can only answer 403 (Oct 2026 audit).
+  const maySave = hasPermission(admin, creating ? 'products.create' : 'products.edit');
 
   const products = useResource<Product[]>(keys.products.all(), () => adminApi.getProducts());
   const commissionTypes = useResource<IbCommissionType[]>(keys.ibCommissionTypes.all(), (signal) =>
@@ -41,7 +47,7 @@ export default function ProductPage() {
       </Link>
 
       <AsyncBoundary
-        status={products.status}
+        status={maySave ? products.status : 'forbidden'}
         label={t('products.loading')}
         endpoints={['GET /admin/products']}
         onRetry={products.refetch}

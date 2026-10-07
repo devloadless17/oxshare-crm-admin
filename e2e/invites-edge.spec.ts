@@ -1,6 +1,7 @@
 import { request } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { adminApiSession, API_NODE_BASE, APP_ORIGIN } from './helpers';
+import { completeAuthenticatorApi } from './authenticator';
 
 /**
  * The invite lifecycle's REFUSALS — the half the happy path in
@@ -89,6 +90,14 @@ test('a revoked token is dead everywhere, a spent token is dead forever', async 
         data: { token: spentToken, password: `Invedge-${run}-123!` },
       });
       expect(accepted.ok(), `accept answered ${accepted.status()}`).toBe(true);
+      // Accepting ends in the authenticator step (0191), like any sign-in.
+      await completeAuthenticatorApi(
+        invitee,
+        API_NODE_BASE,
+        APP_ORIGIN,
+        `invite-${spentToken.slice(0, 12)}`,
+        (await accepted.json()) as { step?: 'totp' | 'totp_setup'; challengeToken?: string },
+      );
       const me = (await (await invitee.get(`${API_NODE_BASE}/admin/auth/me`)).json()) as {
         id: string;
       };

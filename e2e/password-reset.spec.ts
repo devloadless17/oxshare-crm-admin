@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures';
+import { completeAuthenticatorApi } from './authenticator';
 
 /**
  * Admin password recovery, end to end — DECISIONS D-44.
@@ -197,6 +198,14 @@ test.describe('completing an armed reset through the emailed link', () => {
         accepted = await acceptOnce();
       }
       expect(accepted.ok(), `accept answered ${accepted.status()}`).toBe(true);
+      // Accepting ends in the authenticator step (0191), like any sign-in.
+      await completeAuthenticatorApi(
+        invitee,
+        API_NODE_BASE,
+        APP_ORIGIN,
+        email,
+        (await accepted.json()) as { step?: 'totp' | 'totp_setup'; challengeToken?: string },
+      );
       const me = (await (await invitee.get(`${API_NODE_BASE}/admin/auth/me`)).json()) as {
         id: string;
       };
