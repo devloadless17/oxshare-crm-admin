@@ -1372,7 +1372,7 @@ export const messages = {
   'clientProfile.levelChanged': 'The partner’s commission level was changed.',
   // 0197 — a sub-partner's own terms.
   'clientProfile.mainTerms':
-    'Partner 100% on own clients, the rest on sub-partners’ · client rebate {rebate}% of its rebate',
+    'Partner 100% of commission and rebate on own clients, the rest on sub-partners’',
   'clientProfile.customTerms': 'Set for this sub-partner',
   'clientProfile.editTerms': 'Edit commission',
   'clientProfile.termsMainPartner':
@@ -1384,7 +1384,7 @@ export const messages = {
     'This sub-partner’s own shares of the product’s commission and rebate. Leave a field empty ' +
     'to use the level 2 default. Applies from the next trade.',
   'clientProfile.termsCommission': 'Sub-partner earns (% of commission)',
-  'clientProfile.termsRebate': 'Their clients get back (% of rebate)',
+  'clientProfile.termsRebate': 'Sub-partner earns (% of rebate)',
   'clientProfile.termsDefault': 'Level default: {share}%',
   'clientProfile.termsSplit': 'On their clients’ trades: sub-partner {sub}% · main partner {main}%',
   'clientProfile.termsRange': 'Enter a percentage from 0 to 100.',
@@ -1395,7 +1395,7 @@ export const messages = {
   'clientProfile.levelOption': 'Level {level} · {name}',
   // The rates, because a rung number alone does not tell an operator what they
   // are about to change somebody's pay TO.
-  'clientProfile.levelTerms': 'Partner {commission} · client rebate {rebate}',
+  'clientProfile.levelTerms': 'Commission {commission} · rebate {rebate}',
   // Shares of the traded product's commission type (0140). What a share comes
   // to in money depends on which product the client trades, so the line names
   // the fraction rather than inventing a figure.
@@ -2338,7 +2338,7 @@ export const messages = {
   // that stood here drove nothing and is gone.
   'products.commissionType': 'Commission type',
   'products.commissionTypeHint':
-    'What this product pays per lot — the partners’ commission and the client’s rebate. Each ' +
+    'What this product pays per lot — the partners’ commission and rebate. Each ' +
     'commission level takes its share of it. Leave it unset for a product that pays no partner ' +
     'commission.',
   'products.commissionTypeNone': 'None — pays no partner commission',
@@ -4043,7 +4043,7 @@ export const messages = {
    * something is a subtitle that goes stale; this one no longer enumerates.
    */
   'ibLevels.subtitle':
-    'What each rung of the partner tree earns, and what its clients get back. Changes apply to ' +
+    'What each rung of the partner tree earns in commission and rebate. Changes apply to ' +
     'the next trade.',
   'ibLevels.loading': 'Loading the commission ladder…',
   'ibLevels.loadFailed': 'Could not load the commission levels.',
@@ -4100,10 +4100,11 @@ export const messages = {
     'Main partners take 100% of the commission on their own clients, and the rest (100% minus ' +
     'the sub-partner’s share) on their sub-partners’ clients.',
   'ibLevels.termRest': '100% on own clients · the rest on sub-partners’',
-  'ibLevels.rebate': 'Their client gets back',
+  'ibLevels.rebate': 'Rebate share',
   'ibLevels.rebateHint':
-    'The share of the product’s rebate per lot returned to a client introduced by a partner on ' +
-    'this level. Set it to zero if this level pays no rebate.',
+    'The rebate is partner money, split like commission: a sub-partner on this level takes this ' +
+    'share of the product’s rebate per lot, and the main partner above takes the rest. Clients ' +
+    'receive no rebate.',
   'ibLevels.independentNote':
     'One commission, split: the sub-partner takes their share and the main partner above them ' +
     'takes the rest. The tree has two levels — main partners and their sub-partners.',
@@ -4127,7 +4128,7 @@ export const messages = {
   // percentage of a number on another screen is not a figure anybody can hold
   // in their head.
   'ibLevels.perTypeHeading': 'Per lot, by commission type',
-  'ibLevels.perType': '{name}: partner ${commission} · client ${rebate}',
+  'ibLevels.perType': '{name}: commission ${commission} · rebate ${rebate}',
   'ibLevels.noTypes': 'No commission types yet — nothing to take a share of.',
   'ibLevels.saveSucceeded': 'Level {level} was saved. It applies to the next trade.',
   'ibLevels.saveFailed': 'Could not save the level.',
@@ -4137,7 +4138,7 @@ export const messages = {
   // for the client. The ladder takes its shares of these.
   'commissionTypes.pageTitle': 'Commission types',
   'commissionTypes.subtitle':
-    'What a product pays per lot: the partners’ commission and the client’s rebate. Assign a ' +
+    'What a product pays per lot: the partners’ commission and rebate. Assign a ' +
     'type to each product; the commission levels then take their share of it.',
   'commissionTypes.loading': 'Loading commission types',
   'commissionTypes.loadFailed': 'Could not load the commission types.',
@@ -4154,7 +4155,7 @@ export const messages = {
   'commissionTypes.commissionHint':
     'The pool one standard lot puts on the table for the partners above the client. Each ' +
     'commission level takes its percentage of this.',
-  'commissionTypes.rebate': 'Client rebate per lot',
+  'commissionTypes.rebate': 'Partner rebate per lot',
   'commissionTypes.rebateHint':
     'What one standard lot returns to the trading client, before the introducer’s level ' +
     'applies its share. Zero for a type that pays no rebate.',
@@ -4286,7 +4287,7 @@ export const messages = {
     'What this partner will be paid on. The first one is used unless you choose otherwise, and ' +
     'it can be changed later from their profile.',
   'partnerReview.programmeLadder': '{rates} — reaches {count} {count:level|levels}',
-  'partnerReview.programmeRebateOnly': 'Pays no partner commission · {rebate}% client rebate',
+  'partnerReview.programmeRebateOnly': 'Pays no partner commission · {rebate}% rebate',
   'partnerReview.noProgrammesEnabled':
     'No commission programme is enabled, so an approved partner would have no terms to be paid ' +
     'on. Enable one on the Commission Programmes page first.',
@@ -4331,7 +4332,7 @@ export const messages = {
   'nav.commissions': 'Commission payouts',
   'commissions.title': 'Commission payouts',
   'commissions.subtitle':
-    'Every payout the partner programme makes, one line per trade: commissions paid to partners and rebates paid back to the clients who traded. Pending has been worked out and is waiting to be credited; confirmed has reached the wallet.',
+    'Every payout the partner programme makes, one line per trade: commissions and rebates paid to partners. Pending has been worked out and is waiting to be credited; confirmed has reached the wallet.',
   'commissions.loading': 'Loading commissions and rebates',
   'commissions.loadFailed': 'Could not load the commissions and rebates.',
   'commissions.empty': 'No commissions or rebates have been accrued yet.',
@@ -4364,7 +4365,7 @@ export const messages = {
    */
   'commissions.colKind': 'Type',
   'commissions.kind.commission': 'Commission',
-  'commissions.kind.rebate': 'Client rebate',
+  'commissions.kind.rebate': 'Rebate',
   'commissions.filterKind': 'Filter by type',
   'commissions.filterKindAll': 'Commission and rebates',
   'commissions.filterPartner': 'Search partner',

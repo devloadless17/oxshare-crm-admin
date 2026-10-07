@@ -172,8 +172,10 @@ describe('the commission ladder', () => {
   it('says what each share comes to in money on every active type', async () => {
     renderWithProviders(<IbLevelsPage />);
 
-    expect(await screen.findByText('Standard: partner $10.00 · client $1.50')).toBeInTheDocument();
-    expect(screen.getByText('Standard: partner $3.00 · client $0.00')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Standard: commission $10.00 · rebate $1.50'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Standard: commission $3.00 · rebate $0.00')).toBeInTheDocument();
   });
 
   it('leaves a disabled type out of the preview, because it pays nobody', async () => {
@@ -183,7 +185,7 @@ describe('the commission ladder', () => {
     ]);
     renderWithProviders(<IbLevelsPage />);
 
-    await screen.findByText('Standard: partner $10.00 · client $1.50');
+    await screen.findByText('Standard: commission $10.00 · rebate $1.50');
     expect(screen.queryByText(/Retired: partner/)).toBeNull();
   });
 
@@ -230,7 +232,7 @@ describe('the commission ladder', () => {
     // Level 1 takes the rest (0197): no commission share to edit, and the dialog says why.
     expect(screen.queryByRole('textbox', { name: /the partner earns/i })).not.toBeInTheDocument();
     expect(screen.getByText(/main partners take 100% of the commission/i)).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: /their client gets back/i })).toHaveValue('50');
+    expect(screen.getByRole('textbox', { name: /rebate share/i })).toHaveValue('50');
   });
 
   /*

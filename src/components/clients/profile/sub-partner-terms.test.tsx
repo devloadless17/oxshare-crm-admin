@@ -50,15 +50,15 @@ describe('a sub-partner’s own commission and rebate', () => {
   it('shows the main partner taking the rest as the share is typed', async () => {
     const user = userEvent.setup();
     renderDialog();
-    await user.type(screen.getByLabelText(/sub-partner earns/i), '50');
+    await user.type(screen.getByLabelText(/% of commission/i), '50');
     expect(screen.getByText(/sub-partner 50% · main partner 50%/i)).toBeInTheDocument();
   });
 
   it('sends both shares as typed', async () => {
     const user = userEvent.setup();
     renderDialog();
-    await user.type(screen.getByLabelText(/sub-partner earns/i), '50');
-    await user.type(screen.getByLabelText(/clients get back/i), '20');
+    await user.type(screen.getByLabelText(/% of commission/i), '50');
+    await user.type(screen.getByLabelText(/% of rebate/i), '20');
     await user.click(screen.getByRole('button', { name: /^save$/i }));
     await waitFor(() =>
       expect(setIbPartnerTerms).toHaveBeenCalledWith(1007184, {
@@ -71,7 +71,7 @@ describe('a sub-partner’s own commission and rebate', () => {
   it('sends null for an emptied field — back to the level default', async () => {
     const user = userEvent.setup();
     renderDialog(partner({ commissionShareOverride: '50.0000', rebateShareOverride: '20.0000' }));
-    await user.clear(screen.getByLabelText(/sub-partner earns/i));
+    await user.clear(screen.getByLabelText(/% of commission/i));
     await user.click(screen.getByRole('button', { name: /^save$/i }));
     await waitFor(() =>
       expect(setIbPartnerTerms).toHaveBeenCalledWith(1007184, {
@@ -84,7 +84,7 @@ describe('a sub-partner’s own commission and rebate', () => {
   it('refuses a share above 100% and sends nothing', async () => {
     const user = userEvent.setup();
     renderDialog();
-    await user.type(screen.getByLabelText(/sub-partner earns/i), '150');
+    await user.type(screen.getByLabelText(/% of commission/i), '150');
     expect(screen.getByRole('alert')).toHaveTextContent(/0 to 100/);
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled();
     expect(setIbPartnerTerms).not.toHaveBeenCalled();
