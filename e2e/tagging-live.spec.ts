@@ -1,5 +1,4 @@
-import { createHmac } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { devDbReachable, psql, resetAuthenticator, totp } from './authenticator';
 import { readFileSync } from 'node:fs';
 import {
   expect,
@@ -51,33 +50,7 @@ const DESK = {
   password: 'Desk-password-123',
 };
 
-function psql(sql: string): string {
-  const cmd = (
-    process.env.E2E_DB_EXEC ?? 'docker exec -i oxshare-postgres psql -U oxshare -d oxshare -tA'
-  ).split(' ');
-  const [bin = 'docker', ...args] = cmd;
-  return execFileSync(bin, [...args, '-c', sql], { encoding: 'utf8' }).trim();
-}
-let dbReachable = true;
-try {
-  psql('select 1');
-} catch {
-  dbReachable = false;
-}
-
-/** RFC 6238, SHA-1, 6 digits, 30-second steps — what the API checks. */
-function totp(secret: string, at = Date.now()): string {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  let bits = '';
-  for (const ch of secret.replace(/=+$/, '').toUpperCase())
-    bits += alphabet.indexOf(ch).toString(2).padStart(5, '0');
-  const key = Buffer.from(bits.match(/.{8}/g)!.map((b) => parseInt(b, 2)));
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(at / 1000 / 30)));
-  const h = createHmac('sha1', key).update(counter).digest();
-  const o = (h[h.length - 1] ?? 0) & 0xf;
-  return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
-}
+const dbReachable = devDbReachable();
 
 /** Finish an authenticator challenge in `request` (a browser context's), enrolling afresh. */
 async function enrol(request: APIRequestContext, challengeToken: string): Promise<void> {
@@ -99,9 +72,7 @@ async function enrol(request: APIRequestContext, challengeToken: string): Promis
 
 /** Sign an administrator into a BROWSER context (cookies land in it). */
 async function signInAdmin(context: BrowserContext, who: { email: string; password: string }) {
-  psql(
-    `UPDATE admins SET totp_secret=NULL, totp_pending_secret=NULL, totp_enabled_at=NULL, totp_last_step=NULL WHERE email='${who.email}'`,
-  );
+  resetAuthenticator(who.email);
   const login = await context.request.post(`${API_NODE_BASE}/admin/auth/login`, {
     headers: { Origin: APP_ORIGIN },
     data: who,

@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { adminApi, E2E_DOMAIN } from './helpers';
+import { completeAuthenticator } from './authenticator';
 
 /**
  * RBAC-07 — an administrator is invited with a role, accepts in a clean
@@ -57,7 +58,9 @@ test('invite → accept → the invitee holds the role and nothing more → susp
     page.getByRole('button', { name: /activate/i }).click(),
   ]);
   expect(accepted.status(), 'accepting the invite failed').toBe(200);
-  await page.waitForURL(/\/dashboard/, { timeout: 20_000 });
+  // Accepting ends in the authenticator step (0191), like every sign-in.
+  await completeAuthenticator(page, email);
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 20_000 });
   // Accepting IS signing in: no separate login call happened.
   expect(logins).toEqual([]);
 

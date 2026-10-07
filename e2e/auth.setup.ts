@@ -9,6 +9,7 @@ import {
   signIn,
   STORAGE_STATE,
 } from './helpers';
+import { completeAuthenticator, resetAuthenticator } from './authenticator';
 
 /**
  * Sign in ONCE, and let every spec reuse the session.
@@ -110,6 +111,7 @@ setup('authenticate as the restricted e2e admin', async ({ page }) => {
  */
 setup('authenticate as the kyc-viewer e2e admin', async ({ page }) => {
   await page.goto('/login');
+  resetAuthenticator(E2E_KYC_VIEWER.email);
   await page.locator('#email').fill(E2E_KYC_VIEWER.email);
   await page.locator('#password').fill(E2E_KYC_VIEWER.password);
   const [response] = await Promise.all([
@@ -123,6 +125,9 @@ setup('authenticate as the kyc-viewer e2e admin', async ({ page }) => {
   if (response.status() === 429) {
     // Same cap as the others; the kyc-viewer specs skip when this state is absent.
     setup.skip(true, 'login rate limited; kyc-viewer specs will skip this run');
+  }
+  if ((await completeAuthenticator(page, E2E_KYC_VIEWER.email)) === 'rate-limited') {
+    setup.skip(true, 'authenticator rate limited; kyc-viewer specs will skip this run');
   }
   await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
   mkdirSync(dirname(KYC_VIEWER_STATE), { recursive: true });
