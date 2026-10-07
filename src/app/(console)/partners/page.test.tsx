@@ -105,6 +105,8 @@ function partner(over: Partial<IbPartnerRow> = {}): IbPartnerRow {
     parentOutsideTerritory: false,
     agencyName: 'Levant Partners',
     earnings: [],
+    subPartnerCount: 0,
+    clientCount: 0,
     ...over,
   };
 }
@@ -164,6 +166,13 @@ describe('the partner directory — what a row says', () => {
     renderWithProviders(<PartnersPage />);
     expect(await screen.findByText('Nothing yet')).toBeInTheDocument();
     expect(screen.queryByText(/\$0\.00/)).not.toBeInTheDocument();
+  });
+
+  it('shows the IB total as sub-partners plus clients', async () => {
+    getIbPartners.mockResolvedValue(page([partner({ subPartnerCount: 2, clientCount: 5 })]));
+    renderWithProviders(<PartnersPage />);
+    expect(await screen.findByText('2 sub-partners · 5 clients')).toBeInTheDocument();
+    expect(screen.getByText('7')).toBeInTheDocument();
   });
 
   it('says a partner on no agency is offered every product', async () => {

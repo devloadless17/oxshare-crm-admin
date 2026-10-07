@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Coins, Network, Users } from 'lucide-react';
+import { Coins, Network, Sigma, Users } from 'lucide-react';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { SubPartnerTermsDialog } from '@/components/clients/profile/client-partner-dialogs';
@@ -227,7 +227,7 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
           <Stat
             icon={Users}
             label={t('clientProfile.partnerClients')}
-            value={String(detail.referredClientCount)}
+            value={String(detail.clientCount)}
             hint={withOutside(
               t('clientProfile.partnerClientsHint'),
               detail.referredClientsOutsideScope,
@@ -236,12 +236,26 @@ export function ClientPartnerPanel({ detail }: { detail: IbPartnerDetail }) {
           <Stat
             icon={Network}
             label={t('clientProfile.partnerSubCount')}
-            value={String(detail.directPartners.length)}
+            value={String(detail.subPartnerCount)}
             hint={withOutside(
               t('clientProfile.partnerSubCountHint'),
               detail.directPartnersOutsideScope,
             )}
           />
+          {/* IB TOTAL (owner, 7 Oct 2026): the two counts above, added. Clients
+              leave out partners, so a sub-partner is not counted twice. */}
+          <div className="col-span-2">
+            <Stat
+              icon={Sigma}
+              label={t('clientProfile.partnerIbTotal')}
+              value={String(detail.subPartnerCount + detail.clientCount)}
+              hint={t('clientProfile.partnerIbTotalHint', {
+                partners: String(detail.subPartnerCount),
+                clients: String(detail.clientCount),
+              })}
+              tone="primary"
+            />
+          </div>
         </div>
       </ProfileCard>
 
