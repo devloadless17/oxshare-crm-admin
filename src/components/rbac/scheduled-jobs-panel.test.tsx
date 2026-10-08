@@ -124,9 +124,9 @@ describe('the scheduled jobs tab', () => {
       expect(runScheduledJob).toHaveBeenCalledWith('payments.reconcileProviders'),
     );
 
-    const commission = await rowOf('Commission — calculate from trades');
+    const commission = await rowOf('Commission — calculate and pay');
     expect(within(commission).queryByRole('button', { name: /run now/i })).toBeNull();
-    expect(screen.getByText(/also how long a commission is held/)).toBeInTheDocument();
+    expect(screen.getByText(/pays the partners straight away/)).toBeInTheDocument();
   });
 
   it('is read-only without settings.edit', async () => {

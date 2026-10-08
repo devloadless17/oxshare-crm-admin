@@ -2270,11 +2270,10 @@ export const messages = {
   'jobs.bridgeRead': 'Bridge read this {when}',
   'jobs.bridgeNeverRead': 'The bridge has not read this yet',
   'jobs.sharedCommission':
-    'One interval for both commission jobs, and also how long a commission is held before it is paid — the same value as Trading → commission interval.',
-  'jobs.label.ib.accrueDeals': 'Commission — calculate from trades',
-  'jobs.desc.ib.accrueDeals': 'Turns closed MT5 trades into commission owed to partners.',
-  'jobs.label.ib.confirmAccruals': 'Commission — pay partners',
-  'jobs.desc.ib.confirmAccruals': 'Credits matured commission to partners’ commission wallets.',
+    'How often commission runs. Each run calculates the trades closed since the last one and pays the partners straight away — there is no holding period.',
+  'jobs.label.ib.accrueDeals': 'Commission — calculate and pay',
+  'jobs.desc.ib.accrueDeals':
+    'Finds trades closed under a partner, works out the commission and rebate for each partner in the chain, and pays it into their commission wallets in the same run.',
   'jobs.label.payments.resumeTransfers': 'Resume stuck transfers',
   'jobs.desc.payments.resumeTransfers':
     'Retries wallet ↔ MT5 transfers that stopped halfway, e.g. while the bridge was down.',
