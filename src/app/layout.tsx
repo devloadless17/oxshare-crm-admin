@@ -67,7 +67,14 @@ export default async function RootLayout({
   const sessionHint = (await cookies()).has(SESSION_HINT_COOKIE);
 
   return (
-    <html lang={DEFAULT_LOCALE} dir={direction(DEFAULT_LOCALE)} suppressHydrationWarning>
+    <html
+      lang={DEFAULT_LOCALE}
+      dir={direction(DEFAULT_LOCALE)}
+      // globals.css scrolls the page smoothly; Next 16 keeps a page change instant
+      // only when asked to (docs: upgrading to 16, "Scroll Behavior Override").
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* `defaultTheme` is NOT passed. It used to be `"light"` here, which
             overrode the provider's own default via the `{...props}` spread — so

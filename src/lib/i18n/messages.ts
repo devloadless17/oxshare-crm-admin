@@ -32,6 +32,10 @@
  *    between languages, and in Arabic so does direction. One key per sentence.
  */
 export const messages = {
+  // Twin of the portal's: `lib/image-capture.ts` (shared) names its failures with these.
+  'upload.imageTimedOut': 'Timed out reading that image.',
+  'upload.imageUnreadable': 'Could not read that image.',
+  'upload.imageUnprocessable': 'Could not process that image.',
   // ── Platform download links ───────────────────────────────────────────────
   'platforms.title': 'Trading platform downloads',
   'platforms.subtitle':
@@ -4893,6 +4897,104 @@ export const messages = {
   'table.selectRow': 'Select this row',
   'table.deselectRow': 'Deselect this row',
   'table.loadingData': 'Loading table data…',
+  /*
+   * "COMPLETE KYC" (backend 0210) — staff do a client's KYC for them, for
+   * clients who cannot do it themselves. `components/kyc-assist/`.
+   */
+  'kycAssist.title': 'Complete KYC',
+  'kycAssist.stepNumber': '{number}.',
+  'kycAssist.loading': 'Loading the KYC form',
+  'kycAssist.loadFailed': 'Could not load this client\u2019s KYC.',
+  'kycAssist.back': 'Back to client',
+  'kycAssist.suspendedTitle': 'This client is suspended',
+  'kycAssist.suspendedBody':
+    'Nothing here can be changed while their account is suspended. Reactivate it on the client page to complete their KYC.',
+  'kycAssist.restoredTitle': 'Your unsaved changes are back',
+  'kycAssist.restoredBody':
+    'You left this page before saving. Your changes are filled in below: save them, or discard them.',
+  'kycAssist.restoredDiscard': 'Discard them',
+  'kycAssist.banner':
+    'You are completing this KYC for the client. Everything you upload, answer and submit here is recorded under your name.',
+  'kycAssist.progress': '{done} of {total} steps complete',
+  'kycAssist.stepDone': 'Done',
+  'kycAssist.stepMissing': '{count} missing',
+  'kycAssist.stepReturned': 'Returned',
+  'kycAssist.returnedItem': 'Returned by the reviewer: {label}',
+  'kycAssist.waitingTitle': 'Waiting for review',
+  'kycAssist.waitingBody':
+    'This KYC was submitted and is waiting for a reviewer, so it cannot be changed. To complete it for the client, return it to edit first.',
+  'kycAssist.openReview': 'Open the review',
+  'kycAssist.returnToEdit': 'Return to edit',
+  'kycAssist.verifiedTitle': 'Verified',
+  'kycAssist.verifiedBody':
+    'This client is verified. To change their KYC, request re-verification from the review.',
+  'kycAssist.returnedTitle': 'Returned for changes',
+  'kycAssist.hidden': 'Hidden from your role',
+  'kycAssist.optional': 'optional',
+  'kycAssist.choose': 'Choose\u2026',
+  'kycAssist.yes': 'Yes',
+  'kycAssist.documentType': 'Document',
+  'kycAssist.replacesNotice':
+    'Uploading a page of the {type} replaces the {current} on file. The old one stays in the client\u2019s history.',
+  'kycAssist.dropOrChoose': 'Drop a file here, or click to choose',
+  'kycAssist.fileTypes': 'JPG, PNG, WebP or PDF \u00b7 up to 10 MB',
+  'kycAssist.replace': 'Replace',
+  'kycAssist.uploading': 'Uploading\u2026',
+  'kycAssist.fileTooBig': 'This file is larger than 10 MB. Choose a smaller one.',
+  'kycAssist.uploadFailed': 'Could not upload this file.',
+  'kycAssist.selfie': 'Selfie photo',
+  'kycAssist.stillNeeded': 'Still needed:',
+  'kycAssist.more': '+{count} more',
+  'kycAssist.allThere': 'Everything needed is here.',
+  'kycAssist.save': 'Save changes',
+  'kycAssist.saving': 'Saving\u2026',
+  'kycAssist.saved': 'Changes saved',
+  'kycAssist.saveFailed': 'Could not save these answers.',
+  'kycAssist.submit': 'Submit',
+  'kycAssist.submitAndApprove': 'Submit & approve',
+  'kycAssist.submitted': 'Submitted for review',
+  'kycAssist.approved': 'Submitted and approved \u2014 the client is verified',
+  'kycAssist.submitFailed': 'Could not submit this KYC.',
+  'kycAssist.returnTitle': 'Return to edit',
+  'kycAssist.returnBody':
+    'The KYC goes back to open so you can complete it for the client. It is recorded as a return with this reason; the client is not emailed.',
+  'kycAssist.returnReason': 'Reason',
+  'kycAssist.returnReasonDefault': 'Staff are completing the documents with the client.',
+  'kycAssist.returnConfirm': 'Return to edit',
+  'kycAssist.returnedToEdit': 'Returned to edit',
+  'kycAssist.returnFailed': 'Could not return this KYC.',
+  'kycAssist.leaveTitle': 'Leave without saving?',
+  'kycAssist.leaveBody':
+    'The answers you changed on this page have not been saved and will be lost.',
+  'kycAssist.leaveConfirm': 'Leave',
+  'kycAssist.leaveStay': 'Stay on this page',
+  // Entry points, and "who did it" on the record.
+  'clientProfile.actionCompleteKyc': 'Complete KYC',
+  'clientProfile.completeKyc': 'Complete KYC for the client',
+  'clientProfile.uploadedByStaff': 'Uploaded by {name}',
+  'kycReview.submittedByStaff': 'Submitted by {name} for the client',
+  /* "NEW CLIENT" (backend 0211) — staff create a client for somebody who cannot sign up. */
+  'newClient.action': 'New client',
+  'newClient.title': 'New client',
+  'newClient.body':
+    'For someone who cannot sign up themselves. They get a welcome email to choose their own password; nobody else ever knows it. Their identity is then verified through Complete KYC.',
+  'newClient.email': 'Email',
+  'newClient.language': 'Language',
+  'newClient.languageEn': 'English',
+  'newClient.languageAr': 'العربية (Arabic)',
+  'newClient.languageHint':
+    'Their welcome email, every later email and the portal will be in this language.',
+  'newClient.create': 'Create',
+  'newClient.createAndKyc': 'Create and complete KYC',
+  'newClient.creating': 'Creating\u2026',
+  'newClient.created': 'Client #{id} created',
+  'newClient.welcomeSent': 'A welcome email is on its way so they can choose their password.',
+  'newClient.failed': 'Could not create this client.',
+  'clientProfile.actionResendWelcome': 'Resend welcome email',
+  'clientProfile.welcomeResent': 'Welcome email sent again',
+  'clientProfile.welcomeResendFailed': 'Could not send the welcome email.',
+  'clientProfile.createdByStaff': 'Created by {name}',
+  'clientProfile.createdByStaffAwaiting': 'Created by {name} \u00b7 has not chosen a password yet',
 } as const;
 
 /** Every valid key. A typo is a compile error, never a string rendered as itself. */

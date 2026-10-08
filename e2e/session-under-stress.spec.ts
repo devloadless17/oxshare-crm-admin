@@ -44,27 +44,44 @@ test.describe('every page renders after a silent renewal, never a flash', () => 
 });
 
 test('a hard refresh WHILE a renewal is in flight does not double-refresh or evict', async ({
-  page,
+  browser,
 }) => {
-  await page.goto('/clients');
-  // Slow the refresh so a second navigation lands mid-flight.
-  const refresh = await routeHit(page, '/admin/auth/refresh', async (route) => {
-    await new Promise((r) => setTimeout(r, 1500));
-    await route.continue();
-  });
-  await deleteCookie(page.context(), /_at$/);
-  // Navigate, and while its data calls are refreshing, reload the SAME page —
-  // two loads contending for one rotating token. (Sequential awaits, not a
-  // Promise.all: two concurrent goto/reload abort each other's navigation,
-  // which is a Playwright artifact, not a product signal.)
-  await page.goto('/clients');
-  await page.reload();
-  expect(new URL(page.url()).pathname, 'a mid-flight refresh evicted the operator').toBe(
-    '/clients',
-  );
-  // One lapse, and the single-flight lock holds under the contention.
-  expect(refresh.hits(), 'a mid-flight reload triggered a refresh storm').toBeLessThanOrEqual(3);
-  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  /*
+   * On its OWN session, never the shared jar. A refresh slowed past the end of
+   * the test still reaches the server after the page has moved on: the token
+   * rotates where no browser hears of it, the jar saved from this context keeps
+   * the one it replaced, and the next spec to present that one trips reuse
+   * detection — signing out every test after it. It did, on 8 Oct 2026: the
+   * shared family was revoked two seconds after this test, and the 100+ specs
+   * that followed all met the sign-in form.
+   */
+  const own = await adminApiSession();
+  const ctx = await browser.newContext({ storageState: await browserStateFrom(own.request) });
+  const page = await ctx.newPage();
+  try {
+    await page.goto('/clients');
+    // Slow the refresh so a second navigation lands mid-flight.
+    const refresh = await routeHit(page, '/admin/auth/refresh', async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+    await deleteCookie(page.context(), /_at$/);
+    // Navigate, and while its data calls are refreshing, reload the SAME page —
+    // two loads contending for one rotating token. (Sequential awaits, not a
+    // Promise.all: two concurrent goto/reload abort each other's navigation,
+    // which is a Playwright artifact, not a product signal.)
+    await page.goto('/clients');
+    await page.reload();
+    expect(new URL(page.url()).pathname, 'a mid-flight refresh evicted the operator').toBe(
+      '/clients',
+    );
+    // One lapse, and the single-flight lock holds under the contention.
+    expect(refresh.hits(), 'a mid-flight reload triggered a refresh storm').toBeLessThanOrEqual(3);
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  } finally {
+    await ctx.close();
+    await own.dispose();
+  }
 });
 
 test('a deleted session-hint on a LIVE session never shows a sign-in form', async ({ page }) => {

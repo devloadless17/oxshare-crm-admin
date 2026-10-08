@@ -128,6 +128,8 @@ TWINS=(
   src/lib/use-prefetch-routes.ts
   src/components/layout/navigation-progress.tsx
   src/components/layout/navigation-progress.test.tsx
+  # Photo clean-up before a KYC upload: the client's own and staff's "Complete KYC" (0210).
+  src/lib/image-capture.ts
 )
 
 # Strip line comments, block-comment bodies and blank lines. Crude but adequate:

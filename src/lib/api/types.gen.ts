@@ -3471,7 +3471,11 @@ export interface paths {
         /** Paginated, filterable, sortable client list */
         get: operations["AdminClientsController_listClients"];
         put?: never;
-        post?: never;
+        /**
+         * Create a client for somebody who cannot sign up themselves
+         * @description The same checks as a sign-up: names, date of birth, nationality, phone and residence required, the offered countries, a free email and phone — each refusal under its field. The client gets the creator’s territory tags and a welcome email to choose their password; nobody else ever knows it. Refused (409) when the creator could not see the client afterwards, with nothing kept.
+         */
+        post: operations["AdminClientCreateController_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4122,6 +4126,126 @@ export interface paths {
         put?: never;
         /** Reset KYC steps to default */
         post: operations["AdminComplianceController_resetKycConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/kyc/{userId}/assist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A client's KYC laid out for staff to complete it for them
+         * @description The broker's form with every step's verdict (what is missing, what was returned) and the upload slots of each document page. Answers are in `personalInfo` / `stepData`, masked like the review page. Writes nothing: opening it for a client who never started does not create their KYC.
+         */
+        get: operations["AdminKycAssistController_getAssist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/kyc/{userId}/assist/step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save answers on a client's KYC step for them
+         * @description The client's own `saveStep`: the same checks, refused while the KYC waits for review or is approved. A changed identity detail is written to the profile and audited under you.
+         */
+        post: operations["AdminKycAssistController_saveStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/kyc/{userId}/assist/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a page or photo into a client's KYC for them
+         * @description Send `field` and `docType` exactly as the page layout gives them (`target`). The same checks as the client's own upload — type from the bytes, 10 MB, the client's allowance — and the registry records you as the uploader. Replacing a page keeps the old version in the client's history.
+         */
+        post: operations["AdminKycAssistController_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/kyc/{userId}/assist/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a client's KYC for them (and approve it, with `approve`)
+         * @description The client's own submit and its one judge; the submission records you. With `approve: true` (needs `kyc.review`) the review page's approve runs right after, with its own checks — refused before anything is submitted when you may not approve.
+         */
+        post: operations["AdminKycAssistController_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/kyc/{userId}/assist/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return a KYC waiting for review to open, to complete it for the client
+         * @description Recorded as a return (needs `kyc.review` too); the client is not emailed, because staff are handling it. Only from submitted or under review — an approved verification goes back through Request re-verification.
+         */
+        post: operations["AdminKycAssistController_returnToEdit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/clients/{id}/welcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a staff-created client their welcome email again
+         * @description Only while they have not chosen a password yet. A new link replaces the old one.
+         */
+        post: operations["AdminClientCreateController_resendWelcome"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9416,6 +9540,8 @@ export interface components {
             id: number;
             /** @example 1000001 */
             portalId: number;
+            createdByName?: string | null;
+            awaitingWelcome?: boolean;
             email?: string;
             firstName?: string;
             lastName?: string;
@@ -9600,6 +9726,11 @@ export interface components {
              */
             presentedAt?: string | null;
             pages: components["schemas"]["ClientIdentityPageDto"][];
+            /**
+             * @description The administrator who uploaded it for the client ("Complete KYC"); null when the client uploaded it themselves.
+             * @example Omar Farah
+             */
+            uploadedByStaff?: string | null;
         };
         ClientIdentityDocumentDto: {
             /**
@@ -9691,6 +9822,11 @@ export interface components {
              * @description When it was uploaded (a KYC version) or filed (a deposit).
              */
             uploadedAt: string;
+            /**
+             * @description The administrator who uploaded a KYC version for the client ("Complete KYC"); null when the client uploaded it, and for a receipt.
+             * @example Omar Farah
+             */
+            uploadedByStaff?: string | null;
         };
         ClientDocumentListDto: {
             /** @description Newest first. */
@@ -9914,6 +10050,8 @@ export interface components {
             reviewedAt?: string;
             reviewedBy?: string;
             reviewedByName?: string | null;
+            submittedByName?: string | null;
+            submittedByAdminId?: string;
             rejectionReason?: string;
             /** @description The reason in Arabic as the client was shown it (0179). Absent when none. */
             rejectionReasonAr?: string;
@@ -9961,6 +10099,8 @@ export interface components {
             reviewedAt?: string;
             reviewedBy?: string;
             reviewedByName?: string | null;
+            submittedByName?: string | null;
+            submittedByAdminId?: string;
             rejectionReason?: string;
             /** @description The reason in Arabic as the client was shown it (0179). Absent when none. */
             rejectionReasonAr?: string;
@@ -10154,6 +10294,199 @@ export interface components {
              * @example 2
              */
             format?: number;
+        };
+        KycAssistTargetDto: {
+            /**
+             * @description Send back as `field` on the upload.
+             * @example doc_back
+             */
+            field: string;
+            /**
+             * @description Send back as `docType` on the upload.
+             * @example passport
+             */
+            docType?: string;
+        };
+        KycAssistUploadDto: {
+            target: components["schemas"]["KycAssistTargetDto"];
+            /**
+             * @description The file on file — a stored-document reference, never its contents.
+             * @example uploads/kyc/1f0c….jpg
+             */
+            filePath?: string;
+            /** @description The reviewer returned it and it has not been replaced. */
+            returned: boolean;
+        };
+        KycAssistFieldDto: {
+            /** @example dateOfBirth */
+            name: string;
+            /** @example Date of Birth */
+            label: string;
+            /**
+             * @description text, date, phone, select, checkbox, file, camera.
+             * @example date
+             */
+            type: string;
+            required: boolean;
+            options?: string[];
+            hint?: string;
+            /** @description One of the client's identity details (their profile). */
+            system?: boolean;
+            /** @description Hidden from this reader's role: shown as hidden, never sent. */
+            hidden: boolean;
+            /** @description For an upload question. */
+            upload?: components["schemas"]["KycAssistUploadDto"];
+        };
+        KycAssistPageDto: {
+            target: components["schemas"]["KycAssistTargetDto"];
+            /**
+             * @description The file on file — a stored-document reference, never its contents.
+             * @example uploads/kyc/1f0c….jpg
+             */
+            filePath?: string;
+            /** @description The reviewer returned it and it has not been replaced. */
+            returned: boolean;
+            /** @example back */
+            key: string;
+            /** @example Back Side */
+            label: string;
+            required: boolean;
+            hint?: string;
+        };
+        KycAssistDocumentTypeDto: {
+            /** @example national_id */
+            value: string;
+            /** @example National ID */
+            label: string;
+            pages: components["schemas"]["KycAssistPageDto"][];
+        };
+        KycAssistDocumentDto: {
+            /** @enum {string} */
+            category: "identity" | "address";
+            /** @description The document on file, or chosen with nothing uploaded. */
+            docType?: string;
+            /** @description The broker made this evidence optional. */
+            optional: boolean;
+            /** @description The types the broker accepts. */
+            types: components["schemas"]["KycAssistDocumentTypeDto"][];
+        };
+        KycAssistSelfieDto: {
+            target: components["schemas"]["KycAssistTargetDto"];
+            /**
+             * @description The file on file — a stored-document reference, never its contents.
+             * @example uploads/kyc/1f0c….jpg
+             */
+            filePath?: string;
+            /** @description The reviewer returned it and it has not been replaced. */
+            returned: boolean;
+            /** @description The broker made the selfie optional. */
+            optional: boolean;
+        };
+        KycAssistStepDto: {
+            /** @example document */
+            slug: string;
+            /** @example Identity Document */
+            title: string;
+            description?: string;
+            /** @description Nothing owed and nothing returned that blocks. */
+            complete: boolean;
+            /** @description What is still needed, in step order. */
+            missing: components["schemas"]["KycOwedDto"][];
+            /** @description What the reviewer returned, still unanswered. */
+            returned: components["schemas"]["KycOwedDto"][];
+            fields: components["schemas"]["KycAssistFieldDto"][];
+            document?: components["schemas"]["KycAssistDocumentDto"];
+            selfie?: components["schemas"]["KycAssistSelfieDto"];
+        };
+        KycAssistViewDto: {
+            /** @description The Portal ID. */
+            userId: number;
+            /** @enum {string} */
+            status: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
+            /** @description Open: not waiting for review and not approved. */
+            editable: boolean;
+            /** @description Every step has what it needs — Submit would be accepted. */
+            complete: boolean;
+            /** @description The client's account is suspended: nothing here may change until it is reactivated. */
+            suspended: boolean;
+            rejectionReason?: string;
+            /** Format: date-time */
+            reverificationRequestedAt?: string;
+            /** Format: date-time */
+            submittedAt?: string;
+            submittedByName?: string | null;
+            steps: components["schemas"]["KycAssistStepDto"][];
+            /** @description The personal step's answers — the client's identity details and its own questions. */
+            personalInfo?: {
+                [key: string]: string;
+            };
+            /** @description Every other step's answers by slug, then field name: a string, or `{ filePath }` for an upload. */
+            stepData?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            maskedFields?: string[];
+        };
+        AssistSubmitDto: {
+            /**
+             * @description Approve it immediately after submitting (needs `kyc.review`).
+             * @default false
+             */
+            approve: boolean;
+        };
+        AssistReturnDto: {
+            /** @example Staff are completing the documents with the client. */
+            reason: string;
+        };
+        CreateClientDto: {
+            /** @example samir.khoury@example.com */
+            email: string;
+            /** @example Samir */
+            firstName: string;
+            /** @example Khoury */
+            lastName: string;
+            /**
+             * @description YYYY-MM-DD, 18 or older.
+             * @example 1948-03-02
+             */
+            dateOfBirth: string;
+            /**
+             * @description From the nationality list.
+             * @example Lebanese
+             */
+            nationality: string;
+            /**
+             * @description International format; stored as E.164.
+             * @example +96170555123
+             */
+            phone: string;
+            /**
+             * @description Country of residence, from the offered list.
+             * @example Lebanon
+             */
+            country: string;
+            /** @example Rue Gouraud 4 */
+            address?: string;
+            /** @example Beirut */
+            city?: string;
+            /** @example Mount Lebanon */
+            stateProvince?: string;
+            /** @example 1103 2080 */
+            postalCode?: string;
+            /**
+             * @description The client's language: their welcome email, every later email and the portal.
+             * @default en
+             * @enum {string}
+             */
+            locale: "en" | "ar";
+        };
+        ClientCreatedDto: {
+            /**
+             * @description The new client’s Portal ID.
+             * @example 1000245
+             */
+            id: number;
         };
         PermissionItemDto: {
             key: string;
@@ -16175,6 +16508,29 @@ export interface operations {
             };
         };
     };
+    AdminClientCreateController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClientDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientCreatedDto"];
+                };
+            };
+        };
+    };
     AdminClientsController_exportClients: {
         parameters: {
             query?: {
@@ -17133,6 +17489,155 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AdminKycAssistController_getAssist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycAssistViewDto"];
+                };
+            };
+        };
+    };
+    AdminKycAssistController_saveStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveKycStepDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycAssistViewDto"];
+                };
+            };
+        };
+    };
+    AdminKycAssistController_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @example doc_front */
+                    field: string;
+                    /** @example national_id */
+                    docType?: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycAssistViewDto"];
+                };
+            };
+        };
+    };
+    AdminKycAssistController_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistSubmitDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycAssistViewDto"];
+                };
+            };
+        };
+    };
+    AdminKycAssistController_returnToEdit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistReturnDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KycAssistViewDto"];
+                };
+            };
+        };
+    };
+    AdminClientCreateController_resendWelcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponseDto"];
+                };
             };
         };
     };

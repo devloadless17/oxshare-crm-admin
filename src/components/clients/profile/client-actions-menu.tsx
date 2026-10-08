@@ -17,6 +17,8 @@ import {
   GitBranch,
   UserPlus,
   ArrowUpToLine,
+  ClipboardCheck,
+  Send,
 } from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientProfile, IbPartnerDetail } from '@/lib/api/admin';
@@ -116,6 +118,17 @@ export function ClientActionsMenu({
   const canAssignTags = hasPermission(admin, 'clients.tag');
   // The KYC page opens with either key (its route requirement), so the item does.
   const canViewKyc = hasPermission(admin, 'kyc.view') || hasPermission(admin, 'kyc.review');
+  // "Complete KYC" (backend 0210): staff do the client's KYC for them, until it is verified.
+  // Not for a suspended client: the server refuses every write until they are reactivated.
+  const canAssistKyc =
+    hasPermission(admin, 'kyc.assist') &&
+    profile.verificationLevel < 1 &&
+    profile.status !== 'suspended';
+  // "New client" (backend 0211): their welcome link, again, until they choose a password.
+  const canResendWelcome =
+    hasPermission(admin, 'clients.create') &&
+    Boolean(profile.awaitingWelcome) &&
+    profile.status !== 'suspended';
   const canViewCommissions = hasPermission(admin, 'ib.commissions.view');
   const canViewAudit = hasPermission(admin, 'audit.view');
 
@@ -149,6 +162,12 @@ export function ClientActionsMenu({
       toastSuccess(t('clientProfile.statusChanged', { status }));
     },
     onError: (error) => toastError(error, t('clientProfile.statusFailed')),
+  });
+
+  const resendWelcome = useMutation({
+    mutationFn: () => api.admin.resendClientWelcome(profile.id),
+    onSuccess: (data) => toastSuccess(t('clientProfile.welcomeResent'), data.message),
+    onError: (error) => toastError(error, t('clientProfile.welcomeResendFailed')),
   });
 
   const setPartnerActive = useMutation({
@@ -260,6 +279,26 @@ export function ClientActionsMenu({
             // By Portal ID, as every console URL — never the uuid.
             href: `/kyc/${profile.portalId}`,
             separatorBefore: canEditClient || canChangeEmail || canSuspendClient || canAssignTags,
+          },
+        ]
+      : []),
+    ...(canResendWelcome
+      ? [
+          {
+            label: t('clientProfile.actionResendWelcome'),
+            icon: Send,
+            onSelect: () => resendWelcome.mutate(),
+          },
+        ]
+      : []),
+    ...(canAssistKyc
+      ? [
+          {
+            label: t('clientProfile.actionCompleteKyc'),
+            icon: ClipboardCheck,
+            href: `/clients/${profile.portalId}/kyc`,
+            separatorBefore:
+              !canViewKyc && (canEditClient || canChangeEmail || canSuspendClient || canAssignTags),
           },
         ]
       : []),

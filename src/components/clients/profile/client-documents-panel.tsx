@@ -89,6 +89,12 @@ export function ClientDocumentsPanel({ userId }: { userId: ClientRef }) {
             {!doc.current && <Badge variant="default">{t('clientProfile.docReplaced')}</Badge>}
           </div>
           {doc.detail && <div className="text-xs text-muted-foreground">{doc.detail}</div>}
+          {/* Staff uploaded it for the client ("Complete KYC", backend 0210). */}
+          {doc.uploadedByStaff && (
+            <div className="text-[11px] font-semibold text-warning">
+              {t('clientProfile.uploadedByStaff', { name: doc.uploadedByStaff })}
+            </div>
+          )}
         </div>
       ),
     },

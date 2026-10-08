@@ -27,6 +27,7 @@
  */
 export const ALL_PERMISSIONS: string[] = [
   'clients.view',
+  'clients.create',
   'clients.edit',
   'clients.email',
   'clients.referrer.set',
@@ -38,6 +39,7 @@ export const ALL_PERMISSIONS: string[] = [
   'kyc.review',
   'kyc.claim.override',
   'kyc.identity.correct',
+  'kyc.assist',
   'trading.view',
   'trading.create',
   'trading.deposit',

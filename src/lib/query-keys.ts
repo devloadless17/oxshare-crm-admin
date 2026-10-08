@@ -59,6 +59,8 @@ export const keys = {
     queue: (params: Params) => ['kyc', 'queue', params] as const,
     detail: (userId: ClientRef) => ['kyc', 'detail', userId] as const,
     history: (userId: ClientRef) => ['kyc', 'detail', userId, 'history'] as const,
+    /** "Complete KYC" (backend 0210) — under `detail`, so a decision's refresh reaches it. */
+    assist: (userId: ClientRef) => ['kyc', 'detail', userId, 'assist'] as const,
     pendingCount: () => ['kyc', 'pending-count'] as const,
     /** The step builder's config, and the document-type catalogue it offers. */
     config: () => ['kyc', 'config'] as const,

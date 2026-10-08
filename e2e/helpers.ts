@@ -1358,3 +1358,83 @@ export async function clientIdByEmail(
   expect(id, `${email} is not on the admin index`).toBeTruthy();
   return id;
 }
+
+/*
+ * ── "New client" and "Complete KYC" (backend 0210/0211) ─────────────────────
+ *
+ * Staff-created clients get their OWN domain: the suite's cohort lists filter on
+ * `E2E_DOMAIN`, and a client minted per run must never land in a list another
+ * spec counts.
+ */
+export const E2E_STAFF_DOMAIN = 'oxshare-e2e-staff.test';
+
+/** Mobile prefixes the phone rules accept for Lebanon — a number per call, never reused. */
+const LB_MOBILE = ['70', '71', '76', '78', '79', '81'];
+
+/** The details of a client this run alone owns: a unique email and phone. */
+export function staffClientDetails(label: string, over: Record<string, string> = {}) {
+  const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const prefix = LB_MOBILE[Math.floor(Math.random() * LB_MOBILE.length)];
+  const digits = String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0');
+  return {
+    email: `e2e-${label}-${stamp}@${E2E_STAFF_DOMAIN}`,
+    firstName: 'Samir',
+    lastName: 'Khoury',
+    dateOfBirth: '1948-03-02',
+    nationality: 'Lebanese',
+    phone: `+961${prefix}${digits}`,
+    country: 'Lebanon',
+    ...over,
+  };
+}
+
+/**
+ * Create a client as the signed-in staff member, over the wire, the way the
+ * console's "New client" does — with an Idempotency-Key. A phone another client
+ * already holds (the dev database keeps every run's clients) is retried with a
+ * fresh number rather than failing the spec on a collision it did not cause.
+ */
+export async function createClientByStaff(
+  context: BrowserContext,
+  label: string,
+  over: Record<string, string> = {},
+): Promise<{ id: number; email: string; details: ReturnType<typeof staffClientDetails> }> {
+  const csrf = await csrfOf(context);
+  const cookie = (await context.cookies()).map((c) => `${c.name}=${c.value}`).join('; ');
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const details = staffClientDetails(label, over);
+    const res = await context.request.post(`${API_NODE_BASE}/admin/clients`, {
+      headers: {
+        Origin: APP_ORIGIN,
+        'X-OxShare-CSRF': csrf,
+        Cookie: cookie,
+        'Idempotency-Key': `e2e-${details.email}`,
+      },
+      data: details,
+    });
+    if (
+      res.status() === 409 &&
+      ((await res.json()) as { code?: string }).code === 'PHONE_ALREADY_REGISTERED'
+    ) {
+      continue;
+    }
+    if (!res.ok()) {
+      throw new Error(`creating a client answered ${res.status()}: ${await res.text()}`);
+    }
+    const { id } = (await res.json()) as { id: number };
+    return { id, email: details.email, details };
+  }
+  throw new Error(
+    'five fresh phone numbers in a row were taken — the dev database is full of runs',
+  );
+}
+
+/** How many messages Mailpit holds for an address (optionally, with a matching subject). */
+export async function mailCount(to: string, subject?: RegExp): Promise<number> {
+  const res = await fetch(
+    `${MAILPIT_API}/search?query=${encodeURIComponent(`to:"${to}"`)}&limit=50`,
+    { signal: AbortSignal.timeout(4_000) },
+  );
+  const body = (await res.json()) as { messages?: { Subject: string }[] };
+  return (body.messages ?? []).filter((m) => !subject || subject.test(m.Subject)).length;
+}
