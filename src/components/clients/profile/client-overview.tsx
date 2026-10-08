@@ -166,6 +166,13 @@ function AccountCard({
 
 function VerificationCard({ profile }: { profile: ClientProfile }) {
   const kyc = profile.kyc;
+  const { admin } = useAdmin();
+  // "Complete KYC" (backend 0210): staff do the client's KYC for them, until it is verified.
+  // Not for a suspended client: every write is refused until they are reactivated.
+  const canAssist =
+    hasPermission(admin, 'kyc.assist') &&
+    profile.verificationLevel < 1 &&
+    profile.status !== 'suspended';
   return (
     <ProfileCard title={t('clientProfile.sectionKyc')}>
       <dl className="grid grid-cols-2 gap-4">
@@ -196,6 +203,22 @@ function VerificationCard({ profile }: { profile: ClientProfile }) {
           </div>
         )}
       </dl>
+      {/* Staff created this client for them ("New client", backend 0211). */}
+      {profile.createdByName && (
+        <p className="mt-4 text-[11px] font-semibold text-warning">
+          {profile.awaitingWelcome
+            ? t('clientProfile.createdByStaffAwaiting', { name: profile.createdByName })
+            : t('clientProfile.createdByStaff', { name: profile.createdByName })}
+        </p>
+      )}
+      {canAssist && (
+        <PermittedLink
+          href={`/clients/${profile.portalId}/kyc`}
+          className="mt-4 inline-flex h-9 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground focus-outline"
+        >
+          {t('clientProfile.completeKyc')}
+        </PermittedLink>
+      )}
     </ProfileCard>
   );
 }

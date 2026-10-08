@@ -448,6 +448,12 @@ export default function KycDetailPage() {
                   copyLabel={t('common.copyPortalId')}
                 />
               )}
+              {/* Staff completed it for the client ("Complete KYC", backend 0210). */}
+              {data.submittedByName && (
+                <p className="truncate text-xs font-semibold text-warning">
+                  {t('kycReview.submittedByStaff', { name: data.submittedByName })}
+                </p>
+              )}
             </div>
           </div>
           {/*

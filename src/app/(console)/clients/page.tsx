@@ -29,6 +29,7 @@ import { EditTermsFromList } from '@/components/partners/edit-terms-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
 import { ExportButton } from '@/components/export-button';
+import { NewClientButton } from '@/components/clients/new-client-dialog';
 import { ClientBulkBar } from '@/components/clients/client-bulk-bar';
 import type { BulkClientFilter } from '@/lib/api/admin';
 import { LinkAccountDialog } from '@/components/trading/link-account-dialog';
@@ -74,6 +75,8 @@ function ClientsPageContent() {
   const canViewTags = hasPermission(admin, 'tags.view') || hasPermission(admin, 'clients.view');
   // Bulk tagging (Slice 3): the API demands both keys.
   const canBulk = hasPermission(admin, 'clients.bulk') && hasPermission(admin, 'clients.tag');
+  // "New client" (backend 0211): staff create a client for somebody who cannot sign up.
+  const canCreate = hasPermission(admin, 'clients.create');
 
   const url = useTableQueryState();
   /*
@@ -327,7 +330,10 @@ function ClientsPageContent() {
           could not already see. Paging is not sent: the file is the whole
           filtered set, not the page.
         */}
-        <ExportButton resource="clients" filters={exportFilters} disabled={total === 0} />
+        <div className="flex shrink-0 items-center gap-2">
+          {canCreate && <NewClientButton />}
+          <ExportButton resource="clients" filters={exportFilters} disabled={total === 0} />
+        </div>
       </div>
 
       {/*

@@ -64,6 +64,21 @@ export type CreateRejectionReasonBody = components['schemas']['RejectionReasonDt
 export type UpdateRejectionReasonBody = components['schemas']['UpdateRejectionReasonDto'];
 export type KycSubmission = components['schemas']['KycSubmissionDto'];
 export type KycListResponse = components['schemas']['KycListResponseDto'];
+/*
+ * "Complete KYC" (backend 0210): a client's KYC laid out by the SERVER for staff
+ * to complete it for them. The page renders these and derives nothing — which
+ * pages a document has, where each uploads (`target`), what is still owed.
+ */
+/* "New client" (backend 0211): staff create a client for somebody who cannot sign up. */
+export type CreateClientBody = components['schemas']['CreateClientDto'];
+export type ClientCreated = components['schemas']['ClientCreatedDto'];
+export type KycAssistView = components['schemas']['KycAssistViewDto'];
+export type KycAssistStep = components['schemas']['KycAssistStepDto'];
+export type KycAssistField = components['schemas']['KycAssistFieldDto'];
+export type KycAssistDocument = components['schemas']['KycAssistDocumentDto'];
+export type KycAssistPage = components['schemas']['KycAssistPageDto'];
+export type KycAssistUpload = components['schemas']['KycAssistUploadDto'];
+export type KycAssistTarget = components['schemas']['KycAssistTargetDto'];
 export type ClientRow = components['schemas']['ClientRowDto'];
 export type ClientListResponse = components['schemas']['ClientListResponseDto'];
 /**
@@ -2967,6 +2982,82 @@ export const adminApi = {
   async getClientIdentity(id: ClientRef, signal?: AbortSignal): Promise<ClientIdentityRecord> {
     const { data } = await apiClient.get<ClientIdentityRecord>(`/admin/clients/${id}/identity`, {
       signal,
+    });
+    return data;
+  },
+
+  /* ── "New client" (backend 0211) ───────────────────────────────────────── */
+
+  /**
+   * One key per intended creation (`newIdempotencyKey()` when the form opens),
+   * reused on every retry: a double click or a slow network is one client.
+   */
+  async createClient(body: CreateClientBody, key: string): Promise<ClientCreated> {
+    const { data } = await apiClient.post<ClientCreated>('/admin/clients', body, idempotent(key));
+    return data;
+  },
+
+  /** The welcome email again — only while the client has not chosen a password. */
+  async resendClientWelcome(id: ClientRef): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>(`/admin/clients/${id}/welcome`, {});
+    return data;
+  },
+
+  /* ── "Complete KYC" (backend 0210) — staff do a client's KYC for them ──── */
+
+  async getKycAssist(userId: ClientRef, signal?: AbortSignal): Promise<KycAssistView> {
+    const { data } = await apiClient.get<KycAssistView>(`/admin/kyc/${userId}/assist`, { signal });
+    return data;
+  },
+
+  /** The client's own `saveStep`; answers the page as it now stands. */
+  async saveKycAssistStep(
+    userId: ClientRef,
+    step: string,
+    data: Record<string, string>,
+  ): Promise<KycAssistView> {
+    const { data: view } = await apiClient.post<KycAssistView>(`/admin/kyc/${userId}/assist/step`, {
+      step,
+      data,
+    });
+    return view;
+  },
+
+  /**
+   * One page or photo, sent to the slot the page layout named (`target`) — the
+   * console never builds a slot itself. Multipart: the inherited JSON header is
+   * deleted so axios writes the boundary (see `uploadPaymentMethodLogo`).
+   */
+  async uploadKycAssistFile(
+    userId: ClientRef,
+    file: Blob,
+    fileName: string,
+    target: KycAssistTarget,
+  ): Promise<KycAssistView> {
+    const form = new FormData();
+    form.append('field', target.field);
+    if (target.docType) form.append('docType', target.docType);
+    form.append('file', file, fileName);
+    const { data } = await apiClient.post<KycAssistView>(
+      `/admin/kyc/${userId}/assist/upload`,
+      form,
+      { headers: { 'Content-Type': undefined } },
+    );
+    return data;
+  },
+
+  /** Submit through the client's own judge; `approve` runs the review's approve right after. */
+  async submitKycAssist(userId: ClientRef, approve: boolean): Promise<KycAssistView> {
+    const { data } = await apiClient.post<KycAssistView>(`/admin/kyc/${userId}/assist/submit`, {
+      approve,
+    });
+    return data;
+  },
+
+  /** A KYC waiting for review back to open, without emailing the client. */
+  async returnKycAssist(userId: ClientRef, reason: string): Promise<KycAssistView> {
+    const { data } = await apiClient.post<KycAssistView>(`/admin/kyc/${userId}/assist/return`, {
+      reason,
     });
     return data;
   },

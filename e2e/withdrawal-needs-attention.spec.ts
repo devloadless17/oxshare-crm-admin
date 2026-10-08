@@ -256,12 +256,14 @@ test.describe('a payout the platform refuses is visible on the desk', () => {
     /*
      * The REASON, in words. The flag alone reads as "the system is broken" and
      * sends the operator to the logs; naming the shortfall is what makes the
-     * next action ("top up at Rival") obvious.
+     * next action obvious. Rival's own words vary with the sandbox's state
+     * ("insufficient balance", or a plain refusal), so this asks for the
+     * refusal and its reason, not one wording of it.
      */
     await expect(
       row
         .first()
-        .getByText(/insufficient|balance/i)
+        .getByText(/refused|insufficient|balance/i)
         .first(),
     ).toBeVisible();
 

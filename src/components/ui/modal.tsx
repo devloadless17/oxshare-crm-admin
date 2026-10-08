@@ -28,7 +28,11 @@ const FOCUSABLE =
  * `busy` LOCKS the dialog while its mutation is in flight: Escape and the X do
  * nothing. Money dialogs report failure only inside themselves, so a dialog
  * closed mid-request wrote its error into nothing and the operator never
- * learned the action had failed. Pass `busy={mutation.isPending}`.
+ * learned the action had failed. Pass `busy={mutation.isPending}`. *
+ * Only the BODY scrolls. The title stays on top and the footer's actions stay in
+ * view, as on the record panel: when the whole dialog scrolled, a long form (New
+ * client, a method's settings) put its buttons below the fold of an ordinary
+ * laptop screen, and the operator had to find them.
  */
 export function Modal({
   open,
@@ -80,9 +84,9 @@ export function Modal({
           }}
           onPointerDownOutside={keepOpen}
           onInteractOutside={keepOpen}
-          className={`fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 ${size === 'lg' ? 'max-w-2xl' : 'max-w-lg'} max-h-[90vh] space-y-4 overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-lg focus:outline-none`}
+          className={`fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 ${size === 'lg' ? 'max-w-2xl' : 'max-w-lg'} flex max-h-[90vh] flex-col rounded-xl border border-border bg-card shadow-lg focus:outline-none`}
         >
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex shrink-0 items-start justify-between gap-4 px-6 pt-6">
             <div className="space-y-1">
               <DialogPrimitive.Title
                 id={labelledBy}
@@ -110,8 +114,16 @@ export function Modal({
               <X className="h-4 w-4" />
             </button>
           </div>
-          {children}
-          {footer && <div className="flex justify-end gap-2 pt-2">{footer}</div>}
+          <div
+            className={`min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pt-4 ${footer ? 'pb-4' : 'pb-6'}`}
+          >
+            {children}
+          </div>
+          {footer && (
+            <div className="flex shrink-0 justify-end gap-2 border-t border-border px-6 py-4">
+              {footer}
+            </div>
+          )}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

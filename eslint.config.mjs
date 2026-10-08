@@ -70,6 +70,11 @@ const I18N_ENFORCED = [
   'src/components/data-table.tsx',
   'src/components/pagination.tsx',
   'src/components/kyc-review/doc-viewer.tsx',
+  // "Complete KYC" (backend 0210): staff do a client's KYC for them.
+  'src/app/(console)/clients/[[]id]/kyc/page.tsx',
+  'src/components/kyc-assist/*.tsx',
+  // "New client" (backend 0211).
+  'src/components/clients/new-client-dialog.tsx',
 ];
 
 /*

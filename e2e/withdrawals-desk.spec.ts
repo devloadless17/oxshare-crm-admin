@@ -206,7 +206,7 @@ test('credit → request ×3 → approve+settle, reject, and cancel — every le
       await page.getByRole('menuitem', { name: /^reject$/i }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByText(/reject withdrawal/i).first()).toBeVisible();
-      await dialog.locator('textarea').fill('Destination details incomplete — e2e desk run.');
+      await dialog.locator('#wd-note').fill('Destination details incomplete — e2e desk run.');
       const [rejected] = await Promise.all([
         page.waitForResponse(
           (r) => r.url().includes('/reject') && r.request().method() === 'PATCH',
@@ -271,7 +271,7 @@ test('credit → request ×3 → approve+settle, reject, and cancel — every le
       await page.getByRole('menuitem', { name: /^cancel$/i }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByText(/cancel this approved withdrawal/i).first()).toBeVisible();
-      await dialog.locator('textarea').fill('Client asked us to stop it — e2e desk run.');
+      await dialog.locator('#wd-note').fill('Client asked us to stop it — e2e desk run.');
       const [cancelled] = await Promise.all([
         page.waitForResponse(
           (r) => r.url().includes('/cancel') && r.request().method() === 'PATCH',
