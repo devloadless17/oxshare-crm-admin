@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import type { ClientClosedPositionRow } from '@/lib/api/admin';
 import { ClientClosedPositionsPanel } from './client-activity-panels';
@@ -57,8 +58,27 @@ describe('the closed positions table', () => {
     await screen.findByText('EURUSD');
     expect(getClientClosedPositions).toHaveBeenCalledWith(
       'client-1',
-      { page: 1, limit: 10 },
+      { page: 1, limit: 25 },
       expect.anything(),
+    );
+  });
+
+  it('changes the rows per page when asked — the buyer found this control dead', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ClientClosedPositionsPanel userId="client-1" />);
+    await screen.findByText('EURUSD');
+
+    await user.click(screen.getByRole('combobox', { name: /rows per page/i }));
+    await user.click(
+      within(await screen.findByRole('listbox')).getByRole('option', { name: '50' }),
+    );
+
+    await waitFor(() =>
+      expect(getClientClosedPositions).toHaveBeenLastCalledWith(
+        'client-1',
+        { page: 1, limit: 50 },
+        expect.anything(),
+      ),
     );
   });
 

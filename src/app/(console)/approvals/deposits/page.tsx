@@ -33,6 +33,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 import { ClientIdentity, clientName } from '@/components/clients/client-identity';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-param';
 
 /**
  * THE OFFLINE DEPOSIT DESK — money a client paid outside the platform.
@@ -59,8 +60,6 @@ const TABS = [
   { value: 'success', labelKey: 'deposits.tabApproved' as const },
   { value: 'rejected', labelKey: 'deposits.tabRejected' as const },
 ];
-
-const PAGE_SIZE = 25;
 
 /** A deposit's state in the desk's own words — Waiting, Deposited, Refused. */
 function DepositStateBadge({ state }: { state: string }) {
@@ -97,6 +96,8 @@ function DepositApprovalsContent() {
    */
   const [state, setState] = React.useState<'pending' | 'success' | 'rejected'>('pending');
   const [page, setPage] = React.useState(1);
+  // The rows-per-page control works (the buyer found it dead, 9 Oct 2026).
+  const [pageSize, setPageSize] = React.useState<number>(DEFAULT_PAGE_SIZE);
   // Seeded from `?q=`, so a shared link keeps its search.
   const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
   const [rejectTarget, setRejectTarget] = React.useState<TransactionRow | null>(null);
@@ -121,7 +122,7 @@ function DepositApprovalsContent() {
     from: period.range.from,
     to: period.range.to,
     page,
-    limit: PAGE_SIZE,
+    limit: pageSize,
   };
 
   const query = useResource(keys.deposits.list(params), (signal) =>
@@ -444,9 +445,14 @@ function DepositApprovalsContent() {
           }
           pagination={{
             page,
-            pageSize: PAGE_SIZE,
+            pageSize,
             total,
             onPageChange: setPage,
+            // Size and page change together: page 4 at 25 is past the end at 100.
+            onPageSizeChange: (size) => {
+              setPageSize(size);
+              setPage(1);
+            },
           }}
         />
       </AsyncBoundary>

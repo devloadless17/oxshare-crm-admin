@@ -86,77 +86,81 @@ export function Pagination({
           })}
         </span>
 
-        <div className="flex items-center gap-2">
-          {/*
-           * The visible label is ASSOCIATED with the control, not merely next
-           * to it.
-           *
-           * The trigger renders only the number, so without this it announced
-           * as an unnamed combobox reading "25" — one of several on a screen,
-           * with nothing to say which was rows-per-page. `aria-labelledby`
-           * makes the text that is already on screen the accessible name rather
-           * than duplicating it into an `aria-label` that could drift from it.
-           */}
-          <span id={rowsPerPageLabelId} className="text-xs font-medium text-muted-foreground">
-            {t('pagination.rowsPerPage')}
-          </span>
-          {(() => {
-            const sizeOptions = Array.from(new Set([10, 25, 50, 100, pageSize])).sort(
-              (a, b) => a - b,
-            );
-            return (
-              <Select
-                value={String(pageSize)}
-                onValueChange={(val) => {
-                  // Not money: a page size from this component's own fixed list.
-                  // See the note in cursor-pagination.tsx.
-                  // eslint-disable-next-line no-restricted-syntax
-                  const newSize = Number(val);
-                  /*
-                   * ONE call, and the RESET IS THE HANDLER'S JOB.
-                   *
-                   * This used to be `onPageSizeChange?.(newSize)` followed by
-                   * `onPageChange(1)`, which silently discarded the size on
-                   * every URL-backed table. Both handlers write the query
-                   * string through `useTableQueryState.set`, and both read the
-                   * SAME `searchParams` snapshot — the one from the render that
-                   * is still on screen. So the second `replace` was built from
-                   * a URL that did not contain the new limit and overwrote the
-                   * first: the operator picked 100, the address bar ended up
-                   * with neither `limit` nor `page`, and the table redrew at 25.
-                   *
-                   * Two writes cannot be merged from here, because this
-                   * component cannot see the caller's URL state. So the page
-                   * change is not made here at all: every caller writes the
-                   * size and the page TOGETHER in one `set`, dropping the page,
-                   * which is the same shape every filter on these screens
-                   * already uses. `clientPagination` does the equivalent with
-                   * its two `useState` setters in `data-table.tsx`.
-                   *
-                   * The reset is still REQUIRED of a caller — page 4 at 25 a
-                   * page is past the end at 100 a page, which renders as an
-                   * empty table and reads as "no results".
-                   */
-                  onPageSizeChange?.(newSize);
-                }}
-              >
-                <SelectTrigger
-                  aria-labelledby={rowsPerPageLabelId}
-                  className="h-8 w-20 px-2.5 text-xs font-semibold"
+        {/* Only where the list can act on it: a size box that does nothing was
+            the buyer's report on Deposits and Positions (9 Oct 2026). */}
+        {onPageSizeChange && (
+          <div className="flex items-center gap-2">
+            {/*
+             * The visible label is ASSOCIATED with the control, not merely next
+             * to it.
+             *
+             * The trigger renders only the number, so without this it announced
+             * as an unnamed combobox reading "25" — one of several on a screen,
+             * with nothing to say which was rows-per-page. `aria-labelledby`
+             * makes the text that is already on screen the accessible name rather
+             * than duplicating it into an `aria-label` that could drift from it.
+             */}
+            <span id={rowsPerPageLabelId} className="text-xs font-medium text-muted-foreground">
+              {t('pagination.rowsPerPage')}
+            </span>
+            {(() => {
+              const sizeOptions = Array.from(new Set([10, 25, 50, 100, pageSize])).sort(
+                (a, b) => a - b,
+              );
+              return (
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(val) => {
+                    // Not money: a page size from this component's own fixed list.
+                    // See the note in cursor-pagination.tsx.
+                    // eslint-disable-next-line no-restricted-syntax
+                    const newSize = Number(val);
+                    /*
+                     * ONE call, and the RESET IS THE HANDLER'S JOB.
+                     *
+                     * This used to be `onPageSizeChange?.(newSize)` followed by
+                     * `onPageChange(1)`, which silently discarded the size on
+                     * every URL-backed table. Both handlers write the query
+                     * string through `useTableQueryState.set`, and both read the
+                     * SAME `searchParams` snapshot — the one from the render that
+                     * is still on screen. So the second `replace` was built from
+                     * a URL that did not contain the new limit and overwrote the
+                     * first: the operator picked 100, the address bar ended up
+                     * with neither `limit` nor `page`, and the table redrew at 25.
+                     *
+                     * Two writes cannot be merged from here, because this
+                     * component cannot see the caller's URL state. So the page
+                     * change is not made here at all: every caller writes the
+                     * size and the page TOGETHER in one `set`, dropping the page,
+                     * which is the same shape every filter on these screens
+                     * already uses. `clientPagination` does the equivalent with
+                     * its two `useState` setters in `data-table.tsx`.
+                     *
+                     * The reset is still REQUIRED of a caller — page 4 at 25 a
+                     * page is past the end at 100 a page, which renders as an
+                     * empty table and reads as "no results".
+                     */
+                    onPageSizeChange?.(newSize);
+                  }}
                 >
-                  <SelectValue placeholder={String(pageSize)}>{pageSize}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {sizeOptions.map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            );
-          })()}
-        </div>
+                  <SelectTrigger
+                    aria-labelledby={rowsPerPageLabelId}
+                    className="h-8 w-20 px-2.5 text-xs font-semibold"
+                  >
+                    <SelectValue placeholder={String(pageSize)}>{pageSize}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sizeOptions.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* Right: First, Prev, Page Number Buttons, Next, Last */}

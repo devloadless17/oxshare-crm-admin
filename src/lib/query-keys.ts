@@ -85,8 +85,8 @@ export const keys = {
     followUp: (userId: ClientRef) => ['clients', 'detail', userId, 'followup'] as const,
     /* The Documents tab: KYC versions and deposit receipts, in one list. */
     documents: (userId: ClientRef) => ['clients', 'detail', userId, 'documents'] as const,
-    closedPositions: (userId: ClientRef, page: number) =>
-      ['clients', 'detail', userId, 'closed-positions', page] as const,
+    closedPositions: (userId: ClientRef, page: number, limit: number) =>
+      ['clients', 'detail', userId, 'closed-positions', page, limit] as const,
   },
 
   /** ONE key. It was `['tags']` on two screens and `['client-tags']` on a
