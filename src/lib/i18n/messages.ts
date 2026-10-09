@@ -2416,7 +2416,8 @@ export const messages = {
   'products.maxAccountsHint':
     'How many accounts of this product one client may hold, 1–100. Closed accounts do not count; accounts the desk opens are not held to it.',
   'products.minDeposit': 'Minimum deposit',
-  'products.minDepositHint': 'Every transfer a client makes into this account must reach it',
+  'products.minDepositHint':
+    'A client needs this much in their wallet to open an account on this group',
   'products.minDepositNone': 'No minimum',
 
   // ── Agencies tab ──────────────────────────────────────────────────────────
