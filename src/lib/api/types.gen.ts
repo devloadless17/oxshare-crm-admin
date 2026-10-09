@@ -1283,7 +1283,7 @@ export interface paths {
         };
         /**
          * Partner commission accruals, filterable
-         * @description Every accrual with the partner who earned it and the client whose deposit generated it. `totals` sums by status across the whole filtered set, as decimal strings (§6.1).
+         * @description Every accrual with the partner who earned it, the client whose closed trade generated it, and that trade (`trade`: MT5 login, symbol, lots — null when masked or not from a deal). `totals` sums by status across the whole filtered set, as decimal strings (§6.1).
          */
         get: operations["AdminIbController_listAccruals"];
         put?: never;
@@ -16543,7 +16543,7 @@ export interface operations {
                 type?: "individual" | "referral" | "partner";
                 status?: "active" | "pending" | "suspended";
                 level?: 0 | 1;
-                /** @description Exact match on the country tag. */
+                /** @description Exact match on the client's country. */
                 country?: string;
                 /** @description Omit to include both. Distinct from KYC — see ClientRowDto. */
                 emailVerified?: "true" | "false";
@@ -16614,7 +16614,7 @@ export interface operations {
                 type?: "individual" | "referral" | "partner";
                 status?: "active" | "pending" | "suspended";
                 level?: 0 | 1;
-                /** @description Exact match on the country tag. */
+                /** @description Exact match on the client's country. */
                 country?: string;
                 /** @description Omit to include both. Distinct from KYC — see ClientRowDto. */
                 emailVerified?: "true" | "false";
