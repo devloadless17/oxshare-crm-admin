@@ -106,7 +106,7 @@ export function QueueToolbar<T extends string>({
               <span>{filter.label}</span>
               {filter.count !== undefined && (
                 <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                  {filter.count}
+                  {filter.count.toLocaleString()}
                 </span>
               )}
             </button>

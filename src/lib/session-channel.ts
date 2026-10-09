@@ -34,6 +34,9 @@
 const CHANNEL = 'oxshare-crm-admin-session';
 
 /** The lock every refresh contends for, across every tab on this origin. */
+/** How long a refresh waits for another tab's before going ahead alone. */
+const LOCK_WAIT_MS = 1_500;
+
 const REFRESH_LOCK = 'oxshare-crm-admin-refresh';
 
 export type SessionEvent = 'signed-out' | 'signed-in';
@@ -146,7 +149,11 @@ export function onSessionEvent(handler: (event: SessionEvent) => void): () => vo
 }
 
 interface LockManagerLike {
-  request<T>(name: string, callback: () => Promise<T>): Promise<T>;
+  request<T>(
+    name: string,
+    options: { signal?: AbortSignal },
+    callback: () => Promise<T>,
+  ): Promise<T>;
 }
 
 /**
@@ -168,9 +175,17 @@ export async function withSessionLock<T>(fn: () => Promise<T>): Promise<T> {
   const locks = (navigator as unknown as { locks?: LockManagerLike }).locks;
   if (!locks || typeof locks.request !== 'function') return fn();
   try {
-    return await locks.request(REFRESH_LOCK, fn);
+    /*
+     * WAIT AT MOST LOCK_WAIT_MS (9 Oct 2026). Chrome FREEZES a background tab,
+     * and a tab frozen while holding this lock keeps it until it wakes — so a
+     * returning operator's every request sat behind a sleeping tab: 5–7 s before
+     * Financial showed anything (reported from production). Past the wait this
+     * tab refreshes on its own; the API settles the race (SESSION_SUPERSEDED →
+     * one retry), which is what it did before Web Locks were used at all.
+     */
+    return await locks.request(REFRESH_LOCK, { signal: AbortSignal.timeout(LOCK_WAIT_MS) }, fn);
   } catch {
-    // A browser that refuses the lock must still be able to refresh.
+    // A browser that refuses the lock, or a wait that ran out, must still refresh.
     return fn();
   }
 }
