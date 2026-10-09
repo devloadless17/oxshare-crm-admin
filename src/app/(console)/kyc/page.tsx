@@ -260,8 +260,6 @@ function KycQueue() {
     ['needs_review', 'in_progress', 'submitted', 'under_review'].includes(tab);
   const countOf = useTabCounts({
     url,
-    activeWaiting: waitingTab,
-    current: query.data?.counts,
     isWaiting: waiting,
     key: (range) =>
       keys.kyc.queue(['counts', debouncedSearch, range.from ?? null, range.to ?? null]),

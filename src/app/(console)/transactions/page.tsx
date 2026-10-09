@@ -446,8 +446,6 @@ function TransactionsPageContent() {
   const owed = (state: string) => state === 'pending' || state === 'approved';
   const countOf = useTabCounts({
     url,
-    activeWaiting: owed(filter),
-    current: query.data?.counts,
     isWaiting: owed,
     // `tabCounts` keeps this key apart from the detail panel's `{ id, limit: 1 }`:
     // React Query ignores undefined fields, so the two would otherwise SHARE a

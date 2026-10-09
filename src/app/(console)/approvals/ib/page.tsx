@@ -212,8 +212,6 @@ function PartnerApprovalsContent() {
   // Each tab's count is what it shows when clicked (`useTabCounts`).
   const countOf = useTabCounts({
     url,
-    activeWaiting: status === 'pending',
-    current: query.data?.counts,
     isWaiting: (tab) => tab === 'pending',
     key: (range) =>
       keys.ibApplications.list(['counts', debouncedSearch, range.from ?? null, range.to ?? null]),
