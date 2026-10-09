@@ -62,6 +62,17 @@ configure({ asyncUtilTimeout: 15_000 });
 // that reads as a flaky test rather than a missing teardown.
 afterEach(() => {
   cleanup();
+  /*
+   * Each test starts with an empty browser storage. Lists remember their
+   * rows-per-page there (`lib/list-size.ts`), so a size one test chose would
+   * otherwise be the starting size of the next — and choosing the same size
+   * again changes nothing, which reads as a broken control.
+   */
+  try {
+    window.localStorage.clear();
+  } catch {
+    // No storage in this environment: nothing to clear.
+  }
 });
 
 /*

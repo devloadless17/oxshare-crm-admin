@@ -58,7 +58,7 @@ describe('the closed positions table', () => {
     await screen.findByText('EURUSD');
     expect(getClientClosedPositions).toHaveBeenCalledWith(
       'client-1',
-      { page: 1, limit: 25 },
+      expect.objectContaining({ page: 1, limit: 25 }),
       expect.anything(),
     );
   });
@@ -76,7 +76,7 @@ describe('the closed positions table', () => {
     await waitFor(() =>
       expect(getClientClosedPositions).toHaveBeenLastCalledWith(
         'client-1',
-        { page: 1, limit: 50 },
+        expect.objectContaining({ page: 1, limit: 50 }),
         expect.anything(),
       ),
     );

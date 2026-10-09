@@ -6562,8 +6562,14 @@ export interface components {
         };
         IbPartnerListResponseDto: {
             rows: components["schemas"]["IbPartnerRowDto"][];
-            /** @description Every partner matching the filters that this reader may see. */
+            /** @description Partners matching the filters that this reader may see, counted up to 10,001. */
             total: number;
+            /** @description True when more than 10,000 match: total is then 10,000. */
+            totalCapped: boolean;
+            /** @description Pass back as ?cursor= for the next page. */
+            nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor: string | null;
             maskedFields: string[];
         };
         IbPartnerPersonDto: {
@@ -7974,6 +7980,10 @@ export interface components {
         LedgerListResponseDto: {
             items: components["schemas"]["LedgerEntryDto"][];
             nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor?: string | null;
+            /** @description True when more than 10,000 rows match: total is then 10,000 ("10,000+"). */
+            totalCapped?: boolean;
             /** @description Total matching entries, ignoring pagination. */
             total: number;
             page: number;
@@ -9505,8 +9515,12 @@ export interface components {
             items: components["schemas"]["ClientRowDto"][];
             maskedFields: string[];
             nextCursor: string | null;
-            /** @description Only when ?withTotal=true. Counting 219,000 rows is a full scan. */
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor?: string | null;
+            /** @description Only when ?withTotal=true. Counted up to 10,001 rows: see totalCapped. */
             total?: number;
+            /** @description True when more than 10,000 rows match: total is then 10,000 ("10,000+"). */
+            totalCapped?: boolean;
             page: number;
             limit: number;
         };
@@ -10157,6 +10171,14 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+            /** @description The tab counts that stopped at 10,000 — render each as "10,000+". */
+            countsCapped: string[];
+            /** @description Pass back as ?cursor= for the next page. */
+            nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor: string | null;
+            /** @description True when more than 10,000 rows match: total is then 10,000. */
+            totalCapped: boolean;
         };
         KycAttemptDto: {
             /** @description Dense from 1, per client. */
@@ -10695,6 +10717,10 @@ export interface components {
         AuditListResponseDto: {
             items: components["schemas"]["AuditEntryDto"][];
             nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor?: string | null;
+            /** @description True when more than 10,000 rows match: total is then 10,000 ("10,000+"). */
+            totalCapped?: boolean;
             total: number;
             page: number;
             limit: number;
@@ -10947,6 +10973,10 @@ export interface components {
         WithdrawalListResponseDto: {
             items: components["schemas"]["WithdrawalRowDto"][];
             nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor?: string | null;
+            /** @description True when more than 10,000 rows match: total is then 10,000 ("10,000+"). */
+            totalCapped?: boolean;
             total: number;
             page: number;
             limit: number;
@@ -11301,6 +11331,10 @@ export interface components {
         AdminTransactionListResponseDto: {
             items: components["schemas"]["AdminTransactionRowDto"][];
             nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor?: string | null;
+            /** @description True when more than 10,000 rows match: total is then 10,000 ("10,000+"). */
+            totalCapped?: boolean;
             total: number;
             page: number;
             limit: number;
@@ -11500,6 +11534,10 @@ export interface components {
         WalletListResponseDto: {
             items: components["schemas"]["WalletRowDto"][];
             nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor?: string | null;
+            /** @description True when more than 10,000 rows match: total is then 10,000 ("10,000+"). */
+            totalCapped?: boolean;
             total: number;
             page: number;
             limit: number;
@@ -11539,6 +11577,10 @@ export interface components {
         TradingAccountListResponseDto: {
             items: components["schemas"]["TradingAccountRowDto"][];
             nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor?: string | null;
+            /** @description True when more than 10,000 rows match: total is then 10,000 ("10,000+"). */
+            totalCapped?: boolean;
             total: number;
             page: number;
             limit: number;
@@ -11585,7 +11627,14 @@ export interface components {
         };
         ClientClosedPositionsPageDto: {
             rows: components["schemas"]["ClientClosedPositionRowDto"][];
+            /** @description Counted up to 10,001 rows: see totalCapped. */
             total: number;
+            /** @description True when more than 10,000 positions match ("10,000+"). */
+            totalCapped: boolean;
+            /** @description Pass back as ?cursor= for the next page. */
+            nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor: string | null;
             page: number;
             limit: number;
         };
@@ -11612,7 +11661,14 @@ export interface components {
         };
         ClientTransactionsPageDto: {
             rows: components["schemas"]["ClientTransactionRowDto"][];
+            /** @description Counted up to 10,001 rows: see totalCapped. */
             total: number;
+            /** @description True when more than 10,000 movements match ("10,000+"). */
+            totalCapped: boolean;
+            /** @description Pass back as ?cursor= for the next page. */
+            nextCursor: string | null;
+            /** @description Pass back as ?cursor=…&dir=prev for the page before; null on the first page. */
+            prevCursor: string | null;
             page: number;
             limit: number;
         };
@@ -13424,6 +13480,10 @@ export interface operations {
                 q?: string;
                 page?: string;
                 limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 sort?: "submittedAt" | "status" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
                 /** @description One application by its uuid — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty page, like any filtered-out row. No status is implied. */
@@ -13566,6 +13626,10 @@ export interface operations {
                 to?: string;
                 page?: string;
                 limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 /** @description Restrict to one partner. */
                 ibUserId?: number;
                 /** @description Restrict to one client. */
@@ -13622,6 +13686,10 @@ export interface operations {
             query?: {
                 page?: string;
                 limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 sort?: "approvedAt" | "level" | "referralCode" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
                 /** @description A Portal ID (exact), a name or email, or a referral code (exact). */
@@ -15089,7 +15157,7 @@ export interface operations {
                 to?: string;
                 /** @description 1-based page of CLOSED trades. Defaults to 1. */
                 page?: number;
-                /** @description Rows per page, 1–100. Defaults to 25. */
+                /** @description Rows per page, 1–500. Defaults to 25. */
                 limit?: number;
             };
             header?: never;
@@ -15119,7 +15187,7 @@ export interface operations {
                 to?: string;
                 /** @description 1-based page of CLOSED trades. Defaults to 1. */
                 page?: number;
-                /** @description Rows per page, 1–100. Defaults to 25. */
+                /** @description Rows per page, 1–500. Defaults to 25. */
                 limit?: number;
             };
             header?: never;
@@ -15196,6 +15264,8 @@ export interface operations {
                 limit?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 /** @description Counting is a full scan. */
                 withTotal?: string;
                 /** @description login is nullable and pins NULLS LAST in both directions. */
@@ -16536,7 +16606,9 @@ export interface operations {
                 limit?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
-                /** @description Counting is a full scan. */
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
+                /** @description Counts up to 10,001 rows. */
                 withTotal?: string;
                 /** @description A Portal ID (digits, matched exactly) or free text over email and name. */
                 q?: string;
@@ -17134,8 +17206,13 @@ export interface operations {
                 status?: "not_started" | "in_progress" | "submitted" | "under_review" | "approved" | "rejected";
                 /** @description A Portal ID (digits, matched exactly) or free text over email and name. */
                 q?: string;
+                /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 sort?: "submittedAt" | "status" | "createdAt" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
                 /** @description Earliest submitted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
@@ -18083,6 +18160,8 @@ export interface operations {
                 limit?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 action?: string;
                 subjectType?: string;
                 /** @description WHO did it — one administrator, by id. */
@@ -18322,6 +18401,8 @@ export interface operations {
                 limit?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 /** @description amount sorts on the NUMERIC column in SQL — never cast, never in JS (§6). */
                 sort?: "createdAt" | "amount" | "state" | "userEmail" | "userFirstName";
                 order?: "asc" | "desc";
@@ -18442,6 +18523,8 @@ export interface operations {
                 limit?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 /** @description Counting is a full scan. */
                 withTotal?: string;
                 /** @description balance sorts on the NUMERIC column in SQL — never cast, never in JS (§6). */
@@ -18750,6 +18833,7 @@ export interface operations {
                 page: string;
                 limit: string;
                 cursor: string;
+                dir: string;
                 /** @description Earliest posted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
@@ -19031,6 +19115,8 @@ export interface operations {
                 limit?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 sort?: "createdAt" | "amount" | "state";
                 order?: "asc" | "desc";
             };
@@ -19080,6 +19166,8 @@ export interface operations {
                 limit?: string;
                 /** @description Opaque keyset cursor (R-2.4). */
                 cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
                 /** @description amount sorts on the NUMERIC value in SQL — never cast, never in JS (§6). */
                 sort?: "createdAt" | "amount" | "state";
                 order?: "asc" | "desc";
@@ -19246,8 +19334,13 @@ export interface operations {
     AdminHoldingsController_listClientClosedPositions: {
         parameters: {
             query?: {
+                /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
             };
             header?: never;
             path: {
@@ -19270,8 +19363,13 @@ export interface operations {
     AdminHoldingsController_listClientTransactions: {
         parameters: {
             query?: {
+                /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
             };
             header?: never;
             path: {

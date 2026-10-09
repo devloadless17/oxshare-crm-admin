@@ -25,7 +25,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Undo2 } from 'lucide-react';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { UrlSearchInput } from '@/components/url-search-input';
 import { ExportButton } from '@/components/export-button';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
@@ -134,8 +134,8 @@ function CommissionsPageContent() {
   const queryClient = useQueryClient();
   const canReverse = hasPermission(admin, 'ib.commissions.reverse');
   const [reverseTarget, setReverseTarget] = React.useState<ReverseTarget | null>(null);
-  const page = pageParam(url.get('page'));
-  const pageSize = limitParam(url.get('limit'));
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'commissions');
   const status = url.get('status');
   /*
    * COMMISSION or REBATE — the two things `ib_accruals` holds.
@@ -184,8 +184,7 @@ function CommissionsPageContent() {
     : undefined;
 
   const params = {
-    page,
-    limit: pageSize,
+    ...paging.params,
     status: status || undefined,
     kind: kind || undefined,
     ibUserId: ibUserId || undefined,
@@ -546,18 +545,10 @@ function CommissionsPageContent() {
               page: undefined,
             })
           }
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
-            onPageSizeChange: (size) =>
-              url.set({
-                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
-                page: undefined,
-              }),
-            noun: [t('commissions.noun'), t('commissions.nounPlural')],
-          }}
+          cursorPagination={paging.pager(query.data, rows.length, [
+            t('commissions.noun'),
+            t('commissions.nounPlural'),
+          ])}
         />
       </AsyncBoundary>
     </div>

@@ -7,7 +7,7 @@ import type { LedgerEntry, LedgerListResponse } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { UrlSearchInput } from '@/components/url-search-input';
 import { ExportButton } from '@/components/export-button';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
@@ -87,8 +87,8 @@ const ENTRY_TYPES = [
 
 function LedgerPageContent() {
   const url = useTableQueryState();
-  const page = pageParam(url.get('page'));
-  const pageSize = limitParam(url.get('limit'));
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'ledger');
   const entryType = url.get('entryType');
   /*
    * ONE client's ledger, when the URL names one.
@@ -122,8 +122,7 @@ function LedgerPageContent() {
   const period = useDateRange(url, userId || walletId ? 'all' : 'today');
 
   const params = {
-    page,
-    limit: pageSize,
+    ...paging.params,
     entryType: entryType || undefined,
     q: q || undefined,
     userId: userId || undefined,
@@ -370,18 +369,10 @@ function LedgerPageContent() {
               action={<PeriodWiden choice={period.choice} onChange={period.set} />}
             />
           }
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
-            onPageSizeChange: (size) =>
-              url.set({
-                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
-                page: undefined,
-              }),
-            noun: [t('ledger.noun'), t('ledger.nounPlural')],
-          }}
+          cursorPagination={paging.pager(query.data, rows.length, [
+            t('ledger.noun'),
+            t('ledger.nounPlural'),
+          ])}
         />
       </AsyncBoundary>
     </div>

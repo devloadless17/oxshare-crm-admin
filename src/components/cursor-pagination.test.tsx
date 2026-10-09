@@ -18,7 +18,6 @@ import { CursorPagination } from './cursor-pagination';
  */
 
 const props = {
-  pageNumber: 1,
   pageSize: 25,
   showing: 5,
   canGoBack: false,
@@ -28,19 +27,17 @@ const props = {
 };
 
 describe('what the footer says', () => {
-  it('renders the page NUMBER, never the raw placeholder', () => {
-    // The regression this file exists for.
-    renderWithProviders(<CursorPagination {...props} pageNumber={3} />);
-
-    expect(screen.getByText('Page 3')).toBeInTheDocument();
-    expect(screen.queryByText(/\{number\}/)).toBeNull();
+  it('says "10,000+" when the server stopped counting, grouped in the reader\'s locale', () => {
+    // Totals stop at 10,000 so counting costs the same at any size (9 Oct 2026).
+    renderWithProviders(<CursorPagination {...props} showing={25} total={10000} totalCapped />);
+    expect(screen.getByText(/of 10,000\+/)).toBeInTheDocument();
   });
 
   it('leaves no unsubstituted placeholder anywhere in the footer', () => {
     // Broader than the line above: any `{word}` surviving to the DOM is a
     // translation call that lost its values, wherever it came from.
     const { container } = renderWithProviders(
-      <CursorPagination {...props} showing={5} total={140} pageNumber={2} />,
+      <CursorPagination {...props} showing={5} total={140} />,
     );
 
     expect(container.textContent ?? '').not.toMatch(/\{[a-zA-Z_][a-zA-Z0-9_]*\}/);
@@ -107,5 +104,28 @@ describe('navigation', () => {
     await user.click(await screen.findByRole('option', { name: '50' }));
 
     expect(onPageSizeChange).toHaveBeenCalledWith(50);
+  });
+
+  it('goes to the First and Last page when the caller offers them', async () => {
+    const onFirst = vi.fn();
+    const onLast = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <CursorPagination {...props} canGoBack canGoForward onFirst={onFirst} onLast={onLast} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /first page/i }));
+    await user.click(screen.getByRole('button', { name: /last page/i }));
+    expect(onFirst).toHaveBeenCalledTimes(1);
+    expect(onLast).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers 500 rows a page — the buyer's ask — and no 10", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<CursorPagination {...props} onPageSizeChange={vi.fn()} />);
+
+    await user.click(screen.getByRole('combobox'));
+    expect(await screen.findByRole('option', { name: '500' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: '10' })).toBeNull();
   });
 });

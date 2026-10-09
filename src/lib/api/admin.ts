@@ -1,3 +1,4 @@
+import type { PageDir } from '@/lib/page-param';
 import { apiClient, idempotent } from './client';
 import type { components, operations } from './types.gen';
 
@@ -44,6 +45,13 @@ type SortKeysOf<Op extends keyof operations> = operations[Op] extends {
  * takes either; a JSON body takes a NUMBER (the DTOs validate `@IsInt()`), so
  * every function below that puts a client into a body sends `Number(ref)`.
  */
+
+/** A cursor list's position and direction, sent only when set — `useListPaging`. */
+function addPaging(query: URLSearchParams, params: { cursor?: string; dir?: PageDir }): void {
+  if (params.cursor) query.set('cursor', params.cursor);
+  if (params.dir) query.set('dir', params.dir);
+}
+
 export type ClientRef = number | string;
 
 export type PermissionItem = components['schemas']['PermissionItemDto'];
@@ -412,6 +420,9 @@ export type ClientSortKey = (typeof CLIENT_SORT_KEYS)[number];
 export interface ClientListParams {
   limit: number;
   page?: number;
+  /** Keyset position and direction — `useListPaging`. */
+  cursor?: string;
+  dir?: PageDir;
   /**
    * Ask for the count. Numbered pages cannot be drawn without it.
    *
@@ -538,6 +549,9 @@ export interface WithdrawalListParams {
   to?: string;
   limit: number;
   page?: number;
+  /** Keyset position and direction — `useListPaging`. */
+  cursor?: string;
+  dir?: PageDir;
   sort?: WithdrawalSortKey;
   order?: 'asc' | 'desc';
 }
@@ -614,6 +628,9 @@ export interface TransactionListParams {
   decidedBy?: 'desk';
   limit: number;
   page?: number;
+  /** Keyset position and direction — `useListPaging`. */
+  cursor?: string;
+  dir?: PageDir;
   sort?: TransactionSortKey;
   order?: 'asc' | 'desc';
 }
@@ -801,6 +818,9 @@ export type WalletSortKey = (typeof WALLET_SORT_KEYS)[number];
 export interface WalletListParams {
   limit: number;
   page?: number;
+  /** Keyset position and direction — `useListPaging`. */
+  cursor?: string;
+  dir?: PageDir;
   userId?: ClientRef;
   /**
    * Free text over the OWNER's email and name — what the Client column shows.
@@ -941,6 +961,8 @@ export type TradingAccountSortKey = (typeof TRADING_ACCOUNT_SORT_KEYS)[number];
 export function walletListSearchParams(params: WalletListParams): URLSearchParams {
   const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
   if (params.page !== undefined) query.set('page', String(params.page));
+  if (params.cursor) query.set('cursor', params.cursor);
+  if (params.dir) query.set('dir', params.dir);
   if (params.userId) query.set('userId', String(params.userId));
   if (params.q) query.set('q', params.q);
   if (params.currency) query.set('currency', params.currency);
@@ -955,6 +977,9 @@ export function walletListSearchParams(params: WalletListParams): URLSearchParam
 export interface TradingAccountListParams {
   limit: number;
   page?: number;
+  /** Keyset position and direction — `useListPaging`. */
+  cursor?: string;
+  dir?: PageDir;
   userId?: ClientRef;
   /** Accounts of every client this partner introduced — by the partner's Portal ID. */
   referredBy?: string;
@@ -979,6 +1004,8 @@ export interface TradingAccountListParams {
 export function tradingAccountListSearchParams(params: TradingAccountListParams): URLSearchParams {
   const query = new URLSearchParams({ limit: String(params.limit), withTotal: 'true' });
   if (params.page !== undefined) query.set('page', String(params.page));
+  if (params.cursor) query.set('cursor', params.cursor);
+  if (params.dir) query.set('dir', params.dir);
   if (params.userId) query.set('userId', String(params.userId));
   if (params.referredBy) query.set('referredBy', params.referredBy);
   if (params.q) query.set('q', params.q);
@@ -1029,6 +1056,7 @@ export function clientListSearchParams(params: ClientListParams): URLSearchParam
   const query = new URLSearchParams();
   query.set('limit', String(params.limit));
   if (params.page !== undefined) query.set('page', String(params.page));
+  addPaging(query, params);
   if (params.withTotal) query.set('withTotal', 'true');
   for (const [key, value] of Object.entries(params)) {
     if (key === 'limit' || key === 'page' || key === 'withTotal') continue;
@@ -1406,6 +1434,9 @@ export const adminApi = {
       from?: string;
       to?: string;
       page?: number;
+      /** Keyset position and direction — `useListPaging`. */
+      cursor?: string;
+      dir?: PageDir;
       limit?: number;
       sort?: IbApplicationSortKey;
       order?: 'asc' | 'desc';
@@ -1419,6 +1450,7 @@ export const adminApi = {
     if (params.from) query.set('from', params.from);
     if (params.to) query.set('to', params.to);
     if (params.page) query.set('page', String(params.page));
+    addPaging(query, params);
     if (params.limit) query.set('limit', String(params.limit));
     // Both halves or neither. `order` alone describes an ordering of no column,
     // and the endpoint is entitled to reject it — the caller withholds `order`
@@ -1484,6 +1516,9 @@ export const adminApi = {
   async getIbPartners(
     params: {
       page?: number;
+      /** Keyset position and direction — `useListPaging`. */
+      cursor?: string;
+      dir?: PageDir;
       limit?: number;
       sort?: IbPartnerSortKey;
       order?: 'asc' | 'desc';
@@ -1495,6 +1530,7 @@ export const adminApi = {
   ): Promise<IbPartnerPage> {
     const query = new URLSearchParams();
     if (params.page) query.set('page', String(params.page));
+    addPaging(query, params);
     if (params.limit) query.set('limit', String(params.limit));
     if (params.q) query.set('q', params.q);
     if (params.status) query.set('status', params.status);
@@ -2025,6 +2061,7 @@ export const adminApi = {
     if (params.to) query.set('to', params.to);
     if (params.id) query.set('id', params.id);
     if (params.page !== undefined) query.set('page', String(params.page));
+    addPaging(query, params);
     // Both halves or neither. `order` alone describes an ordering of no column,
     // and the API is entitled to reject it.
     if (params.sort) {
@@ -2059,7 +2096,10 @@ export const adminApi = {
    * nothing). The rows are fixed by the server; only these narrow them.
    */
   async getDeskDeposits(
-    params: Pick<TransactionListParams, 'id' | 'state' | 'q' | 'from' | 'to' | 'limit' | 'page'> & {
+    params: Pick<
+      TransactionListParams,
+      'id' | 'state' | 'q' | 'from' | 'to' | 'limit' | 'page' | 'cursor' | 'dir'
+    > & {
       sort?: TransactionListParams['sort'];
       order?: TransactionListParams['order'];
     },
@@ -2072,6 +2112,7 @@ export const adminApi = {
     if (params.to) query.set('to', params.to);
     if (params.id) query.set('id', params.id);
     if (params.page !== undefined) query.set('page', String(params.page));
+    addPaging(query, params);
     if (params.sort) {
       query.set('sort', params.sort);
       if (params.order) query.set('order', params.order);
@@ -2102,6 +2143,7 @@ export const adminApi = {
     if (params.decidedBy) query.set('decidedBy', params.decidedBy);
     if (params.id) query.set('id', params.id);
     if (params.page !== undefined) query.set('page', String(params.page));
+    addPaging(query, params);
     // Both halves or neither — `order` alone orders no column.
     if (params.sort) {
       query.set('sort', params.sort);
@@ -2231,6 +2273,9 @@ export const adminApi = {
   async getIbAccruals(
     params: {
       page?: number;
+      /** Keyset position and direction — `useListPaging`. */
+      cursor?: string;
+      dir?: PageDir;
       limit?: number;
       ibUserId?: ClientRef;
       clientUserId?: ClientRef;
@@ -2533,8 +2578,10 @@ export const adminApi = {
       from?: string;
       to?: string;
       page?: number;
-      limit?: number;
+      /** Keyset position and direction — `useListPaging`. */
       cursor?: string;
+      dir?: PageDir;
+      limit?: number;
     },
     signal?: AbortSignal,
   ): Promise<LedgerListResponse> {
@@ -2965,11 +3012,12 @@ export const adminApi = {
    */
   async getClientClosedPositions(
     id: ClientRef,
-    params: { page?: number; limit?: number } = {},
+    params: { page?: number; limit?: number; cursor?: string; dir?: PageDir } = {},
     signal?: AbortSignal,
   ): Promise<ClientClosedPositionsPage> {
     const query = new URLSearchParams();
     if (params.page) query.set('page', String(params.page));
+    addPaging(query, params);
     if (params.limit) query.set('limit', String(params.limit));
     const { data } = await apiClient.get<ClientClosedPositionsPage>(
       `/admin/clients/${id}/closed-positions?${query.toString()}`,

@@ -57,6 +57,12 @@ describe('walletListSearchParams', () => {
     expect(query.get('limit')).toBe('25');
   });
 
+  it('sends the cursor and the direction — Previous / Last would otherwise go nowhere', () => {
+    const query = walletListSearchParams(wallet({ cursor: 'abc', dir: 'prev' }));
+    expect(query.get('cursor')).toBe('abc');
+    expect(query.get('dir')).toBe('prev');
+  });
+
   it('OMITS an empty filter rather than sending it blank', () => {
     // `?q=` reaches the API as an empty string, and a present-but-empty filter
     // is a different request from an absent one.

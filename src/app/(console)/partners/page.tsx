@@ -15,7 +15,7 @@ import { canAccess, hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
@@ -95,8 +95,8 @@ function PartnersPageContent() {
   const confirm = useConfirm();
   const url = useTableQueryState();
 
-  const page = pageParam(url.get('page'));
-  const pageSize = limitParam(url.get('limit'));
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'partners');
   // The search box already writes the URL on a timer; this keeps the QUERY KEY
   // from changing on the same tick, so clearing filters is one request.
   const q = useDebounced(url.get('q').trim());
@@ -114,8 +114,7 @@ function PartnersPageContent() {
     : undefined;
 
   const params = {
-    page,
-    limit: pageSize,
+    ...paging.params,
     q: q || undefined,
     status,
     sort: sortKey,
@@ -309,18 +308,10 @@ function PartnersPageContent() {
           onSortChange={(key, order) =>
             url.set({ sort: key ?? undefined, order: order ?? undefined, page: undefined })
           }
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
-            onPageSizeChange: (size) =>
-              url.set({
-                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
-                page: undefined,
-              }),
-            noun: [t('partners.nounOne'), t('partners.nounMany')],
-          }}
+          cursorPagination={paging.pager(query.data, rows.length, [
+            t('partners.nounOne'),
+            t('partners.nounMany'),
+          ])}
         />
       </AsyncBoundary>
     </div>

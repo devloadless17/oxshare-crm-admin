@@ -27,7 +27,7 @@ import { RecordCallout, RecordSheet, useOpenedRecord } from '@/components/record
 import { transactionActions, transactionColumns } from '@/components/financial/transaction-columns';
 import { directionLabel, kindLabel, TxStateBadge } from '@/components/financial/transaction-badges';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState } from '@/components/data-table';
 import { ExportButton } from '@/components/export-button';
@@ -100,8 +100,8 @@ function member<T extends string>(value: string, allowed: readonly T[]): T | und
 
 function FinancialPageContent() {
   const url = useTableQueryState();
-  const page = pageParam(url.get('page'));
-  const pageSize = limitParam(url.get('limit'));
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'financial');
 
   /*
    * Validated against the same value lists the dropdowns render, so a
@@ -168,8 +168,7 @@ function FinancialPageContent() {
 
   const params: TransactionListParams = {
     ...filterParams,
-    limit: pageSize,
-    page,
+    ...paging.params,
     sort: sortKey,
     // Withheld when nothing is sorted — `order` alone orders no column.
     order: sortKey ? url.sort.order : undefined,
@@ -477,18 +476,10 @@ function FinancialPageContent() {
           onSortChange={(key, order) => {
             url.set({ sort: key ?? undefined, order: order ?? undefined, page: undefined });
           }}
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
-            onPageSizeChange: (size) =>
-              url.set({
-                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
-                page: undefined,
-              }),
-            noun: [t('financial.noun'), t('financial.nounPlural')],
-          }}
+          cursorPagination={paging.pager(query.data, rows.length, [
+            t('financial.noun'),
+            t('financial.nounPlural'),
+          ])}
         />
       </AsyncBoundary>
 

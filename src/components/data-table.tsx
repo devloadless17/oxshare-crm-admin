@@ -219,18 +219,8 @@ export interface DataTableProps<T> {
    * cannot survive the change, because a cursor names a row rather than an
    * ordinal — see components/cursor-pagination.tsx.
    */
-  cursorPagination?: {
-    pageNumber: number;
-    pageSize: number;
-    showing: number;
-    total?: number;
-    canGoBack: boolean;
-    canGoForward: boolean;
-    onBack: () => void;
-    onNext: () => void;
-    onPageSizeChange?: (pageSize: number) => void;
-    noun?: [string, string];
-  };
+  /** First / Previous / Next / Last over a server cursor — see `CursorPagination`. */
+  cursorPagination?: React.ComponentProps<typeof CursorPagination>;
 }
 
 /**

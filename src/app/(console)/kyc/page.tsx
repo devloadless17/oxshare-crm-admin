@@ -23,7 +23,7 @@ import { useAdmin } from '@/context/AdminAuthContext';
 import { canAccess } from '@/lib/permissions';
 import { kycStatusColor, kycStatusLabel } from '@/lib/kyc-status';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { PageLoader } from '@/components/ui/loader';
 import { keys } from '@/lib/query-keys';
 import { waitingLabel } from '@/lib/waiting';
@@ -167,8 +167,9 @@ function KycQueue() {
    * could send. See hooks/use-table-query-state.ts for the reasoning at length.
    */
   const url = useTableQueryState();
-  const page = pageParam(url.get('page'));
-  const pageSize = limitParam(url.get('limit'));
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'kyc');
+  const { cursor, dir, limit: pageSize, page } = paging.params;
   /*
    * PENDING by default — the queue, not the archive.
    *
@@ -217,6 +218,8 @@ function KycQueue() {
   // over the full set, so tab counts stay correct while a filter is active.
   const query = useResource<KycListResponse>(
     keys.kyc.queue([
+      cursor,
+      dir,
       page,
       pageSize,
       filter,
@@ -227,7 +230,10 @@ function KycQueue() {
       period.range.to,
     ]),
     async (signal) => {
-      const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+      const params = new URLSearchParams({ limit: String(pageSize) });
+      if (page) params.set('page', String(page));
+      if (cursor) params.set('cursor', cursor);
+      if (dir) params.set('dir', dir);
       if (filter) params.set('status', filter);
       if (debouncedSearch) params.set('q', debouncedSearch);
       if (period.range.from) params.set('from', period.range.from);
@@ -634,24 +640,10 @@ function KycQueue() {
               page: undefined,
             });
           }}
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: (next) => url.set({ page: String(next) }),
-            /*
-             * The reset is the CALLER's job, and this used to lean on the pager
-             * to do it. `Pagination` called `onPageChange(1)` right after this
-             * handler, which worked for a `useState` page like this one and
-             * silently destroyed the new size on every URL-backed table — two
-             * `router.replace` writes in one tick, the second built from a
-             * snapshot without the first's limit. That call is gone, so the
-             * page is dropped here: page 4 at 25 a page is past the end at 100
-             * a page, which renders as an empty queue.
-             */
-            onPageSizeChange: (size) => url.set({ limit: String(size), page: undefined }),
-            noun: [t('kyc.nounSingular'), t('kyc.nounPlural')],
-          }}
+          cursorPagination={paging.pager(query.data, rows.length, [
+            t('kyc.nounSingular'),
+            t('kyc.nounPlural'),
+          ])}
         />
       </AsyncBoundary>
     </div>
