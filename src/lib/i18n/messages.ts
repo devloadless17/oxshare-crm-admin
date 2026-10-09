@@ -4344,16 +4344,16 @@ export const messages = {
   /* A person on the row that this reader holds no territory over. Said in
      words, because a blank name reads as missing data on a money screen. */
   'commissions.outsideScope': 'Outside your territory',
-  'commissions.colDate': 'When',
-  'commissions.colPartner': 'Partner (earned)',
-  'commissions.colClient': 'Client (generated)',
-  // The working, so a partner disputing a figure can be answered from the row.
-  // The base is the broker's revenue on the closed position — its commission
-  // and swap — never the client's deposit, volume or profit.
-  'commissions.colBasis': 'Broker revenue x rate',
-  'commissions.colAmount': 'Commission',
-  'commissions.colDepth': 'Depth',
-  'commissions.colTerms': 'Terms',
+  'commissions.colDate': 'Date',
+  'commissions.colPartner': 'Partner (paid to)',
+  'commissions.colClient': 'Client & trading account',
+  'commissions.tradeLine': 'Login {login} · {symbol} · Lots {lots}',
+  // The working, so a partner disputing a figure can be answered from the row:
+  // the trade's pool (lots × the product's per-lot rate) × this partner's share.
+  'commissions.colBasis': 'Trade pool × share',
+  'commissions.colAmount': 'Amount',
+  'commissions.colDepth': 'Chain level',
+  'commissions.colTerms': 'Partner level',
   'commissions.colStatus': 'Status',
   'commissions.filterStatus': 'Status',
   'commissions.filterStatusAll': 'All statuses',

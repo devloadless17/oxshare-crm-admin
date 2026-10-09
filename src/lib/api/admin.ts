@@ -700,6 +700,8 @@ export interface IbAccrual {
    * rendering a blank, which reads as missing data and sends an operator
    * looking for a bug that is not there.
    */
+  /** The closing deal this was paid on; null when the client is masked or there is none. */
+  trade?: { login: string; symbol: string; lots: string } | null;
   clientMasked: boolean;
   partnerMasked: boolean;
 }

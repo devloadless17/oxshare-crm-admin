@@ -270,7 +270,21 @@ function CommissionsPageContent() {
     {
       header: t('commissions.colClient'),
       sortable: false,
-      cell: (r) => <Person person={r.client} masked={r.clientMasked} />,
+      // The client AND the trading account the money came from (owner, 9 Oct 2026).
+      cell: (r) => (
+        <div className="min-w-0">
+          <Person person={r.client} masked={r.clientMasked} />
+          {r.trade && (
+            <div className="mt-0.5 whitespace-nowrap font-mono text-xs text-muted-foreground">
+              {t('commissions.tradeLine', {
+                login: r.trade.login,
+                symbol: r.trade.symbol,
+                lots: formatRate(r.trade.lots),
+              })}
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       /*
