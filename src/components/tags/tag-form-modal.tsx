@@ -129,15 +129,13 @@ function TagForm({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             required
-            // A country tag is named by its country (0193); only its colour is the desk's.
-            readOnly={Boolean(tag?.countryCode)}
             maxLength={100}
             placeholder={t('tags.labelPlaceholder')}
             className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
           />
           {tag && (
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {tag.countryCode ? t('tags.countryFixed') : t('tags.slugFixed', { slug: tag.slug })}
+              {t('tags.slugFixed', { slug: tag.slug })}
             </p>
           )}
         </div>
@@ -170,21 +168,19 @@ function TagForm({
           </p>
         </fieldset>
 
-        {!tag?.countryCode && (
-          <div>
-            <label htmlFor="tag-description" className="text-xs font-semibold">
-              {t('tags.descriptionField')}
-            </label>
-            <input
-              id="tag-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={500}
-              placeholder={t('tags.descriptionPlaceholder')}
-              className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
-            />
-          </div>
-        )}
+        <div>
+          <label htmlFor="tag-description" className="text-xs font-semibold">
+            {t('tags.descriptionField')}
+          </label>
+          <input
+            id="tag-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={500}
+            placeholder={t('tags.descriptionPlaceholder')}
+            className="mt-1 h-9 w-full rounded-lg border border-input bg-card px-3 text-sm focus-outline"
+          />
+        </div>
 
         {error && (
           <div

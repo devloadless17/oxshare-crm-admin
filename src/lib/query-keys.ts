@@ -76,9 +76,13 @@ export const keys = {
   clients: {
     all: () => ['clients'] as const,
     list: (params: Params) => ['clients', 'list', params] as const,
+    /* Every page of the list, whatever its filter — what a follow-up save refreshes. */
+    lists: () => ['clients', 'list'] as const,
     detail: (userId: ClientRef) => ['clients', 'detail', userId] as const,
     partner: (userId: ClientRef) => ['clients', 'detail', userId, 'partner'] as const,
     identity: (userId: ClientRef) => ['clients', 'detail', userId, 'identity'] as const,
+    /* The staff's Follow-up and Result notes (backend 0212). */
+    followUp: (userId: ClientRef) => ['clients', 'detail', userId, 'followup'] as const,
     /* The Documents tab: KYC versions and deposit receipts, in one list. */
     documents: (userId: ClientRef) => ['clients', 'detail', userId, 'documents'] as const,
     closedPositions: (userId: ClientRef, page: number) =>

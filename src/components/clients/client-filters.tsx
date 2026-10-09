@@ -42,6 +42,12 @@ export interface ClientFilterValues {
   type: string;
   status: string;
   tag: string;
+  /**
+   * The staff's follow-up date (backend 0212): `due` (today or overdue),
+   * `upcoming` or `none`. Its control shows only where a page passes it — the
+   * clients list does; the Referrals page does not.
+   */
+  followUp?: string;
 }
 
 /**
@@ -146,6 +152,20 @@ export function ClientFilters({
         ]}
       />
 
+      {/* Who to contact: "due" is today or overdue, in the VIEWER's day. */}
+      {values.followUp !== undefined && (
+        <FilterSelect
+          value={values.followUp}
+          onChange={(v) => onChange({ followUp: v })}
+          placeholder={t('clients.followUpAll')}
+          options={[
+            { value: 'due', label: t('clients.followUpDue') },
+            { value: 'upcoming', label: t('clients.followUpUpcoming') },
+            { value: 'none', label: t('clients.followUpNone') },
+          ]}
+        />
+      )}
+
       {/*
        * THREE FILTERS REMOVED at the operator's request: KYC status, email
        * verified, and verification LEVEL.
@@ -168,8 +188,8 @@ export function ClientFilters({
       {/*
        * Several tags at once, ANY of them (6 Oct 2026) — the reading a
        * territory has, so "clients of O_F or T_N" is one filter. Search-and-pick
-       * (`ChipInput`), because the vocabulary includes every country clients
-       * live in. Slugs, comma-joined in the URL: a rename never breaks a link.
+       * (`ChipInput`), so a long tag list stays usable. Slugs, comma-joined in
+       * the URL: a rename never breaks a link.
        */}
       {canViewTags && !hidden('client.tags') && tags.length > 0 && (
         <div className="min-w-56 max-w-md">
@@ -179,21 +199,9 @@ export function ClientFilters({
             ariaLabel={t('clients.allTags')}
             placeholder={t('clients.allTags')}
             collapseAfter={3}
-            // The business's tags, then the countries clients live in (0193) —
-            // a country nobody lives in would only lengthen the list.
-            options={[
-              ...tags.filter((tag) => !tag.countryCode),
-              // Not offered to a reader whose role hides the country: a country
-              // tag IS the country, and the API refuses that filter for them.
-              ...(hidden('client.country')
-                ? []
-                : tags.filter((tag) => tag.countryCode && tag.clientCount > 0)),
-            ].map((tag) => ({
+            options={tags.map((tag) => ({
               value: tag.slug,
-              label: tag.countryCode
-                ? `${t('tags.countryOption', { label: tag.label })} (${tag.clientCount})`
-                : `${tag.label} (${tag.clientCount})`,
-              aliases: tag.countryCode ? [tag.label, tag.countryCode] : undefined,
+              label: `${tag.label} (${tag.clientCount})`,
             }))}
           />
         </div>

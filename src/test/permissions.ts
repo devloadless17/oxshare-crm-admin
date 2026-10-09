@@ -30,6 +30,7 @@ export const ALL_PERMISSIONS: string[] = [
   'clients.create',
   'clients.edit',
   'clients.email',
+  'clients.followup.edit',
   'clients.referrer.set',
   'clients.suspend',
   'clients.tag',

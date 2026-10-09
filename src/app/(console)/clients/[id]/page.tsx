@@ -739,14 +739,11 @@ export default function ClientProfilePage() {
                 </p>
                 <ClientTagChips tags={profile.tags} />
                 <ToggleList
-                  // A country tag follows the client's country (0193): never toggled here.
-                  options={(tagsQuery.data ?? [])
-                    .filter((tag) => !tag.countryCode)
-                    .map((tag) => ({
-                      value: tag.id,
-                      label: tag.label,
-                      hint: tag.slug,
-                    }))}
+                  options={(tagsQuery.data ?? []).map((tag) => ({
+                    value: tag.id,
+                    label: tag.label,
+                    hint: tag.slug,
+                  }))}
                   selected={[...attachedIds]}
                   onToggle={(tagId) => void tagToggle.toggle(tagId, attachedIds.has(tagId))}
                   disabled={tagToggle.pending}

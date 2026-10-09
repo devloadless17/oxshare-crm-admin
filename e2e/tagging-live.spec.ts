@@ -1,28 +1,32 @@
-import { devDbReachable, psql, resetAuthenticator, totp } from './authenticator';
+import { devDbReachable, psql } from './authenticator';
 import { readFileSync } from 'node:fs';
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type BrowserContext,
-  type Locator,
-  type Page,
-} from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { API_NODE_BASE, APP_ORIGIN, E2E_ADMIN, requirePrecondition } from './helpers';
+import {
+  PORTAL,
+  api,
+  enrol,
+  selectRow,
+  shot,
+  signInAdmin,
+  signUpOnPortal,
+  tagsOf,
+  type Tag,
+} from './tagging-support';
 
 /**
  * THE TAGGING SYSTEM, LIVE — every journey a person takes through it, in a real
- * browser against the real stack (backend 0193/0196/0198, 6 Oct 2026).
+ * browser against the real stack (backend 0196/0198/0213, 6–9 Oct 2026).
  *
- *   1. Country tags: the Countries tab, a country tag is named by its country
- *      and cannot be deleted, a client carries their own country.
+ *   1. Tags are the business's own: no Countries tab, no country tag anywhere
+ *      (removed in 0213; a client's country is a detail and a filter).
  *   2. ONE sign-up link per administrator (0198): `/join/<their word>`, found
  *      on Profile, in the account menu and on Admin users. A client arriving
  *      through it gets the administrator's tags AS THEY ARE THEN — change the
- *      territory and the next sign-up follows it — never a country. Renaming
+ *      territory and the next sign-up follows it. Renaming
  *      the word retires the old link; an unknown word never blocks a sign-up.
  *   3. Partner inheritance: a client signing up under a partner gets the
- *      partner's chosen tags — never the partner's country.
+ *      partner's chosen tags.
  *   4. The clients list: several tags at once; bulk add, replace and remove;
  *      "select all matching"; export selected; a desk handing clients over is
  *      ASKED first.
@@ -37,7 +41,6 @@ import { API_NODE_BASE, APP_ORIGIN, E2E_ADMIN, requirePrecondition } from './hel
 test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ mode: 'serial' });
 
-const PORTAL = (process.env.E2E_PORTAL_ORIGIN ?? 'http://localhost:3000').replace(/\/+$/, '');
 /**
  * `E2E_TAGGING_RESUME=<run>` reuses an earlier run's clients and tags and skips
  * the three sign-ups — sign-up is capped at ten an hour per IP, so iterating on
@@ -51,109 +54,6 @@ const DESK = {
 };
 
 const dbReachable = devDbReachable();
-
-/** Finish an authenticator challenge in `request` (a browser context's), enrolling afresh. */
-async function enrol(request: APIRequestContext, challengeToken: string): Promise<void> {
-  const headers = { Origin: APP_ORIGIN };
-  const setup = await request.post(`${API_NODE_BASE}/admin/auth/totp/setup`, {
-    headers,
-    data: { challengeToken },
-  });
-  expect(setup.ok(), `authenticator setup: ${setup.status()} ${await setup.text()}`).toBeTruthy();
-  const { secret } = (await setup.json()) as { secret: string };
-  const into = (Date.now() / 1000) % 30;
-  if (into > 26) await new Promise((r) => setTimeout(r, (31 - into) * 1000));
-  const verify = await request.post(`${API_NODE_BASE}/admin/auth/totp/verify`, {
-    headers,
-    data: { challengeToken, code: totp(secret) },
-  });
-  expect(verify.ok(), `authenticator code: ${verify.status()} ${await verify.text()}`).toBeTruthy();
-}
-
-/** Sign an administrator into a BROWSER context (cookies land in it). */
-async function signInAdmin(context: BrowserContext, who: { email: string; password: string }) {
-  resetAuthenticator(who.email);
-  const login = await context.request.post(`${API_NODE_BASE}/admin/auth/login`, {
-    headers: { Origin: APP_ORIGIN },
-    data: who,
-  });
-  expect(login.ok(), `sign-in: ${login.status()}`).toBeTruthy();
-  await enrol(context.request, ((await login.json()) as { challengeToken: string }).challengeToken);
-}
-
-/** The API, as the administrator signed into `context`. */
-async function api(context: BrowserContext) {
-  const csrf = (await context.cookies()).find((c) => c.name.includes('admin_csrf'))?.value ?? '';
-  const headers = { Origin: APP_ORIGIN, 'X-OxShare-CSRF': csrf };
-  const r = context.request;
-  return {
-    get: async (p: string): Promise<unknown> =>
-      (await r.get(`${API_NODE_BASE}${p}`, { headers })).json() as Promise<unknown>,
-    post: (p: string, data?: unknown, extra: Record<string, string> = {}) =>
-      r.post(`${API_NODE_BASE}${p}`, { headers: { ...headers, ...extra }, data }),
-    patch: (p: string, data?: unknown) => r.patch(`${API_NODE_BASE}${p}`, { headers, data }),
-  };
-}
-
-type Tag = { id: string; slug: string; label: string; countryCode?: string };
-
-/** A screenshot for reviewing the experience by eye (test-results/, not committed). */
-async function shot(page: Page, name: string, focus?: Locator): Promise<void> {
-  await focus?.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: `test-results/tagging-shots/${name}.png`, fullPage: false });
-}
-
-/** Pick a client's row on the clients list (the row toggle is a pressed button). */
-async function selectRow(page: Page, email: string): Promise<void> {
-  const row = page.getByRole('row').filter({ hasText: email });
-  const toggle = row.getByRole('button', { name: /select this row|deselect this row/i });
-  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-}
-
-async function tagsOf(context: BrowserContext, email: string): Promise<string[]> {
-  const a = await api(context);
-  const page = (await a.get(`/admin/clients?q=${encodeURIComponent(email)}`)) as {
-    items: { email: string; tags: Tag[] }[];
-  };
-  const row = page.items.find((c) => c.email === email);
-  return (row?.tags ?? []).map((t) => t.label).sort();
-}
-
-/** The portal's two-step sign-up, through the real form. */
-async function signUpOnPortal(
-  page: Page,
-  entry: string,
-  email: string,
-  country: string,
-  nationality: string,
-) {
-  await page.goto(`${PORTAL}${entry}`);
-  await expect(page).toHaveURL(/\/auth\/register/);
-  await page.getByPlaceholder('John').fill('Tagging');
-  await page.getByPlaceholder('Doe').fill('Live');
-  await page.getByPlaceholder('you@example.com').fill(email);
-  await page.locator('input[type="password"]').first().fill('Client-password-123');
-  await page.getByRole('button', { name: /^continue$/i }).click();
-  await page.getByLabel(/date of birth/i).fill('1990-04-12');
-  await page.getByRole('combobox', { name: /nationality/i }).click();
-  await page.getByRole('option', { name: nationality, exact: true }).click();
-  await page.getByRole('combobox', { name: /country of residence/i }).click();
-  await page.getByRole('option', { name: country, exact: true }).click();
-  // A valid national number for the chosen country (the dial code is set by it).
-  const tail = String(Date.now()).slice(-7);
-  await page
-    .getByLabel('Phone number')
-    .fill(country === 'Egypt' ? `101${tail}` : `71${tail.slice(-6)}`);
-  await page.getByLabel(/^city/i).fill('Beirut');
-  const [res] = await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes('/auth/register') && r.request().method() === 'POST',
-    ),
-    page.getByRole('button', { name: /complete registration|create account/i }).click(),
-  ]);
-  expect(res.status(), `sign-up: ${await res.text()}`).toBe(201);
-}
 
 let master: BrowserContext;
 let masterPage: Page;
@@ -257,24 +157,13 @@ test.afterAll(async () => {
   await master?.close();
 });
 
-test('1. country tags: their own tab, named by the country, never deleted', async () => {
+test('1. the Tags page lists the business’s own tags — no Countries tab, no country', async () => {
   const page = masterPage;
   await page.goto('/tags');
-  await page.getByRole('tab', { name: 'Countries' }).click();
-  const lebanon = page.getByRole('row').filter({ hasText: 'Lebanon' }).first();
-  await expect(lebanon).toBeVisible();
-  await lebanon.getByRole('button', { name: /actions/i }).click();
-  await expect(page.getByRole('menuitem', { name: /delete/i })).toHaveCount(0);
-  await page.getByRole('menuitem', { name: /edit/i }).click();
-  await expect(page.locator('#tag-label')).toHaveAttribute('readonly', '');
-  await expect(page.getByText(/named by its country/i)).toBeVisible();
-  await shot(page, '01-country-tag-edit');
-  await page.keyboard.press('Escape');
-  // The business's own tags are on the other tab — and no country is.
-  await page.getByRole('tab', { name: 'Tags' }).click();
   await expect(page.getByRole('row').nth(1)).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Countries' })).toHaveCount(0);
   await expect(page.getByRole('row').filter({ hasText: /^Lebanon/ })).toHaveCount(0);
-  await expect(page.getByText('country-lb')).toHaveCount(0);
+  await shot(page, '01-tags-page');
 });
 
 test('2. every administrator HAS a link: the desk finds it on Profile, with the book it gives', async () => {
@@ -295,16 +184,14 @@ test('2. every administrator HAS a link: the desk finds it on Profile, with the 
   await shot(page, '02-my-signup-link', panel);
 });
 
-test('3. a visitor through the desk’s link lands in the desk’s book, with their own country', async ({
-  browser,
-}) => {
+test('3. a visitor through the desk’s link lands in the desk’s book', async ({ browser }) => {
   requirePrecondition(Boolean(RESUME), 'resuming an earlier run: no new sign-ups');
   // Typed back in capitals, as people retype a link they were told.
   const visitor = await browser.newContext();
   const vpage = await visitor.newPage();
   await signUpOnPortal(vpage, `/join/${deskSlug.toUpperCase()}`, viaLink, 'Lebanon', 'Lebanese');
   await visitor.close();
-  expect(await tagsOf(master, viaLink)).toEqual(['Lebanon', ownerTag.label].sort());
+  expect(await tagsOf(master, viaLink)).toEqual([ownerTag.label]);
   // Who brought them is recorded…
   expect(
     psql(
@@ -318,7 +205,7 @@ test('3. a visitor through the desk’s link lands in the desk’s book, with th
   ).toBeVisible();
 });
 
-test('4. an unknown link word never blocks a sign-up — the client gets their country only', async ({
+test('4. an unknown link word never blocks a sign-up — the client gets no tag', async ({
   browser,
 }) => {
   requirePrecondition(Boolean(RESUME), 'resuming an earlier run: no new sign-ups');
@@ -326,12 +213,10 @@ test('4. an unknown link word never blocks a sign-up — the client gets their c
   const page = await visitor.newPage();
   await signUpOnPortal(page, '/join/nobody-has-this-word', viaDead, 'Egypt', 'Egyptian');
   await visitor.close();
-  expect(await tagsOf(master, viaDead)).toEqual(['Egypt']);
+  expect(await tagsOf(master, viaDead)).toEqual([]);
 });
 
-test('5. under a partner: the partner’s chosen tags come along, never the partner’s country', async ({
-  browser,
-}) => {
+test('5. under a partner: the partner’s chosen tags come along', async ({ browser }) => {
   requirePrecondition(Boolean(RESUME), 'resuming an earlier run: no new sign-ups');
   const a = await api(master);
   const partnerId = psql(`SELECT user_id FROM ib_accounts WHERE referral_code='E2EPARTL1'`);
@@ -342,7 +227,7 @@ test('5. under a partner: the partner’s chosen tags come along, never the part
   await visitor.close();
   const tags = await tagsOf(master, viaPartner);
   expect(tags).toContain(extraTag.label);
-  expect(tags).toContain('Egypt');
+  expect(tags).not.toContain('Egypt');
 });
 
 test('6. the clients list filters by several tags at once — ANY of them', async () => {
@@ -401,7 +286,7 @@ test('7. bulk: add a tag to the picked rows, then replace one tag with another',
 
 test('8. "select all matching" reaches the whole filter, and says how many', async () => {
   const page = masterPage;
-  await page.goto('/clients?tag=country-lb');
+  await page.goto('/clients');
   await page.getByRole('row').nth(1).waitFor();
   await page.getByRole('button', { name: /^select all$/i }).click();
   const all = page.getByRole('button', { name: /select all \d+ matching/i });
@@ -435,7 +320,7 @@ test('9. export selected downloads exactly the picked clients', async () => {
   expect(csv[1]).toContain(viaLink);
 });
 
-test('10. the client page offers no country in "Manage tags" — it follows the client', async () => {
+test('10. "Manage tags" on the client page offers the business’s tags, never a country', async () => {
   const page = masterPage;
   const id = psql(`SELECT id FROM users WHERE email='${viaLink}'`);
   await page.goto(`/clients/${id}`);
@@ -497,25 +382,7 @@ async function editDesk(page: Page) {
   return page.getByRole('dialog');
 }
 
-test('12. a COUNTRY desk: put Lebanon in a territory, and every Lebanese client is theirs', async () => {
-  const page = masterPage;
-  const dialog = await editDesk(page);
-  const picker = dialog.getByRole('combobox', { name: 'Add a tag…' });
-  await picker.fill('Leban');
-  // Countries are offered as territory, found by name, marked as countries.
-  await page.getByRole('option', { name: 'Lebanon (country)' }).click();
-  await expect(dialog.getByRole('button', { name: /remove lebanon \(country\)/i })).toBeVisible();
-  await dialog.getByRole('button', { name: /save changes/i }).click();
-  await expect(dialog).toBeHidden();
-
-  // The desk now sees the Lebanese client it handed away — through the country —
-  // and still not the Egyptian one, who is in neither its book nor its country.
-  await deskPage.goto('/clients');
-  await expect(deskPage.getByText(viaLink)).toBeVisible();
-  await expect(deskPage.getByText(viaDead)).toHaveCount(0);
-});
-
-test('13. the link follows the territory LIVE: a tag given on Admin users is on the very next sign-up', async ({
+test('12. the link follows the territory LIVE: a tag given on Admin users is on the very next sign-up', async ({
   browser,
 }) => {
   const page = masterPage;
@@ -525,13 +392,11 @@ test('13. the link follows the territory LIVE: a tag given on Admin users is on 
   await dialog.getByRole('button', { name: /save changes/i }).click();
   await expect(dialog).toBeHidden();
 
-  // The desk's panel says what the next sign-up gets: both books — and never
-  // the Lebanon country now in its territory (a client has their own).
+  // The desk's panel says what the next sign-up gets: both books.
   await deskPage.goto('/profile');
   const panel = signupPanel(deskPage);
   await expect(panel.getByText(ownerTag.label, { exact: true })).toBeVisible();
   await expect(panel.getByText(extraTag.label, { exact: true })).toBeVisible();
-  await expect(panel.getByText('Lebanon')).toHaveCount(0);
   await shot(deskPage, '13-link-follows-territory', panel);
 
   requirePrecondition(Boolean(RESUME), 'resuming an earlier run: no new sign-ups');
@@ -539,10 +404,10 @@ test('13. the link follows the territory LIVE: a tag given on Admin users is on 
   const vpage = await visitor.newPage();
   await signUpOnPortal(vpage, `/join/${deskSlug}`, viaMoved, 'Egypt', 'Egyptian');
   await visitor.close();
-  expect(await tagsOf(master, viaMoved)).toEqual(['Egypt', ownerTag.label, extraTag.label].sort());
+  expect(await tagsOf(master, viaMoved)).toEqual([ownerTag.label, extraTag.label].sort());
 });
 
-test('14. a desk renames its link word: a taken one is refused under the field, the old one brings nobody', async ({
+test('13. a desk renames its link word: a taken one is refused under the field, the old one brings nobody', async ({
   browser,
 }) => {
   const masterSlug = ((await (await api(master)).get('/admin/signup-links/me')) as { slug: string })
@@ -599,7 +464,7 @@ test('14. a desk renames its link word: a taken one is refused under the field, 
   const vpage = await visitor.newPage();
   await signUpOnPortal(vpage, `/join/${oldSlug}`, viaRetired, 'Egypt', 'Egyptian');
   await visitor.close();
-  expect(await tagsOf(master, viaRetired)).toEqual(['Egypt']);
+  expect(await tagsOf(master, viaRetired)).toEqual([]);
   expect(psql(`SELECT signed_up_via_admin_id FROM users WHERE email='${viaRetired}'`)).toBe('');
   // Counted: the two who came through the desk's link, not the retired one.
   await expect(
@@ -608,7 +473,7 @@ test('14. a desk renames its link word: a taken one is refused under the field, 
   await shot(masterPage, '14-admin-users-signups');
 });
 
-test('15. an administrator who sees every client is TOLD their link puts clients in no book', async () => {
+test('14. an administrator who sees every client is TOLD their link puts clients in no book', async () => {
   const page = masterPage;
   await page.goto('/profile');
   const panel = signupPanel(page);
@@ -617,7 +482,7 @@ test('15. an administrator who sees every client is TOLD their link puts clients
   await shot(page, '15-adds-no-tag', panel);
 });
 
-test('16. a reader whose role hides the country sees no country chip and is offered no country filter', async ({
+test('15. a reader whose role hides the country sees no country, and cannot filter by it', async ({
   browser,
 }) => {
   const a = await api(master);
@@ -656,17 +521,83 @@ test('16. a reader whose role hides the country sees no country chip and is offe
     await page.goto(`/clients?q=${encodeURIComponent(viaLink)}`);
     const row = page.getByRole('row').filter({ hasText: viaLink });
     await expect(row).toBeVisible();
-    // Their chosen tags show; the country — a hidden field — does not, as a chip either.
+    // The country — a hidden field — is nowhere on the row.
     await expect(row.getByText('Lebanon')).toHaveCount(0);
-    // The tag filter offers no country to them.
-    await page.getByRole('combobox', { name: /all tags/i }).fill('Leban');
-    await expect(page.getByRole('option', { name: /lebanon/i })).toHaveCount(0);
     // And the API refuses a country filter typed into the URL.
-    const refused = await reader.request.get(`${API_NODE_BASE}/admin/clients?tag=country-lb`, {
+    const refused = await reader.request.get(`${API_NODE_BASE}/admin/clients?country=Lebanon`, {
       headers: { Origin: APP_ORIGIN },
     });
     expect(refused.status()).toBe(400);
   } finally {
     await reader.close();
   }
+});
+
+test('16. a desk opening a client outside its book BY URL is told it is not available — never shown', async () => {
+  // viaDead carries no tag, so it is in no desk's book; only all-seeing admins see it.
+  const id = psql(`SELECT id FROM users WHERE email='${viaDead}'`);
+  await deskPage.goto(`/clients/${id}`);
+  await expect(deskPage.getByText('This client is not available')).toBeVisible();
+  await expect(deskPage.getByText(viaDead)).toHaveCount(0);
+  // The API agrees, as a 404 (never a 403, which would confirm the client exists).
+  const res = await desk.request.get(`${API_NODE_BASE}/admin/clients/${id}`, {
+    headers: { Origin: APP_ORIGIN },
+  });
+  expect(res.status()).toBe(404);
+});
+
+test('17. bulk: remove a tag from the picked rows only', async () => {
+  const page = masterPage;
+  await page.goto(`/clients?tag=${otherTag.slug}`);
+  await selectRow(page, viaLink);
+  await page.getByRole('button', { name: 'Remove tags' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('combobox', { name: 'Tags' }).fill(otherTag.label);
+  await page.getByRole('option', { name: otherTag.label }).click();
+  await dialog.getByRole('button', { name: /apply to 1 client/i }).click();
+  await expect(page.getByText(/1 of 1 clients changed/i)).toBeVisible();
+  expect(await tagsOf(master, viaLink)).not.toContain(otherTag.label);
+  // The client who was not picked keeps it.
+  expect(await tagsOf(master, viaPartner)).toContain(otherTag.label);
+});
+
+test('18. a tag that is somebody’s book cannot be deleted; an unused one can', async () => {
+  const page = masterPage;
+  const spare = (await (
+    await (await api(master)).post('/admin/tags', { label: `Spare ${run}` })
+  ).json()) as Tag;
+  await page.goto('/tags');
+
+  // The desk's own book: refused, and the refusal says why.
+  const owner = page.getByRole('row').filter({ hasText: ownerTag.label });
+  await owner.getByRole('button', { name: /actions/i }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: /in their territory/i })).toBeVisible();
+  const tags = (await (await api(master)).get('/admin/tags')) as Tag[];
+  expect(tags.some((t) => t.id === ownerTag.id)).toBe(true);
+  await shot(page, '18-delete-refused');
+
+  // A tag nobody holds or carries: deleted.
+  const row = page.getByRole('row').filter({ hasText: spare.label });
+  await row.getByRole('button', { name: /actions/i }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByText(`Tag "${spare.label}" deleted`)).toBeVisible();
+});
+
+test('19. renaming a tag keeps every saved ?tag= link working', async () => {
+  const page = masterPage;
+  const renamed = `TN renamed ${run}`;
+  await page.goto('/tags');
+  const row = page.getByRole('row').filter({ hasText: otherTag.label });
+  await row.getByRole('button', { name: /actions/i }).click();
+  await page.getByRole('menuitem', { name: 'Edit' }).click();
+  await page.locator('#tag-label').fill(renamed);
+  await page.getByRole('dialog').getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText(`Tag "${renamed}" saved`)).toBeVisible();
+  // The link built from the slug before the rename still finds the same clients.
+  await page.goto(`/clients?tag=${otherTag.slug}`);
+  await expect(page.getByText(viaPartner)).toBeVisible();
+  expect(await tagsOf(master, viaPartner)).toContain(renamed);
 });

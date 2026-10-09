@@ -158,10 +158,7 @@ function BulkTagDialog({
   const [moved, setMoved] = React.useState<number | null>(null);
   const [expected, setExpected] = React.useState(target.expectedCount);
 
-  // Country tags are derived from the client's country: never offered.
-  const options = tags
-    .filter((tag) => !tag.countryCode)
-    .map((tag) => ({ value: tag.id, label: tag.label }));
+  const options = tags.map((tag) => ({ value: tag.id, label: tag.label }));
   const add = mode === 'add' ? first : mode === 'replace' ? second : [];
   const remove = mode === 'remove' || mode === 'replace' ? first : [];
   const ready = mode === 'replace' ? first.length > 0 && second.length > 0 : first.length > 0;
