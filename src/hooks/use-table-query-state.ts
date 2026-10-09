@@ -63,6 +63,11 @@ export interface TableQueryState {
  * where you find out. `src/app/invite/accept/page.tsx` has the shape to copy: a
  * default export that is a Suspense shell around a `…Content` component.
  */
+/** Keys that move WITHIN a list rather than change which list it is. */
+const PAGING_KEYS = new Set(['cursor', 'dir', 'page', 'limit', 'open']);
+/** Keys that never make a list "filtered". */
+const NOT_FILTERS = new Set([...PAGING_KEYS, 'sort', 'order']);
+
 export function useTableQueryState(): TableQueryState {
   const router = useRouter();
   const pathname = usePathname();
@@ -84,6 +89,18 @@ export function useTableQueryState(): TableQueryState {
   const set = useCallback(
     (patch: Record<string, string | string[] | undefined>) => {
       const next = new URLSearchParams(searchParams.toString());
+      /*
+       * A cursor names a position in ONE filtered, sorted list. Any change to
+       * what the list is — a filter, the search, the sort, the period — makes it
+       * meaningless, so it goes with the change, here, rather than every screen
+       * having to remember (9 Oct 2026). Paging itself and the record panel
+       * leave it alone.
+       */
+      if (Object.keys(patch).some((key) => !PAGING_KEYS.has(key))) {
+        next.delete('cursor');
+        next.delete('dir');
+        next.delete('page');
+      }
       for (const [key, value] of Object.entries(patch)) {
         // Delete first, so a repeated parameter is REPLACED rather than
         // appended to — otherwise every tag toggle would accumulate.
@@ -128,9 +145,12 @@ export function useTableQueryState(): TableQueryState {
   // pages: without it, walking to page 2 of an unfiltered list lit up the
   // "clear filters" control, which then appeared to do nothing an operator had
   // asked for.
+  //
+  // Nor is the SORT or the open record panel: sorting a list is not filtering
+  // it, and a "Clear filters" that appeared after a header click read as a
+  // filter the reader never set.
   const isFiltered = useMemo(
-    () =>
-      [...searchParams.keys()].some((key) => key !== 'page' && key !== 'cursor' && key !== 'limit'),
+    () => [...searchParams.keys()].some((key) => !NOT_FILTERS.has(key)),
     [searchParams],
   );
 

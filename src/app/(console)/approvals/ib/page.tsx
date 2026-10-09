@@ -25,6 +25,7 @@ import { useTabCounts } from '@/hooks/use-tab-counts';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useUrlSeededState } from '@/hooks/use-url-seeded-state';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { RecordCallout, RecordSheet, useOpenedRecord } from '@/components/record-sheet';
 import { PageLoader } from '@/components/ui/loader';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -87,21 +88,32 @@ function PartnerApprovalsContent() {
   const queryClient = useQueryClient();
   // Shadows `window.confirm` on purpose — same call shape, real dialog.
 
-  const [status, setStatus] = React.useState<IbApplicationStatus | ''>('pending');
+  const url = useTableQueryState();
+  /*
+   * The tab, the sort and the page are in the URL like on every desk (9 Oct
+   * 2026), so a refresh, Back and a pasted link reopen the same view. Pending
+   * is the default and leaves no `?status=` behind; All is `?status=all`.
+   */
+  const rawStatus = url.get('status');
+  const status: IbApplicationStatus | '' =
+    rawStatus === 'all'
+      ? ''
+      : rawStatus === 'approved' || rawStatus === 'rejected'
+        ? rawStatus
+        : 'pending';
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'ib-applications');
   /*
    * DEBOUNCED into the query key, not the input. The box stays instant while
    * the request waits for a pause in typing — `useDebounced` is what every
    * other searchable list here uses, and an undebounced key fires a request per
    * keystroke and races their responses.
    */
-  const [page, setPage] = React.useState(1);
   // Seeded from `?q=`, so a shared link keeps its search.
-  const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
+  const [search, setSearch] = useUrlSeededState('q');
   const debouncedSearch = useDebounced(search, 300);
-  const [pageSize, setPageSize] = React.useState(25);
   // The period, by submission: Pending opens on All time (an application
   // waiting since last week must never hide behind "Today"); decided tabs Today.
-  const url = useTableQueryState();
   const period = useDateRange(url, status === 'pending' ? 'all' : 'today');
   const [rejecting, setRejecting] = React.useState<Row | null>(null);
   /**
@@ -113,10 +125,10 @@ function PartnerApprovalsContent() {
    * order. Substituting that default here instead would look identical on
    * screen and be a different request.
    */
-  const [sort, setSort] = React.useState<{
-    key: IbApplicationSortKey;
-    order: 'asc' | 'desc';
-  } | null>(null);
+  const sortKey = IB_APPLICATION_SORT_KEYS.find((allowed) => allowed === url.sort.key);
+  const sort: { key: IbApplicationSortKey; order: 'asc' | 'desc' } | null = sortKey
+    ? { key: sortKey, order: url.sort.order }
+    : null;
 
   /*
    * The sort is in the KEY as well as the request. A parameter missing from the
@@ -127,8 +139,9 @@ function PartnerApprovalsContent() {
     keys.ibApplications.list([
       status,
       debouncedSearch,
-      page,
-      pageSize,
+      paging.params.cursor,
+      paging.params.dir,
+      paging.params.limit,
       sort?.key,
       sort?.order,
       period.range.from,
@@ -141,8 +154,7 @@ function PartnerApprovalsContent() {
           q: debouncedSearch || undefined,
           from: period.range.from,
           to: period.range.to,
-          page,
-          limit: pageSize,
+          ...paging.params,
           sort: sort?.key,
           order: sort?.order,
         },
@@ -208,7 +220,6 @@ function PartnerApprovalsContent() {
   });
 
   const rows = query.data?.rows ?? [];
-  const total = query.data?.total ?? 0;
   // Each tab's count is what it shows when clicked (`useTabCounts`).
   const countOf = useTabCounts({
     url,
@@ -514,16 +525,14 @@ function PartnerApprovalsContent() {
             count: tab.value ? countOf(tab.value) : undefined,
           }))}
           active={status}
-          onFilterChange={(value) => {
-            setStatus(value);
-            // Back to the first page: page 3 of "pending" is rarely page 3 of
-            // "rejected", and landing on an empty page reads as an empty queue.
-            setPage(1);
-          }}
+          // A different tab is a different list: the cursor goes with it.
+          onFilterChange={(value) =>
+            url.set({ status: value === 'pending' ? undefined : value || 'all' })
+          }
           search={search}
           onSearchChange={(value) => {
             setSearch(value);
-            setPage(1);
+            url.set({ cursor: undefined, dir: undefined });
           }}
           searchPlaceholder={t('partnerReview.searchPlaceholder')}
           searchAriaLabel={t('partnerReview.searchAria')}
@@ -532,10 +541,7 @@ function PartnerApprovalsContent() {
               choice={period.choice}
               custom={period.custom}
               defaultChoice={period.defaultChoice}
-              onChange={(choice, custom) => {
-                period.set(choice, custom);
-                setPage(1);
-              }}
+              onChange={(choice, custom) => period.set(choice, custom)}
             />
           }
         />
@@ -594,13 +600,7 @@ function PartnerApprovalsContent() {
               icon={Handshake}
               message={t('partnerReview.empty')}
               action={
-                <PeriodWiden
-                  choice={period.choice}
-                  onChange={(choice) => {
-                    period.set(choice);
-                    setPage(1);
-                  }}
-                />
+                <PeriodWiden choice={period.choice} onChange={(choice) => period.set(choice)} />
               }
             />
           }
@@ -626,19 +626,10 @@ function PartnerApprovalsContent() {
              * which is a state the endpoint accepts.
              */
             const next = IB_APPLICATION_SORT_KEYS.find((allowed) => allowed === key);
-            setSort(next && order ? { key: next, order } : null);
-            setPage(1);
+            // The URL drops the cursor with the sort (useTableQueryState.set).
+            url.setSort(next && order ? next : null, next && order ? order : null);
           }}
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: setPage,
-            onPageSizeChange: (size) => {
-              setPageSize(size);
-              setPage(1);
-            },
-          }}
+          cursorPagination={paging.pager(query.data, rows.length)}
         />
       </AsyncBoundary>
 

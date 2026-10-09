@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { History } from 'lucide-react';
 import api from '@/lib/api';
 import type { ClientClosedPositionRow } from '@/lib/api/admin';
@@ -12,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDecimal, formatMoney, isZeroMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
-import { DEFAULT_PAGE_SIZE } from '@/lib/page-param';
+import { useLocalListPaging } from '@/hooks/use-list-paging';
 
 /**
  * The client's closed positions. (Its money movements moved to the Transactions
@@ -60,13 +59,16 @@ function Signed({ value, currency }: { value: string | null; currency: string })
  * by the commission column, not by the P/L.
  */
 export function ClientClosedPositionsPanel({ userId }: { userId: ClientRef }) {
-  const [page, setPage] = React.useState(1);
-  // The rows-per-page control works here too (the buyer found it dead, 9 Oct 2026).
-  const [pageSize, setPageSize] = React.useState<number>(DEFAULT_PAGE_SIZE);
+  /*
+   * First / Previous / Next / Last by cursor (9 Oct 2026): the server walks
+   * each of the client's MT5 logins newest-first and merges them, so a heavy
+   * trader's page costs the same as a new one's. The size is remembered.
+   */
+  const paging = useLocalListPaging('client-positions', String(userId));
 
   const query = useResource(
-    keys.clients.closedPositions(userId, page, pageSize),
-    (signal) => api.admin.getClientClosedPositions(userId, { page, limit: pageSize }, signal),
+    keys.clients.closedPositions(userId, paging.params),
+    (signal) => api.admin.getClientClosedPositions(userId, paging.params, signal),
     { enabled: Boolean(userId) },
   );
 
@@ -177,17 +179,7 @@ export function ClientClosedPositionsPanel({ userId }: { userId: ClientRef }) {
          * The table's OWN footer, rather than a `<Pagination>` beneath it — one
          * set of controls for one list.
          */
-        pagination={{
-          page,
-          pageSize,
-          total: query.data?.total ?? 0,
-          onPageChange: setPage,
-          // Size and page change together: page 4 at 25 is past the end at 100.
-          onPageSizeChange: (size) => {
-            setPageSize(size);
-            setPage(1);
-          },
-        }}
+        cursorPagination={paging.pager(query.data, query.data?.rows.length ?? 0)}
       />
     </AsyncBoundary>
   );

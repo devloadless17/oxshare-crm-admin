@@ -33,7 +33,7 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 import { ClientIdentity, clientName } from '@/components/clients/client-identity';
-import { DEFAULT_PAGE_SIZE } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 
 /**
  * THE OFFLINE DEPOSIT DESK — money a client paid outside the platform.
@@ -94,12 +94,22 @@ function DepositApprovalsContent() {
    * Typed against the API's own union rather than a bare string: an invented
    * state would be a compile error here instead of a 400 at runtime.
    */
-  const [state, setState] = React.useState<'pending' | 'success' | 'rejected'>('pending');
-  const [page, setPage] = React.useState(1);
-  // The rows-per-page control works (the buyer found it dead, 9 Oct 2026).
-  const [pageSize, setPageSize] = React.useState<number>(DEFAULT_PAGE_SIZE);
-  // Seeded from `?q=`, so a shared link keeps its search.
-  const [search, setSearch] = useUrlSeededState('q', () => setPage(1));
+  const url = useTableQueryState();
+  /*
+   * The tab and the page are in the URL like on every desk (9 Oct 2026), so a
+   * refresh, Back and a pasted link reopen the same view. Pending is the default
+   * and leaves no `?state=` behind.
+   */
+  const rawState = url.get('state');
+  const state: 'pending' | 'success' | 'rejected' =
+    rawState === 'success' || rawState === 'rejected' ? rawState : 'pending';
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'deposits');
+  // A search changes which list this is, so it starts again at the first page.
+  const restart = () => url.set({ cursor: undefined, dir: undefined });
+  // Seeded from `?q=`, so a shared link keeps its search (a link carries no
+  // cursor, so arriving by one already starts at the first page).
+  const [search, setSearch] = useUrlSeededState('q');
   const [rejectTarget, setRejectTarget] = React.useState<TransactionRow | null>(null);
   const debouncedSearch = useDebounced(search, 300);
   /*
@@ -107,7 +117,6 @@ function DepositApprovalsContent() {
    * deposit waiting since yesterday must never hide behind "Today"; the
    * decided tabs open on Today.
    */
-  const url = useTableQueryState();
   const period = useDateRange(url, state === 'pending' ? 'all' : 'today');
 
   /*
@@ -121,8 +130,7 @@ function DepositApprovalsContent() {
     q: debouncedSearch || undefined,
     from: period.range.from,
     to: period.range.to,
-    page,
-    limit: pageSize,
+    ...paging.params,
   };
 
   const query = useResource(keys.deposits.list(params), (signal) =>
@@ -380,16 +388,12 @@ function DepositApprovalsContent() {
             count: countOf(tab.value),
           }))}
           active={state}
-          onFilterChange={(value) => {
-            setState(value as 'pending' | 'success' | 'rejected');
-            // Page 3 of "pending" is rarely page 3 of "rejected", and landing on
-            // an empty page reads as an empty queue.
-            setPage(1);
-          }}
+          // A different tab is a different list: the cursor goes with it.
+          onFilterChange={(value) => url.set({ state: value === 'pending' ? undefined : value })}
           search={search}
           onSearchChange={(value) => {
             setSearch(value);
-            setPage(1);
+            restart();
           }}
           searchPlaceholder={t('deposits.searchPlaceholder')}
           searchAriaLabel={t('deposits.searchAria')}
@@ -398,10 +402,7 @@ function DepositApprovalsContent() {
               choice={period.choice}
               custom={period.custom}
               defaultChoice={period.defaultChoice}
-              onChange={(choice, custom) => {
-                period.set(choice, custom);
-                setPage(1);
-              }}
+              onChange={(choice, custom) => period.set(choice, custom)}
             />
           }
         />
@@ -410,7 +411,7 @@ function DepositApprovalsContent() {
       <AsyncBoundary
         status={query.status}
         label={t('deposits.loading')}
-        endpoints={['GET /admin/transactions?direction=deposit&state&q&page&limit']}
+        endpoints={['GET /admin/deposits?state&q&cursor&dir&limit']}
         onRetry={query.refetch}
         errorMessage={t('deposits.loadFailed')}
         error={query.error}
@@ -433,27 +434,11 @@ function DepositApprovalsContent() {
               icon={Inbox}
               message={t('deposits.empty')}
               action={
-                <PeriodWiden
-                  choice={period.choice}
-                  onChange={(choice) => {
-                    period.set(choice);
-                    setPage(1);
-                  }}
-                />
+                <PeriodWiden choice={period.choice} onChange={(choice) => period.set(choice)} />
               }
             />
           }
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: setPage,
-            // Size and page change together: page 4 at 25 is past the end at 100.
-            onPageSizeChange: (size) => {
-              setPageSize(size);
-              setPage(1);
-            },
-          }}
+          cursorPagination={paging.pager(query.data, rows.length)}
         />
       </AsyncBoundary>
 

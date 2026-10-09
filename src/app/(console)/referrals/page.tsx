@@ -12,7 +12,7 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState } from '@/components/data-table';
 import { PageLoader } from '@/components/ui/loader';
@@ -79,16 +79,15 @@ function ReferralsPageContent() {
 
   // Filters, page, size and sort live in the URL, as on /clients.
   const url = useTableQueryState();
-  const page = pageParam(url.get('page'));
-  const pageSize = limitParam(url.get('limit'));
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'referrals');
   const debouncedSearch = useDebounced(url.get('q').trim());
   const sortKey = CLIENT_SORT_KEYS.includes(url.sort.key as ClientSortKey)
     ? (url.sort.key as ClientSortKey)
     : undefined;
 
   const params = {
-    limit: pageSize,
-    page,
+    ...paging.params,
     withTotal: true,
     referred: 'true' as const,
     q: debouncedSearch,
@@ -268,18 +267,10 @@ function ReferralsPageContent() {
           onSortChange={(key, order) =>
             url.set({ sort: key ?? undefined, order: order ?? undefined, page: undefined })
           }
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
-            onPageSizeChange: (size) =>
-              url.set({
-                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
-                page: undefined,
-              }),
-            noun: [t('clients.nounOne'), t('clients.nounMany')],
-          }}
+          cursorPagination={paging.pager(query.data, rows.length, [
+            t('clients.nounOne'),
+            t('clients.nounMany'),
+          ])}
         />
       </AsyncBoundary>
     </div>

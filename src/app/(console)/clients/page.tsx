@@ -12,7 +12,7 @@ import { useResource } from '@/hooks/use-resource';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { PermittedLink } from '@/components/permitted-link';
 import { DataTable, EmptyState } from '@/components/data-table';
@@ -95,7 +95,8 @@ function ClientsPageContent() {
    * note in lib/api/admin.ts. Without it the response carries no `total` and the
    * pager can only draw one page.
    */
-  const page = pageParam(url.get('page'));
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'clients');
   /*
    * The ROWS-PER-PAGE selector, in the URL beside the page number.
    *
@@ -108,7 +109,6 @@ function ClientsPageContent() {
    * `limitParam` clamps to the four sizes the pager offers — a hand-edited
    * `?limit=5000` would otherwise be a request the API rejects (it caps at 100).
    */
-  const pageSize = limitParam(url.get('limit'));
   /*
    * The URL is already debounced by the search box itself — it keeps local
    * state and writes `?q=` on a timer, because a fully URL-controlled input
@@ -129,8 +129,7 @@ function ClientsPageContent() {
   const followUp = isFollowUpFilter(url.get('followUp')) ? url.get('followUp') : undefined;
 
   const params = {
-    limit: pageSize,
-    page,
+    ...paging.params,
     withTotal: true,
     q: debouncedSearch,
     type: url.get('type'),
@@ -492,34 +491,10 @@ function ClientsPageContent() {
               page: undefined,
             });
           }}
-          pagination={{
-            page,
-            pageSize,
-            total,
-            // `String(next)`, and `undefined` for page one: `url.set` drops a
-            // key it is handed `undefined`, so returning to the first page
-            // leaves a clean URL rather than a trailing `?page=1`.
-            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
-            /*
-             * THE SIZE AND THE PAGE ARE WRITTEN TOGETHER, and the page is
-             * DROPPED.
-             *
-             * Page 4 at 25 a page is past the end at 100 a page, which renders
-             * as an empty table and reads as "no clients match" rather than as
-             * "you are beyond the end of the list". The same argument the
-             * filters make one line above.
-             *
-             * `undefined` for the default size, so the common case leaves no
-             * `?limit=25` behind — a clean URL is what makes "am I filtered?"
-             * answerable from the address bar.
-             */
-            onPageSizeChange: (size) =>
-              url.set({
-                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
-                page: undefined,
-              }),
-            noun: [t('clients.nounOne'), t('clients.nounMany')],
-          }}
+          cursorPagination={paging.pager(query.data, rows.length, [
+            t('clients.nounOne'),
+            t('clients.nounMany'),
+          ])}
         />
       </AsyncBoundary>
     </div>

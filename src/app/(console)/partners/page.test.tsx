@@ -112,7 +112,15 @@ function partner(over: Partial<IbPartnerRow> = {}): IbPartnerRow {
 }
 
 function page(rows: IbPartnerRow[], over: Partial<IbPartnerPage> = {}): IbPartnerPage {
-  return { rows, total: rows.length, maskedFields: [], ...over };
+  return {
+    rows,
+    total: rows.length,
+    totalCapped: false,
+    nextCursor: null,
+    prevCursor: null,
+    maskedFields: [],
+    ...over,
+  };
 }
 
 beforeEach(() => {

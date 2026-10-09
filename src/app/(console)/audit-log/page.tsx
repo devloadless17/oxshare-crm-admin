@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 import { PortalIdTag } from '@/components/clients/client-identity';
@@ -96,16 +96,14 @@ function AuditLogPageContent() {
    * on this page".
    */
   const url = useTableQueryState();
-  const page = pageParam(url.get('page'));
   /*
-   * The rows-per-page selector, in the URL beside the page number.
-   *
-   * It rendered and did nothing: the pager drew the control but no
-   * `onPageSizeChange` was passed and the limit was a constant. `limitParam`
-   * clamps to the four sizes the pager offers, so a hand-edited `?limit=5000`
-   * cannot become a request the API rejects — it caps at 100.
+   * First / Previous / Next / Last by cursor, the position in the URL — so
+   * "this trail, filtered to kyc.reject, from here" is a link that reopens the
+   * same rows, and stays the same rows as new entries arrive at the top (a
+   * numbered page shifts under them). The size is remembered per list.
    */
-  const pageSize = limitParam(url.get('limit'));
+  const paging = useListPaging(url, 'audit-log');
+  const { cursor, dir, limit: pageSize, page } = paging.params;
   const action = url.get('action');
   /*
    * The SUBJECT TYPE filter, honoured from the URL though no control offers it.
@@ -171,7 +169,9 @@ function AuditLogPageContent() {
    */
   const { status, data, error, isFetching, refetch } = useResource<AuditListResponse>(
     keys.auditLog.list([
-      page,
+      cursor ?? null,
+      dir ?? null,
+      page ?? null,
       pageSize,
       action,
       subjectId,
@@ -184,10 +184,10 @@ function AuditLogPageContent() {
       period.range.to ?? null,
     ]),
     async (signal) => {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(pageSize),
-      });
+      const params = new URLSearchParams({ limit: String(pageSize) });
+      if (page) params.set('page', String(page));
+      if (cursor) params.set('cursor', cursor);
+      if (dir) params.set('dir', dir);
       if (action) params.set('action', action);
       if (subjectType) params.set('subjectType', subjectType);
       if (subjectId) params.set('subjectId', subjectId);
@@ -207,9 +207,8 @@ function AuditLogPageContent() {
   );
 
   const rows = data?.items ?? [];
-  // `AuditListResponseDto.total` is unconditional — this endpoint counts on
-  // every request rather than behind a `withTotal` flag, so the numbered pager
-  // has the number it needs without asking for it.
+  // `AuditListResponseDto.total` is unconditional, counted up to 10,000
+  // (`totalCapped` then says "10,000+").
   const total = data?.total ?? 0;
 
   /*
@@ -503,21 +502,7 @@ function AuditLogPageContent() {
           onSortChange={(key, order) => {
             url.set({ sort: key ?? undefined, order: order ?? undefined, page: undefined });
           }}
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
-            // The size and the page are written together, and the page is
-            // dropped: page 4 at 25 a page is past the end at 100 a page, which
-            // renders as an empty table and reads as an empty trail.
-            onPageSizeChange: (size) =>
-              url.set({
-                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
-                page: undefined,
-              }),
-            noun: ['entry', 'entries'],
-          }}
+          cursorPagination={paging.pager(data, rows.length, ['entry', 'entries'])}
         />
       </AsyncBoundary>
     </div>

@@ -22,7 +22,11 @@ export function pageParam(raw: string): number {
 }
 
 /**
- * The sizes the rows-per-page control offers.
+ * The sizes the rows-per-page control offers on every server list.
+ *
+ * 25 to 500 since 9 Oct 2026 (the buyer asked for 500, and found 10 of no use).
+ * A cursor page costs the server the same at any of these sizes, and the
+ * DEFAULT — not the smallest option — decides how fast a list first opens.
  *
  * Taken from `components/pagination.tsx`, which builds its `<Select>` from
  * exactly these four. They are duplicated here rather than imported because the
@@ -30,7 +34,7 @@ export function pageParam(raw: string): number {
  * request — but the two must agree, and `page-param.test.ts` asserts that a
  * value outside this set never reaches the API.
  */
-export const PAGE_SIZES = [10, 25, 50, 100] as const;
+export const PAGE_SIZES = [25, 50, 100, 250, 500] as const;
 
 export type PageSize = (typeof PAGE_SIZES)[number];
 
@@ -63,3 +67,6 @@ export function limitParam(raw: string): PageSize {
   const parsed = parseInt(raw, 10);
   return PAGE_SIZES.find((size) => size === parsed) ?? DEFAULT_PAGE_SIZE;
 }
+
+/** Which way a cursor page walks — the API's `?dir=`. Absent: the first page, or Next. */
+export type PageDir = 'prev' | 'last';

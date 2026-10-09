@@ -10,7 +10,7 @@ import { WALLET_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
-import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import { UrlSearchInput } from '@/components/url-search-input';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { CopyableId } from '@/components/copyable-id';
@@ -109,7 +109,8 @@ function WalletsPageContent() {
   const canCredit = hasPermission(admin, 'wallets.credit');
   const canClose = hasPermission(admin, 'wallets.delete');
   const url = useTableQueryState();
-  const page = pageParam(url.get('page'));
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'wallets');
   /*
    * The rows-per-page selector, in the URL beside the page number.
    *
@@ -118,7 +119,6 @@ function WalletsPageContent() {
    * clamps to the four sizes the pager offers, so a hand-edited `?limit=5000`
    * cannot become a request the API rejects — it caps at 100.
    */
-  const pageSize = limitParam(url.get('limit'));
   const currency = url.get('currency');
   /*
    * Debounced because it is a free-text box, even though the API matches the id
@@ -144,8 +144,7 @@ function WalletsPageContent() {
     : undefined;
 
   const params = {
-    limit: pageSize,
-    page,
+    ...paging.params,
     userId: userId || undefined,
     q: q || undefined,
     currency: currency || undefined,
@@ -635,25 +634,10 @@ function WalletsPageContent() {
           onSortChange={(key, order) => {
             url.set({ sort: key ?? undefined, order: order ?? undefined, page: undefined });
           }}
-          pagination={{
-            page,
-            pageSize,
-            total,
-            // `undefined` for page one, so returning to the start leaves a clean
-            // URL rather than a trailing `?page=1`.
-            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
-            // The size and the page are written together, and the page is
-            // dropped: page 4 at 25 a page is past the end at 100 a page, which
-            // renders as an empty table and reads as "no wallets" rather than as
-            // an overshoot. `undefined` for the default size keeps the common
-            // URL clean.
-            onPageSizeChange: (size) =>
-              url.set({
-                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
-                page: undefined,
-              }),
-            noun: [t('wallets.noun'), t('wallets.nounPlural')],
-          }}
+          cursorPagination={paging.pager(query.data, rows.length, [
+            t('wallets.noun'),
+            t('wallets.nounPlural'),
+          ])}
         />
       </AsyncBoundary>
     </div>

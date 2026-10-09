@@ -34,7 +34,7 @@ import { QueueToolbar } from '@/components/queue-toolbar';
 import { DateRangePicker, PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
 import { useTabCounts } from '@/hooks/use-tab-counts';
-import { DEFAULT_PAGE_SIZE, limitParam, pageParam } from '@/lib/page-param';
+import { useListPaging } from '@/hooks/use-list-paging';
 import {
   Select,
   SelectTrigger,
@@ -160,7 +160,8 @@ function TransactionsPageContent() {
    * refuses a mismatched one with a 400.
    */
   const url = useTableQueryState();
-  const page = pageParam(url.get('page'));
+  // First / Previous / Next / Last by cursor, the size remembered per list.
+  const paging = useListPaging(url, 'transactions');
   /*
    * The rows-per-page selector, in the URL beside the page number.
    *
@@ -169,7 +170,6 @@ function TransactionsPageContent() {
    * clamps to the four sizes the pager offers, so a hand-edited `?limit=5000`
    * cannot become a request the API rejects — it caps at 100.
    */
-  const pageSize = limitParam(url.get('limit'));
   /*
    * PENDING by default — the queue, not the archive.
    *
@@ -299,8 +299,7 @@ function TransactionsPageContent() {
   const [reasonNoteAr, setReasonNoteAr] = React.useState('');
 
   const params = {
-    limit: pageSize,
-    page,
+    ...paging.params,
     // The sentinel never reaches the API — "all" is the ABSENCE of the
     // parameter, and sending it would fail the endpoint's `@IsIn`.
     state: filter === ALL_STATES ? undefined : filter,
@@ -921,22 +920,10 @@ function TransactionsPageContent() {
           onSortChange={(key, order) => {
             url.set({ sort: key ?? undefined, order: order ?? undefined, page: undefined });
           }}
-          pagination={{
-            page,
-            pageSize,
-            total,
-            onPageChange: (next) => url.set({ page: next === 1 ? undefined : String(next) }),
-            // The size and the page are written together, and the page is
-            // dropped: page 4 at 25 a page is past the end at 100 a page, which
-            // renders as an empty table and reads as an empty queue rather than
-            // as an overshoot.
-            onPageSizeChange: (size) =>
-              url.set({
-                limit: size === DEFAULT_PAGE_SIZE ? undefined : String(size),
-                page: undefined,
-              }),
-            noun: [t('withdrawals.noun'), t('withdrawals.nounPlural')],
-          }}
+          cursorPagination={paging.pager(query.data, rows.length, [
+            t('withdrawals.noun'),
+            t('withdrawals.nounPlural'),
+          ])}
         />
       </AsyncBoundary>
 
