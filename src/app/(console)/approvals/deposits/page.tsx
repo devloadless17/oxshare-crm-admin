@@ -62,7 +62,7 @@ const TABS = [
 
 const PAGE_SIZE = 25;
 
-/** A deposit's state in the desk's own words — Waiting, Credited, Refused. */
+/** A deposit's state in the desk's own words — Waiting, Deposited, Refused. */
 function DepositStateBadge({ state }: { state: string }) {
   const tab = TABS.find((entry) => entry.value === state);
   return (
@@ -150,8 +150,6 @@ function DepositApprovalsContent() {
   // Each tab's count is what it shows when clicked (`useTabCounts`).
   const countOf = useTabCounts({
     url,
-    activeWaiting: state === 'pending',
-    current: query.data?.counts,
     isWaiting: (tab) => tab === 'pending',
     // `tabCounts` keeps this apart from the detail panel's `{ id, limit: 1 }` key.
     key: (range) => keys.deposits.list({ tabCounts: true, limit: 1, q: params.q, ...range }),

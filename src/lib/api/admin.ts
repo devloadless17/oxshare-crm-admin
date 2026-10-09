@@ -94,6 +94,9 @@ export type ClientListResponse = components['schemas']['ClientListResponseDto'];
  */
 export type ClientKycStatus = ClientRow['kycStatus'];
 export type ClientProfile = components['schemas']['ClientProfileDto'];
+/** The staff's Follow-up and Result notes on a client (backend 0212). */
+export type ClientFollowUp = components['schemas']['ClientFollowUpDto'];
+export type ClientFollowUpSave = components['schemas']['UpdateClientFollowUpDto'];
 /** A client's identity record: document versions with their status, and every decision. */
 export type ClientIdentityRecord = components['schemas']['ClientIdentityRecordDto'];
 /**
@@ -468,6 +471,13 @@ export interface ClientListParams {
   /** When they REGISTERED — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
   from?: string;
   to?: string;
+  /**
+   * The staff's follow-up date (backend 0212): `due` (today or overdue), `upcoming`
+   * or `none`, judged against `followUpDueBy` — the end of the VIEWER's today
+   * (`endOfTodayInstant`), which only the browser knows.
+   */
+  followUp?: string;
+  followUpDueBy?: string;
   /**
    * `'true'`: only clients a partner introduced — the Referrals page, which is
    * this list with that one filter fixed. `'false'`: only clients nobody did.
@@ -2985,6 +2995,25 @@ export const adminApi = {
     const { data } = await apiClient.get<ClientIdentityRecord>(`/admin/clients/${id}/identity`, {
       signal,
     });
+    return data;
+  },
+
+  /* ── Follow-up and Result (backend 0212) ───────────────────────────────── */
+
+  async getClientFollowUp(id: ClientRef, signal?: AbortSignal): Promise<ClientFollowUp> {
+    const { data } = await apiClient.get<ClientFollowUp>(`/admin/clients/${id}/followup`, {
+      signal,
+    });
+    return data;
+  },
+
+  /**
+   * Both notes and the date together, from the `version` they were edited from.
+   * A save made from an older version answers 409 FOLLOWUP_STALE and changes
+   * nothing — the caller shows the colleague's words, never retries.
+   */
+  async saveClientFollowUp(id: ClientRef, body: ClientFollowUpSave): Promise<ClientFollowUp> {
+    const { data } = await apiClient.put<ClientFollowUp>(`/admin/clients/${id}/followup`, body);
     return data;
   },
 

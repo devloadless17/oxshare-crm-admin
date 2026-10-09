@@ -20,6 +20,7 @@ import { CopyableId } from '@/components/copyable-id';
 import { isMasked } from '@/lib/masking';
 import { ClientTagChips } from './client-tag-chips';
 import { IntroducedByCell } from './introduced-by-cell';
+import { FollowUpWhen } from './follow-up-when';
 import { t } from '@/lib/i18n';
 import { PermittedLink } from '@/components/permitted-link';
 
@@ -220,37 +221,92 @@ export function clientColumns({
     });
   }
 
+  columns.push({
+    header: t('clients.colType'),
+    /*
+     * NOT sortable, and this column is why the whole table used to vanish
+     * behind an error card. `type` is DERIVED server-side — a CASE over
+     * `ib_accounts` and `referred_by_ib_user_id`, because `users.type` is a
+     * label nothing maintains — and an expression reading another table
+     * cannot be indexed, so `CLIENT_SORT_COLUMNS` has never offered it as an
+     * ordering. R-2.5 makes an unrecognised sort a 400 rather than a silent
+     * fallback, which is the right call and is exactly what the operator saw.
+     *
+     * The FILTER above the table answers the same question ("show me the
+     * partners") and is offered. `CLIENT_SORT_KEYS` is derived from the
+     * generated contract now, so `sortableBy('type')` no longer compiles.
+     */
+    sortable: false,
+    cell: (c) => TYPE_LABELS[c.type] ?? c.type,
+  });
+
+  // Tags beside the type, where they are seen without scrolling (owner, 9 Oct 2026).
+  if (canViewTags && !hidden('client.tags')) {
+    columns.push({
+      header: t('clients.colTags'),
+      // Not sortable: `tags` is a collection, and there is no ordering of
+      // "these three labels" the API could honour. Declaring it would promise
+      // an order that produces a 400 (R-2.5).
+      sortable: false,
+      /*
+       * `c.tags`, NOT `c.tags ?? []`. The fallback turned "hidden from you" into
+       * "this client has none" — the one conflation `masking.ts` exists to
+       * prevent — because a masked key is absent from the row entirely.
+       */
+      cell: (c) => <ClientTagChips tags={c.tags} />,
+    });
+  }
+  // Country to the right of the tags (owner, 9 Oct 2026).
+  if (!hidden('client.country')) {
+    columns.push({
+      header: t('clients.colCountry'),
+      ...sortableBy('country'),
+      cell: (c) => <MaskedValue field="client.country" row={c} />,
+      cellClassName: 'text-muted-foreground',
+    });
+  }
+  /*
+   * The staff's Follow-up and Result notes (the buyer's request, backend 0212),
+   * after the tags and country, which a desk scans first (owner, 9 Oct 2026).
+   * Not maskable: they are the staff's own words, not the client's personal
+   * details. Not sortable: they live in their own table, and the list sorts only
+   * by what an index on `users` can serve — the "Follow-up due" filter answers
+   * "who do I contact today" instead.
+   */
   columns.push(
     {
-      header: t('clients.colType'),
-      /*
-       * NOT sortable, and this column is why the whole table used to vanish
-       * behind an error card. `type` is DERIVED server-side — a CASE over
-       * `ib_accounts` and `referred_by_ib_user_id`, because `users.type` is a
-       * label nothing maintains — and an expression reading another table
-       * cannot be indexed, so `CLIENT_SORT_COLUMNS` has never offered it as an
-       * ordering. R-2.5 makes an unrecognised sort a 400 rather than a silent
-       * fallback, which is the right call and is exactly what the operator saw.
-       *
-       * The FILTER above the table answers the same question ("show me the
-       * partners") and is offered. `CLIENT_SORT_KEYS` is derived from the
-       * generated contract now, so `sortableBy('type')` no longer compiles.
-       */
+      header: t('clients.colFollowUp'),
       sortable: false,
-      cell: (c) => TYPE_LABELS[c.type] ?? c.type,
+      cell: (c) =>
+        c.followUpAt || c.followUp ? (
+          <div className="flex max-w-[16rem] flex-col items-start gap-0.5">
+            {c.followUpAt && <FollowUpWhen at={c.followUpAt} />}
+            {c.followUp && (
+              <span className="block max-w-full truncate" title={c.followUp}>
+                {c.followUp}
+              </span>
+            )}
+          </div>
+        ) : (
+          '—'
+        ),
     },
     {
-      // The ACCOUNT state, and only that: whether this person may sign in.
-      // Named "Account status" on the header because the row now carries a KYC
-      // status beside it, and "Status" alone invited the two to be confused.
-      header: t('clients.colStatus'),
-      ...sortableBy('status'),
-      cell: (c) => (
-        <Badge variant={STATUS_VARIANT[c.status] ?? 'default'} className="capitalize">
-          {c.status}
-        </Badge>
-      ),
+      header: t('clients.colResult'),
+      sortable: false,
+      cell: (c) =>
+        c.result ? (
+          <span className="block max-w-[14rem] truncate" title={c.result}>
+            {c.result}
+          </span>
+        ) : (
+          '—'
+        ),
+      cellClassName: 'text-muted-foreground',
     },
+  );
+
+  columns.push(
     {
       /*
        * THE KYC DECISION — this replaced the "KYC level" column.
@@ -294,30 +350,19 @@ export function clientColumns({
     },
   );
 
-  if (!hidden('client.country')) {
-    columns.push({
-      header: t('clients.colCountry'),
-      ...sortableBy('country'),
-      cell: (c) => <MaskedValue field="client.country" row={c} />,
-      cellClassName: 'text-muted-foreground',
-    });
-  }
-
-  if (canViewTags && !hidden('client.tags')) {
-    columns.push({
-      header: t('clients.colTags'),
-      // Not sortable: `tags` is a collection, and there is no ordering of
-      // "these three labels" the API could honour. Declaring it would promise
-      // an order that produces a 400 (R-2.5).
-      sortable: false,
-      /*
-       * `c.tags`, NOT `c.tags ?? []`. The fallback turned "hidden from you" into
-       * "this client has none" — the one conflation `masking.ts` exists to
-       * prevent — because a masked key is absent from the row entirely.
-       */
-      cell: (c) => <ClientTagChips tags={c.tags} />,
-    });
-  }
+  // The account state moved here when Tags moved left (owner, 9 Oct 2026).
+  columns.push({
+    // The ACCOUNT state, and only that: whether this person may sign in.
+    // Named "Account status" on the header because the row now carries a KYC
+    // status beside it, and "Status" alone invited the two to be confused.
+    header: t('clients.colStatus'),
+    ...sortableBy('status'),
+    cell: (c) => (
+      <Badge variant={STATUS_VARIANT[c.status] ?? 'default'} className="capitalize">
+        {c.status}
+      </Badge>
+    ),
+  });
 
   columns.push({
     header: t('clients.colCreated'),

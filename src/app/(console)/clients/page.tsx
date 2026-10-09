@@ -35,6 +35,7 @@ import type { BulkClientFilter } from '@/lib/api/admin';
 import { LinkAccountDialog } from '@/components/trading/link-account-dialog';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
+import { endOfTodayInstant, isFollowUpFilter } from '@/lib/follow-up';
 
 /**
  * Catalog key → what an operator calls it, for the "hidden columns" notice.
@@ -123,6 +124,9 @@ function ClientsPageContent() {
   const sortKey = CLIENT_SORT_KEYS.includes(url.sort.key as ClientSortKey)
     ? (url.sort.key as ClientSortKey)
     : undefined;
+  // The staff's follow-up date (backend 0212), judged against the end of the
+  // VIEWER's today — a string that stays the same all day, so the query key does.
+  const followUp = isFollowUpFilter(url.get('followUp')) ? url.get('followUp') : undefined;
 
   const params = {
     limit: pageSize,
@@ -150,6 +154,8 @@ function ClientsPageContent() {
     referredBy: url.get('referredBy'),
     from: period.range.from,
     to: period.range.to,
+    followUp,
+    followUpDueBy: followUp && followUp !== 'none' ? endOfTodayInstant() : undefined,
     sort: sortKey,
     // Withheld when nothing is sorted. `order` alone describes an ordering of
     // no column — the API is entitled to reject it, and sending it would also
@@ -187,6 +193,8 @@ function ClientsPageContent() {
       referredBy: params.referredBy,
       from: params.from,
       to: params.to,
+      followUp: params.followUp,
+      followUpDueBy: params.followUpDueBy,
       sort: params.sort,
       order: params.order,
     })) {
@@ -206,6 +214,8 @@ function ClientsPageContent() {
     params.emailVerified,
     params.tag,
     params.referredBy,
+    params.followUp,
+    params.followUpDueBy,
     params.sort,
     params.order,
   ]);
@@ -389,6 +399,7 @@ function ClientsPageContent() {
             type: url.get('type'),
             status: url.get('status'),
             tag: url.get('tag'),
+            followUp: url.get('followUp'),
           }}
           tags={tagsQuery.data ?? []}
           canViewTags={canViewTags}
@@ -536,5 +547,7 @@ function bulkFilterOf(
     referredBy: referredBy && /^\d+$/.test(referredBy) ? +referredBy : undefined, // a Portal ID, not money
     from: text('from'),
     to: text('to'),
+    followUp: text('followUp'),
+    followUpDueBy: text('followUpDueBy'),
   };
 }

@@ -20,14 +20,23 @@ import { t } from '@/lib/i18n';
  *
  * `onLeave` runs when the operator chooses Leave: they were told the changes
  * would be lost, so nothing keeps them (`unsaved-drafts.ts`).
+ *
+ * `copy` names what would be lost, for a page other than Complete KYC (the
+ * client's Follow-up and Result notes).
  */
-export function useUnsavedGuard(dirty: boolean, onLeave?: () => void) {
+export function useUnsavedGuard(
+  dirty: boolean,
+  onLeave?: () => void,
+  copy?: { title: string; body: string },
+) {
   const router = useRouter();
   const confirm = useConfirm();
   // Read at the moment of leaving, so a new callback each render re-subscribes nothing.
   const leaving = React.useRef(onLeave);
+  const wording = React.useRef(copy);
   React.useEffect(() => {
     leaving.current = onLeave;
+    wording.current = copy;
   });
 
   React.useEffect(() => {
@@ -45,8 +54,8 @@ export function useUnsavedGuard(dirty: boolean, onLeave?: () => void) {
       event.preventDefault();
       event.stopPropagation();
       void confirm({
-        title: t('kycAssist.leaveTitle'),
-        description: t('kycAssist.leaveBody'),
+        title: wording.current?.title ?? t('kycAssist.leaveTitle'),
+        description: wording.current?.body ?? t('kycAssist.leaveBody'),
         confirmLabel: t('kycAssist.leaveConfirm'),
         cancelLabel: t('kycAssist.leaveStay'),
         destructive: true,

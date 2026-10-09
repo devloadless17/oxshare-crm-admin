@@ -57,26 +57,19 @@ import { maskableFields } from '@/lib/masking';
  * chosen says plainly that it means no clients — or only new ones.
  */
 /**
- * The territory picker's options: the business's own tags, then the countries
- * (0193). Unknown chosen ids are kept as options so their chips still render.
+ * The territory picker's options: the business's tags. Unknown chosen ids are
+ * kept as options so their chips still render.
  */
 function scopeOptions(
   chosen: readonly { id: string; label: string }[],
   tags: readonly ClientTagWithCount[],
 ): ChipOption[] {
-  const regular = tags.filter((tag) => !tag.countryCode);
-  const countries = tags.filter((tag) => tag.countryCode);
   const known = new Set(tags.map((tag) => tag.id));
   return [
     ...chosen
       .filter((tag) => !known.has(tag.id))
       .map((tag) => ({ value: tag.id, label: tag.label })),
-    ...regular.map((tag) => ({ value: tag.id, label: tag.label })),
-    ...countries.map((tag) => ({
-      value: tag.id,
-      label: t('tags.countryOption', { label: tag.label }),
-      aliases: [tag.label, tag.countryCode ?? ''],
-    })),
+    ...tags.map((tag) => ({ value: tag.id, label: tag.label })),
   ];
 }
 
@@ -190,9 +183,6 @@ export function AdminTagScopePanel({
                 ariaLabel={t('adminUsers.scopeTagAdd')}
                 disabled={disabled}
               />
-              <p className="text-[11px] text-muted-foreground">
-                {t('adminUsers.scopeCountryHint')}
-              </p>
             </>
           )}
 

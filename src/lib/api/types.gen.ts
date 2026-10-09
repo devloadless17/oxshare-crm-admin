@@ -1283,7 +1283,7 @@ export interface paths {
         };
         /**
          * Partner commission accruals, filterable
-         * @description Every accrual with the partner who earned it and the client whose deposit generated it. `totals` sums by status across the whole filtered set, as decimal strings (§6.1).
+         * @description Every accrual with the partner who earned it, the client whose closed trade generated it, and that trade (`trade`: MT5 login, symbol, lots — null when masked or not from a deal). `totals` sums by status across the whole filtered set, as decimal strings (§6.1).
          */
         get: operations["AdminIbController_listAccruals"];
         put?: never;
@@ -3634,6 +3634,30 @@ export interface paths {
          */
         get: operations["AdminClientIdentityController_documentsFor"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/clients/{id}/followup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A client's Follow-up and Result notes
+         * @description The staff’s working notes about a client: what to do next (with an optional date) and how the last contact went. Never shown to the client. A client with no notes reads as both empty, version 0.
+         */
+        get: operations["AdminClientFollowupController_get"];
+        /**
+         * Save a client's Follow-up and Result (requires clients.followup.edit)
+         * @description Both notes and the date, together. Send back the `version` the GET returned: a save made from an older version answers **409 FOLLOWUP_STALE** and changes nothing, so a colleague’s words are never silently replaced. A save that changes nothing succeeds whatever its version. Every change is recorded in the audit log as `client.followup_update`, before and after.
+         */
+        put: operations["AdminClientFollowupController_save"];
         post?: never;
         delete?: never;
         options?: never;
@@ -9377,6 +9401,10 @@ export interface components {
             from?: string;
             /** @description Registered to. */
             to?: string;
+            /** @description due | upcoming | none — the follow-up date (0212). */
+            followUp?: string;
+            /** @description The cut-off for due/upcoming: end of the reader’s today. */
+            followUpDueBy?: string;
         };
         BulkTargetDto: {
             /** @description Picked Portal IDs, at most 1000. */
@@ -9409,11 +9437,6 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
-            /**
-             * @description Set on a COUNTRY tag (ISO code, 0193): carried by every client living there, derived from their country — never assigned, renamed or deleted; only its colour is editable.
-             * @example LB
-             */
-            countryCode?: string;
             /** Format: date-time */
             createdAt: string;
         };
@@ -9468,6 +9491,15 @@ export interface components {
             tags?: components["schemas"]["ClientTagDto"][];
             /** @description The partner who introduced this client. Absent when nobody did, and absent for a reader without ib.view — the screen tells the two apart by its own permission check. */
             referrer?: components["schemas"]["ClientRowReferrerDto"];
+            /** @description What to do next. Null when empty. */
+            followUp: string | null;
+            /** @description How the last contact went. Null when empty. */
+            result: string | null;
+            /**
+             * Format: date-time
+             * @description When to follow up. Null for no date.
+             */
+            followUpAt: string | null;
         };
         ClientListResponseDto: {
             items: components["schemas"]["ClientRowDto"][];
@@ -9839,6 +9871,54 @@ export interface components {
              */
             hidden: string[];
         };
+        ClientFollowUpEditorDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example Omar Farah */
+            name: string;
+        };
+        ClientFollowUpDto: {
+            /**
+             * @description What to do next. Null when empty.
+             * @example Call back after payday; wants to fund 500 USD.
+             */
+            followUp: string | null;
+            /**
+             * @description How the last contact went. Null when empty.
+             * @example Interested. Asked for the gold spreads by email.
+             */
+            result: string | null;
+            /**
+             * Format: date-time
+             * @description When to follow up. Null for no date.
+             */
+            followUpAt: string | null;
+            /**
+             * @description Send it back with the next save. 0 when nothing was ever written for this client. A save made from an older version answers 409 FOLLOWUP_STALE.
+             * @example 3
+             */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string | null;
+            /** @description Null when nothing was ever saved, or the administrator was since removed. */
+            updatedBy: components["schemas"]["ClientFollowUpEditorDto"] | null;
+        };
+        UpdateClientFollowUpDto: {
+            /** @description What to do next. Empty or null clears it. */
+            followUp: string | null;
+            /** @description How the last contact went. Empty or null clears it. */
+            result: string | null;
+            /**
+             * @description When to follow up: an ISO date-time WITH its offset, so it means the same moment everywhere. Null for no date. A newly chosen date may not lie in the past or more than five years ahead.
+             * @example 2026-10-12T10:00:00+03:00
+             */
+            followUpAt: string | null;
+            /**
+             * @description The version these notes were edited from, as GET returned it.
+             * @example 3
+             */
+            version: number;
+        };
         ClientTagWithCountDto: {
             id: string;
             /** @description Stable machine name. Filter with ?tag=<slug>; a rename does not change it. */
@@ -9846,11 +9926,6 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
-            /**
-             * @description Set on a COUNTRY tag (ISO code, 0193): carried by every client living there, derived from their country — never assigned, renamed or deleted; only its colour is editable.
-             * @example LB
-             */
-            countryCode?: string;
             /** Format: date-time */
             createdAt: string;
             /** @description How many clients carry this tag in the reader’s territory. */
@@ -9878,11 +9953,6 @@ export interface components {
             label: string;
             color?: string;
             description?: string;
-            /**
-             * @description Set on a COUNTRY tag (ISO code, 0193): carried by every client living there, derived from their country — never assigned, renamed or deleted; only its colour is editable.
-             * @example LB
-             */
-            countryCode?: string;
             /** Format: date-time */
             createdAt: string;
             assignedBy?: string | null;
@@ -16473,7 +16543,7 @@ export interface operations {
                 type?: "individual" | "referral" | "partner";
                 status?: "active" | "pending" | "suspended";
                 level?: 0 | 1;
-                /** @description Exact match on the country tag. */
+                /** @description Exact match on the client's country. */
                 country?: string;
                 /** @description Omit to include both. Distinct from KYC — see ClientRowDto. */
                 emailVerified?: "true" | "false";
@@ -16491,6 +16561,10 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                /** @description The staff's follow-up date: `due` — before `followUpDueBy`; `upcoming` — at or after it; `none` — no date. Any other value is a 400. */
+                followUp?: "due" | "upcoming" | "none";
+                /** @description The cut-off for `due`/`upcoming`: the end of the reader’s today, as an ISO date-time with its offset (a calendar date means the end of that UTC day). Now when omitted. */
+                followUpDueBy?: string;
             };
             header?: never;
             path?: never;
@@ -16540,7 +16614,7 @@ export interface operations {
                 type?: "individual" | "referral" | "partner";
                 status?: "active" | "pending" | "suspended";
                 level?: 0 | 1;
-                /** @description Exact match on the country tag. */
+                /** @description Exact match on the client's country. */
                 country?: string;
                 /** @description Omit to include both. Distinct from KYC — see ClientRowDto. */
                 emailVerified?: "true" | "false";
@@ -16560,6 +16634,10 @@ export interface operations {
                 to?: string;
                 /** @description Export selected: Portal IDs, comma-separated, at most 1000. Narrows the file; scope and masking still apply. */
                 ids?: string;
+                /** @description The staff's follow-up date: `due` — before `followUpDueBy`; `upcoming` — at or after it; `none` — no date. Any other value is a 400. */
+                followUp?: "due" | "upcoming" | "none";
+                /** @description The cut-off for `due`/`upcoming`: the end of the reader’s today, as an ISO date-time with its offset (a calendar date means the end of that UTC day). Now when omitted. */
+                followUpDueBy?: string;
             };
             header?: never;
             path?: never;
@@ -16737,6 +16815,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientDocumentListDto"];
+                };
+            };
+        };
+    };
+    AdminClientFollowupController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientFollowUpDto"];
+                };
+            };
+        };
+    };
+    AdminClientFollowupController_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateClientFollowUpDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientFollowUpDto"];
                 };
             };
         };

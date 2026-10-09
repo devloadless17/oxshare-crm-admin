@@ -39,30 +39,15 @@ export function ClientTagChips({ tags }: { tags?: readonly ClientTag[] }) {
   if (tags === undefined) return <MaskedChip />;
   if (tags.length === 0) return <span className="text-muted-foreground">—</span>;
 
-  // The chosen tags first, the client's country (0193, derived) last.
-  const ordered = [
-    ...tags.filter((tag) => !tag.countryCode),
-    ...tags.filter((tag) => tag.countryCode),
-  ];
-  const shown = ordered.slice(0, VISIBLE);
-  const overflow = ordered.length - shown.length;
+  const shown = tags.slice(0, VISIBLE);
+  const overflow = tags.length - shown.length;
 
   return (
-    <span
-      className="flex flex-wrap items-center gap-1"
-      title={ordered.map((x) => x.label).join(', ')}
-    >
+    <span className="flex flex-wrap items-center gap-1" title={tags.map((x) => x.label).join(', ')}>
       {shown.map((tag) => (
         <Badge
           key={tag.id}
           variant="tag"
-          // A country tag is derived, not chosen: drawn quieter, with an outline.
-          className={
-            tag.countryCode && !tag.color
-              ? 'border border-border bg-transparent text-muted-foreground'
-              : undefined
-          }
-          title={tag.countryCode ? t('tags.countryChipTitle', { label: tag.label }) : undefined}
           style={
             tag.color
               ? // A tint rather than the raw colour: an operator-chosen hex as a

@@ -113,13 +113,11 @@ test('a desk hands a client to another desk from the client page — asked first
       await context.close();
     }
 
-    // The client now carries only the other desk's tag — among the tags a person
-    // assigns. Their COUNTRY tag is derived and always there since 0193 (6 Oct).
+    // The client now carries only the other desk's tag.
     const tags = (await (await master.get(`/admin/clients/${clientId}/tags`)).json()) as {
       id: string;
-      countryCode?: string;
     }[];
-    expect(tags.filter((t) => !t.countryCode).map((t) => t.id)).toEqual([otherTag.id]);
+    expect(tags.map((t) => t.id)).toEqual([otherTag.id]);
   } finally {
     if (desk) {
       await master.patch(`/admin/users/${desk.id}/status`, { status: 'suspended' });

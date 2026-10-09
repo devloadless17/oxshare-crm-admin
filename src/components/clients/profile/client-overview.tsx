@@ -13,6 +13,7 @@ import { formatPhone } from '@/components/ui/phone-input';
 import { t } from '@/lib/i18n';
 import { Field, KycStatusBadge, ProfileCard } from './profile-cards';
 import { ClientGlance, type GlanceTab } from './client-glance';
+import { ClientFollowUpCard } from './client-followup-card';
 
 /**
  * THE OVERVIEW — who the client is, and where they stand, at a glance.
@@ -23,6 +24,9 @@ import { ClientGlance, type GlanceTab } from './client-glance';
  * the tab that holds the detail. Beneath, the three things no tab shows: their
  * personal details, their account, and their verification, read from the
  * profile the page already holds. A card the reader may not see is left out.
+ *
+ * Below them, the staff's Follow-up and Result notes (the buyer's request,
+ * backend 0212), under the personal details.
  */
 export function ClientOverview({
   profile,
@@ -47,6 +51,8 @@ export function ClientOverview({
         <AccountCard profile={profile} canViewPartners={canViewPartners} />
         {canViewKyc && <VerificationCard profile={profile} />}
       </div>
+      {/* Below the personal details (owner, 9 Oct 2026). By Portal ID, as every link names a client. */}
+      {hasPermission(admin, 'clients.view') && <ClientFollowUpCard clientId={profile.portalId} />}
     </div>
   );
 }

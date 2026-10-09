@@ -80,7 +80,6 @@ function pages(root = 'src/app'): string[] {
 const UNTESTED = new Set([
   'src/app/(console)/api-keys/page.tsx',
   'src/app/(console)/bridge/page.tsx',
-  'src/app/(console)/commissions/page.tsx',
   'src/app/(console)/currencies/page.tsx',
   'src/app/(console)/profile/page.tsx',
   'src/app/(console)/roles/[id]/edit/page.tsx',

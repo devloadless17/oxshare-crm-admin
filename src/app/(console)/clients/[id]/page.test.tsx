@@ -33,6 +33,7 @@ const {
   getClients,
   getTradingAccounts,
   getClientIdentity,
+  getClientFollowUp,
   getWallets,
   getTransactions,
   getTransactionsSummary,
@@ -44,6 +45,15 @@ const {
   getClient: vi.fn(),
   // The identity record panel (documents and decisions) — its own request.
   getClientIdentity: vi.fn().mockResolvedValue({}),
+  // The Overview's Follow-up and Result card (backend 0212) — its own request.
+  getClientFollowUp: vi.fn().mockResolvedValue({
+    followUp: null,
+    result: null,
+    followUpAt: null,
+    version: 0,
+    updatedAt: null,
+    updatedBy: null,
+  }),
   // A partner's Referred clients / Referred accounts tabs.
   getClients: vi.fn(),
   getTradingAccounts: vi.fn(),
@@ -76,6 +86,7 @@ vi.mock('@/lib/api', () => {
       getClients,
       getTradingAccounts,
       getClientIdentity,
+      getClientFollowUp,
     },
   };
   return { api, default: api };
