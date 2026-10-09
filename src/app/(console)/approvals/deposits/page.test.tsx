@@ -99,6 +99,25 @@ beforeEach(() => {
 });
 
 describe('the offline deposit queue', () => {
+  it('changes the rows per page when asked — the buyer found this control dead', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<DepositApprovalsPage />);
+    await screen.findByText('Omar Haddad');
+
+    await user.click(screen.getByRole('combobox', { name: /rows per page/i }));
+    await user.click(
+      within(await screen.findByRole('listbox')).getByRole('option', { name: '100' }),
+    );
+
+    await waitFor(() =>
+      expect(
+        getDeskDeposits.mock.calls.some(
+          ([params]) => (params as { limit?: number; page?: number }).limit === 100,
+        ),
+      ).toBe(true),
+    );
+  });
+
   it('shows the client, the amount and a way into the receipt', async () => {
     renderWithProviders(<DepositApprovalsPage />);
 
