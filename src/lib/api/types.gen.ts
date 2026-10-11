@@ -11023,6 +11023,7 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+            countsCapped: string[];
             maskedFields?: string[];
         };
         CreditWalletDto: {
@@ -11384,6 +11385,7 @@ export interface components {
             directionCounts: {
                 [key: string]: number;
             };
+            countsCapped: string[];
             maskedFields?: string[];
         };
         ClientRegistrationWindowDto: {

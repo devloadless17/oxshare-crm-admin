@@ -41,6 +41,8 @@ export interface QueueFilter<T extends string> {
   label: string;
   /** Server-side count. Omit when the endpoint does not report one. */
   count?: number;
+  /** The server stopped counting at `count`: shown with a `+` ("10,000+"). */
+  capped?: boolean;
 }
 
 export function QueueToolbar<T extends string>({
@@ -107,6 +109,7 @@ export function QueueToolbar<T extends string>({
               {filter.count !== undefined && (
                 <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                   {filter.count.toLocaleString()}
+                  {filter.capped ? '+' : ''}
                 </span>
               )}
             </button>

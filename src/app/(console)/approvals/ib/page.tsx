@@ -226,13 +226,11 @@ function PartnerApprovalsContent() {
     isWaiting: (tab) => tab === 'pending',
     key: (range) =>
       keys.ibApplications.list(['counts', debouncedSearch, range.from ?? null, range.to ?? null]),
-    fetchCounts: async (range, signal) =>
-      (
-        await api.admin.getIbApplications(
-          { q: debouncedSearch || undefined, page: 1, limit: 1, ...range },
-          signal,
-        )
-      ).counts,
+    fetchCounts: (range, signal) =>
+      api.admin.getIbApplications(
+        { q: debouncedSearch || undefined, page: 1, limit: 1, ...range },
+        signal,
+      ),
   });
 
   /*
@@ -523,6 +521,7 @@ function PartnerApprovalsContent() {
             value: tab.value,
             label: t(tab.labelKey),
             count: tab.value ? countOf(tab.value) : undefined,
+            capped: tab.value ? countOf.capped(tab.value) : false,
           }))}
           active={status}
           // A different tab is a different list: the cursor goes with it.

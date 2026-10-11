@@ -451,7 +451,7 @@ function TransactionsPageContent() {
     // cache entry and the panel would read these counts as a withdrawal.
     key: (range) => keys.withdrawals.list({ tabCounts: true, limit: 1, q: params.q, ...range }),
     fetchCounts: async (range, signal) =>
-      (await api.admin.getWithdrawals({ limit: 1, q: params.q, ...range }, signal)).counts,
+      api.admin.getWithdrawals({ limit: 1, q: params.q, ...range }, signal),
   });
 
   /*
@@ -840,6 +840,7 @@ function TransactionsPageContent() {
                correct whatever page is shown — unlike `total`, which is the
                filtered count for the current query (R-2.4). */
             count: countOf(f.value === ALL_STATES ? 'all' : f.value),
+            capped: countOf.capped(f.value === ALL_STATES ? 'all' : f.value),
           }))}
           active={filter}
           onFilterChange={(value) => {

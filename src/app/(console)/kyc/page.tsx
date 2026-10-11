@@ -274,7 +274,7 @@ function KycQueue() {
       if (debouncedSearch) params.set('q', debouncedSearch);
       if (range.from) params.set('from', range.from);
       if (range.to) params.set('to', range.to);
-      return (await api.get<KycListResponse>(`/admin/kyc?${params}`, { signal })).data.counts;
+      return (await api.get<KycListResponse>(`/admin/kyc?${params}`, { signal })).data;
     },
   });
   const loading = query.status === 'loading';
@@ -505,7 +505,9 @@ function KycQueue() {
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('kycReview.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {t('kycReview.totalSubmissions', { count: countOf('all') ?? 0 })}
+            {t('kycReview.totalSubmissions', {
+              count: `${(countOf('all') ?? 0).toLocaleString()}${countOf.capped('all') ? '+' : ''}`,
+            })}
           </p>
         </div>
         {/* The same filters the list is showing, so "export what I am looking
@@ -532,6 +534,7 @@ function KycQueue() {
             // `counts` is keyed by status, with `all` for the unfiltered tab —
             // the same server-side per-status totals the other two queues pass.
             count: countOf(f.value || 'all') ?? 0,
+            capped: countOf.capped(f.value || 'all'),
           }))}
           active={filter}
           onFilterChange={(value) => {

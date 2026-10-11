@@ -227,6 +227,8 @@ function FinancialPageContent() {
   // `counts` (per state) is in the response too; this page filters state via
   // a dropdown rather than tabs, so only the direction axis renders badges.
   const directionCounts = query.data?.directionCounts ?? {};
+  // The tabs the server stopped counting at 10,000 ("10,000+").
+  const capped = query.data?.countsCapped ?? [];
   // RBAC-03 — the `financial.*` keys this viewer's response omitted.
   const maskedFields = query.data?.maskedFields ?? [];
 
@@ -399,16 +401,23 @@ function FinancialPageContent() {
 
       <QueueToolbar
         filters={[
-          { value: '', label: t('financial.directionAll'), count: directionCounts['all'] },
+          {
+            value: '',
+            label: t('financial.directionAll'),
+            count: directionCounts['all'],
+            capped: capped.includes('all'),
+          },
           {
             value: 'deposit',
             label: t('financial.direction.deposit'),
             count: directionCounts['deposit'],
+            capped: capped.includes('deposit'),
           },
           {
             value: 'withdrawal',
             label: t('financial.direction.withdrawal'),
             count: directionCounts['withdrawal'],
+            capped: capped.includes('withdrawal'),
           },
         ]}
         active={direction ?? ''}
