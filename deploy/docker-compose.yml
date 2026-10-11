@@ -21,6 +21,19 @@ x-logging: &logging
       max-size: '10m'
       max-file: '5'
 
+# The ACCESS LOG is the record of who reached us and how: it is what an incident
+# is investigated from. It was 50 MB, which at launch traffic was about ONE HOUR,
+# so on 11 Oct 2026 the morning's evidence was gone by the afternoon. 10 GB of
+# lines, compressed once rotated (about a tenth of that on disk, and `docker
+# logs` still reads them): over a week at that day's traffic, on a 100 GB disk.
+x-logging-access: &logging-access
+  logging:
+    driver: json-file
+    options:
+      max-size: '100m'
+      max-file: '100'
+      compress: 'true'
+
 x-app: &app
   restart: unless-stopped
   # PID 1 that forwards SIGTERM, so a redeploy lets in-flight requests finish.
@@ -67,7 +80,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     # No depends_on: Caddy must never wait for, or restart with, an app.
-    <<: *logging
+    <<: *logging-access
 
   # ── Each app as TWO services: zero-downtime releases (release.sh) ──────────
   #
