@@ -9,6 +9,22 @@
 {
 	# So Let's Encrypt has somewhere to send expiry and revocation notices.
 	email {$ACME_EMAIL}
+
+	# Both names are behind Cloudflare (orange cloud) since 11 Oct 2026, so the
+	# machine connecting here is usually Cloudflare's. Caddy believes the client
+	# address a connection reports (X-Forwarded-For) only when the connection
+	# comes from Cloudflare's published ranges (cloudflare.com/ips-v4 and -v6,
+	# read 11 Oct 2026); from anywhere else the socket address is the client. The
+	# apps never read an address: this keeps the access log naming real visitors.
+	# The backend's Caddyfile carries the same list — change them together.
+	servers {
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		# X-Forwarded-For, read from the RIGHT and stopping at the first machine
+		# that is not trusted (`strict`). Not CF-Connecting-IP: that header is only
+		# true when Cloudflare itself is the connecting machine, and would be a
+		# caller's to forge the day a load balancer stands between the two.
+		trusted_proxies_strict
+	}
 }
 
 # Which colour of each app receives traffic is in active-admin.caddy and
