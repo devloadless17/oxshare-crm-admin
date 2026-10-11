@@ -743,6 +743,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health/edge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The address the API resolved for the caller, and how the request arrived. */
+        get: operations["HealthController_edge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platforms": {
         parameters: {
             query?: never;
@@ -5943,6 +5960,29 @@ export interface components {
             /** @example 2026-08-04T10:13:00.563Z */
             timestamp: string;
             dependencies: components["schemas"]["DependencyHealthDto"][];
+        };
+        EdgeDto: {
+            /**
+             * @description The caller's address as the API resolved it: what the rate limiter, the admin network allowlist and the audit trail use. It must equal the caller's public address.
+             * @example 94.187.15.248
+             */
+            address: string | null;
+            /** @description Whether the machine that connected to Caddy is a trusted proxy (a CDN whose ranges are in `trusted_proxies`). `false` for a direct connection. `null` when Caddy was not in the path. */
+            peerTrusted: boolean | null;
+            /**
+             * @description The X-Forwarded-For the request arrived with, before Caddy replaced it. Empty for a direct browser request.
+             * @example 94.187.15.248
+             */
+            forwardedChain: string;
+            /**
+             * @description Headers on this request that only a proxy adds. Any of these with `peerTrusted: false` means a proxy stands in front that Caddy does not trust.
+             * @example [
+             *       "x-forwarded-for",
+             *       "cdn-loop",
+             *       "cf-connecting-ip"
+             *     ]
+             */
+            proxyHeaders: string[];
         };
         PlatformLinkDto: {
             /**
@@ -12920,6 +12960,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadinessDto"];
+                };
+            };
+        };
+    };
+    HealthController_edge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EdgeDto"];
                 };
             };
         };
