@@ -357,7 +357,10 @@ function PartnerApprovalsContent() {
                   email, then the Portal ID, which no role can hide. */}
               {clientLabel(row.user)}
             </PermittedLink>
-            <PortalIdTag id={row.user.portalId} />
+            {/* Not twice: with name and email hidden the link above IS the Portal ID. */}
+            {clientLabel(row.user) !== `#${row.user.portalId}` && (
+              <PortalIdTag id={row.user.portalId} />
+            )}
           </div>
           <p className="truncate text-xs text-muted-foreground">{row.user.email}</p>
         </div>

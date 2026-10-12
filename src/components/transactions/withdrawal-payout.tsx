@@ -90,13 +90,28 @@ export function PayoutBadge({ w }: { w: WithdrawalRow }) {
   if (w.state !== 'approved') return null;
 
   if (w.providerPayoutId) {
+    /*
+     * The provider holds it but has not sent it: somebody must approve it THERE
+     * (3pay with auto-withdraw off or above its threshold; Rival's operator).
+     * Said apart from "awaiting", or a payout nobody will send without a
+     * second approval reads as one that is on its way.
+     */
+    const held = w.providerStatus?.trim().toLowerCase() === 'pending';
     return (
       <span
-        className="inline-flex items-center gap-1 rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground"
-        title={w.providerPayoutId}
+        className={
+          held
+            ? 'inline-flex items-center gap-1 rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning'
+            : 'inline-flex items-center gap-1 rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground'
+        }
+        title={held ? t('withdrawals.payoutHeldHint') : w.providerPayoutId}
       >
-        <Send className="h-3 w-3" aria-hidden="true" />
-        {t('withdrawals.payoutAwaiting')}
+        {held ? (
+          <Clock3 className="h-3 w-3" aria-hidden="true" />
+        ) : (
+          <Send className="h-3 w-3" aria-hidden="true" />
+        )}
+        {held ? t('withdrawals.payoutHeld') : t('withdrawals.payoutAwaiting')}
       </span>
     );
   }

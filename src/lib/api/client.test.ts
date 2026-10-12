@@ -94,7 +94,7 @@ describe('refreshAdminToken', () => {
     expect(mockedPost).toHaveBeenCalledTimes(2);
   });
 
-  it('sends no body — the refresh token is a cookie and nothing else', async () => {
+  it('sends no credential in the body — the refresh token is a cookie and nothing else', async () => {
     const { refreshAdminToken } = await loadClient();
     mockedPost.mockResolvedValue({ status: 200 });
 
@@ -106,7 +106,8 @@ describe('refreshAdminToken', () => {
       { withCredentials?: boolean },
     ];
     // R-3.1: two credential channels for one session means two threat models.
-    expect(body).toEqual({});
+    // The body carries the idle report (lib/idle.ts) and nothing else.
+    expect(body).toEqual({ idleSeconds: 0 });
     expect(config.withCredentials).toBe(true);
   });
 

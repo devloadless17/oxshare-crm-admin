@@ -18,6 +18,13 @@ import { announceSessionEvent, withSessionLock } from '@/lib/session-channel';
 // The marker that tells the NEXT cold load which screen to paint — cleared in
 // clearAdminSession so a dead session cannot leave it behind.
 import { clearSessionHint, hasSessionHint } from '@/lib/session-hint';
+import {
+  idleSeconds,
+  isIdleExpired,
+  noteReported,
+  refreshEveryMs,
+  withIdleReason,
+} from '@/lib/idle';
 /**
  * A request that never finishes must eventually fail.
  *
@@ -327,6 +334,14 @@ export type RefreshOutcome = 'renewed' | 'dead' | 'unreachable';
  */
 export function refreshAdminSession(): Promise<RefreshOutcome> {
   if (inFlight) return inFlight;
+  /*
+   * The idle rule (lib/idle.ts): nobody has touched the console for the whole
+   * window, so this session is over and is not renewed — whatever asked. A
+   * background refetch finding its token expired is not somebody being there.
+   * The API would refuse the renewal anyway; not asking saves the round trip
+   * and keeps a sleeping tab from holding a session open.
+   */
+  if (isIdleExpired()) return Promise.resolve('dead');
   inFlight = (async () => {
     /*
      * Single-flight ACROSS TABS as well as within one.
@@ -340,12 +355,25 @@ export function refreshAdminSession(): Promise<RefreshOutcome> {
      */
     let retrying = false;
     return withSessionLock(async () => {
+      /*
+       * How long nobody has touched the console, read INSIDE the lock so a
+       * renewal that waited behind another tab's reports the present. The API
+       * issues tokens that die at "last activity + the idle window", counted
+       * from this report — the backend's admin-session-lifetime.ts.
+       */
+      const report = () => ({ body: { idleSeconds: idleSeconds() }, at: Date.now() });
+      const renewed = (sent: ReturnType<typeof report>): 'renewed' => {
+        // What the server's deadline is now counted from — see `needsReport`.
+        noteReported(sent.at - sent.body.idleSeconds * 1000);
+        lastRenewedAt = Date.now();
+        return 'renewed';
+      };
       try {
         /*
-         * No body: the refresh token is an httpOnly cookie the browser attaches,
-         * and the API accepts it from nowhere else (R-3.1 — two credential
-         * channels for one session means two threat models). Nothing to read,
-         * nothing to send, nothing to leak.
+         * No credential in the body: the refresh token is an httpOnly cookie the
+         * browser attaches, and the API accepts it from nowhere else (R-3.1 — two
+         * credential channels for one session means two threat models). The body
+         * carries the idle report and nothing else.
          *
          * Deliberately NOT through `apiClient`, so a 401 here cannot recurse into
          * the response interceptor that called it. The cost of stepping outside is
@@ -360,38 +388,35 @@ export function refreshAdminSession(): Promise<RefreshOutcome> {
          * expires alongside the access token, and demanding one here would lock
          * out the returning user this call exists to renew.
          */
-        const rotation = await axios.post(
-          `${API_BASE_URL}${REFRESH_PATH}`,
-          {},
-          {
-            withCredentials: true,
-            headers: { 'X-Request-Id': newCorrelationId() },
-            /*
-             * A TIMEOUT, because this call is outside `apiClient` and axios
-             * defaults to none.
-             *
-             * Reported from production: register → verify → sign in → an
-             * infinite spinner that a page refresh cleared. This is why. A
-             * request 401s, the interceptor awaits this refresh, the
-             * connection stalls (a dying mobile link, a cold API, the
-             * cross-host hop) — and with `timeout: 0` the promise NEVER
-             * settles. The original request never settles either, `isPending`
-             * stays true, and `RequireAuth` renders its loader for ever. The
-             * session was fine the whole time, which is why reloading fixed
-             * it: a new JS context asks again.
-             *
-             * Shorter than `apiClient`'s 60s: that ceiling exists for uploads
-             * on a slow connection, and this is a bodyless POST. A refresh
-             * that has not answered in twenty seconds is not going to.
-             *
-             * On timeout axios reports no `response`, so `outcomeOf` reads it
-             * as `unreachable` — the session is KEPT and the "cannot reach"
-             * screen appears, which is recoverable and honest. Never `dead`:
-             * a stalled network must not sign anybody out.
-             */
-            timeout: 20_000,
-          },
-        );
+        const sent = report();
+        const rotation = await axios.post(`${API_BASE_URL}${REFRESH_PATH}`, sent.body, {
+          withCredentials: true,
+          headers: { 'X-Request-Id': newCorrelationId() },
+          /*
+           * A TIMEOUT, because this call is outside `apiClient` and axios
+           * defaults to none.
+           *
+           * Reported from production: register → verify → sign in → an
+           * infinite spinner that a page refresh cleared. This is why. A
+           * request 401s, the interceptor awaits this refresh, the
+           * connection stalls (a dying mobile link, a cold API, the
+           * cross-host hop) — and with `timeout: 0` the promise NEVER
+           * settles. The original request never settles either, `isPending`
+           * stays true, and `RequireAuth` renders its loader for ever. The
+           * session was fine the whole time, which is why reloading fixed
+           * it: a new JS context asks again.
+           *
+           * Shorter than `apiClient`'s 60s: that ceiling exists for uploads
+           * on a slow connection, and this is a one-number POST. A refresh
+           * that has not answered in twenty seconds is not going to.
+           *
+           * On timeout axios reports no `response`, so `outcomeOf` reads it
+           * as `unreachable` — the session is KEPT and the "cannot reach"
+           * screen appears, which is recoverable and honest. Never `dead`:
+           * a stalled network must not sign anybody out.
+           */
+          timeout: 20_000,
+        });
         /*
          * Learn the ROTATED anti-forgery token off THIS response.
          *
@@ -419,7 +444,7 @@ export function refreshAdminSession(): Promise<RefreshOutcome> {
          * body. The token is gone (R-3.2): the rotated cookies arrive on the
          * response and the browser installs them, so reaching 200 IS the result.
          */
-        return 'renewed' as const;
+        return renewed(sent);
       } catch (error) {
         /*
          * `SESSION_SUPERSEDED` means the session is ALIVE — retry, do not sign out.
@@ -442,9 +467,10 @@ export function refreshAdminSession(): Promise<RefreshOutcome> {
         if (supersededCode(error) && !retrying) {
           retrying = true;
           try {
+            const resent = report();
             const retriedRotation = await axios.post(
               `${API_BASE_URL}${REFRESH_PATH}`,
-              {},
+              resent.body,
               {
                 withCredentials: true,
                 headers: { 'X-Request-Id': newCorrelationId() },
@@ -456,7 +482,7 @@ export function refreshAdminSession(): Promise<RefreshOutcome> {
             // Rotates the token exactly as the first attempt does, so it has to be
             // learned here too - see the note on the call above.
             rememberCsrfToken(retriedRotation.headers);
-            return 'renewed' as const;
+            return renewed(resent);
           } catch (retryError) {
             return outcomeOf(retryError);
           }
@@ -483,6 +509,10 @@ export function refreshAdminToken(): Promise<boolean> {
 // The old version was a module-scope setInterval that ran forever — including on
 // /login, where it refreshed nothing every 10 minutes for the life of the tab.
 let proactiveTimer: ReturnType<typeof setInterval> | null = null;
+/** When this tab last renewed, or started watching — what the cadence below counts from. */
+let lastRenewedAt = 0;
+/** How often the timer LOOKS; how often it renews is `refreshEveryMs()`. */
+const PROACTIVE_TICK_MS = 30_000;
 
 export function startProactiveRefresh(): void {
   if (typeof window === 'undefined' || proactiveTimer) return;
@@ -504,12 +534,25 @@ export function startProactiveRefresh(): void {
    * "worth asking". It decides whether to ASK — the API still decides the
    * answer. See lib/session-hint.ts.
    */
-  proactiveTimer = setInterval(
-    () => {
-      if (hasSessionHint()) void refreshAdminToken();
-    },
-    10 * 60 * 1000,
-  );
+  /*
+   * A short tick that renews on a cadence, not a fixed ten-minute interval.
+   *
+   * The cadence is a quarter of the idle window (lib/idle.ts) and the window is
+   * the server's, learned from the profile a moment AFTER this starts — so the
+   * period cannot be fixed here. Each renewal reports how long nobody has
+   * touched the console, which is how the server's deadline keeps following a
+   * working administrator; once the window has passed with nobody there,
+   * `refreshAdminSession` declines and the session is left to end.
+   */
+  lastRenewedAt = Date.now();
+  proactiveTimer = setInterval(() => {
+    if (!hasSessionHint()) return;
+    if (Date.now() - lastRenewedAt < refreshEveryMs()) return;
+    // Counted from the attempt, so an unreachable API is asked once a period
+    // rather than on every tick.
+    lastRenewedAt = Date.now();
+    void refreshAdminToken();
+  }, PROACTIVE_TICK_MS);
 }
 
 export function stopProactiveRefresh(): void {
@@ -579,7 +622,10 @@ function endDeadSession(): void {
    * signed-out visitor — a session dying mid-task is the case where losing the
    * destination hurts most.
    */
-  window.location.href = loginPathFor(window.location.pathname, window.location.search);
+  const login = loginPathFor(window.location.pathname, window.location.search);
+  // Ended for inactivity: the sign-in page says so, rather than leaving an
+  // administrator back from lunch to wonder what went wrong.
+  window.location.href = isIdleExpired() ? withIdleReason(login) : login;
 }
 
 /**

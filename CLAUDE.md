@@ -55,6 +55,27 @@ A stale marker cannot loop, and the line that guarantees it is `clearSessionHint
 `clearAdminSession`: it runs in the axios interceptor, before React Query settles and long before
 any navigation, so the 401 eviction reaches `/login` with the marker already gone.
 
+## The idle sign-out (12 Oct 2026)
+
+An administrator who touches nothing for the idle window (15 min, the server's number) is signed
+out; the rule is in `../CLAUDE.md` (Auth). Three files:
+
+| file                        | owns                                                                                                                              |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/idle.ts`               | the clock: last activity and what the server last heard, shared by tabs (localStorage, plus a BroadcastChannel if it is refused)  |
+| `components/idle-guard.tsx` | mounted at the ROOT: feeds the clock from input events, shows the last-minute notice, signs out (`/login?next=…&reason=idle`)      |
+| `lib/api/client.ts`         | every refresh sends `{ idleSeconds }`; no refresh once the window has passed; the renewal cadence is `refreshEveryMs()`           |
+
+- **Anything that starts a session calls `resetActivity()`** (`authApi.totpVerify` does). Without
+  it, yesterday's stamp is reported with the first refresh and the API ends the new session.
+- **The notice is a corner card, never a modal**: it must not take focus, and any movement
+  dismisses it.
+- The window arrives on `/admin/auth/me` (`setIdleWindow` in `AdminAuthContext`). Until then the
+  clock never expires and the cadence is the old ten minutes.
+- `AdminProfile` stays the directory's shape; only the `/me` fetch is typed as the session profile,
+  so test fixtures need no new field.
+- Pinned by `components/idle-guard.test.tsx` (fake timers).
+
 ## Data fetching: one primitive
 
 `src/hooks/use-resource.ts` wraps React Query's `useQuery` into a 4-state `Resource<T>`:

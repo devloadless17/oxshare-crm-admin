@@ -68,6 +68,19 @@ describe('clientColumns — the field mask', () => {
     expect(JSON.stringify(rendered)).not.toContain('0b7d3c9e');
   });
 
+  it('makes the Portal ID the way in when BOTH names are hidden', () => {
+    // Reported: with the Name column gone, nothing on the row opened the client.
+    const idCell = (maskedFields: string[]) =>
+      JSON.stringify(
+        clientColumns({ ...base, maskedFields })
+          .find((c) => c.header === t('clients.colId'))
+          ?.cell({ portalId: 1000245 } as never),
+      );
+    expect(idCell(['client.firstName', 'client.lastName'])).toContain('/clients/1000245');
+    // With a name on the row the name is the link; the id stays plain.
+    expect(idCell(['client.firstName'])).not.toContain('/clients/1000245');
+  });
+
   it('stops offering the name SORT when the first name is hidden', () => {
     /*
      * The API orders by `users.first_name`, so a sortable header for a viewer

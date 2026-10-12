@@ -208,7 +208,18 @@ export function clientColumns({
     // and R-2.5 makes an unrecognised sort a 400 rather than a silent fallback.
     sortable: false,
     cell: (c) => (
-      <CopyableId value={String(c.portalId)} full copyLabel={t('common.copyPortalId')} />
+      // With both names hidden the Name column, and its link, are gone: the
+      // Portal ID is then what opens the client.
+      <CopyableId
+        value={String(c.portalId)}
+        full
+        copyLabel={t('common.copyPortalId')}
+        href={
+          hidden('client.firstName') && hidden('client.lastName')
+            ? `/clients/${c.portalId}`
+            : undefined
+        }
+      />
     ),
   });
 

@@ -393,7 +393,11 @@ export default function ClientProfilePage() {
                       otherwise the halves the viewer may actually see.
                     */}
                     {nameFullyMasked ? (
-                      <Field label="" field="client.firstName" profile={profile} />
+                      // The Portal ID names the client; the chip says why no name does.
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono">#{profile.portalId}</span>
+                        <Field label="" field="client.firstName" profile={profile} />
+                      </span>
                     ) : (
                       displayName
                     )}

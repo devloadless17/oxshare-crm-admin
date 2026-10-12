@@ -2,6 +2,7 @@ import { test as setup, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
+  API_NODE_BASE,
   E2E_KYC_VIEWER,
   E2E_RESTRICTED,
   KYC_VIEWER_STATE,
@@ -38,6 +39,7 @@ import { completeAuthenticator, resetAuthenticator } from './authenticator';
  */
 setup('authenticate as the e2e admin', async ({ page }) => {
   await signIn(page);
+  await assertSessionOutlivesTheRun(page);
 
   // Not committed: these are live session cookies, and `.auth/` is gitignored.
   mkdirSync(dirname(STORAGE_STATE), { recursive: true });
@@ -71,6 +73,28 @@ setup('authenticate as the e2e admin', async ({ page }) => {
  * test's job to report, with an assertion naming what was expected — not a setup
  * crash naming a URL.
  */
+/**
+ * The API signs an IDLE administrator out — after 15 minutes by default — and
+ * this suite reuses one saved cookie jar for a run longer than that, with nobody
+ * touching a console between specs. On the product default the session dies
+ * mid-run and a hundred specs fail as missing buttons and sign-in screens.
+ *
+ * So the precondition is checked here, once, and named. CI sets it; locally:
+ *   cd oxshare-crm-backend && RELAX_RATE_LIMITS=1 ADMIN_IDLE_TIMEOUT_MINUTES=720 npm run dev
+ */
+async function assertSessionOutlivesTheRun(page: Page): Promise<void> {
+  const me = await page.request.get(`${API_NODE_BASE}/admin/auth/me`);
+  if (!me.ok()) return;
+  const { idleTimeoutSeconds } = (await me.json()) as { idleTimeoutSeconds?: number };
+  // Absent on an API from before the idle rule: nothing to outlive.
+  if (idleTimeoutSeconds === undefined || idleTimeoutSeconds >= 3600) return;
+  throw new Error(
+    `The API signs an idle administrator out after ${idleTimeoutSeconds / 60} minutes, ` +
+      'which is shorter than this run: the saved session would die between specs. ' +
+      'Restart the API with ADMIN_IDLE_TIMEOUT_MINUTES=720 (CI does) and run again.',
+  );
+}
+
 async function warmRoutes(page: Page): Promise<void> {
   const routes = [
     '/dashboard',

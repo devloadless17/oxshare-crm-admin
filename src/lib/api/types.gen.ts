@@ -4901,8 +4901,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Run reconciliation now and return the report (§12.2)
-         * @description The same check the hourly job runs: every wallet balance against the sum of its own ledger. Wallet balances ONLY — a confirmed commission accrual that was never credited is a separate alert (UNPAID_CONFIRMED_ACCRUAL), not part of this report. Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed. Whole-platform: an admin scoped to a client territory is refused, because a reconciliation over a fragment is meaningless and the full report names clients outside their territory.
+         * The last reconciliation report, or a fresh one with ?fresh=true (§12.2)
+         * @description Answers with the LAST completed check and the time it was made (`checkedAt`): the hourly job runs it, and it reads every ledger entry, so running it per page view cost the size of the ledger. `?fresh=true` runs it now. The check: every wallet balance against the sum of its own ledger. Wallet balances ONLY — a confirmed commission accrual that was never credited is a separate alert (UNPAID_CONFIRMED_ACCRUAL), not part of this report. Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed. Whole-platform: an admin scoped to a client territory is refused, because a reconciliation over a fragment is meaningless and the full report names clients outside their territory.
          */
         get: operations["AdminMoneyController_reconcile"];
         put?: never;
@@ -9325,6 +9325,39 @@ export interface components {
         AdminLoginResponseDto: {
             admin: components["schemas"]["AdminProfileDto"];
         };
+        AdminRefreshDto: {
+            /**
+             * @description Whole seconds since the last mouse, key or scroll on the console, in any tab.
+             * @example 42
+             */
+            idleSeconds?: number;
+        };
+        AdminSessionProfileDto: {
+            id: string;
+            email: string;
+            name: string;
+            /** @enum {string} */
+            role: "master_admin" | "sub_admin";
+            permissions: string[];
+            roleId?: string;
+            roleName?: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            maskedFields: string[];
+            maskedFieldsOverride?: string[] | null;
+            scopedTags: components["schemas"]["AdminScopeTagDto"][];
+            seesAllClients: boolean;
+            /** @example /uploads/avatars/6f1c.png */
+            avatarUrl?: string | null;
+            /** Format: date-time */
+            passwordChangedAt?: string | null;
+            /** Format: date-time */
+            totpEnabledAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** @example 900 */
+            idleTimeoutSeconds: number;
+        };
         InviteDto: {
             /** @example new.admin@oxshare.com */
             email: string;
@@ -10927,6 +10960,7 @@ export interface components {
             email?: string;
             firstName?: string;
             lastName?: string;
+            phone?: string | null;
         };
         WithdrawalRowDto: {
             id: string;
@@ -16289,7 +16323,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRefreshDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -16334,7 +16372,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminProfileDto"];
+                    "application/json": components["schemas"]["AdminSessionProfileDto"];
                 };
             };
         };
@@ -18836,7 +18874,9 @@ export interface operations {
     };
     AdminMoneyController_reconcile: {
         parameters: {
-            query?: never;
+            query: {
+                fresh: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

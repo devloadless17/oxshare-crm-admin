@@ -205,6 +205,15 @@ export const messages = {
   'session.deniedPage':
     'Your role does not include {page}. Ask an administrator who manages roles to add it.',
   'session.backToDashboard': 'Back to dashboard',
+  // The idle rule: nobody touched the console for the idle window. The notice
+  // shows in the last minute; any movement dismisses it. No number of minutes in
+  // the sign-in sentence — the window is a server setting.
+  'idle.title': 'Are you still there?',
+  'idle.body':
+    'Nobody has used the console for a while. For security you will be signed out in {seconds} {seconds:second|seconds}.',
+  'idle.stay': 'Stay signed in',
+  'login.signedOutIdle':
+    'You were signed out because the console was not used for a while. Sign in to carry on where you left off.',
   // Signed in, but the console could not then confirm who with. Navigating
   // anyway lands the operator in a shell that knows nothing about them.
   'login.sessionCheckFailed':
@@ -310,6 +319,7 @@ export const messages = {
   'withdrawals.colClient': 'Client',
   'withdrawals.colAmount': 'Amount',
   'withdrawals.colDestination': 'Destination',
+  'withdrawals.colClientPhone': 'Client phone',
   // The rail the money goes out through — the operator's own name for it
   // ('Whish Money'), resolved server-side rather than a machine key.
   'withdrawals.colMethod': 'Method',
@@ -724,7 +734,8 @@ export const messages = {
   // backwards in one locale and fine in the other.
   'masking.hidden': 'Hidden by your permissions',
   'masking.hiddenTitle': 'You do not have permission to see this value.',
-  'masking.columnsHidden': 'Some columns are hidden by your permissions: {fields}.',
+  'masking.columnsHidden':
+    'Some columns are hidden by your permissions: {fields}. You can still find a client by typing the complete value.',
   'audit.noIp': 'no address recorded',
   'audit.colAction': 'Action',
   'audit.colSubject': 'Subject',
@@ -2516,6 +2527,9 @@ export const messages = {
   // ── The withdrawal desk's Rival leg ───────────────────────────────────────
   'withdrawals.payoutNeedsAttention': 'Needs attention',
   'withdrawals.payoutAwaiting': 'Awaiting the provider',
+  'withdrawals.payoutHeld': 'Waiting for approval at the provider',
+  'withdrawals.payoutHeldHint':
+    'The provider has this payout but has not sent it. Approve it in the provider’s dashboard; it is marked paid here once it is sent.',
   'withdrawals.payoutReconciling': 'Outcome being checked — do not resend',
   'withdrawals.payoutPaused': 'Paused',
   'withdrawals.resendPayout': 'Resend payout',
@@ -3259,6 +3273,7 @@ export const messages = {
   // RBAC-03 — what the masked-fields notice calls the hidden client fields.
   'financial.maskedLabelEmail': 'Email address',
   'financial.maskedLabelName': 'Client name',
+  'financial.maskedLabelPhone': 'Client phone',
   // The desk link on a pending payment withdrawal — where the actions live.
   'financial.openInDesk': 'Review on the desk',
 
