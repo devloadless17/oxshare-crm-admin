@@ -40,28 +40,50 @@ export function useTabCounts<C extends Partial<Record<string, number>>>({
    * would share a cache entry with a detail panel's `{ id: undefined, limit: 1 }`.
    */
   key: (range: ResolvedRange) => QueryKey;
-  /** The same list, asked over one group's period, for its counts. */
-  fetchCounts: (range: ResolvedRange, signal: AbortSignal) => Promise<C | undefined>;
+  /**
+   * The same list, asked over one group's period: its `counts`, and
+   * `countsCapped` — the tabs the server stopped counting at 10,000.
+   */
+  fetchCounts: (range: ResolvedRange, signal: AbortSignal) => Promise<TabCountsAnswer<C>>;
   waitingDefault?: DatePreset;
   decidedDefault?: DatePreset;
-}): (tab: string) => number | undefined {
+}): TabCountOf {
   // Each group's period: its own default, or the period the reader chose.
   const waiting = useGroupCounts(useDateRange(url, waitingDefault).range, key, fetchCounts);
   const decided = useGroupCounts(useDateRange(url, decidedDefault).range, key, fetchCounts);
 
-  return (tab: string) => {
-    const source = isWaiting(tab) ? waiting : decided;
-    // A loaded answer without the tab means none in its period: say 0, not a blank.
-    return source ? (source[tab] ?? 0) : undefined;
-  };
+  const sourceOf = (tab: string) => (isWaiting(tab) ? waiting : decided);
+  return Object.assign(
+    (tab: string) => {
+      const counts = sourceOf(tab)?.counts;
+      // A loaded answer without the tab means none in its period: say 0, not a blank.
+      return counts ? (counts[tab] ?? 0) : undefined;
+    },
+    {
+      // "10,000+": the server stopped counting there, so the figure is a floor.
+      capped: (tab: string) => sourceOf(tab)?.countsCapped?.includes(tab) ?? false,
+    },
+  );
+}
+
+/** What a list answers about its tabs. */
+export interface TabCountsAnswer<C> {
+  counts?: C;
+  countsCapped?: string[];
+}
+
+/** A tab's count (blank while its period's answer is not in), and whether it is a floor. */
+export interface TabCountOf {
+  (tab: string): number | undefined;
+  capped: (tab: string) => boolean;
 }
 
 /** One group's counts — or nothing while the answer for THIS period is not in. */
 function useGroupCounts<C>(
   range: ResolvedRange,
   key: (range: ResolvedRange) => QueryKey,
-  fetchCounts: (range: ResolvedRange, signal: AbortSignal) => Promise<C | undefined>,
-): C | undefined {
+  fetchCounts: (range: ResolvedRange, signal: AbortSignal) => Promise<TabCountsAnswer<C>>,
+): TabCountsAnswer<C> | undefined {
   const period = `${range.from ?? ''}|${range.to ?? ''}`;
   const query = useResource(key(range), async (signal) => ({
     period,

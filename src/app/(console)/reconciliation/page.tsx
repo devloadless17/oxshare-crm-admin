@@ -43,9 +43,13 @@ import { ClientIdentity, clientName } from '@/components/clients/client-identity
  * subset is the opposite of what a reconciliation is for.
  */
 export default function ReconciliationPage() {
-  const query = useResource(keys.reconciliation.all(), (signal) =>
-    api.admin.getReconciliation(signal),
-  );
+  // Opening the page shows the last check; only "Run now" runs a new one.
+  const freshNext = React.useRef(false);
+  const query = useResource(keys.reconciliation.all(), (signal) => {
+    const fresh = freshNext.current;
+    freshNext.current = false;
+    return api.admin.getReconciliation(signal, fresh);
+  });
 
   const report = query.data;
   const discrepancies = report?.walletDiscrepancies ?? [];
@@ -157,7 +161,10 @@ export default function ReconciliationPage() {
         </div>
         <button
           type="button"
-          onClick={() => void query.refetch()}
+          onClick={() => {
+            freshNext.current = true;
+            void query.refetch();
+          }}
           disabled={query.isFetching}
           className="focus-outline inline-flex h-9 items-center gap-2 rounded-lg border border-border px-4 text-xs font-semibold hover:bg-accent disabled:opacity-60"
         >

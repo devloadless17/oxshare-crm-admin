@@ -11,6 +11,7 @@ import { announceSessionEvent, onSessionEvent } from '@/lib/session-channel';
 import { isPublicPath } from '@/lib/public-paths';
 import { clearSessionHint, markSessionHint } from '@/lib/session-hint';
 import { loginPathFor } from '@/lib/return-to';
+import { isIdleExpired, setIdleWindow, withIdleReason } from '@/lib/idle';
 import type { components } from '@/lib/api/types.gen';
 import { keys } from '@/lib/query-keys';
 
@@ -18,6 +19,8 @@ import { keys } from '@/lib/query-keys';
 // `permissions` becomes a compile error here instead of hasPermission()
 // silently returning false for everyone.
 export type AdminProfile = components['schemas']['AdminProfileDto'];
+/** `GET /admin/auth/me`: the profile plus what only the caller's own session needs. */
+type AdminSessionProfile = components['schemas']['AdminSessionProfileDto'];
 
 interface AdminAuthContextType {
   admin: AdminProfile | null;
@@ -107,7 +110,9 @@ export function AdminAuthProvider({
   } = useQuery({
     queryKey: keys.session.me(),
     queryFn: async () => {
-      const res = await apiClient.get<AdminProfile>('/admin/auth/me');
+      const res = await apiClient.get<AdminSessionProfile>('/admin/auth/me');
+      // The idle clock runs on the server's number — see lib/idle.ts.
+      setIdleWindow(res.data.idleTimeoutSeconds);
       startProactiveRefresh();
       return res.data;
     },
@@ -260,7 +265,10 @@ export function AdminAuthProvider({
       // It carries `?next=`, exactly as `endDeadSession` does. This tab was
       // mid-task when another tab signed out; sending it to a bare `/login`
       // threw that destination away while the interceptor's eviction kept it.
-      window.location.href = loginPathFor(window.location.pathname, window.location.search);
+      const login = loginPathFor(window.location.pathname, window.location.search);
+      // Every tab shares one idle clock, so the tab that noticed first speaks
+      // for all of them — and each says the same reason on the way out.
+      window.location.href = isIdleExpired() ? withIdleReason(login) : login;
     });
   }, []);
 

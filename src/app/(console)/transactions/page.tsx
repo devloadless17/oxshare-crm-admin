@@ -64,6 +64,9 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
 import { ClientIdentity, clientLabel, clientName } from '@/components/clients/client-identity';
+import { formatPhone } from '@/components/ui/phone-input';
+import { MaskedFieldsNotice } from '@/components/masked-value';
+import { maskedFieldLabels } from '@/lib/masking';
 import { ResolveAttentionDialog } from '@/components/financial/resolve-attention-dialog';
 import { FinishPayoutDialog } from '@/components/transactions/finish-payout-dialog';
 
@@ -84,6 +87,14 @@ import { FinishPayoutDialog } from '@/components/transactions/finish-payout-dial
  * and the tab could never be selected. `?state=all` is a value the URL can
  * hold; the request still sends no `state` parameter for it.
  */
+/** What each masked key is called in the notice above the table. */
+const MASKED_LABELS: Record<string, string> = {
+  'withdrawal.user.email': t('financial.maskedLabelEmail'),
+  'withdrawal.user.firstName': t('financial.maskedLabelName'),
+  'withdrawal.user.lastName': t('financial.maskedLabelName'),
+  'withdrawal.user.phone': t('financial.maskedLabelPhone'),
+};
+
 const ALL_STATES = 'all';
 
 /**
@@ -431,6 +442,7 @@ function TransactionsPageContent() {
 
   const busy = approve.isPending || reject.isPending;
   const rows = query.data?.items ?? [];
+  const maskedFields = query.data?.maskedFields ?? [];
   /*
    * `total` and `counts` are different numbers and both are needed.
    *
@@ -451,7 +463,7 @@ function TransactionsPageContent() {
     // cache entry and the panel would read these counts as a withdrawal.
     key: (range) => keys.withdrawals.list({ tabCounts: true, limit: 1, q: params.q, ...range }),
     fetchCounts: async (range, signal) =>
-      (await api.admin.getWithdrawals({ limit: 1, q: params.q, ...range }, signal)).counts,
+      api.admin.getWithdrawals({ limit: 1, q: params.q, ...range }, signal),
   });
 
   /*
@@ -647,13 +659,28 @@ function TransactionsPageContent() {
        */
       cell: (w) => (
         <div
-          className="max-w-[180px] truncate font-mono text-xs text-muted-foreground"
+          className="max-w-[180px] truncate font-mono text-sm font-semibold text-foreground"
           title={w.destination ?? ''}
         >
           {w.destination ?? '—'}
         </div>
       ),
     },
+    // The client's OWN phone, beside the destination, so a reviewer sees whether they match.
+    // Dropped for a reader whose role hides it: a dash would read as "no phone".
+    ...(maskedFields.includes('withdrawal.user.phone')
+      ? []
+      : [
+          {
+            header: t('withdrawals.colClientPhone'),
+            sortable: false as const,
+            cell: (w: WithdrawalRow) => (
+              <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+                {formatPhone(w.user.phone) || '—'}
+              </span>
+            ),
+          },
+        ]),
     {
       header: t('withdrawals.colMethod'),
       /*
@@ -840,6 +867,7 @@ function TransactionsPageContent() {
                correct whatever page is shown — unlike `total`, which is the
                filtered count for the current query (R-2.4). */
             count: countOf(f.value === ALL_STATES ? 'all' : f.value),
+            capped: countOf.capped(f.value === ALL_STATES ? 'all' : f.value),
           }))}
           active={filter}
           onFilterChange={(value) => {
@@ -870,6 +898,8 @@ function TransactionsPageContent() {
           }
         />
       </div>
+
+      <MaskedFieldsNotice labels={maskedFieldLabels(maskedFields, MASKED_LABELS)} />
 
       <AsyncBoundary
         status={query.status}

@@ -163,7 +163,7 @@ function DepositApprovalsContent() {
     // `tabCounts` keeps this apart from the detail panel's `{ id, limit: 1 }` key.
     key: (range) => keys.deposits.list({ tabCounts: true, limit: 1, q: params.q, ...range }),
     fetchCounts: async (range, signal) =>
-      (await api.admin.getDeskDeposits({ limit: 1, q: params.q, ...range }, signal)).counts,
+      api.admin.getDeskDeposits({ limit: 1, q: params.q, ...range }, signal),
   });
 
   /*
@@ -386,6 +386,7 @@ function DepositApprovalsContent() {
             value: tab.value,
             label: t(tab.labelKey),
             count: countOf(tab.value),
+            capped: countOf.capped(tab.value),
           }))}
           active={state}
           // A different tab is a different list: the cursor goes with it.

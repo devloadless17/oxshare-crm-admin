@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, AlertCircle, Clock } from 'lucide-react';
 import { PageLoader } from '@/components/ui/loader';
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/lib/return-to';
+import { IDLE_REASON, IDLE_REASON_PARAM } from '@/lib/idle';
 import { RedirectIfAuthenticated } from '@/components/auth/redirect-if-authenticated';
 import { AuthenticatorStep } from '@/components/auth/authenticator-step';
 import type { AdminSignInChallenge } from '@/lib/api/auth';
@@ -35,6 +36,9 @@ function AdminLoginForm() {
    * way to the code step — or, the first time, to scanning the QR code.
    */
   const [challenge, setChallenge] = React.useState<AdminSignInChallenge | null>(null);
+  // Sent here by the idle rule (components/idle-guard.tsx): say why, so an
+  // administrator back from lunch does not wonder what went wrong.
+  const signedOutIdle = searchParams.get(IDLE_REASON_PARAM) === IDLE_REASON;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,6 +153,15 @@ function AdminLoginForm() {
             />
           ) : (
             <>
+              {signedOutIdle && !error && (
+                <div
+                  role="status"
+                  className="flex items-center gap-2 rounded-lg border border-border bg-muted p-3 text-xs text-muted-foreground"
+                >
+                  <Clock className="h-4 w-4 shrink-0" />
+                  <span>{t('login.signedOutIdle')}</span>
+                </div>
+              )}
               {error && (
                 <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                   <AlertCircle className="h-4 w-4 shrink-0" />

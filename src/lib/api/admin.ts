@@ -2606,8 +2606,15 @@ export const adminApi = {
    * correction would write a compensating entry for a cause nobody diagnosed,
    * turning a detectable problem into a permanent one that looks deliberate.
    */
-  async getReconciliation(signal?: AbortSignal): Promise<ReconciliationReport> {
-    const { data } = await apiClient.get<ReconciliationReport>('/admin/reconciliation', { signal });
+  /**
+   * The last check (the hourly job's, with its `checkedAt`), or a new one with
+   * `fresh`. A check reads the whole ledger, so only "Run now" asks for one.
+   */
+  async getReconciliation(signal?: AbortSignal, fresh = false): Promise<ReconciliationReport> {
+    const { data } = await apiClient.get<ReconciliationReport>('/admin/reconciliation', {
+      signal,
+      params: fresh ? { fresh: 'true' } : undefined,
+    });
     return data;
   },
 

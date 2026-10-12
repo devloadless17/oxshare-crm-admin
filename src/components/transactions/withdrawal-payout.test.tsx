@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import type { WithdrawalRow } from '@/lib/api/admin';
-import { CancelWithdrawalDialog } from './withdrawal-payout';
+import { CancelWithdrawalDialog, PayoutBadge } from './withdrawal-payout';
 
 /**
  * Cancelling an approved withdrawal: the reviewer's typed note can carry an
@@ -65,5 +65,20 @@ describe('cancelling a withdrawal, in Arabic too', () => {
   it('leaves it out when blank', async () => {
     const body = await cancelWith('');
     expect(body.reasonAr).toBeUndefined();
+  });
+});
+
+describe('a payout the provider holds for approval', () => {
+  const sent = { ...target, providerPayoutId: 'p-1', needsAttention: false } as WithdrawalRow;
+
+  it('says it waits for approval THERE, not that it is on its way', () => {
+    renderWithProviders(<PayoutBadge w={{ ...sent, providerStatus: 'pending' }} />);
+    expect(screen.getByText('Waiting for approval at the provider')).toBeInTheDocument();
+    expect(screen.queryByText('Awaiting the provider')).not.toBeInTheDocument();
+  });
+
+  it('one already sent still reads as awaiting the provider', () => {
+    renderWithProviders(<PayoutBadge w={{ ...sent, providerStatus: 'executing' }} />);
+    expect(screen.getByText('Awaiting the provider')).toBeInTheDocument();
   });
 });

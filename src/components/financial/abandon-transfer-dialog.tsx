@@ -1,5 +1,6 @@
 'use client';
 
+import { clientLabel } from '@/components/clients/client-identity';
 import * as React from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
@@ -101,7 +102,7 @@ export function AbandonTransferDialog({
         t('financial.abandonSucceeded', {
           amount: formatMoney(row.amount, row.currency),
         }),
-        row.user?.email ?? undefined,
+        row.user ? clientLabel(row.user) : undefined,
       );
     },
     onError: (error) => toastError(error, t('financial.abandonFailed')),
@@ -126,7 +127,8 @@ export function AbandonTransferDialog({
                */
               amount: target.amount,
               currency: target.currency,
-              email: target.user?.email ?? '—',
+              // Never a dash: with name and email hidden, the Portal ID still names them.
+              email: clientLabel(target.user ?? {}),
             })
           : undefined
       }

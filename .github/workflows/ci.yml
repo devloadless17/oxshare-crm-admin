@@ -468,6 +468,14 @@ jobs:
           # rejected password, a broken invite, a navigation timeout and a
           # missing screen. The limits stay covered by three backend suites.
           RELAX_RATE_LIMITS: '1'
+          # E2E ONLY — an administrator idle for this long is signed out, and the
+          # default is 15 minutes (the owner's rule, 12 Oct 2026). These suites
+          # sign in ONCE and reuse the saved cookie jar across a run longer than
+          # that, with nobody "touching the console" between specs, so the
+          # product default would end the session mid-run. The rule itself is
+          # pinned by the backend's admin-idle-timeout.spec.ts and the console's
+          # idle-guard.test.tsx, not by a browser waiting fifteen minutes.
+          ADMIN_IDLE_TIMEOUT_MINUTES: '720'
           PORTAL_URL: http://localhost:3000
           # Ephemeral and CI-only. Real deployments supply their own; these
           # exist to satisfy the boot-time validation, which refuses to start on

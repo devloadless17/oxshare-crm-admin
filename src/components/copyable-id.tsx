@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Check, Copy } from 'lucide-react';
+import { PermittedLink } from '@/components/permitted-link';
 import { t } from '@/lib/i18n';
 
 /*
@@ -16,11 +17,14 @@ export function CopyableId({
   value,
   full = false,
   copyLabel = t('common.copyId'),
+  href,
 }: {
   value: string;
   full?: boolean;
   /** What the copy button is called — "Copy Portal ID" says what lands on the clipboard. */
   copyLabel?: string;
+  /** Makes the value a link — for a row where the id is all that can open the record. */
+  href?: string;
 }) {
   const [copied, setCopied] = React.useState(false);
   /*
@@ -68,7 +72,15 @@ export function CopyableId({
         className={`font-mono text-xs text-muted-foreground ${full ? 'break-all' : 'whitespace-nowrap'}`}
         title={value}
       >
-        {full ? value : value.slice(0, 8)}
+        {href ? (
+          <PermittedLink href={href} className="text-link hover:underline focus-outline rounded-sm">
+            {full ? value : value.slice(0, 8)}
+          </PermittedLink>
+        ) : full ? (
+          value
+        ) : (
+          value.slice(0, 8)
+        )}
       </code>
       <button
         type="button"

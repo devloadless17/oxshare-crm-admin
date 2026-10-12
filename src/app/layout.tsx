@@ -7,6 +7,7 @@ import { LocaleDirection } from '@/components/locale-direction';
 import { ThemeProvider } from '@/components/theme-provider';
 
 import { AdminAuthProvider } from '@/context/AdminAuthContext';
+import { IdleGuard } from '@/components/idle-guard';
 import { SESSION_HINT_COOKIE } from '@/lib/session-hint';
 import { QueryProvider } from '@/components/query-provider';
 import { Toaster } from '@/components/ui/toaster';
@@ -89,6 +90,9 @@ export default async function RootLayout({
                   The Toaster below is not a provider and needs no such position
                   — only `ThemeProvider`, whose resolved theme it reads. */}
               <ConfirmProvider>{children}</ConfirmProvider>
+              {/* Signs out an administrator who has not touched the console for
+                  the idle window. At the root so activity counts on every page. */}
+              <IdleGuard />
             </AdminAuthProvider>
           </QueryProvider>
           <Toaster />

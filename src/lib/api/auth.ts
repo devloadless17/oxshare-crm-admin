@@ -1,4 +1,5 @@
 import { apiClient, clearAdminSession, startProactiveRefresh } from './client';
+import { resetActivity } from '@/lib/idle';
 import type { components } from './types.gen';
 
 /**
@@ -79,6 +80,10 @@ export const authApi = {
     });
     // Nothing to store: the server sets the session as httpOnly cookies and the
     // browser installs them from this very response (PLATFORM-CONVENTIONS R-3.2).
+    //
+    // A sign-in is activity: the idle clock starts here, not at whatever this
+    // browser recorded for the session before it — see lib/idle.ts.
+    resetActivity();
     startProactiveRefresh();
     return data;
   },
