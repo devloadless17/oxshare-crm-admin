@@ -11,14 +11,23 @@ import PaymentProviderPage from './page';
  * asserted is the PAYLOAD: a secret is sent only when typed, a blank box keeps
  * the saved one, and only what changed goes out (backend 0168).
  */
-const { getPaymentProvider, updatePaymentProvider, getPaymentProviderEvents } = vi.hoisted(() => ({
-  getPaymentProvider: vi.fn(),
-  updatePaymentProvider: vi.fn(),
-  getPaymentProviderEvents: vi.fn(),
-}));
+const { getPaymentProvider, updatePaymentProvider, getPaymentProviderEvents, testPaymentProvider } =
+  vi.hoisted(() => ({
+    getPaymentProvider: vi.fn(),
+    updatePaymentProvider: vi.fn(),
+    getPaymentProviderEvents: vi.fn(),
+    testPaymentProvider: vi.fn(),
+  }));
 
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getPaymentProvider, updatePaymentProvider, getPaymentProviderEvents } };
+  const api = {
+    admin: {
+      getPaymentProvider,
+      updatePaymentProvider,
+      getPaymentProviderEvents,
+      testPaymentProvider,
+    },
+  };
   return { api, default: api };
 });
 
@@ -79,7 +88,25 @@ beforeEach(() => {
   getPaymentProvider.mockReset().mockResolvedValue(rival);
   updatePaymentProvider.mockReset().mockResolvedValue(rival);
   getPaymentProviderEvents.mockReset().mockResolvedValue([]);
+  testPaymentProvider
+    .mockReset()
+    .mockResolvedValue({ ok: true, message: 'Connected.', checkedAt: new Date().toISOString() });
 });
+
+/** A typed secret, set or not, required or not. */
+function secret(name: string, label: string, required: boolean, isSet: boolean) {
+  return {
+    name,
+    label,
+    kind: 'secret' as const,
+    required,
+    hint: null,
+    generated: false,
+    value: null,
+    isSet,
+    fingerprint: null,
+  };
+}
 
 describe('a provider’s connection', () => {
   it('keeps the saved key when the box is left blank, and sends only what changed', async () => {
@@ -110,5 +137,35 @@ describe('a provider’s connection', () => {
     // The webhook key is rotated, never typed: only its fingerprint shows.
     expect(screen.queryByLabelText(/webhook key/i)).toBeNull();
     expect(screen.getByText('ab12cd34')).toBeInTheDocument();
+  });
+});
+
+describe('Test connection', () => {
+  it('is offered while an OPTIONAL secret is left blank (3pay’s webhook secret)', async () => {
+    getPaymentProvider.mockResolvedValue(
+      provider({
+        code: 'threepay',
+        name: '3pay',
+        settings: [
+          secret('apiSecret', 'API secret (x-api-secret)', true, true),
+          secret('webhookSecret', 'Webhook secret (optional)', false, false),
+        ],
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<PaymentProviderPage />);
+
+    const button = await screen.findByRole('button', { name: /test connection/i });
+    expect(button).toBeEnabled();
+    await user.click(button);
+    await waitFor(() => expect(testPaymentProvider).toHaveBeenCalledWith('threepay'));
+  });
+
+  it('waits for a REQUIRED secret that was never saved', async () => {
+    getPaymentProvider.mockResolvedValue(
+      provider({ settings: [secret('apiKey', 'Company API key', true, false)] }),
+    );
+    renderWithProviders(<PaymentProviderPage />);
+    expect(await screen.findByRole('button', { name: /test connection/i })).toBeDisabled();
   });
 });

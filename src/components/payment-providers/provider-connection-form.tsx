@@ -121,7 +121,13 @@ export function ProviderConnectionForm({
   });
 
   const busy = save.isPending || !canManage;
-  const secretsSaved = typed.filter((s) => s.kind === 'secret').every((s) => s.isSet);
+  /*
+   * A test asks the provider with the SAVED settings, so it waits for every
+   * REQUIRED secret. An optional one (3pay's webhook secret, read from its
+   * account when left blank) must never hold it back: counting it greyed the
+   * button out in production on 12 Oct 2026 with nothing on screen saying why.
+   */
+  const secretsSaved = typed.filter((s) => s.kind === 'secret' && s.required).every((s) => s.isSet);
 
   return (
     <form
