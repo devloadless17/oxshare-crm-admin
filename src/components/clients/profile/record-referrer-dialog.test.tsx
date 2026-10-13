@@ -83,6 +83,12 @@ describe('refusal sentences', () => {
     expect(refusalMessage('REFERRAL_SELF', 'fallback')).toMatch(/own referral code/i);
   });
 
+  it('says a partner’s introducer follows their position, and where to change it', () => {
+    expect(refusalMessage('REFERRER_FOLLOWS_POSITION', 'fallback')).toMatch(
+      /follows where they sit.*change commission level/i,
+    );
+  });
+
   it("falls back to the API's own sentence for a code it has not mapped", () => {
     /*
      * A code we have not seen must stay READABLE. Swallowing it into a generic

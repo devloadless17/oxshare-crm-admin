@@ -38,14 +38,12 @@ import { keys } from '@/lib/query-keys';
  * second-guesses them, while the programme was what the BROKER decided and the
  * applicant never saw the catalogue.
  *
- * There is no catalogue now. A partner's terms come from their LEVEL, and a
- * level is not a choice — it is where they sit: a partner with no parent deals
- * with the broker directly and is level 1, and one recruited by another partner
- * is a rung deeper. So approval has nothing commercial left in it, and the one
- * question this dialog still asks is the agency.
- *
- * The rung can be corrected afterwards from the partner's profile, for the
- * cases the tree does not describe — see `ChangeLevelDialog`.
+ * There is no catalogue now. A partner's terms come from their LEVEL, and the
+ * level follows the position. Approval here names no parent, so every partner
+ * approved from this dialog is a MAIN partner (level 1), whoever introduced
+ * them (13 Oct 2026). Making one a sub-partner (level 2) is a separate,
+ * deliberate act: Change commission level on their profile. So the one
+ * question this dialog asks is the agency, and it says where level 2 is set.
  */
 export function PartnerApproveDialog({
   open,
@@ -94,6 +92,9 @@ export function PartnerApproveDialog({
       <div className="space-y-4">
         <p className="text-xs leading-relaxed text-muted-foreground">
           {t('partnerReview.confirmApprove')}
+        </p>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {t('partnerReview.joinsAsMain')}
         </p>
 
         {mustChoose ? (

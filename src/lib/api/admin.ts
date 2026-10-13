@@ -1542,18 +1542,21 @@ export const adminApi = {
 
   /**
    * A change of level is a MOVE (7 Oct 2026): 2 → 1 detaches them and clears
-   * "introduced by"; 1 → 2 needs `parentIbUserId`, the main partner to sit under.
+   * "introduced by"; 1 → 2 needs `parentIbUserId`, the main partner to sit under,
+   * and `agencyId`, the agency chosen for them there (13 Oct 2026).
    */
   async changeIbPartnerLevel(
     userId: ClientRef,
     level: number,
     parentIbUserId?: ClientRef | null,
+    agencyId?: string,
   ): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/level`, {
       level,
       ...(parentIbUserId !== undefined && parentIbUserId !== null
         ? { parentIbUserId: Number(parentIbUserId) }
         : {}),
+      ...(agencyId ? { agencyId } : {}),
     });
     return data;
   },
@@ -1576,13 +1579,19 @@ export const adminApi = {
     return data;
   },
 
-  /** `null` makes them a direct partner — it is a value, not an omission. */
+  /**
+   * `null` makes them a direct partner — it is a value, not an omission. Under
+   * a main partner, `agencyId` is required: the agency is chosen in the same
+   * step, never copied from the parent (13 Oct 2026).
+   */
   async reassignIbPartnerParent(
     userId: ClientRef,
     parentIbUserId: ClientRef | null,
+    agencyId?: string,
   ): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/parent`, {
       parentIbUserId: parentIbUserId === null ? null : Number(parentIbUserId),
+      ...(agencyId ? { agencyId } : {}),
     });
     return data;
   },

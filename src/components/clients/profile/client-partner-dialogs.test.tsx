@@ -16,18 +16,24 @@ import { ChangeLevelDialog, ReassignParentDialog } from './client-partner-dialog
  * The dialog is not the enforcement — it is what stops an operator learning a
  * rule by being refused, and what stops them changing pay by accident.
  */
-const { getIbLevels, changeIbPartnerLevel, getIbPartners, reassignIbPartnerParent } = vi.hoisted(
-  () => ({
+const { getIbLevels, changeIbPartnerLevel, getIbPartners, reassignIbPartnerParent, getAgencies } =
+  vi.hoisted(() => ({
     getIbLevels: vi.fn(),
     changeIbPartnerLevel: vi.fn(),
     getIbPartners: vi.fn(),
     reassignIbPartnerParent: vi.fn(),
-  }),
-);
+    getAgencies: vi.fn(),
+  }));
 
 vi.mock('@/lib/api', () => {
   const api = {
-    admin: { getIbLevels, changeIbPartnerLevel, getIbPartners, reassignIbPartnerParent },
+    admin: {
+      getIbLevels,
+      changeIbPartnerLevel,
+      getIbPartners,
+      reassignIbPartnerParent,
+      getAgencies,
+    },
   };
   return { api, default: api };
 });
@@ -92,6 +98,10 @@ function renderDialog() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getAgencies.mockResolvedValue([
+    { id: 'ag-gold', name: 'Gold Agency', description: null, enabled: true },
+    { id: 'ag-silver', name: 'Silver Agency', description: null, enabled: true },
+  ]);
   getIbLevels.mockResolvedValue([level(), SUB_PARTNER]);
   changeIbPartnerLevel.mockResolvedValue({});
   getIbPartners.mockResolvedValue({
@@ -204,10 +214,17 @@ describe('moving a partner to another level', () => {
     expect(screen.queryByRole('radio', { name: /self partner/i })).toBeNull();
     await userEvent.click(omar);
 
+    // The agency is chosen here too, never copied from the main partner (13 Oct 2026).
+    expect(save).toBeDisabled();
+    expect(screen.getByText(/not copied from the main partner/i)).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('radio', { name: /silver agency/i }));
+
     expect(save).toBeEnabled();
     await userEvent.click(save);
     /* The NUMBER, not an id — a level is its number, and that is the API's key. */
-    await waitFor(() => expect(changeIbPartnerLevel).toHaveBeenCalledWith('u-1', 2, 'u-9'));
+    await waitFor(() =>
+      expect(changeIbPartnerLevel).toHaveBeenCalledWith('u-1', 2, 'u-9', 'ag-silver'),
+    );
   });
 
   it('refuses level 2 for a main partner who has sub-partners of their own', async () => {
@@ -244,7 +261,7 @@ describe('moving a partner to another level', () => {
 
     expect(screen.getByText(/"introduced by" is removed/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /move to this level/i }));
-    await waitFor(() => expect(changeIbPartnerLevel).toHaveBeenCalledWith('u-1', 1, undefined));
+    await waitFor(() => expect(changeIbPartnerLevel).toHaveBeenCalledWith('u-1', 1));
   });
 });
 
@@ -303,8 +320,13 @@ describe('moving a partner under another main partner (7 Oct 2026)', () => {
     expect(screen.queryByRole('radio', { name: /self partner/i })).toBeNull();
 
     await user.click(omar);
+    // Under a main partner, the agency is required before Move is offered.
+    expect(screen.getByRole('button', { name: /^move$/i })).toBeDisabled();
+    await user.click(await screen.findByRole('radio', { name: /gold agency/i }));
     await user.click(screen.getByRole('button', { name: /^move$/i }));
-    await waitFor(() => expect(reassignIbPartnerParent).toHaveBeenCalledWith('u-1', 'u-9'));
+    await waitFor(() =>
+      expect(reassignIbPartnerParent).toHaveBeenCalledWith('u-1', 'u-9', 'ag-gold'),
+    );
   });
 
   it('searches the directory on the server', async () => {

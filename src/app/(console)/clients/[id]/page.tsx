@@ -239,6 +239,18 @@ export default function ClientProfilePage() {
 
   const profile = query.data;
   const partner = partnerQuery.data ?? null;
+  /*
+   * A PARTNER's introducer is never recorded by hand: it follows where they sit
+   * in the tree (13 Oct 2026), and the API refuses it with
+   * REFERRER_FOLLOWS_POSITION. So the action waits until this page KNOWS the
+   * client is not a partner, rather than flashing for one while that loads. A
+   * reader who may not view partners cannot know, and the API's sentence
+   * answers them instead.
+   */
+  const referrerRecordable =
+    canRecordReferrer &&
+    partner === null &&
+    !(canViewPartners && partnerQuery.status === 'loading');
   const attachedIds = new Set((profile?.tags ?? []).map((tag) => tag.id));
   const displayName = profile ? clientLabel(profile, t('clients.unnamed')) : t('clients.unnamed');
 
@@ -695,7 +707,13 @@ export default function ClientProfilePage() {
                         </p>
                       ) : (
                         <>
-                          <EmptySection message={t('clientProfile.noParentIb')} />
+                          <EmptySection
+                            message={
+                              partner && !partner.parent && !partner.parentOutsideTerritory
+                                ? t('clientProfile.noParentIbMain')
+                                : t('clientProfile.noParentIb')
+                            }
+                          />
                           {/*
                             Offered only where there is NOTHING to change. This
                             reads as "no partner is recorded, and here is how to
@@ -704,7 +722,7 @@ export default function ClientProfilePage() {
                             with a 409, so this condition is convenience and not
                             the guarantee.
                           */}
-                          {canRecordReferrer && (
+                          {referrerRecordable && (
                             <button
                               type="button"
                               onClick={() => {

@@ -48,6 +48,10 @@ import { t } from '@/lib/i18n';
  *   REFERRAL_SELF               a mistake they should see named
  *   REFERRAL_PARTNER_INACTIVE   the code was RIGHT and the partner is suspended
  *
+ * And REFERRER_FOLLOWS_POSITION when the client is a partner, whose introducer
+ * follows where they sit in the tree (13 Oct 2026). The page does not offer the
+ * action to a partner; this covers one who became a partner meanwhile.
+ *
  * The third is the reason the split is worth having. It tells the operator the
  * client was telling the truth and the problem is somewhere else entirely —
  * which is a different conversation from "check the spelling". Rendering it as a
@@ -58,6 +62,7 @@ const REFUSALS = {
   REFERRAL_SELF: 'clientProfile.refSelf',
   REFERRAL_PARTNER_INACTIVE: 'clientProfile.refInactive',
   REFERRER_ALREADY_SET: 'clientProfile.refAlready',
+  REFERRER_FOLLOWS_POSITION: 'clientProfile.refPartner',
 } as const;
 
 /*

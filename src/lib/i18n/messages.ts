@@ -790,6 +790,8 @@ export const messages = {
     'That code is correct, but the partner it belongs to is suspended. The client gave you the right code; whether attribution should be recorded is a decision about that partner.',
   'clientProfile.refAlready':
     'This client already has a referring partner. Attribution is recorded once and cannot be moved.',
+  'clientProfile.refPartner':
+    'This client is a partner, so who introduced them follows where they sit in the partner tree. To place them under a main partner, use Change commission level.',
   'clientProfile.refNoBackdate':
     'Applies to future activity. Commission already credited is not restated.',
   'kycReview.correctTitle': 'Correct identity details',
@@ -1152,6 +1154,8 @@ export const messages = {
   'clientProfile.walletCloseFailed': 'Could not close the wallet.',
   'clientProfile.parentIb': 'Introduced by',
   'clientProfile.noParentIb': 'Not introduced by a partner.',
+  // 13 Oct 2026: a main partner has no introducer, by rule, not by omission.
+  'clientProfile.noParentIbMain': 'None. A main partner deals with the broker directly.',
   // Distinct from `noParentIb` on purpose: "nobody introduced them" and "somebody
   // did, and they are outside your desk" are different commercial facts, and
   // collapsing them is what the unscoped referrer card used to do in reverse.
@@ -1294,6 +1298,13 @@ export const messages = {
     'and a commission wallet, and are emailed — exactly as when an application is approved. A ' +
     'pending application of theirs is approved by this.',
   'clientProfile.appointAgency': 'Agency',
+  // 13 Oct 2026: placing a partner under a main partner asks the agency every
+  // time; it is never copied from the main partner.
+  'clientProfile.subPartnerAgency': 'Which agency will they work under?',
+  'clientProfile.subPartnerAgencyNote':
+    'Choose it here: it is not copied from the main partner. It decides what their clients may trade.',
+  'clientProfile.agencyCurrent': '(current)',
+  'clientProfile.agenciesFailed': 'The agencies could not be loaded. Close this and try again.',
   'clientProfile.appointPlacement': 'Position',
   'clientProfile.appointAsMain': 'Main partner',
   'clientProfile.appointAsMainHint': 'Level 1, deals with the broker directly. No introducer.',
@@ -4022,10 +4033,11 @@ export const messages = {
   'ibLevels.partnerCount': '{count} {count:partner|partners} here',
 
   // WHO stands on this rung, said plainly. "Level 2" alone is a number; "a
-  // partner recruited by a level 1 partner" is the thing an operator is
-  // actually pricing.
+  // partner placed under a level 1 partner" is the thing an operator is
+  // actually pricing. Since 13 Oct 2026 an administrator places them there;
+  // being introduced by a partner no longer does.
   'ibLevels.whoIsHere_1': 'Partners who deal with the broker directly.',
-  'ibLevels.whoIsHere_n': 'Partners recruited by a level {parent} partner.',
+  'ibLevels.whoIsHere_n': 'Partners placed under a level {parent} partner.',
 
   'ibLevels.add': 'Add level {level}',
   'ibLevels.addSucceeded': 'Level {level} was added. Set its rates before anybody is placed on it.',
@@ -4081,7 +4093,7 @@ export const messages = {
   'ibLevels.descriptionPlaceholder': 'What this tier is for — who qualifies, what was agreed.',
   'ibLevels.addTitle': 'Add level {level}',
   'ibLevels.addDescription':
-    'Partners recruited by a level {parent} partner sit here. Set what they earn before anybody ' +
+    'Partners placed under a level {parent} partner sit here. Set what they earn before anybody ' +
     'is placed on it — a level paying nothing looks the same as one nobody has configured.',
   'ibLevels.addSave': 'Add level',
   'ibLevels.editTitle': 'Edit level {level}',
@@ -4200,6 +4212,9 @@ export const messages = {
   'partnerReview.confirmApproveTitle': 'Approve {name} as a partner?',
   'partnerReview.confirmApprove':
     'This creates their partner account and issues a referral code, which is never reissued. The application cannot be decided again.',
+  // 13 Oct 2026: approval never places anyone under their introducer.
+  'partnerReview.joinsAsMain':
+    'They join as a main partner (level 1), and whoever introduced them stops earning on them. To make them a sub-partner (level 2), use Change commission level on their profile after approving.',
   'partnerReview.approving': 'Approving…',
   'withdrawals.searchPlaceholder': 'Search by name, email, phone or Portal ID',
   'withdrawals.actionsFor': 'Actions for {name}’s withdrawal',

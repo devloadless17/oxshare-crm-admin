@@ -3596,6 +3596,8 @@ export interface paths {
          *
          *     Three distinct refusals, because they need three sentences — `REFERRAL_CODE_UNKNOWN` (a typo), `REFERRAL_SELF` (the client’s own code), and `REFERRAL_PARTNER_INACTIVE` (the code was RIGHT; that partner is suspended).
          *
+         *     A PARTNER answers **409 REFERRER_FOLLOWS_POSITION**: their introducer follows where they sit in the partner tree (nobody for a main partner, their main partner for a sub-partner) and moves with Change commission level, never here.
+         *
          *     Does NOT backdate: commission reads attribution at accrual time, so this pays on deals not yet accrued and restates nothing already credited.
          */
         patch: operations["AdminClientsController_setClientReferrer"];
@@ -6211,24 +6213,16 @@ export interface components {
             /** Format: date-time */
             submittedAt: string;
         };
-        InheritedAgencyDto: {
-            id: string;
-            name: string;
-            /** @description The agency name in Arabic (0179); null = not translated, show `name`. */
-            nameAr: string | null;
-        };
         IbStatusDto: {
             account: components["schemas"]["IbAccountDto"] | null;
             application: components["schemas"]["IbApplicationDto"] | null;
             eligible: boolean;
             ineligibleReason: string | null;
             /**
-             * @description Machine-readable counterpart to ineligibleReason. `unverified` — identity not verified yet. `chain_full` — the partner who introduced them is already on the deepest enabled level, so there is no rung to place them on. Null when eligible.
+             * @description Machine-readable counterpart to ineligibleReason. `unverified` — identity not verified yet. Null when eligible.
              * @enum {string|null}
              */
-            ineligibleCode: "unverified" | "chain_full" | null;
-            /** @description Set when the applicant was introduced by an existing partner and therefore inherits that partner's programme — the portal must not offer a choice in that case. Null when the applicant chooses: any client not introduced by a partner, or one whose introducer carries no programme. */
-            inheritedAgency: components["schemas"]["InheritedAgencyDto"] | null;
+            ineligibleCode: "unverified" | null;
         };
         IbEarningsDto: {
             /**
@@ -6435,7 +6429,7 @@ export interface components {
         CreateIbApplicationDto: {
             /**
              * Format: uuid
-             * @description Which agency the applicant wants to be appointed under. Required for an applicant who chooses; omitted when they were introduced by a partner — the programme is inherited from the introducer and anything sent here is ignored.
+             * @description Which agency the applicant wants to be appointed under. Required: an application without one is refused.
              */
             agencyId?: string;
             /** @description Why the client wants to introduce business. Shown to the reviewer verbatim. */
@@ -6443,11 +6437,11 @@ export interface components {
             website?: string;
         };
         ApproveIbApplicationDto: {
-            /** @description The parent to nest the new partner under. OMITTED means "the reviewer did not say" — the introducer recorded at registration becomes the parent, which is the ordinary case. An explicit NULL roots them: they deal with the broker directly at level 1, whoever introduced them. */
+            /** @description The main partner to place the new partner under, making them a sub-partner (level 2). Omitted or null: a main partner (level 1) dealing with the broker directly, whoever introduced them. */
             parentIbUserId?: number | null;
             /**
              * Format: uuid
-             * @description Omitted grants the agency the applicant chose. Required when the application carries none — a partner cannot be approved without an agency.
+             * @description Omitted grants the agency the applicant chose. Required when the application carries none, and whenever parentIbUserId is set: the administrator chooses the agency of a partner placed under a main partner.
              */
             agencyId?: string;
         };
@@ -6634,12 +6628,17 @@ export interface components {
         };
         ChangeIbLevelDto: {
             /**
-             * @description The level IS the position (0197): 1 with no parent, 2 under a main partner. Choosing the other level MOVES them — 1 detaches them from their parent, 2 places them under `parentIbUserId` — and "introduced by" follows the new position.
+             * @description The level IS the position (0197): 1 with no parent, 2 under a main partner. Choosing the other level MOVES them — 1 detaches them from their parent, 2 places them under `parentIbUserId` on the `agencyId` chosen — and "introduced by" follows the new position.
              * @example 2
              */
             level: number;
             /** @description The main partner to place them under. Required when moving a main partner to 2. */
             parentIbUserId?: number | null;
+            /**
+             * Format: uuid
+             * @description The agency they work under from the move on. Required when moving a main partner to 2: the administrator chooses it, it is never copied from the main partner.
+             */
+            agencyId?: string;
         };
         AppointIbPartnerDto: {
             /**
@@ -6653,6 +6652,11 @@ export interface components {
         ReassignIbParentDto: {
             /** @description The new parent partner, or null to make them a direct partner. */
             parentIbUserId: number | null;
+            /**
+             * Format: uuid
+             * @description The agency they work under from the move on. Required with a parent: the administrator chooses it, it is never copied from the main partner. Ignored with null, where they keep their own.
+             */
+            agencyId?: string;
         };
         SetIbTermsDto: {
             /**
