@@ -248,9 +248,7 @@ export default function ClientProfilePage() {
    * answers them instead.
    */
   const referrerRecordable =
-    canRecordReferrer &&
-    partner === null &&
-    !(canViewPartners && partnerQuery.status === 'loading');
+    canRecordReferrer && !partner && !(canViewPartners && partnerQuery.status === 'loading');
   const attachedIds = new Set((profile?.tags ?? []).map((tag) => tag.id));
   const displayName = profile ? clientLabel(profile, t('clients.unnamed')) : t('clients.unnamed');
 

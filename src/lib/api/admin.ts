@@ -1501,10 +1501,17 @@ export const adminApi = {
    * would read `.level` off null on the majority of profiles.
    */
   async getPartnerDetail(userId: ClientRef, signal?: AbortSignal): Promise<IbPartnerDetail | null> {
-    const { data } = await apiClient.get<IbPartnerDetail | null>(`/admin/ib/partners/${userId}`, {
+    const { data } = await apiClient.get<IbPartnerDetail | ''>(`/admin/ib/partners/${userId}`, {
       signal,
     });
-    return data ?? null;
+    /*
+     * Not a partner is answered 200 with an EMPTY body, which axios hands back
+     * as '' — not null. `?? null` kept that '', so a caller checking
+     * `partner === null` read every individual as a partner and hid "Record
+     * referring partner" on their Network tab (13 Oct 2026). Normalised here,
+     * once, so the declared type is the truth.
+     */
+    return data || null;
   },
 
   /**
