@@ -34,10 +34,10 @@ import { t } from '@/lib/i18n';
  * they were already stacked on one page. Tabs give them room to be filled in
  * without turning the page into a scroll.
  *
- * A Security tab (the RBAC-08 network allowlist) also lived here. It is its own
- * page now, `/network-access`, under Security in the sidebar (25 Sep 2026): it
- * decides who can reach the console at all, which is a security control and
- * not configuration. A `?tab=security` bookmark is sent there — see below.
+ * A Security tab (the RBAC-08 network allowlist) also lived here, then its own
+ * `/network-access` page. Both are gone: since 0224 each administrator's
+ * networks are set on their invite and their edit form. A `?tab=security`
+ * bookmark lands on the first tab like any other unknown tab.
  *
  * ── The active tab lives in the URL ────────────────────────────────────────
  *
@@ -146,16 +146,6 @@ function AdminSettingsContent() {
    */
   const requested = searchParams.get('tab') ?? '';
 
-  /*
-   * The Security tab moved to its own page. A link to it is REDIRECTED rather
-   * than left to the Platforms fallback: the operator asked for the allowlist,
-   * which still exists, and landing elsewhere would read as the allowlist
-   * having been removed. The page's own route gate decides
-   * whether they may see it.
-   */
-  React.useEffect(() => {
-    if (requested === 'security') router.replace('/network-access');
-  }, [requested, router]);
   // `tabs` always has Platforms, so the fallback is never reached — it exists
   // because the compiler cannot know that from the filter.
   const active = tabs.some((tab) => tab.value === requested)

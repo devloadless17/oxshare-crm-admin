@@ -134,6 +134,4 @@ export const ALL_PERMISSIONS: string[] = [
   'apikeys.view',
   'apikeys.create',
   'apikeys.revoke',
-  'settings.security.view',
-  'settings.security.edit',
 ];

@@ -239,14 +239,6 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    */
   { prefix: '/settings', requirement: { permission: 'settings.view' } },
   /*
-   * RBAC-08 — which networks may reach the administration API. Its own page
-   * under Security since 25 Sep 2026; it was a tab on /settings. READ is the
-   * view key, and the add/remove controls inside check `settings.security.edit`
-   * — seeing which networks are trusted is an audit question, adding one can
-   * lock every administrator out.
-   */
-  { prefix: '/network-access', requirement: { permission: 'settings.security.view' } },
-  /*
    * `admins.view`, not the old `users.view`, and that split is the point of the
    * key: one permission used to open the client list AND the administrator
    * directory, so granting somebody the clients screen handed them the list of

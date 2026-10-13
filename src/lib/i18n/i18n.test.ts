@@ -39,12 +39,8 @@ describe('t() — plurals', () => {
   });
 
   it('lets a branch carry the count itself', () => {
-    expect(t('ipAllowlist.enforcing', { count: 1 })).toBe(
-      'Enforcing. Only the network below can reach the administration API.',
-    );
-    expect(t('ipAllowlist.enforcing', { count: 4 })).toBe(
-      'Enforcing. Only the 4 networks below can reach the administration API.',
-    );
+    expect(t('adminUsers.network.summaryIps', { count: 1 })).toBe('1 IP');
+    expect(t('adminUsers.network.summaryIps', { count: 4 })).toBe('4 IPs');
   });
 
   it('agrees the verb with the noun, not just the noun', () => {

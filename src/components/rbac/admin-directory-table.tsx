@@ -345,6 +345,37 @@ export function AdminDirectoryTable({
     },
     {
       /*
+       * RBAC-08 per administrator (0224): where they may sign in from. An
+       * absent field (the console deployed ahead of the API) reads as before
+       * 0224 — no per-person restriction.
+       */
+      header: t('adminUsers.colNetwork'),
+      cell: (row) => {
+        if (!row.admin) return <span className="text-muted-foreground">—</span>;
+        const ips = row.admin.allowedIps ?? [];
+        if (row.admin.accessAnywhere ?? true) {
+          return <span className="text-[11px]">{t('adminUsers.network.summaryAnywhere')}</span>;
+        }
+        return (
+          <span className="flex flex-col gap-0.5" title={ips.join(', ')}>
+            {ips.slice(0, 2).map((ip) => (
+              <code key={ip} className="text-[11px]">
+                {ip}
+              </code>
+            ))}
+            {ips.length > 2 && (
+              <span className="text-[10px]">
+                {t('adminUsers.network.summaryIps', { count: ips.length })}
+              </span>
+            )}
+          </span>
+        );
+      },
+      cellClassName: 'text-muted-foreground',
+      sortable: false,
+    },
+    {
+      /*
        * What each administrator's link has brought (0198) — counts, never who.
        * An invite has no link yet: it is made when the account is.
        */

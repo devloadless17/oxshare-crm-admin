@@ -39,6 +39,8 @@ const admin = (over: Partial<AdminProfile> = {}): AdminProfile => ({
   name: 'Ada Lovelace',
   role: 'sub_admin',
   seesAllClients: true,
+  accessAnywhere: true,
+  allowedIps: [],
   status: 'active',
   permissions: ['clients.view'],
   maskedFields: [],

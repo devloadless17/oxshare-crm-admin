@@ -80,65 +80,6 @@ export const messages = {
   'nav.withdrawals': 'Withdrawals',
   'nav.ledger': 'Ledger',
 
-  // ── RBAC-08, the admin IP allowlist ───────────────────────────────────────
-  'ipAllowlist.title': 'Network access',
-  'ipAllowlist.subtitle':
-    'Restrict the administration console to particular networks. Client-facing pages are never affected.',
-  'ipAllowlist.loading': 'Loading network rules',
-  'ipAllowlist.loadFailed': 'Could not load the network rules.',
-  // Says OFF in words. A page titled "Network Access" showing no errors reads as
-  // protection to anybody who does not know an empty list disables the feature.
-  'ipAllowlist.notEnforcing':
-    'No rules configured, so this protection is OFF — the console is reachable from any network. Adding the first rule switches it on.',
-  'ipAllowlist.enforcing':
-    'Enforcing. Only the {count:network|{count} networks} below can reach the administration API.',
-  'ipAllowlist.disabledByConfig':
-    'Enforcement is switched OFF by configuration (ADMIN_IP_ALLOWLIST_ENABLED=false). The rules below are saved and none of them is being applied. Remove that setting and restart to enforce them again.',
-  // The address the SERVER sees. Behind the console's dev proxy that is ::1, not
-  // the operator's public address — printing it bare invites them to compare it
-  // with a "what is my IP" site and conclude the console is broken.
-  'ipAllowlist.yourIp':
-    'This request reached the API from {ip}. That is the address the SERVER sees — behind a proxy or in local development it is the proxy, not your public address. A rule has to cover this value to admit you.',
-  'ipAllowlist.yourIpUnknown':
-    'The API could not determine the address this request came from. Adding a rule now would lock you out, and it will be refused.',
-  'ipAllowlist.empty': 'No network rules. The console is reachable from anywhere.',
-  'ipAllowlist.firstRuleWarning':
-    'This is the FIRST rule, so it turns enforcement on immediately. If it does not cover the address above you would lose access to this screen — the API refuses such a rule rather than locking you out.',
-  'ipAllowlist.cidrLabel': 'Address or range (CIDR)',
-  'ipAllowlist.labelLabel': 'What is it',
-  'ipAllowlist.labelPlaceholder': 'Beirut office',
-  'ipAllowlist.addRule': 'Add rule',
-  'ipAllowlist.addFailed': 'Could not add that rule.',
-  'ipAllowlist.removeFailed': 'Could not remove that rule.',
-  'ipAllowlist.remove': 'Remove {cidr}',
-  'ipAllowlist.removeTitle': 'Remove this network rule?',
-  'ipAllowlist.confirmRemove':
-    'Remove {cidr}? If it is the last rule covering your own address the API will refuse, because it would lock you out.',
-  'ipAllowlist.youAreExempt':
-    'You can reach the console from any network, so no rule here can lock you out.',
-  // 0191 — administrators who bypass the list. The sentence says what it does
-  // NOT change, because "bypass" reads as "all powers" to anyone in a hurry.
-  'ipAllowlist.exempt.title': 'Admins who can connect from any network',
-  'ipAllowlist.exempt.subtitle':
-    'These administrators reach the console from anywhere. Only the network check is skipped: their permissions stay exactly as their role gives them, and API keys are never exempt.',
-  'ipAllowlist.exempt.empty': 'Nobody. Every administrator is held to the networks above.',
-  'ipAllowlist.exempt.grantedBy': 'Granted by {name} on {date}',
-  'ipAllowlist.exempt.grantedByUnknown': 'Granted on {date}',
-  'ipAllowlist.exempt.you': 'you',
-  'ipAllowlist.exempt.adminLabel': 'Administrator',
-  'ipAllowlist.exempt.adminPlaceholder': 'Choose an administrator',
-  'ipAllowlist.exempt.reasonLabel': 'Why',
-  'ipAllowlist.exempt.reasonPlaceholder': 'Owner, travels',
-  'ipAllowlist.exempt.add': 'Allow from any network',
-  'ipAllowlist.exempt.noAdminsView':
-    'Choosing an administrator needs the Admin users view permission.',
-  'ipAllowlist.exempt.noneLeft': 'Every active administrator is already exempt.',
-  'ipAllowlist.exempt.addFailed': 'Could not allow that administrator.',
-  'ipAllowlist.exempt.removeFailed': 'Could not remove that exemption.',
-  'ipAllowlist.exempt.remove': 'Remove {name}',
-  'ipAllowlist.exempt.removeTitle': 'Hold this administrator to the network rules?',
-  'ipAllowlist.exempt.confirmRemove':
-    '{name} will be refused on their next request from outside the networks above. Removing your OWN exemption from outside them is refused, because it would lock you out.',
   'nav.commissionPlans': 'Commission Plans',
   'nav.kyc': 'KYC review',
   'nav.kycBuilder': 'KYC builder',
@@ -1018,6 +959,23 @@ export const messages = {
   'roles.maskLockedOwn': 'Hidden from you — you cannot grant visibility you do not have.',
 
   'adminUsers.scopeSection': 'Client scope',
+
+  // ── RBAC-08 per administrator (0224) ─────────────────────────────────────
+  'adminUsers.network.section': 'Network access',
+  'adminUsers.network.onlyIps': 'Only these IPs',
+  'adminUsers.network.anywhere': 'Access from anywhere',
+  'adminUsers.network.anywhereHint':
+    'This administrator can sign in to the console from any network.',
+  'adminUsers.network.ipsLabel': 'Allowed IP addresses',
+  'adminUsers.network.ipsHint':
+    'One per line. A single address (203.0.113.7) or a range (203.0.113.0/24). This administrator can only sign in from these.',
+  'adminUsers.network.ipsPlaceholder': '203.0.113.7',
+  'adminUsers.network.required': 'Add at least one IP address, or choose "Access from anywhere".',
+  'adminUsers.network.invalid': '"{value}" is not a valid IPv4 address or range.',
+  'adminUsers.network.summaryAnywhere': 'Anywhere',
+  'adminUsers.network.summaryIps': '{count:1 IP|{count} IPs}',
+  'adminUsers.network.self':
+    'You cannot change your own network access. Another administrator has to.',
   // A scope id the tag vocabulary did not return — shown rather than dropped.
   'adminUsers.scopeUnknownTag': 'Unknown tag',
   'adminUsers.scopeSummary': '{count} {count:tag|tags}',
@@ -1103,6 +1061,7 @@ export const messages = {
   'adminUsers.masterExempt':
     'The master admin sees every client and every field, without exception (FR-RBAC-01).',
   'adminUsers.colScope': 'Client scope',
+  'adminUsers.colNetwork': 'Network',
   'adminUsers.scopeAll': 'All clients',
   'adminUsers.scopeCount': '{count} {count:tag|tags}',
   'adminUsers.maskCount': '{count} hidden',
@@ -3370,7 +3329,6 @@ export const messages = {
   'mt5Groups.detailRange': 'Band',
   'mt5Groups.detailMinMax': 'Min / max',
   'nav.apiKeys': 'API keys',
-  'nav.networkAccess': 'Network access',
   'nav.externalLinks': 'External links',
 
   // ── API keys ───────────────────────────────────────────────────────────────

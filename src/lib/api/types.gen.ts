@@ -4546,75 +4546,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/ip-allowlist": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The IP allowlist, whether it is being enforced, and your own address */
-        get: operations["AdminIpAllowlistController_list"];
-        put?: never;
-        /** Add an address or range to the allowlist */
-        post: operations["AdminIpAllowlistController_add"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/ip-allowlist/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove a rule from the allowlist */
-        delete: operations["AdminIpAllowlistController_remove"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/ip-allowlist/exemptions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Let an administrator reach the console from any network */
-        post: operations["AdminIpAllowlistController_addExemption"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/ip-allowlist/exemptions/{adminId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Withdraw an administrator's any-network access */
-        delete: operations["AdminIpAllowlistController_removeExemption"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/withdrawals/export": {
         parameters: {
             query?: never;
@@ -9321,6 +9252,8 @@ export interface components {
             maskedFieldsOverride?: string[] | null;
             scopedTags: components["schemas"]["AdminScopeTagDto"][];
             seesAllClients: boolean;
+            accessAnywhere: boolean;
+            allowedIps: string[];
             /** @example /uploads/avatars/6f1c.png */
             avatarUrl?: string | null;
             /** Format: date-time */
@@ -9355,6 +9288,8 @@ export interface components {
             maskedFieldsOverride?: string[] | null;
             scopedTags: components["schemas"]["AdminScopeTagDto"][];
             seesAllClients: boolean;
+            accessAnywhere: boolean;
+            allowedIps: string[];
             /** @example /uploads/avatars/6f1c.png */
             avatarUrl?: string | null;
             /** Format: date-time */
@@ -9381,6 +9316,10 @@ export interface components {
             scopedTagIds?: string[];
             /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
             seesAllClients?: boolean;
+            /** @description May reach the console from any network. When false, only from `allowedIps` (at least one). */
+            accessAnywhere?: boolean;
+            /** @description IPv4 addresses or CIDR ranges this administrator may connect from (203.0.113.7 or 203.0.113.0/24). Ignored when `accessAnywhere` is true. */
+            allowedIps?: string[];
         };
         InviteResponseDto: {
             message: string;
@@ -10747,6 +10686,10 @@ export interface components {
             scopedTagIds?: string[];
             /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
             seesAllClients?: boolean;
+            /** @description May reach the console from any network. When false, only from `allowedIps` (at least one). */
+            accessAnywhere?: boolean;
+            /** @description IPv4 addresses or CIDR ranges this administrator may connect from (203.0.113.7 or 203.0.113.0/24). Ignored when `accessAnywhere` is true. */
+            allowedIps?: string[];
         };
         AdminStatusDto: {
             /** @enum {string} */
@@ -10869,59 +10812,6 @@ export interface components {
              * @example oxs_live_x7Kd9…
              */
             plaintext: string;
-        };
-        IpAllowlistRuleDto: {
-            id: string;
-            /** @example 203.0.113.0/24 */
-            cidr: string;
-            /** @example Beirut office */
-            label: string;
-            createdBy: string;
-            createdAt: string;
-        };
-        IpAllowlistExemptionDto: {
-            adminId: string;
-            name: string;
-            email: string;
-            /** @example Owner, travels */
-            reason: string;
-            createdBy: string;
-            /** @description Null once the granter is deleted. */
-            createdByName: string | null;
-            createdAt: string;
-        };
-        IpAllowlistStatusDto: {
-            /** @description False while the list is empty. An empty list deliberately means the feature is OFF, so the deploy that adds the table cannot lock every administrator out (RBAC-08). */
-            enforced: boolean;
-            /** @description The requesting admin's own address, so the UI can warn before a lockout. */
-            yourIp: string | null;
-            disabledByConfig: boolean;
-            rules: components["schemas"]["IpAllowlistRuleDto"][];
-            /** @description Administrators who may reach the console from any network (0192). */
-            exemptAdmins: components["schemas"]["IpAllowlistExemptionDto"][];
-            /** @description Whether the requesting administrator is exempt — they cannot lock themselves out. */
-            youAreExempt: boolean;
-        };
-        AddIpAllowlistRuleDto: {
-            /**
-             * @description IPv4 address or CIDR range. A bare address is stored as /32.
-             * @example 203.0.113.0/24
-             */
-            cidr: string;
-            /**
-             * @description Why this rule exists — an unlabelled list becomes unmaintainable.
-             * @example Beirut office
-             */
-            label: string;
-        };
-        AddIpAllowlistExemptionDto: {
-            /** @description The administrator who may reach the console from any network. */
-            adminId: string;
-            /**
-             * @description Why — an exemption nobody remembers granting is one nobody removes.
-             * @example Owner, travels
-             */
-            reason: string;
         };
         PayoutPlanDto: {
             /** @enum {string} */
@@ -18359,113 +18249,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiKeyDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_add: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddIpAllowlistRuleDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_remove: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_addExemption: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddIpAllowlistExemptionDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_removeExemption: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                adminId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
                 };
             };
         };
