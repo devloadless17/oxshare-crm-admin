@@ -114,6 +114,91 @@ export function MainPartnerPicker({
 }
 
 /**
+ * The AGENCY a partner works under — what their clients may trade. A required
+ * choice whenever an administrator appoints a partner or places one under a
+ * main partner: it is never copied from the parent (13 Oct 2026), so every
+ * dialog that sets a parent asks it here. Closed agencies are offered and
+ * marked, because closing stops applications, not an administrator's decision.
+ */
+export function AgencyPicker({
+  value,
+  onChange,
+  enabled,
+  name,
+  currentId,
+}: {
+  value: string;
+  onChange: (agencyId: string) => void;
+  enabled: boolean;
+  name: string;
+  /** The agency they are on today, marked so keeping it is a visible choice. */
+  currentId?: string | null;
+}) {
+  const agencies = useResource<Agency[]>(
+    keys.agencies.all(),
+    (signal) => api.admin.getAgencies(signal),
+    { enabled },
+  );
+  const options = agencies.data ?? [];
+
+  return (
+    <fieldset className="max-h-48 space-y-1.5 overflow-y-auto">
+      <legend className="sr-only">{t('clientProfile.appointAgency')}</legend>
+      {options.map((agency) => (
+        <label
+          key={agency.id}
+          className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 ${
+            value === agency.id ? 'border-primary bg-primary/5' : 'border-border'
+          }`}
+        >
+          <input
+            type="radio"
+            name={name}
+            checked={value === agency.id}
+            onChange={() => onChange(agency.id)}
+            className="mt-0.5 h-3.5 w-3.5 shrink-0"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">
+              {agency.name}
+              {agency.id === currentId && (
+                <span className="ms-1.5 text-[11px] font-normal text-muted-foreground">
+                  {t('clientProfile.agencyCurrent')}
+                </span>
+              )}
+            </span>
+            {agency.description && (
+              <span className="block text-xs text-muted-foreground">{agency.description}</span>
+            )}
+            {!agency.enabled && (
+              <span className="mt-0.5 block text-[11px] text-warning">
+                {t('partnerReview.agencyClosed')}
+              </span>
+            )}
+          </span>
+        </label>
+      ))}
+      {agencies.status === 'ready' && options.length === 0 && (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive"
+        >
+          {t('partnerReview.noAgenciesConfigured')}
+        </p>
+      )}
+      {agencies.status !== 'ready' && agencies.status !== 'loading' && (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive"
+        >
+          {t('clientProfile.agenciesFailed')}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+/**
  * Make an individual client a partner (owner, 7 Oct 2026): choose the agency,
  * and optionally a main partner to sit under — none makes them a main partner.
  * It is an approval on the server, so the referral code, commission wallet and
@@ -134,13 +219,6 @@ export function AppointPartnerDialog({
   const [agencyId, setAgencyId] = React.useState('');
   const [placement, setPlacement] = React.useState<'main' | 'sub'>('main');
   const [parentId, setParentId] = React.useState<ClientRef | null>(null);
-
-  const agencies = useResource<Agency[]>(
-    keys.agencies.all(),
-    (signal) => api.admin.getAgencies(signal),
-    { enabled: open },
-  );
-  const options = agencies.data ?? [];
 
   const save = useMutation({
     mutationFn: () =>
@@ -178,46 +256,12 @@ export function AppointPartnerDialog({
 
         <div className="space-y-2">
           <h3 className="text-sm font-semibold">{t('clientProfile.appointAgency')}</h3>
-          <fieldset className="max-h-48 space-y-1.5 overflow-y-auto">
-            <legend className="sr-only">{t('clientProfile.appointAgency')}</legend>
-            {options.map((agency) => (
-              <label
-                key={agency.id}
-                className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 ${
-                  agencyId === agency.id ? 'border-primary bg-primary/5' : 'border-border'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="appoint-agency"
-                  checked={agencyId === agency.id}
-                  onChange={() => setAgencyId(agency.id)}
-                  className="mt-0.5 h-3.5 w-3.5 shrink-0"
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium">{agency.name}</span>
-                  {agency.description && (
-                    <span className="block text-xs text-muted-foreground">
-                      {agency.description}
-                    </span>
-                  )}
-                  {!agency.enabled && (
-                    <span className="mt-0.5 block text-[11px] text-warning">
-                      {t('partnerReview.agencyClosed')}
-                    </span>
-                  )}
-                </span>
-              </label>
-            ))}
-            {agencies.status === 'ready' && options.length === 0 && (
-              <p
-                role="alert"
-                className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive"
-              >
-                {t('partnerReview.noAgenciesConfigured')}
-              </p>
-            )}
-          </fieldset>
+          <AgencyPicker
+            value={agencyId}
+            onChange={setAgencyId}
+            enabled={open}
+            name="appoint-agency"
+          />
         </div>
 
         <div className="space-y-2">

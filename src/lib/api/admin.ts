@@ -1196,11 +1196,6 @@ export type AcceptInviteResponse = components['schemas']['AcceptInviteResponseDt
 /** One platform's download link. `url` is null until an admin sets it. */
 export type PlatformLink = components['schemas']['PlatformLinkDto'];
 
-/** RBAC-08 — the allowlist, whether it is enforcing, and your own address. */
-export type IpAllowlistStatus = components['schemas']['IpAllowlistStatusDto'];
-export type IpAllowlistRule = components['schemas']['IpAllowlistRuleDto'];
-export type IpAllowlistExemption = components['schemas']['IpAllowlistExemptionDto'];
-
 /**
  * The catalogue: a product, and the MT5 groups behind it.
  *
@@ -1244,54 +1239,6 @@ export type UpdateSmtpSettings = components['schemas']['UpdateSmtpSettingsDto'];
 export type SmtpTestResult = components['schemas']['SmtpTestResultDto'];
 
 export const adminApi = {
-  // ── RBAC-08, the admin IP allowlist ──────────────────────────────────────
-  /**
-   * Requires `settings.security.view`.
-   *
-   * `yourIp` is the address THE SERVER SEES, which in local development is the
-   * Next.js rewrite rather than the browser — the panel says so, because a rule
-   * written for the address an operator can see is one the server can never
-   * match, and that is what made this feature painful enough to be deleted once.
-   */
-  async getIpAllowlist(signal?: AbortSignal): Promise<IpAllowlistStatus> {
-    const { data } = await apiClient.get<IpAllowlistStatus>('/admin/ip-allowlist', { signal });
-    return data;
-  },
-
-  /** Requires `settings.security.edit`. The API refuses a rule that would lock the author out. */
-  async addIpAllowlistRule(input: { cidr: string; label: string }): Promise<IpAllowlistRule> {
-    const { data } = await apiClient.post<IpAllowlistRule>('/admin/ip-allowlist', input);
-    return data;
-  },
-
-  /** Requires `settings.security.edit`. Refused when it is the last rule covering you. */
-  async removeIpAllowlistRule(id: string): Promise<{ message: string }> {
-    const { data } = await apiClient.delete<{ message: string }>(`/admin/ip-allowlist/${id}`);
-    return data;
-  },
-
-  /**
-   * Requires `settings.security.edit`. Lets one administrator reach the console
-   * from ANY network (0191) — their permissions are unchanged.
-   */
-  async addIpAllowlistExemption(input: {
-    adminId: string;
-    reason: string;
-  }): Promise<IpAllowlistStatus> {
-    const { data } = await apiClient.post<IpAllowlistStatus>(
-      '/admin/ip-allowlist/exemptions',
-      input,
-    );
-    return data;
-  },
-
-  /** Requires `settings.security.edit`. Refused for your own while you are outside the list. */
-  async removeIpAllowlistExemption(adminId: string): Promise<{ message: string }> {
-    const { data } = await apiClient.delete<{ message: string }>(
-      `/admin/ip-allowlist/exemptions/${adminId}`,
-    );
-    return data;
-  },
   /**
    * The trading-terminal download links the client portal shows.
    *
@@ -1595,18 +1542,21 @@ export const adminApi = {
 
   /**
    * A change of level is a MOVE (7 Oct 2026): 2 → 1 detaches them and clears
-   * "introduced by"; 1 → 2 needs `parentIbUserId`, the main partner to sit under.
+   * "introduced by"; 1 → 2 needs `parentIbUserId`, the main partner to sit under,
+   * and `agencyId`, the agency chosen for them there (13 Oct 2026).
    */
   async changeIbPartnerLevel(
     userId: ClientRef,
     level: number,
     parentIbUserId?: ClientRef | null,
+    agencyId?: string,
   ): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/level`, {
       level,
       ...(parentIbUserId !== undefined && parentIbUserId !== null
         ? { parentIbUserId: Number(parentIbUserId) }
         : {}),
+      ...(agencyId ? { agencyId } : {}),
     });
     return data;
   },
@@ -1629,13 +1579,19 @@ export const adminApi = {
     return data;
   },
 
-  /** `null` makes them a direct partner — it is a value, not an omission. */
+  /**
+   * `null` makes them a direct partner — it is a value, not an omission. Under
+   * a main partner, `agencyId` is required: the agency is chosen in the same
+   * step, never copied from the parent (13 Oct 2026).
+   */
   async reassignIbPartnerParent(
     userId: ClientRef,
     parentIbUserId: ClientRef | null,
+    agencyId?: string,
   ): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/parent`, {
       parentIbUserId: parentIbUserId === null ? null : Number(parentIbUserId),
+      ...(agencyId ? { agencyId } : {}),
     });
     return data;
   },

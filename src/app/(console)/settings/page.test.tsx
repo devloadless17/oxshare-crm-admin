@@ -220,32 +220,15 @@ describe('only the active panel mounts', () => {
   });
 });
 
-describe('the Security tab moved to its own page — RBAC-08', () => {
-  /*
-   * The network allowlist is `/network-access` under Security in the sidebar
-   * since 25 Sep 2026. A tab here would be a second copy of the same control,
-   * and the two would drift.
-   */
-  it('is not offered here, even to an admin holding settings.security.view', () => {
+describe('there is no Security tab — RBAC-08 is per administrator (0224)', () => {
+  it('is not offered here', () => {
     renderWithProviders(<AdminSettingsPage />);
 
     expect(screen.queryByRole('tab', { name: /security/i })).toBeNull();
   });
 
-  /*
-   * A bookmark to the old tab is SENT to the new page rather than dropped on
-   * Trading: the allowlist still exists, and landing on trading limits instead
-   * would read as it having been removed.
-   */
-  it('sends a ?tab=security link to the network access page', () => {
+  it('no longer sends a ?tab=security link to the removed network access page', () => {
     search.current = new URLSearchParams('tab=security');
-    renderWithProviders(<AdminSettingsPage />);
-
-    expect(replace).toHaveBeenCalledWith('/network-access');
-  });
-
-  it('does not redirect any other tab', () => {
-    search.current = new URLSearchParams('tab=email');
     renderWithProviders(<AdminSettingsPage />);
 
     expect(replace).not.toHaveBeenCalledWith('/network-access');

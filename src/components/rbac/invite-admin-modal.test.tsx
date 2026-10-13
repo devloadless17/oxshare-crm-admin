@@ -82,12 +82,16 @@ function renderModal(overrides: Partial<Parameters<typeof InviteAdminModal>[0]> 
   );
 }
 
-async function fillRequired() {
+async function fillRequired({ ip = '203.0.113.7' }: { ip?: string | null } = {}) {
   await userEvent.type(screen.getByLabelText(/full name/i), 'New Person');
   await userEvent.type(screen.getByLabelText(/email/i), 'new@oxshare-e2e.test');
   await userEvent.click(screen.getByRole('combobox', { name: /role/i }));
   await userEvent.click(await screen.findByRole('option', { name: /support/i }));
+  // RBAC-08 (0224): every invite says where the invitee may sign in from.
+  if (ip !== null) await userEvent.type(screen.getByLabelText(/allowed ip addresses/i), ip);
 }
+
+const send = () => userEvent.click(screen.getByRole('button', { name: /send invite|create/i }));
 
 beforeEach(() => {
   createInvite.mockReset().mockResolvedValue({ inviteUrl: 'http://x/invite/accept?token=t' });
@@ -139,6 +143,55 @@ describe('the invite modal — visibility at invite time', () => {
 
     expect(createInvite).toHaveBeenCalledWith(
       expect.objectContaining({ maskedFields: ['client.phone', 'client.email'] }),
+    );
+  });
+});
+
+describe('the invite modal — network access (RBAC-08, 0224)', () => {
+  it('starts restricted, and refuses to send without an address', async () => {
+    renderModal();
+    await fillRequired({ ip: null });
+    expect(screen.getByRole('radio', { name: /only these ips/i })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await send();
+
+    expect(createInvite).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(/at least one ip address/i);
+  });
+
+  it('refuses something that is not an address, naming it', async () => {
+    renderModal();
+    await fillRequired({ ip: '10.0.0.300' });
+    await send();
+
+    expect(createInvite).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('"10.0.0.300"');
+  });
+
+  it('sends every typed address, one per line, without duplicates', async () => {
+    renderModal();
+    await fillRequired({ ip: '203.0.113.7{enter}198.51.100.0/24{enter}203.0.113.7' });
+    await send();
+
+    expect(createInvite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessAnywhere: false,
+        allowedIps: ['203.0.113.7', '198.51.100.0/24'],
+      }),
+    );
+  });
+
+  it('sends access from anywhere with no addresses', async () => {
+    renderModal();
+    await fillRequired({ ip: null });
+    await userEvent.click(screen.getByRole('radio', { name: /access from anywhere/i }));
+    expect(screen.queryByLabelText(/allowed ip addresses/i)).toBeNull();
+    await send();
+
+    expect(createInvite).toHaveBeenCalledWith(
+      expect.objectContaining({ accessAnywhere: true, allowedIps: [] }),
     );
   });
 });

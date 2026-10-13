@@ -3596,6 +3596,8 @@ export interface paths {
          *
          *     Three distinct refusals, because they need three sentences — `REFERRAL_CODE_UNKNOWN` (a typo), `REFERRAL_SELF` (the client’s own code), and `REFERRAL_PARTNER_INACTIVE` (the code was RIGHT; that partner is suspended).
          *
+         *     A PARTNER answers **409 REFERRER_FOLLOWS_POSITION**: their introducer follows where they sit in the partner tree (nobody for a main partner, their main partner for a sub-partner) and moves with Change commission level, never here.
+         *
          *     Does NOT backdate: commission reads attribution at accrual time, so this pays on deals not yet accrued and restates nothing already credited.
          */
         patch: operations["AdminClientsController_setClientReferrer"];
@@ -4541,75 +4543,6 @@ export interface paths {
         post?: never;
         /** Revoke an API key */
         delete: operations["AdminApiKeysController_revoke"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/ip-allowlist": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The IP allowlist, whether it is being enforced, and your own address */
-        get: operations["AdminIpAllowlistController_list"];
-        put?: never;
-        /** Add an address or range to the allowlist */
-        post: operations["AdminIpAllowlistController_add"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/ip-allowlist/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove a rule from the allowlist */
-        delete: operations["AdminIpAllowlistController_remove"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/ip-allowlist/exemptions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Let an administrator reach the console from any network */
-        post: operations["AdminIpAllowlistController_addExemption"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/ip-allowlist/exemptions/{adminId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Withdraw an administrator's any-network access */
-        delete: operations["AdminIpAllowlistController_removeExemption"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6280,24 +6213,16 @@ export interface components {
             /** Format: date-time */
             submittedAt: string;
         };
-        InheritedAgencyDto: {
-            id: string;
-            name: string;
-            /** @description The agency name in Arabic (0179); null = not translated, show `name`. */
-            nameAr: string | null;
-        };
         IbStatusDto: {
             account: components["schemas"]["IbAccountDto"] | null;
             application: components["schemas"]["IbApplicationDto"] | null;
             eligible: boolean;
             ineligibleReason: string | null;
             /**
-             * @description Machine-readable counterpart to ineligibleReason. `unverified` — identity not verified yet. `chain_full` — the partner who introduced them is already on the deepest enabled level, so there is no rung to place them on. Null when eligible.
+             * @description Machine-readable counterpart to ineligibleReason. `unverified` — identity not verified yet. Null when eligible.
              * @enum {string|null}
              */
-            ineligibleCode: "unverified" | "chain_full" | null;
-            /** @description Set when the applicant was introduced by an existing partner and therefore inherits that partner's programme — the portal must not offer a choice in that case. Null when the applicant chooses: any client not introduced by a partner, or one whose introducer carries no programme. */
-            inheritedAgency: components["schemas"]["InheritedAgencyDto"] | null;
+            ineligibleCode: "unverified" | null;
         };
         IbEarningsDto: {
             /**
@@ -6504,7 +6429,7 @@ export interface components {
         CreateIbApplicationDto: {
             /**
              * Format: uuid
-             * @description Which agency the applicant wants to be appointed under. Required for an applicant who chooses; omitted when they were introduced by a partner — the programme is inherited from the introducer and anything sent here is ignored.
+             * @description Which agency the applicant wants to be appointed under. Required: an application without one is refused.
              */
             agencyId?: string;
             /** @description Why the client wants to introduce business. Shown to the reviewer verbatim. */
@@ -6512,11 +6437,11 @@ export interface components {
             website?: string;
         };
         ApproveIbApplicationDto: {
-            /** @description The parent to nest the new partner under. OMITTED means "the reviewer did not say" — the introducer recorded at registration becomes the parent, which is the ordinary case. An explicit NULL roots them: they deal with the broker directly at level 1, whoever introduced them. */
+            /** @description The main partner to place the new partner under, making them a sub-partner (level 2). Omitted or null: a main partner (level 1) dealing with the broker directly, whoever introduced them. */
             parentIbUserId?: number | null;
             /**
              * Format: uuid
-             * @description Omitted grants the agency the applicant chose. Required when the application carries none — a partner cannot be approved without an agency.
+             * @description Omitted grants the agency the applicant chose. Required when the application carries none, and whenever parentIbUserId is set: the administrator chooses the agency of a partner placed under a main partner.
              */
             agencyId?: string;
         };
@@ -6703,12 +6628,17 @@ export interface components {
         };
         ChangeIbLevelDto: {
             /**
-             * @description The level IS the position (0197): 1 with no parent, 2 under a main partner. Choosing the other level MOVES them — 1 detaches them from their parent, 2 places them under `parentIbUserId` — and "introduced by" follows the new position.
+             * @description The level IS the position (0197): 1 with no parent, 2 under a main partner. Choosing the other level MOVES them — 1 detaches them from their parent, 2 places them under `parentIbUserId` on the `agencyId` chosen — and "introduced by" follows the new position.
              * @example 2
              */
             level: number;
             /** @description The main partner to place them under. Required when moving a main partner to 2. */
             parentIbUserId?: number | null;
+            /**
+             * Format: uuid
+             * @description The agency they work under from the move on. Required when moving a main partner to 2: the administrator chooses it, it is never copied from the main partner.
+             */
+            agencyId?: string;
         };
         AppointIbPartnerDto: {
             /**
@@ -6722,6 +6652,11 @@ export interface components {
         ReassignIbParentDto: {
             /** @description The new parent partner, or null to make them a direct partner. */
             parentIbUserId: number | null;
+            /**
+             * Format: uuid
+             * @description The agency they work under from the move on. Required with a parent: the administrator chooses it, it is never copied from the main partner. Ignored with null, where they keep their own.
+             */
+            agencyId?: string;
         };
         SetIbTermsDto: {
             /**
@@ -9321,6 +9256,8 @@ export interface components {
             maskedFieldsOverride?: string[] | null;
             scopedTags: components["schemas"]["AdminScopeTagDto"][];
             seesAllClients: boolean;
+            accessAnywhere: boolean;
+            allowedIps: string[];
             /** @example /uploads/avatars/6f1c.png */
             avatarUrl?: string | null;
             /** Format: date-time */
@@ -9355,6 +9292,8 @@ export interface components {
             maskedFieldsOverride?: string[] | null;
             scopedTags: components["schemas"]["AdminScopeTagDto"][];
             seesAllClients: boolean;
+            accessAnywhere: boolean;
+            allowedIps: string[];
             /** @example /uploads/avatars/6f1c.png */
             avatarUrl?: string | null;
             /** Format: date-time */
@@ -9381,6 +9320,10 @@ export interface components {
             scopedTagIds?: string[];
             /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
             seesAllClients?: boolean;
+            /** @description May reach the console from any network. When false, only from `allowedIps` (at least one). */
+            accessAnywhere?: boolean;
+            /** @description IPv4 addresses or CIDR ranges this administrator may connect from (203.0.113.7 or 203.0.113.0/24). Ignored when `accessAnywhere` is true. */
+            allowedIps?: string[];
         };
         InviteResponseDto: {
             message: string;
@@ -10747,6 +10690,10 @@ export interface components {
             scopedTagIds?: string[];
             /** @description Sees EVERY client — the explicit grant (0154). Only an administrator who sees every client may give it, and never together with territory tags. An empty territory no longer means every client. */
             seesAllClients?: boolean;
+            /** @description May reach the console from any network. When false, only from `allowedIps` (at least one). */
+            accessAnywhere?: boolean;
+            /** @description IPv4 addresses or CIDR ranges this administrator may connect from (203.0.113.7 or 203.0.113.0/24). Ignored when `accessAnywhere` is true. */
+            allowedIps?: string[];
         };
         AdminStatusDto: {
             /** @enum {string} */
@@ -10869,59 +10816,6 @@ export interface components {
              * @example oxs_live_x7Kd9…
              */
             plaintext: string;
-        };
-        IpAllowlistRuleDto: {
-            id: string;
-            /** @example 203.0.113.0/24 */
-            cidr: string;
-            /** @example Beirut office */
-            label: string;
-            createdBy: string;
-            createdAt: string;
-        };
-        IpAllowlistExemptionDto: {
-            adminId: string;
-            name: string;
-            email: string;
-            /** @example Owner, travels */
-            reason: string;
-            createdBy: string;
-            /** @description Null once the granter is deleted. */
-            createdByName: string | null;
-            createdAt: string;
-        };
-        IpAllowlistStatusDto: {
-            /** @description False while the list is empty. An empty list deliberately means the feature is OFF, so the deploy that adds the table cannot lock every administrator out (RBAC-08). */
-            enforced: boolean;
-            /** @description The requesting admin's own address, so the UI can warn before a lockout. */
-            yourIp: string | null;
-            disabledByConfig: boolean;
-            rules: components["schemas"]["IpAllowlistRuleDto"][];
-            /** @description Administrators who may reach the console from any network (0192). */
-            exemptAdmins: components["schemas"]["IpAllowlistExemptionDto"][];
-            /** @description Whether the requesting administrator is exempt — they cannot lock themselves out. */
-            youAreExempt: boolean;
-        };
-        AddIpAllowlistRuleDto: {
-            /**
-             * @description IPv4 address or CIDR range. A bare address is stored as /32.
-             * @example 203.0.113.0/24
-             */
-            cidr: string;
-            /**
-             * @description Why this rule exists — an unlabelled list becomes unmaintainable.
-             * @example Beirut office
-             */
-            label: string;
-        };
-        AddIpAllowlistExemptionDto: {
-            /** @description The administrator who may reach the console from any network. */
-            adminId: string;
-            /**
-             * @description Why — an exemption nobody remembers granting is one nobody removes.
-             * @example Owner, travels
-             */
-            reason: string;
         };
         PayoutPlanDto: {
             /** @enum {string} */
@@ -18359,113 +18253,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiKeyDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_add: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddIpAllowlistRuleDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_remove: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_addExemption: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddIpAllowlistExemptionDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IpAllowlistStatusDto"];
-                };
-            };
-        };
-    };
-    AdminIpAllowlistController_removeExemption: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                adminId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponseDto"];
                 };
             };
         };

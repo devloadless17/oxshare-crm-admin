@@ -294,8 +294,11 @@ describe('the approve dialog', () => {
     /* The agency question is still asked, so this waits on a real render. */
     await screen.findByText(/appointing them under levant partners/i);
 
-    expect(screen.queryByText(/commission/i)).toBeNull();
-    expect(screen.queryByText(/level/i)).toBeNull();
-    expect(screen.queryByRole('radio', { name: /gold|silver/i })).toBeNull();
+    // No CONTROL decides pay. The words may appear: the dialog says where the
+    // partner lands (13 Oct 2026), and that sentence is pinned below.
+    for (const role of ['radio', 'combobox', 'spinbutton', 'textbox', 'checkbox'] as const) {
+      expect(screen.queryByRole(role, { name: /commission|level|rate|gold|silver/i })).toBeNull();
+    }
+    expect(screen.getByText(/join as a main partner \(level 1\)/i)).toBeInTheDocument();
   });
 });

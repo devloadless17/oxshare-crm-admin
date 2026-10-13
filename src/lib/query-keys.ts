@@ -309,7 +309,6 @@ export const keys = {
     scheduledJobs: () => ['settings', 'scheduled-jobs'] as const,
     smtp: () => ['settings', 'smtp'] as const,
     platformLinks: () => ['settings', 'platform-links'] as const,
-    ipAllowlist: () => ['settings', 'ip-allowlist'] as const,
   },
 
   bridge: {

@@ -13,6 +13,7 @@ import { formatDecimal } from '@/lib/money';
 import Decimal from 'decimal.js';
 import { keys } from '@/lib/query-keys';
 import {
+  AgencyPicker,
   DialogFooter as Footer,
   MainPartnerPicker,
   invalidatePartnerViews,
@@ -36,16 +37,15 @@ import {
  * Move a partner to a different LEVEL — what decides their terms (0112).
  *
  * `ChangeProgramDialog` stood here, moving a partner between named commission
- * programmes. Terms come from a partner's RUNG now, derived from who recruited
- * them, so the catalogue it picked from no longer exists.
+ * programmes. Terms come from a partner's RUNG now, which follows their
+ * position, so the catalogue it picked from no longer exists.
  *
- * ## Why a rung is editable at all, when it is derived
+ * ## Why this is where level 2 is made
  *
- * Approval writes it from the parent's level, which is right in the ordinary
- * case and cannot be right in every one: a partner recruited by somebody later
- * cut loose to deal direct, or one the broker has agreed to treat as a main
- * partner despite sitting under another. Without this the number was decided
- * once by the shape of the tree on one particular afternoon.
+ * Approval makes every partner a main partner (level 1), whoever introduced
+ * them (13 Oct 2026). Making one a sub-partner is a deliberate act, and this
+ * dialog is it: the main partner to sit under, and the agency they work under
+ * there, chosen every time rather than copied from the main partner.
  *
  * ## ENABLED rungs only, and the terms are shown beside each
  *
@@ -69,11 +69,13 @@ export function ChangeLevelDialog({
   const queryClient = useQueryClient();
   const [level, setLevel] = React.useState(partner.level);
   const [parentId, setParentId] = React.useState<ClientRef | null>(null);
+  const [agencyId, setAgencyId] = React.useState('');
 
   /*
    * The level IS the position (0197), so a different level is a MOVE (owner,
    * 7 Oct 2026): 2 → 1 detaches them and removes "introduced by"; 1 → 2 needs
-   * the main partner to sit under, who becomes their introducer.
+   * the main partner to sit under, who becomes their introducer, and the
+   * agency they work under there, chosen every time (13 Oct 2026).
    */
   const positional = partner.parent || partner.parentOutsideTerritory ? 2 : 1;
   const movingDown = level === 2 && positional === 1;
@@ -86,7 +88,9 @@ export function ChangeLevelDialog({
 
   const save = useMutation({
     mutationFn: () =>
-      api.admin.changeIbPartnerLevel(partner.userId, level, movingDown ? parentId : undefined),
+      movingDown
+        ? api.admin.changeIbPartnerLevel(partner.userId, level, parentId, agencyId)
+        : api.admin.changeIbPartnerLevel(partner.userId, level),
     onSuccess: async () => {
       await invalidatePartnerViews(queryClient);
       toastSuccess(t('clientProfile.levelChanged'));
@@ -179,6 +183,13 @@ export function ChangeLevelDialog({
                 enabled={open}
                 name="level-parent"
               />
+              <SubPartnerAgency
+                value={agencyId}
+                onChange={setAgencyId}
+                enabled={open}
+                name="level-agency"
+                currentId={partner.agencyId}
+              />
             </div>
           ))}
 
@@ -197,7 +208,7 @@ export function ChangeLevelDialog({
           disabled={
             options.length === 0 ||
             level === partner.level ||
-            (movingDown && (hasSubPartners || parentId === null))
+            (movingDown && (hasSubPartners || parentId === null || !agencyId))
           }
           label={t('clientProfile.changeLevelSave')}
         />
@@ -386,11 +397,16 @@ export function ReassignParentDialog({
     ? KEEP_OUTSIDE_PARENT
     : (partner.parent?.userId ?? null);
   const [parentId, setParentId] = React.useState<ClientRef | null>(initial);
+  const [agencyId, setAgencyId] = React.useState('');
+  // Under a main partner the agency is chosen in the same step (13 Oct 2026).
+  const placing = parentId !== null && parentId !== KEEP_OUTSIDE_PARENT;
 
   const save = useMutation({
     mutationFn: () => {
       if (parentId === KEEP_OUTSIDE_PARENT) throw new Error('Nothing to change.');
-      return api.admin.reassignIbPartnerParent(partner.userId, parentId);
+      return placing
+        ? api.admin.reassignIbPartnerParent(partner.userId, parentId, agencyId)
+        : api.admin.reassignIbPartnerParent(partner.userId, parentId);
     },
     onSuccess: async () => {
       await invalidatePartnerViews(queryClient);
@@ -469,6 +485,16 @@ export function ReassignParentDialog({
           name="ib-parent"
         />
 
+        {placing && (
+          <SubPartnerAgency
+            value={agencyId}
+            onChange={setAgencyId}
+            enabled={open}
+            name="ib-parent-agency"
+            currentId={partner.agencyId}
+          />
+        )}
+
         {save.isError && (
           <p
             role="alert"
@@ -481,10 +507,21 @@ export function ReassignParentDialog({
         <Footer
           onClose={onClose}
           saving={save.isPending}
-          disabled={parentId === initial}
+          disabled={parentId === initial || (placing && !agencyId)}
           label={t('clientProfile.reassignParentSave')}
         />
       </form>
     </Modal>
+  );
+}
+
+/** The agency question both moves under a main partner ask, worded once. */
+function SubPartnerAgency(props: React.ComponentProps<typeof AgencyPicker>) {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold">{t('clientProfile.subPartnerAgency')}</h3>
+      <p className="text-xs text-muted-foreground">{t('clientProfile.subPartnerAgencyNote')}</p>
+      <AgencyPicker {...props} />
+    </div>
   );
 }

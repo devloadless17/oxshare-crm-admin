@@ -80,65 +80,6 @@ export const messages = {
   'nav.withdrawals': 'Withdrawals',
   'nav.ledger': 'Ledger',
 
-  // ── RBAC-08, the admin IP allowlist ───────────────────────────────────────
-  'ipAllowlist.title': 'Network access',
-  'ipAllowlist.subtitle':
-    'Restrict the administration console to particular networks. Client-facing pages are never affected.',
-  'ipAllowlist.loading': 'Loading network rules',
-  'ipAllowlist.loadFailed': 'Could not load the network rules.',
-  // Says OFF in words. A page titled "Network Access" showing no errors reads as
-  // protection to anybody who does not know an empty list disables the feature.
-  'ipAllowlist.notEnforcing':
-    'No rules configured, so this protection is OFF — the console is reachable from any network. Adding the first rule switches it on.',
-  'ipAllowlist.enforcing':
-    'Enforcing. Only the {count:network|{count} networks} below can reach the administration API.',
-  'ipAllowlist.disabledByConfig':
-    'Enforcement is switched OFF by configuration (ADMIN_IP_ALLOWLIST_ENABLED=false). The rules below are saved and none of them is being applied. Remove that setting and restart to enforce them again.',
-  // The address the SERVER sees. Behind the console's dev proxy that is ::1, not
-  // the operator's public address — printing it bare invites them to compare it
-  // with a "what is my IP" site and conclude the console is broken.
-  'ipAllowlist.yourIp':
-    'This request reached the API from {ip}. That is the address the SERVER sees — behind a proxy or in local development it is the proxy, not your public address. A rule has to cover this value to admit you.',
-  'ipAllowlist.yourIpUnknown':
-    'The API could not determine the address this request came from. Adding a rule now would lock you out, and it will be refused.',
-  'ipAllowlist.empty': 'No network rules. The console is reachable from anywhere.',
-  'ipAllowlist.firstRuleWarning':
-    'This is the FIRST rule, so it turns enforcement on immediately. If it does not cover the address above you would lose access to this screen — the API refuses such a rule rather than locking you out.',
-  'ipAllowlist.cidrLabel': 'Address or range (CIDR)',
-  'ipAllowlist.labelLabel': 'What is it',
-  'ipAllowlist.labelPlaceholder': 'Beirut office',
-  'ipAllowlist.addRule': 'Add rule',
-  'ipAllowlist.addFailed': 'Could not add that rule.',
-  'ipAllowlist.removeFailed': 'Could not remove that rule.',
-  'ipAllowlist.remove': 'Remove {cidr}',
-  'ipAllowlist.removeTitle': 'Remove this network rule?',
-  'ipAllowlist.confirmRemove':
-    'Remove {cidr}? If it is the last rule covering your own address the API will refuse, because it would lock you out.',
-  'ipAllowlist.youAreExempt':
-    'You can reach the console from any network, so no rule here can lock you out.',
-  // 0191 — administrators who bypass the list. The sentence says what it does
-  // NOT change, because "bypass" reads as "all powers" to anyone in a hurry.
-  'ipAllowlist.exempt.title': 'Admins who can connect from any network',
-  'ipAllowlist.exempt.subtitle':
-    'These administrators reach the console from anywhere. Only the network check is skipped: their permissions stay exactly as their role gives them, and API keys are never exempt.',
-  'ipAllowlist.exempt.empty': 'Nobody. Every administrator is held to the networks above.',
-  'ipAllowlist.exempt.grantedBy': 'Granted by {name} on {date}',
-  'ipAllowlist.exempt.grantedByUnknown': 'Granted on {date}',
-  'ipAllowlist.exempt.you': 'you',
-  'ipAllowlist.exempt.adminLabel': 'Administrator',
-  'ipAllowlist.exempt.adminPlaceholder': 'Choose an administrator',
-  'ipAllowlist.exempt.reasonLabel': 'Why',
-  'ipAllowlist.exempt.reasonPlaceholder': 'Owner, travels',
-  'ipAllowlist.exempt.add': 'Allow from any network',
-  'ipAllowlist.exempt.noAdminsView':
-    'Choosing an administrator needs the Admin users view permission.',
-  'ipAllowlist.exempt.noneLeft': 'Every active administrator is already exempt.',
-  'ipAllowlist.exempt.addFailed': 'Could not allow that administrator.',
-  'ipAllowlist.exempt.removeFailed': 'Could not remove that exemption.',
-  'ipAllowlist.exempt.remove': 'Remove {name}',
-  'ipAllowlist.exempt.removeTitle': 'Hold this administrator to the network rules?',
-  'ipAllowlist.exempt.confirmRemove':
-    '{name} will be refused on their next request from outside the networks above. Removing your OWN exemption from outside them is refused, because it would lock you out.',
   'nav.commissionPlans': 'Commission Plans',
   'nav.kyc': 'KYC review',
   'nav.kycBuilder': 'KYC builder',
@@ -849,6 +790,8 @@ export const messages = {
     'That code is correct, but the partner it belongs to is suspended. The client gave you the right code; whether attribution should be recorded is a decision about that partner.',
   'clientProfile.refAlready':
     'This client already has a referring partner. Attribution is recorded once and cannot be moved.',
+  'clientProfile.refPartner':
+    'This client is a partner, so who introduced them follows where they sit in the partner tree. To place them under a main partner, use Change commission level.',
   'clientProfile.refNoBackdate':
     'Applies to future activity. Commission already credited is not restated.',
   'kycReview.correctTitle': 'Correct identity details',
@@ -1018,6 +961,23 @@ export const messages = {
   'roles.maskLockedOwn': 'Hidden from you — you cannot grant visibility you do not have.',
 
   'adminUsers.scopeSection': 'Client scope',
+
+  // ── RBAC-08 per administrator (0224) ─────────────────────────────────────
+  'adminUsers.network.section': 'Network access',
+  'adminUsers.network.onlyIps': 'Only these IPs',
+  'adminUsers.network.anywhere': 'Access from anywhere',
+  'adminUsers.network.anywhereHint':
+    'This administrator can sign in to the console from any network.',
+  'adminUsers.network.ipsLabel': 'Allowed IP addresses',
+  'adminUsers.network.ipsHint':
+    'One per line. A single address (203.0.113.7) or a range (203.0.113.0/24). This administrator can only sign in from these.',
+  'adminUsers.network.ipsPlaceholder': '203.0.113.7',
+  'adminUsers.network.required': 'Add at least one IP address, or choose "Access from anywhere".',
+  'adminUsers.network.invalid': '"{value}" is not a valid IPv4 address or range.',
+  'adminUsers.network.summaryAnywhere': 'Anywhere',
+  'adminUsers.network.summaryIps': '{count:1 IP|{count} IPs}',
+  'adminUsers.network.self':
+    'You cannot change your own network access. Another administrator has to.',
   // A scope id the tag vocabulary did not return — shown rather than dropped.
   'adminUsers.scopeUnknownTag': 'Unknown tag',
   'adminUsers.scopeSummary': '{count} {count:tag|tags}',
@@ -1103,6 +1063,7 @@ export const messages = {
   'adminUsers.masterExempt':
     'The master admin sees every client and every field, without exception (FR-RBAC-01).',
   'adminUsers.colScope': 'Client scope',
+  'adminUsers.colNetwork': 'Network',
   'adminUsers.scopeAll': 'All clients',
   'adminUsers.scopeCount': '{count} {count:tag|tags}',
   'adminUsers.maskCount': '{count} hidden',
@@ -1193,6 +1154,8 @@ export const messages = {
   'clientProfile.walletCloseFailed': 'Could not close the wallet.',
   'clientProfile.parentIb': 'Introduced by',
   'clientProfile.noParentIb': 'Not introduced by a partner.',
+  // 13 Oct 2026: a main partner has no introducer, by rule, not by omission.
+  'clientProfile.noParentIbMain': 'None. A main partner deals with the broker directly.',
   // Distinct from `noParentIb` on purpose: "nobody introduced them" and "somebody
   // did, and they are outside your desk" are different commercial facts, and
   // collapsing them is what the unscoped referrer card used to do in reverse.
@@ -1335,6 +1298,13 @@ export const messages = {
     'and a commission wallet, and are emailed — exactly as when an application is approved. A ' +
     'pending application of theirs is approved by this.',
   'clientProfile.appointAgency': 'Agency',
+  // 13 Oct 2026: placing a partner under a main partner asks the agency every
+  // time; it is never copied from the main partner.
+  'clientProfile.subPartnerAgency': 'Which agency will they work under?',
+  'clientProfile.subPartnerAgencyNote':
+    'Choose it here: it is not copied from the main partner. It decides what their clients may trade.',
+  'clientProfile.agencyCurrent': '(current)',
+  'clientProfile.agenciesFailed': 'The agencies could not be loaded. Close this and try again.',
   'clientProfile.appointPlacement': 'Position',
   'clientProfile.appointAsMain': 'Main partner',
   'clientProfile.appointAsMainHint': 'Level 1, deals with the broker directly. No introducer.',
@@ -3370,7 +3340,6 @@ export const messages = {
   'mt5Groups.detailRange': 'Band',
   'mt5Groups.detailMinMax': 'Min / max',
   'nav.apiKeys': 'API keys',
-  'nav.networkAccess': 'Network access',
   'nav.externalLinks': 'External links',
 
   // ── API keys ───────────────────────────────────────────────────────────────
@@ -4064,10 +4033,11 @@ export const messages = {
   'ibLevels.partnerCount': '{count} {count:partner|partners} here',
 
   // WHO stands on this rung, said plainly. "Level 2" alone is a number; "a
-  // partner recruited by a level 1 partner" is the thing an operator is
-  // actually pricing.
+  // partner placed under a level 1 partner" is the thing an operator is
+  // actually pricing. Since 13 Oct 2026 an administrator places them there;
+  // being introduced by a partner no longer does.
   'ibLevels.whoIsHere_1': 'Partners who deal with the broker directly.',
-  'ibLevels.whoIsHere_n': 'Partners recruited by a level {parent} partner.',
+  'ibLevels.whoIsHere_n': 'Partners placed under a level {parent} partner.',
 
   'ibLevels.add': 'Add level {level}',
   'ibLevels.addSucceeded': 'Level {level} was added. Set its rates before anybody is placed on it.',
@@ -4123,7 +4093,7 @@ export const messages = {
   'ibLevels.descriptionPlaceholder': 'What this tier is for — who qualifies, what was agreed.',
   'ibLevels.addTitle': 'Add level {level}',
   'ibLevels.addDescription':
-    'Partners recruited by a level {parent} partner sit here. Set what they earn before anybody ' +
+    'Partners placed under a level {parent} partner sit here. Set what they earn before anybody ' +
     'is placed on it — a level paying nothing looks the same as one nobody has configured.',
   'ibLevels.addSave': 'Add level',
   'ibLevels.editTitle': 'Edit level {level}',
@@ -4242,6 +4212,9 @@ export const messages = {
   'partnerReview.confirmApproveTitle': 'Approve {name} as a partner?',
   'partnerReview.confirmApprove':
     'This creates their partner account and issues a referral code, which is never reissued. The application cannot be decided again.',
+  // 13 Oct 2026: approval never places anyone under their introducer.
+  'partnerReview.joinsAsMain':
+    'They join as a main partner (level 1), and whoever introduced them stops earning on them. To make them a sub-partner (level 2), use Change commission level on their profile after approving.',
   'partnerReview.approving': 'Approving…',
   'withdrawals.searchPlaceholder': 'Search by name, email, phone or Portal ID',
   'withdrawals.actionsFor': 'Actions for {name}’s withdrawal',

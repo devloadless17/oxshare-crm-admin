@@ -25,6 +25,8 @@ const base: AdminProfile = {
   name: 'Sub',
   role: 'sub_admin',
   seesAllClients: true,
+  accessAnywhere: true,
+  allowedIps: [],
   permissions: [],
   // Required since the API started admitting it. The directory used to render a
   // hardcoded "Active" badge because AdminProfileDto had no status field at all.

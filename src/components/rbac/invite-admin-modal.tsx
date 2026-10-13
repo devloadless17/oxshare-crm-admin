@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import type { ClientFieldGroup, ClientTagWithCount, Role } from '@/lib/api/admin';
 import { apiErrorMessage } from '@/lib/api/errors';
 import { AdminFieldMaskPanel, AdminTagScopePanel } from './admin-visibility-panels';
+import { AdminNetworkPanel, networkSelection } from './admin-network-panel';
 import { useAdmin } from '@/context/AdminAuthContext';
 import { Modal } from '@/components/ui/modal';
 import { RoleSummaryLine } from './role-menu-preview';
@@ -88,6 +89,13 @@ export function InviteAdminModal({
   const [allClients, setAllClients] = React.useState(canGrantAll);
   /** `null` = inherit the chosen role's mask; a list = this person's override. */
   const [maskOverride, setMaskOverride] = React.useState<string[] | null>(null);
+  /*
+   * RBAC-08 (0224): where the invitee may sign in from. Restricted by default —
+   * every administrator gets their own addresses unless somebody deliberately
+   * lets them in from anywhere.
+   */
+  const [accessAnywhere, setAccessAnywhere] = React.useState(false);
+  const [ipsText, setIpsText] = React.useState('');
   const [result, setResult] = React.useState<{ inviteUrl?: string } | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -133,6 +141,8 @@ export function InviteAdminModal({
     setRoleId('');
     setScopedTagIds([]);
     setMaskOverride(null);
+    setAccessAnywhere(false);
+    setIpsText('');
     setResult(null);
     setError('');
     setCopied(false);
@@ -174,6 +184,11 @@ export function InviteAdminModal({
      */
     if (!roleId) {
       setError(t('invite.roleRequired'));
+      return;
+    }
+    const network = networkSelection(accessAnywhere, ipsText);
+    if ('error' in network) {
+      setError(network.error);
       return;
     }
 
@@ -219,11 +234,14 @@ export function InviteAdminModal({
         ...(allClients !== canGrantAll ? { seesAllClients: allClients } : {}),
         ...(!allClients && (scopedTagIds.length > 0 || canGrantAll) ? { scopedTagIds } : {}),
         ...(maskOverride !== null ? { maskedFields: maskOverride } : {}),
+        // Always sent: a silent invite would inherit the INVITER's networks.
+        ...network.value,
       });
       setResult(created);
       setCopied(false);
       setName('');
       setEmail('');
+      setIpsText('');
       onInvited();
     } catch (err: unknown) {
       setError(apiErrorMessage(err, t('invite.createFailed')));
@@ -419,6 +437,18 @@ export function InviteAdminModal({
               </Select>
             )}
             <RoleSummaryLine role={assignable.find((r) => r.id === roleId)} />
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <p className="font-semibold">{t('adminUsers.network.section')}</p>
+            <AdminNetworkPanel
+              idPrefix="invite"
+              accessAnywhere={accessAnywhere}
+              onAccessAnywhereChange={setAccessAnywhere}
+              ipsText={ipsText}
+              onIpsTextChange={setIpsText}
+              disabled={loading}
+            />
           </div>
 
           {canScope && (

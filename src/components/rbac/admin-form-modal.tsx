@@ -4,6 +4,7 @@ import { withoutLocked } from '@/lib/masking';
 import * as React from 'react';
 import type { AdminUser, ClientFieldGroup, ClientTagWithCount, Role } from '@/lib/api/admin';
 import { AdminFieldMaskPanel, AdminTagScopePanel } from './admin-visibility-panels';
+import { AdminNetworkPanel, networkSelection } from './admin-network-panel';
 import { RoleSummaryLine } from './role-menu-preview';
 import {
   Select,
@@ -32,6 +33,10 @@ export interface AdminFormValues {
   /** D-60 — sees the intake pool (clients with no tags yet). */
   /** Sees every client — the explicit grant (0154). */
   seesAllClients?: boolean;
+  /** RBAC-08 (0224): may sign in from any network. */
+  accessAnywhere?: boolean;
+  /** RBAC-08 (0224): the addresses they may sign in from. */
+  allowedIps?: string[];
 }
 
 /** Order- and duplicate-insensitive membership equality. */
@@ -101,7 +106,20 @@ export function AdminFormModal({
   const [scopedTagIds, setScopedTagIds] = React.useState<string[]>(currentScope);
   // Every client is its own choice (0154); only an admin who has it may give it.
   const [allClients, setAllClients] = React.useState<boolean>(admin.seesAllClients);
-  const canGrantAll = useAdmin().admin?.seesAllClients ?? false;
+  const me = useAdmin().admin;
+  const canGrantAll = me?.seesAllClients ?? false;
+  /*
+   * RBAC-08 (0224). Read with fallbacks: the console can be live minutes
+   * before the API that serves these fields, and an absent field is the
+   * pre-0224 reading — no per-person restriction.
+   */
+  const storedAnywhere = admin.accessAnywhere ?? true;
+  const storedIps = admin.allowedIps ?? [];
+  const [accessAnywhere, setAccessAnywhere] = React.useState<boolean>(storedAnywhere);
+  const [ipsText, setIpsText] = React.useState<string>(storedIps.join('\n'));
+  // Nobody changes their own (the API refuses it): that is how you lock yourself out.
+  const isSelf = me?.id === admin.id;
+  const [networkError, setNetworkError] = React.useState('');
   /*
    * `null` = inheriting the role's mask; a list = this person's override.
    * The DTO serves both halves (`maskedFields` is the EFFECTIVE mask,
@@ -183,6 +201,23 @@ export function AdminFormModal({
       inheriting !== (storedOverride === null) ||
       (!inheriting && !sameSet(maskOverride ?? [], storedOverride ?? []));
     if (overrideChanged) values.maskedFields = maskOverride;
+
+    // Network access, only when it changed — compared as a set, like the scope.
+    if (!isSelf) {
+      const network = networkSelection(accessAnywhere, ipsText);
+      if ('error' in network) {
+        setNetworkError(network.error);
+        return;
+      }
+      setNetworkError('');
+      if (
+        network.value.accessAnywhere !== storedAnywhere ||
+        (!network.value.accessAnywhere && !sameSet(network.value.allowedIps, storedIps))
+      ) {
+        values.accessAnywhere = network.value.accessAnywhere;
+        values.allowedIps = network.value.allowedIps;
+      }
+    }
 
     if (Object.keys(values).length === 0) {
       onClose();
@@ -269,6 +304,19 @@ export function AdminFormModal({
            * `/roles` is where it normally lives, this is the one-person
            * exception with a stated way back).
            */}
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <p className="font-semibold">{t('adminUsers.network.section')}</p>
+            <AdminNetworkPanel
+              idPrefix="admin-edit"
+              accessAnywhere={accessAnywhere}
+              onAccessAnywhereChange={setAccessAnywhere}
+              ipsText={ipsText}
+              onIpsTextChange={setIpsText}
+              disabled={busy}
+              disabledReason={isSelf ? t('adminUsers.network.self') : undefined}
+            />
+          </div>
+
           {canScope && (
             <div className="space-y-2 rounded-lg border border-border p-3">
               <p className="font-semibold">{t('adminUsers.scopeSection')}</p>
@@ -311,12 +359,12 @@ export function AdminFormModal({
             </div>
           )}
 
-          {error && (
+          {(networkError || error) && (
             <div
               className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
               role="alert"
             >
-              {error}
+              {networkError || error}
             </div>
           )}
 

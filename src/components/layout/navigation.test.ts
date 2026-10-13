@@ -29,6 +29,8 @@ const base: AdminProfile = {
   name: 'Sub',
   role: 'sub_admin',
   seesAllClients: true,
+  accessAnywhere: true,
+  allowedIps: [],
   permissions: [],
   status: 'active',
   maskedFields: [],

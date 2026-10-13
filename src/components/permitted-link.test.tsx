@@ -30,6 +30,8 @@ const admin = (permissions: string[]): { admin: AdminProfile } => ({
     role: 'sub_admin',
     status: 'active',
     seesAllClients: true,
+    accessAnywhere: true,
+    allowedIps: [],
     permissions,
     maskedFields: [],
     scopedTags: [],

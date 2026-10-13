@@ -16,7 +16,6 @@ import {
   CreditCard,
   FileCheck,
   Gauge,
-  Globe,
   HandCoins,
   Handshake,
   KeyRound,
@@ -288,12 +287,9 @@ export const NAV: readonly NavEntry[] = [
       /* Machine credentials for the admin API: who may reach this console. */
       { label: 'nav.apiKeys', href: '/api-keys', icon: KeyRound },
       /*
-       * And FROM WHERE: the RBAC-08 network allowlist. It was a tab on Settings
-       * and moved here on the owner's call (25 Sep 2026) — it is a security
-       * control, and an operator looking for "who can reach the console"
-       * looks under Security, not beside the SMTP form.
+       * The Network access page (the RBAC-08 allowlist) is gone: since 0224 each
+       * administrator's networks are set when they are invited or edited.
        */
-      { label: 'nav.networkAccess', href: '/network-access', icon: Globe },
     ],
   },
 ];
