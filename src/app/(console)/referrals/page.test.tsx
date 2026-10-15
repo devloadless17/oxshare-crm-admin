@@ -19,18 +19,21 @@ import { ALL_PERMISSIONS } from '@/test/permissions';
  *  - the export is this page's file: `referred=true` travels with it.
  */
 
-const { getClients, setClientStatus, getTags, downloadExport } = vi.hoisted(() => ({
-  getClients: vi.fn(),
-  setClientStatus: vi.fn(),
-  getTags: vi.fn(),
-  downloadExport: vi.fn(),
-}));
+const { getClients, setClientStatus, getTags, downloadExport, getIbPartners, moveReferral } =
+  vi.hoisted(() => ({
+    getClients: vi.fn(),
+    setClientStatus: vi.fn(),
+    getTags: vi.fn(),
+    downloadExport: vi.fn(),
+    getIbPartners: vi.fn(),
+    moveReferral: vi.fn(),
+  }));
 
 vi.mock('@/lib/api/export', () => ({ downloadExport }));
 
 // Both exports — see admin/CLAUDE.md.
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getClients, setClientStatus, getTags } };
+  const api = { admin: { getClients, setClientStatus, getTags, getIbPartners, moveReferral } };
   return { api, default: api };
 });
 
@@ -217,5 +220,97 @@ describe('the Referrals page', () => {
     expect(
       await screen.findByText(/no client has joined through a partner yet/i),
     ).toBeInTheDocument();
+  });
+});
+
+/** A partner-directory row, as the picker reads it. */
+function partnerRow(userId: string, level: number, firstName: string, portalId: number) {
+  return {
+    account: { userId, level, active: true },
+    user: { firstName, lastName: 'Partner', email: `${firstName.toLowerCase()}@x.test`, portalId },
+    agencyName: 'Gold',
+  };
+}
+
+describe('moving a referral to another partner (owner, 15 Oct 2026)', () => {
+  beforeEach(() => {
+    getIbPartners.mockResolvedValue({
+      rows: [
+        partnerRow('p-1', 1, 'Paula', 1000100), // the current introducer
+        partnerRow('p-3', 1, 'Omar', 1000101),
+        partnerRow('p-4', 2, 'Sami', 1000102),
+      ],
+      total: 3,
+    });
+    moveReferral.mockResolvedValue({ referredByIbUserId: 'p-4' });
+  });
+
+  async function openMove() {
+    const user = userEvent.setup();
+    renderWithProviders(<ReferralsPage />);
+    await screen.findByText('alpha@oxshare.com');
+    await user.click(screen.getByRole('button', { name: 'Actions for Alpha Client' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Move to another partner' }));
+    return user;
+  }
+
+  it('offers main partners AND sub-partners, never the current one, and saves the choice', async () => {
+    const user = await openMove();
+
+    const dialog = await screen.findByRole('dialog', {
+      name: /move alpha client to another partner/i,
+    });
+    expect(await within(dialog).findByText('Omar Partner')).toBeInTheDocument();
+    // Level 2 is offered too, and marked as such.
+    expect(within(dialog).getByText('Sami Partner')).toBeInTheDocument();
+    expect(within(dialog).getByText('Level 2')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Paula Partner')).toBeNull();
+    // Only active partners are asked for.
+    expect(getIbPartners).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'active' }),
+      expect.anything(),
+    );
+
+    const save = within(dialog).getByRole('button', { name: 'Move client' });
+    expect(save).toBeDisabled();
+    await user.click(within(dialog).getByRole('radio', { name: /sami partner/i }));
+    await user.click(save);
+
+    await waitFor(() => expect(moveReferral).toHaveBeenCalledWith('c-1', 'p-4'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('keeps the dialog open and says so when the move is refused', async () => {
+    moveReferral.mockRejectedValue(new Error('That partner is suspended.'));
+    const user = await openMove();
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(await within(dialog).findByRole('radio', { name: /omar partner/i }));
+    await user.click(within(dialog).getByRole('button', { name: 'Move client' }));
+
+    await waitFor(() => expect(moveReferral).toHaveBeenCalledWith('c-1', 'p-3'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('is not offered without ib.partners.edit', async () => {
+    permissions.current = ALL_PERMISSIONS.filter((key) => key !== 'ib.partners.edit');
+    const user = userEvent.setup();
+    renderWithProviders(<ReferralsPage />);
+    await screen.findByText('alpha@oxshare.com');
+    await user.click(screen.getByRole('button', { name: 'Actions for Alpha Client' }));
+    await screen.findByRole('menuitem', { name: /view profile/i });
+    expect(screen.queryByRole('menuitem', { name: 'Move to another partner' })).toBeNull();
+  });
+
+  it('is not offered on a referred client who has since become a partner', async () => {
+    getClients.mockResolvedValue(page([client({ type: 'partner' })]));
+    const user = userEvent.setup();
+    renderWithProviders(<ReferralsPage />);
+    await screen.findByText('alpha@oxshare.com');
+    await user.click(screen.getByRole('button', { name: 'Actions for Alpha Client' }));
+    expect(
+      await screen.findByRole('menuitem', { name: /move under another partner/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Move to another partner' })).toBeNull();
   });
 });

@@ -1603,6 +1603,21 @@ export const adminApi = {
     return data;
   },
 
+  /**
+   * Move a REFERRAL to another partner — any active one, main or sub-partner
+   * (owner, 15 Oct 2026). Commission follows from the next trade.
+   */
+  async moveReferral(
+    userId: ClientRef,
+    ibUserId: ClientRef,
+  ): Promise<{ referredByIbUserId: number }> {
+    const { data } = await apiClient.patch<{ referredByIbUserId: number }>(
+      `/admin/ib/referrals/${userId}/partner`,
+      { ibUserId: Number(ibUserId) },
+    );
+    return data;
+  },
+
   async setIbPartnerActive(userId: ClientRef, active: boolean): Promise<IbAccount> {
     const { data } = await apiClient.patch<IbAccount>(`/admin/ib/partners/${userId}/active`, {
       active,

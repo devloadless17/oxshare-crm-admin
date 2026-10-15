@@ -1435,6 +1435,26 @@ export interface paths {
         patch: operations["AdminIbController_reassignParent"];
         trace?: never;
     };
+    "/v1/admin/ib/referrals/{userId}/partner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Move a referral to another partner
+         * @description Re-points who introduced a referred client to any active partner, main or sub-partner. Applies from the next trade: commission reads the introducer at accrual time, so nothing already credited is restated. The new partner’s tags are added to the client. Refused for a partner (their introducer follows where they sit — use the parent route), for a client with no introducer yet, and for the partner they already have.
+         */
+        patch: operations["AdminIbController_moveReferral"];
+        trace?: never;
+    };
     "/v1/admin/ib/partners/{userId}/terms": {
         parameters: {
             query?: never;
@@ -6657,6 +6677,14 @@ export interface components {
              * @description The agency they work under from the move on. Required with a parent: the administrator chooses it, it is never copied from the main partner. Ignored with null, where they keep their own.
              */
             agencyId?: string;
+        };
+        MoveReferralDto: {
+            /** @description The partner who introduces them from now on — any active partner, level 1 or 2. */
+            ibUserId: number;
+        };
+        ReferralMovedDto: {
+            /** @description The partner who introduces them now. */
+            referredByIbUserId: number;
         };
         SetIbTermsDto: {
             /**
@@ -13825,6 +13853,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IbAccountDto"];
+                };
+            };
+        };
+    };
+    AdminIbController_moveReferral: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveReferralDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferralMovedDto"];
                 };
             };
         };

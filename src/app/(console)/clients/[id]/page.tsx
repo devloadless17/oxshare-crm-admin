@@ -44,6 +44,7 @@ import {
 import {
   AppointPartnerDialog,
   MakeMainPartnerDialog,
+  MoveReferralDialog,
 } from '@/components/clients/profile/partner-structure-dialogs';
 import { useClientTagToggle } from '@/components/clients/profile/use-client-tag-toggle';
 import { ClientClosedPositionsPanel } from '@/components/clients/profile/client-activity-panels';
@@ -145,7 +146,7 @@ export default function ClientProfilePage() {
   const [termsOpen, setTermsOpen] = React.useState(false);
   // Where a partner stands in the tree (owner, 7 Oct 2026).
   const [structureDialog, setStructureDialog] = React.useState<
-    'level' | 'parent' | 'main' | 'appoint' | null
+    'level' | 'parent' | 'main' | 'appoint' | 'referral' | null
   >(null);
   const [editOpen, setEditOpen] = React.useState(false);
   const [emailOpen, setEmailOpen] = React.useState(false);
@@ -467,6 +468,7 @@ export default function ClientProfilePage() {
                   onReassignParent={() => setStructureDialog('parent')}
                   onMakeMainPartner={() => setStructureDialog('main')}
                   onAppointPartner={() => setStructureDialog('appoint')}
+                  onMoveReferral={() => setStructureDialog('referral')}
                 />
               </div>
             </header>
@@ -498,6 +500,15 @@ export default function ClientProfilePage() {
                 userId={partner.userId}
                 name={clientLabel(profile)}
                 parentName={partner.parent ? clientLabel(partner.parent) : null}
+              />
+            )}
+            {structureDialog === 'referral' && !partner && (
+              <MoveReferralDialog
+                open
+                onClose={() => setStructureDialog(null)}
+                userId={profile.id}
+                name={clientLabel(profile)}
+                currentIbUserId={profile.referrer?.ibUserId}
               />
             )}
             {structureDialog === 'appoint' && !partner && (

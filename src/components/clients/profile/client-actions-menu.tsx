@@ -17,6 +17,7 @@ import {
   GitBranch,
   UserPlus,
   ArrowUpToLine,
+  ArrowLeftRight,
   ClipboardCheck,
   Send,
 } from 'lucide-react';
@@ -72,6 +73,7 @@ export function ClientActionsMenu({
   onReassignParent,
   onMakeMainPartner,
   onAppointPartner,
+  onMoveReferral,
 }: {
   profile: ClientProfile;
   /** Null when this client is not a partner — the partner block is then absent. */
@@ -89,6 +91,8 @@ export function ClientActionsMenu({
   onMakeMainPartner?: () => void;
   /** An individual (not a partner) made one, under an agency. */
   onAppointPartner?: () => void;
+  /** A referral moved to another partner, main or sub (owner, 15 Oct 2026). */
+  onMoveReferral?: () => void;
 }) {
   const { admin } = useAdmin();
   const queryClient = useQueryClient();
@@ -115,6 +119,7 @@ export function ClientActionsMenu({
     partner !== null &&
     partner.level >= 2 &&
     (partner.parent !== null || partner.parentOutsideTerritory);
+  const isReferral = partner === null && profile.type === 'referral';
   const canAssignTags = hasPermission(admin, 'clients.tag');
   // The KYC page opens with either key (its route requirement), so the item does.
   const canViewKyc = hasPermission(admin, 'kyc.view') || hasPermission(admin, 'kyc.review');
@@ -362,12 +367,26 @@ export function ClientActionsMenu({
           },
         ]
       : []),
+    /*
+     * A REFERRAL only: not a partner, and somebody introduced them. A client
+     * nobody introduced records one by code on the Network tab instead.
+     */
+    ...(isReferral && canEditPartner && onMoveReferral
+      ? [
+          {
+            label: t('clientProfile.actionMoveReferral'),
+            icon: ArrowLeftRight,
+            separatorBefore: true,
+            onSelect: onMoveReferral,
+          },
+        ]
+      : []),
     ...(!partner && canAppointPartner && onAppointPartner
       ? [
           {
             label: t('clientProfile.actionAppointPartner'),
             icon: UserPlus,
-            separatorBefore: true,
+            separatorBefore: !(isReferral && canEditPartner && onMoveReferral),
             onSelect: onAppointPartner,
           },
         ]
