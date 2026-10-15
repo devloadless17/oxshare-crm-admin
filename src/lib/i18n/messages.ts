@@ -1456,6 +1456,15 @@ export const messages = {
   'clientProfile.changeEmailFailed': 'The sign-in email could not be changed.',
 
   'clientProfile.reassignParentTitle': 'Move {name} under another partner',
+  // A referral moved to another partner (owner, 15 Oct 2026).
+  'clientProfile.actionMoveReferral': 'Move to another partner',
+  'clientProfile.moveReferralTitle': 'Move {name} to another partner',
+  'clientProfile.moveReferralBody':
+    'Choose the partner who introduces this client from now on — a main partner or a sub-partner. Commission on their next trades goes to the new partner; nothing already paid moves. The new partner’s tags are added to the client.',
+  'clientProfile.moveReferralSave': 'Move client',
+  'clientProfile.moveReferralDone': 'Client moved to the new partner.',
+  'clientProfile.moveReferralFailed': 'Could not move the client.',
+  'clientProfile.partnerLevelTag': 'Level {level}',
   'clientProfile.reassignParentBody':
     'Who they sit under. Under a main partner they are a sub-partner (level 2); with no parent ' +
     'they are a main partner (level 1). A partner with sub-partners of their own cannot move ' +

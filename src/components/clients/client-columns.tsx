@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   Eye,
   GitBranch,
   Link2,
@@ -87,6 +88,7 @@ export function clientColumns({
   onLinkAccount,
   onReassignParent,
   onAppointPartner,
+  onMoveReferral,
 }: {
   canSuspend: boolean;
   canViewTags: boolean;
@@ -119,6 +121,11 @@ export function clientColumns({
    * only for a reader holding `ib.approve` — the API's key for it.
    */
   onAppointPartner?: (client: ClientRow) => void;
+  /**
+   * "Move to another partner" on REFERRAL rows (owner, 15 Oct 2026) — any
+   * partner, main or sub. Shown with `ib.partners.edit`, the API's key for it.
+   */
+  onMoveReferral?: (client: ClientRow) => void;
 }): Column<ClientRow>[] {
   const hidden = (field: string) => isMasked(field, maskedFields);
 
@@ -465,13 +472,28 @@ export function clientColumns({
                       : []),
                   ]
                 : []),
+              ...(canEditPartners && onMoveReferral && c.type === 'referral'
+                ? [
+                    {
+                      label: t('clientProfile.actionMoveReferral'),
+                      icon: ArrowLeftRight,
+                      separatorBefore: true,
+                      onSelect: () => onMoveReferral(c),
+                    },
+                  ]
+                : []),
               // An individual (or a referred client) made a partner, under an agency.
               ...(onAppointPartner && c.type !== 'partner'
                 ? [
                     {
                       label: t('clientProfile.actionAppointPartner'),
                       icon: UserPlus,
-                      separatorBefore: true,
+                      // One group with "Move to another partner" when both show.
+                      separatorBefore: !(
+                        canEditPartners &&
+                        onMoveReferral &&
+                        c.type === 'referral'
+                      ),
                       onSelect: () => onAppointPartner(c),
                     },
                   ]

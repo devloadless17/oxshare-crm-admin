@@ -37,6 +37,7 @@ export function MainPartnerPicker({
   exclude,
   enabled,
   name = 'main-partner',
+  anyLevel = false,
 }: {
   value: ClientRef | null;
   onChange: (userId: ClientRef) => void;
@@ -44,6 +45,11 @@ export function MainPartnerPicker({
   exclude?: ClientRef;
   enabled: boolean;
   name?: string;
+  /**
+   * Offer sub-partners too, each marked with their level — a REFERRAL may sit
+   * under any partner (owner, 15 Oct 2026). A partner's parent may not.
+   */
+  anyLevel?: boolean;
 }) {
   const [search, setSearch] = React.useState('');
   const term = useDebounced(search.trim(), 300);
@@ -57,7 +63,7 @@ export function MainPartnerPicker({
     { enabled },
   );
   const options = (partners.data?.rows ?? []).filter(
-    (row) => row.account.level === 1 && row.account.userId !== exclude,
+    (row) => (anyLevel || row.account.level === 1) && row.account.userId !== exclude,
   );
 
   return (
@@ -95,6 +101,11 @@ export function MainPartnerPicker({
                 <span className="flex min-w-0 items-baseline gap-1.5">
                   <span className="truncate text-sm font-medium">{label}</span>
                   <PortalIdTag id={row.user.portalId} />
+                  {anyLevel && (
+                    <span className="shrink-0 rounded border border-border px-1 text-[10px] text-muted-foreground">
+                      {t('clientProfile.partnerLevelTag', { level: row.account.level })}
+                    </span>
+                  )}
                 </span>
                 <span className="block truncate text-[11px] text-muted-foreground">
                   {[row.user.email, row.agencyName].filter(Boolean).join(' · ')}
@@ -411,6 +422,74 @@ export function DialogFooter({
         {saving ? t('common.saving') : label}
       </button>
     </div>
+  );
+}
+
+/**
+ * Move a REFERRAL — a client a partner introduced — to another partner
+ * (owner, 15 Oct 2026): any active partner, main or sub-partner. The twin of
+ * "Move under another partner" for somebody who is not a partner themselves.
+ */
+export function MoveReferralDialog({
+  open,
+  onClose,
+  userId,
+  name,
+  currentIbUserId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  userId: ClientRef;
+  name: string;
+  /** Who introduces them now — left out of the list. Absent outside territory. */
+  currentIbUserId?: ClientRef;
+}) {
+  const queryClient = useQueryClient();
+  const [ibUserId, setIbUserId] = React.useState<ClientRef | null>(null);
+
+  const save = useMutation({
+    mutationFn: () => api.admin.moveReferral(userId, ibUserId!),
+    onSuccess: async () => {
+      await invalidatePartnerViews(queryClient);
+      toastSuccess(t('clientProfile.moveReferralDone'));
+      onClose();
+    },
+    onError: (error) => toastError(error, t('clientProfile.moveReferralFailed')),
+  });
+
+  return (
+    <Modal
+      busy={save.isPending}
+      open={open}
+      onClose={onClose}
+      title={t('clientProfile.moveReferralTitle', { name })}
+    >
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (ibUserId !== null) save.mutate();
+        }}
+      >
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {t('clientProfile.moveReferralBody')}
+        </p>
+        <MainPartnerPicker
+          value={ibUserId}
+          onChange={setIbUserId}
+          exclude={currentIbUserId}
+          enabled={open}
+          name="referral-partner"
+          anyLevel
+        />
+        <DialogFooter
+          onClose={onClose}
+          saving={save.isPending}
+          disabled={ibUserId === null}
+          label={t('clientProfile.moveReferralSave')}
+        />
+      </form>
+    </Modal>
   );
 }
 

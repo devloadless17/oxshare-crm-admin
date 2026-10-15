@@ -21,7 +21,10 @@ import { maskedFieldLabels } from '@/lib/masking';
 import { ClientFilters } from '@/components/clients/client-filters';
 import { ChangeLevelFromList } from '@/components/clients/change-level-from-list';
 import { ReassignParentFromList } from '@/components/partners/reassign-parent-from-list';
-import { AppointPartnerDialog } from '@/components/clients/profile/partner-structure-dialogs';
+import {
+  AppointPartnerDialog,
+  MoveReferralDialog,
+} from '@/components/clients/profile/partner-structure-dialogs';
 import { EditTermsFromList } from '@/components/partners/edit-terms-from-list';
 import { clientColumns } from '@/components/clients/client-columns';
 import { useClientStatusToggle } from '@/components/clients/use-client-status-toggle';
@@ -108,6 +111,8 @@ function ReferralsPageContent() {
   const [programTarget, setProgramTarget] = useState<ClientRow | null>(null);
   // Where a partner stands in the tree (owner, 7 Oct 2026).
   const [parentTarget, setParentTarget] = useState<ClientRow | null>(null);
+  // A referral moved to another partner (owner, 15 Oct 2026).
+  const [referralTarget, setReferralTarget] = useState<ClientRow | null>(null);
   const [appointTarget, setAppointTarget] = useState<ClientRow | null>(null);
   const canAppointPartners = hasPermission(admin, 'ib.approve');
   const [termsTarget, setTermsTarget] = useState<ClientRow | null>(null);
@@ -146,6 +151,7 @@ function ReferralsPageContent() {
     onEditTerms: setTermsTarget,
     onLinkAccount: canLinkAccounts ? setLinkFor : undefined,
     onReassignParent: setParentTarget,
+    onMoveReferral: setReferralTarget,
     onAppointPartner: canAppointPartners ? setAppointTarget : undefined,
     showReferrer: canViewPartners,
   });
@@ -174,6 +180,15 @@ function ReferralsPageContent() {
           onClose={() => setTermsTarget(null)}
           userId={termsTarget.id}
           name={clientLabel(termsTarget)}
+        />
+      )}
+      {referralTarget && (
+        <MoveReferralDialog
+          open
+          onClose={() => setReferralTarget(null)}
+          userId={referralTarget.id}
+          name={clientLabel(referralTarget)}
+          currentIbUserId={referralTarget.referrer?.ibUserId}
         />
       )}
       {parentTarget && (

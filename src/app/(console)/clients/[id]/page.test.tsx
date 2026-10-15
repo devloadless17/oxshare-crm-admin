@@ -653,6 +653,22 @@ describe('the actions menu (owner, 26 Sep and 7 Oct 2026)', () => {
     expect(screen.getByRole('menuitem', { name: /^make partner$/i })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: /change commission level/i })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /move under another partner/i })).toBeNull();
+    // Nobody introduced them, so there is no partner to move them away from.
+    expect(screen.queryByRole('menuitem', { name: /move to another partner/i })).toBeNull();
+  });
+
+  it('offers a referral "Move to another partner" (15 Oct 2026)', async () => {
+    getPartnerDetail.mockResolvedValue(null);
+    getClient.mockResolvedValue(
+      profile({
+        type: 'referral',
+        referrer: { ibUserId: 'p-1', portalId: 1000100, firstName: 'Paula', lastName: 'Partner' },
+      }),
+    );
+    await openMenu();
+
+    expect(screen.getByRole('menuitem', { name: /move to another partner/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /move under another partner/i })).toBeNull();
   });
 
   it('offers none of them to an admin without the partner keys', async () => {
