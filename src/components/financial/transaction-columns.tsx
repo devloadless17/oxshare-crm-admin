@@ -7,7 +7,8 @@ import { PermittedLink } from '@/components/permitted-link';
 import { TxStateBadge } from '@/components/financial/transaction-badges';
 import {
   MovementPeople,
-  MovementRoute,
+  MovementFrom,
+  MovementTo,
   MovementTypeBadge,
 } from '@/components/movements/movement-cells';
 import { type TransactionRow, type TransactionSortKey } from '@/lib/api/admin';
@@ -115,14 +116,19 @@ export function transactionColumns({
     },
     {
       /*
-       * FROM → TO, both ends named (16 Oct 2026): a wallet by its number, an account by its MT5
-       * login, a payment by its METHOD — the buyer's "most important field in any transaction"
-       * stays in the cell, as the outside end of every deposit and withdrawal. The payout
-       * destination rides on the masked `destination`, so a role that hides it hides it here.
+       * FROM and TO, each its own column (16 Oct 2026): a wallet by its number, an account by its
+       * MT5 login, a payment by its METHOD — the buyer's "most important field in any
+       * transaction" stays on screen as the outside end of every deposit and withdrawal. The
+       * payout destination rides on the masked `destination`, so a role that hides it hides it.
        */
-      header: t('movement.colRoute'),
+      header: t('movement.colFrom'),
       sortable: false,
-      cell: (row) => <MovementRoute row={row} />,
+      cell: (row) => <MovementFrom row={row} />,
+    },
+    {
+      header: t('movement.colTo'),
+      sortable: false,
+      cell: (row) => <MovementTo row={row} />,
     },
     {
       header: t('financial.colAmount'),

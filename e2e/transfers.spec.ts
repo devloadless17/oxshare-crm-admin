@@ -212,6 +212,9 @@ test('every transfer names both ends, its origin and its source — on every scr
     await page.goto(`/transfers?userId=${client.id}&range=all`);
     const table = page.getByRole('table');
     await expect(table.getByText(`MT5 ${login}`).first()).toBeVisible();
+    // From and To are two columns, as in the buyer's old back office.
+    await expect(table.getByRole('columnheader', { name: 'From', exact: true })).toBeVisible();
+    await expect(table.getByRole('columnheader', { name: 'To', exact: true })).toBeVisible();
     for (const origin of ['Client', 'Desk: new funds', 'Desk: from wallet', 'Desk: from account']) {
       await expect(table.getByText(origin, { exact: false }).first()).toBeVisible();
     }
