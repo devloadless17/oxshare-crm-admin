@@ -993,6 +993,11 @@ export interface TradingAccountListParams {
    * admin who sees every client.
    */
   client?: 'assigned' | 'unassigned';
+  /**
+   * `exclude`: what the client sees in the portal; `only`: what the desk
+   * archived (backend 0225). Absent: both.
+   */
+  archived?: 'exclude' | 'only';
   /** When OPENED — instants with offset, `to` exclusive (`lib/date-presets.ts`). */
   from?: string;
   to?: string;
@@ -1012,6 +1017,7 @@ export function tradingAccountListSearchParams(params: TradingAccountListParams)
   if (params.environment) query.set('environment', params.environment);
   if (params.status) query.set('status', params.status);
   if (params.client) query.set('client', params.client);
+  if (params.archived) query.set('archived', params.archived);
   if (params.from) query.set('from', params.from);
   if (params.to) query.set('to', params.to);
   if (params.sort) {
@@ -3436,6 +3442,16 @@ export const adminApi = {
   /** Set, change or clear (null) the product an account's trades pay under. */
   async setTradingAccountProduct(accountId: string, productId: string | null): Promise<void> {
     await apiClient.patch(`/admin/trading-accounts/${accountId}/product`, { productId });
+  },
+
+  /**
+   * Hide an account from its client, or show it again (backend 0225). Nothing
+   * changes on MT5; a live account is refused while it holds anything.
+   */
+  async setTradingAccountArchived(accountId: string, archived: boolean): Promise<void> {
+    await apiClient.post(
+      `/admin/trading-accounts/${accountId}/${archived ? 'archive' : 'unarchive'}`,
+    );
   },
 
   async createTradingAccount(dto: CreateMt5AccountDto): Promise<CreatedMt5Account> {

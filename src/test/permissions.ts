@@ -45,6 +45,7 @@ export const ALL_PERMISSIONS: string[] = [
   'trading.create',
   'trading.deposit',
   'trading.withdraw',
+  'trading.archive',
   'ib.partners.view',
   'ib.partners.edit',
   'ib.partners.suspend',

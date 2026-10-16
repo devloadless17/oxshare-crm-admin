@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Boxes, CandlestickChart, Link2, Plus } from 'lucide-react';
+import { Archive, ArchiveRestore, Boxes, CandlestickChart, Link2, Plus } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import type {
   ClientRef,
@@ -17,6 +18,8 @@ import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { RowActions, actionsColumn } from '@/components/row-actions';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { tradingAccountColumns } from '@/components/trading/trading-account-columns';
 import { useAccountFunding } from '@/components/trading/use-account-funding';
 import { OpenAccountModal } from '@/components/trading/open-account-modal';
@@ -49,10 +52,15 @@ export function ClientAccountsPanel({
 }) {
   const { admin } = useAdmin();
   const canCreate = hasPermission(admin, 'trading.create');
+  const canArchive = hasPermission(admin, 'trading.archive');
+  const confirm = useConfirm();
+  const queryClient = useQueryClient();
   const table = useTableState<TradingAccountSortKey>(TRADING_ACCOUNT_SORT_KEYS);
   const funding = useAccountFunding();
   const [environment, setEnvironment] = React.useState('');
   const [status, setStatus] = React.useState('');
+  // Opens on what the client sees in the portal (backend 0225).
+  const [visibility, setVisibility] = React.useState('exclude');
   const [opening, setOpening] = React.useState(false);
   const [linking, setLinking] = React.useState(false);
   const [productFor, setProductFor] = React.useState<TradingAccountRow | null>(null);
@@ -65,6 +73,7 @@ export function ClientAccountsPanel({
     q: table.q || undefined,
     environment: (environment || undefined) as 'live' | 'demo' | undefined,
     status: (status || undefined) as 'active' | 'suspended' | 'closed' | undefined,
+    archived: (visibility || undefined) as 'exclude' | 'only' | undefined,
     sort: table.sort.key,
     order: table.sort.key ? table.sort.order : undefined,
   };
@@ -73,10 +82,43 @@ export function ClientAccountsPanel({
     (signal) => api.admin.getTradingAccounts(params, signal),
   );
 
+  /**
+   * Archive hides the account from the client; nothing changes on MT5. The
+   * server refuses an account holding money or open positions, and its sentence
+   * is what the toast shows.
+   */
+  const setArchived = async (account: TradingAccountRow, archived: boolean) => {
+    const login = account.login ?? account.id;
+    if (
+      archived &&
+      !(await confirm({
+        title: t('tradingAccounts.archiveTitle', { login }),
+        description: t('tradingAccounts.archiveDescription'),
+        confirmLabel: t('tradingAccounts.archiveConfirm'),
+      }))
+    ) {
+      return;
+    }
+    try {
+      await api.admin.setTradingAccountArchived(account.id, archived);
+      toastSuccess(
+        t(archived ? 'tradingAccounts.archived.toast' : 'tradingAccounts.restored.toast', {
+          login,
+        }),
+      );
+      await queryClient.invalidateQueries({ queryKey: keys.tradingAccounts.all() });
+    } catch (err) {
+      toastError(
+        err,
+        t(archived ? 'tradingAccounts.archiveFailed' : 'tradingAccounts.restoreFailed'),
+      );
+    }
+  };
+
   const columns: Column<TradingAccountRow>[] = [
     // Every row is this client — the Client column would repeat their name.
     ...tradingAccountColumns().filter((column) => column.header !== t('tradingAccounts.colOwner')),
-    ...(funding.canMoveMoney || canCreate
+    ...(funding.canMoveMoney || canCreate || canArchive
       ? [
           actionsColumn<TradingAccountRow>((account) => (
             <RowActions
@@ -94,6 +136,21 @@ export function ClientAccountsPanel({
                       },
                     ]
                   : []),
+                ...(canArchive
+                  ? [
+                      account.archivedAt
+                        ? {
+                            label: t('tradingAccounts.restoreAction'),
+                            icon: ArchiveRestore,
+                            onSelect: () => void setArchived(account, false),
+                          }
+                        : {
+                            label: t('tradingAccounts.archiveAction'),
+                            icon: Archive,
+                            onSelect: () => void setArchived(account, true),
+                          },
+                    ]
+                  : []),
               ]}
             />
           )),
@@ -101,7 +158,7 @@ export function ClientAccountsPanel({
       : []),
   ];
 
-  const filtered = Boolean(table.q || environment || status);
+  const filtered = Boolean(table.q || environment || status || visibility === 'only');
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3">
@@ -136,6 +193,19 @@ export function ClientAccountsPanel({
           ]}
           onChange={(next) => {
             setStatus(next);
+            table.setPage(1);
+          }}
+        />
+        <ChoiceFilter
+          label={t('tradingAccounts.filterVisibility')}
+          allLabel={t('tradingAccounts.filterVisibilityAll')}
+          value={visibility}
+          options={[
+            { value: 'exclude', label: t('tradingAccounts.visibilityShown') },
+            { value: 'only', label: t('tradingAccounts.visibilityArchived') },
+          ]}
+          onChange={(next) => {
+            setVisibility(next);
             table.setPage(1);
           }}
         />
