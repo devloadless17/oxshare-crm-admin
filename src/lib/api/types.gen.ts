@@ -760,6 +760,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/client-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report a crash a frontend's error screen caught */
+        post: operations["ClientErrorsController_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platforms": {
         parameters: {
             query?: never;
@@ -5973,6 +5990,22 @@ export interface components {
              *     ]
              */
             proxyHeaders: string[];
+        };
+        ClientErrorReportDto: {
+            /** @enum {string} */
+            app: "portal" | "admin";
+            /** @enum {string} */
+            boundary: "page" | "global";
+            /** @description The error name, e.g. TypeError or ChunkLoadError. */
+            name: string;
+            message: string;
+            stack?: string;
+            /** @description Next's digest, present only for a server-rendered error. */
+            digest?: string;
+            /** @description The page PATH only. The query string is never sent. */
+            path: string;
+            /** @description The build the tab is running (its deployment id). */
+            build?: string;
         };
         PlatformLinkDto: {
             /**
@@ -12991,6 +13024,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EdgeDto"];
                 };
+            };
+        };
+    };
+    ClientErrorsController_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientErrorReportDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
