@@ -68,6 +68,8 @@ const report = (over: Record<string, unknown> = {}) => ({
   transferMismatchCount: 0,
   strandedDeposits: [],
   strandedDepositCount: 0,
+  unpaidAccruals: [],
+  unpaidAccrualCount: 0,
   balanced: true,
   ...over,
 });

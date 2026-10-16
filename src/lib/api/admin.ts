@@ -311,6 +311,7 @@ export type PayoutPlan = components['schemas']['PayoutPlanDto'];
 export type StuckTransfers = components['schemas']['StuckTransfersDto'];
 export type TransactionListResponse = components['schemas']['AdminTransactionListResponseDto'];
 export type TransactionsSummary = components['schemas']['AdminTransactionsSummaryDto'];
+export type LedgerStatementResponse = components['schemas']['LedgerStatementResponseDto'];
 export type TransactionSummaryRow = components['schemas']['AdminTransactionSummaryRowDto'];
 /**
  * All three read off the row, not written out — a value added on the backend
@@ -655,7 +656,11 @@ export interface TransactionListParams {
   account?: string;
   /** Which second facet the list counts — `type` for the accounting tabs. */
   facet?: 'direction' | 'type';
-  state?: TransactionState;
+  /** One state, or several comma-separated (backend: audit R4-G3). */
+  state?: string;
+  /** An amount range, inclusive — decimal strings, never numbers (§6.1). */
+  amountMin?: string;
+  amountMax?: string;
   /** Narrow to one client, by Portal ID. */
   userId?: ClientRef;
   currency?: string;
@@ -715,6 +720,8 @@ export function movementFilterQuery(params: TransactionsSummaryParams): URLSearc
   if (params.q) query.set('q', params.q);
   if (params.from) query.set('from', params.from);
   if (params.to) query.set('to', params.to);
+  if (params.amountMin) query.set('amountMin', params.amountMin);
+  if (params.amountMax) query.set('amountMax', params.amountMax);
   if (params.settledFrom) query.set('settledFrom', params.settledFrom);
   if (params.settledTo) query.set('settledTo', params.settledTo);
   if (params.method) query.set('method', params.method);
@@ -2641,6 +2648,25 @@ export const adminApi = {
    * a correction is a new compensating entry — there is no update or delete
    * here because there is none in the database either (§6.4).
    */
+  /**
+   * The period statement (backend audit R4-G1): per currency and wallet kind, the client money
+   * held at the start, every posting by type, and held at the end — the server's figures.
+   */
+  async getLedgerStatement(
+    params: { from?: string; to?: string; currency?: string },
+    signal?: AbortSignal,
+  ): Promise<LedgerStatementResponse> {
+    const query = new URLSearchParams();
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
+    if (params.currency) query.set('currency', params.currency);
+    const { data } = await apiClient.get<LedgerStatementResponse>(
+      `/admin/ledger/statement?${query.toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
   async getLedger(
     params: {
       /**

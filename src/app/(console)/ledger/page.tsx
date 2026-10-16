@@ -31,6 +31,7 @@ import { keys } from '@/lib/query-keys';
 import { ClientIdentity, clientName } from '@/components/clients/client-identity';
 import { PermittedLink } from '@/components/permitted-link';
 import { ledgerReferenceLink } from '@/components/movements/movement-vocabulary';
+import { LedgerStatementPanel } from '@/components/ledger/ledger-statement-panel';
 
 /**
  * ADM-13 — the append-only ledger. `GET /admin/ledger`.
@@ -294,6 +295,8 @@ function LedgerPageContent() {
         </div>
         <ExportButton resource="ledger" filters={exportFilters} disabled={total === 0} />
       </div>
+
+      <LedgerStatementPanel from={period.range.from} to={period.range.to} />
 
       <div className="flex shrink-0 flex-wrap items-center gap-3">
         <UrlSearchInput

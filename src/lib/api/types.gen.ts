@@ -4909,7 +4909,7 @@ export interface paths {
         };
         /**
          * The last reconciliation report, or a fresh one with ?fresh=true (§12.2)
-         * @description Answers with the LAST completed check and the time it was made (`checkedAt`): the hourly job runs it, and it reads every ledger entry, so running it per page view cost the size of the ledger. `?fresh=true` runs it now. The check: every wallet balance against the sum of its own ledger. Wallet balances ONLY — a confirmed commission accrual that was never credited is a separate alert (UNPAID_CONFIRMED_ACCRUAL), not part of this report. Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed. Whole-platform: an admin scoped to a client territory is refused, because a reconciliation over a fragment is meaningless and the full report names clients outside their territory.
+         * @description Answers with the LAST completed check and the time it was made (`checkedAt`): the hourly job runs it, and it reads every ledger entry, so running it per page view cost the size of the ledger. `?fresh=true` runs it now. The check: every wallet balance against the sum of its own ledger; every transfer of the last week against MT5; deposits stranded in a wallet; and confirmed commission never credited (UNPAID_CONFIRMED_ACCRUAL). Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed. Whole-platform: an admin scoped to a client territory is refused, because a reconciliation over a fragment is meaningless and the full report names clients outside their territory.
          */
         get: operations["AdminMoneyController_reconcile"];
         put?: never;
@@ -4932,6 +4932,26 @@ export interface paths {
          * @description The same filters as GET /admin/ledger, over every matching entry. Amounts and balances are the exact decimal strings the ledger holds — never rounded (§6.1).
          */
         get: operations["AdminMoneyController_exportLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ledger/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The period statement: client money held at the start, every posting, held at the end
+         * @description Per currency and wallet kind, from the ledger, with opening + movements = closing checked (audit R4-G1). Without `from`, it is the client liabilities at `to` (or now). Scoped: a desk sees the money of its own clients.
+         */
+        get: operations["AdminMoneyController_ledgerStatement"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5293,7 +5313,7 @@ export interface paths {
         };
         /**
          * Export the filtered wallet list as CSV
-         * @description The same `userId` and `currency` filters as GET /admin/wallets, over every matching row rather than one page. Balances are the exact decimal strings the column holds — never rounded, never locale-formatted (§6.1). Client scope applies exactly as it does to the list.
+         * @description The same `userId`, `currency` and `q` filters as GET /admin/wallets, over every matching row rather than one page. Balances are the exact decimal strings the column holds — never rounded, never locale-formatted (§6.1). Client scope applies exactly as it does to the list.
          */
         get: operations["AdminHoldingsController_exportWallets"];
         put?: never;
@@ -5352,8 +5372,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * One client’s money movements, all directions
-         * @description `amount` is a decimal string (§6.1), never a number.
+         * One client’s PAYMENTS (deposits and withdrawals) — not every movement
+         * @description Payments only: wallet ⇄ trading-account transfers and commission moves are NOT here (audit R4-6). For every movement of a client, with its accounting type and both ends, read `GET /admin/transactions?userId=`. `amount` is a decimal string (§6.1), never a number.
          */
         get: operations["AdminHoldingsController_listClientTransactions"];
         put?: never;
@@ -11318,6 +11338,13 @@ export interface components {
             currency: string;
             settledAt: string;
         };
+        UnpaidAccrualDto: {
+            accrualId: string;
+            /** @description A money string. */
+            amount: string;
+            currency: string;
+            confirmedAt: string | null;
+        };
         ReconciliationReportDto: {
             /** @description When this run completed (ISO 8601). */
             checkedAt: string;
@@ -11340,8 +11367,49 @@ export interface components {
             strandedDeposits: components["schemas"]["StrandedDepositDto"][];
             /** @description How many deposits are stranded in the wallet. */
             strandedDepositCount: number;
+            /** @description Commission confirmed but never credited (a sample of up to 20). */
+            unpaidAccruals: components["schemas"]["UnpaidAccrualDto"][];
+            /** @description How many confirmed accruals no ledger entry paid. */
+            unpaidAccrualCount: number;
             /** @description True when nothing is wrong. Read this rather than testing the array length — it is the field the service decides, and a future check can make it false without adding a wallet discrepancy. */
             balanced: boolean;
+        };
+        LedgerStatementLineDto: {
+            /** @example deposit */
+            entryType: string;
+            /**
+             * @description in credits the wallets, out debits them.
+             * @enum {string}
+             */
+            flow: "in" | "out";
+            count: number;
+            /**
+             * @description Always positive.
+             * @example 1200.00000000
+             */
+            total: string;
+        };
+        LedgerStatementDto: {
+            /** @example USD */
+            currency: string;
+            /** @example main */
+            walletKind: string;
+            /** @description Held at the start; 0 when there is no start. */
+            opening: string;
+            lines: components["schemas"]["LedgerStatementLineDto"][];
+            /** @description Σ movements, signed. */
+            movement: string;
+            /** @description Held at the end (or now): the liabilities. */
+            closing: string;
+        };
+        LedgerStatementResponseDto: {
+            from: string | null;
+            until: string | null;
+            statements: components["schemas"]["LedgerStatementDto"][];
+            /** @description The last reconciliation found every wallet equal to its own ledger — the condition under which these figures are exact. */
+            walletsAgreeWithLedger: boolean;
+            /** @description When that reconciliation ran. */
+            reconciledAt: string;
         };
         StuckTransfersDto: {
             /**
@@ -11475,12 +11543,23 @@ export interface components {
             /** @example -310.50000000 */
             total: string;
         };
+        AccountingFeeDto: {
+            /** @example USD */
+            currency: string;
+            /** @enum {string} */
+            direction: "deposit" | "withdrawal";
+            /** @description Settled payments that carried a fee. */
+            count: number;
+            /** @example 12.40000000 */
+            total: string;
+        };
         AdminTransactionsSummaryDto: {
             rows: components["schemas"]["AdminTransactionSummaryRowDto"][];
             directions: components["schemas"]["AdminTransactionDirectionTotalDto"][];
             accounting: components["schemas"]["AccountingLineDto"][];
             effects: components["schemas"]["AccountingEffectDto"][];
             net: components["schemas"]["AccountingNetDto"][];
+            fees: components["schemas"]["AccountingFeeDto"][];
         };
         MovementEndDto: {
             /** @enum {string} */
@@ -19134,6 +19213,32 @@ export interface operations {
             };
         };
     };
+    AdminMoneyController_ledgerStatement: {
+        parameters: {
+            query?: {
+                /** @description Earliest posted time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+                /** @description One currency code. */
+                currency?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerStatementResponseDto"];
+                };
+            };
+        };
+    };
     AdminMoneyController_listLedger: {
         parameters: {
             query: {
@@ -19302,7 +19407,8 @@ export interface operations {
                 direction?: "deposit" | "withdrawal";
                 /** @description payment = crossed the platform boundary through a provider; transfer = wallet ⇄ trading account; commission_transfer = partner earnings to their main wallet. */
                 kind?: "payment" | "transfer" | "commission_transfer";
-                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description One state, or several comma-separated (audit R4-G3): pending, approved, success, failure, rejected */
+                state?: string;
                 /** @description Narrow to one client (UUID). */
                 userId?: number;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
@@ -19317,6 +19423,10 @@ export interface operations {
                 settledFrom?: string;
                 /** @description End of the settled period. */
                 settledTo?: string;
+                /** @description Lowest amount, inclusive — a decimal string (audit R4-G3). */
+                amountMin?: string;
+                /** @description Highest amount, inclusive — a decimal string. */
+                amountMax?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
@@ -19355,7 +19465,8 @@ export interface operations {
                 direction?: "deposit" | "withdrawal";
                 /** @description payment = crossed the platform boundary through a provider; transfer = wallet ⇄ trading account; commission_transfer = partner earnings to their main wallet. */
                 kind?: "payment" | "transfer" | "commission_transfer";
-                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description One state, or several comma-separated (audit R4-G3): pending, approved, success, failure, rejected */
+                state?: string;
                 /** @description Narrow to one client (UUID). */
                 userId?: number;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
@@ -19370,6 +19481,10 @@ export interface operations {
                 settledFrom?: string;
                 /** @description End of the settled period. */
                 settledTo?: string;
+                /** @description Lowest amount, inclusive — a decimal string (audit R4-G3). */
+                amountMin?: string;
+                /** @description Highest amount, inclusive — a decimal string. */
+                amountMax?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
@@ -19407,7 +19522,8 @@ export interface operations {
                 format?: "csv";
                 /** @description Wallet-side, like Financial: withdrawal = wallet → trading account, deposit = into the wallet (from an account, or commission → main wallet). */
                 direction?: "deposit" | "withdrawal";
-                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description One state, or several comma-separated (audit R4-G3): pending, approved, success, failure, rejected */
+                state?: string;
                 /** @description Narrow to one client. */
                 userId?: number;
                 /** @description A currency code. */
@@ -19422,6 +19538,10 @@ export interface operations {
                 settledFrom?: string;
                 /** @description End of the settled period. */
                 settledTo?: string;
+                /** @description Lowest amount, inclusive — a decimal string (audit R4-G3). */
+                amountMin?: string;
+                /** @description Highest amount, inclusive — a decimal string. */
+                amountMax?: string;
                 /** @description Where the money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission */
                 origin?: string;
                 /** @description One trading account: its id or MT5 login. Unknown or out of territory is an empty list. */
@@ -19451,7 +19571,8 @@ export interface operations {
             query?: {
                 /** @description Wallet-side, like Financial: withdrawal = wallet → trading account, deposit = into the wallet (from an account, or commission → main wallet). */
                 direction?: "deposit" | "withdrawal";
-                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description One state, or several comma-separated (audit R4-G3): pending, approved, success, failure, rejected */
+                state?: string;
                 /** @description Narrow to one client. */
                 userId?: number;
                 /** @description A currency code. */
@@ -19466,6 +19587,10 @@ export interface operations {
                 settledFrom?: string;
                 /** @description End of the settled period. */
                 settledTo?: string;
+                /** @description Lowest amount, inclusive — a decimal string (audit R4-G3). */
+                amountMin?: string;
+                /** @description Highest amount, inclusive — a decimal string. */
+                amountMax?: string;
                 /** @description Where the money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission */
                 origin?: string;
                 /** @description One trading account: its id or MT5 login. Unknown or out of territory is an empty list. */
@@ -19494,7 +19619,8 @@ export interface operations {
             query?: {
                 /** @description Wallet-side, like Financial: withdrawal = wallet → trading account, deposit = into the wallet (from an account, or commission → main wallet). */
                 direction?: "deposit" | "withdrawal";
-                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description One state, or several comma-separated (audit R4-G3): pending, approved, success, failure, rejected */
+                state?: string;
                 /** @description Narrow to one client. */
                 userId?: number;
                 /** @description A currency code. */
@@ -19509,6 +19635,10 @@ export interface operations {
                 settledFrom?: string;
                 /** @description End of the settled period. */
                 settledTo?: string;
+                /** @description Lowest amount, inclusive — a decimal string (audit R4-G3). */
+                amountMin?: string;
+                /** @description Highest amount, inclusive — a decimal string. */
+                amountMax?: string;
                 /** @description Where the money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission */
                 origin?: string;
                 /** @description One trading account: its id or MT5 login. Unknown or out of territory is an empty list. */
@@ -19546,7 +19676,8 @@ export interface operations {
         parameters: {
             query: {
                 format?: "csv";
-                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description One state, or several comma-separated (audit R4-G3): pending, approved, success, failure, rejected */
+                state?: string;
                 /** @description A Portal ID, a phone, a name or an email — or a detail the client gave with the receipt. */
                 q?: string;
                 /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
@@ -19555,6 +19686,8 @@ export interface operations {
                 to?: string;
                 settledFrom: string;
                 settledTo: string;
+                amountMin: string;
+                amountMax: string;
             };
             header?: never;
             path?: never;
@@ -19576,7 +19709,8 @@ export interface operations {
     AdminFinancialController_listDeskDeposits: {
         parameters: {
             query: {
-                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description One state, or several comma-separated (audit R4-G3): pending, approved, success, failure, rejected */
+                state?: string;
                 /** @description A Portal ID, a phone, a name or an email — or a detail the client gave with the receipt. */
                 q?: string;
                 /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
@@ -19585,6 +19719,8 @@ export interface operations {
                 to?: string;
                 settledFrom: string;
                 settledTo: string;
+                amountMin: string;
+                amountMax: string;
                 /** @description One deposit by its uuid — where a notification lands. No state is implied. */
                 id?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
@@ -19619,7 +19755,8 @@ export interface operations {
                 direction?: "deposit" | "withdrawal";
                 /** @description payment = crossed the platform boundary through a provider; transfer = wallet ⇄ trading account; commission_transfer = partner earnings to their main wallet. */
                 kind?: "payment" | "transfer" | "commission_transfer";
-                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description One state, or several comma-separated (audit R4-G3): pending, approved, success, failure, rejected */
+                state?: string;
                 /** @description Narrow to one client (UUID). */
                 userId?: number;
                 /** @description A currency code the platform holds. Case-insensitive; unknown codes are 400. */
@@ -19634,6 +19771,10 @@ export interface operations {
                 settledFrom?: string;
                 /** @description End of the settled period. */
                 settledTo?: string;
+                /** @description Lowest amount, inclusive — a decimal string (audit R4-G3). */
+                amountMin?: string;
+                /** @description Highest amount, inclusive — a decimal string. */
+                amountMax?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
@@ -19769,6 +19910,8 @@ export interface operations {
                 userId?: number;
                 /** @description Exact match on the wallet code. */
                 currency?: string;
+                /** @description The same search as the list: the owner’s Portal ID, email, name or phone. */
+                q?: string;
             };
             header?: never;
             path?: never;

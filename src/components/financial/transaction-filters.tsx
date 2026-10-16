@@ -1,7 +1,7 @@
 'use client';
 
 import type { Currency } from '@/lib/api/admin';
-import { MOVEMENT_TYPES, TRANSACTION_STATES, type MovementType } from '@/lib/api/admin';
+import { MOVEMENT_TYPES, type MovementType, type TransactionState } from '@/lib/api/admin';
 import {
   Select,
   SelectContent,
@@ -11,9 +11,10 @@ import {
 } from '@/components/ui/select';
 import { AlertTriangle } from 'lucide-react';
 import { DateRangePicker } from '@/components/date-range-picker';
+import { StateFilter } from '@/components/financial/state-filter';
+import { AmountRangeFilter } from '@/components/financial/amount-range-filter';
 import { MethodFilter, type MethodOption } from '@/components/financial/method-filter';
 import type { DateRangeState } from '@/hooks/use-date-range';
-import { stateLabel } from '@/components/financial/transaction-badges';
 import { typeLabel } from '@/components/movements/movement-vocabulary';
 import { t } from '@/lib/i18n';
 
@@ -30,7 +31,9 @@ import { t } from '@/lib/i18n';
 export function TransactionFilters({
   type,
   types = MOVEMENT_TYPES,
-  state,
+  states,
+  amountMin = '',
+  amountMax = '',
   currency,
   period,
   periodBy = 'created',
@@ -46,7 +49,11 @@ export function TransactionFilters({
   type: string;
   /** The types the active tab holds — the select offers only these. */
   types?: readonly MovementType[];
-  state: string;
+  /** The chosen states, several at once (audit R4-G3). */
+  states: TransactionState[];
+  /** The amount range, as the URL holds it. */
+  amountMin?: string;
+  amountMax?: string;
   currency: string;
   /** The period — `hooks/use-date-range.ts` owns its URL write. */
   period: DateRangeState;
@@ -86,22 +93,17 @@ export function TransactionFilters({
         </SelectContent>
       </Select>
 
-      <Select
-        value={state || 'all'}
-        onValueChange={(value) => onChange({ state: value === 'all' ? undefined : value })}
-      >
-        <SelectTrigger className="h-9 w-40" aria-label={t('financial.filterState')}>
-          <SelectValue placeholder={t('financial.stateAll')} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{t('financial.stateAll')}</SelectItem>
-          {TRANSACTION_STATES.map((value) => (
-            <SelectItem key={value} value={value}>
-              {stateLabel(value)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <StateFilter
+        selected={states}
+        onChange={(next) => onChange({ state: next.length ? next.join(',') : undefined })}
+      />
+
+      <AmountRangeFilter
+        key={`${amountMin}|${amountMax}`}
+        min={amountMin}
+        max={amountMax}
+        onChange={onChange}
+      />
 
       <Select
         value={currency || 'all'}
