@@ -3098,6 +3098,10 @@ export const messages = {
   'financial.periodByCreated': 'Created date',
   'financial.periodBySettled': 'Settled date',
   'reconciliation.transfers.title': 'Transfers that disagree with MT5',
+  'reconciliation.unpaid.title': 'Commission confirmed but never credited',
+  'reconciliation.unpaid.scale':
+    '{count} confirmed {count:commission was|commissions were} never credited to a wallet.',
+  'reconciliation.unpaid.row': 'Confirmed, never credited',
   'reconciliation.stranded.title': 'Deposits that never reached their trading account',
   'reconciliation.stranded.scale':
     '{count} {count:deposit|deposits} aimed at a trading account {count:is|are} still in the wallet.',

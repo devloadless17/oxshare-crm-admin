@@ -4909,7 +4909,7 @@ export interface paths {
         };
         /**
          * The last reconciliation report, or a fresh one with ?fresh=true (§12.2)
-         * @description Answers with the LAST completed check and the time it was made (`checkedAt`): the hourly job runs it, and it reads every ledger entry, so running it per page view cost the size of the ledger. `?fresh=true` runs it now. The check: every wallet balance against the sum of its own ledger. Wallet balances ONLY — a confirmed commission accrual that was never credited is a separate alert (UNPAID_CONFIRMED_ACCRUAL), not part of this report. Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed. Whole-platform: an admin scoped to a client territory is refused, because a reconciliation over a fragment is meaningless and the full report names clients outside their territory.
+         * @description Answers with the LAST completed check and the time it was made (`checkedAt`): the hourly job runs it, and it reads every ledger entry, so running it per page view cost the size of the ledger. `?fresh=true` runs it now. The check: every wallet balance against the sum of its own ledger; every transfer of the last week against MT5; deposits stranded in a wallet; and confirmed commission never credited (UNPAID_CONFIRMED_ACCRUAL). Read-only — a discrepancy is reported, never repaired, because an automatic correction would write a compensating entry for a cause nobody has diagnosed. Whole-platform: an admin scoped to a client territory is refused, because a reconciliation over a fragment is meaningless and the full report names clients outside their territory.
          */
         get: operations["AdminMoneyController_reconcile"];
         put?: never;
@@ -11338,6 +11338,13 @@ export interface components {
             currency: string;
             settledAt: string;
         };
+        UnpaidAccrualDto: {
+            accrualId: string;
+            /** @description A money string. */
+            amount: string;
+            currency: string;
+            confirmedAt: string | null;
+        };
         ReconciliationReportDto: {
             /** @description When this run completed (ISO 8601). */
             checkedAt: string;
@@ -11360,6 +11367,10 @@ export interface components {
             strandedDeposits: components["schemas"]["StrandedDepositDto"][];
             /** @description How many deposits are stranded in the wallet. */
             strandedDepositCount: number;
+            /** @description Commission confirmed but never credited (a sample of up to 20). */
+            unpaidAccruals: components["schemas"]["UnpaidAccrualDto"][];
+            /** @description How many confirmed accruals no ledger entry paid. */
+            unpaidAccrualCount: number;
             /** @description True when nothing is wrong. Read this rather than testing the array length — it is the field the service decides, and a future check can make it false without adding a wallet discrepancy. */
             balanced: boolean;
         };

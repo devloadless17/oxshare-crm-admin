@@ -251,6 +251,11 @@ export default function ReconciliationPage() {
                         })}
                       </p>
                     )}
+                    {report.unpaidAccrualCount > 0 && (
+                      <p className="mt-1 text-sm font-semibold text-destructive">
+                        {t('reconciliation.unpaid.scale', { count: report.unpaidAccrualCount })}
+                      </p>
+                    )}
                     {report.strandedDepositCount > 0 && (
                       <p className="mt-1 text-sm font-semibold text-destructive">
                         {t('reconciliation.stranded.scale', { count: report.strandedDepositCount })}
@@ -283,6 +288,32 @@ export default function ReconciliationPage() {
            * Transfers ↔ MT5 (audit R3-1, 16 Oct 2026): a settled transfer MT5 never applied, or
            * an MT5 deal whose transfer is not settled (money held twice). The server's sample.
            */}
+          {/* Commission confirmed and never credited to a wallet (backend audit R1-3). */}
+          {report && report.unpaidAccruals.length > 0 && (
+            <ul
+              className="shrink-0 divide-y rounded-lg border text-sm"
+              aria-label={t('reconciliation.unpaid.title')}
+            >
+              {report.unpaidAccruals.map((a) => (
+                <li
+                  key={a.accrualId}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2"
+                >
+                  <span className="font-medium text-destructive">
+                    {t('reconciliation.unpaid.row')}
+                  </span>
+                  <PermittedLink
+                    href={`/commissions?open=${a.accrualId}`}
+                    className="font-mono text-xs text-link underline-offset-2 hover:underline"
+                  >
+                    {a.accrualId.slice(0, 8)}
+                  </PermittedLink>
+                  <span className="font-mono text-xs">{formatMoney(a.amount, a.currency)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
           {/* Deposits aimed at an account that settled into the wallet and never moved on (R1-4). */}
           {report && report.strandedDeposits.length > 0 && (
             <ul
