@@ -19295,6 +19295,10 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                /** @description The SETTLED period (audit R4-1, month-end): only movements whose settled_at falls in [settledFrom, settledTo]. A date or an instant, like from/to. Read live. */
+                settledFrom?: string;
+                /** @description End of the settled period. */
+                settledTo?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
@@ -19344,6 +19348,10 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                /** @description The SETTLED period (audit R4-1, month-end): only movements whose settled_at falls in [settledFrom, settledTo]. A date or an instant, like from/to. Read live. */
+                settledFrom?: string;
+                /** @description End of the settled period. */
+                settledTo?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */
@@ -19392,6 +19400,10 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                /** @description The SETTLED period (audit R4-1, month-end): only movements whose settled_at falls in [settledFrom, settledTo]. A date or an instant, like from/to. Read live. */
+                settledFrom?: string;
+                /** @description End of the settled period. */
+                settledTo?: string;
                 /** @description Where the money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission */
                 origin?: string;
                 /** @description One trading account: its id or MT5 login. Unknown or out of territory is an empty list. */
@@ -19432,6 +19444,10 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                /** @description The SETTLED period (audit R4-1, month-end): only movements whose settled_at falls in [settledFrom, settledTo]. A date or an instant, like from/to. Read live. */
+                settledFrom?: string;
+                /** @description End of the settled period. */
+                settledTo?: string;
                 /** @description Where the money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission */
                 origin?: string;
                 /** @description One trading account: its id or MT5 login. Unknown or out of territory is an empty list. */
@@ -19471,6 +19487,10 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                /** @description The SETTLED period (audit R4-1, month-end): only movements whose settled_at falls in [settledFrom, settledTo]. A date or an instant, like from/to. Read live. */
+                settledFrom?: string;
+                /** @description End of the settled period. */
+                settledTo?: string;
                 /** @description Where the money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission */
                 origin?: string;
                 /** @description One trading account: its id or MT5 login. Unknown or out of territory is an empty list. */
@@ -19506,7 +19526,7 @@ export interface operations {
     };
     AdminFinancialController_exportDeskDeposits: {
         parameters: {
-            query?: {
+            query: {
                 format?: "csv";
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description A Portal ID, a phone, a name or an email — or a detail the client gave with the receipt. */
@@ -19515,6 +19535,8 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                settledFrom: string;
+                settledTo: string;
             };
             header?: never;
             path?: never;
@@ -19535,7 +19557,7 @@ export interface operations {
     };
     AdminFinancialController_listDeskDeposits: {
         parameters: {
-            query?: {
+            query: {
                 state?: "pending" | "approved" | "success" | "failure" | "rejected";
                 /** @description A Portal ID, a phone, a name or an email — or a detail the client gave with the receipt. */
                 q?: string;
@@ -19543,6 +19565,8 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                settledFrom: string;
+                settledTo: string;
                 /** @description One deposit by its uuid — where a notification lands. No state is implied. */
                 id?: string;
                 /** @description Legacy offset paging. Prefer cursor. */
@@ -19588,6 +19612,10 @@ export interface operations {
                 from?: string;
                 /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
                 to?: string;
+                /** @description The SETTLED period (audit R4-1, month-end): only movements whose settled_at falls in [settledFrom, settledTo]. A date or an instant, like from/to. Read live. */
+                settledFrom?: string;
+                /** @description End of the settled period. */
+                settledTo?: string;
                 /** @description Only payments flagged for a person to reconcile. Omit for every movement. */
                 attention?: "true";
                 /** @description Only movements a person decides: deposits paid outside the platform and every withdrawal. A deposit on a provider’s hosted page is settled by the provider. (0168) */

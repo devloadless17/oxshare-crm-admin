@@ -667,6 +667,12 @@ export interface TransactionListParams {
    */
   from?: string;
   to?: string;
+  /**
+   * The SETTLED period instead (backend 0231, month-end): what settled between these, whenever
+   * it was requested. Same instants as `from`/`to`.
+   */
+  settledFrom?: string;
+  settledTo?: string;
   /** Payment method keys, comma-separated — deposit or withdrawal methods. */
   method?: string;
   /** Only payments flagged for a person to reconcile — the API's one value. */
@@ -709,6 +715,8 @@ export function movementFilterQuery(params: TransactionsSummaryParams): URLSearc
   if (params.q) query.set('q', params.q);
   if (params.from) query.set('from', params.from);
   if (params.to) query.set('to', params.to);
+  if (params.settledFrom) query.set('settledFrom', params.settledFrom);
+  if (params.settledTo) query.set('settledTo', params.settledTo);
   if (params.method) query.set('method', params.method);
   if (params.attention) query.set('attention', params.attention);
   if (params.decidedBy) query.set('decidedBy', params.decidedBy);
