@@ -5372,8 +5372,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * One client’s money movements, all directions
-         * @description `amount` is a decimal string (§6.1), never a number.
+         * One client’s PAYMENTS (deposits and withdrawals) — not every movement
+         * @description Payments only: wallet ⇄ trading-account transfers and commission moves are NOT here (audit R4-6). For every movement of a client, with its accounting type and both ends, read `GET /admin/transactions?userId=`. `amount` is a decimal string (§6.1), never a number.
          */
         get: operations["AdminHoldingsController_listClientTransactions"];
         put?: never;
