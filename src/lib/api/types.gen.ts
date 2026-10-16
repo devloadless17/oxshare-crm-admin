@@ -2591,6 +2591,43 @@ export interface paths {
         patch: operations["Mt5AccountsController_setProduct"];
         trace?: never;
     };
+    "/v1/admin/trading-accounts/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a client's trading account
+         * @description The client no longer sees it in the portal and no money moves to or from it. The MT5 login is untouched. Refused while MT5 reports a balance, credit, equity or open position.
+         */
+        post: operations["Mt5AccountsController_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trading-accounts/{id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Show an archived trading account to its client again */
+        post: operations["Mt5AccountsController_unarchive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/trading-accounts/{id}/live": {
         parameters: {
             query?: never;
@@ -8601,6 +8638,12 @@ export interface components {
             /** Format: uuid */
             productId: string | null;
         };
+        TradingAccountArchiveDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            archivedAt: string | null;
+        };
         Mt5GroupCommissionTierDto: {
             /**
              * @description The unit of `value`: the group deposit currency, the currency in `currency`, a symbol currency, points, or a percentage of turnover.
@@ -11573,6 +11616,8 @@ export interface components {
             leverage?: number | null;
             /** @enum {string} */
             status: "active" | "suspended" | "closed";
+            /** Format: date-time */
+            archivedAt: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -15303,6 +15348,8 @@ export interface operations {
                 q?: string;
                 environment?: "live" | "demo";
                 status?: "active" | "suspended" | "closed";
+                /** @description `exclude`: the accounts the client sees; `only`: the ones archived (hidden from the client). Absent: both. */
+                archived?: "exclude" | "only";
                 /** @description `unassigned`: accounts the MT5 sync found that no client owns yet (shown only to a reader who sees every client); `assigned`: the rest. */
                 client?: "assigned" | "unassigned";
                 /** @description Earliest opened time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
@@ -15445,6 +15492,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TradingAccountProductDto"];
+                };
+            };
+        };
+    };
+    Mt5AccountsController_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountArchiveDto"];
+                };
+            };
+        };
+    };
+    Mt5AccountsController_unarchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountArchiveDto"];
                 };
             };
         };
