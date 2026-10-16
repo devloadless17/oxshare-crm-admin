@@ -43,6 +43,7 @@
  */
 
 import { t } from '@/lib/i18n';
+import { isBlankFrame, releaseCanvas } from '@/lib/image-quality';
 
 /** The longest edge we will store. See the note above on why it is generous. */
 export const MAX_EDGE = 2000;
@@ -219,8 +220,22 @@ export async function normaliseDocumentImage(file: File): Promise<NormalisedImag
     ctx.drawImage(source, 0, 0, target.width, target.height);
     if (!(source instanceof HTMLImageElement)) source.close();
 
+    /*
+     * A BLANK result means OUR copy failed, not the photo: iOS hands back a
+     * blank canvas once its canvas memory cap is reached, or after a decode it
+     * could not finish. The original is still the client's real photo, so it is
+     * sent as it is (the server accepts it and resizes nothing) rather than
+     * uploading a black rectangle as their passport.
+     */
+    if (isBlankFrame(canvas)) {
+      releaseCanvas(canvas);
+      return passthrough;
+    }
+
+    const encoded = await canvasToJpeg(canvas, jpegName(file.name));
+    releaseCanvas(canvas);
     return {
-      file: await canvasToJpeg(canvas, jpegName(file.name)),
+      file: encoded,
       width: target.width,
       height: target.height,
       wasResized: target.wasResized,

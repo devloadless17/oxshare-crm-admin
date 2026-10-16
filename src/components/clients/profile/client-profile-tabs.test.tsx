@@ -19,6 +19,7 @@ import { ClientAccountsPanel } from './client-accounts-panel';
  *  - ACCOUNTS: this client's MT5 accounts only.
  */
 
+const { getTransfers } = vi.hoisted(() => ({ getTransfers: vi.fn() }));
 const { getTransactions, getCurrencies, getClientDocuments, getTradingAccounts } = vi.hoisted(
   () => ({
     getTransactions: vi.fn(),
@@ -28,8 +29,17 @@ const { getTransactions, getCurrencies, getClientDocuments, getTradingAccounts }
   }),
 );
 
+// The Accounts tab's "View transfers" navigates with the app router.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => '/clients/1000245',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock('@/lib/api', () => {
-  const api = { admin: { getTransactions, getCurrencies, getClientDocuments, getTradingAccounts } };
+  const api = {
+    admin: { getTransactions, getTransfers, getCurrencies, getClientDocuments, getTradingAccounts },
+  };
   return { api, default: api };
 });
 
@@ -69,6 +79,24 @@ function movement(over: Partial<TransactionRow> = {}): TransactionRow {
     needsAttention: false,
     attentionReason: null,
     user: { id: 1000245, portalId: 1000245, email: 'rana@example.test' },
+    // The server's classification (16 Oct 2026).
+    type: 'deposit',
+    effect: 'in',
+    from: {
+      kind: 'method',
+      methodLabel: 'OMT – Hamra',
+      providerCode: 'manual',
+      channelCode: 'omt',
+    },
+    to: { kind: 'wallet', walletNumber: 'abcd1234wxyz', walletKind: 'main', currency: 'USD' },
+    onward: null,
+    origin: null,
+    source: null,
+    requestedBy: null,
+    approvedBy: null,
+    decidedBy: null,
+    deskReason: null,
+    deskReasonAr: null,
     ...over,
   } as TransactionRow;
 }
@@ -79,33 +107,31 @@ beforeEach(() => {
   vi.clearAllMocks();
   getCurrencies.mockResolvedValue([]);
   getTransactions.mockResolvedValue({ ...page([movement()]), counts: {}, directionCounts: {} });
+  getTransfers.mockResolvedValue({ ...page([]), counts: {}, directionCounts: {} });
 });
 
 describe('the Transactions tab', () => {
-  it('asks for THIS client’s deposits first, then each sub-tab’s own kind', async () => {
+  it('asks for THIS client’s deposits first, then each sub-tab’s own accounting types', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ClientTransactionsTab userId={1000245} />);
     await screen.findByText('$150.00');
     expect(getTransactions.mock.calls[0]?.[0]).toMatchObject({
       userId: 1000245,
-      kind: 'payment',
-      direction: 'deposit',
+      type: 'deposit,desk_credit',
     });
 
     await user.click(screen.getByRole('tab', { name: /withdrawals/i }));
     await waitFor(() =>
       expect(getTransactions.mock.calls.at(-1)?.[0]).toMatchObject({
-        kind: 'payment',
-        direction: 'withdrawal',
+        type: 'withdrawal,desk_debit',
       }),
     );
 
+    // Transfers read their own endpoint — wallet ⇄ account AND commission moves.
     await user.click(screen.getByRole('tab', { name: /transfers/i }));
-    await waitFor(() => {
-      const params = getTransactions.mock.calls.at(-1)?.[0] as Record<string, unknown>;
-      expect(params.kind).toBe('transfer');
-      expect(params.direction).toBeUndefined();
-    });
+    await waitFor(() =>
+      expect(getTransfers.mock.calls.at(-1)?.[0]).toMatchObject({ userId: 1000245 }),
+    );
   });
 
   it('sends the status filter to the server, on page one', async () => {
@@ -124,21 +150,32 @@ describe('the Transactions tab', () => {
     renderWithProviders(<ClientTransactionsTab userId={1000245} />);
     await user.click(await screen.findByRole('button', { name: /details of \$150\.00/i }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('OMT – Hamra')).toBeInTheDocument();
+    // The method is the deposit's FROM end (16 Oct 2026), with its channel beside it.
+    expect(within(dialog).getByText(/OMT – Hamra/)).toBeInTheDocument();
     expect(within(dialog).getByText('The receipt is for a different amount.')).toBeInTheDocument();
     expect(within(dialog).getByText(/why it was rejected/i)).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: /receipt/i })).toBeInTheDocument();
     expect(within(dialog).getByText(/decided/i)).toBeInTheDocument();
   });
 
-  it('names a transfer’s way, never "deposit" or "withdrawal"', async () => {
-    getTransactions.mockResolvedValue({
+  it('names a transfer by both ends, never "deposit" or "withdrawal"', async () => {
+    getTransfers.mockResolvedValue({
       ...page([
         movement({
           kind: 'transfer',
           direction: 'withdrawal',
           provider: 'transfer',
           proofFilename: null,
+          type: 'transfer_to_account',
+          effect: 'internal',
+          from: {
+            kind: 'wallet',
+            walletNumber: 'abcd1234wxyz',
+            walletKind: 'main',
+            currency: 'USD',
+          },
+          to: { kind: 'trading_account', login: '5000777', environment: 'live' },
+          origin: 'client',
         }),
       ]),
       counts: {},
@@ -147,7 +184,8 @@ describe('the Transactions tab', () => {
     const user = userEvent.setup();
     renderWithProviders(<ClientTransactionsTab userId={1000245} />);
     await user.click(await screen.findByRole('tab', { name: /transfers/i }));
-    expect(await screen.findByText('Wallet → trading account')).toBeInTheDocument();
+    expect(await screen.findByText('MT5 5000777')).toBeInTheDocument();
+    expect(screen.getByText('To trading account')).toBeInTheDocument();
   });
 });
 

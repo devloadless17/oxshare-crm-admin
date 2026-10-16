@@ -60,11 +60,11 @@ any navigation, so the 401 eviction reaches `/login` with the marker already gon
 An administrator who touches nothing for the idle window (15 min, the server's number) is signed
 out; the rule is in `../CLAUDE.md` (Auth). Three files:
 
-| file                        | owns                                                                                                                              |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `lib/idle.ts`               | the clock: last activity and what the server last heard, shared by tabs (localStorage, plus a BroadcastChannel if it is refused)  |
-| `components/idle-guard.tsx` | mounted at the ROOT: feeds the clock from input events, shows the last-minute notice, signs out (`/login?next=…&reason=idle`)      |
-| `lib/api/client.ts`         | every refresh sends `{ idleSeconds }`; no refresh once the window has passed; the renewal cadence is `refreshEveryMs()`           |
+| file                        | owns                                                                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/idle.ts`               | the clock: last activity and what the server last heard, shared by tabs (localStorage, plus a BroadcastChannel if it is refused) |
+| `components/idle-guard.tsx` | mounted at the ROOT: feeds the clock from input events, shows the last-minute notice, signs out (`/login?next=…&reason=idle`)    |
+| `lib/api/client.ts`         | every refresh sends `{ idleSeconds }`; no refresh once the window has passed; the renewal cadence is `refreshEveryMs()`          |
 
 - **Anything that starts a session calls `resetActivity()`** (`authApi.totpVerify` does). Without
   it, yesterday's stamp is reported with the first refresh and the API ends the new session.
@@ -216,6 +216,29 @@ Three things outside the folder make that true, and each is easy to break withou
   invalidated by their own mutation only.
 - **Money is refetched, never patched.** No `setQueryData` computing a balance — §6.1 bans
   client-side money arithmetic, and an optimistic balance is a plausible invented number.
+
+## Movements: one vocabulary, server figures only (16 Oct 2026)
+
+`components/movements/` is the console's single way of showing a money movement. Financial,
+Transfers, the client profile and the ledger all use it:
+
+| file                         | owns                                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `movement-vocabulary.ts`     | the words: `typeLabel`, `effectLabel`, `originLabel`, `endText`, `transfersHrefFor`, `ledgerReferenceLink`  |
+| `movement-cells.tsx`         | `MovementTypeBadge`, `MovementRoute` (From → To), `OnwardLine`, `MovementPeople`                            |
+| `movement-detail-fields.tsx` | `movementDetailFields(row)`: the record panel's AND the client profile's details body, so they never differ |
+| `accounting-tiles.tsx`       | `AccountingTiles` (Financial) and `TransferTiles` (Transfers)                                               |
+
+- **The server classifies; the console only names.** The server sends a movement's type,
+  effect, ends and origin. An unknown value is shown RAW, never guessed.
+- **Tiles render the server's strings** (`summary.accounting` / `effects` / `net`). They never
+  add money, and never add across currencies.
+- **The client profile's "Deposited"** counts only the `deposit` type. A desk credit is not the
+  client depositing.
+- **A deposit-funded transfer names the deposit itself** ("From deposit OX-…"), not a generic
+  origin label.
+- `/transfers` takes `?account=` (login or id), `?origin=`, `?type=`, `?userId=` and `?open=`.
+  The stuck-transfer task links there.
 
 ## Payments: the console of the backend's payments CORE (0173, 30 Sep 2026)
 

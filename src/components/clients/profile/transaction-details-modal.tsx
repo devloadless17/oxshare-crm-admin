@@ -8,7 +8,7 @@ import { DepositReceiptCell } from '@/components/deposits/deposit-receipt-cell';
 import { TxStateBadge } from '@/components/financial/transaction-badges';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
-import { movementMethodLabel, transferDirectionLabel } from './movement-labels';
+import { movementDetailFields } from '@/components/movements/movement-detail-fields';
 
 /**
  * EVERYTHING about one money movement — the profile's Details view (owner,
@@ -44,24 +44,15 @@ export function TransactionDetailsModal({
           <Detail label={t('clientProfile.txColState')}>
             <TxStateBadge state={row.state} />
           </Detail>
-          <Detail label={t('clientProfile.txColType')}>
-            {row.kind === 'transfer'
-              ? transferDirectionLabel(row.direction)
-              : row.direction === 'deposit'
-                ? t('clientProfile.txTypeDeposit')
-                : t('clientProfile.txTypeWithdrawal')}
-          </Detail>
-          {row.kind !== 'transfer' && (
-            <Detail label={t('clientProfile.txColMethod')}>{movementMethodLabel(row)}</Detail>
-          )}
+          {/* From where to where, who and why, what it cost — the record panel's own fields. */}
+          {movementDetailFields(row).map((field) => (
+            <Detail key={field.label} label={field.label}>
+              {field.value}
+            </Detail>
+          ))}
           {row.kind === 'payment' && row.direction === 'deposit' && (
             <Detail label={t('clientProfile.txReceipt')}>
               <DepositReceiptCell filename={row.proofFilename} />
-            </Detail>
-          )}
-          {row.destination && (
-            <Detail label={t('clientProfile.txDestination')}>
-              <span className="break-all font-mono">{row.destination}</span>
             </Detail>
           )}
           {row.providerRef && (
@@ -72,11 +63,6 @@ export function TransactionDetailsModal({
           {row.providerPaymentId && (
             <Detail label={t('clientProfile.txProviderId')}>
               <span className="break-all font-mono">{row.providerPaymentId}</span>
-            </Detail>
-          )}
-          {row.tradingAccountId && (
-            <Detail label={t('clientProfile.txTradingAccount')}>
-              <CopyableId value={row.tradingAccountId} copyLabel={t('common.copyId')} />
             </Detail>
           )}
           <Detail label={t('clientProfile.txCreated')}>{when(row.createdAt)}</Detail>

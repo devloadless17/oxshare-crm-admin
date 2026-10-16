@@ -185,10 +185,21 @@ export function tradingAccountColumns(): Column<TradingAccountRow>[] {
       header: t('tradingAccounts.colStatus'),
       ...sortableBy('status'),
       cell: (a) => (
-        <span
-          className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_META[a.status].classes}`}
-        >
-          {t(STATUS_META[a.status].labelKey)}
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <span
+            className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_META[a.status].classes}`}
+          >
+            {t(STATUS_META[a.status].labelKey)}
+          </span>
+          {/* Hidden from the client by the desk (backend 0225). */}
+          {a.archivedAt && (
+            <span
+              className="inline-block rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground"
+              title={t('tradingAccounts.archivedHint')}
+            >
+              {t('tradingAccounts.archived')}
+            </span>
+          )}
         </span>
       ),
     },

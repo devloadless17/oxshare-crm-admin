@@ -4,12 +4,13 @@ import { AlertTriangle, CheckCircle2, ExternalLink, Unlock } from 'lucide-react'
 import type { Column } from '@/components/data-table';
 import { RowActions, actionsColumn, type RowAction } from '@/components/row-actions';
 import { PermittedLink } from '@/components/permitted-link';
-import { MovementBadge, TxStateBadge } from '@/components/financial/transaction-badges';
+import { TxStateBadge } from '@/components/financial/transaction-badges';
 import {
-  MANUAL_ADMIN_PROVIDER,
-  type TransactionRow,
-  type TransactionSortKey,
-} from '@/lib/api/admin';
+  MovementPeople,
+  MovementRoute,
+  MovementTypeBadge,
+} from '@/components/movements/movement-cells';
+import { type TransactionRow, type TransactionSortKey } from '@/lib/api/admin';
 import { isMasked } from '@/lib/masking';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
@@ -102,39 +103,26 @@ export function transactionColumns({
       },
     },
     {
-      header: t('financial.colMovement'),
+      /*
+       * WHAT the movement is, for accounting (16 Oct 2026): the server's type, coloured by its
+       * effect — money in, money out, or a move between the client's own accounts. A wallet → MT5
+       * transfer is never shown as a withdrawal, and the desk's own credit never as a client's
+       * deposit.
+       */
+      header: t('movement.colType'),
       sortable: false,
-      cell: (row) => (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <MovementBadge row={row} />
-        </div>
-      ),
+      cell: (row) => <MovementTypeBadge row={row} />,
     },
     {
       /*
-       * THE METHOD, a column of its own (the buyer: "a payment method is the
-       * most important field in any transaction"). Only a payment has one; a
-       * transfer's provider fallback ('transfer', 'commission') would repeat
-       * the Movement badge, so it reads "—". `manual_admin` is the one provider
-       * a screen may recognise by name (MANUAL_ADMIN_PROVIDER): such a row went
-       * through no payment method, so its fallback is a machine key nobody
-       * should read. Never the raw key on hover — the console never shows one
-       * (backend 0161); the CSV's Provider column carries it.
+       * FROM → TO, both ends named (16 Oct 2026): a wallet by its number, an account by its MT5
+       * login, a payment by its METHOD — the buyer's "most important field in any transaction"
+       * stays in the cell, as the outside end of every deposit and withdrawal. The payout
+       * destination rides on the masked `destination`, so a role that hides it hides it here.
        */
-      header: t('financial.colMethod'),
+      header: t('movement.colRoute'),
       sortable: false,
-      cell: (row) =>
-        row.kind === 'payment' ? (
-          <span className="whitespace-nowrap text-sm">
-            {row.methodName === MANUAL_ADMIN_PROVIDER
-              ? row.direction === 'withdrawal'
-                ? t('financial.methodManualDebit')
-                : t('financial.methodManualCredit')
-              : row.methodName}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
+      cell: (row) => <MovementRoute row={row} />,
     },
     {
       header: t('financial.colAmount'),
@@ -239,6 +227,12 @@ export function transactionColumns({
       ),
     },
     {
+      // WHO moved it — the client, a deposit, the desk member — and who approved and paid.
+      header: t('movement.colBy'),
+      sortable: false,
+      cell: (row) => <MovementPeople row={row} />,
+    },
+    {
       header: t('financial.colCreated'),
       ...sortableBy('createdAt'),
       cell: (row) => new Date(row.createdAt).toLocaleString(),
@@ -289,20 +283,14 @@ export function transactionActions(
   const items: RowAction[] = [];
 
   /*
-   * Release-hold, on a PENDING transfer only.
-   *
-   * Both transfer kinds qualify: a commission transfer moves money to a
-   * trading account through the same bridge call and wedges the same way.
+   * Release-hold, on a PENDING wallet ⇄ account transfer only. A commission move commits in one
+   * database transaction and is never pending (it was listed here until 16 Oct 2026, dead code).
    *
    * Deliberately NOT offered on a pending PAYMENT — that one is waiting on a
    * person at the withdrawal desk, which is a queue working normally, not a
    * movement nobody will ever answer for.
    */
-  if (
-    onAbandon &&
-    (row.kind === 'transfer' || row.kind === 'commission_transfer') &&
-    row.state === 'pending'
-  ) {
+  if (onAbandon && row.kind === 'transfer' && row.state === 'pending') {
     items.push({
       label: t('financial.abandon'),
       icon: Unlock,

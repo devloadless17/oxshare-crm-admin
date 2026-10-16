@@ -130,6 +130,10 @@ TWINS=(
   src/components/layout/navigation-progress.test.tsx
   # Photo clean-up before a KYC upload: the client's own and staff's "Complete KYC" (0210).
   src/lib/image-capture.ts
+  src/lib/image-quality.ts
+  src/lib/image-quality.test.ts
+  # Browser crashes reach the API log (16 Oct 2026).
+  src/lib/crash-report.ts
 )
 
 # Strip line comments, block-comment bodies and blank lines. Crude but adequate:

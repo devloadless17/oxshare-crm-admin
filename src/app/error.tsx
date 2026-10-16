@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import { t } from '@/lib/i18n';
+import { reportCrash } from '@/lib/crash-report';
 
 /**
  * What a render-time throw looks like, instead of nothing.
@@ -23,6 +25,11 @@ export default function AdminError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // Without this a crash in the console left no trace on any server.
+  useEffect(() => {
+    reportCrash(error, 'page');
+  }, [error]);
+
   return (
     <div
       role="alert"

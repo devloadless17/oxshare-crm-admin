@@ -4,15 +4,15 @@ import { Suspense, useState } from 'react';
 import { Banknote } from 'lucide-react';
 import api from '@/lib/api';
 import {
-  TRANSACTION_DIRECTIONS,
-  TRANSACTION_KINDS,
+  MOVEMENT_GROUPS,
+  MOVEMENT_TYPES,
   TRANSACTION_SORT_KEYS,
   TRANSACTION_STATES,
   type Currency,
+  type MovementGroup,
+  type MovementType,
   type PaymentMethod,
   type WithdrawalMethod,
-  type TransactionDirection,
-  type TransactionKind,
   type TransactionListParams,
   type TransactionListResponse,
   type TransactionSortKey,
@@ -25,7 +25,10 @@ import { useResource } from '@/hooks/use-resource';
 import { useUrlSearch } from '@/hooks/use-url-search';
 import { RecordCallout, RecordSheet, useOpenedRecord } from '@/components/record-sheet';
 import { transactionActions, transactionColumns } from '@/components/financial/transaction-columns';
-import { directionLabel, kindLabel, TxStateBadge } from '@/components/financial/transaction-badges';
+import { TxStateBadge } from '@/components/financial/transaction-badges';
+import { typeLabel } from '@/components/movements/movement-vocabulary';
+import { movementDetailFields } from '@/components/movements/movement-detail-fields';
+import { AccountingTiles } from '@/components/movements/accounting-tiles';
 import { useTableQueryState } from '@/hooks/use-table-query-state';
 import { useListPaging } from '@/hooks/use-list-paging';
 import { AsyncBoundary } from '@/components/async-boundary';
@@ -39,7 +42,6 @@ import { TransactionFilters } from '@/components/financial/transaction-filters';
 import type { MethodOption } from '@/components/financial/method-filter';
 import { PeriodWiden } from '@/components/date-range-picker';
 import { useDateRange } from '@/hooks/use-date-range';
-import { TransactionSummary } from '@/components/financial/transaction-summary';
 import { AbandonTransferDialog } from '@/components/financial/abandon-transfer-dialog';
 import { ResolveAttentionDialog } from '@/components/financial/resolve-attention-dialog';
 import { useAdmin } from '@/context/AdminAuthContext';
@@ -109,8 +111,18 @@ function FinancialPageContent() {
    * cannot express — an unknown value simply filters nothing, and the API
    * never sees it (it would 400, correctly, R-2.5).
    */
-  const direction = member<TransactionDirection>(url.get('direction'), TRANSACTION_DIRECTIONS);
-  const kind = member<TransactionKind>(url.get('kind'), TRANSACTION_KINDS);
+  /*
+   * THE TABS ARE ACCOUNTING GROUPS (16 Oct 2026): Deposits, Withdrawals, Transfers — by what a
+   * movement IS, never by the wallet's side, so a wallet → MT5 transfer is never a "withdrawal".
+   * The Type select narrows within the tab. The server classifies; this only names the types.
+   */
+  const group = member<MovementGroup>(
+    url.get('group'),
+    Object.keys(MOVEMENT_GROUPS) as MovementGroup[],
+  );
+  const groupTypes: readonly MovementType[] = group ? MOVEMENT_GROUPS[group] : MOVEMENT_TYPES;
+  const type = member<MovementType>(url.get('type'), groupTypes);
+  const types = type ? [type] : group ? groupTypes : undefined;
   const state = member<TransactionState>(url.get('state'), TRANSACTION_STATES);
   const currency = url.get('currency');
   /*
@@ -154,8 +166,7 @@ function FinancialPageContent() {
    * two hand-built param objects would drift.
    */
   const filterParams = {
-    direction,
-    kind,
+    type: types?.join(','),
     state,
     userId: userId || undefined,
     currency: currency || undefined,
@@ -169,6 +180,8 @@ function FinancialPageContent() {
   const params: TransactionListParams = {
     ...filterParams,
     ...paging.params,
+    // The accounting tabs' counts (`groupCounts`), from the stored totals.
+    facet: 'type',
     sort: sortKey,
     // Withheld when nothing is sorted — `order` alone orders no column.
     order: sortKey ? url.sort.order : undefined,
@@ -183,7 +196,7 @@ function FinancialPageContent() {
    * Withdrawals tab is active, or switching tabs makes a number vanish that
    * nothing removed. Every other filter still narrows both.
    */
-  const summaryParams = { ...filterParams, direction: undefined, kind: undefined };
+  const summaryParams = { ...filterParams, type: undefined };
   const summaryQuery = useResource<TransactionsSummary>(
     keys.transactions.summary(summaryParams),
     (signal) => api.admin.getTransactionsSummary(summaryParams, signal),
@@ -225,8 +238,8 @@ function FinancialPageContent() {
   const rows = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
   // `counts` (per state) is in the response too; this page filters state via
-  // a dropdown rather than tabs, so only the direction axis renders badges.
-  const directionCounts = query.data?.directionCounts ?? {};
+  // a dropdown rather than tabs, so only the accounting groups render badges.
+  const groupCounts = query.data?.groupCounts ?? {};
   // The tabs the server stopped counting at 10,000 ("10,000+").
   const capped = query.data?.countsCapped ?? [];
   // RBAC-03 — the `financial.*` keys this viewer's response omitted.
@@ -288,10 +301,10 @@ function FinancialPageContent() {
   );
   const stuck = stuckQuery.data;
 
-  // "Deposit · $50.00", "Transfer · $20.00" — what the movement IS.
+  // "Deposit · $50.00", "To trading account · $20.00" — what the movement IS.
   const movementTitle = (row: TransactionRow) =>
     t('records.movement', {
-      kind: row.kind === 'payment' ? directionLabel(row.direction) : kindLabel(row.kind),
+      kind: typeLabel(row.type),
       amount: formatMoney(row.amount, row.currency),
     });
 
@@ -309,8 +322,8 @@ function FinancialPageContent() {
   });
 
   const isFiltered = Boolean(
-    direction ||
-    kind ||
+    group ||
+    type ||
     state ||
     currency ||
     period.choice !== period.defaultChoice ||
@@ -380,6 +393,8 @@ function FinancialPageContent() {
           </>
         )}
         omit={[t('financial.colAmount')]}
+        // Everything else about it: ends, onward, origin, people, reason, fees, ledger, history.
+        extraFields={(row) => movementDetailFields(row)}
         columns={columns}
         actions={(row) =>
           transactionActions(row, {
@@ -393,39 +408,28 @@ function FinancialPageContent() {
 
       <MaskedFieldsNotice labels={maskedFieldLabels(maskedFields, FIELD_LABELS)} />
 
-      <TransactionSummary
-        directionCounts={directionCounts}
-        summary={summaryQuery.data}
-        loading={query.status === 'loading'}
-      />
+      <AccountingTiles summary={summaryQuery.data} loading={summaryQuery.status === 'loading'} />
 
       <QueueToolbar
         filters={[
           {
             value: '',
             label: t('financial.directionAll'),
-            count: directionCounts['all'],
+            count: groupCounts['all'],
             capped: capped.includes('all'),
           },
-          {
-            value: 'deposit',
-            label: t('financial.direction.deposit'),
-            count: directionCounts['deposit'],
-            capped: capped.includes('deposit'),
-          },
-          {
-            value: 'withdrawal',
-            label: t('financial.direction.withdrawal'),
-            count: directionCounts['withdrawal'],
-            capped: capped.includes('withdrawal'),
-          },
+          ...(Object.keys(MOVEMENT_GROUPS) as MovementGroup[]).map((value) => ({
+            value,
+            label: t(`movement.tab.${value}`),
+            count: groupCounts[value],
+            capped: capped.includes(value),
+          })),
         ]}
-        active={direction ?? ''}
+        active={group ?? ''}
         onFilterChange={(value) =>
-          // Direction and page written together — page 4 of "all" is usually
-          // past the end of "withdrawals", and an empty table reads as an
-          // empty platform.
-          url.set({ direction: value || undefined, page: undefined })
+          // The tab, its type and the page written together — page 4 of "all" is usually past
+          // the end of "transfers", and a type from another tab would match nothing.
+          url.set({ group: value || undefined, type: undefined, page: undefined })
         }
         search={search}
         onSearchChange={setSearch}
@@ -434,7 +438,8 @@ function FinancialPageContent() {
       />
 
       <TransactionFilters
-        kind={kind ?? ''}
+        type={type ?? ''}
+        types={groupTypes}
         state={state ?? ''}
         currency={currency}
         period={period}

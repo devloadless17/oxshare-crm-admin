@@ -1,7 +1,7 @@
 'use client';
 
 import type { Currency } from '@/lib/api/admin';
-import { TRANSACTION_KINDS, TRANSACTION_STATES } from '@/lib/api/admin';
+import { MOVEMENT_TYPES, TRANSACTION_STATES, type MovementType } from '@/lib/api/admin';
 import {
   Select,
   SelectContent,
@@ -13,7 +13,8 @@ import { AlertTriangle } from 'lucide-react';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { MethodFilter, type MethodOption } from '@/components/financial/method-filter';
 import type { DateRangeState } from '@/hooks/use-date-range';
-import { kindLabel, stateLabel } from '@/components/financial/transaction-badges';
+import { stateLabel } from '@/components/financial/transaction-badges';
+import { typeLabel } from '@/components/movements/movement-vocabulary';
 import { t } from '@/lib/i18n';
 
 /**
@@ -27,7 +28,8 @@ import { t } from '@/lib/i18n';
  * page 4 of a two-page result renders as an empty list).
  */
 export function TransactionFilters({
-  kind,
+  type,
+  types = MOVEMENT_TYPES,
   state,
   currency,
   period,
@@ -39,7 +41,10 @@ export function TransactionFilters({
   onChange,
   onClear,
 }: {
-  kind: string;
+  /** The accounting type chosen within the active tab (`movement-type.ts`), or ''. */
+  type: string;
+  /** The types the active tab holds — the select offers only these. */
+  types?: readonly MovementType[];
   state: string;
   currency: string;
   /** The period — `hooks/use-date-range.ts` owns its URL write. */
@@ -59,17 +64,17 @@ export function TransactionFilters({
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-3">
       <Select
-        value={kind || 'all'}
-        onValueChange={(value) => onChange({ kind: value === 'all' ? undefined : value })}
+        value={type || 'all'}
+        onValueChange={(value) => onChange({ type: value === 'all' ? undefined : value })}
       >
-        <SelectTrigger className="h-9 w-44" aria-label={t('financial.filterKind')}>
-          <SelectValue placeholder={t('financial.kindAll')} />
+        <SelectTrigger className="h-9 w-48" aria-label={t('movement.filterType')}>
+          <SelectValue placeholder={t('movement.typeAll')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">{t('financial.kindAll')}</SelectItem>
-          {TRANSACTION_KINDS.map((value) => (
+          <SelectItem value="all">{t('movement.typeAll')}</SelectItem>
+          {types.map((value) => (
             <SelectItem key={value} value={value}>
-              {kindLabel(value)}
+              {typeLabel(value)}
             </SelectItem>
           ))}
         </SelectContent>

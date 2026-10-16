@@ -185,6 +185,36 @@ beforeEach(() => {
       },
     ],
     directions: [],
+    // The server's classification — what the glance reads (16 Oct 2026).
+    accounting: [
+      {
+        currency: 'USD',
+        type: 'deposit',
+        effect: 'in',
+        bucket: 'settled',
+        count: 3,
+        total: '900.00000000',
+      },
+      // A desk credit is NOT the client depositing: it must stay out of "Deposited".
+      {
+        currency: 'USD',
+        type: 'desk_credit',
+        effect: 'in',
+        bucket: 'settled',
+        count: 1,
+        total: '5000.00000000',
+      },
+      {
+        currency: 'USD',
+        type: 'withdrawal',
+        effect: 'out',
+        bucket: 'inProgress',
+        count: 2,
+        total: '50.00000000',
+      },
+    ],
+    effects: [],
+    net: [],
   });
   getTags.mockResolvedValue([]);
   // Not a partner — the ordinary answer, and the one that keeps the partner tab

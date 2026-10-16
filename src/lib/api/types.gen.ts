@@ -760,6 +760,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/client-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report a crash a frontend's error screen caught */
+        post: operations["ClientErrorsController_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platforms": {
         parameters: {
             query?: never;
@@ -2589,6 +2606,43 @@ export interface paths {
          * @description The product must sell the account's MT5 group. Applies to trades not yet decided; accruals already written keep the terms that priced them.
          */
         patch: operations["Mt5AccountsController_setProduct"];
+        trace?: never;
+    };
+    "/v1/admin/trading-accounts/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a client's trading account
+         * @description The client no longer sees it in the portal and no money moves to or from it. The MT5 login is untouched. Refused while MT5 reports a balance, credit, equity or open position.
+         */
+        post: operations["Mt5AccountsController_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/trading-accounts/{id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Show an archived trading account to its client again */
+        post: operations["Mt5AccountsController_unarchive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/trading-accounts/{id}/live": {
@@ -5042,6 +5096,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/transfers/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the filtered transfers as CSV
+         * @description The same filters as GET /admin/transfers, over every matching row. Amounts are the exact decimal strings the ledger holds (§6.1).
+         */
+        get: operations["AdminFinancialController_exportTransfers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/transfers/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Totals over the filtered transfers, per currency, type and settlement (strings) */
+        get: operations["AdminFinancialController_transfersSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every transfer between a client’s own accounts, with where its money came from (amounts are strings) */
+        get: operations["AdminFinancialController_listTransfers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/deposits/export": {
         parameters: {
             query?: never;
@@ -5936,6 +6044,22 @@ export interface components {
              *     ]
              */
             proxyHeaders: string[];
+        };
+        ClientErrorReportDto: {
+            /** @enum {string} */
+            app: "portal" | "admin";
+            /** @enum {string} */
+            boundary: "page" | "global";
+            /** @description The error name, e.g. TypeError or ChunkLoadError. */
+            name: string;
+            message: string;
+            stack?: string;
+            /** @description Next's digest, present only for a server-rendered error. */
+            digest?: string;
+            /** @description The page PATH only. The query string is never sent. */
+            path: string;
+            /** @description The build the tab is running (its deployment id). */
+            build?: string;
         };
         PlatformLinkDto: {
             /**
@@ -7123,7 +7247,6 @@ export interface components {
             rejectionReason?: string | null;
             /** @description Arabic for `rejectionReason`: written with the decision, else the configured reason’s, else the system sentence’s. Absent when there is none (show the English). */
             rejectionReasonAr?: string;
-            reviewedBy?: string | null;
             /** Format: date-time */
             reviewedAt?: string | null;
             /** Format: date-time */
@@ -8600,6 +8723,12 @@ export interface components {
             id: string;
             /** Format: uuid */
             productId: string | null;
+        };
+        TradingAccountArchiveDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            archivedAt: string | null;
         };
         Mt5GroupCommissionTierDto: {
             /**
@@ -10968,6 +11097,11 @@ export interface components {
             withdrawalMethodKey?: string | null;
             destinationTradingAccountId?: string | null;
             reviewedBy?: string | null;
+            approvedByAdminId?: string | null;
+            /** Format: date-time */
+            approvedAt?: string | null;
+            deskReason?: string | null;
+            deskReasonAr?: string | null;
             /** @description The provider’s own id for the movement: its invoice, its payment id. */
             providerPaymentId?: string | null;
             /** Format: date-time */
@@ -11278,9 +11412,93 @@ export interface components {
              */
             total: string;
         };
+        AccountingLineDto: {
+            /** @example USD */
+            currency: string;
+            /** @enum {string} */
+            type: "deposit" | "desk_credit" | "withdrawal" | "desk_debit" | "transfer_to_account" | "transfer_to_wallet" | "commission_to_wallet";
+            /** @enum {string} */
+            effect: "in" | "out" | "internal";
+            /** @enum {string} */
+            bucket: "settled" | "inProgress" | "notCompleted";
+            count: number;
+            /** @example 12400.00000000 */
+            total: string;
+        };
+        AccountingEffectDto: {
+            /** @example USD */
+            currency: string;
+            /** @enum {string} */
+            effect: "in" | "out" | "internal";
+            /** @enum {string} */
+            bucket: "settled" | "inProgress" | "notCompleted";
+            count: number;
+            /** @example 12400.00000000 */
+            total: string;
+        };
+        AccountingNetDto: {
+            /** @example USD */
+            currency: string;
+            /** @example -310.50000000 */
+            total: string;
+        };
         AdminTransactionsSummaryDto: {
             rows: components["schemas"]["AdminTransactionSummaryRowDto"][];
             directions: components["schemas"]["AdminTransactionDirectionTotalDto"][];
+            accounting: components["schemas"]["AccountingLineDto"][];
+            effects: components["schemas"]["AccountingEffectDto"][];
+            net: components["schemas"]["AccountingNetDto"][];
+        };
+        MovementEndDto: {
+            /** @enum {string} */
+            kind: "wallet" | "trading_account" | "method" | "company";
+            walletId?: string | null;
+            /** @description The wallet number. */
+            walletNumber?: string | null;
+            /** @description main or commission. */
+            walletKind?: string | null;
+            currency?: string | null;
+            tradingAccountId?: string | null;
+            /** @description The MT5 login. */
+            login?: string | null;
+            /** @description live or demo; a provider’s environment on a method end. */
+            environment?: string | null;
+            /** @description The method’s desk label. */
+            methodLabel?: string | null;
+            providerCode?: string | null;
+            /** @description The channel, e.g. a network. */
+            channelCode?: string | null;
+        };
+        MovementOnwardDto: {
+            transferId: string | null;
+            /** @enum {string|null} */
+            state: "pending" | "success" | "failure" | null;
+            account: components["schemas"]["MovementEndDto"];
+        };
+        MovementSourceDto: {
+            transactionId: string;
+            methodLabel: string | null;
+            /** @description The deposit’s reference (OX-…); null for the desk’s own credit. */
+            reference: string | null;
+            /** Format: date-time */
+            settledAt: string | null;
+        };
+        MovementAdminDto: {
+            adminId: string;
+            name: string | null;
+            /** Format: date-time */
+            at?: string | null;
+        };
+        MovementLedgerPostingDto: {
+            walletId: string;
+            walletNumber: string | null;
+            entryType: string;
+            /** @example -50.00000000 */
+            amount: string;
+            /** @example 450.00000000 */
+            balanceAfter: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         AdminTransactionRowDto: {
             id: string;
@@ -11332,6 +11550,39 @@ export interface components {
             /** @description The payment provider operator’s own note on a refused payout. Admin-only; the client sees a fixed sentence. Null on every other row. */
             providerNote?: string | null;
             user: components["schemas"]["WithdrawalUserDto"];
+            /** @enum {string} */
+            type: "deposit" | "desk_credit" | "withdrawal" | "desk_debit" | "transfer_to_account" | "transfer_to_wallet" | "commission_to_wallet";
+            /** @enum {string} */
+            effect: "in" | "out" | "internal";
+            from: components["schemas"]["MovementEndDto"];
+            to: components["schemas"]["MovementEndDto"];
+            onward: components["schemas"]["MovementOnwardDto"] | null;
+            /** @enum {string|null} */
+            origin: "client" | "deposit" | "desk_credit" | "desk_wallet" | "desk_debit" | "commission" | null;
+            source: components["schemas"]["MovementSourceDto"] | null;
+            requestedBy: components["schemas"]["MovementAdminDto"] | null;
+            approvedBy: components["schemas"]["MovementAdminDto"] | null;
+            decidedBy: components["schemas"]["MovementAdminDto"] | null;
+            deskReason: string | null;
+            deskReasonAr: string | null;
+            providerEnvironment: string | null;
+            /** @description The provider’s fee (a string). */
+            providerFee: string | null;
+            /** @description What the provider delivered. */
+            providerNetAmount: string | null;
+            /** @description What the provider was asked. */
+            providerRequestAmount: string | null;
+            /** @description What actually arrived. */
+            providerAmountReceived: string | null;
+            /** @description What the client asked for. */
+            requestedAmount: string | null;
+            providerStatus: string | null;
+            providerPayoutId: string | null;
+            /** Format: date-time */
+            providerSubmittedAt: string | null;
+            /** Format: date-time */
+            providerCheckedAt: string | null;
+            ledger?: components["schemas"]["MovementLedgerPostingDto"][];
         };
         AdminTransactionListResponseDto: {
             items: components["schemas"]["AdminTransactionRowDto"][];
@@ -11347,6 +11598,12 @@ export interface components {
                 [key: string]: number;
             };
             directionCounts: {
+                [key: string]: number;
+            };
+            typeCounts: {
+                [key: string]: number;
+            };
+            groupCounts: {
                 [key: string]: number;
             };
             countsCapped: string[];
@@ -11573,6 +11830,8 @@ export interface components {
             leverage?: number | null;
             /** @enum {string} */
             status: "active" | "suspended" | "closed";
+            /** Format: date-time */
+            archivedAt: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -12946,6 +13205,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EdgeDto"];
                 };
+            };
+        };
+    };
+    ClientErrorsController_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientErrorReportDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -15303,6 +15583,8 @@ export interface operations {
                 q?: string;
                 environment?: "live" | "demo";
                 status?: "active" | "suspended" | "closed";
+                /** @description `exclude`: the accounts the client sees; `only`: the ones archived (hidden from the client). Absent: both. */
+                archived?: "exclude" | "only";
                 /** @description `unassigned`: accounts the MT5 sync found that no client owns yet (shown only to a reader who sees every client); `assigned`: the rest. */
                 client?: "assigned" | "unassigned";
                 /** @description Earliest opened time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
@@ -15445,6 +15727,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TradingAccountProductDto"];
+                };
+            };
+        };
+    };
+    Mt5AccountsController_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountArchiveDto"];
+                };
+            };
+        };
+    };
+    Mt5AccountsController_unarchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingAccountArchiveDto"];
                 };
             };
         };
@@ -18958,6 +19282,12 @@ export interface operations {
                 method?: string;
                 /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
                 id?: string;
+                /** @description Accounting types, comma-separated: deposit, desk_credit, withdrawal, desk_debit, transfer_to_account, transfer_to_wallet, commission_to_wallet. A desk credit or debit is the desk’s own money (route manual:adjustment), never a client’s deposit or withdrawal; the three transfer types never leave the platform. */
+                type?: string;
+                /** @description Where a transfer’s money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission. Only transfers carry one, so a payment never matches. */
+                origin?: string;
+                /** @description One trading account’s transfers: its id or its MT5 login. An unknown or out-of-territory account answers an empty list, never "not found". */
+                account?: string;
             };
             header?: never;
             path?: never;
@@ -19001,6 +19331,12 @@ export interface operations {
                 method?: string;
                 /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
                 id?: string;
+                /** @description Accounting types, comma-separated: deposit, desk_credit, withdrawal, desk_debit, transfer_to_account, transfer_to_wallet, commission_to_wallet. A desk credit or debit is the desk’s own money (route manual:adjustment), never a client’s deposit or withdrawal; the three transfer types never leave the platform. */
+                type?: string;
+                /** @description Where a transfer’s money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission. Only transfers carry one, so a payment never matches. */
+                origin?: string;
+                /** @description One trading account’s transfers: its id or its MT5 login. An unknown or out-of-territory account answers an empty list, never "not found". */
+                account?: string;
             };
             header?: never;
             path?: never;
@@ -19014,6 +19350,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminTransactionsSummaryDto"];
+                };
+            };
+        };
+    };
+    AdminFinancialController_exportTransfers: {
+        parameters: {
+            query?: {
+                format?: "csv";
+                /** @description Wallet-side, like Financial: withdrawal = wallet → trading account, deposit = into the wallet (from an account, or commission → main wallet). */
+                direction?: "deposit" | "withdrawal";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Narrow to one client. */
+                userId?: number;
+                /** @description A currency code. */
+                currency?: string;
+                /** @description A Portal ID (exact) or free text over the client’s email, name or phone. */
+                q?: string;
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+                /** @description Where the money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission */
+                origin?: string;
+                /** @description One trading account: its id or MT5 login. Unknown or out of territory is an empty list. */
+                account?: string;
+                /** @description One transfer by its uuid. */
+                id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV file. `Content-Disposition` names it `transfers-<YYYY-MM-DD>.csv`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+        };
+    };
+    AdminFinancialController_transfersSummary: {
+        parameters: {
+            query?: {
+                /** @description Wallet-side, like Financial: withdrawal = wallet → trading account, deposit = into the wallet (from an account, or commission → main wallet). */
+                direction?: "deposit" | "withdrawal";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Narrow to one client. */
+                userId?: number;
+                /** @description A currency code. */
+                currency?: string;
+                /** @description A Portal ID (exact) or free text over the client’s email, name or phone. */
+                q?: string;
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+                /** @description Where the money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission */
+                origin?: string;
+                /** @description One trading account: its id or MT5 login. Unknown or out of territory is an empty list. */
+                account?: string;
+                /** @description One transfer by its uuid. */
+                id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTransactionsSummaryDto"];
+                };
+            };
+        };
+    };
+    AdminFinancialController_listTransfers: {
+        parameters: {
+            query?: {
+                /** @description Wallet-side, like Financial: withdrawal = wallet → trading account, deposit = into the wallet (from an account, or commission → main wallet). */
+                direction?: "deposit" | "withdrawal";
+                state?: "pending" | "approved" | "success" | "failure" | "rejected";
+                /** @description Narrow to one client. */
+                userId?: number;
+                /** @description A currency code. */
+                currency?: string;
+                /** @description A Portal ID (exact) or free text over the client’s email, name or phone. */
+                q?: string;
+                /** @description Earliest created time, inclusive: a date-time with offset (2026-10-06T00:00:00+03:00) or a date (YYYY-MM-DD, a UTC day). */
+                from?: string;
+                /** @description End of the period: a date-time with offset is EXCLUSIVE; a date (YYYY-MM-DD) includes that whole UTC day. */
+                to?: string;
+                /** @description Where the money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission */
+                origin?: string;
+                /** @description One trading account: its id or MT5 login. Unknown or out of territory is an empty list. */
+                account?: string;
+                /** @description One transfer by its uuid. */
+                id?: string;
+                /** @description Legacy offset paging. Prefer cursor. */
+                page?: string;
+                limit?: string;
+                /** @description Opaque keyset cursor (R-2.4). */
+                cursor?: string;
+                /** @description prev: the page before ?cursor. last: the final page (no cursor). */
+                dir?: "next" | "prev" | "last";
+                sort?: "createdAt" | "amount" | "state";
+                order?: "asc" | "desc";
+                facet?: "direction" | "type";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTransactionListResponseDto"];
                 };
             };
         };
@@ -19087,7 +19552,7 @@ export interface operations {
     };
     AdminFinancialController_listTransactions: {
         parameters: {
-            query?: {
+            query: {
                 direction?: "deposit" | "withdrawal";
                 /** @description payment = crossed the platform boundary through a provider; transfer = wallet ⇄ trading account; commission_transfer = partner earnings to their main wallet. */
                 kind?: "payment" | "transfer" | "commission_transfer";
@@ -19110,6 +19575,13 @@ export interface operations {
                 method?: string;
                 /** @description One movement by its row uuid (a deposit’s transaction, a transfer’s transfer) — where a notification deep link lands. AND-ed with every other filter and the reader's scope, so a record outside it answers an empty result. No state is implied. */
                 id?: string;
+                /** @description Accounting types, comma-separated: deposit, desk_credit, withdrawal, desk_debit, transfer_to_account, transfer_to_wallet, commission_to_wallet. A desk credit or debit is the desk’s own money (route manual:adjustment), never a client’s deposit or withdrawal; the three transfer types never leave the platform. */
+                type?: string;
+                /** @description Where a transfer’s money came from, comma-separated: client, deposit, desk_credit, desk_wallet, desk_debit, commission. Only transfers carry one, so a payment never matches. */
+                origin?: string;
+                /** @description One trading account’s transfers: its id or its MT5 login. An unknown or out-of-territory account answers an empty list, never "not found". */
+                account?: string;
+                facet: string;
                 /** @description Legacy offset paging. Prefer cursor. */
                 page?: string;
                 limit?: string;

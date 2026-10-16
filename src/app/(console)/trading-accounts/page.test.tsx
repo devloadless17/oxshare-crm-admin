@@ -109,6 +109,7 @@ function account(over: Partial<TradingAccountRow> = {}): TradingAccountRow {
     product: 'Standard',
     leverage: 500,
     status: 'active',
+    archivedAt: null,
     createdAt: '2026-08-01T10:00:00.000Z',
     updatedAt: '2026-08-01T10:00:00.000Z',
     user: {
