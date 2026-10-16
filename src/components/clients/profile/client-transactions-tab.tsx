@@ -26,6 +26,7 @@ import { ChoiceFilter, useTableState } from './table-state';
 import {
   MovementPeople,
   MovementFrom,
+  MovementMethod,
   MovementTo,
   MovementTypeBadge,
 } from '@/components/movements/movement-cells';
@@ -221,6 +222,16 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
       sortable: false,
       cell: (row) => <MovementTo row={row} />,
     },
+    // Deposits and withdrawals cross the platform's edge on a method; transfers never do.
+    ...(isTransfers
+      ? []
+      : [
+          {
+            header: t('financial.colMethod'),
+            sortable: false,
+            cell: (row: TransactionRow) => <MovementMethod row={row} />,
+          },
+        ]),
     {
       header: t('clientProfile.txColAmount'),
       align: 'right',

@@ -180,9 +180,9 @@ export function ResendPayoutButton({
   });
 
   if (!isRetryableSubmission(w)) return null;
-  // `POST /admin/withdrawals/:id/provider-submit` requires `withdrawals.approve`.
+  // `POST /admin/withdrawals/:id/provider-submit` requires `withdrawals.settle` — it releases money (audit R2-2).
   // Every other control on the row is gated; this one renders outside the menu.
-  if (!hasPermission(admin, 'withdrawals.approve')) return null;
+  if (!hasPermission(admin, 'withdrawals.settle')) return null;
 
   return (
     <button

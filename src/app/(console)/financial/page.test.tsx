@@ -120,12 +120,7 @@ function classified(kind: string, direction: string, provider: string) {
     walletKind: 'main',
     currency: 'USD',
   };
-  const method = {
-    kind: 'method',
-    methodLabel: 'Whish Money',
-    providerCode: 'rival',
-    channelCode: 'whish',
-  };
+  const method = { kind: 'external' };
   const company = { kind: 'company' };
   const account = { kind: 'trading_account', login: '5000001', environment: 'live' };
   const ends: Record<string, [object, object]> = {
@@ -148,6 +143,10 @@ function classified(kind: string, direction: string, provider: string) {
         : 'internal',
     from,
     to,
+    method:
+      kind === 'payment'
+        ? { label: 'Whish Money', providerCode: 'rival', channelCode: 'whish', environment: null }
+        : null,
     onward: null,
     origin: kind === 'payment' ? null : kind === 'commission_transfer' ? 'commission' : 'client',
     source: null,

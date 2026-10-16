@@ -11451,7 +11451,7 @@ export interface components {
         };
         MovementEndDto: {
             /** @enum {string} */
-            kind: "wallet" | "trading_account" | "method" | "company";
+            kind: "wallet" | "trading_account" | "external" | "company";
             walletId?: string | null;
             /** @description The wallet number. */
             walletNumber?: string | null;
@@ -11461,13 +11461,17 @@ export interface components {
             tradingAccountId?: string | null;
             /** @description The MT5 login. */
             login?: string | null;
-            /** @description live or demo; a provider’s environment on a method end. */
+            /** @description live or demo, on a trading account end. */
             environment?: string | null;
+        };
+        MovementMethodDto: {
             /** @description The method’s desk label. */
-            methodLabel?: string | null;
-            providerCode?: string | null;
+            label: string | null;
+            providerCode: string | null;
             /** @description The channel, e.g. a network. */
-            channelCode?: string | null;
+            channelCode: string | null;
+            /** @description The provider environment (e.g. sandbox); live is the norm. */
+            environment: string | null;
         };
         MovementOnwardDto: {
             transferId: string | null;
@@ -11556,6 +11560,8 @@ export interface components {
             effect: "in" | "out" | "internal";
             from: components["schemas"]["MovementEndDto"];
             to: components["schemas"]["MovementEndDto"];
+            /** @description The rail a PAYMENT crossed on; null for a transfer or a commission move. */
+            method: components["schemas"]["MovementMethodDto"] | null;
             onward: components["schemas"]["MovementOnwardDto"] | null;
             /** @enum {string|null} */
             origin: "client" | "deposit" | "desk_credit" | "desk_wallet" | "desk_debit" | "commission" | null;

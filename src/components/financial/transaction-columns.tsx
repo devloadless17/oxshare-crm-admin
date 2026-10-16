@@ -8,6 +8,7 @@ import { TxStateBadge } from '@/components/financial/transaction-badges';
 import {
   MovementPeople,
   MovementFrom,
+  MovementMethod,
   MovementTo,
   MovementTypeBadge,
 } from '@/components/movements/movement-cells';
@@ -56,6 +57,7 @@ export function transactionColumns({
   onAbandon,
   onResolve,
   canResolve,
+  showMethod = true,
 }: {
   /** RBAC-03 — the `financial.*` keys the response removed for this viewer. */
   maskedFields: readonly string[];
@@ -71,6 +73,8 @@ export function transactionColumns({
   onResolve?: (row: TransactionRow) => void;
   /** Whether THIS viewer may resolve THIS row — the permission follows the direction. */
   canResolve?: (row: TransactionRow) => boolean;
+  /** The Method column; off on Transfers, where every movement is internal and has none. */
+  showMethod?: boolean;
 }): Column<TransactionRow>[] {
   const hidden = (field: string) => isMasked(field, maskedFields);
   const nameHidden = hidden('financial.user.firstName') && hidden('financial.user.lastName');
@@ -130,6 +134,19 @@ export function transactionColumns({
       sortable: false,
       cell: (row) => <MovementTo row={row} />,
     },
+    ...(showMethod
+      ? [
+          {
+            /*
+             * The RAIL, its own column (16 Oct 2026): From and To name places; how the money
+             * crossed the platform's edge is an attribute of the payment, as on any statement.
+             */
+            header: t('financial.colMethod'),
+            sortable: false,
+            cell: (row: TransactionRow) => <MovementMethod row={row} />,
+          },
+        ]
+      : []),
     {
       header: t('financial.colAmount'),
       align: 'right',

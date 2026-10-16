@@ -4,7 +4,7 @@ import { CornerDownRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { MovementEnd, TransactionRow } from '@/lib/api/admin';
 import { t } from '@/lib/i18n';
-import { endText, originLabel, typeLabel } from './movement-vocabulary';
+import { endText, methodText, originLabel, typeLabel } from './movement-vocabulary';
 
 /**
  * The cells every money list shares (16 Oct 2026): what a movement IS, from where to where, and
@@ -65,6 +65,24 @@ export function MovementTo({ row }: { row: RouteRow }) {
       <EndLine end={row.to} extra={destination} />
       {row.onward && <OnwardLine onward={row.onward} />}
     </div>
+  );
+}
+
+/** The payment method, its own column: the label over its network; a dash for internal moves. */
+export function MovementMethod({ row }: { row: Pick<TransactionRow, 'method' | 'type'> }) {
+  const method = methodText(row);
+  if (!method) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="flex min-w-0 flex-col leading-tight">
+      <span className="truncate text-sm" title={method.title}>
+        {method.title}
+      </span>
+      {method.detail && (
+        <span className="truncate font-mono text-[11px] text-muted-foreground">
+          {method.detail}
+        </span>
+      )}
+    </span>
   );
 }
 
