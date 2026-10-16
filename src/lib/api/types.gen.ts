@@ -5313,7 +5313,7 @@ export interface paths {
         };
         /**
          * Export the filtered wallet list as CSV
-         * @description The same `userId` and `currency` filters as GET /admin/wallets, over every matching row rather than one page. Balances are the exact decimal strings the column holds — never rounded, never locale-formatted (§6.1). Client scope applies exactly as it does to the list.
+         * @description The same `userId`, `currency` and `q` filters as GET /admin/wallets, over every matching row rather than one page. Balances are the exact decimal strings the column holds — never rounded, never locale-formatted (§6.1). Client scope applies exactly as it does to the list.
          */
         get: operations["AdminHoldingsController_exportWallets"];
         put?: never;
@@ -19899,6 +19899,8 @@ export interface operations {
                 userId?: number;
                 /** @description Exact match on the wallet code. */
                 currency?: string;
+                /** @description The same search as the list: the owner’s Portal ID, email, name or phone. */
+                q?: string;
             };
             header?: never;
             path?: never;
