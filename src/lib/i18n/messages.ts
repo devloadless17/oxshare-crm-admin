@@ -3189,8 +3189,9 @@ export const messages = {
   'transfers.caption': 'Transfers',
   'transfers.noun': 'transfer',
   'transfers.nounPlural': 'transfers',
-  'transfers.searchPlaceholder': 'Search by client name, email, phone or Portal ID…',
-  'transfers.searchAria': 'Search transfers by client',
+  'transfers.searchPlaceholder':
+    'Search by client, Portal ID, MT5 login, wallet number or transfer ID…',
+  'transfers.searchAria': 'Search transfers by client or identifier',
   'transfers.tabAll': 'All transfers',
   'transfers.tile.toAccounts': 'To trading accounts',
   'transfers.tile.toWallets': 'To wallets',
@@ -3212,8 +3213,9 @@ export const messages = {
   'financial.caption': 'Money movements',
   'financial.noun': 'movement',
   'financial.nounPlural': 'movements',
-  'financial.searchPlaceholder': 'Search by name, email, phone or Portal ID…',
-  'financial.searchAria': 'Search movements by client',
+  'financial.searchPlaceholder':
+    'Search by client, Portal ID, reference, provider or payout ID, wallet number or MT5 login…',
+  'financial.searchAria': 'Search movements by client or identifier',
   'financial.clearFilters': 'Clear',
   'financial.colClient': 'Client',
   'financial.colMovement': 'Movement',
