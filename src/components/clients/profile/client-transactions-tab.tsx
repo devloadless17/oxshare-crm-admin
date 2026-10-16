@@ -25,7 +25,8 @@ import { keys } from '@/lib/query-keys';
 import { ChoiceFilter, useTableState } from './table-state';
 import {
   MovementPeople,
-  MovementRoute,
+  MovementFrom,
+  MovementTo,
   MovementTypeBadge,
 } from '@/components/movements/movement-cells';
 import { TransactionDetailsModal } from './transaction-details-modal';
@@ -211,9 +212,14 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
       cell: (row) => <MovementTypeBadge row={row} />,
     },
     {
-      header: t('movement.colRoute'),
+      header: t('movement.colFrom'),
       sortable: false,
-      cell: (row) => <MovementRoute row={row} />,
+      cell: (row) => <MovementFrom row={row} />,
+    },
+    {
+      header: t('movement.colTo'),
+      sortable: false,
+      cell: (row) => <MovementTo row={row} />,
     },
     {
       header: t('clientProfile.txColAmount'),

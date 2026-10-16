@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowDown, CornerDownRight } from 'lucide-react';
+import { CornerDownRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { MovementEnd, TransactionRow } from '@/lib/api/admin';
 import { t } from '@/lib/i18n';
@@ -38,21 +38,30 @@ function EndLine({ end, extra }: { end: MovementEnd; extra?: string | null }) {
   );
 }
 
+type RouteRow = Pick<TransactionRow, 'from' | 'to' | 'onward' | 'destination' | 'type'>;
+
 /**
- * FROM → TO in one cell, the destination text included where this reader may see it: it rides on
- * the masked `destination` field, never on the end itself, so a role that hides payout
- * destinations hides them here too.
+ * FROM and TO are TWO columns (16 Oct 2026, the owner's call, matching the buyer's old back
+ * office): an accountant reads one side down the page — every movement out of a wallet, every one
+ * into an account — and the screen matches the CSV, which has always had them apart.
  */
-export function MovementRoute({
-  row,
-}: {
-  row: Pick<TransactionRow, 'from' | 'to' | 'onward' | 'destination' | 'type'>;
-}) {
+export function MovementFrom({ row }: { row: RouteRow }) {
+  return (
+    <div className="flex min-w-[9rem] max-w-[14rem] flex-col">
+      <EndLine end={row.from} />
+    </div>
+  );
+}
+
+/**
+ * The receiving end, with the payout destination where this reader may see it — it rides on the
+ * masked `destination` field, never on the end itself, so a role that hides payout destinations
+ * hides it here too — and, for a deposit aimed at an account, where the money went next.
+ */
+export function MovementTo({ row }: { row: RouteRow }) {
   const destination = row.type === 'withdrawal' ? (row.destination ?? null) : null;
   return (
-    <div className="flex min-w-[12rem] max-w-[18rem] flex-col gap-0.5">
-      <EndLine end={row.from} />
-      <ArrowDown className="h-3 w-3 text-muted-foreground" aria-label={t('movement.colTo')} />
+    <div className="flex min-w-[9rem] max-w-[14rem] flex-col gap-0.5">
       <EndLine end={row.to} extra={destination} />
       {row.onward && <OnwardLine onward={row.onward} />}
     </div>

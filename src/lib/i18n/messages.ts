@@ -3095,7 +3095,6 @@ export const messages = {
   'movement.end.method': 'Payment method',
   'movement.end.company': 'Company (desk)',
   'movement.colType': 'Type',
-  'movement.colRoute': 'From → To',
   'movement.colFrom': 'From',
   'movement.colTo': 'To',
   'movement.colBy': 'By',
