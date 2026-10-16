@@ -132,6 +132,7 @@ export const keys = {
   ledger: {
     all: () => ['ledger'] as const,
     list: (params: Params) => ['ledger', 'list', params] as const,
+    statement: (params: Params) => ['ledger', 'statement', params] as const,
   },
 
   reconciliation: {

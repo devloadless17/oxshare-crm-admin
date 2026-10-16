@@ -358,8 +358,9 @@ describe('every filter asks the server', () => {
       );
     });
 
+    // Several states at once now (audit R4-G3): a checkbox per state.
     await user.click(screen.getByLabelText('State'));
-    await user.click(await screen.findByRole('option', { name: 'Pending' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Pending' }));
     await waitFor(() => {
       expect((getTransactions.mock.calls.at(-1)?.[0] as { state?: string }).state).toBe('pending');
     });
@@ -433,8 +434,9 @@ describe('every filter asks the server', () => {
     renderWithProviders(<FinancialPage />);
     await screen.findByText('jane@client.test');
 
+    // Several states at once now (audit R4-G3): a checkbox per state.
     await user.click(screen.getByLabelText('State'));
-    await user.click(await screen.findByRole('option', { name: 'Pending' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Pending' }));
     await user.click(screen.getByRole('button', { name: /^withdrawals/i }));
 
     await waitFor(() => {
@@ -653,6 +655,19 @@ describe('a payment only a person can settle — the attention flag', () => {
     // The badge still says so; the action is withheld — a button that 403s is
     // worse than no button, and this row has no other action to offer.
     expect(within(table).queryByRole('button', { name: 'Actions for this movement' })).toBeNull();
+  });
+
+  it('sends several states and an amount range, as strings (backend audit R4-G3)', async () => {
+    searchParams.current = new URLSearchParams(
+      'state=pending,approved&amountMin=10&amountMax=250.5&range=all',
+    );
+    renderWithProviders(<FinancialPage />);
+    await waitFor(() =>
+      expect(getTransactions).toHaveBeenCalledWith(
+        expect.objectContaining({ state: 'pending,approved', amountMin: '10', amountMax: '250.5' }),
+        expect.anything(),
+      ),
+    );
   });
 
   it('reads the period by SETTLED date for month-end — never both dates at once (backend 0231)', async () => {

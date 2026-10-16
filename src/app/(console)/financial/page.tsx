@@ -123,7 +123,16 @@ function FinancialPageContent() {
   const groupTypes: readonly MovementType[] = group ? MOVEMENT_GROUPS[group] : MOVEMENT_TYPES;
   const type = member<MovementType>(url.get('type'), groupTypes);
   const types = type ? [type] : group ? groupTypes : undefined;
-  const state = member<TransactionState>(url.get('state'), TRANSACTION_STATES);
+  // Several states at once (`?state=a,b`); an unknown one is dropped, never sent.
+  const states = url
+    .get('state')
+    .split(',')
+    .filter((value): value is TransactionState =>
+      (TRANSACTION_STATES as readonly string[]).includes(value),
+    );
+  const state = states.length ? states.join(',') : undefined;
+  const amountMin = url.get('amountMin') || undefined;
+  const amountMax = url.get('amountMax') || undefined;
   const currency = url.get('currency');
   /*
    * The period opens on TODAY (the buyer: a busy book must never load its whole
@@ -169,6 +178,8 @@ function FinancialPageContent() {
   const filterParams = {
     type: types?.join(','),
     state,
+    amountMin,
+    amountMax,
     userId: userId || undefined,
     currency: currency || undefined,
     q: q || undefined,
@@ -328,6 +339,8 @@ function FinancialPageContent() {
     group ||
     type ||
     state ||
+    amountMin ||
+    amountMax ||
     currency ||
     period.choice !== period.defaultChoice ||
     methods.length ||
@@ -443,7 +456,9 @@ function FinancialPageContent() {
       <TransactionFilters
         type={type ?? ''}
         types={groupTypes}
-        state={state ?? ''}
+        states={states}
+        amountMin={amountMin ?? ''}
+        amountMax={amountMax ?? ''}
         currency={currency}
         period={period}
         periodBy={periodBy}

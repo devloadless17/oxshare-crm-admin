@@ -1,6 +1,13 @@
 'use client';
 
-import { Activity, ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, Scale } from 'lucide-react';
+import {
+  Activity,
+  ArrowDownToLine,
+  ArrowLeftRight,
+  ArrowUpFromLine,
+  Receipt,
+  Scale,
+} from 'lucide-react';
 import { StatTile } from '@/components/dashboard/stat-tile';
 import { formatCount } from '@/components/dashboard/format';
 import type { TransactionsSummary } from '@/lib/api/admin';
@@ -47,6 +54,8 @@ export function AccountingTiles({
     return desk.length ? t('movement.tile.deskPart', { amount: money(desk) }) : undefined;
   };
   const inProgress = (summary?.effects ?? []).filter((row) => row.bucket === 'inProgress');
+  // What the providers charged — the server's figures per direction, never added up here.
+  const fees = summary?.fees ?? [];
 
   const settledIn = effect('in', 'settled');
   const settledOut = effect('out', 'settled');
@@ -87,6 +96,22 @@ export function AccountingTiles({
         value={money(summary?.net ?? [])}
         hint={t('movement.tile.netHint')}
         icon={Scale}
+        loading={loading}
+      />
+      <StatTile
+        label={t('financial.feesTile')}
+        value={
+          fees.length
+            ? fees
+                .map(
+                  (row) =>
+                    `${row.direction === 'deposit' ? t('financial.feesDeposits') : t('financial.feesPayouts')} ${formatMoney(row.total, row.currency)}`,
+                )
+                .join(' · ')
+            : '—'
+        }
+        hint={fees.length ? t('financial.feesHint') : t('financial.feesNone')}
+        icon={Receipt}
         loading={loading}
       />
     </div>
