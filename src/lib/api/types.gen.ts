@@ -7193,7 +7193,6 @@ export interface components {
             rejectionReason?: string | null;
             /** @description Arabic for `rejectionReason`: written with the decision, else the configured reason’s, else the system sentence’s. Absent when there is none (show the English). */
             rejectionReasonAr?: string;
-            reviewedBy?: string | null;
             /** Format: date-time */
             reviewedAt?: string | null;
             /** Format: date-time */
@@ -11044,6 +11043,11 @@ export interface components {
             withdrawalMethodKey?: string | null;
             destinationTradingAccountId?: string | null;
             reviewedBy?: string | null;
+            approvedByAdminId?: string | null;
+            /** Format: date-time */
+            approvedAt?: string | null;
+            deskReason?: string | null;
+            deskReasonAr?: string | null;
             /** @description The provider’s own id for the movement: its invoice, its payment id. */
             providerPaymentId?: string | null;
             /** Format: date-time */
