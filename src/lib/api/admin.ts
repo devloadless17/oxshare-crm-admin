@@ -320,6 +320,19 @@ export type TransactionSummaryRow = components['schemas']['AdminTransactionSumma
 export type TransactionDirection = TransactionRow['direction'];
 export type TransactionKind = TransactionRow['kind'];
 export type TransactionState = TransactionRow['state'];
+/**
+ * What a movement IS for accounting (backend `movement-type.ts`, 16 Oct 2026): a client's deposit or
+ * withdrawal, the desk's own credit or debit, or one of the three internal moves. Read off the row,
+ * like the three above.
+ */
+export type MovementType = TransactionRow['type'];
+export type MovementEffect = TransactionRow['effect'];
+/** One end of a movement — a wallet, a trading account, a payment method, or the company. */
+export type MovementEnd = TransactionRow['from'];
+/** Where a transfer's money came from (backend 0226); `commission` on a commission move. */
+export type TransferOrigin = NonNullable<TransactionRow['origin']>;
+/** One accounting line of a summary: currency × type × settlement bucket. */
+export type AccountingLine = TransactionsSummary['accounting'][number];
 
 /*
  * The MT5 bridge's own internals. Aliased from the generated schema like
@@ -573,6 +586,35 @@ export const TRANSACTION_KINDS = [
   'commission_transfer',
 ] as const satisfies readonly TransactionKind[];
 
+/** The accounting types, in the order a statement reads them. */
+export const MOVEMENT_TYPES = [
+  'deposit',
+  'desk_credit',
+  'withdrawal',
+  'desk_debit',
+  'transfer_to_account',
+  'transfer_to_wallet',
+  'commission_to_wallet',
+] as const satisfies readonly MovementType[];
+
+/** The Financial tabs: each a fixed set of types — the backend's `MOVEMENT_GROUPS`. */
+export const MOVEMENT_GROUPS = {
+  deposit: ['deposit', 'desk_credit'],
+  withdrawal: ['withdrawal', 'desk_debit'],
+  transfer: ['transfer_to_account', 'transfer_to_wallet', 'commission_to_wallet'],
+} as const satisfies Record<string, readonly MovementType[]>;
+export type MovementGroup = keyof typeof MOVEMENT_GROUPS;
+
+/** Every origin a transfer can have, the commission arm's included. */
+export const TRANSFER_ORIGINS = [
+  'client',
+  'deposit',
+  'desk_credit',
+  'desk_wallet',
+  'desk_debit',
+  'commission',
+] as const satisfies readonly TransferOrigin[];
+
 /**
  * In lifecycle order, like the withdrawal desk's tabs. `approved` and
  * `rejected` only ever occur on payment-kind withdrawals — transfers map to
@@ -605,6 +647,14 @@ export interface TransactionListParams {
   id?: string;
   direction?: TransactionDirection;
   kind?: TransactionKind;
+  /** Accounting types, comma-separated (`MOVEMENT_TYPES`). */
+  type?: string;
+  /** Transfer origins, comma-separated (`TRANSFER_ORIGINS`). */
+  origin?: string;
+  /** One trading account's transfers: its MT5 login or id. */
+  account?: string;
+  /** Which second facet the list counts — `type` for the accounting tabs. */
+  facet?: 'direction' | 'type';
   state?: TransactionState;
   /** Narrow to one client, by Portal ID. */
   userId?: ClientRef;
@@ -640,6 +690,46 @@ export type TransactionsSummaryParams = Omit<
   TransactionListParams,
   'limit' | 'page' | 'sort' | 'order'
 >;
+
+/**
+ * The movement filters as a query string — ONE builder for the Financial and Transfers lists and
+ * their tiles, so a filter cannot reach one request and silently miss another. Omitted, never sent
+ * blank (the getWithdrawals rule).
+ */
+export function movementFilterQuery(params: TransactionsSummaryParams): URLSearchParams {
+  const query = new URLSearchParams();
+  if (params.direction) query.set('direction', params.direction);
+  if (params.kind) query.set('kind', params.kind);
+  if (params.type) query.set('type', params.type);
+  if (params.origin) query.set('origin', params.origin);
+  if (params.account) query.set('account', params.account);
+  if (params.state) query.set('state', params.state);
+  if (params.userId) query.set('userId', String(params.userId));
+  if (params.currency) query.set('currency', params.currency);
+  if (params.q) query.set('q', params.q);
+  if (params.from) query.set('from', params.from);
+  if (params.to) query.set('to', params.to);
+  if (params.method) query.set('method', params.method);
+  if (params.attention) query.set('attention', params.attention);
+  if (params.decidedBy) query.set('decidedBy', params.decidedBy);
+  if (params.id) query.set('id', params.id);
+  return query;
+}
+
+/** The list's query: the filters, the page, the facet and the sort. */
+export function movementListQuery(params: TransactionListParams): URLSearchParams {
+  const query = movementFilterQuery(params);
+  query.set('limit', String(params.limit));
+  if (params.facet) query.set('facet', params.facet);
+  if (params.page !== undefined) query.set('page', String(params.page));
+  addPaging(query, params);
+  // Both halves or neither — `order` alone orders no column.
+  if (params.sort) {
+    query.set('sort', params.sort);
+    if (params.order) query.set('order', params.order);
+  }
+  return query;
+}
 
 // ── Holdings: wallets and trading accounts (AdminHoldingsController) ─────────
 //
@@ -2112,29 +2202,37 @@ export const adminApi = {
     params: TransactionListParams,
     signal?: AbortSignal,
   ): Promise<TransactionListResponse> {
-    const query = new URLSearchParams({ limit: String(params.limit) });
-    // Omitted rather than sent blank — the getWithdrawals rule.
-    if (params.direction) query.set('direction', params.direction);
-    if (params.kind) query.set('kind', params.kind);
-    if (params.state) query.set('state', params.state);
-    if (params.userId) query.set('userId', String(params.userId));
-    if (params.currency) query.set('currency', params.currency);
-    if (params.q) query.set('q', params.q);
-    if (params.from) query.set('from', params.from);
-    if (params.to) query.set('to', params.to);
-    if (params.method) query.set('method', params.method);
-    if (params.attention) query.set('attention', params.attention);
-    if (params.decidedBy) query.set('decidedBy', params.decidedBy);
-    if (params.id) query.set('id', params.id);
-    if (params.page !== undefined) query.set('page', String(params.page));
-    addPaging(query, params);
-    // Both halves or neither — `order` alone orders no column.
-    if (params.sort) {
-      query.set('sort', params.sort);
-      if (params.order) query.set('order', params.order);
-    }
     const { data } = await apiClient.get<TransactionListResponse>(
-      `/admin/transactions?${query.toString()}`,
+      `/admin/transactions?${movementListQuery(params).toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /**
+   * THE TRANSFERS PAGE — `GET /admin/transfers` (16 Oct 2026): every move between a client's own
+   * accounts, on its own key (`transfers.view`). The server forces the transfer kinds; the filters
+   * are the Financial list's.
+   */
+  async getTransfers(
+    params: TransactionListParams,
+    signal?: AbortSignal,
+  ): Promise<TransactionListResponse> {
+    const { data } = await apiClient.get<TransactionListResponse>(
+      `/admin/transfers?${movementListQuery(params).toString()}`,
+      { signal },
+    );
+    return data;
+  },
+
+  /** The Transfers page's tiles — the same filters, the transfer kinds forced by the server. */
+  async getTransfersSummary(
+    params: TransactionsSummaryParams,
+    signal?: AbortSignal,
+  ): Promise<TransactionsSummary> {
+    const qs = movementFilterQuery(params).toString();
+    const { data } = await apiClient.get<TransactionsSummary>(
+      `/admin/transfers/summary${qs ? `?${qs}` : ''}`,
       { signal },
     );
     return data;
@@ -2150,18 +2248,7 @@ export const adminApi = {
     params: TransactionsSummaryParams,
     signal?: AbortSignal,
   ): Promise<TransactionsSummary> {
-    const query = new URLSearchParams();
-    if (params.direction) query.set('direction', params.direction);
-    if (params.kind) query.set('kind', params.kind);
-    if (params.state) query.set('state', params.state);
-    if (params.userId) query.set('userId', String(params.userId));
-    if (params.currency) query.set('currency', params.currency);
-    if (params.q) query.set('q', params.q);
-    if (params.from) query.set('from', params.from);
-    if (params.to) query.set('to', params.to);
-    if (params.method) query.set('method', params.method);
-    if (params.attention) query.set('attention', params.attention);
-    const qs = query.toString();
+    const qs = movementFilterQuery(params).toString();
     const { data } = await apiClient.get<TransactionsSummary>(
       `/admin/transactions/summary${qs ? `?${qs}` : ''}`,
       { signal },

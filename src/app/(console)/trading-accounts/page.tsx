@@ -3,7 +3,17 @@
 import { clientLabel } from '@/components/clients/client-identity';
 import * as React from 'react';
 import { Suspense } from 'react';
-import { Boxes, CandlestickChart, Link2, Plus, RefreshCw, UserPlus } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Boxes,
+  CandlestickChart,
+  Link2,
+  Plus,
+  RefreshCw,
+  UserPlus,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { transfersHrefFor } from '@/components/movements/movement-vocabulary';
 import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import type {
@@ -154,6 +164,8 @@ function TradingAccountsPageContent() {
    */
   const { admin } = useAdmin();
   const canCreate = hasPermission(admin, 'trading.create');
+  const canViewTransfers = hasPermission(admin, 'transfers.view');
+  const router = useRouter();
   /*
    * An account with no client is outside every territory, so only an admin who
    * sees every client is shown one (the server enforces it; this hides the
@@ -248,7 +260,7 @@ function TradingAccountsPageContent() {
    * only exists for an operator who can act. A row menu that renders empty is
    * a control that looks broken rather than absent.
    */
-  if (funding.canMoveMoney || canCreate) {
+  if (funding.canMoveMoney || canCreate || canViewTransfers) {
     columns.push({
       header: '',
       cell: (a) => (
@@ -297,6 +309,16 @@ function TradingAccountsPageContent() {
             // The product decides the commission its trades pay (29 Sep 2026).
             ...(canCreate
               ? [{ label: t('setProduct.action'), icon: Boxes, onSelect: () => setProductFor(a) }]
+              : []),
+            // Where this account's money came from and went (16 Oct 2026).
+            ...(canViewTransfers && a.login
+              ? [
+                  {
+                    label: t('transfers.viewTransfers'),
+                    icon: ArrowLeftRight,
+                    onSelect: () => router.push(transfersHrefFor(a.login ?? '')),
+                  },
+                ]
               : []),
           ]}
         />

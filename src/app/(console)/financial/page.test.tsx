@@ -94,7 +94,77 @@ vi.mock('@/context/AdminAuthContext', () => ({
   }),
 }));
 
+/*
+ * The server's classification (16 Oct 2026), derived the way `movementDetails` derives it, so a
+ * fixture that only says kind and direction still reads like a real row.
+ */
+function classified(kind: string, direction: string, provider: string) {
+  const desk = provider === 'manual_admin';
+  const type =
+    kind === 'commission_transfer'
+      ? 'commission_to_wallet'
+      : kind === 'transfer'
+        ? direction === 'withdrawal'
+          ? 'transfer_to_account'
+          : 'transfer_to_wallet'
+        : direction === 'deposit'
+          ? desk
+            ? 'desk_credit'
+            : 'deposit'
+          : desk
+            ? 'desk_debit'
+            : 'withdrawal';
+  const wallet = {
+    kind: 'wallet',
+    walletNumber: 'abcd1234wxyz',
+    walletKind: 'main',
+    currency: 'USD',
+  };
+  const method = {
+    kind: 'method',
+    methodLabel: 'Whish Money',
+    providerCode: 'rival',
+    channelCode: 'whish',
+  };
+  const company = { kind: 'company' };
+  const account = { kind: 'trading_account', login: '5000001', environment: 'live' };
+  const ends: Record<string, [object, object]> = {
+    deposit: [method, wallet],
+    desk_credit: [company, wallet],
+    withdrawal: [wallet, method],
+    desk_debit: [wallet, company],
+    transfer_to_account: [wallet, account],
+    transfer_to_wallet: [account, wallet],
+    commission_to_wallet: [{ ...wallet, walletKind: 'commission' }, wallet],
+  };
+  const [from, to] = ends[type] ?? [wallet, wallet];
+  return {
+    type,
+    effect:
+      type.startsWith('desk_') || type === 'deposit' || type === 'withdrawal'
+        ? direction === 'deposit'
+          ? 'in'
+          : 'out'
+        : 'internal',
+    from,
+    to,
+    onward: null,
+    origin: kind === 'payment' ? null : kind === 'commission_transfer' ? 'commission' : 'client',
+    source: null,
+    requestedBy: null,
+    approvedBy: null,
+    decidedBy: null,
+    deskReason: null,
+    deskReasonAr: null,
+  };
+}
+
 const row = (over: Record<string, unknown> = {}) => ({
+  ...classified(
+    (over['kind'] as string | undefined) ?? 'payment',
+    (over['direction'] as string | undefined) ?? 'deposit',
+    (over['provider'] as string | undefined) ?? 'whish',
+  ),
   id: 'tx-1',
   kind: 'payment',
   direction: 'deposit',
@@ -122,6 +192,8 @@ const page = (over: Record<string, unknown> = {}) => ({
   limit: 25,
   counts: { all: 1, success: 1 },
   directionCounts: { all: 1, deposit: 1 },
+  typeCounts: { all: 1, deposit: 1 },
+  groupCounts: { all: 1, deposit: 1 },
   ...over,
 });
 
@@ -137,6 +209,9 @@ const summary = (over: Record<string, unknown> = {}) => ({
     },
   ],
   directions: [{ direction: 'deposit', currency: 'USD', count: 1, total: '100.12345678' }],
+  accounting: [],
+  effects: [{ currency: 'USD', effect: 'in', bucket: 'settled', count: 1, total: '100.12345678' }],
+  net: [{ currency: 'USD', total: '100.12345678' }],
   ...over,
 });
 
@@ -178,10 +253,9 @@ describe('what the list shows', () => {
     expect(await screen.findAllByText('$12,345,678,901,234,567.89')).not.toHaveLength(0);
   });
 
-  it('labels a transfer by its KIND, never as a bare withdrawal', async () => {
-    // Wallet-side direction on a transfer is 'withdrawal', and printing that
-    // word would read as money leaving the platform. The badge must say what
-    // it is instead.
+  it('labels a transfer by what it IS, never as a bare withdrawal — and names both ends', async () => {
+    // Wallet-side direction on a transfer is 'withdrawal', and printing that word would read as
+    // money leaving the platform. The type says what it is; the route says from where to where.
     getTransactions.mockResolvedValue(
       page({
         items: [
@@ -191,28 +265,25 @@ describe('what the list shows', () => {
     );
     renderWithProviders(<FinancialPage />);
 
-    expect(await screen.findByText('Trading transfer')).toBeInTheDocument();
+    expect(await screen.findByText('To trading account')).toBeInTheDocument();
+    expect(screen.getByText('MT5 5000001')).toBeInTheDocument();
     const table = await screen.findByRole('table');
     expect(within(table).queryByText('Withdrawal')).toBeNull();
   });
 
-  it('names a manual credit instead of printing the machine key', async () => {
-    // `manual_admin` is the one provider a screen may recognise by name — the
-    // row went through no payment method, so its methodName falls back to the
-    // raw provider key, which is not a rail name anyone should read.
+  it('names the desk’s own credit as the desk’s, never a client’s deposit or a machine key', async () => {
     getTransactions.mockResolvedValue(
       page({ items: [row({ provider: 'manual_admin', methodName: 'manual_admin' })] }),
     );
     renderWithProviders(<FinancialPage />);
 
-    expect(await screen.findByText('Manual credit')).toBeInTheDocument();
+    expect(await screen.findByText('Desk credit')).toBeInTheDocument();
+    expect(screen.getByText('Company (desk)')).toBeInTheDocument();
     expect(screen.queryByText('manual_admin')).toBeNull();
   });
 
-  it('shows an unfamiliar kind verbatim instead of blank', async () => {
-    getTransactions.mockResolvedValue(
-      page({ items: [row({ kind: 'cpa_bonus', methodName: 'cpa' })] }),
-    );
+  it('shows an unfamiliar type verbatim instead of blank', async () => {
+    getTransactions.mockResolvedValue(page({ items: [row({ type: 'cpa_bonus' })] }));
     renderWithProviders(<FinancialPage />);
 
     expect(await screen.findByText('cpa_bonus')).toBeInTheDocument();
@@ -250,38 +321,41 @@ describe('what the list shows', () => {
 });
 
 describe('every filter asks the server', () => {
-  it('direction tab narrows the REQUEST and resets the page', async () => {
+  it('an accounting tab narrows the REQUEST to its types and resets the page', async () => {
     const user = userEvent.setup();
     searchParams.current = new URLSearchParams('page=3');
     renderWithProviders(<FinancialPage />);
     await screen.findByText('jane@client.test');
 
-    await user.click(screen.getByRole('button', { name: /^withdrawal/i }));
+    await user.click(screen.getByRole('button', { name: /^withdrawals/i }));
 
     await waitFor(() => {
       const last = getTransactions.mock.calls.at(-1)?.[0] as {
-        direction?: string;
+        type?: string;
+        facet?: string;
         page?: number;
       };
-      expect(last.direction).toBe('withdrawal');
+      // The client's withdrawals and the desk's debits — never a wallet → MT5 transfer.
+      expect(last.type).toBe('withdrawal,desk_debit');
+      expect(last.facet).toBe('type');
       expect(last.page).toBe(1);
     });
     // The filter is a URL, so "every withdrawal" is a link, not a session.
-    expect(replace).toHaveBeenCalledWith(expect.stringContaining('direction=withdrawal'), {
+    expect(replace).toHaveBeenCalledWith(expect.stringContaining('group=withdrawal'), {
       scroll: false,
     });
   });
 
-  it('kind and state dropdowns reach the request', async () => {
+  it('type and state dropdowns reach the request', async () => {
     const user = userEvent.setup();
     renderWithProviders(<FinancialPage />);
     await screen.findByText('jane@client.test');
 
-    await user.click(screen.getByLabelText('Kind'));
-    await user.click(await screen.findByRole('option', { name: 'Commission transfer' }));
+    await user.click(screen.getByLabelText('Type'));
+    await user.click(await screen.findByRole('option', { name: 'Desk credit' }));
     await waitFor(() => {
-      expect((getTransactions.mock.calls.at(-1)?.[0] as { kind?: string }).kind).toBe(
-        'commission_transfer',
+      expect((getTransactions.mock.calls.at(-1)?.[0] as { type?: string }).type).toBe(
+        'desk_credit',
       );
     });
 
@@ -355,52 +429,50 @@ describe('every filter asks the server', () => {
     expect(first.limit).toBeLessThanOrEqual(100);
   });
 
-  it('the summary shares the list’s filters, minus paging and the direction axis', async () => {
+  it('the summary shares the list’s filters, minus paging and the tab’s types', async () => {
     const user = userEvent.setup();
     renderWithProviders(<FinancialPage />);
     await screen.findByText('jane@client.test');
 
     await user.click(screen.getByLabelText('State'));
     await user.click(await screen.findByRole('option', { name: 'Pending' }));
-    await user.click(screen.getByRole('button', { name: /^withdrawal/i }));
+    await user.click(screen.getByRole('button', { name: /^withdrawals/i }));
 
     await waitFor(() => {
       const last = getTransactionsSummary.mock.calls.at(-1)?.[0] as {
         state?: string;
-        direction?: string;
+        type?: string;
         limit?: number;
       };
       expect(last.state).toBe('pending');
       // …minus paging: the tiles describe the whole filtered set…
       expect(last.limit).toBeUndefined();
-      // …and minus direction/kind: the Deposits tile keeps its total while
-      // the Withdrawals tab is active (the tabs' own two-axis rule).
-      expect(last.direction).toBeUndefined();
+      // …and minus the types: Money in keeps its total while the Withdrawals tab is active.
+      expect(last.type).toBeUndefined();
     });
   });
 });
 
 describe('the tiles render the server’s numbers', () => {
-  it('shows the direction counts and the server-summed totals', async () => {
+  it('shows the accounting group counts and the server’s settled totals per effect', async () => {
     getTransactions.mockResolvedValue(
-      page({ directionCounts: { all: 12, deposit: 7, withdrawal: 5 } }),
+      page({ groupCounts: { all: 12, deposit: 7, withdrawal: 3, transfer: 2 } }),
     );
     getTransactionsSummary.mockResolvedValue(
       summary({
-        directions: [
-          { direction: 'deposit', currency: 'USD', count: 7, total: '1250.50000000' },
-          { direction: 'withdrawal', currency: 'USD', count: 5, total: '400.00000000' },
+        effects: [
+          { currency: 'USD', effect: 'in', bucket: 'settled', count: 7, total: '1250.50000000' },
+          { currency: 'USD', effect: 'out', bucket: 'settled', count: 3, total: '400.00000000' },
         ],
+        net: [{ currency: 'USD', total: '850.50000000' }],
       }),
     );
     renderWithProviders(<FinancialPage />);
 
-    // Counts from `directionCounts`, totals as formatted SERVER strings —
-    // nothing on this page added decimal strings together.
+    // Totals as formatted SERVER strings — nothing on this page added decimal strings together.
     expect(await screen.findByText('$1,250.50')).toBeInTheDocument();
     expect(screen.getByText('$400.00')).toBeInTheDocument();
-    // '12' renders twice on purpose: the Movements tile and the All tab badge
-    // describe the same server-computed figure.
+    expect(screen.getByText('$850.50')).toBeInTheDocument();
     expect(screen.getAllByText('12').length).toBeGreaterThanOrEqual(1);
   });
 });

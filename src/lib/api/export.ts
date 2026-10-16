@@ -58,6 +58,8 @@ export type ExportResource =
   // 6 Oct 2026: the deposit desk (its own key, `deposits.view`), the ledger
   // (`ledger.view`) and the commission ledger — each CSV, each the list's filters.
   | 'deposits'
+  // 16 Oct 2026: the Transfers page (`transfers.view`), the list's filters, CSV.
+  | 'transfers'
   | 'ledger'
   | 'ib/accruals';
 

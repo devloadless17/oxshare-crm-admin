@@ -29,6 +29,8 @@ import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 import { ClientIdentity, clientName } from '@/components/clients/client-identity';
+import { PermittedLink } from '@/components/permitted-link';
+import { ledgerReferenceLink } from '@/components/movements/movement-vocabulary';
 
 /**
  * ADM-13 — the append-only ledger. `GET /admin/ledger`.
@@ -256,13 +258,26 @@ function LedgerPageContent() {
     {
       header: t('ledger.colReference'),
       sortable: false,
-      cell: (r) => (
-        <span className="text-xs text-muted-foreground">
-          {r.referenceType}
-          {r.referenceId ? ` · ${r.referenceId}` : ''}
-        </span>
-      ),
-      cellClassName: 'font-mono',
+      /*
+       * The movement this posting records, OPENED — never a uuid to copy (16 Oct 2026). The raw
+       * reference stays on hover and in the CSV; a reference the console does not know is text.
+       */
+      cell: (r) => {
+        const link = ledgerReferenceLink(r.referenceType, r.referenceId);
+        const raw = `${r.referenceType}${r.referenceId ? ` · ${r.referenceId}` : ''}`;
+        return link ? (
+          <span title={raw}>
+            <PermittedLink
+              href={link.href}
+              className="text-xs text-link underline-offset-2 hover:underline"
+            >
+              {link.label}
+            </PermittedLink>
+          </span>
+        ) : (
+          <span className="font-mono text-xs text-muted-foreground">{raw}</span>
+        );
+      },
     },
   ];
 

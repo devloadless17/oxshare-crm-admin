@@ -22,7 +22,7 @@ import type {
 import { useAdmin } from '@/context/AdminAuthContext';
 import { hasPermission } from '@/lib/permissions';
 import { useResource } from '@/hooks/use-resource';
-import { kindLabel } from '@/components/financial/transaction-badges';
+import { typeLabel } from '@/components/movements/movement-vocabulary';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
@@ -134,19 +134,21 @@ function TotalsTiles({ userId, onOpen }: { userId: number; onOpen: () => void })
   const query = useResource<TransactionsSummary>(keys.transactions.summary(params), (signal) =>
     api.admin.getTransactionsSummary(params, signal),
   );
-  const rows = query.data?.rows ?? [];
-  const settled = (direction: 'deposit' | 'withdrawal') =>
-    rows.filter(
-      (row) => row.kind === 'payment' && row.direction === direction && row.state === 'success',
-    );
-  const pending = rows
+  /*
+   * The server's ACCOUNTING lines (16 Oct 2026): what the client deposited and withdrew through
+   * their own methods, settled — the desk's own credits and debits are other lines, never counted
+   * as the client's money moving.
+   */
+  const accounting = query.data?.accounting ?? [];
+  const settled = (type: 'deposit' | 'withdrawal') =>
+    accounting.filter((line) => line.type === type && line.bucket === 'settled');
+  const pending = accounting
     .filter(
-      (row) =>
-        row.kind === 'payment' &&
-        (row.state === 'pending' || (row.direction === 'withdrawal' && row.state === 'approved')),
+      (line) =>
+        line.bucket === 'inProgress' && (line.type === 'deposit' || line.type === 'withdrawal'),
     )
-    .reduce((sum, row) => sum + row.count, 0); // a count of rows, not money
-  const lines = (list: typeof rows) =>
+    .reduce((sum, line) => sum + line.count, 0); // a count of rows, not money
+  const lines = (list: typeof accounting) =>
     list.length === 0 ? (
       <Muted>—</Muted>
     ) : (
@@ -200,9 +202,7 @@ function LastActivityTile({ userId, onOpen }: { userId: number; onOpen: () => vo
       onOpen={onOpen}
       status={query.status}
       hint={
-        last
-          ? `${last.kind === 'payment' ? t(last.direction === 'deposit' ? 'clientProfile.txTypeDeposit' : 'clientProfile.txTypeWithdrawal') : kindLabel(last.kind)} · ${formatMoney(last.amount, last.currency)}`
-          : undefined
+        last ? `${typeLabel(last.type)} · ${formatMoney(last.amount, last.currency)}` : undefined
       }
     >
       {last ? (

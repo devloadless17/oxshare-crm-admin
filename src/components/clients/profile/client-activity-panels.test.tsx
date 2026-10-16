@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/render';
 import type { ClientClosedPositionRow } from '@/lib/api/admin';
 import { ClientClosedPositionsPanel } from './client-activity-panels';
-import { transactionMethodLabel } from './movement-labels';
 
 /**
  * The client profile's Positions tab: CLOSED positions only (owner, 26 Sep
@@ -121,26 +120,5 @@ describe('the closed positions table', () => {
     renderWithProviders(<ClientClosedPositionsPanel userId="client-1" />);
 
     expect(await screen.findByText('No closed positions yet.')).toBeInTheDocument();
-  });
-});
-
-describe('a movement’s method, in words (owner, 26 Sep 2026)', () => {
-  it('names the method, never its key', () => {
-    expect(
-      transactionMethodLabel({ methodName: 'Whish Money', methodKey: 'whish', provider: 'whish' }),
-    ).toBe('Whish Money');
-    expect(
-      transactionMethodLabel({ methodName: null, methodKey: null, provider: 'manual_admin' }),
-    ).toBe('Manual credit');
-    expect(
-      transactionMethodLabel({ methodName: null, methodKey: null, provider: 'transfer' }),
-    ).toBe('Internal transfer');
-    expect(
-      transactionMethodLabel({ methodName: null, methodKey: null, provider: 'commission' }),
-    ).toBe('Commission');
-    // An unknown source is still a source — readable, never blank.
-    expect(
-      transactionMethodLabel({ methodName: null, methodKey: null, provider: 'bank_wire' }),
-    ).toBe('Bank wire');
   });
 });

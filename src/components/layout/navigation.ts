@@ -4,6 +4,7 @@ import {
   ArrowDownToLine,
   ArrowLeftRight,
   ArrowUpFromLine,
+  Shuffle,
   BadgePercent,
   Banknote,
   Boxes,
@@ -204,6 +205,11 @@ export const NAV: readonly NavEntry[] = [
        */
       { label: 'nav.deposits', href: '/approvals/deposits', icon: ArrowDownToLine },
       { label: 'nav.withdrawals', href: '/transactions', icon: ArrowUpFromLine },
+      /*
+       * Every move between a client's own accounts, with where its money came from (16 Oct 2026)
+       * — the buyer's old "Transactions → Transfer". Beside the two desks it is read with.
+       */
+      { label: 'nav.transfers', href: '/transfers', icon: Shuffle },
       { label: 'nav.wallets', href: '/wallets', icon: Wallet },
       /*
        * ADM-13, beside reconciliation because that is the order the questions

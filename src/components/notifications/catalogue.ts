@@ -228,7 +228,8 @@ export const KIND_DISPLAY: Record<AdminNotificationKind, KindDisplay> = {
           : 'notifications.taskStuckTransferToAccount',
       vars: { amount: amountOf(n) },
     }),
-    href: (n) => opened('/financial', n, 'transferId'),
+    // Transfers is the stuck transfer's own page now (16 Oct 2026); its holders hold transfers.view.
+    href: (n) => opened('/transfers', n, 'transferId'),
   },
 };
 

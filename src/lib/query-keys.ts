@@ -123,6 +123,10 @@ export const keys = {
     /* The Financial banner's count. Under the same root as the list, so
        releasing a stuck transfer refreshes both with one invalidation. */
     stuck: () => ['transactions', 'stuck'] as const,
+    /* The Transfers page (16 Oct 2026) — under the SAME root, so every refresh that reaches the
+       Financial list (realtime, release-hold, a stuck task) reaches it too. */
+    transfers: (params: Params) => ['transactions', 'transfers', params] as const,
+    transfersSummary: (params: Params) => ['transactions', 'transfers-summary', params] as const,
   },
 
   ledger: {

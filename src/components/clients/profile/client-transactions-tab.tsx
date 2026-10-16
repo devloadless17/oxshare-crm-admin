@@ -10,7 +10,7 @@ import type {
   TransactionRow,
   TransactionSortKey,
 } from '@/lib/api/admin';
-import { TRANSACTION_SORT_KEYS } from '@/lib/api/admin';
+import { MOVEMENT_GROUPS, TRANSACTION_SORT_KEYS } from '@/lib/api/admin';
 import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
@@ -23,7 +23,11 @@ import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { keys } from '@/lib/query-keys';
 import { ChoiceFilter, useTableState } from './table-state';
-import { movementMethodLabel, transferDirectionLabel } from './movement-labels';
+import {
+  MovementPeople,
+  MovementRoute,
+  MovementTypeBadge,
+} from '@/components/movements/movement-cells';
 import { TransactionDetailsModal } from './transaction-details-modal';
 import {
   ClientMoneyDialog,
@@ -50,14 +54,18 @@ import {
 
 type SubTab = 'deposits' | 'withdrawals' | 'transfers';
 
+/*
+ * By ACCOUNTING TYPE (16 Oct 2026): a desk credit is listed with deposits and says it is the desk's,
+ * and Transfers reads `/admin/transfers` — every move between the client's own accounts, their
+ * commission moves included (they appeared on no client page before).
+ */
 const SUB_TABS: readonly {
   value: SubTab;
-  kind: 'payment' | 'transfer';
-  direction?: 'deposit' | 'withdrawal';
+  types?: string;
 }[] = [
-  { value: 'deposits', kind: 'payment', direction: 'deposit' },
-  { value: 'withdrawals', kind: 'payment', direction: 'withdrawal' },
-  { value: 'transfers', kind: 'transfer' },
+  { value: 'deposits', types: MOVEMENT_GROUPS.deposit.join(',') },
+  { value: 'withdrawals', types: MOVEMENT_GROUPS.withdrawal.join(',') },
+  { value: 'transfers' },
 ];
 
 /* A transfer is never "approved" or "rejected" — it settles or fails. */
@@ -169,8 +177,7 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
     limit: table.pageSize,
     page: table.page,
     userId,
-    kind: spec.kind,
-    direction: spec.direction,
+    type: spec.types,
     state: (state || undefined) as TransactionRow['state'] | undefined,
     currency: currency || undefined,
     from: range.from,
@@ -178,13 +185,17 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
     sort: table.sort.key,
     order: table.sort.key ? table.sort.order : undefined,
   };
-  const query = useResource<TransactionListResponse>(keys.transactions.list(params), (signal) =>
-    api.admin.getTransactions(params, signal),
+  const isTransfers = spec.value === 'transfers';
+  const query = useResource<TransactionListResponse>(
+    isTransfers ? keys.transactions.transfers(params) : keys.transactions.list(params),
+    (signal) =>
+      isTransfers
+        ? api.admin.getTransfers(params, signal)
+        : api.admin.getTransactions(params, signal),
   );
 
   const filtered = Boolean(state || currency || period.choice !== 'all');
   const isDeposits = spec.value === 'deposits';
-  const isTransfers = spec.value === 'transfers';
 
   const columns: Column<TransactionRow>[] = [
     {
@@ -194,21 +205,16 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
       cell: (row) => new Date(row.createdAt).toLocaleString(),
       cellClassName: 'whitespace-nowrap text-muted-foreground',
     },
-    ...(isTransfers
-      ? [
-          {
-            header: t('clientProfile.txColWay'),
-            sortable: false as const,
-            cell: (row: TransactionRow) => transferDirectionLabel(row.direction),
-          },
-        ]
-      : [
-          {
-            header: t('clientProfile.txColMethod'),
-            sortable: false as const,
-            cell: (row: TransactionRow) => movementMethodLabel(row),
-          },
-        ]),
+    {
+      header: t('movement.colType'),
+      sortable: false,
+      cell: (row) => <MovementTypeBadge row={row} />,
+    },
+    {
+      header: t('movement.colRoute'),
+      sortable: false,
+      cell: (row) => <MovementRoute row={row} />,
+    },
     {
       header: t('clientProfile.txColAmount'),
       align: 'right',
@@ -224,6 +230,11 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
       sortable: true,
       sortKey: 'state',
       cell: (row) => <TxStateBadge state={row.state} />,
+    },
+    {
+      header: t('movement.colBy'),
+      sortable: false,
+      cell: (row) => <MovementPeople row={row} />,
     },
     ...(isDeposits
       ? [
@@ -301,7 +312,9 @@ function MovementsTable({ userId, spec }: { userId: ClientRef; spec: (typeof SUB
       <AsyncBoundary
         status={query.status}
         label={t('clientProfile.txLoading')}
-        endpoints={['GET /admin/transactions?userId&kind&direction']}
+        endpoints={[
+          isTransfers ? 'GET /admin/transfers?userId' : 'GET /admin/transactions?userId&type',
+        ]}
         onRetry={query.refetch}
         errorMessage={t('clientProfile.txLoadFailed')}
         error={query.error}

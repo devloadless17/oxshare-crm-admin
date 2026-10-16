@@ -1,7 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { Archive, ArchiveRestore, Boxes, CandlestickChart, Link2, Plus } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowLeftRight,
+  Boxes,
+  CandlestickChart,
+  Link2,
+  Plus,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { transfersHrefFor } from '@/components/movements/movement-vocabulary';
 import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import type {
@@ -53,6 +63,8 @@ export function ClientAccountsPanel({
   const { admin } = useAdmin();
   const canCreate = hasPermission(admin, 'trading.create');
   const canArchive = hasPermission(admin, 'trading.archive');
+  const canViewTransfers = hasPermission(admin, 'transfers.view');
+  const router = useRouter();
   const confirm = useConfirm();
   const queryClient = useQueryClient();
   const table = useTableState<TradingAccountSortKey>(TRADING_ACCOUNT_SORT_KEYS);
@@ -118,7 +130,7 @@ export function ClientAccountsPanel({
   const columns: Column<TradingAccountRow>[] = [
     // Every row is this client — the Client column would repeat their name.
     ...tradingAccountColumns().filter((column) => column.header !== t('tradingAccounts.colOwner')),
-    ...(funding.canMoveMoney || canCreate || canArchive
+    ...(funding.canMoveMoney || canCreate || canArchive || canViewTransfers
       ? [
           actionsColumn<TradingAccountRow>((account) => (
             <RowActions
@@ -133,6 +145,16 @@ export function ClientAccountsPanel({
                         label: t('setProduct.action'),
                         icon: Boxes,
                         onSelect: () => setProductFor(account),
+                      },
+                    ]
+                  : []),
+                // Where this account's money came from and went (16 Oct 2026).
+                ...(canViewTransfers && account.login
+                  ? [
+                      {
+                        label: t('transfers.viewTransfers'),
+                        icon: ArrowLeftRight,
+                        onSelect: () => router.push(transfersHrefFor(account.login ?? '')),
                       },
                     ]
                   : []),

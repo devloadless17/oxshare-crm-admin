@@ -99,6 +99,7 @@ const ROUTE_REQUIREMENTS: Array<{ prefix: string; requirement: RouteRequirement 
    * backend config/permissions.json's `transactions` module.
    */
   { prefix: '/financial', requirement: { permission: 'transactions.view' } },
+  { prefix: '/transfers', requirement: { permission: 'transfers.view' } },
   { prefix: '/wallets', requirement: { permission: 'wallets.view' } },
   { prefix: '/trading-accounts', requirement: { permission: 'trading.view' } },
   /*
