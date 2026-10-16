@@ -131,6 +131,7 @@ function FinancialPageContent() {
    * day boundaries.
    */
   const period = useDateRange(url, 'today');
+  const periodBy = url.get('periodBy') === 'settled' ? 'settled' : 'created';
   const methods = url.get('method').split(',').filter(Boolean);
   // Deep-linking from a client profile — the same shape /ledger?userId= uses.
   const userId = url.get('userId');
@@ -171,8 +172,10 @@ function FinancialPageContent() {
     userId: userId || undefined,
     currency: currency || undefined,
     q: q || undefined,
-    from: period.range.from,
-    to: period.range.to,
+    // The period reads the CREATED date, or — month-end — the SETTLED one (backend 0231).
+    ...(periodBy === 'settled'
+      ? { settledFrom: period.range.from, settledTo: period.range.to }
+      : { from: period.range.from, to: period.range.to }),
     method: methods.length ? methods.join(',') : undefined,
     attention,
   };
@@ -443,6 +446,7 @@ function FinancialPageContent() {
         state={state ?? ''}
         currency={currency}
         period={period}
+        periodBy={periodBy}
         methods={methods}
         methodOptions={methodOptions}
         attention={attention === 'true'}

@@ -33,6 +33,7 @@ export function TransactionFilters({
   state,
   currency,
   period,
+  periodBy = 'created',
   methods,
   methodOptions,
   attention,
@@ -49,6 +50,11 @@ export function TransactionFilters({
   currency: string;
   /** The period — `hooks/use-date-range.ts` owns its URL write. */
   period: DateRangeState;
+  /**
+   * Which date the period reads (backend 0231): when the movement was CREATED (the default, the
+   * daily desk view) or when it SETTLED (month-end: a closed month's figures never move).
+   */
+  periodBy?: 'created' | 'settled';
   /** Selected payment method keys. */
   methods: string[];
   /** Every method the reader may filter by; empty hides the control. */
@@ -111,6 +117,21 @@ export function TransactionFilters({
               {entry.code}
             </SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={periodBy}
+        onValueChange={(value) =>
+          onChange({ periodBy: value === 'settled' ? 'settled' : undefined })
+        }
+      >
+        <SelectTrigger className="h-9 w-auto min-w-[9rem]" aria-label={t('financial.periodBy')}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="created">{t('financial.periodByCreated')}</SelectItem>
+          <SelectItem value="settled">{t('financial.periodBySettled')}</SelectItem>
         </SelectContent>
       </Select>
 

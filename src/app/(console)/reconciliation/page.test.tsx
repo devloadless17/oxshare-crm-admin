@@ -66,6 +66,8 @@ const report = (over: Record<string, unknown> = {}) => ({
   totalDifference: '0.00000000',
   transferMismatches: [],
   transferMismatchCount: 0,
+  strandedDeposits: [],
+  strandedDepositCount: 0,
   balanced: true,
   ...over,
 });

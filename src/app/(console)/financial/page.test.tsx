@@ -655,6 +655,15 @@ describe('a payment only a person can settle — the attention flag', () => {
     expect(within(table).queryByRole('button', { name: 'Actions for this movement' })).toBeNull();
   });
 
+  it('reads the period by SETTLED date for month-end — never both dates at once (backend 0231)', async () => {
+    searchParams.current = new URLSearchParams('periodBy=settled&range=all');
+    renderWithProviders(<FinancialPage />);
+    await waitFor(() => expect(getTransactions).toHaveBeenCalled());
+    const [params] = getTransactions.mock.calls.at(-1) as [Record<string, unknown>];
+    expect(params).not.toHaveProperty('from');
+    expect(params).toHaveProperty('settledFrom');
+  });
+
   it('narrows to flagged payments from the URL — where a task link lands — and toggles off', async () => {
     const user = userEvent.setup();
     searchParams.current = new URLSearchParams('userId=1000245&attention=true');

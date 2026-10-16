@@ -3094,7 +3094,14 @@ export const messages = {
   'movement.end.demo': 'Demo',
   'movement.end.method': 'Payment method',
   'movement.end.external': 'External',
+  'financial.periodBy': 'Period by',
+  'financial.periodByCreated': 'Created date',
+  'financial.periodBySettled': 'Settled date',
   'reconciliation.transfers.title': 'Transfers that disagree with MT5',
+  'reconciliation.stranded.title': 'Deposits that never reached their trading account',
+  'reconciliation.stranded.scale':
+    '{count} {count:deposit|deposits} aimed at a trading account {count:is|are} still in the wallet.',
+  'reconciliation.stranded.row': 'Aimed at MT5 {login}, still in the wallet',
   'reconciliation.transfers.scale':
     '{count} {count:transfer|transfers} {count:disagrees|disagree} with MT5 over the last week.',
   'reconciliation.transfers.noDeal': 'Settled, but MT5 shows no deal',
