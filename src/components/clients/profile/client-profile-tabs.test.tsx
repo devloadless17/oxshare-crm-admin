@@ -82,12 +82,8 @@ function movement(over: Partial<TransactionRow> = {}): TransactionRow {
     // The server's classification (16 Oct 2026).
     type: 'deposit',
     effect: 'in',
-    from: {
-      kind: 'method',
-      methodLabel: 'OMT – Hamra',
-      providerCode: 'manual',
-      channelCode: 'omt',
-    },
+    from: { kind: 'external' },
+    method: { label: 'OMT – Hamra', providerCode: 'manual', channelCode: 'omt', environment: null },
     to: { kind: 'wallet', walletNumber: 'abcd1234wxyz', walletKind: 'main', currency: 'USD' },
     onward: null,
     origin: null,

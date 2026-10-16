@@ -6,7 +6,7 @@ import { PermittedLink } from '@/components/permitted-link';
 import { formatMoney } from '@/lib/money';
 import { t } from '@/lib/i18n';
 import { OnwardLine } from './movement-cells';
-import { effectLabel, endText, originLabel, typeLabel } from './movement-vocabulary';
+import { effectLabel, endText, methodText, originLabel, typeLabel } from './movement-vocabulary';
 
 /**
  * EVERYTHING about one movement, as label/value pairs (16 Oct 2026) — what a detail panel lists
@@ -45,6 +45,13 @@ export function movementDetailFields(
         row.type === 'withdrawal' && row.destination
           ? `${end(row.to)} · ${row.destination}`
           : end(row.to),
+    },
+    {
+      label: t('financial.colMethod'),
+      value: (() => {
+        const method = methodText(row);
+        return method ? [method.title, method.detail].filter(Boolean).join(' · ') : null;
+      })(),
     },
     {
       label: t('movement.field.onward'),

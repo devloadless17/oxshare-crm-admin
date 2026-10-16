@@ -3093,6 +3093,7 @@ export const messages = {
   'movement.end.live': 'Live',
   'movement.end.demo': 'Demo',
   'movement.end.method': 'Payment method',
+  'movement.end.external': 'External',
   'movement.end.company': 'Company (desk)',
   'movement.colType': 'Type',
   'movement.colFrom': 'From',

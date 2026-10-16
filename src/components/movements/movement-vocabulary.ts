@@ -1,4 +1,4 @@
-import type { MovementEnd, MovementType, TransferOrigin } from '@/lib/api/admin';
+import type { MovementEnd, MovementType, TransactionRow, TransferOrigin } from '@/lib/api/admin';
 import { t } from '@/lib/i18n';
 
 /**
@@ -65,8 +65,8 @@ export function originLabel(origin: string): string {
 }
 
 /**
- * One end, as a headline and a detail line — "Wallet · USD" over the wallet number, "MT5 5000001"
- * over "Live", the method over its network, or the company's own money.
+ * One end — a PLACE — as a headline and a detail line: "Wallet · USD" over the wallet number,
+ * "MT5 5000001" over "Live", External (outside the platform), or the company's own money.
  */
 export function endText(end: MovementEnd): { title: string; detail: string | null } {
   switch (end.kind) {
@@ -90,17 +90,38 @@ export function endText(end: MovementEnd): { title: string; detail: string | nul
               ? t('movement.end.live')
               : null,
       };
-    case 'method':
-      return {
-        title: end.methodLabel ?? end.providerCode ?? t('movement.end.method'),
-        detail: end.channelCode && end.channelCode !== 'adjustment' ? end.channelCode : null,
-      };
+    case 'external':
+      return { title: t('movement.end.external'), detail: null };
     case 'company':
       return { title: t('movement.end.company'), detail: null };
     default:
       return { title: end.kind, detail: null };
   }
 }
+
+/**
+ * The rail a PAYMENT crossed the platform on — its own column, never an end (16 Oct 2026): the
+ * method's desk label (or its provider when the method is gone), its network, and a sandbox mark.
+ * The desk's own credit and debit read as such. `null` for a transfer or a commission move.
+ */
+export function methodText(
+  row: Pick<TransactionRow, 'method' | 'type'>,
+): { title: string; detail: string | null } | null {
+  if (!row.method) return null;
+  if (row.type === 'desk_credit') return { title: t('financial.methodManualCredit'), detail: null };
+  if (row.type === 'desk_debit') return { title: t('financial.methodManualDebit'), detail: null };
+  const { label, providerCode, channelCode, environment } = row.method;
+  const network =
+    channelCode && !QUIET_CHANNELS.has(channelCode) ? channelCode.toUpperCase() : null;
+  const sandbox = environment && environment !== 'live' ? environment : null;
+  return {
+    title: label ?? providerCode ?? t('movement.end.method'),
+    detail: [network, sandbox].filter(Boolean).join(' · ') || null,
+  };
+}
+
+/** Channels that name no network a desk would quote (the desk's adjustment, a manual offline rail). */
+const QUIET_CHANNELS = new Set(['adjustment', 'offline']);
 
 /**
  * Where an account's money came from and went: its transfers, all time. The link the

@@ -161,6 +161,8 @@ function TransfersPageContent() {
   const columns = transactionColumns({
     maskedFields,
     onAbandon: canAbandon ? setAbandonTarget : undefined,
+    // Every transfer is internal: there is no payment method to show.
+    showMethod: false,
   });
   const title = (row: TransactionRow) =>
     t('records.movement', {
