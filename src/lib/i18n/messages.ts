@@ -3095,7 +3095,8 @@ export const messages = {
   'movement.end.method': 'Payment method',
   'movement.end.external': 'External',
   'reconciliation.transfers.title': 'Transfers that disagree with MT5',
-  'reconciliation.transfers.scale': '{count} transfer(s) disagree with MT5 over the last week.',
+  'reconciliation.transfers.scale':
+    '{count} {count:transfer|transfers} {count:disagrees|disagree} with MT5 over the last week.',
   'reconciliation.transfers.noDeal': 'Settled, but MT5 shows no deal',
   'reconciliation.transfers.noTransfer': 'MT5 applied it, but the transfer is not settled',
   'movement.end.company': 'Company (desk)',
