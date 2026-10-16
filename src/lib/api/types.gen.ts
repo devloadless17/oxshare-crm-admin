@@ -11304,6 +11304,16 @@ export interface components {
             amount: string;
             at: string;
         };
+        StrandedDepositDto: {
+            transactionId: string;
+            /** @description The client’s Portal ID. */
+            userId: number;
+            login: string | null;
+            /** @description A money string. */
+            amount: string;
+            currency: string;
+            settledAt: string;
+        };
         ReconciliationReportDto: {
             /** @description When this run completed (ISO 8601). */
             checkedAt: string;
@@ -11322,6 +11332,10 @@ export interface components {
             transferMismatches: components["schemas"]["TransferMt5MismatchDto"][];
             /** @description How many transfers disagree with MT5 over the last week. */
             transferMismatchCount: number;
+            /** @description Deposits aimed at a trading account that settled into the wallet but never moved on (last 30 days; a sample of up to 20, the count is exact). */
+            strandedDeposits: components["schemas"]["StrandedDepositDto"][];
+            /** @description How many deposits are stranded in the wallet. */
+            strandedDepositCount: number;
             /** @description True when nothing is wrong. Read this rather than testing the array length — it is the field the service decides, and a future check can make it false without adding a wallet discrepancy. */
             balanced: boolean;
         };
