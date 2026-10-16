@@ -64,6 +64,8 @@ const report = (over: Record<string, unknown> = {}) => ({
   walletDiscrepancies: [],
   discrepancyCount: 0,
   totalDifference: '0.00000000',
+  transferMismatches: [],
+  transferMismatchCount: 0,
   balanced: true,
   ...over,
 });
@@ -227,5 +229,35 @@ describe('whose money does not add up', () => {
 
     expect(await screen.findByText('#1000245')).toBeInTheDocument();
     expect(screen.queryByText('c-1')).toBeNull();
+  });
+});
+
+describe('transfers that disagree with MT5 (audit R3-1)', () => {
+  it('lists each one, linked to its transfer, and calls the report unbalanced', async () => {
+    getReconciliation.mockResolvedValue(
+      report({
+        balanced: false,
+        transferMismatchCount: 1,
+        transferMismatches: [
+          {
+            kind: 'deal_without_settled_transfer',
+            transferId: '0b7d3c9e-1111-2222-3333-444455556666',
+            transferState: 'failed',
+            dealId: '991',
+            login: '5000001',
+            amount: '100.00000000',
+            at: '2026-10-16T10:00:00.000Z',
+          },
+        ],
+      }),
+    );
+    renderWithProviders(<ReconciliationPage />);
+    expect(
+      await screen.findByText('MT5 applied it, but the transfer is not settled'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /0b7d3c9e · failed/ })).toHaveAttribute(
+      'href',
+      '/transfers?open=0b7d3c9e-1111-2222-3333-444455556666&range=all',
+    );
   });
 });
