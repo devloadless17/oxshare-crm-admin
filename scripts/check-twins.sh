@@ -134,6 +134,8 @@ TWINS=(
   src/lib/image-quality.test.ts
   # Browser crashes reach the API log (16 Oct 2026).
   src/lib/crash-report.ts
+  src/lib/crash-report.test.ts
+  src/components/crash-reporter.tsx
 )
 
 # Strip line comments, block-comment bodies and blank lines. Crude but adequate:

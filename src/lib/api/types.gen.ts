@@ -6049,7 +6049,7 @@ export interface components {
             /** @enum {string} */
             app: "portal" | "admin";
             /** @enum {string} */
-            boundary: "page" | "global";
+            boundary: "page" | "global" | "uncaught" | "rejection";
             /** @description The error name, e.g. TypeError or ChunkLoadError. */
             name: string;
             message: string;
@@ -6060,6 +6060,10 @@ export interface components {
             path: string;
             /** @description The build the tab is running (its deployment id). */
             build?: string;
+            /** @description When it happened on the device. A report kept on a phone that had no connection is sent on its next page load, so this can be well before the log line. */
+            occurredAt?: string;
+            /** @description Made on the device, once per report, so a report sent twice reads as one. */
+            id?: string;
         };
         PlatformLinkDto: {
             /**
