@@ -9,6 +9,7 @@ import { useResource } from '@/hooks/use-resource';
 import { AsyncBoundary } from '@/components/async-boundary';
 import { DataTable, EmptyState, type Column } from '@/components/data-table';
 import { t } from '@/lib/i18n';
+import { PermittedLink } from '@/components/permitted-link';
 import { formatMoney } from '@/lib/money';
 import { keys } from '@/lib/query-keys';
 import { ClientIdentity, clientName } from '@/components/clients/client-identity';
@@ -242,12 +243,21 @@ export default function ReconciliationPage() {
                       nobody can act on is bad; a number that is quietly wrong
                       by three orders of magnitude is worse.
                     */}
-                    <p className="mt-1 text-sm font-semibold text-destructive">
-                      {t('reconciliation.mismatch.scale', {
-                        count: report.discrepancyCount,
-                        total: formatMoney(report.totalDifference, 'USD'),
-                      })}
-                    </p>
+                    {report.discrepancyCount > 0 && (
+                      <p className="mt-1 text-sm font-semibold text-destructive">
+                        {t('reconciliation.mismatch.scale', {
+                          count: report.discrepancyCount,
+                          total: formatMoney(report.totalDifference, 'USD'),
+                        })}
+                      </p>
+                    )}
+                    {report.transferMismatchCount > 0 && (
+                      <p className="mt-1 text-sm font-semibold text-destructive">
+                        {t('reconciliation.transfers.scale', {
+                          count: report.transferMismatchCount,
+                        })}
+                      </p>
+                    )}
                     <p className="mt-1 text-xs text-muted-foreground">
                       {t('reconciliation.mismatch.body')}
                     </p>
@@ -263,6 +273,47 @@ export default function ReconciliationPage() {
               at: report ? new Date(report.checkedAt).toLocaleString() : '—',
             })}
           </p>
+
+          {/*
+           * Transfers ↔ MT5 (audit R3-1, 16 Oct 2026): a settled transfer MT5 never applied, or
+           * an MT5 deal whose transfer is not settled (money held twice). The server's sample.
+           */}
+          {report && report.transferMismatches.length > 0 && (
+            <ul
+              className="shrink-0 divide-y rounded-lg border text-sm"
+              aria-label={t('reconciliation.transfers.title')}
+            >
+              {report.transferMismatches.map((m) => (
+                <li
+                  key={`${m.kind}-${m.transferId ?? ''}-${m.dealId ?? ''}`}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2"
+                >
+                  <span className="font-medium text-destructive">
+                    {m.kind === 'settled_without_deal'
+                      ? t('reconciliation.transfers.noDeal')
+                      : t('reconciliation.transfers.noTransfer')}
+                  </span>
+                  {m.transferId ? (
+                    <PermittedLink
+                      href={`/transfers?open=${m.transferId}&range=all`}
+                      className="font-mono text-xs text-link underline-offset-2 hover:underline"
+                    >
+                      {m.transferId.slice(0, 8)} · {m.transferState}
+                    </PermittedLink>
+                  ) : null}
+                  <span className="font-mono text-xs">
+                    {[m.login && `MT5 ${m.login}`, m.dealId && `deal ${m.dealId}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                  <span className="font-mono text-xs">{formatMoney(m.amount, 'USD')}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(m.at).toLocaleString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {report && report.discrepancyCount > report.walletDiscrepancies.length && (
             <p className="shrink-0 text-xs text-warning">

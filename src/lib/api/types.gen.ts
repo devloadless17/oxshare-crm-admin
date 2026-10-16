@@ -11293,6 +11293,17 @@ export interface components {
              */
             difference: string;
         };
+        TransferMt5MismatchDto: {
+            /** @enum {string} */
+            kind: "settled_without_deal" | "deal_without_settled_transfer";
+            transferId: string | null;
+            transferState: string | null;
+            dealId: string | null;
+            login: string | null;
+            /** @description Signed as MT5 holds it: + into the account. A money string. */
+            amount: string;
+            at: string;
+        };
         ReconciliationReportDto: {
             /** @description When this run completed (ISO 8601). */
             checkedAt: string;
@@ -11307,6 +11318,10 @@ export interface components {
              * @example 24995.35000000
              */
             totalDifference: string;
+            /** @description Transfers and MT5 deals that disagree over the last week (a sample of up to 20; the count is exact): a settled transfer with no MT5 deal, or an MT5 deal whose transfer is not settled. */
+            transferMismatches: components["schemas"]["TransferMt5MismatchDto"][];
+            /** @description How many transfers disagree with MT5 over the last week. */
+            transferMismatchCount: number;
             /** @description True when nothing is wrong. Read this rather than testing the array length — it is the field the service decides, and a future check can make it false without adding a wallet discrepancy. */
             balanced: boolean;
         };
